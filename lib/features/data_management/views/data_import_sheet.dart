@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/data_management/providers/data_manageme
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 enum _ImportState { idle, password, preview, importing, complete, error }
 
@@ -140,22 +141,30 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          switch (_state) {
-            _ImportState.idle => _buildIdle(theme),
-            _ImportState.password => _buildPassword(theme),
-            _ImportState.preview => _buildPreview(theme),
-            _ImportState.importing => _buildImporting(theme),
-            _ImportState.complete => _buildComplete(theme),
-            _ImportState.error => _buildError(theme),
-          },
-        ],
-      ),
+    return Column(
+      children: [
+        const PrismSheetTopBar(title: 'Import Data'),
+        const Divider(height: 1),
+        Expanded(
+          child: SingleChildScrollView(
+            controller: widget.scrollController,
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                switch (_state) {
+                  _ImportState.idle => _buildIdle(theme),
+                  _ImportState.password => _buildPassword(theme),
+                  _ImportState.preview => _buildPreview(theme),
+                  _ImportState.importing => _buildImporting(theme),
+                  _ImportState.complete => _buildComplete(theme),
+                  _ImportState.error => _buildError(theme),
+                },
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

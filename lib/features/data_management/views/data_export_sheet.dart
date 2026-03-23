@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 enum _ExportState { idle, password, exporting, error, complete }
 
@@ -142,21 +143,29 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SingleChildScrollView(
-      controller: widget.scrollController,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          switch (_state) {
-            _ExportState.idle => _buildIdle(theme),
-            _ExportState.password => _buildPassword(theme),
-            _ExportState.exporting => _buildExporting(theme),
-            _ExportState.error => _buildError(theme),
-            _ExportState.complete => _buildComplete(theme),
-          },
-        ],
-      ),
+    return Column(
+      children: [
+        const PrismSheetTopBar(title: 'Export Data'),
+        const Divider(height: 1),
+        Expanded(
+          child: SingleChildScrollView(
+            controller: widget.scrollController,
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                switch (_state) {
+                  _ExportState.idle => _buildIdle(theme),
+                  _ExportState.password => _buildPassword(theme),
+                  _ExportState.exporting => _buildExporting(theme),
+                  _ExportState.error => _buildError(theme),
+                  _ExportState.complete => _buildComplete(theme),
+                },
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
