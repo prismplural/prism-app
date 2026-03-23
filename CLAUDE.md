@@ -142,8 +142,8 @@ flutter test                                             # Tests
 
 ## Performance Docs
 
-- `docs/flutter-performance-and-size-audit-guide.md`
-- `docs/flutter-performance-and-size-audit-report-2026-03-21.md`
+- `../docs/flutter-performance-and-size-audit-guide.md`
+- `../docs/flutter-performance-and-size-audit-report-2026-03-21.md`
 
 ## Project Structure
 ```
