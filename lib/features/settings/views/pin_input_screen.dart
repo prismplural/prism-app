@@ -38,7 +38,7 @@ class PinInputScreen extends ConsumerStatefulWidget {
 class _PinInputScreenState extends ConsumerState<PinInputScreen>
     with SingleTickerProviderStateMixin {
   String _pin = '';
-  static const _pinLength = 4;
+  static const _pinLength = 6;
 
   // Brute-force throttling
   int _failedAttempts = 0;

@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
+import 'package:prism_plurality/features/fronting/widgets/sleep_mode_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/info_banner.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -132,6 +133,15 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         ),
 
+        // 2. Active sleep session card
+        if (isSleeping)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: SleepModeCard(),
+            ),
+          ),
+
         // 2b. Timeline issue banner (shown when post-edit or post-sync
         //     rescan detects validation issues).
         SliverToBoxAdapter(
@@ -161,6 +171,15 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           title: systemName,
           actions: _buildActions(isSleeping, sleepSession),
         ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: QuickFrontSection(),
+        ),
+        if (isSleeping)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: SleepModeCard(),
+          ),
         Expanded(
           child: Padding(
             padding: EdgeInsets.only(

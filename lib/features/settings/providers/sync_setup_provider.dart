@@ -10,6 +10,14 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 
 enum SyncSetupStep { intro, password, secretKey }
 
+enum SyncSetupProgress {
+  creatingGroup,
+  configuringEngine,
+  cachingKeys,
+  bootstrappingData,
+  syncing,
+}
+
 const _sentinel = Object();
 
 class SyncSetupState {
@@ -18,6 +26,7 @@ class SyncSetupState {
   final String? password;
   final String? mnemonic;
   final bool isProcessing;
+  final SyncSetupProgress? currentProgress;
   final String? error;
 
   const SyncSetupState({
@@ -26,6 +35,7 @@ class SyncSetupState {
     this.password,
     this.mnemonic,
     this.isProcessing = false,
+    this.currentProgress,
     this.error,
   });
 
@@ -35,6 +45,7 @@ class SyncSetupState {
     Object? password = _sentinel,
     Object? mnemonic = _sentinel,
     bool? isProcessing,
+    Object? currentProgress = _sentinel,
     Object? error = _sentinel,
   }) => SyncSetupState(
     step: step ?? this.step,
@@ -42,6 +53,9 @@ class SyncSetupState {
     password: password == _sentinel ? this.password : password as String?,
     mnemonic: mnemonic == _sentinel ? this.mnemonic : mnemonic as String?,
     isProcessing: isProcessing ?? this.isProcessing,
+    currentProgress: currentProgress == _sentinel
+        ? this.currentProgress
+        : currentProgress as SyncSetupProgress?,
     error: error == _sentinel ? this.error : error as String?,
   );
 }
@@ -118,7 +132,11 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       return false;
     }
 
-    state = state.copyWith(isProcessing: true, error: null);
+    state = state.copyWith(
+      isProcessing: true,
+      currentProgress: SyncSetupProgress.creatingGroup,
+      error: null,
+    );
 
     try {
       final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
@@ -154,6 +172,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       ref.invalidate(relayUrlProvider);
       ref.invalidate(syncIdProvider);
 
+      state = state.copyWith(
+        currentProgress: SyncSetupProgress.configuringEngine,
+      );
       await ffi.configureEngine(handle: handle);
       await ffi.setAutoSync(
         handle: handle,
@@ -164,6 +185,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       );
 
       // Drain Rust SecureStore back to platform keychain
+      state = state.copyWith(
+        currentProgress: SyncSetupProgress.cachingKeys,
+      );
       await drainRustStore(handle);
 
       // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
@@ -171,15 +195,22 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
 
       // Bootstrap: push all existing data as record_create ops so the
       // relay has it for other devices to pull.
+      state = state.copyWith(
+        currentProgress: SyncSetupProgress.bootstrappingData,
+      );
       await _bootstrapExistingData(handle);
 
       ref.read(pendingMnemonicProvider.notifier).set(mnemonic);
 
-      state = state.copyWith(isProcessing: false);
+      state = state.copyWith(isProcessing: false, currentProgress: null);
       return true;
     } catch (e) {
       await _cleanupKeychainOnFailure();
-      state = state.copyWith(isProcessing: false, error: 'Setup failed: $e');
+      state = state.copyWith(
+        isProcessing: false,
+        currentProgress: null,
+        error: 'Setup failed: $e',
+      );
       return false;
     }
   }
@@ -264,6 +295,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     print('[BOOTSTRAP] Pushed $totalOps existing records to sync engine');
 
     // Trigger an immediate sync to push the bootstrap data to the relay
+    state = state.copyWith(currentProgress: SyncSetupProgress.syncing);
     try {
       final result = await ffi.syncNow(handle: handle);
       // ignore: avoid_print

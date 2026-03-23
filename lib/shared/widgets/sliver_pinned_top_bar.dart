@@ -70,12 +70,12 @@ class _PinnedTopBarDelegate extends SliverPersistentHeaderDelegate {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Gradient from top of bar through below
+          // Gradient overlapping the bottom portion of the bar itself
           Positioned(
             left: 0,
             right: 0,
             top: 0,
-            bottom: -gradientHeight,
+            bottom: 0,
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -87,7 +87,7 @@ class _PinnedTopBarDelegate extends SliverPersistentHeaderDelegate {
                       scaffoldBg,
                       scaffoldBg.withValues(alpha: 0),
                     ],
-                    stops: const [0.0, 0.5, 1.0],
+                    stops: const [0.0, 0.6, 1.0],
                   ),
                 ),
                 child: const SizedBox.expand(),

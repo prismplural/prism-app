@@ -111,6 +111,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
               mnemonic: setupState.mnemonic!,
               hasSaved: _hasSavedKey,
               isProcessing: setupState.isProcessing,
+              currentProgress: setupState.currentProgress,
               error: setupState.error,
               onHasSavedChanged: (v) => setState(() => _hasSavedKey = v),
               onComplete: _completeSetup,
@@ -341,6 +342,7 @@ class _SecretKeyStep extends StatelessWidget {
     required this.mnemonic,
     required this.hasSaved,
     required this.isProcessing,
+    required this.currentProgress,
     required this.error,
     required this.onHasSavedChanged,
     required this.onComplete,
@@ -349,9 +351,19 @@ class _SecretKeyStep extends StatelessWidget {
   final String mnemonic;
   final bool hasSaved;
   final bool isProcessing;
+  final SyncSetupProgress? currentProgress;
   final String? error;
   final ValueChanged<bool> onHasSavedChanged;
   final VoidCallback onComplete;
+
+  String? get _progressLabel => switch (currentProgress) {
+    SyncSetupProgress.creatingGroup => 'Creating sync group...',
+    SyncSetupProgress.configuringEngine => 'Configuring encryption...',
+    SyncSetupProgress.cachingKeys => 'Securing keys...',
+    SyncSetupProgress.bootstrappingData => 'Uploading your data...',
+    SyncSetupProgress.syncing => 'Syncing...',
+    null => null,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -384,6 +396,16 @@ class _SecretKeyStep extends StatelessWidget {
             isLoading: isProcessing,
             onPressed: onComplete,
           ),
+          if (isProcessing && _progressLabel != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              _progressLabel!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );

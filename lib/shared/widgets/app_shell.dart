@@ -25,7 +25,9 @@ const _kMoreButtonWidth = 44.0;
 
 /// Incremented each time the user taps the already-selected tab.
 /// Screens can watch this to scroll-to-top or perform other re-engage actions.
-final tabRetapProvider = NotifierProvider<TabRetapNotifier, int>(TabRetapNotifier.new);
+final tabRetapProvider = NotifierProvider<TabRetapNotifier, int>(
+  TabRetapNotifier.new,
+);
 
 class TabRetapNotifier extends Notifier<int> {
   @override
@@ -78,10 +80,7 @@ Widget _maybeBadge({
     return Badge(isLabelVisible: true, smallSize: 8, child: child);
   }
   if (tab.id == AppShellTabId.habits && habitsDueCount > 0) {
-    return Badge(
-      label: Text('$habitsDueCount'),
-      child: child,
-    );
+    return Badge(label: Text('$habitsDueCount'), child: child);
   }
   if (tab.id == AppShellTabId.chat && chatUnreadCount > 0) {
     return Badge(
@@ -191,8 +190,7 @@ class _AppShellState extends ConsumerState<AppShell>
       (t) => t.branchIndex == widget.navigationShell.currentIndex,
     );
 
-    final safeCurrentIndex =
-        currentVisibleIndex < 0 ? 0 : currentVisibleIndex;
+    final safeCurrentIndex = currentVisibleIndex < 0 ? 0 : currentVisibleIndex;
 
     // Keep syncStatusProvider alive so DeviceRevoked events are received.
     ref.watch(syncStatusProvider);
@@ -211,8 +209,7 @@ class _AppShellState extends ConsumerState<AppShell>
     void onTabTap(int allTabsIndex) {
       if (!isDesktop) Haptics.selection();
       final tab = allTabs[allTabsIndex];
-      final isRetap =
-          tab.branchIndex == widget.navigationShell.currentIndex;
+      final isRetap = tab.branchIndex == widget.navigationShell.currentIndex;
       try {
         widget.navigationShell.goBranch(
           tab.branchIndex,
@@ -221,12 +218,11 @@ class _AppShellState extends ConsumerState<AppShell>
       } catch (e) {
         // If restoring the saved branch state fails (e.g. stale sub-route),
         // fall back to the branch's root location.
-        debugPrint('[AppShell] goBranch(${tab.branchIndex}) failed: $e '
-            '— falling back to root');
-        widget.navigationShell.goBranch(
-          tab.branchIndex,
-          initialLocation: true,
+        debugPrint(
+          '[AppShell] goBranch(${tab.branchIndex}) failed: $e '
+          '— falling back to root',
         );
+        widget.navigationShell.goBranch(tab.branchIndex, initialLocation: true);
       }
       if (isRetap) {
         ref.read(tabRetapProvider.notifier).fire();
@@ -262,8 +258,7 @@ class _AppShellState extends ConsumerState<AppShell>
       // Mobile layout: stack with floating bottom bar.
       // Hide the nav bar on sub-routes (detail screens) — only show on root tabs.
       final location = GoRouterState.of(context).uri.path;
-      final isRootTab =
-          appShellTabs.any((t) => t.rootLocation == location);
+      final isRootTab = appShellTabs.any((t) => t.rootLocation == location);
 
       final mediaQuery = MediaQuery.of(context);
       final bottomSafeArea = mediaQuery.viewPadding.bottom;
@@ -277,71 +272,71 @@ class _AppShellState extends ConsumerState<AppShell>
         bottomInset: hideNavBar ? 0 : totalInset,
         child: SyncToastListener(
           child: Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: BackdropGroup(
-            child: Stack(
-              children: [
-                widget.navigationShell,
+            resizeToAvoidBottomInset: false,
+            body: BackdropGroup(
+              child: Stack(
+                children: [
+                  widget.navigationShell,
 
-                if (!hideNavBar) ...[
-                  // Gradient fade
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: totalInset + 10,
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              scaffoldBg.withValues(alpha: 0),
-                              scaffoldBg.withValues(alpha: 0.8),
-                              scaffoldBg,
-                            ],
-                            stops: const [0.0, 0.45, 1.0],
+                  if (!hideNavBar) ...[
+                    // Gradient fade
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: totalInset + 10,
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                scaffoldBg.withValues(alpha: 0),
+                                scaffoldBg.withValues(alpha: 0.8),
+                                scaffoldBg,
+                              ],
+                              stops: const [0.0, 0.45, 1.0],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
 
-                  // Dismiss overlay for expanded nav bar
-                  if (_navExpanded)
-                    Positioned.fill(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          _navBarKey.currentState?._collapse();
+                    // Dismiss overlay for expanded nav bar
+                    if (_navExpanded)
+                      Positioned.fill(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            _navBarKey.currentState?._collapse();
+                          },
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+
+                    // Floating pill nav bar
+                    Positioned(
+                      left: kFloatingNavBarSideMargin,
+                      right: kFloatingNavBarSideMargin,
+                      bottom: navBarBottom,
+                      child: _FloatingNavBar(
+                        key: _navBarKey,
+                        primaryTabs: primaryTabs,
+                        overflowTabs: overflowTabs,
+                        currentIndex: safeCurrentIndex,
+                        accentColor: accentColor,
+                        onTap: onTabTap,
+                        onExpandedChanged: (expanded) {
+                          setState(() => _navExpanded = expanded);
                         },
-                        child: const SizedBox.expand(),
                       ),
                     ),
-
-                  // Floating pill nav bar
-                  Positioned(
-                    left: kFloatingNavBarSideMargin,
-                    right: kFloatingNavBarSideMargin,
-                    bottom: navBarBottom,
-                    child: _FloatingNavBar(
-                      key: _navBarKey,
-                      primaryTabs: primaryTabs,
-                      overflowTabs: overflowTabs,
-                      currentIndex: safeCurrentIndex,
-                      accentColor: accentColor,
-                      onTap: onTabTap,
-                      onExpandedChanged: (expanded) {
-                        setState(() => _navExpanded = expanded);
-                      },
-                    ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
         ),
       );
     }
@@ -419,8 +414,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
 
   static const _collapsedRadius = 32.0;
   static const _expandedRadius = 28.0;
-  static const _expandedHeight =
-      kFloatingNavBarHeight * 2 + _kNavBarRowGap;
+  static const _expandedHeight = kFloatingNavBarHeight * 2 + _kNavBarRowGap;
 
   @override
   void initState() {
@@ -470,9 +464,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer(
-      builder: (context, ref, _) => _buildContent(context, ref),
-    );
+    return Consumer(builder: (context, ref, _) => _buildContent(context, ref));
   }
 
   Widget _buildContent(BuildContext context, WidgetRef ref) {
@@ -480,9 +472,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final showSyncBadge =
         syncStatus.hasQuarantinedItems || syncStatus.lastError != null;
     final habitsBadgeEnabled = ref.watch(habitsBadgeEnabledProvider);
-    final dueCount = habitsBadgeEnabled
-        ? ref.watch(dueHabitsCountProvider)
-        : 0;
+    final dueCount = habitsBadgeEnabled ? ref.watch(dueHabitsCountProvider) : 0;
     final chatUnreadCount = ref.watch(unreadConversationCountProvider);
     final terms = ref.watch(terminologyProvider);
 
@@ -500,14 +490,14 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     }
 
     // Overflow mode — single expanding pill
-    final overflowSelected =
-        widget.currentIndex >= widget.primaryTabs.length;
+    final overflowSelected = widget.currentIndex >= widget.primaryTabs.length;
 
     return AnimatedBuilder(
       animation: _expandAnimation,
       builder: (context, _) {
         final t = _expandAnimation.value;
-        final currentHeight = kFloatingNavBarHeight +
+        final currentHeight =
+            kFloatingNavBarHeight +
             (_expandedHeight - kFloatingNavBarHeight) * t;
         final radius =
             _collapsedRadius + (_expandedRadius - _collapsedRadius) * t;
@@ -535,46 +525,52 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                         child: SizedBox(
                           height: kFloatingNavBarHeight,
                           child: Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: List.generate(
-                                  widget.overflowTabs.length, (i) {
-                                final tab = widget.overflowTabs[i];
-                                final isSelected = i == _overflowTabIndex;
-                                // Staggered entrance: each icon delays 40ms
-                                final staggerStart =
-                                    (i * 0.08).clamp(0.0, 0.6);
-                                final staggerEnd =
-                                    (staggerStart + 0.5).clamp(0.0, 1.0);
-                                final itemT = Interval(
-                                  staggerStart,
-                                  staggerEnd,
-                                  curve: Curves.easeOut,
-                                ).transform(t);
+                                widget.overflowTabs.length,
+                                (i) {
+                                  final tab = widget.overflowTabs[i];
+                                  final isSelected = i == _overflowTabIndex;
+                                  // Staggered entrance: each icon delays 40ms
+                                  final staggerStart = (i * 0.08).clamp(
+                                    0.0,
+                                    0.6,
+                                  );
+                                  final staggerEnd = (staggerStart + 0.5).clamp(
+                                    0.0,
+                                    1.0,
+                                  );
+                                  final itemT = Interval(
+                                    staggerStart,
+                                    staggerEnd,
+                                    curve: Curves.easeOut,
+                                  ).transform(t);
 
-                                return Expanded(
-                                  child: Opacity(
-                                    opacity: itemT,
-                                    child: Transform.translate(
-                                      offset: Offset(0, (1 - itemT) * 8),
-                                      child: _NavBarItem(
-                                        tab: tab,
-                                        terminologyPlural: terms.plural,
-                                        isSelected: isSelected,
-                                        accentColor: widget.accentColor,
-                                        isDark: isDark,
-                                        showSyncBadge: showSyncBadge,
-                                        habitsDueCount: dueCount,
-                                        chatUnreadCount: chatUnreadCount,
-                                        onTap: () => _handleTap(
-                                          widget.primaryTabs.length + i),
+                                  return Expanded(
+                                    child: Opacity(
+                                      opacity: itemT,
+                                      child: Transform.translate(
+                                        offset: Offset(0, (1 - itemT) * 8),
+                                        child: _NavBarItem(
+                                          tab: tab,
+                                          terminologyPlural: terms.plural,
+                                          isSelected: isSelected,
+                                          accentColor: widget.accentColor,
+                                          isDark: isDark,
+                                          showSyncBadge: showSyncBadge,
+                                          habitsDueCount: dueCount,
+                                          chatUnreadCount: chatUnreadCount,
+                                          onTap: () => _handleTap(
+                                            widget.primaryTabs.length + i,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                );
-                              }),
+                                  );
+                                },
+                              ),
                             ),
                           ),
                         ),
@@ -589,8 +585,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                           alignment: Alignment.center,
                           child: Container(
                             height: 0.5,
-                            margin:
-                                const EdgeInsets.symmetric(horizontal: 20),
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
                             color: isDark
                                 ? Colors.white.withValues(alpha: 0.08)
                                 : Colors.black.withValues(alpha: 0.06),
@@ -767,11 +762,7 @@ class _MoreTrigger extends StatelessWidget {
           child: Center(
             child: Transform.rotate(
               angle: animationValue * 0.785, // 45 degrees
-              child: Icon(
-                Icons.more_vert,
-                size: 22,
-                color: iconColor,
-              ),
+              child: Icon(Icons.more_vert, size: 22, color: iconColor),
             ),
           ),
         ),
@@ -815,8 +806,8 @@ class _NavBarItem extends StatelessWidget {
     final itemIcon = isSelected
         ? (tab?.activeIcon ?? activeIcon!)
         : (tab?.icon ?? icon!);
-    final itemLabel = tab?.displayLabel(terminologyPlural: terminologyPlural) ??
-        label!;
+    final itemLabel =
+        tab?.displayLabel(terminologyPlural: terminologyPlural) ?? label!;
 
     Widget iconWidget = Icon(
       itemIcon,
@@ -875,9 +866,7 @@ class _NavBarItem extends StatelessWidget {
               itemLabel,
               style: TextStyle(
                 fontSize: 10,
-                fontWeight: isSelected
-                    ? FontWeight.w600
-                    : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected
                     ? (isDark ? Colors.white : Colors.black)
                     : (isDark
@@ -912,9 +901,7 @@ class _FloatingSidebar extends ConsumerWidget {
     final showSyncBadge =
         syncStatus.hasQuarantinedItems || syncStatus.lastError != null;
     final habitsBadgeEnabled = ref.watch(habitsBadgeEnabledProvider);
-    final dueCount = habitsBadgeEnabled
-        ? ref.watch(dueHabitsCountProvider)
-        : 0;
+    final dueCount = habitsBadgeEnabled ? ref.watch(dueHabitsCountProvider) : 0;
     final chatUnreadCount = ref.watch(unreadConversationCountProvider);
     final terms = ref.watch(terminologyProvider);
 
@@ -930,58 +917,59 @@ class _FloatingSidebar extends ConsumerWidget {
         child: Align(
           alignment: Alignment.topLeft,
           child: Padding(
-            padding: const EdgeInsets.only(left: 12, top: 12),
+            padding: const EdgeInsets.only(left: 12, top: 12, bottom: 12),
             child: Container(
               width: _kSidebarWidth,
-            decoration: BoxDecoration(
-              color: Color.alphaBlend(
-                accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
-                isDark
-                    ? (isOled
-                          ? const Color(0xFF1A1A1A).withValues(alpha: 0.85)
-                          : Colors.white.withValues(alpha: 0.12))
-                    : Colors.white.withValues(alpha: 0.85),
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.black.withValues(alpha: 0.08),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
-                  blurRadius: 12,
-                  offset: const Offset(2, 2),
+              height: double.infinity,
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(
+                  accentColor.withValues(alpha: isDark ? 0.04 : 0.03),
+                  isDark
+                      ? (isOled
+                            ? const Color(0xFF1A1A1A).withValues(alpha: 0.50)
+                            : Colors.white.withValues(alpha: 0.06))
+                      : Colors.white.withValues(alpha: 0.55),
                 ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                spacing: 8,
-                children: List.generate(tabs.length, (index) {
-                  final tab = tabs[index];
-                  final isSelected = index == currentIndex;
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.black.withValues(alpha: 0.08),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(2, 2),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 8,
+                  children: List.generate(tabs.length, (index) {
+                    final tab = tabs[index];
+                    final isSelected = index == currentIndex;
 
-                  return _SidebarItem(
-                    tab: tab,
-                    terminologyPlural: terms.plural,
-                    isSelected: isSelected,
-                    accentColor: accentColor,
-                    isDark: isDark,
-                    showSyncBadge: showSyncBadge,
-                    habitsDueCount: dueCount,
-                    chatUnreadCount: chatUnreadCount,
-                    onTap: () => onTap(index),
-                  );
-                }),
+                    return _SidebarItem(
+                      tab: tab,
+                      terminologyPlural: terms.plural,
+                      isSelected: isSelected,
+                      accentColor: accentColor,
+                      isDark: isDark,
+                      showSyncBadge: showSyncBadge,
+                      habitsDueCount: dueCount,
+                      chatUnreadCount: chatUnreadCount,
+                      onTap: () => onTap(index),
+                    );
+                  }),
+                ),
               ),
             ),
           ),
-        ),
         ),
       ),
     );
@@ -1026,10 +1014,10 @@ class _SidebarItemState extends State<_SidebarItem> {
               ? Colors.white.withValues(alpha: 0.12)
               : Colors.black.withValues(alpha: 0.06))
         : _hovering
-            ? (widget.isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.black.withValues(alpha: 0.03))
-            : Colors.transparent;
+        ? (widget.isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.03))
+        : Colors.transparent;
 
     final iconColor = widget.isSelected
         ? widget.accentColor
@@ -1047,7 +1035,8 @@ class _SidebarItemState extends State<_SidebarItem> {
       selected: widget.isSelected,
       button: true,
       label: widget.tab.displayLabel(
-          terminologyPlural: widget.terminologyPlural),
+        terminologyPlural: widget.terminologyPlural,
+      ),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovering = true),
@@ -1071,9 +1060,7 @@ class _SidebarItemState extends State<_SidebarItem> {
                   habitsDueCount: widget.habitsDueCount,
                   chatUnreadCount: widget.chatUnreadCount,
                   child: Icon(
-                    widget.isSelected
-                        ? widget.tab.activeIcon
-                        : widget.tab.icon,
+                    widget.isSelected ? widget.tab.activeIcon : widget.tab.icon,
                     size: 20,
                     color: iconColor,
                   ),
@@ -1081,7 +1068,8 @@ class _SidebarItemState extends State<_SidebarItem> {
                 const SizedBox(width: 10),
                 Text(
                   widget.tab.displayLabel(
-                      terminologyPlural: widget.terminologyPlural),
+                    terminologyPlural: widget.terminologyPlural,
+                  ),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: widget.isSelected

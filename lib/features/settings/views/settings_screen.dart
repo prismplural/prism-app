@@ -210,9 +210,7 @@ class SettingsScreen extends ConsumerWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  stops: topInset > 0
-                      ? [0.0, topInset / (topInset + 24), 1.0]
-                      : null,
+                  stops: const [0.0, 0.6, 1.0],
                   colors: [
                     theme.scaffoldBackgroundColor,
                     theme.scaffoldBackgroundColor,
