@@ -17,6 +17,9 @@ abstract final class AppRoutePaths {
   static const settingsMembers = '/settings/members';
   static const settingsNotifications = '/settings/notifications';
   static const settingsFeatures = '/settings/features';
+  static const settingsFeaturesChat = '/settings/features/chat';
+  static const settingsFeaturesHabits = '/settings/features/habits';
+  static const settingsFeaturesFronting = '/settings/features/fronting';
   static const settingsAppearance = '/settings/appearance';
   static const settingsSleep = '/settings/sleep';
   static const settingsHabits = '/settings/habits';
