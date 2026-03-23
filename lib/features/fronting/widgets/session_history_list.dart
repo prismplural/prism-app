@@ -1,0 +1,471 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
+import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
+import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
+import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
+import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/utils/animations.dart';
+import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dart';
+import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+
+
+/// A day-grouped list of fronting sessions. Active sessions appear naturally
+/// at the top of today's group with a live duration timer.
+///
+/// Each day is rendered as a centered header followed by a card containing
+/// all sessions for that day, matching the SwiftUI design.
+class SessionHistoryList extends ConsumerWidget {
+  const SessionHistoryList({super.key, this.limit = 20});
+
+  final int limit;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final historyAsync = ref.watch(frontingHistoryProvider(limit));
+
+    return historyAsync.when(
+      loading: () => const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: PrismLoadingState(),
+        ),
+      ),
+      error: (e, _) => SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text('Error loading history: $e'),
+        ),
+      ),
+      data: (sessions) {
+        if (sessions.isEmpty) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.history_outlined,
+                      size: 48,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.2),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'No fronting history yet',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Batch-load all members referenced by sessions in a single query.
+        final allMemberIds = <String>{};
+        for (final session in sessions) {
+          if (session.memberId != null) allMemberIds.add(session.memberId!);
+          allMemberIds.addAll(session.coFronterIds);
+        }
+        final key = memberIdsKey(allMemberIds);
+        final membersAsync = ref.watch(membersByIdsProvider(key));
+        final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
+
+        final grouped = groupSessionsByDay(sessions);
+
+        return SliverList.builder(
+          itemCount: grouped.length,
+          itemBuilder: (context, index) =>
+              _DayGroupWidget(
+                group: grouped[index],
+                isFirstGroup: index == 0,
+                membersMap: membersMap,
+              ),
+        );
+      },
+    );
+  }
+
+}
+
+/// Renders a day header + a card containing all sessions for that day.
+class _DayGroupWidget extends StatelessWidget {
+  const _DayGroupWidget({
+    required this.group,
+    this.isFirstGroup = false,
+    required this.membersMap,
+  });
+
+  final DayGroup group;
+  final bool isFirstGroup;
+  final Map<String, Member> membersMap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        // Centered day header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+          child: Center(
+            child: Text(
+              DateTimeFormatting.formatDayHeader(group.dayKey),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        // Sessions card
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: PrismSectionCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (var i = 0; i < group.sessions.length; i++) ...[
+                  _SessionTile(
+                    displaySession: group.sessions[i],
+                    isLatest: isFirstGroup && i == 0,
+                    membersMap: membersMap,
+                  ),
+                  if (i < group.sessions.length - 1)
+                    Divider(
+                      height: 1,
+                      indent: 64,
+                      endIndent: 12,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SessionTile extends ConsumerWidget {
+  const _SessionTile({
+    required this.displaySession,
+    this.isLatest = false,
+    required this.membersMap,
+  });
+
+  final DisplaySession displaySession;
+  final bool isLatest;
+  final Map<String, Member> membersMap;
+
+  FrontingSession get session => displaySession.session;
+
+  Future<bool?> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(frontingSessionRepositoryProvider);
+    final allSessions = await repo.getAllSessions();
+    final editGuard = ref.read(frontingEditGuardProvider);
+    final resolutionService = ref.read(frontingEditResolutionServiceProvider);
+    final changeExecutor = ref.read(frontingChangeExecutorProvider);
+
+    final sessionSnapshot = FrontingSanitizerService.toSnapshot(session);
+    final allSnapshots =
+        allSessions.map(FrontingSanitizerService.toSnapshot).toList();
+
+    final deleteCtx =
+        editGuard.getDeleteContext(sessionSnapshot, allSnapshots);
+
+    if (!context.mounted) return false;
+    final strategy = await showDeleteStrategyDialog(
+      context,
+      deleteContext: deleteCtx,
+    );
+    if (strategy == null || !context.mounted) return false;
+
+    Haptics.heavy();
+    final changes = resolutionService.computeDeleteChanges(deleteCtx, strategy);
+    await changeExecutor.execute(changes);
+
+    triggerPostEditRescan(
+      ref,
+      sessionStart: session.startTime,
+      sessionEnd: session.endTime,
+    );
+
+    ref.invalidate(frontingHistoryProvider);
+    return true;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final memberId = session.memberId;
+    final isUnknown = memberId == null;
+
+    final member = memberId != null ? membersMap[memberId] : null;
+    final emoji = member?.emoji ?? '?';
+
+    // Resolve co-fronter members from the pre-loaded map
+    final coFronterMembers = <Member>[
+      for (final coId in session.coFronterIds)
+        if (membersMap[coId] != null)
+          membersMap[coId]!,
+    ];
+
+    // Build display name: "Alice & Bob" or "Alice, Bob & Carol"
+    final String name;
+    if (isUnknown) {
+      name = 'Unknown';
+    } else {
+      final names = [
+        member?.name ?? 'Unknown',
+        ...coFronterMembers.map((m) => m.name),
+      ];
+      if (names.length == 1) {
+        name = names.first;
+      } else if (names.length == 2) {
+        name = '${names[0]} & ${names[1]}';
+      } else {
+        name = '${names.sublist(0, names.length - 1).join(', ')} & ${names.last}';
+      }
+    }
+
+    final accentColor =
+        member != null &&
+            member.customColorEnabled &&
+            member.customColorHex != null
+        ? AppColors.fromHex(member.customColorHex!)
+        : theme.colorScheme.primary;
+
+    final startStr = displaySession.displayStart.toTimeString();
+    final endStr = displaySession.displayEnd?.toTimeString();
+    final String timeRange;
+    if (displaySession.isActive && !displaySession.continuesNextDay) {
+      timeRange = '$startStr \u2013 ongoing';
+    } else if (displaySession.continuesNextDay) {
+      timeRange = '$startStr \u2013 12:00 AM';
+    } else {
+      timeRange = '$startStr \u2013 ${endStr ?? "?"}';
+    }
+
+    final Widget leadingWidget;
+    if (isUnknown) {
+      leadingWidget = Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: theme.colorScheme.surfaceContainerHighest,
+        ),
+        child: Icon(
+          Icons.help_outline,
+          size: 20,
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      );
+    } else if (coFronterMembers.isNotEmpty) {
+      final groupMembers = [
+        GroupAvatarMember(
+          avatarImageData: member?.avatarImageData,
+          emoji: emoji,
+          customColorEnabled: member?.customColorEnabled ?? false,
+          customColorHex: member?.customColorHex,
+        ),
+        ...coFronterMembers.map((m) => GroupAvatarMember(
+          avatarImageData: m.avatarImageData,
+          emoji: m.emoji,
+          customColorEnabled: m.customColorEnabled,
+          customColorHex: m.customColorHex,
+        )),
+      ];
+      leadingWidget = GroupMemberAvatar(
+        members: groupMembers,
+        size: 40,
+      );
+    } else {
+      leadingWidget = MemberAvatar(
+        avatarImageData: member?.avatarImageData,
+        emoji: emoji,
+        customColorEnabled: member?.customColorEnabled ?? false,
+        customColorHex: member?.customColorHex,
+        size: 40,
+      );
+    }
+
+    // Build the subtitle with colored duration + time range
+    // Only the latest (most recent) session gets accent-colored duration
+    final durationColor = isLatest ? accentColor : null;
+    final showLiveTimer =
+        displaySession.isActive && !displaySession.continuesNextDay;
+    final subtitleWidget = showLiveTimer
+        ? _ActiveSubtitle(
+            startTime: displaySession.displayStart,
+            timeRange: timeRange,
+            accentColor: accentColor,
+          )
+        : Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: displaySession.displayDuration.toShortString(),
+                  style: TextStyle(
+                    color: durationColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(
+                  text: '  \u00b7  $timeRange',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          );
+
+    const dimAlpha = 0.6;
+    final tileContent = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => context.go(AppRoutePaths.session(session.id)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              leadingWidget,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: isUnknown
+                          ? theme.textTheme.bodyLarge?.copyWith(
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface
+                                  .withValues(alpha: dimAlpha),
+                            )
+                          : theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                    ),
+                    const SizedBox(height: 2),
+                    DefaultTextStyle(
+                      style: (theme.textTheme.bodySmall ?? const TextStyle())
+                          .copyWith(
+                        color: isUnknown
+                            ? theme.colorScheme.onSurface
+                                .withValues(alpha: dimAlpha)
+                            : null,
+                      ),
+                      child: subtitleWidget,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: isUnknown ? 0.4 * dimAlpha : 0.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final sliceKey = displaySession.isContinuation
+        ? '${session.id}-cont-${displaySession.displayStart.toDayKey()}'
+        : session.id;
+
+    return Dismissible(
+      key: ValueKey(sliceKey),
+      direction: DismissDirection.startToEnd,
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
+        decoration: BoxDecoration(
+          color: AppColors.error.withValues(alpha: 0.2),
+        ),
+        child: const Icon(Icons.delete, color: AppColors.error),
+      ),
+      confirmDismiss: (_) => _confirmDelete(context, ref),
+      child: showLiveTimer
+          ? AnimatedSwitcher(
+              duration: Anim.slow,
+              switchInCurve: Anim.enter,
+              switchOutCurve: Anim.exit,
+              child: KeyedSubtree(
+                key: ValueKey('${session.id}-${session.memberId}'),
+                child: tileContent,
+              ),
+            )
+          : tileContent,
+    );
+  }
+}
+
+/// Subtitle for active sessions with live-updating duration.
+class _ActiveSubtitle extends StatelessWidget {
+  const _ActiveSubtitle({
+    required this.startTime,
+    required this.timeRange,
+    required this.accentColor,
+  });
+
+  final DateTime startTime;
+  final String timeRange;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        FrontingDurationText(
+          startTime: startTime,
+          rounded: true,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: accentColor,
+            fontWeight: FontWeight.w600,
+            fontFeatures: [const FontFeature.tabularFigures()],
+          ),
+        ),
+        Text(
+          '  \u00b7  $timeRange',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -1,0 +1,33 @@
+[package]
+name = "prism-sync-relay"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "prism-sync-relay"
+path = "src/main.rs"
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = true }
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+futures = "0.3"
+base64 = "0.22"
+hex = "0.4"
+sha2 = "0.10"
+rand = "0.8"
+thiserror = "2"
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json"] }
+tokio-tungstenite = "0.24"

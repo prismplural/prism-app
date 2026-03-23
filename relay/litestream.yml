@@ -1,0 +1,8 @@
+dbs:
+  - path: /data/relay.db
+    replicas:
+      - type: s3
+        bucket: ${B2_BUCKET}
+        path: relay-backup
+        endpoint: https://s3.${B2_REGION}.backblazeb2.com
+        force-path-style: true

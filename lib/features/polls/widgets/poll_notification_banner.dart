@@ -1,0 +1,62 @@
+import 'package:flutter/material.dart';
+
+/// A small banner widget showing how many polls need attention.
+///
+/// Displays "X polls need your vote" with a tappable surface.
+/// The caller handles navigation via [onTap].
+class PollNotificationBanner extends StatelessWidget {
+  const PollNotificationBanner({
+    super.key,
+    required this.count,
+    this.onTap,
+  });
+
+  /// Number of polls that need the user's vote.
+  final int count;
+
+  /// Called when the banner is tapped.
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+
+    final theme = Theme.of(context);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: theme.colorScheme.primaryContainer,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.how_to_vote,
+                color: theme.colorScheme.onPrimaryContainer,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '$count ${count == 1 ? 'poll needs' : 'polls need'} your vote',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onPrimaryContainer,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

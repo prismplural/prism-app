@@ -1,0 +1,397 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/features/polls/providers/poll_providers.dart';
+import 'package:prism_plurality/features/polls/models/poll_summary.dart';
+import 'package:prism_plurality/features/polls/views/create_poll_sheet.dart';
+import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/empty_state.dart';
+
+import 'package:prism_plurality/shared/widgets/prism_pill.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
+
+enum _PollFilter { active, closed, all }
+
+/// Main polls list screen with filter menu in the app bar.
+class PollsListScreen extends ConsumerStatefulWidget {
+  const PollsListScreen({super.key});
+
+  @override
+  ConsumerState<PollsListScreen> createState() => _PollsListScreenState();
+}
+
+class _PollsListScreenState extends ConsumerState<PollsListScreen> {
+  _PollFilter _filter = _PollFilter.active;
+
+  AsyncValue<List<PollSummary>> _pollsForFilter(WidgetRef ref) {
+    return switch (_filter) {
+      _PollFilter.active => ref.watch(activePollsProvider),
+      _PollFilter.closed => ref.watch(closedPollsProvider),
+      _PollFilter.all => ref.watch(allPollsProvider),
+    };
+  }
+
+  void _invalidateForFilter() {
+    switch (_filter) {
+      case _PollFilter.active:
+        ref.invalidate(activePollsProvider);
+      case _PollFilter.closed:
+        ref.invalidate(closedPollsProvider);
+      case _PollFilter.all:
+        ref.invalidate(allPollsProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pollsAsync = _pollsForFilter(ref);
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _invalidateForFilter();
+        },
+        child: CustomScrollView(
+          physics: pollsAsync.whenOrNull(
+            data: (polls) =>
+                polls.isEmpty ? const NeverScrollableScrollPhysics() : null,
+          ),
+          slivers: [
+            SliverPinnedTopBar(
+              child: PrismTopBar(
+                title: 'Polls',
+                actions: [
+                  BlurPopupAnchor(
+                      preferredDirection: BlurPopupDirection.down,
+                      width: 180,
+                      maxHeight: 200,
+                      itemCount: _PollFilter.values.length,
+                      itemBuilder: (context, index, close) {
+                        final filter = _PollFilter.values[index];
+                        final isSelected = _filter == filter;
+                        final filterTheme = Theme.of(context);
+                        final (icon, label) = switch (filter) {
+                          _PollFilter.active => (
+                            Icons.how_to_vote_outlined,
+                            'Active',
+                          ),
+                          _PollFilter.closed => (
+                            Icons.check_circle_outline,
+                            'Closed',
+                          ),
+                          _PollFilter.all => (Icons.poll_outlined, 'All'),
+                        };
+                        return ListTile(
+                          dense: true,
+                          leading: Icon(
+                            icon,
+                            size: 20,
+                            color: isSelected
+                                ? filterTheme.colorScheme.primary
+                                : filterTheme.colorScheme.onSurface,
+                          ),
+                          title: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                              color: isSelected
+                                  ? filterTheme.colorScheme.primary
+                                  : filterTheme.colorScheme.onSurface,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? Icon(
+                                  Icons.check,
+                                  size: 18,
+                                  color: filterTheme.colorScheme.primary,
+                                )
+                              : null,
+                          onTap: () {
+                            close();
+                            setState(() => _filter = filter);
+                          },
+                        );
+                      },
+                      child: PrismGlassIconButton(
+                        icon: Icons.filter_list,
+                        onPressed: null,
+                        enabled: true,
+                        size: PrismTokens.topBarActionSize,
+                        tint: _filter != _PollFilter.active
+                            ? theme.colorScheme.primary
+                            : null,
+                      ),
+                    ),
+                  PrismTopBarAction(
+                    icon: Icons.add,
+                    tooltip: 'Create poll',
+                    onPressed: () => _showCreateSheet(context),
+                  ),
+                ],
+              ),
+            ),
+
+            // Poll list
+            pollsAsync.when(
+              data: (polls) {
+                if (polls.isEmpty) {
+                  final (icon, title, subtitle) = switch (_filter) {
+                    _PollFilter.active => (
+                      Icons.how_to_vote_outlined,
+                      'No active polls',
+                      'Create a poll to get your system voting',
+                    ),
+                    _PollFilter.closed => (
+                      Icons.check_circle_outline,
+                      'No closed polls',
+                      'Closed and expired polls will appear here',
+                    ),
+                    _PollFilter.all => (
+                      Icons.poll_outlined,
+                      'No polls yet',
+                      'Create your first poll to get started',
+                    ),
+                  };
+
+                  return SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: EmptyState(
+                      icon: icon,
+                      title: title,
+                      subtitle: subtitle,
+                      actionLabel: _filter == _PollFilter.all
+                          ? 'Create Poll'
+                          : null,
+                      onAction: _filter == _PollFilter.all
+                          ? () => _showCreateSheet(context)
+                          : null,
+                    ),
+                  );
+                }
+
+                final sorted = [...polls]
+                  ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+                return SliverList.builder(
+                  itemCount: sorted.length,
+                  itemBuilder: (context, index) {
+                    return _PollCard(poll: sorted[index]);
+                  },
+                );
+              },
+              loading: () => const PrismLoadingState.sliver(),
+              error: (error, _) => SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: theme.colorScheme.error,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Error loading polls',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('$error', style: theme.textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Bottom padding to clear floating nav bar
+            SliverPadding(
+              padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCreateSheet(BuildContext context) {
+    PrismSheet.showFullScreen(
+      context: context,
+      builder: (context, scrollController) => CreatePollSheet(
+        scrollController: scrollController,
+      ),
+    );
+  }
+}
+
+// -- Poll card -------------------------------------------------------------
+
+class _PollCard extends StatelessWidget {
+  const _PollCard({required this.poll});
+
+  final PollSummary poll;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+    final isExpired = poll.expiresAt != null && poll.expiresAt!.isBefore(now);
+    final isClosed = poll.isClosed || isExpired;
+
+    final totalVotes = poll.voteCount;
+
+    return GestureDetector(
+      onTap: () => context.go(AppRoutePaths.poll(poll.id)),
+      child: PrismSurface(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        borderRadius: 14,
+        child: Padding(
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      poll.question,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (isClosed)
+                    PrismPill(label: isExpired ? 'Expired' : 'Closed'),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Info row
+              Row(
+                children: [
+                  Icon(
+                    Icons.how_to_vote_outlined,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$totalVotes ${totalVotes == 1 ? 'vote' : 'votes'}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Icon(
+                    Icons.list,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${poll.optionCount} options',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (poll.expiresAt != null && !isClosed) ...[
+                    const Spacer(),
+                    Icon(
+                      Icons.schedule,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatCountdown(poll.expiresAt!),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+
+              // Settings indicators
+              if (poll.isAnonymous || poll.allowsMultipleVotes) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    if (poll.isAnonymous)
+                      const _InfoChip(
+                        icon: Icons.visibility_off_outlined,
+                        label: 'Anonymous',
+                      ),
+                    if (poll.allowsMultipleVotes)
+                      const _InfoChip(
+                        icon: Icons.check_box_outlined,
+                        label: 'Multi-vote',
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatCountdown(DateTime expiresAt) {
+    final diff = expiresAt.difference(DateTime.now());
+    if (diff.isNegative) return 'Expired';
+    if (diff.inDays > 0) return '${diff.inDays}d left';
+    if (diff.inHours > 0) return '${diff.inHours}h left';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m left';
+    return 'Ending soon';
+  }
+}
+
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 14,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
+      ],
+    );
+  }
+}
