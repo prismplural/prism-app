@@ -5,9 +5,9 @@ Prism is a plural system management app built with Flutter. It provides member m
 
 **Package name:** `prism_plurality` (avoids Dart `prism` package conflict)
 
-## Sibling Repository: sync
+## Sync Engine
 
-The Rust sync engine lives at `../sync` (separate repo). Prism depends on it via path dependencies in `pubspec.yaml`:
+The Rust sync engine lives at `../sync` in the monorepo. Prism depends on it via path dependencies in `pubspec.yaml`:
 
 ```
 prism_sync      → ../sync/dart/packages/prism_sync       # FFI bindings (flutter_rust_bridge)
