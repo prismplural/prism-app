@@ -5,6 +5,9 @@ import 'package:prism_plurality/features/settings/providers/reset_data_provider.
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_section.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
@@ -13,129 +16,91 @@ class ResetDataScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface;
-
     return PrismPageScaffold(
       topBar: const PrismTopBar(title: 'Reset Data', showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Text(
-              'Reset specific categories of data on this device. '
-              'Sync System reset wipes sync setup without deleting your app data. ',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: onSurface.withValues(alpha: 0.6),
+          PrismSection(
+            title: 'Categories',
+            description:
+                'Reset specific categories of data on this device. '
+                'Sync System reset wipes sync setup without deleting your app data.',
+            child: PrismSectionCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  for (var i = 0; i < _granularCategories.length; i++) ...[
+                    if (i > 0)
+                      const Divider(height: 1, indent: 60, endIndent: 12),
+                    _buildResetRow(
+                      context,
+                      ref,
+                      icon: _granularCategories[i].icon,
+                      iconColor: _granularCategories[i].color,
+                      category: _granularCategories[i].category,
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
-          ..._granularCategories.map(
-            (entry) => _ResetTile(
-              icon: entry.icon,
-              iconColor: entry.color,
-              category: entry.category,
-            ),
-          ),
-          const Divider(height: 32),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text(
-              'DANGER ZONE',
-              style: TextStyle(
-                color: Colors.red.withValues(alpha: 0.7),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+          PrismSection(
+            title: 'Danger Zone',
+            child: PrismSectionCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  _buildResetRow(
+                    context,
+                    ref,
+                    icon: Icons.sync_disabled,
+                    iconColor: Colors.deepOrange,
+                    category: ResetCategory.sync,
+                    destructive: true,
+                  ),
+                  const Divider(height: 1, indent: 60, endIndent: 12),
+                  _buildResetRow(
+                    context,
+                    ref,
+                    icon: Icons.delete_forever,
+                    iconColor: Colors.red,
+                    category: ResetCategory.all,
+                    destructive: true,
+                  ),
+                ],
               ),
             ),
-          ),
-          const _ResetTile(
-            icon: Icons.sync_disabled,
-            iconColor: Colors.deepOrange,
-            category: ResetCategory.sync,
-            isDanger: true,
-          ),
-          const _ResetTile(
-            icon: Icons.delete_forever,
-            iconColor: Colors.red,
-            category: ResetCategory.all,
-            isDanger: true,
           ),
         ],
       ),
     );
   }
-}
 
-class _CategoryEntry {
-  const _CategoryEntry(this.category, this.icon, this.color);
-  final ResetCategory category;
-  final IconData icon;
-  final Color color;
-}
-
-const _granularCategories = [
-  _CategoryEntry(ResetCategory.members, Icons.people_outline, Colors.blue),
-  _CategoryEntry(ResetCategory.fronting, Icons.swap_horiz, Colors.purple),
-  _CategoryEntry(ResetCategory.chat, Icons.chat_bubble_outline, Colors.teal),
-  _CategoryEntry(ResetCategory.polls, Icons.poll_outlined, Colors.orange),
-  _CategoryEntry(
-    ResetCategory.habits,
-    Icons.check_circle_outline,
-    Colors.green,
-  ),
-  _CategoryEntry(ResetCategory.sleep, Icons.bedtime_outlined, Colors.indigo),
-];
-
-class _ResetTile extends ConsumerWidget {
-  const _ResetTile({
-    required this.icon,
-    required this.iconColor,
-    required this.category,
-    this.isDanger = false,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final ResetCategory category;
-  final bool isDanger;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final onSurface = theme.colorScheme.onSurface;
-
-    return ListTile(
-      leading: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(color: iconColor, shape: BoxShape.circle),
-        child: Icon(icon, size: 18, color: Colors.white),
-      ),
-      title: Text(
-        category.label,
-        style: isDanger
-            ? TextStyle(color: Colors.red.withValues(alpha: 0.8))
-            : null,
-      ),
-      subtitle: Text(
-        category.description,
-        style: TextStyle(color: onSurface.withValues(alpha: 0.5)),
-      ),
-      trailing: Icon(
-        Icons.chevron_right,
-        color: isDanger
-            ? Colors.red.withValues(alpha: 0.5)
-            : onSurface.withValues(alpha: 0.3),
-      ),
-      onTap: () => _showConfirmation(context, ref),
+  Widget _buildResetRow(
+    BuildContext context,
+    WidgetRef ref, {
+    required IconData icon,
+    required Color iconColor,
+    required ResetCategory category,
+    bool destructive = false,
+  }) {
+    return PrismSettingsRow(
+      icon: icon,
+      iconColor: iconColor,
+      title: category.label,
+      subtitle: category.description,
+      destructive: destructive,
+      onTap: () => _showConfirmation(context, ref, category),
     );
   }
 
-  Future<void> _showConfirmation(BuildContext context, WidgetRef ref) async {
+  Future<void> _showConfirmation(
+    BuildContext context,
+    WidgetRef ref,
+    ResetCategory category,
+  ) async {
     final isAll = category == ResetCategory.all;
     final isSync = category == ResetCategory.sync;
     final confirmed = await PrismDialog.confirm(
@@ -169,3 +134,23 @@ class _ResetTile extends ConsumerWidget {
     }
   }
 }
+
+class _CategoryEntry {
+  const _CategoryEntry(this.category, this.icon, this.color);
+  final ResetCategory category;
+  final IconData icon;
+  final Color color;
+}
+
+const _granularCategories = [
+  _CategoryEntry(ResetCategory.members, Icons.people_outline, Colors.blue),
+  _CategoryEntry(ResetCategory.fronting, Icons.swap_horiz, Colors.purple),
+  _CategoryEntry(ResetCategory.chat, Icons.chat_bubble_outline, Colors.teal),
+  _CategoryEntry(ResetCategory.polls, Icons.poll_outlined, Colors.orange),
+  _CategoryEntry(
+    ResetCategory.habits,
+    Icons.check_circle_outline,
+    Colors.green,
+  ),
+  _CategoryEntry(ResetCategory.sleep, Icons.bedtime_outlined, Colors.indigo),
+];

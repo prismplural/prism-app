@@ -12,10 +12,12 @@ import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_cont
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
@@ -281,6 +283,23 @@ class _ConfiguredView extends ConsumerWidget {
                     onTap: () => _showSecretKey(context),
                   ),
                 ],
+              ],
+            ),
+          ),
+        ),
+
+        // Sync preferences — centralises sync-behaviour toggles from other screens
+        PrismSection(
+          title: 'Sync Preferences',
+          description:
+              'Control what settings are shared across your devices via sync.',
+          child: PrismSectionCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _SyncThemeToggle(),
+                const Divider(height: 1, indent: 60, endIndent: 12),
+                _SyncNavigationToggle(),
               ],
             ),
           ),
@@ -585,6 +604,45 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SyncThemeToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(systemSettingsProvider);
+    final value = settings.whenOrNull(data: (s) => s.syncThemeEnabled) ?? false;
+
+    return PrismSwitchRow(
+      icon: Icons.palette_outlined,
+      iconColor: Colors.deepPurple,
+      title: 'Sync theme across devices',
+      subtitle: 'Share brightness, style, and accent color via sync',
+      value: value,
+      onChanged: (v) => ref
+          .read(settingsNotifierProvider.notifier)
+          .updateSyncThemeEnabled(v),
+    );
+  }
+}
+
+class _SyncNavigationToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(systemSettingsProvider);
+    final value =
+        settings.whenOrNull(data: (s) => s.syncNavigationEnabled) ?? true;
+
+    return PrismSwitchRow(
+      icon: Icons.tab_outlined,
+      iconColor: Colors.teal,
+      title: 'Sync navigation layout',
+      subtitle: 'Share tab arrangement across devices',
+      value: value,
+      onChanged: (v) => ref
+          .read(settingsNotifierProvider.notifier)
+          .updateSyncNavigationEnabled(v),
     );
   }
 }
