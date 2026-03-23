@@ -1,0 +1,431 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:prism_plurality/features/polls/providers/poll_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+
+/// Full-screen sheet for creating a new poll.
+///
+/// Use via [PrismSheet.showFullScreen] — pass the [scrollController] from the
+/// builder callback.
+class CreatePollSheet extends ConsumerStatefulWidget {
+  const CreatePollSheet({super.key, required this.scrollController});
+
+  final ScrollController scrollController;
+
+  @override
+  ConsumerState<CreatePollSheet> createState() => _CreatePollSheetState();
+}
+
+class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
+  final _questionController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final List<TextEditingController> _optionControllers = [
+    TextEditingController(),
+    TextEditingController(),
+  ];
+  final List<String?> _optionColors = [null, null];
+
+  bool _isAnonymous = false;
+  bool _allowsMultipleVotes = false;
+  bool _addOtherOption = false;
+  bool _hasExpiration = false;
+  DateTime? _expiresAt;
+  bool _isCreating = false;
+
+  @override
+  void dispose() {
+    _questionController.dispose();
+    _descriptionController.dispose();
+    for (final c in _optionControllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  bool get _canCreate {
+    if (_questionController.text.trim().isEmpty) return false;
+    final filledOptions = _optionControllers
+        .where((c) => c.text.trim().isNotEmpty)
+        .length;
+    return filledOptions >= 2;
+  }
+
+  void _addOption() {
+    setState(() {
+      _optionControllers.add(TextEditingController());
+      _optionColors.add(null);
+    });
+  }
+
+  void _removeOption(int index) {
+    if (_optionControllers.length <= 2) return;
+    setState(() {
+      _optionControllers[index].dispose();
+      _optionControllers.removeAt(index);
+      _optionColors.removeAt(index);
+    });
+  }
+
+  Future<void> _pickExpiration() async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _expiresAt ?? now.add(const Duration(days: 1)),
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(
+        _expiresAt ?? now.add(const Duration(hours: 1)),
+      ),
+    );
+    if (time == null || !mounted) return;
+
+    setState(() {
+      _expiresAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
+    });
+  }
+
+  Future<void> _createPoll() async {
+    if (!_canCreate || _isCreating) return;
+    setState(() => _isCreating = true);
+
+    final optionTexts = _optionControllers
+        .map((c) => c.text.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+
+    // Collect colors for non-empty options, preserving order.
+    final optionColorHexes = <String?>[];
+    for (var i = 0; i < _optionControllers.length; i++) {
+      if (_optionControllers[i].text.trim().isNotEmpty) {
+        optionColorHexes.add(_optionColors[i]);
+      }
+    }
+
+    final description = _descriptionController.text.trim();
+
+    try {
+      await ref.read(pollNotifierProvider.notifier).createPoll(
+            question: _questionController.text.trim(),
+            description: description.isNotEmpty ? description : null,
+            optionTexts: optionTexts,
+            optionColorHexes: optionColorHexes,
+            isAnonymous: _isAnonymous,
+            allowsMultipleVotes: _allowsMultipleVotes,
+            expiresAt: _hasExpiration ? _expiresAt : null,
+            addOtherOption: _addOtherOption,
+          );
+
+      if (mounted) {
+        Haptics.success();
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        PrismToast.error(context, message: 'Failed to create poll: $e');
+        setState(() => _isCreating = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      child: Column(
+        children: [
+          PrismSheetTopBar(
+            title: 'New Poll',
+            trailing: _isCreating
+                ? SizedBox(
+                    width: PrismTokens.topBarActionSize,
+                    height: PrismTokens.topBarActionSize,
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  )
+                : PrismGlassIconButton(
+                    icon: Icons.check,
+                    size: PrismTokens.topBarActionSize,
+                    tint: _canCreate ? theme.colorScheme.primary : null,
+                    accentIcon: _canCreate,
+                    onPressed: _canCreate ? _createPoll : null,
+                  ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView(
+              controller: widget.scrollController,
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              children: [
+              // Question
+              PrismTextField(
+                controller: _questionController,
+                labelText: 'Question',
+                hintText: 'What do you want to ask?',
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 12),
+
+              // Description (optional)
+              PrismTextField(
+                controller: _descriptionController,
+                labelText: 'Description (optional)',
+                hintText: 'Add context or details...',
+                maxLines: 3,
+                minLines: 1,
+                textCapitalization: TextCapitalization.sentences,
+              ),
+              const SizedBox(height: 16),
+
+              // Options header
+              Text('Options', style: theme.textTheme.titleSmall),
+              const SizedBox(height: 8),
+
+              // Option fields
+              for (var i = 0; i < _optionControllers.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      // Color dot
+                      _OptionColorDot(
+                        colorHex: _optionColors[i],
+                        onColorSelected: (hex) {
+                          setState(() => _optionColors[i] = hex);
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: PrismTextField(
+                          controller: _optionControllers[i],
+                          labelText: 'Option ${i + 1}',
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          textCapitalization: TextCapitalization.sentences,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      if (_optionControllers.length > 2)
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline),
+                          color: theme.colorScheme.error,
+                          onPressed: () => _removeOption(i),
+                          tooltip: 'Remove option',
+                        ),
+                    ],
+                  ),
+                ),
+
+              // Add option button
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _addOption,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add option'),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Toggles
+              PrismSwitchRow(
+                title: 'Add "Other" option',
+                subtitle: 'Allows free-text responses',
+                value: _addOtherOption,
+                onChanged: (v) => setState(() => _addOtherOption = v),
+              ),
+              PrismSwitchRow(
+                title: 'Anonymous voting',
+                subtitle: 'Hide who voted for what',
+                value: _isAnonymous,
+                onChanged: (v) => setState(() => _isAnonymous = v),
+              ),
+              PrismSwitchRow(
+                title: 'Allow multiple votes',
+                subtitle:
+                    '${ref.watch(terminologyProvider).plural} can vote for more than one option',
+                value: _allowsMultipleVotes,
+                onChanged: (v) =>
+                    setState(() => _allowsMultipleVotes = v),
+              ),
+
+              // Expiration
+              PrismSwitchRow(
+                title: 'Set expiration',
+                subtitle: _hasExpiration && _expiresAt != null
+                    ? _formatDateTime(_expiresAt!)
+                    : 'Poll stays open until manually closed',
+                value: _hasExpiration,
+                onChanged: (v) {
+                  setState(() => _hasExpiration = v);
+                  if (v) _pickExpiration();
+                },
+              ),
+              if (_hasExpiration)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _pickExpiration,
+                    icon: const Icon(Icons.schedule),
+                    label: Text(
+                      _expiresAt != null
+                          ? 'Change: ${_formatDateTime(_expiresAt!)}'
+                          : 'Pick date & time',
+                    ),
+                  ),
+                ),
+
+              const SizedBox(height: 32),
+            ],
+          ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dt) {
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final amPm = dt.hour >= 12 ? 'PM' : 'AM';
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year} at $hour:$minute $amPm';
+  }
+}
+
+/// A small color dot that opens a palette popover for choosing option colors.
+class _OptionColorDot extends StatelessWidget {
+  const _OptionColorDot({
+    required this.colorHex,
+    required this.onColorSelected,
+  });
+
+  final String? colorHex;
+  final ValueChanged<String?> onColorSelected;
+
+  static const _palette = [
+    null, // no color
+    'EF4444', // red
+    'F97316', // orange
+    'EAB308', // yellow
+    '22C55E', // green
+    '06B6D4', // cyan
+    '3B82F6', // blue
+    '8B5CF6', // violet
+    'EC4899', // pink
+    '6B7280', // gray
+  ];
+
+  Color _parseColor(String hex) {
+    return Color(int.parse('FF$hex', radix: 16));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dotColor = colorHex != null
+        ? _parseColor(colorHex!)
+        : theme.colorScheme.outlineVariant;
+
+    return PopupMenuButton<String?>(
+      tooltip: 'Pick color',
+      offset: const Offset(0, 36),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      itemBuilder: (_) => [
+        PopupMenuItem<String?>(
+          enabled: false,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final hex in _palette)
+                GestureDetector(
+                  onTap: () {
+                    onColorSelected(hex);
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: hex != null
+                          ? _parseColor(hex)
+                          : theme.colorScheme.surfaceContainerHighest,
+                      border: hex == colorHex
+                          ? Border.all(
+                              color: theme.colorScheme.primary,
+                              width: 2.5,
+                            )
+                          : null,
+                    ),
+                    child: hex == null
+                        ? Icon(
+                            Icons.block,
+                            size: 16,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          )
+                        : null,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: colorHex != null ? _parseColor(colorHex!) : null,
+          border: Border.all(color: dotColor, width: 2),
+        ),
+        child: colorHex == null
+            ? Icon(
+                Icons.palette_outlined,
+                size: 14,
+                color: theme.colorScheme.onSurfaceVariant,
+              )
+            : null,
+      ),
+    );
+  }
+}

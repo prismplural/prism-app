@@ -1,0 +1,318 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
+import 'package:prism_plurality/features/fronting/widgets/timeline_controls.dart';
+import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart';
+import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+
+/// The timeline visualization of fronting history.
+///
+/// Vertical axis = time (scrollable, infinite), horizontal axis = members.
+/// Scrolls vertically through all loaded history; loads more sessions
+/// automatically as the user scrolls back in time.
+class TimelineView extends ConsumerStatefulWidget {
+  const TimelineView({super.key});
+
+  @override
+  ConsumerState<TimelineView> createState() => _TimelineViewState();
+}
+
+class _TimelineViewState extends ConsumerState<TimelineView> {
+  late ScrollController _verticalController;
+  Timer? _refreshTimer;
+  bool _hasAutoScrolled = false;
+  DateTime? _viewStart;
+  bool _isLoadingMore = false;
+
+  static const double _headerRowHeight = 56.0;
+  static const double _columnWidth = 48.0;
+  static const double _columnPadding = 4.0;
+  static const double _timeGutterWidth = 52.0;
+  static const double _loadMoreThreshold = 500.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _verticalController = ScrollController();
+    _verticalController.addListener(_onScroll);
+
+    // Refresh every 30 seconds to update "now" line and active sessions
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _verticalController.removeListener(_onScroll);
+    _verticalController.dispose();
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_isLoadingMore || !_verticalController.hasClients) return;
+
+    // Load more when near the top (scrolling back in time)
+    if (_verticalController.offset < _loadMoreThreshold) {
+      _isLoadingMore = true;
+      ref.read(timelineSessionLimitProvider.notifier).increase(100);
+      // Brief cooldown to prevent rapid re-triggers
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _isLoadingMore = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final timelineState = ref.watch(timelineStateProvider);
+    final rowsAsync = ref.watch(timelineRowsProvider);
+
+    // Listen (not watch) for jump target — fires only on change, avoids
+    // duplicate addPostFrameCallback registrations on rebuild.
+    ref.listen<DateTime?>(timelineJumpTargetProvider, (_, target) {
+      if (target != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToTime(target, timelineState.pixelsPerHour, animate: true);
+          ref.read(timelineJumpTargetProvider.notifier).clear();
+        });
+      }
+    });
+
+    return Column(
+      children: [
+        const TimelineControls(),
+        const SizedBox(height: 4),
+        Expanded(
+          child: rowsAsync.when(
+            loading: () => const Center(child: PrismLoadingState()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (rows) {
+              if (rows.isEmpty) {
+                return const EmptyState(
+                  icon: Icons.timeline_rounded,
+                  title: 'No fronting history',
+                  subtitle:
+                      'Start a fronting session to see it appear on the timeline.',
+                );
+              }
+              return _buildTimeline(context, theme, timelineState, rows);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimeline(
+    BuildContext context,
+    ThemeData theme,
+    TimelineState timelineState,
+    List<TimelineMemberRow> rows,
+  ) {
+    final pxPerHour = timelineState.pixelsPerHour;
+    final totalColumnWidth = _columnWidth + _columnPadding;
+
+    // Compute time range from loaded data
+    final now = DateTime.now();
+    final viewEnd = DateTime(now.year, now.month, now.day, now.hour + 2);
+
+    // Find earliest session across all rows
+    DateTime earliest = now;
+    for (final row in rows) {
+      for (final session in row.sessions) {
+        if (session.startTime.isBefore(earliest)) {
+          earliest = session.startTime;
+        }
+      }
+    }
+    // Round down to start of day + 1 day buffer before earliest session
+    final viewStart = DateTime(earliest.year, earliest.month, earliest.day)
+        .subtract(const Duration(days: 1));
+
+    final totalHours = viewEnd.difference(viewStart).inMilliseconds /
+        Duration.millisecondsPerHour;
+    final totalHeight = totalHours * pxPerHour;
+
+    // Preserve scroll position when viewStart changes (more data loaded)
+    if (_viewStart != null && viewStart.isBefore(_viewStart!)) {
+      final deltaMs = _viewStart!.difference(viewStart).inMilliseconds;
+      final deltaPixels = deltaMs / Duration.millisecondsPerHour * pxPerHour;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_verticalController.hasClients) {
+          _verticalController.jumpTo(_verticalController.offset + deltaPixels);
+        }
+      });
+    }
+    _viewStart = viewStart;
+
+    // Auto-scroll to "now" on first build
+    if (!_hasAutoScrolled) {
+      _hasAutoScrolled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToTime(now, pxPerHour, animate: false);
+      });
+    }
+
+    return Column(
+      children: [
+        // Sticky header row: member avatars/names
+        SizedBox(
+          height: _headerRowHeight,
+          child: Row(
+            children: [
+              SizedBox(width: _timeGutterWidth),
+              for (var i = 0; i < rows.length; i++)
+                _MemberHeader(
+                  row: rows[i],
+                  rowIndex: i,
+                  width: totalColumnWidth,
+                  primaryColor: theme.colorScheme.primary,
+                  brightness: theme.brightness,
+                ),
+            ],
+          ),
+        ),
+        // Divider
+        Container(
+          height: 1,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+        // Scrollable timeline area
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _verticalController,
+            child: SizedBox(
+              height: totalHeight,
+              child: Row(
+                children: [
+                  // Time gutter (sticky left labels)
+                  SizedBox(
+                    width: _timeGutterWidth,
+                    height: totalHeight,
+                    child: CustomPaint(
+                      size: Size(_timeGutterWidth, totalHeight),
+                      painter: TimelineTimeGutterPainter(
+                        pixelsPerHour: pxPerHour,
+                        viewStart: viewStart,
+                        viewEnd: viewEnd,
+                        textColor: theme.colorScheme.onSurfaceVariant,
+                        gridColor:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.12),
+                      ),
+                    ),
+                  ),
+                  // Session columns
+                  Expanded(
+                    child: CustomPaint(
+                      size: Size(
+                        rows.length * totalColumnWidth,
+                        totalHeight,
+                      ),
+                      painter: TimelinePainter(
+                        rows: rows,
+                        columnWidth: _columnWidth,
+                        columnPadding: _columnPadding,
+                        pixelsPerHour: pxPerHour,
+                        viewStart: viewStart,
+                        viewEnd: viewEnd,
+                        primaryColor: theme.colorScheme.primary,
+                        surfaceColor: theme.colorScheme.surface,
+                        onSurfaceColor: theme.colorScheme.onSurface,
+                        surfaceContainerColor:
+                            theme.colorScheme.surfaceContainerHighest,
+                        brightness: theme.brightness,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _scrollToTime(DateTime time, double pxPerHour, {bool animate = true}) {
+    if (!_verticalController.hasClients || _viewStart == null) return;
+
+    final targetY = time.difference(_viewStart!).inMilliseconds /
+        Duration.millisecondsPerHour *
+        pxPerHour;
+    final viewportHeight = _verticalController.position.viewportDimension;
+    final scrollTo = (targetY - viewportHeight / 2).clamp(
+      0.0,
+      _verticalController.position.maxScrollExtent,
+    );
+
+    if (animate && (_verticalController.offset - scrollTo).abs() > 50) {
+      _verticalController.animateTo(
+        scrollTo,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _verticalController.jumpTo(scrollTo);
+    }
+  }
+}
+
+/// A member avatar + name in the sticky top header row.
+class _MemberHeader extends StatelessWidget {
+  const _MemberHeader({
+    required this.row,
+    required this.rowIndex,
+    required this.width,
+    required this.primaryColor,
+    required this.brightness,
+  });
+
+  final TimelineMemberRow row;
+  final int rowIndex;
+  final double width;
+  final Color primaryColor;
+  final Brightness brightness;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = row.resolveColor(rowIndex, primaryColor, brightness);
+
+    return SizedBox(
+      width: width,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          MemberAvatar(
+            emoji: row.member.emoji,
+            customColorEnabled: row.member.customColorEnabled,
+            customColorHex: row.member.customColorHex,
+            avatarImageData: row.member.avatarImageData,
+            size: 28,
+            tintOverride: color,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            row.member.name,
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: color,
+              fontSize: 9,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}

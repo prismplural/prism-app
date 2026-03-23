@@ -1,0 +1,117 @@
+name: prism_plurality
+description: "Prism — plural system management app"
+publish_to: 'none'
+version: 0.1.8+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^3.3.0
+
+  # Navigation
+  go_router: ^17.1.0
+
+  # Database
+  drift: ^2.31.0
+  sqlite3: ^3.2.0  # Direct import for database encryption migration + hook system replaces sqlite3_flutter_libs
+
+  # Code generation models
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.11.0
+
+  # HTTP
+  http: ^1.6.0
+
+  # Secure key storage — iOS Keychain / Android Keystore
+  flutter_secure_storage: ^10.0.0
+  shared_preferences: ^2.2.0
+
+  # Share sheet for backup export
+  share_plus: ^12.0.1
+
+  # QR code display
+  qr_flutter: ^4.1.0
+
+  # QR code scanning
+  mobile_scanner: ^7.0.0
+
+  # Utils
+  uuid: ^4.5.3
+  intl: ^0.20.2
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  collection: ^1.19.1
+  image: ^4.5.4
+  image_picker: ^1.2.1
+  file_picker: ^10.3.10
+  flutter_local_notifications: ^21.0.0
+
+  # Background processing
+  workmanager: ^0.9.0
+
+  # Markdown rendering
+  flutter_markdown: ^0.7.6
+  url_launcher: ^6.3.1
+
+  # UI
+  cupertino_icons: ^1.0.8
+  flutter_animate: ^4.5.2
+  dynamic_color: ^1.8.1
+  flutter_colorpicker: ^1.1.0
+  emoji_picker_flutter: ^4.4.0
+
+  # Rust sync library
+  prism_sync:
+    git:
+      url: https://github.com/prismplural/prism-sync.git
+      path: dart/packages/prism_sync
+  prism_sync_drift:
+    git:
+      url: https://github.com/prismplural/prism-sync.git
+      path: dart/packages/prism_sync_drift
+  prism_sync_flutter:
+    git:
+      url: https://github.com/prismplural/prism-sync.git
+      path: dart/packages/prism_sync_flutter
+  flutter_rust_bridge: 2.11.1
+  pointycastle: ^4.0.0
+  crypto: ^3.0.6
+  local_auth: ^2.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # Code generation
+  build_runner: ^2.12.2
+  freezed: ^3.0.0
+  json_serializable: ^6.0.0
+  drift_dev: ^2.0.0
+
+# Use SQLite3MultipleCiphers for database-at-rest encryption.
+# Replaces the old sqlite3_flutter_libs package (now end-of-life).
+# The sqlite3 package's hook system downloads pre-built sqlite3mc binaries
+# that include encryption support via PRAGMA key.
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/textures/
+  fonts:
+    - family: OpenDyslexic
+      fonts:
+        - asset: assets/fonts/OpenDyslexic-Regular.otf
+        - asset: assets/fonts/OpenDyslexic-Bold.otf
+          weight: 700
+        - asset: assets/fonts/OpenDyslexic-Italic.otf
+          style: italic

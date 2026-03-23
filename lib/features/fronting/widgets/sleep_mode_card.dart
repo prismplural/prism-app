@@ -1,0 +1,182 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
+import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
+import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+
+/// Card shown on the fronting screen when a sleep session is active.
+class SleepModeCard extends ConsumerWidget {
+  const SleepModeCard({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sleepAsync = ref.watch(activeSleepSessionProvider);
+
+    return sleepAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (session) {
+        if (session == null) return const SizedBox.shrink();
+        return _ActiveSleepCard(session: session);
+      },
+    );
+  }
+}
+
+class _ActiveSleepCard extends ConsumerWidget {
+  const _ActiveSleepCard({required this.session});
+
+  final SleepSession session;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    final sleepColor = Colors.indigo.shade300;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: sleepColor.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Icon(
+              Icons.bedtime_rounded,
+              size: 48,
+              color: sleepColor,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sleeping',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Since ${session.startTime.toTimeString()}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(height: 4),
+            FrontingDurationText(
+              startTime: session.startTime,
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: sleepColor,
+                fontFeatures: [const FontFeature.tabularFigures()],
+              ),
+            ),
+            if (session.notes != null && session.notes!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                session.notes!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontStyle: FontStyle.italic,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+            const SizedBox(height: 16),
+            _QualityRating(
+              quality: session.quality,
+              onChanged: (quality) {
+                ref
+                    .read(sleepNotifierProvider.notifier)
+                    .updateSleepQuality(session.id, quality);
+              },
+            ),
+            const SizedBox(height: 16),
+            PrismButton(
+              label: 'Wake Up',
+              icon: Icons.wb_sunny_rounded,
+              onPressed: () {
+                ref
+                    .read(sleepNotifierProvider.notifier)
+                    .endSleep(session.id);
+              },
+              density: PrismControlDensity.compact,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QualityRating extends StatelessWidget {
+  const _QualityRating({
+    required this.quality,
+    required this.onChanged,
+  });
+
+  final SleepQuality quality;
+  final ValueChanged<SleepQuality> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // Map quality levels 1-5 (skipping unknown at index 0)
+    final qualityValues = [
+      SleepQuality.veryPoor,
+      SleepQuality.poor,
+      SleepQuality.fair,
+      SleepQuality.good,
+      SleepQuality.excellent,
+    ];
+
+    return Column(
+      children: [
+        Text(
+          'Sleep Quality',
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(5, (index) {
+            final q = qualityValues[index];
+            final isSelected = quality.index >= q.index && quality != SleepQuality.unknown;
+            return IconButton(
+              onPressed: () => onChanged(q),
+              icon: Icon(
+                isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                color: isSelected
+                    ? Colors.amber
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                size: 28,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              constraints: const BoxConstraints(),
+            );
+          }),
+        ),
+        if (quality != SleepQuality.unknown)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              quality.label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: Colors.amber,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

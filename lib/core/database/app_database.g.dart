@@ -1,0 +1,22083 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'app_database.dart';
+
+// ignore_for_file: type=lint
+class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MembersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pronounsMeta = const VerificationMeta(
+    'pronouns',
+  );
+  @override
+  late final GeneratedColumn<String> pronouns = GeneratedColumn<String>(
+    'pronouns',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _emojiMeta = const VerificationMeta('emoji');
+  @override
+  late final GeneratedColumn<String> emoji = GeneratedColumn<String>(
+    'emoji',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('❔'),
+  );
+  static const VerificationMeta _ageMeta = const VerificationMeta('age');
+  @override
+  late final GeneratedColumn<int> age = GeneratedColumn<int>(
+    'age',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bioMeta = const VerificationMeta('bio');
+  @override
+  late final GeneratedColumn<String> bio = GeneratedColumn<String>(
+    'bio',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _avatarImageDataMeta = const VerificationMeta(
+    'avatarImageData',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> avatarImageData =
+      GeneratedColumn<Uint8List>(
+        'avatar_image_data',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayOrderMeta = const VerificationMeta(
+    'displayOrder',
+  );
+  @override
+  late final GeneratedColumn<int> displayOrder = GeneratedColumn<int>(
+    'display_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isAdminMeta = const VerificationMeta(
+    'isAdmin',
+  );
+  @override
+  late final GeneratedColumn<bool> isAdmin = GeneratedColumn<bool>(
+    'is_admin',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_admin" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _customColorEnabledMeta =
+      const VerificationMeta('customColorEnabled');
+  @override
+  late final GeneratedColumn<bool> customColorEnabled = GeneratedColumn<bool>(
+    'custom_color_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("custom_color_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _customColorHexMeta = const VerificationMeta(
+    'customColorHex',
+  );
+  @override
+  late final GeneratedColumn<String> customColorHex = GeneratedColumn<String>(
+    'custom_color_hex',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _parentSystemIdMeta = const VerificationMeta(
+    'parentSystemId',
+  );
+  @override
+  late final GeneratedColumn<String> parentSystemId = GeneratedColumn<String>(
+    'parent_system_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pluralkitUuidMeta = const VerificationMeta(
+    'pluralkitUuid',
+  );
+  @override
+  late final GeneratedColumn<String> pluralkitUuid = GeneratedColumn<String>(
+    'pluralkit_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pluralkitIdMeta = const VerificationMeta(
+    'pluralkitId',
+  );
+  @override
+  late final GeneratedColumn<String> pluralkitId = GeneratedColumn<String>(
+    'pluralkit_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _markdownEnabledMeta = const VerificationMeta(
+    'markdownEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> markdownEnabled = GeneratedColumn<bool>(
+    'markdown_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("markdown_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    pronouns,
+    emoji,
+    age,
+    bio,
+    avatarImageData,
+    isActive,
+    createdAt,
+    displayOrder,
+    isAdmin,
+    customColorEnabled,
+    customColorHex,
+    parentSystemId,
+    pluralkitUuid,
+    pluralkitId,
+    markdownEnabled,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'members';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Member> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('pronouns')) {
+      context.handle(
+        _pronounsMeta,
+        pronouns.isAcceptableOrUnknown(data['pronouns']!, _pronounsMeta),
+      );
+    }
+    if (data.containsKey('emoji')) {
+      context.handle(
+        _emojiMeta,
+        emoji.isAcceptableOrUnknown(data['emoji']!, _emojiMeta),
+      );
+    }
+    if (data.containsKey('age')) {
+      context.handle(
+        _ageMeta,
+        age.isAcceptableOrUnknown(data['age']!, _ageMeta),
+      );
+    }
+    if (data.containsKey('bio')) {
+      context.handle(
+        _bioMeta,
+        bio.isAcceptableOrUnknown(data['bio']!, _bioMeta),
+      );
+    }
+    if (data.containsKey('avatar_image_data')) {
+      context.handle(
+        _avatarImageDataMeta,
+        avatarImageData.isAcceptableOrUnknown(
+          data['avatar_image_data']!,
+          _avatarImageDataMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('display_order')) {
+      context.handle(
+        _displayOrderMeta,
+        displayOrder.isAcceptableOrUnknown(
+          data['display_order']!,
+          _displayOrderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_admin')) {
+      context.handle(
+        _isAdminMeta,
+        isAdmin.isAcceptableOrUnknown(data['is_admin']!, _isAdminMeta),
+      );
+    }
+    if (data.containsKey('custom_color_enabled')) {
+      context.handle(
+        _customColorEnabledMeta,
+        customColorEnabled.isAcceptableOrUnknown(
+          data['custom_color_enabled']!,
+          _customColorEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_color_hex')) {
+      context.handle(
+        _customColorHexMeta,
+        customColorHex.isAcceptableOrUnknown(
+          data['custom_color_hex']!,
+          _customColorHexMeta,
+        ),
+      );
+    }
+    if (data.containsKey('parent_system_id')) {
+      context.handle(
+        _parentSystemIdMeta,
+        parentSystemId.isAcceptableOrUnknown(
+          data['parent_system_id']!,
+          _parentSystemIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pluralkit_uuid')) {
+      context.handle(
+        _pluralkitUuidMeta,
+        pluralkitUuid.isAcceptableOrUnknown(
+          data['pluralkit_uuid']!,
+          _pluralkitUuidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pluralkit_id')) {
+      context.handle(
+        _pluralkitIdMeta,
+        pluralkitId.isAcceptableOrUnknown(
+          data['pluralkit_id']!,
+          _pluralkitIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('markdown_enabled')) {
+      context.handle(
+        _markdownEnabledMeta,
+        markdownEnabled.isAcceptableOrUnknown(
+          data['markdown_enabled']!,
+          _markdownEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Member map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Member(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      pronouns: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pronouns'],
+      ),
+      emoji: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emoji'],
+      )!,
+      age: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}age'],
+      ),
+      bio: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bio'],
+      ),
+      avatarImageData: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}avatar_image_data'],
+      ),
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      displayOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}display_order'],
+      )!,
+      isAdmin: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_admin'],
+      )!,
+      customColorEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}custom_color_enabled'],
+      )!,
+      customColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_color_hex'],
+      ),
+      parentSystemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_system_id'],
+      ),
+      pluralkitUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pluralkit_uuid'],
+      ),
+      pluralkitId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pluralkit_id'],
+      ),
+      markdownEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}markdown_enabled'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $MembersTable createAlias(String alias) {
+    return $MembersTable(attachedDatabase, alias);
+  }
+}
+
+class Member extends DataClass implements Insertable<Member> {
+  final String id;
+  final String name;
+  final String? pronouns;
+  final String emoji;
+  final int? age;
+  final String? bio;
+  final Uint8List? avatarImageData;
+  final bool isActive;
+  final DateTime createdAt;
+  final int displayOrder;
+  final bool isAdmin;
+  final bool customColorEnabled;
+  final String? customColorHex;
+  final String? parentSystemId;
+  final String? pluralkitUuid;
+  final String? pluralkitId;
+  final bool markdownEnabled;
+  final bool isDeleted;
+  const Member({
+    required this.id,
+    required this.name,
+    this.pronouns,
+    required this.emoji,
+    this.age,
+    this.bio,
+    this.avatarImageData,
+    required this.isActive,
+    required this.createdAt,
+    required this.displayOrder,
+    required this.isAdmin,
+    required this.customColorEnabled,
+    this.customColorHex,
+    this.parentSystemId,
+    this.pluralkitUuid,
+    this.pluralkitId,
+    required this.markdownEnabled,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || pronouns != null) {
+      map['pronouns'] = Variable<String>(pronouns);
+    }
+    map['emoji'] = Variable<String>(emoji);
+    if (!nullToAbsent || age != null) {
+      map['age'] = Variable<int>(age);
+    }
+    if (!nullToAbsent || bio != null) {
+      map['bio'] = Variable<String>(bio);
+    }
+    if (!nullToAbsent || avatarImageData != null) {
+      map['avatar_image_data'] = Variable<Uint8List>(avatarImageData);
+    }
+    map['is_active'] = Variable<bool>(isActive);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['display_order'] = Variable<int>(displayOrder);
+    map['is_admin'] = Variable<bool>(isAdmin);
+    map['custom_color_enabled'] = Variable<bool>(customColorEnabled);
+    if (!nullToAbsent || customColorHex != null) {
+      map['custom_color_hex'] = Variable<String>(customColorHex);
+    }
+    if (!nullToAbsent || parentSystemId != null) {
+      map['parent_system_id'] = Variable<String>(parentSystemId);
+    }
+    if (!nullToAbsent || pluralkitUuid != null) {
+      map['pluralkit_uuid'] = Variable<String>(pluralkitUuid);
+    }
+    if (!nullToAbsent || pluralkitId != null) {
+      map['pluralkit_id'] = Variable<String>(pluralkitId);
+    }
+    map['markdown_enabled'] = Variable<bool>(markdownEnabled);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  MembersCompanion toCompanion(bool nullToAbsent) {
+    return MembersCompanion(
+      id: Value(id),
+      name: Value(name),
+      pronouns: pronouns == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pronouns),
+      emoji: Value(emoji),
+      age: age == null && nullToAbsent ? const Value.absent() : Value(age),
+      bio: bio == null && nullToAbsent ? const Value.absent() : Value(bio),
+      avatarImageData: avatarImageData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(avatarImageData),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      displayOrder: Value(displayOrder),
+      isAdmin: Value(isAdmin),
+      customColorEnabled: Value(customColorEnabled),
+      customColorHex: customColorHex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customColorHex),
+      parentSystemId: parentSystemId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentSystemId),
+      pluralkitUuid: pluralkitUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pluralkitUuid),
+      pluralkitId: pluralkitId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pluralkitId),
+      markdownEnabled: Value(markdownEnabled),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory Member.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Member(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      pronouns: serializer.fromJson<String?>(json['pronouns']),
+      emoji: serializer.fromJson<String>(json['emoji']),
+      age: serializer.fromJson<int?>(json['age']),
+      bio: serializer.fromJson<String?>(json['bio']),
+      avatarImageData: serializer.fromJson<Uint8List?>(json['avatarImageData']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      displayOrder: serializer.fromJson<int>(json['displayOrder']),
+      isAdmin: serializer.fromJson<bool>(json['isAdmin']),
+      customColorEnabled: serializer.fromJson<bool>(json['customColorEnabled']),
+      customColorHex: serializer.fromJson<String?>(json['customColorHex']),
+      parentSystemId: serializer.fromJson<String?>(json['parentSystemId']),
+      pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
+      pluralkitId: serializer.fromJson<String?>(json['pluralkitId']),
+      markdownEnabled: serializer.fromJson<bool>(json['markdownEnabled']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'pronouns': serializer.toJson<String?>(pronouns),
+      'emoji': serializer.toJson<String>(emoji),
+      'age': serializer.toJson<int?>(age),
+      'bio': serializer.toJson<String?>(bio),
+      'avatarImageData': serializer.toJson<Uint8List?>(avatarImageData),
+      'isActive': serializer.toJson<bool>(isActive),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'displayOrder': serializer.toJson<int>(displayOrder),
+      'isAdmin': serializer.toJson<bool>(isAdmin),
+      'customColorEnabled': serializer.toJson<bool>(customColorEnabled),
+      'customColorHex': serializer.toJson<String?>(customColorHex),
+      'parentSystemId': serializer.toJson<String?>(parentSystemId),
+      'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
+      'pluralkitId': serializer.toJson<String?>(pluralkitId),
+      'markdownEnabled': serializer.toJson<bool>(markdownEnabled),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  Member copyWith({
+    String? id,
+    String? name,
+    Value<String?> pronouns = const Value.absent(),
+    String? emoji,
+    Value<int?> age = const Value.absent(),
+    Value<String?> bio = const Value.absent(),
+    Value<Uint8List?> avatarImageData = const Value.absent(),
+    bool? isActive,
+    DateTime? createdAt,
+    int? displayOrder,
+    bool? isAdmin,
+    bool? customColorEnabled,
+    Value<String?> customColorHex = const Value.absent(),
+    Value<String?> parentSystemId = const Value.absent(),
+    Value<String?> pluralkitUuid = const Value.absent(),
+    Value<String?> pluralkitId = const Value.absent(),
+    bool? markdownEnabled,
+    bool? isDeleted,
+  }) => Member(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    pronouns: pronouns.present ? pronouns.value : this.pronouns,
+    emoji: emoji ?? this.emoji,
+    age: age.present ? age.value : this.age,
+    bio: bio.present ? bio.value : this.bio,
+    avatarImageData: avatarImageData.present
+        ? avatarImageData.value
+        : this.avatarImageData,
+    isActive: isActive ?? this.isActive,
+    createdAt: createdAt ?? this.createdAt,
+    displayOrder: displayOrder ?? this.displayOrder,
+    isAdmin: isAdmin ?? this.isAdmin,
+    customColorEnabled: customColorEnabled ?? this.customColorEnabled,
+    customColorHex: customColorHex.present
+        ? customColorHex.value
+        : this.customColorHex,
+    parentSystemId: parentSystemId.present
+        ? parentSystemId.value
+        : this.parentSystemId,
+    pluralkitUuid: pluralkitUuid.present
+        ? pluralkitUuid.value
+        : this.pluralkitUuid,
+    pluralkitId: pluralkitId.present ? pluralkitId.value : this.pluralkitId,
+    markdownEnabled: markdownEnabled ?? this.markdownEnabled,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  Member copyWithCompanion(MembersCompanion data) {
+    return Member(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      pronouns: data.pronouns.present ? data.pronouns.value : this.pronouns,
+      emoji: data.emoji.present ? data.emoji.value : this.emoji,
+      age: data.age.present ? data.age.value : this.age,
+      bio: data.bio.present ? data.bio.value : this.bio,
+      avatarImageData: data.avatarImageData.present
+          ? data.avatarImageData.value
+          : this.avatarImageData,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      displayOrder: data.displayOrder.present
+          ? data.displayOrder.value
+          : this.displayOrder,
+      isAdmin: data.isAdmin.present ? data.isAdmin.value : this.isAdmin,
+      customColorEnabled: data.customColorEnabled.present
+          ? data.customColorEnabled.value
+          : this.customColorEnabled,
+      customColorHex: data.customColorHex.present
+          ? data.customColorHex.value
+          : this.customColorHex,
+      parentSystemId: data.parentSystemId.present
+          ? data.parentSystemId.value
+          : this.parentSystemId,
+      pluralkitUuid: data.pluralkitUuid.present
+          ? data.pluralkitUuid.value
+          : this.pluralkitUuid,
+      pluralkitId: data.pluralkitId.present
+          ? data.pluralkitId.value
+          : this.pluralkitId,
+      markdownEnabled: data.markdownEnabled.present
+          ? data.markdownEnabled.value
+          : this.markdownEnabled,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Member(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('pronouns: $pronouns, ')
+          ..write('emoji: $emoji, ')
+          ..write('age: $age, ')
+          ..write('bio: $bio, ')
+          ..write('avatarImageData: $avatarImageData, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('isAdmin: $isAdmin, ')
+          ..write('customColorEnabled: $customColorEnabled, ')
+          ..write('customColorHex: $customColorHex, ')
+          ..write('parentSystemId: $parentSystemId, ')
+          ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('pluralkitId: $pluralkitId, ')
+          ..write('markdownEnabled: $markdownEnabled, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    pronouns,
+    emoji,
+    age,
+    bio,
+    $driftBlobEquality.hash(avatarImageData),
+    isActive,
+    createdAt,
+    displayOrder,
+    isAdmin,
+    customColorEnabled,
+    customColorHex,
+    parentSystemId,
+    pluralkitUuid,
+    pluralkitId,
+    markdownEnabled,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Member &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.pronouns == this.pronouns &&
+          other.emoji == this.emoji &&
+          other.age == this.age &&
+          other.bio == this.bio &&
+          $driftBlobEquality.equals(
+            other.avatarImageData,
+            this.avatarImageData,
+          ) &&
+          other.isActive == this.isActive &&
+          other.createdAt == this.createdAt &&
+          other.displayOrder == this.displayOrder &&
+          other.isAdmin == this.isAdmin &&
+          other.customColorEnabled == this.customColorEnabled &&
+          other.customColorHex == this.customColorHex &&
+          other.parentSystemId == this.parentSystemId &&
+          other.pluralkitUuid == this.pluralkitUuid &&
+          other.pluralkitId == this.pluralkitId &&
+          other.markdownEnabled == this.markdownEnabled &&
+          other.isDeleted == this.isDeleted);
+}
+
+class MembersCompanion extends UpdateCompanion<Member> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> pronouns;
+  final Value<String> emoji;
+  final Value<int?> age;
+  final Value<String?> bio;
+  final Value<Uint8List?> avatarImageData;
+  final Value<bool> isActive;
+  final Value<DateTime> createdAt;
+  final Value<int> displayOrder;
+  final Value<bool> isAdmin;
+  final Value<bool> customColorEnabled;
+  final Value<String?> customColorHex;
+  final Value<String?> parentSystemId;
+  final Value<String?> pluralkitUuid;
+  final Value<String?> pluralkitId;
+  final Value<bool> markdownEnabled;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const MembersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.pronouns = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.age = const Value.absent(),
+    this.bio = const Value.absent(),
+    this.avatarImageData = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.displayOrder = const Value.absent(),
+    this.isAdmin = const Value.absent(),
+    this.customColorEnabled = const Value.absent(),
+    this.customColorHex = const Value.absent(),
+    this.parentSystemId = const Value.absent(),
+    this.pluralkitUuid = const Value.absent(),
+    this.pluralkitId = const Value.absent(),
+    this.markdownEnabled = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MembersCompanion.insert({
+    required String id,
+    required String name,
+    this.pronouns = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.age = const Value.absent(),
+    this.bio = const Value.absent(),
+    this.avatarImageData = const Value.absent(),
+    this.isActive = const Value.absent(),
+    required DateTime createdAt,
+    this.displayOrder = const Value.absent(),
+    this.isAdmin = const Value.absent(),
+    this.customColorEnabled = const Value.absent(),
+    this.customColorHex = const Value.absent(),
+    this.parentSystemId = const Value.absent(),
+    this.pluralkitUuid = const Value.absent(),
+    this.pluralkitId = const Value.absent(),
+    this.markdownEnabled = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt);
+  static Insertable<Member> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? pronouns,
+    Expression<String>? emoji,
+    Expression<int>? age,
+    Expression<String>? bio,
+    Expression<Uint8List>? avatarImageData,
+    Expression<bool>? isActive,
+    Expression<DateTime>? createdAt,
+    Expression<int>? displayOrder,
+    Expression<bool>? isAdmin,
+    Expression<bool>? customColorEnabled,
+    Expression<String>? customColorHex,
+    Expression<String>? parentSystemId,
+    Expression<String>? pluralkitUuid,
+    Expression<String>? pluralkitId,
+    Expression<bool>? markdownEnabled,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (pronouns != null) 'pronouns': pronouns,
+      if (emoji != null) 'emoji': emoji,
+      if (age != null) 'age': age,
+      if (bio != null) 'bio': bio,
+      if (avatarImageData != null) 'avatar_image_data': avatarImageData,
+      if (isActive != null) 'is_active': isActive,
+      if (createdAt != null) 'created_at': createdAt,
+      if (displayOrder != null) 'display_order': displayOrder,
+      if (isAdmin != null) 'is_admin': isAdmin,
+      if (customColorEnabled != null)
+        'custom_color_enabled': customColorEnabled,
+      if (customColorHex != null) 'custom_color_hex': customColorHex,
+      if (parentSystemId != null) 'parent_system_id': parentSystemId,
+      if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
+      if (pluralkitId != null) 'pluralkit_id': pluralkitId,
+      if (markdownEnabled != null) 'markdown_enabled': markdownEnabled,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MembersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? pronouns,
+    Value<String>? emoji,
+    Value<int?>? age,
+    Value<String?>? bio,
+    Value<Uint8List?>? avatarImageData,
+    Value<bool>? isActive,
+    Value<DateTime>? createdAt,
+    Value<int>? displayOrder,
+    Value<bool>? isAdmin,
+    Value<bool>? customColorEnabled,
+    Value<String?>? customColorHex,
+    Value<String?>? parentSystemId,
+    Value<String?>? pluralkitUuid,
+    Value<String?>? pluralkitId,
+    Value<bool>? markdownEnabled,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return MembersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      pronouns: pronouns ?? this.pronouns,
+      emoji: emoji ?? this.emoji,
+      age: age ?? this.age,
+      bio: bio ?? this.bio,
+      avatarImageData: avatarImageData ?? this.avatarImageData,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      displayOrder: displayOrder ?? this.displayOrder,
+      isAdmin: isAdmin ?? this.isAdmin,
+      customColorEnabled: customColorEnabled ?? this.customColorEnabled,
+      customColorHex: customColorHex ?? this.customColorHex,
+      parentSystemId: parentSystemId ?? this.parentSystemId,
+      pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
+      pluralkitId: pluralkitId ?? this.pluralkitId,
+      markdownEnabled: markdownEnabled ?? this.markdownEnabled,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (pronouns.present) {
+      map['pronouns'] = Variable<String>(pronouns.value);
+    }
+    if (emoji.present) {
+      map['emoji'] = Variable<String>(emoji.value);
+    }
+    if (age.present) {
+      map['age'] = Variable<int>(age.value);
+    }
+    if (bio.present) {
+      map['bio'] = Variable<String>(bio.value);
+    }
+    if (avatarImageData.present) {
+      map['avatar_image_data'] = Variable<Uint8List>(avatarImageData.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (displayOrder.present) {
+      map['display_order'] = Variable<int>(displayOrder.value);
+    }
+    if (isAdmin.present) {
+      map['is_admin'] = Variable<bool>(isAdmin.value);
+    }
+    if (customColorEnabled.present) {
+      map['custom_color_enabled'] = Variable<bool>(customColorEnabled.value);
+    }
+    if (customColorHex.present) {
+      map['custom_color_hex'] = Variable<String>(customColorHex.value);
+    }
+    if (parentSystemId.present) {
+      map['parent_system_id'] = Variable<String>(parentSystemId.value);
+    }
+    if (pluralkitUuid.present) {
+      map['pluralkit_uuid'] = Variable<String>(pluralkitUuid.value);
+    }
+    if (pluralkitId.present) {
+      map['pluralkit_id'] = Variable<String>(pluralkitId.value);
+    }
+    if (markdownEnabled.present) {
+      map['markdown_enabled'] = Variable<bool>(markdownEnabled.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MembersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('pronouns: $pronouns, ')
+          ..write('emoji: $emoji, ')
+          ..write('age: $age, ')
+          ..write('bio: $bio, ')
+          ..write('avatarImageData: $avatarImageData, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('isAdmin: $isAdmin, ')
+          ..write('customColorEnabled: $customColorEnabled, ')
+          ..write('customColorHex: $customColorHex, ')
+          ..write('parentSystemId: $parentSystemId, ')
+          ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('pluralkitId: $pluralkitId, ')
+          ..write('markdownEnabled: $markdownEnabled, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FrontingSessionsTable extends FrontingSessions
+    with TableInfo<$FrontingSessionsTable, FrontingSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FrontingSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startTimeMeta = const VerificationMeta(
+    'startTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startTime = GeneratedColumn<DateTime>(
+    'start_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endTimeMeta = const VerificationMeta(
+    'endTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endTime = GeneratedColumn<DateTime>(
+    'end_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _coFronterIdsMeta = const VerificationMeta(
+    'coFronterIds',
+  );
+  @override
+  late final GeneratedColumn<String> coFronterIds = GeneratedColumn<String>(
+    'co_fronter_ids',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _confidenceMeta = const VerificationMeta(
+    'confidence',
+  );
+  @override
+  late final GeneratedColumn<int> confidence = GeneratedColumn<int>(
+    'confidence',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pluralkitUuidMeta = const VerificationMeta(
+    'pluralkitUuid',
+  );
+  @override
+  late final GeneratedColumn<String> pluralkitUuid = GeneratedColumn<String>(
+    'pluralkit_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    startTime,
+    endTime,
+    memberId,
+    coFronterIds,
+    notes,
+    confidence,
+    pluralkitUuid,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'fronting_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FrontingSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('start_time')) {
+      context.handle(
+        _startTimeMeta,
+        startTime.isAcceptableOrUnknown(data['start_time']!, _startTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startTimeMeta);
+    }
+    if (data.containsKey('end_time')) {
+      context.handle(
+        _endTimeMeta,
+        endTime.isAcceptableOrUnknown(data['end_time']!, _endTimeMeta),
+      );
+    }
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    }
+    if (data.containsKey('co_fronter_ids')) {
+      context.handle(
+        _coFronterIdsMeta,
+        coFronterIds.isAcceptableOrUnknown(
+          data['co_fronter_ids']!,
+          _coFronterIdsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('confidence')) {
+      context.handle(
+        _confidenceMeta,
+        confidence.isAcceptableOrUnknown(data['confidence']!, _confidenceMeta),
+      );
+    }
+    if (data.containsKey('pluralkit_uuid')) {
+      context.handle(
+        _pluralkitUuidMeta,
+        pluralkitUuid.isAcceptableOrUnknown(
+          data['pluralkit_uuid']!,
+          _pluralkitUuidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FrontingSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FrontingSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      startTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_time'],
+      )!,
+      endTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_time'],
+      ),
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      ),
+      coFronterIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}co_fronter_ids'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      confidence: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}confidence'],
+      ),
+      pluralkitUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pluralkit_uuid'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $FrontingSessionsTable createAlias(String alias) {
+    return $FrontingSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class FrontingSession extends DataClass implements Insertable<FrontingSession> {
+  final String id;
+  final DateTime startTime;
+  final DateTime? endTime;
+  final String? memberId;
+  final String coFronterIds;
+  final String? notes;
+  final int? confidence;
+  final String? pluralkitUuid;
+  final bool isDeleted;
+  const FrontingSession({
+    required this.id,
+    required this.startTime,
+    this.endTime,
+    this.memberId,
+    required this.coFronterIds,
+    this.notes,
+    this.confidence,
+    this.pluralkitUuid,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['start_time'] = Variable<DateTime>(startTime);
+    if (!nullToAbsent || endTime != null) {
+      map['end_time'] = Variable<DateTime>(endTime);
+    }
+    if (!nullToAbsent || memberId != null) {
+      map['member_id'] = Variable<String>(memberId);
+    }
+    map['co_fronter_ids'] = Variable<String>(coFronterIds);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || confidence != null) {
+      map['confidence'] = Variable<int>(confidence);
+    }
+    if (!nullToAbsent || pluralkitUuid != null) {
+      map['pluralkit_uuid'] = Variable<String>(pluralkitUuid);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  FrontingSessionsCompanion toCompanion(bool nullToAbsent) {
+    return FrontingSessionsCompanion(
+      id: Value(id),
+      startTime: Value(startTime),
+      endTime: endTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endTime),
+      memberId: memberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(memberId),
+      coFronterIds: Value(coFronterIds),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      confidence: confidence == null && nullToAbsent
+          ? const Value.absent()
+          : Value(confidence),
+      pluralkitUuid: pluralkitUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pluralkitUuid),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory FrontingSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FrontingSession(
+      id: serializer.fromJson<String>(json['id']),
+      startTime: serializer.fromJson<DateTime>(json['startTime']),
+      endTime: serializer.fromJson<DateTime?>(json['endTime']),
+      memberId: serializer.fromJson<String?>(json['memberId']),
+      coFronterIds: serializer.fromJson<String>(json['coFronterIds']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      confidence: serializer.fromJson<int?>(json['confidence']),
+      pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'startTime': serializer.toJson<DateTime>(startTime),
+      'endTime': serializer.toJson<DateTime?>(endTime),
+      'memberId': serializer.toJson<String?>(memberId),
+      'coFronterIds': serializer.toJson<String>(coFronterIds),
+      'notes': serializer.toJson<String?>(notes),
+      'confidence': serializer.toJson<int?>(confidence),
+      'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  FrontingSession copyWith({
+    String? id,
+    DateTime? startTime,
+    Value<DateTime?> endTime = const Value.absent(),
+    Value<String?> memberId = const Value.absent(),
+    String? coFronterIds,
+    Value<String?> notes = const Value.absent(),
+    Value<int?> confidence = const Value.absent(),
+    Value<String?> pluralkitUuid = const Value.absent(),
+    bool? isDeleted,
+  }) => FrontingSession(
+    id: id ?? this.id,
+    startTime: startTime ?? this.startTime,
+    endTime: endTime.present ? endTime.value : this.endTime,
+    memberId: memberId.present ? memberId.value : this.memberId,
+    coFronterIds: coFronterIds ?? this.coFronterIds,
+    notes: notes.present ? notes.value : this.notes,
+    confidence: confidence.present ? confidence.value : this.confidence,
+    pluralkitUuid: pluralkitUuid.present
+        ? pluralkitUuid.value
+        : this.pluralkitUuid,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  FrontingSession copyWithCompanion(FrontingSessionsCompanion data) {
+    return FrontingSession(
+      id: data.id.present ? data.id.value : this.id,
+      startTime: data.startTime.present ? data.startTime.value : this.startTime,
+      endTime: data.endTime.present ? data.endTime.value : this.endTime,
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      coFronterIds: data.coFronterIds.present
+          ? data.coFronterIds.value
+          : this.coFronterIds,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      confidence: data.confidence.present
+          ? data.confidence.value
+          : this.confidence,
+      pluralkitUuid: data.pluralkitUuid.present
+          ? data.pluralkitUuid.value
+          : this.pluralkitUuid,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FrontingSession(')
+          ..write('id: $id, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('memberId: $memberId, ')
+          ..write('coFronterIds: $coFronterIds, ')
+          ..write('notes: $notes, ')
+          ..write('confidence: $confidence, ')
+          ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    startTime,
+    endTime,
+    memberId,
+    coFronterIds,
+    notes,
+    confidence,
+    pluralkitUuid,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FrontingSession &&
+          other.id == this.id &&
+          other.startTime == this.startTime &&
+          other.endTime == this.endTime &&
+          other.memberId == this.memberId &&
+          other.coFronterIds == this.coFronterIds &&
+          other.notes == this.notes &&
+          other.confidence == this.confidence &&
+          other.pluralkitUuid == this.pluralkitUuid &&
+          other.isDeleted == this.isDeleted);
+}
+
+class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
+  final Value<String> id;
+  final Value<DateTime> startTime;
+  final Value<DateTime?> endTime;
+  final Value<String?> memberId;
+  final Value<String> coFronterIds;
+  final Value<String?> notes;
+  final Value<int?> confidence;
+  final Value<String?> pluralkitUuid;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const FrontingSessionsCompanion({
+    this.id = const Value.absent(),
+    this.startTime = const Value.absent(),
+    this.endTime = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.coFronterIds = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.pluralkitUuid = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FrontingSessionsCompanion.insert({
+    required String id,
+    required DateTime startTime,
+    this.endTime = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.coFronterIds = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.pluralkitUuid = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       startTime = Value(startTime);
+  static Insertable<FrontingSession> custom({
+    Expression<String>? id,
+    Expression<DateTime>? startTime,
+    Expression<DateTime>? endTime,
+    Expression<String>? memberId,
+    Expression<String>? coFronterIds,
+    Expression<String>? notes,
+    Expression<int>? confidence,
+    Expression<String>? pluralkitUuid,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (startTime != null) 'start_time': startTime,
+      if (endTime != null) 'end_time': endTime,
+      if (memberId != null) 'member_id': memberId,
+      if (coFronterIds != null) 'co_fronter_ids': coFronterIds,
+      if (notes != null) 'notes': notes,
+      if (confidence != null) 'confidence': confidence,
+      if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FrontingSessionsCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? startTime,
+    Value<DateTime?>? endTime,
+    Value<String?>? memberId,
+    Value<String>? coFronterIds,
+    Value<String?>? notes,
+    Value<int?>? confidence,
+    Value<String?>? pluralkitUuid,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return FrontingSessionsCompanion(
+      id: id ?? this.id,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      memberId: memberId ?? this.memberId,
+      coFronterIds: coFronterIds ?? this.coFronterIds,
+      notes: notes ?? this.notes,
+      confidence: confidence ?? this.confidence,
+      pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (startTime.present) {
+      map['start_time'] = Variable<DateTime>(startTime.value);
+    }
+    if (endTime.present) {
+      map['end_time'] = Variable<DateTime>(endTime.value);
+    }
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (coFronterIds.present) {
+      map['co_fronter_ids'] = Variable<String>(coFronterIds.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (confidence.present) {
+      map['confidence'] = Variable<int>(confidence.value);
+    }
+    if (pluralkitUuid.present) {
+      map['pluralkit_uuid'] = Variable<String>(pluralkitUuid.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FrontingSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('memberId: $memberId, ')
+          ..write('coFronterIds: $coFronterIds, ')
+          ..write('notes: $notes, ')
+          ..write('confidence: $confidence, ')
+          ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ConversationsTable extends Conversations
+    with TableInfo<$ConversationsTable, Conversation> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ConversationsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastActivityAtMeta = const VerificationMeta(
+    'lastActivityAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastActivityAt =
+      GeneratedColumn<DateTime>(
+        'last_activity_at',
+        aliasedName,
+        false,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _emojiMeta = const VerificationMeta('emoji');
+  @override
+  late final GeneratedColumn<String> emoji = GeneratedColumn<String>(
+    'emoji',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDirectMessageMeta = const VerificationMeta(
+    'isDirectMessage',
+  );
+  @override
+  late final GeneratedColumn<bool> isDirectMessage = GeneratedColumn<bool>(
+    'is_direct_message',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_direct_message" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _creatorIdMeta = const VerificationMeta(
+    'creatorId',
+  );
+  @override
+  late final GeneratedColumn<String> creatorId = GeneratedColumn<String>(
+    'creator_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _participantIdsMeta = const VerificationMeta(
+    'participantIds',
+  );
+  @override
+  late final GeneratedColumn<String> participantIds = GeneratedColumn<String>(
+    'participant_ids',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _lastReadTimestampsMeta =
+      const VerificationMeta('lastReadTimestamps');
+  @override
+  late final GeneratedColumn<String> lastReadTimestamps =
+      GeneratedColumn<String>(
+        'last_read_timestamps',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('{}'),
+      );
+  static const VerificationMeta _archivedByMemberIdsMeta =
+      const VerificationMeta('archivedByMemberIds');
+  @override
+  late final GeneratedColumn<String> archivedByMemberIds =
+      GeneratedColumn<String>(
+        'archived_by_member_ids',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('[]'),
+      );
+  static const VerificationMeta _mutedByMemberIdsMeta = const VerificationMeta(
+    'mutedByMemberIds',
+  );
+  @override
+  late final GeneratedColumn<String> mutedByMemberIds = GeneratedColumn<String>(
+    'muted_by_member_ids',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _categoryIdMeta = const VerificationMeta(
+    'categoryId',
+  );
+  @override
+  late final GeneratedColumn<String> categoryId = GeneratedColumn<String>(
+    'category_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _displayOrderMeta = const VerificationMeta(
+    'displayOrder',
+  );
+  @override
+  late final GeneratedColumn<int> displayOrder = GeneratedColumn<int>(
+    'display_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    createdAt,
+    lastActivityAt,
+    title,
+    emoji,
+    isDirectMessage,
+    creatorId,
+    participantIds,
+    lastReadTimestamps,
+    archivedByMemberIds,
+    mutedByMemberIds,
+    description,
+    categoryId,
+    displayOrder,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'conversations';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Conversation> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('last_activity_at')) {
+      context.handle(
+        _lastActivityAtMeta,
+        lastActivityAt.isAcceptableOrUnknown(
+          data['last_activity_at']!,
+          _lastActivityAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lastActivityAtMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('emoji')) {
+      context.handle(
+        _emojiMeta,
+        emoji.isAcceptableOrUnknown(data['emoji']!, _emojiMeta),
+      );
+    }
+    if (data.containsKey('is_direct_message')) {
+      context.handle(
+        _isDirectMessageMeta,
+        isDirectMessage.isAcceptableOrUnknown(
+          data['is_direct_message']!,
+          _isDirectMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('creator_id')) {
+      context.handle(
+        _creatorIdMeta,
+        creatorId.isAcceptableOrUnknown(data['creator_id']!, _creatorIdMeta),
+      );
+    }
+    if (data.containsKey('participant_ids')) {
+      context.handle(
+        _participantIdsMeta,
+        participantIds.isAcceptableOrUnknown(
+          data['participant_ids']!,
+          _participantIdsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_read_timestamps')) {
+      context.handle(
+        _lastReadTimestampsMeta,
+        lastReadTimestamps.isAcceptableOrUnknown(
+          data['last_read_timestamps']!,
+          _lastReadTimestampsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('archived_by_member_ids')) {
+      context.handle(
+        _archivedByMemberIdsMeta,
+        archivedByMemberIds.isAcceptableOrUnknown(
+          data['archived_by_member_ids']!,
+          _archivedByMemberIdsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('muted_by_member_ids')) {
+      context.handle(
+        _mutedByMemberIdsMeta,
+        mutedByMemberIds.isAcceptableOrUnknown(
+          data['muted_by_member_ids']!,
+          _mutedByMemberIdsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('category_id')) {
+      context.handle(
+        _categoryIdMeta,
+        categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
+      );
+    }
+    if (data.containsKey('display_order')) {
+      context.handle(
+        _displayOrderMeta,
+        displayOrder.isAcceptableOrUnknown(
+          data['display_order']!,
+          _displayOrderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Conversation map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Conversation(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastActivityAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_activity_at'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
+      emoji: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emoji'],
+      ),
+      isDirectMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_direct_message'],
+      )!,
+      creatorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}creator_id'],
+      ),
+      participantIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}participant_ids'],
+      )!,
+      lastReadTimestamps: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_read_timestamps'],
+      )!,
+      archivedByMemberIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}archived_by_member_ids'],
+      )!,
+      mutedByMemberIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}muted_by_member_ids'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      categoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category_id'],
+      ),
+      displayOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}display_order'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $ConversationsTable createAlias(String alias) {
+    return $ConversationsTable(attachedDatabase, alias);
+  }
+}
+
+class Conversation extends DataClass implements Insertable<Conversation> {
+  final String id;
+  final DateTime createdAt;
+  final DateTime lastActivityAt;
+  final String? title;
+  final String? emoji;
+  final bool isDirectMessage;
+  final String? creatorId;
+  final String participantIds;
+  final String lastReadTimestamps;
+  final String archivedByMemberIds;
+  final String mutedByMemberIds;
+  final String? description;
+  final String? categoryId;
+  final int displayOrder;
+  final bool isDeleted;
+  const Conversation({
+    required this.id,
+    required this.createdAt,
+    required this.lastActivityAt,
+    this.title,
+    this.emoji,
+    required this.isDirectMessage,
+    this.creatorId,
+    required this.participantIds,
+    required this.lastReadTimestamps,
+    required this.archivedByMemberIds,
+    required this.mutedByMemberIds,
+    this.description,
+    this.categoryId,
+    required this.displayOrder,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['last_activity_at'] = Variable<DateTime>(lastActivityAt);
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
+    if (!nullToAbsent || emoji != null) {
+      map['emoji'] = Variable<String>(emoji);
+    }
+    map['is_direct_message'] = Variable<bool>(isDirectMessage);
+    if (!nullToAbsent || creatorId != null) {
+      map['creator_id'] = Variable<String>(creatorId);
+    }
+    map['participant_ids'] = Variable<String>(participantIds);
+    map['last_read_timestamps'] = Variable<String>(lastReadTimestamps);
+    map['archived_by_member_ids'] = Variable<String>(archivedByMemberIds);
+    map['muted_by_member_ids'] = Variable<String>(mutedByMemberIds);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || categoryId != null) {
+      map['category_id'] = Variable<String>(categoryId);
+    }
+    map['display_order'] = Variable<int>(displayOrder);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  ConversationsCompanion toCompanion(bool nullToAbsent) {
+    return ConversationsCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      lastActivityAt: Value(lastActivityAt),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
+      emoji: emoji == null && nullToAbsent
+          ? const Value.absent()
+          : Value(emoji),
+      isDirectMessage: Value(isDirectMessage),
+      creatorId: creatorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(creatorId),
+      participantIds: Value(participantIds),
+      lastReadTimestamps: Value(lastReadTimestamps),
+      archivedByMemberIds: Value(archivedByMemberIds),
+      mutedByMemberIds: Value(mutedByMemberIds),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      categoryId: categoryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(categoryId),
+      displayOrder: Value(displayOrder),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory Conversation.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Conversation(
+      id: serializer.fromJson<String>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lastActivityAt: serializer.fromJson<DateTime>(json['lastActivityAt']),
+      title: serializer.fromJson<String?>(json['title']),
+      emoji: serializer.fromJson<String?>(json['emoji']),
+      isDirectMessage: serializer.fromJson<bool>(json['isDirectMessage']),
+      creatorId: serializer.fromJson<String?>(json['creatorId']),
+      participantIds: serializer.fromJson<String>(json['participantIds']),
+      lastReadTimestamps: serializer.fromJson<String>(
+        json['lastReadTimestamps'],
+      ),
+      archivedByMemberIds: serializer.fromJson<String>(
+        json['archivedByMemberIds'],
+      ),
+      mutedByMemberIds: serializer.fromJson<String>(json['mutedByMemberIds']),
+      description: serializer.fromJson<String?>(json['description']),
+      categoryId: serializer.fromJson<String?>(json['categoryId']),
+      displayOrder: serializer.fromJson<int>(json['displayOrder']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lastActivityAt': serializer.toJson<DateTime>(lastActivityAt),
+      'title': serializer.toJson<String?>(title),
+      'emoji': serializer.toJson<String?>(emoji),
+      'isDirectMessage': serializer.toJson<bool>(isDirectMessage),
+      'creatorId': serializer.toJson<String?>(creatorId),
+      'participantIds': serializer.toJson<String>(participantIds),
+      'lastReadTimestamps': serializer.toJson<String>(lastReadTimestamps),
+      'archivedByMemberIds': serializer.toJson<String>(archivedByMemberIds),
+      'mutedByMemberIds': serializer.toJson<String>(mutedByMemberIds),
+      'description': serializer.toJson<String?>(description),
+      'categoryId': serializer.toJson<String?>(categoryId),
+      'displayOrder': serializer.toJson<int>(displayOrder),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  Conversation copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? lastActivityAt,
+    Value<String?> title = const Value.absent(),
+    Value<String?> emoji = const Value.absent(),
+    bool? isDirectMessage,
+    Value<String?> creatorId = const Value.absent(),
+    String? participantIds,
+    String? lastReadTimestamps,
+    String? archivedByMemberIds,
+    String? mutedByMemberIds,
+    Value<String?> description = const Value.absent(),
+    Value<String?> categoryId = const Value.absent(),
+    int? displayOrder,
+    bool? isDeleted,
+  }) => Conversation(
+    id: id ?? this.id,
+    createdAt: createdAt ?? this.createdAt,
+    lastActivityAt: lastActivityAt ?? this.lastActivityAt,
+    title: title.present ? title.value : this.title,
+    emoji: emoji.present ? emoji.value : this.emoji,
+    isDirectMessage: isDirectMessage ?? this.isDirectMessage,
+    creatorId: creatorId.present ? creatorId.value : this.creatorId,
+    participantIds: participantIds ?? this.participantIds,
+    lastReadTimestamps: lastReadTimestamps ?? this.lastReadTimestamps,
+    archivedByMemberIds: archivedByMemberIds ?? this.archivedByMemberIds,
+    mutedByMemberIds: mutedByMemberIds ?? this.mutedByMemberIds,
+    description: description.present ? description.value : this.description,
+    categoryId: categoryId.present ? categoryId.value : this.categoryId,
+    displayOrder: displayOrder ?? this.displayOrder,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  Conversation copyWithCompanion(ConversationsCompanion data) {
+    return Conversation(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastActivityAt: data.lastActivityAt.present
+          ? data.lastActivityAt.value
+          : this.lastActivityAt,
+      title: data.title.present ? data.title.value : this.title,
+      emoji: data.emoji.present ? data.emoji.value : this.emoji,
+      isDirectMessage: data.isDirectMessage.present
+          ? data.isDirectMessage.value
+          : this.isDirectMessage,
+      creatorId: data.creatorId.present ? data.creatorId.value : this.creatorId,
+      participantIds: data.participantIds.present
+          ? data.participantIds.value
+          : this.participantIds,
+      lastReadTimestamps: data.lastReadTimestamps.present
+          ? data.lastReadTimestamps.value
+          : this.lastReadTimestamps,
+      archivedByMemberIds: data.archivedByMemberIds.present
+          ? data.archivedByMemberIds.value
+          : this.archivedByMemberIds,
+      mutedByMemberIds: data.mutedByMemberIds.present
+          ? data.mutedByMemberIds.value
+          : this.mutedByMemberIds,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      categoryId: data.categoryId.present
+          ? data.categoryId.value
+          : this.categoryId,
+      displayOrder: data.displayOrder.present
+          ? data.displayOrder.value
+          : this.displayOrder,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Conversation(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastActivityAt: $lastActivityAt, ')
+          ..write('title: $title, ')
+          ..write('emoji: $emoji, ')
+          ..write('isDirectMessage: $isDirectMessage, ')
+          ..write('creatorId: $creatorId, ')
+          ..write('participantIds: $participantIds, ')
+          ..write('lastReadTimestamps: $lastReadTimestamps, ')
+          ..write('archivedByMemberIds: $archivedByMemberIds, ')
+          ..write('mutedByMemberIds: $mutedByMemberIds, ')
+          ..write('description: $description, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    createdAt,
+    lastActivityAt,
+    title,
+    emoji,
+    isDirectMessage,
+    creatorId,
+    participantIds,
+    lastReadTimestamps,
+    archivedByMemberIds,
+    mutedByMemberIds,
+    description,
+    categoryId,
+    displayOrder,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Conversation &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.lastActivityAt == this.lastActivityAt &&
+          other.title == this.title &&
+          other.emoji == this.emoji &&
+          other.isDirectMessage == this.isDirectMessage &&
+          other.creatorId == this.creatorId &&
+          other.participantIds == this.participantIds &&
+          other.lastReadTimestamps == this.lastReadTimestamps &&
+          other.archivedByMemberIds == this.archivedByMemberIds &&
+          other.mutedByMemberIds == this.mutedByMemberIds &&
+          other.description == this.description &&
+          other.categoryId == this.categoryId &&
+          other.displayOrder == this.displayOrder &&
+          other.isDeleted == this.isDeleted);
+}
+
+class ConversationsCompanion extends UpdateCompanion<Conversation> {
+  final Value<String> id;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> lastActivityAt;
+  final Value<String?> title;
+  final Value<String?> emoji;
+  final Value<bool> isDirectMessage;
+  final Value<String?> creatorId;
+  final Value<String> participantIds;
+  final Value<String> lastReadTimestamps;
+  final Value<String> archivedByMemberIds;
+  final Value<String> mutedByMemberIds;
+  final Value<String?> description;
+  final Value<String?> categoryId;
+  final Value<int> displayOrder;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const ConversationsCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastActivityAt = const Value.absent(),
+    this.title = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.isDirectMessage = const Value.absent(),
+    this.creatorId = const Value.absent(),
+    this.participantIds = const Value.absent(),
+    this.lastReadTimestamps = const Value.absent(),
+    this.archivedByMemberIds = const Value.absent(),
+    this.mutedByMemberIds = const Value.absent(),
+    this.description = const Value.absent(),
+    this.categoryId = const Value.absent(),
+    this.displayOrder = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ConversationsCompanion.insert({
+    required String id,
+    required DateTime createdAt,
+    required DateTime lastActivityAt,
+    this.title = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.isDirectMessage = const Value.absent(),
+    this.creatorId = const Value.absent(),
+    this.participantIds = const Value.absent(),
+    this.lastReadTimestamps = const Value.absent(),
+    this.archivedByMemberIds = const Value.absent(),
+    this.mutedByMemberIds = const Value.absent(),
+    this.description = const Value.absent(),
+    this.categoryId = const Value.absent(),
+    this.displayOrder = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       createdAt = Value(createdAt),
+       lastActivityAt = Value(lastActivityAt);
+  static Insertable<Conversation> custom({
+    Expression<String>? id,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastActivityAt,
+    Expression<String>? title,
+    Expression<String>? emoji,
+    Expression<bool>? isDirectMessage,
+    Expression<String>? creatorId,
+    Expression<String>? participantIds,
+    Expression<String>? lastReadTimestamps,
+    Expression<String>? archivedByMemberIds,
+    Expression<String>? mutedByMemberIds,
+    Expression<String>? description,
+    Expression<String>? categoryId,
+    Expression<int>? displayOrder,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastActivityAt != null) 'last_activity_at': lastActivityAt,
+      if (title != null) 'title': title,
+      if (emoji != null) 'emoji': emoji,
+      if (isDirectMessage != null) 'is_direct_message': isDirectMessage,
+      if (creatorId != null) 'creator_id': creatorId,
+      if (participantIds != null) 'participant_ids': participantIds,
+      if (lastReadTimestamps != null)
+        'last_read_timestamps': lastReadTimestamps,
+      if (archivedByMemberIds != null)
+        'archived_by_member_ids': archivedByMemberIds,
+      if (mutedByMemberIds != null) 'muted_by_member_ids': mutedByMemberIds,
+      if (description != null) 'description': description,
+      if (categoryId != null) 'category_id': categoryId,
+      if (displayOrder != null) 'display_order': displayOrder,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ConversationsCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? lastActivityAt,
+    Value<String?>? title,
+    Value<String?>? emoji,
+    Value<bool>? isDirectMessage,
+    Value<String?>? creatorId,
+    Value<String>? participantIds,
+    Value<String>? lastReadTimestamps,
+    Value<String>? archivedByMemberIds,
+    Value<String>? mutedByMemberIds,
+    Value<String?>? description,
+    Value<String?>? categoryId,
+    Value<int>? displayOrder,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return ConversationsCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      lastActivityAt: lastActivityAt ?? this.lastActivityAt,
+      title: title ?? this.title,
+      emoji: emoji ?? this.emoji,
+      isDirectMessage: isDirectMessage ?? this.isDirectMessage,
+      creatorId: creatorId ?? this.creatorId,
+      participantIds: participantIds ?? this.participantIds,
+      lastReadTimestamps: lastReadTimestamps ?? this.lastReadTimestamps,
+      archivedByMemberIds: archivedByMemberIds ?? this.archivedByMemberIds,
+      mutedByMemberIds: mutedByMemberIds ?? this.mutedByMemberIds,
+      description: description ?? this.description,
+      categoryId: categoryId ?? this.categoryId,
+      displayOrder: displayOrder ?? this.displayOrder,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastActivityAt.present) {
+      map['last_activity_at'] = Variable<DateTime>(lastActivityAt.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (emoji.present) {
+      map['emoji'] = Variable<String>(emoji.value);
+    }
+    if (isDirectMessage.present) {
+      map['is_direct_message'] = Variable<bool>(isDirectMessage.value);
+    }
+    if (creatorId.present) {
+      map['creator_id'] = Variable<String>(creatorId.value);
+    }
+    if (participantIds.present) {
+      map['participant_ids'] = Variable<String>(participantIds.value);
+    }
+    if (lastReadTimestamps.present) {
+      map['last_read_timestamps'] = Variable<String>(lastReadTimestamps.value);
+    }
+    if (archivedByMemberIds.present) {
+      map['archived_by_member_ids'] = Variable<String>(
+        archivedByMemberIds.value,
+      );
+    }
+    if (mutedByMemberIds.present) {
+      map['muted_by_member_ids'] = Variable<String>(mutedByMemberIds.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (categoryId.present) {
+      map['category_id'] = Variable<String>(categoryId.value);
+    }
+    if (displayOrder.present) {
+      map['display_order'] = Variable<int>(displayOrder.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ConversationsCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastActivityAt: $lastActivityAt, ')
+          ..write('title: $title, ')
+          ..write('emoji: $emoji, ')
+          ..write('isDirectMessage: $isDirectMessage, ')
+          ..write('creatorId: $creatorId, ')
+          ..write('participantIds: $participantIds, ')
+          ..write('lastReadTimestamps: $lastReadTimestamps, ')
+          ..write('archivedByMemberIds: $archivedByMemberIds, ')
+          ..write('mutedByMemberIds: $mutedByMemberIds, ')
+          ..write('description: $description, ')
+          ..write('categoryId: $categoryId, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ChatMessagesTable extends ChatMessages
+    with TableInfo<$ChatMessagesTable, ChatMessage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ChatMessagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timestampMeta = const VerificationMeta(
+    'timestamp',
+  );
+  @override
+  late final GeneratedColumn<DateTime> timestamp = GeneratedColumn<DateTime>(
+    'timestamp',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isSystemMessageMeta = const VerificationMeta(
+    'isSystemMessage',
+  );
+  @override
+  late final GeneratedColumn<bool> isSystemMessage = GeneratedColumn<bool>(
+    'is_system_message',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_system_message" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _editedAtMeta = const VerificationMeta(
+    'editedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> editedAt = GeneratedColumn<DateTime>(
+    'edited_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _authorIdMeta = const VerificationMeta(
+    'authorId',
+  );
+  @override
+  late final GeneratedColumn<String> authorId = GeneratedColumn<String>(
+    'author_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _conversationIdMeta = const VerificationMeta(
+    'conversationId',
+  );
+  @override
+  late final GeneratedColumn<String> conversationId = GeneratedColumn<String>(
+    'conversation_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _reactionsMeta = const VerificationMeta(
+    'reactions',
+  );
+  @override
+  late final GeneratedColumn<String> reactions = GeneratedColumn<String>(
+    'reactions',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _replyToIdMeta = const VerificationMeta(
+    'replyToId',
+  );
+  @override
+  late final GeneratedColumn<String> replyToId = GeneratedColumn<String>(
+    'reply_to_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _replyToAuthorIdMeta = const VerificationMeta(
+    'replyToAuthorId',
+  );
+  @override
+  late final GeneratedColumn<String> replyToAuthorId = GeneratedColumn<String>(
+    'reply_to_author_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _replyToContentMeta = const VerificationMeta(
+    'replyToContent',
+  );
+  @override
+  late final GeneratedColumn<String> replyToContent = GeneratedColumn<String>(
+    'reply_to_content',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    content,
+    timestamp,
+    isSystemMessage,
+    editedAt,
+    authorId,
+    conversationId,
+    reactions,
+    replyToId,
+    replyToAuthorId,
+    replyToContent,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'chat_messages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ChatMessage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('timestamp')) {
+      context.handle(
+        _timestampMeta,
+        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timestampMeta);
+    }
+    if (data.containsKey('is_system_message')) {
+      context.handle(
+        _isSystemMessageMeta,
+        isSystemMessage.isAcceptableOrUnknown(
+          data['is_system_message']!,
+          _isSystemMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('edited_at')) {
+      context.handle(
+        _editedAtMeta,
+        editedAt.isAcceptableOrUnknown(data['edited_at']!, _editedAtMeta),
+      );
+    }
+    if (data.containsKey('author_id')) {
+      context.handle(
+        _authorIdMeta,
+        authorId.isAcceptableOrUnknown(data['author_id']!, _authorIdMeta),
+      );
+    }
+    if (data.containsKey('conversation_id')) {
+      context.handle(
+        _conversationIdMeta,
+        conversationId.isAcceptableOrUnknown(
+          data['conversation_id']!,
+          _conversationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_conversationIdMeta);
+    }
+    if (data.containsKey('reactions')) {
+      context.handle(
+        _reactionsMeta,
+        reactions.isAcceptableOrUnknown(data['reactions']!, _reactionsMeta),
+      );
+    }
+    if (data.containsKey('reply_to_id')) {
+      context.handle(
+        _replyToIdMeta,
+        replyToId.isAcceptableOrUnknown(data['reply_to_id']!, _replyToIdMeta),
+      );
+    }
+    if (data.containsKey('reply_to_author_id')) {
+      context.handle(
+        _replyToAuthorIdMeta,
+        replyToAuthorId.isAcceptableOrUnknown(
+          data['reply_to_author_id']!,
+          _replyToAuthorIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reply_to_content')) {
+      context.handle(
+        _replyToContentMeta,
+        replyToContent.isAcceptableOrUnknown(
+          data['reply_to_content']!,
+          _replyToContentMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ChatMessage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ChatMessage(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      timestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}timestamp'],
+      )!,
+      isSystemMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_system_message'],
+      )!,
+      editedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}edited_at'],
+      ),
+      authorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}author_id'],
+      ),
+      conversationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}conversation_id'],
+      )!,
+      reactions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reactions'],
+      )!,
+      replyToId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reply_to_id'],
+      ),
+      replyToAuthorId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reply_to_author_id'],
+      ),
+      replyToContent: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reply_to_content'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $ChatMessagesTable createAlias(String alias) {
+    return $ChatMessagesTable(attachedDatabase, alias);
+  }
+}
+
+class ChatMessage extends DataClass implements Insertable<ChatMessage> {
+  final String id;
+  final String content;
+  final DateTime timestamp;
+  final bool isSystemMessage;
+  final DateTime? editedAt;
+  final String? authorId;
+  final String conversationId;
+  final String reactions;
+  final String? replyToId;
+  final String? replyToAuthorId;
+  final String? replyToContent;
+  final bool isDeleted;
+  const ChatMessage({
+    required this.id,
+    required this.content,
+    required this.timestamp,
+    required this.isSystemMessage,
+    this.editedAt,
+    this.authorId,
+    required this.conversationId,
+    required this.reactions,
+    this.replyToId,
+    this.replyToAuthorId,
+    this.replyToContent,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['content'] = Variable<String>(content);
+    map['timestamp'] = Variable<DateTime>(timestamp);
+    map['is_system_message'] = Variable<bool>(isSystemMessage);
+    if (!nullToAbsent || editedAt != null) {
+      map['edited_at'] = Variable<DateTime>(editedAt);
+    }
+    if (!nullToAbsent || authorId != null) {
+      map['author_id'] = Variable<String>(authorId);
+    }
+    map['conversation_id'] = Variable<String>(conversationId);
+    map['reactions'] = Variable<String>(reactions);
+    if (!nullToAbsent || replyToId != null) {
+      map['reply_to_id'] = Variable<String>(replyToId);
+    }
+    if (!nullToAbsent || replyToAuthorId != null) {
+      map['reply_to_author_id'] = Variable<String>(replyToAuthorId);
+    }
+    if (!nullToAbsent || replyToContent != null) {
+      map['reply_to_content'] = Variable<String>(replyToContent);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  ChatMessagesCompanion toCompanion(bool nullToAbsent) {
+    return ChatMessagesCompanion(
+      id: Value(id),
+      content: Value(content),
+      timestamp: Value(timestamp),
+      isSystemMessage: Value(isSystemMessage),
+      editedAt: editedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(editedAt),
+      authorId: authorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(authorId),
+      conversationId: Value(conversationId),
+      reactions: Value(reactions),
+      replyToId: replyToId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replyToId),
+      replyToAuthorId: replyToAuthorId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replyToAuthorId),
+      replyToContent: replyToContent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(replyToContent),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory ChatMessage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ChatMessage(
+      id: serializer.fromJson<String>(json['id']),
+      content: serializer.fromJson<String>(json['content']),
+      timestamp: serializer.fromJson<DateTime>(json['timestamp']),
+      isSystemMessage: serializer.fromJson<bool>(json['isSystemMessage']),
+      editedAt: serializer.fromJson<DateTime?>(json['editedAt']),
+      authorId: serializer.fromJson<String?>(json['authorId']),
+      conversationId: serializer.fromJson<String>(json['conversationId']),
+      reactions: serializer.fromJson<String>(json['reactions']),
+      replyToId: serializer.fromJson<String?>(json['replyToId']),
+      replyToAuthorId: serializer.fromJson<String?>(json['replyToAuthorId']),
+      replyToContent: serializer.fromJson<String?>(json['replyToContent']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'content': serializer.toJson<String>(content),
+      'timestamp': serializer.toJson<DateTime>(timestamp),
+      'isSystemMessage': serializer.toJson<bool>(isSystemMessage),
+      'editedAt': serializer.toJson<DateTime?>(editedAt),
+      'authorId': serializer.toJson<String?>(authorId),
+      'conversationId': serializer.toJson<String>(conversationId),
+      'reactions': serializer.toJson<String>(reactions),
+      'replyToId': serializer.toJson<String?>(replyToId),
+      'replyToAuthorId': serializer.toJson<String?>(replyToAuthorId),
+      'replyToContent': serializer.toJson<String?>(replyToContent),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  ChatMessage copyWith({
+    String? id,
+    String? content,
+    DateTime? timestamp,
+    bool? isSystemMessage,
+    Value<DateTime?> editedAt = const Value.absent(),
+    Value<String?> authorId = const Value.absent(),
+    String? conversationId,
+    String? reactions,
+    Value<String?> replyToId = const Value.absent(),
+    Value<String?> replyToAuthorId = const Value.absent(),
+    Value<String?> replyToContent = const Value.absent(),
+    bool? isDeleted,
+  }) => ChatMessage(
+    id: id ?? this.id,
+    content: content ?? this.content,
+    timestamp: timestamp ?? this.timestamp,
+    isSystemMessage: isSystemMessage ?? this.isSystemMessage,
+    editedAt: editedAt.present ? editedAt.value : this.editedAt,
+    authorId: authorId.present ? authorId.value : this.authorId,
+    conversationId: conversationId ?? this.conversationId,
+    reactions: reactions ?? this.reactions,
+    replyToId: replyToId.present ? replyToId.value : this.replyToId,
+    replyToAuthorId: replyToAuthorId.present
+        ? replyToAuthorId.value
+        : this.replyToAuthorId,
+    replyToContent: replyToContent.present
+        ? replyToContent.value
+        : this.replyToContent,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  ChatMessage copyWithCompanion(ChatMessagesCompanion data) {
+    return ChatMessage(
+      id: data.id.present ? data.id.value : this.id,
+      content: data.content.present ? data.content.value : this.content,
+      timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+      isSystemMessage: data.isSystemMessage.present
+          ? data.isSystemMessage.value
+          : this.isSystemMessage,
+      editedAt: data.editedAt.present ? data.editedAt.value : this.editedAt,
+      authorId: data.authorId.present ? data.authorId.value : this.authorId,
+      conversationId: data.conversationId.present
+          ? data.conversationId.value
+          : this.conversationId,
+      reactions: data.reactions.present ? data.reactions.value : this.reactions,
+      replyToId: data.replyToId.present ? data.replyToId.value : this.replyToId,
+      replyToAuthorId: data.replyToAuthorId.present
+          ? data.replyToAuthorId.value
+          : this.replyToAuthorId,
+      replyToContent: data.replyToContent.present
+          ? data.replyToContent.value
+          : this.replyToContent,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatMessage(')
+          ..write('id: $id, ')
+          ..write('content: $content, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('isSystemMessage: $isSystemMessage, ')
+          ..write('editedAt: $editedAt, ')
+          ..write('authorId: $authorId, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('reactions: $reactions, ')
+          ..write('replyToId: $replyToId, ')
+          ..write('replyToAuthorId: $replyToAuthorId, ')
+          ..write('replyToContent: $replyToContent, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    content,
+    timestamp,
+    isSystemMessage,
+    editedAt,
+    authorId,
+    conversationId,
+    reactions,
+    replyToId,
+    replyToAuthorId,
+    replyToContent,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChatMessage &&
+          other.id == this.id &&
+          other.content == this.content &&
+          other.timestamp == this.timestamp &&
+          other.isSystemMessage == this.isSystemMessage &&
+          other.editedAt == this.editedAt &&
+          other.authorId == this.authorId &&
+          other.conversationId == this.conversationId &&
+          other.reactions == this.reactions &&
+          other.replyToId == this.replyToId &&
+          other.replyToAuthorId == this.replyToAuthorId &&
+          other.replyToContent == this.replyToContent &&
+          other.isDeleted == this.isDeleted);
+}
+
+class ChatMessagesCompanion extends UpdateCompanion<ChatMessage> {
+  final Value<String> id;
+  final Value<String> content;
+  final Value<DateTime> timestamp;
+  final Value<bool> isSystemMessage;
+  final Value<DateTime?> editedAt;
+  final Value<String?> authorId;
+  final Value<String> conversationId;
+  final Value<String> reactions;
+  final Value<String?> replyToId;
+  final Value<String?> replyToAuthorId;
+  final Value<String?> replyToContent;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const ChatMessagesCompanion({
+    this.id = const Value.absent(),
+    this.content = const Value.absent(),
+    this.timestamp = const Value.absent(),
+    this.isSystemMessage = const Value.absent(),
+    this.editedAt = const Value.absent(),
+    this.authorId = const Value.absent(),
+    this.conversationId = const Value.absent(),
+    this.reactions = const Value.absent(),
+    this.replyToId = const Value.absent(),
+    this.replyToAuthorId = const Value.absent(),
+    this.replyToContent = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ChatMessagesCompanion.insert({
+    required String id,
+    required String content,
+    required DateTime timestamp,
+    this.isSystemMessage = const Value.absent(),
+    this.editedAt = const Value.absent(),
+    this.authorId = const Value.absent(),
+    required String conversationId,
+    this.reactions = const Value.absent(),
+    this.replyToId = const Value.absent(),
+    this.replyToAuthorId = const Value.absent(),
+    this.replyToContent = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       content = Value(content),
+       timestamp = Value(timestamp),
+       conversationId = Value(conversationId);
+  static Insertable<ChatMessage> custom({
+    Expression<String>? id,
+    Expression<String>? content,
+    Expression<DateTime>? timestamp,
+    Expression<bool>? isSystemMessage,
+    Expression<DateTime>? editedAt,
+    Expression<String>? authorId,
+    Expression<String>? conversationId,
+    Expression<String>? reactions,
+    Expression<String>? replyToId,
+    Expression<String>? replyToAuthorId,
+    Expression<String>? replyToContent,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (content != null) 'content': content,
+      if (timestamp != null) 'timestamp': timestamp,
+      if (isSystemMessage != null) 'is_system_message': isSystemMessage,
+      if (editedAt != null) 'edited_at': editedAt,
+      if (authorId != null) 'author_id': authorId,
+      if (conversationId != null) 'conversation_id': conversationId,
+      if (reactions != null) 'reactions': reactions,
+      if (replyToId != null) 'reply_to_id': replyToId,
+      if (replyToAuthorId != null) 'reply_to_author_id': replyToAuthorId,
+      if (replyToContent != null) 'reply_to_content': replyToContent,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ChatMessagesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? content,
+    Value<DateTime>? timestamp,
+    Value<bool>? isSystemMessage,
+    Value<DateTime?>? editedAt,
+    Value<String?>? authorId,
+    Value<String>? conversationId,
+    Value<String>? reactions,
+    Value<String?>? replyToId,
+    Value<String?>? replyToAuthorId,
+    Value<String?>? replyToContent,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return ChatMessagesCompanion(
+      id: id ?? this.id,
+      content: content ?? this.content,
+      timestamp: timestamp ?? this.timestamp,
+      isSystemMessage: isSystemMessage ?? this.isSystemMessage,
+      editedAt: editedAt ?? this.editedAt,
+      authorId: authorId ?? this.authorId,
+      conversationId: conversationId ?? this.conversationId,
+      reactions: reactions ?? this.reactions,
+      replyToId: replyToId ?? this.replyToId,
+      replyToAuthorId: replyToAuthorId ?? this.replyToAuthorId,
+      replyToContent: replyToContent ?? this.replyToContent,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (timestamp.present) {
+      map['timestamp'] = Variable<DateTime>(timestamp.value);
+    }
+    if (isSystemMessage.present) {
+      map['is_system_message'] = Variable<bool>(isSystemMessage.value);
+    }
+    if (editedAt.present) {
+      map['edited_at'] = Variable<DateTime>(editedAt.value);
+    }
+    if (authorId.present) {
+      map['author_id'] = Variable<String>(authorId.value);
+    }
+    if (conversationId.present) {
+      map['conversation_id'] = Variable<String>(conversationId.value);
+    }
+    if (reactions.present) {
+      map['reactions'] = Variable<String>(reactions.value);
+    }
+    if (replyToId.present) {
+      map['reply_to_id'] = Variable<String>(replyToId.value);
+    }
+    if (replyToAuthorId.present) {
+      map['reply_to_author_id'] = Variable<String>(replyToAuthorId.value);
+    }
+    if (replyToContent.present) {
+      map['reply_to_content'] = Variable<String>(replyToContent.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ChatMessagesCompanion(')
+          ..write('id: $id, ')
+          ..write('content: $content, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('isSystemMessage: $isSystemMessage, ')
+          ..write('editedAt: $editedAt, ')
+          ..write('authorId: $authorId, ')
+          ..write('conversationId: $conversationId, ')
+          ..write('reactions: $reactions, ')
+          ..write('replyToId: $replyToId, ')
+          ..write('replyToAuthorId: $replyToAuthorId, ')
+          ..write('replyToContent: $replyToContent, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SystemSettingsTableTable extends SystemSettingsTable
+    with TableInfo<$SystemSettingsTableTable, SystemSettingsData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SystemSettingsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('singleton'),
+  );
+  static const VerificationMeta _systemNameMeta = const VerificationMeta(
+    'systemName',
+  );
+  @override
+  late final GeneratedColumn<String> systemName = GeneratedColumn<String>(
+    'system_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _showQuickFrontMeta = const VerificationMeta(
+    'showQuickFront',
+  );
+  @override
+  late final GeneratedColumn<bool> showQuickFront = GeneratedColumn<bool>(
+    'show_quick_front',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("show_quick_front" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _accentColorHexMeta = const VerificationMeta(
+    'accentColorHex',
+  );
+  @override
+  late final GeneratedColumn<String> accentColorHex = GeneratedColumn<String>(
+    'accent_color_hex',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('#AF8EE9'),
+  );
+  static const VerificationMeta _perMemberAccentColorsMeta =
+      const VerificationMeta('perMemberAccentColors');
+  @override
+  late final GeneratedColumn<bool> perMemberAccentColors =
+      GeneratedColumn<bool>(
+        'per_member_accent_colors',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("per_member_accent_colors" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _terminologyMeta = const VerificationMeta(
+    'terminology',
+  );
+  @override
+  late final GeneratedColumn<int> terminology = GeneratedColumn<int>(
+    'terminology',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _customTerminologyMeta = const VerificationMeta(
+    'customTerminology',
+  );
+  @override
+  late final GeneratedColumn<String> customTerminology =
+      GeneratedColumn<String>(
+        'custom_terminology',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _customPluralTerminologyMeta =
+      const VerificationMeta('customPluralTerminology');
+  @override
+  late final GeneratedColumn<String> customPluralTerminology =
+      GeneratedColumn<String>(
+        'custom_plural_terminology',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _frontingRemindersEnabledMeta =
+      const VerificationMeta('frontingRemindersEnabled');
+  @override
+  late final GeneratedColumn<bool> frontingRemindersEnabled =
+      GeneratedColumn<bool>(
+        'fronting_reminders_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("fronting_reminders_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _frontingReminderIntervalMinutesMeta =
+      const VerificationMeta('frontingReminderIntervalMinutes');
+  @override
+  late final GeneratedColumn<int> frontingReminderIntervalMinutes =
+      GeneratedColumn<int>(
+        'fronting_reminder_interval_minutes',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(60),
+      );
+  static const VerificationMeta _themeModeMeta = const VerificationMeta(
+    'themeMode',
+  );
+  @override
+  late final GeneratedColumn<int> themeMode = GeneratedColumn<int>(
+    'theme_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _themeBrightnessMeta = const VerificationMeta(
+    'themeBrightness',
+  );
+  @override
+  late final GeneratedColumn<int> themeBrightness = GeneratedColumn<int>(
+    'theme_brightness',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _themeStyleMeta = const VerificationMeta(
+    'themeStyle',
+  );
+  @override
+  late final GeneratedColumn<int> themeStyle = GeneratedColumn<int>(
+    'theme_style',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _chatEnabledMeta = const VerificationMeta(
+    'chatEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> chatEnabled = GeneratedColumn<bool>(
+    'chat_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("chat_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _pollsEnabledMeta = const VerificationMeta(
+    'pollsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> pollsEnabled = GeneratedColumn<bool>(
+    'polls_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("polls_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _habitsEnabledMeta = const VerificationMeta(
+    'habitsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> habitsEnabled = GeneratedColumn<bool>(
+    'habits_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("habits_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _sleepTrackingEnabledMeta =
+      const VerificationMeta('sleepTrackingEnabled');
+  @override
+  late final GeneratedColumn<bool> sleepTrackingEnabled = GeneratedColumn<bool>(
+    'sleep_tracking_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sleep_tracking_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _quickSwitchThresholdSecondsMeta =
+      const VerificationMeta('quickSwitchThresholdSeconds');
+  @override
+  late final GeneratedColumn<int> quickSwitchThresholdSeconds =
+      GeneratedColumn<int>(
+        'quick_switch_threshold_seconds',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(30),
+      );
+  static const VerificationMeta _chatLogsFrontMeta = const VerificationMeta(
+    'chatLogsFront',
+  );
+  @override
+  late final GeneratedColumn<bool> chatLogsFront = GeneratedColumn<bool>(
+    'chat_logs_front',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("chat_logs_front" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _hasCompletedOnboardingMeta =
+      const VerificationMeta('hasCompletedOnboarding');
+  @override
+  late final GeneratedColumn<bool> hasCompletedOnboarding =
+      GeneratedColumn<bool>(
+        'has_completed_onboarding',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("has_completed_onboarding" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _syncThemeEnabledMeta = const VerificationMeta(
+    'syncThemeEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> syncThemeEnabled = GeneratedColumn<bool>(
+    'sync_theme_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sync_theme_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _timingModeMeta = const VerificationMeta(
+    'timingMode',
+  );
+  @override
+  late final GeneratedColumn<int> timingMode = GeneratedColumn<int>(
+    'timing_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _habitsBadgeEnabledMeta =
+      const VerificationMeta('habitsBadgeEnabled');
+  @override
+  late final GeneratedColumn<bool> habitsBadgeEnabled = GeneratedColumn<bool>(
+    'habits_badge_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("habits_badge_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _notesEnabledMeta = const VerificationMeta(
+    'notesEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> notesEnabled = GeneratedColumn<bool>(
+    'notes_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("notes_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _systemDescriptionMeta = const VerificationMeta(
+    'systemDescription',
+  );
+  @override
+  late final GeneratedColumn<String> systemDescription =
+      GeneratedColumn<String>(
+        'system_description',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _systemAvatarDataMeta = const VerificationMeta(
+    'systemAvatarData',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> systemAvatarData =
+      GeneratedColumn<Uint8List>(
+        'system_avatar_data',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _remindersEnabledMeta = const VerificationMeta(
+    'remindersEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> remindersEnabled = GeneratedColumn<bool>(
+    'reminders_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("reminders_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _fontScaleMeta = const VerificationMeta(
+    'fontScale',
+  );
+  @override
+  late final GeneratedColumn<double> fontScale = GeneratedColumn<double>(
+    'font_scale',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
+  static const VerificationMeta _fontFamilyMeta = const VerificationMeta(
+    'fontFamily',
+  );
+  @override
+  late final GeneratedColumn<int> fontFamily = GeneratedColumn<int>(
+    'font_family',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _pinLockEnabledMeta = const VerificationMeta(
+    'pinLockEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> pinLockEnabled = GeneratedColumn<bool>(
+    'pin_lock_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pin_lock_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _biometricLockEnabledMeta =
+      const VerificationMeta('biometricLockEnabled');
+  @override
+  late final GeneratedColumn<bool> biometricLockEnabled = GeneratedColumn<bool>(
+    'biometric_lock_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("biometric_lock_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _autoLockDelaySecondsMeta =
+      const VerificationMeta('autoLockDelaySeconds');
+  @override
+  late final GeneratedColumn<int> autoLockDelaySeconds = GeneratedColumn<int>(
+    'auto_lock_delay_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _previousAccentColorHexMeta =
+      const VerificationMeta('previousAccentColorHex');
+  @override
+  late final GeneratedColumn<String> previousAccentColorHex =
+      GeneratedColumn<String>(
+        'previous_accent_color_hex',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
+  static const VerificationMeta _navBarItemsMeta = const VerificationMeta(
+    'navBarItems',
+  );
+  @override
+  late final GeneratedColumn<String> navBarItems = GeneratedColumn<String>(
+    'nav_bar_items',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _navBarOverflowItemsMeta =
+      const VerificationMeta('navBarOverflowItems');
+  @override
+  late final GeneratedColumn<String> navBarOverflowItems =
+      GeneratedColumn<String>(
+        'nav_bar_overflow_items',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
+  static const VerificationMeta _syncNavigationEnabledMeta =
+      const VerificationMeta('syncNavigationEnabled');
+  @override
+  late final GeneratedColumn<bool> syncNavigationEnabled =
+      GeneratedColumn<bool>(
+        'sync_navigation_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("sync_navigation_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
+  static const VerificationMeta _chatBadgePreferencesMeta =
+      const VerificationMeta('chatBadgePreferences');
+  @override
+  late final GeneratedColumn<String> chatBadgePreferences =
+      GeneratedColumn<String>(
+        'chat_badge_preferences',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('{}'),
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    systemName,
+    showQuickFront,
+    accentColorHex,
+    perMemberAccentColors,
+    terminology,
+    customTerminology,
+    customPluralTerminology,
+    frontingRemindersEnabled,
+    frontingReminderIntervalMinutes,
+    themeMode,
+    themeBrightness,
+    themeStyle,
+    chatEnabled,
+    pollsEnabled,
+    habitsEnabled,
+    sleepTrackingEnabled,
+    quickSwitchThresholdSeconds,
+    chatLogsFront,
+    hasCompletedOnboarding,
+    syncThemeEnabled,
+    timingMode,
+    habitsBadgeEnabled,
+    notesEnabled,
+    systemDescription,
+    systemAvatarData,
+    remindersEnabled,
+    fontScale,
+    fontFamily,
+    pinLockEnabled,
+    biometricLockEnabled,
+    autoLockDelaySeconds,
+    isDeleted,
+    previousAccentColorHex,
+    navBarItems,
+    navBarOverflowItems,
+    syncNavigationEnabled,
+    chatBadgePreferences,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'system_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SystemSettingsData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('system_name')) {
+      context.handle(
+        _systemNameMeta,
+        systemName.isAcceptableOrUnknown(data['system_name']!, _systemNameMeta),
+      );
+    }
+    if (data.containsKey('show_quick_front')) {
+      context.handle(
+        _showQuickFrontMeta,
+        showQuickFront.isAcceptableOrUnknown(
+          data['show_quick_front']!,
+          _showQuickFrontMeta,
+        ),
+      );
+    }
+    if (data.containsKey('accent_color_hex')) {
+      context.handle(
+        _accentColorHexMeta,
+        accentColorHex.isAcceptableOrUnknown(
+          data['accent_color_hex']!,
+          _accentColorHexMeta,
+        ),
+      );
+    }
+    if (data.containsKey('per_member_accent_colors')) {
+      context.handle(
+        _perMemberAccentColorsMeta,
+        perMemberAccentColors.isAcceptableOrUnknown(
+          data['per_member_accent_colors']!,
+          _perMemberAccentColorsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('terminology')) {
+      context.handle(
+        _terminologyMeta,
+        terminology.isAcceptableOrUnknown(
+          data['terminology']!,
+          _terminologyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_terminology')) {
+      context.handle(
+        _customTerminologyMeta,
+        customTerminology.isAcceptableOrUnknown(
+          data['custom_terminology']!,
+          _customTerminologyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_plural_terminology')) {
+      context.handle(
+        _customPluralTerminologyMeta,
+        customPluralTerminology.isAcceptableOrUnknown(
+          data['custom_plural_terminology']!,
+          _customPluralTerminologyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fronting_reminders_enabled')) {
+      context.handle(
+        _frontingRemindersEnabledMeta,
+        frontingRemindersEnabled.isAcceptableOrUnknown(
+          data['fronting_reminders_enabled']!,
+          _frontingRemindersEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fronting_reminder_interval_minutes')) {
+      context.handle(
+        _frontingReminderIntervalMinutesMeta,
+        frontingReminderIntervalMinutes.isAcceptableOrUnknown(
+          data['fronting_reminder_interval_minutes']!,
+          _frontingReminderIntervalMinutesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('theme_mode')) {
+      context.handle(
+        _themeModeMeta,
+        themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta),
+      );
+    }
+    if (data.containsKey('theme_brightness')) {
+      context.handle(
+        _themeBrightnessMeta,
+        themeBrightness.isAcceptableOrUnknown(
+          data['theme_brightness']!,
+          _themeBrightnessMeta,
+        ),
+      );
+    }
+    if (data.containsKey('theme_style')) {
+      context.handle(
+        _themeStyleMeta,
+        themeStyle.isAcceptableOrUnknown(data['theme_style']!, _themeStyleMeta),
+      );
+    }
+    if (data.containsKey('chat_enabled')) {
+      context.handle(
+        _chatEnabledMeta,
+        chatEnabled.isAcceptableOrUnknown(
+          data['chat_enabled']!,
+          _chatEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('polls_enabled')) {
+      context.handle(
+        _pollsEnabledMeta,
+        pollsEnabled.isAcceptableOrUnknown(
+          data['polls_enabled']!,
+          _pollsEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('habits_enabled')) {
+      context.handle(
+        _habitsEnabledMeta,
+        habitsEnabled.isAcceptableOrUnknown(
+          data['habits_enabled']!,
+          _habitsEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sleep_tracking_enabled')) {
+      context.handle(
+        _sleepTrackingEnabledMeta,
+        sleepTrackingEnabled.isAcceptableOrUnknown(
+          data['sleep_tracking_enabled']!,
+          _sleepTrackingEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('quick_switch_threshold_seconds')) {
+      context.handle(
+        _quickSwitchThresholdSecondsMeta,
+        quickSwitchThresholdSeconds.isAcceptableOrUnknown(
+          data['quick_switch_threshold_seconds']!,
+          _quickSwitchThresholdSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('chat_logs_front')) {
+      context.handle(
+        _chatLogsFrontMeta,
+        chatLogsFront.isAcceptableOrUnknown(
+          data['chat_logs_front']!,
+          _chatLogsFrontMeta,
+        ),
+      );
+    }
+    if (data.containsKey('has_completed_onboarding')) {
+      context.handle(
+        _hasCompletedOnboardingMeta,
+        hasCompletedOnboarding.isAcceptableOrUnknown(
+          data['has_completed_onboarding']!,
+          _hasCompletedOnboardingMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sync_theme_enabled')) {
+      context.handle(
+        _syncThemeEnabledMeta,
+        syncThemeEnabled.isAcceptableOrUnknown(
+          data['sync_theme_enabled']!,
+          _syncThemeEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('timing_mode')) {
+      context.handle(
+        _timingModeMeta,
+        timingMode.isAcceptableOrUnknown(data['timing_mode']!, _timingModeMeta),
+      );
+    }
+    if (data.containsKey('habits_badge_enabled')) {
+      context.handle(
+        _habitsBadgeEnabledMeta,
+        habitsBadgeEnabled.isAcceptableOrUnknown(
+          data['habits_badge_enabled']!,
+          _habitsBadgeEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes_enabled')) {
+      context.handle(
+        _notesEnabledMeta,
+        notesEnabled.isAcceptableOrUnknown(
+          data['notes_enabled']!,
+          _notesEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('system_description')) {
+      context.handle(
+        _systemDescriptionMeta,
+        systemDescription.isAcceptableOrUnknown(
+          data['system_description']!,
+          _systemDescriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('system_avatar_data')) {
+      context.handle(
+        _systemAvatarDataMeta,
+        systemAvatarData.isAcceptableOrUnknown(
+          data['system_avatar_data']!,
+          _systemAvatarDataMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminders_enabled')) {
+      context.handle(
+        _remindersEnabledMeta,
+        remindersEnabled.isAcceptableOrUnknown(
+          data['reminders_enabled']!,
+          _remindersEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('font_scale')) {
+      context.handle(
+        _fontScaleMeta,
+        fontScale.isAcceptableOrUnknown(data['font_scale']!, _fontScaleMeta),
+      );
+    }
+    if (data.containsKey('font_family')) {
+      context.handle(
+        _fontFamilyMeta,
+        fontFamily.isAcceptableOrUnknown(data['font_family']!, _fontFamilyMeta),
+      );
+    }
+    if (data.containsKey('pin_lock_enabled')) {
+      context.handle(
+        _pinLockEnabledMeta,
+        pinLockEnabled.isAcceptableOrUnknown(
+          data['pin_lock_enabled']!,
+          _pinLockEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('biometric_lock_enabled')) {
+      context.handle(
+        _biometricLockEnabledMeta,
+        biometricLockEnabled.isAcceptableOrUnknown(
+          data['biometric_lock_enabled']!,
+          _biometricLockEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('auto_lock_delay_seconds')) {
+      context.handle(
+        _autoLockDelaySecondsMeta,
+        autoLockDelaySeconds.isAcceptableOrUnknown(
+          data['auto_lock_delay_seconds']!,
+          _autoLockDelaySecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    if (data.containsKey('previous_accent_color_hex')) {
+      context.handle(
+        _previousAccentColorHexMeta,
+        previousAccentColorHex.isAcceptableOrUnknown(
+          data['previous_accent_color_hex']!,
+          _previousAccentColorHexMeta,
+        ),
+      );
+    }
+    if (data.containsKey('nav_bar_items')) {
+      context.handle(
+        _navBarItemsMeta,
+        navBarItems.isAcceptableOrUnknown(
+          data['nav_bar_items']!,
+          _navBarItemsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('nav_bar_overflow_items')) {
+      context.handle(
+        _navBarOverflowItemsMeta,
+        navBarOverflowItems.isAcceptableOrUnknown(
+          data['nav_bar_overflow_items']!,
+          _navBarOverflowItemsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sync_navigation_enabled')) {
+      context.handle(
+        _syncNavigationEnabledMeta,
+        syncNavigationEnabled.isAcceptableOrUnknown(
+          data['sync_navigation_enabled']!,
+          _syncNavigationEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('chat_badge_preferences')) {
+      context.handle(
+        _chatBadgePreferencesMeta,
+        chatBadgePreferences.isAcceptableOrUnknown(
+          data['chat_badge_preferences']!,
+          _chatBadgePreferencesMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SystemSettingsData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SystemSettingsData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      systemName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}system_name'],
+      ),
+      showQuickFront: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}show_quick_front'],
+      )!,
+      accentColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}accent_color_hex'],
+      )!,
+      perMemberAccentColors: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}per_member_accent_colors'],
+      )!,
+      terminology: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}terminology'],
+      )!,
+      customTerminology: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_terminology'],
+      ),
+      customPluralTerminology: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_plural_terminology'],
+      ),
+      frontingRemindersEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}fronting_reminders_enabled'],
+      )!,
+      frontingReminderIntervalMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fronting_reminder_interval_minutes'],
+      )!,
+      themeMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}theme_mode'],
+      )!,
+      themeBrightness: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}theme_brightness'],
+      )!,
+      themeStyle: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}theme_style'],
+      )!,
+      chatEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}chat_enabled'],
+      )!,
+      pollsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}polls_enabled'],
+      )!,
+      habitsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}habits_enabled'],
+      )!,
+      sleepTrackingEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sleep_tracking_enabled'],
+      )!,
+      quickSwitchThresholdSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quick_switch_threshold_seconds'],
+      )!,
+      chatLogsFront: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}chat_logs_front'],
+      )!,
+      hasCompletedOnboarding: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_completed_onboarding'],
+      )!,
+      syncThemeEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sync_theme_enabled'],
+      )!,
+      timingMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}timing_mode'],
+      )!,
+      habitsBadgeEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}habits_badge_enabled'],
+      )!,
+      notesEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}notes_enabled'],
+      )!,
+      systemDescription: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}system_description'],
+      ),
+      systemAvatarData: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}system_avatar_data'],
+      ),
+      remindersEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}reminders_enabled'],
+      )!,
+      fontScale: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}font_scale'],
+      )!,
+      fontFamily: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}font_family'],
+      )!,
+      pinLockEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pin_lock_enabled'],
+      )!,
+      biometricLockEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}biometric_lock_enabled'],
+      )!,
+      autoLockDelaySeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}auto_lock_delay_seconds'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+      previousAccentColorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}previous_accent_color_hex'],
+      )!,
+      navBarItems: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nav_bar_items'],
+      )!,
+      navBarOverflowItems: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}nav_bar_overflow_items'],
+      )!,
+      syncNavigationEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sync_navigation_enabled'],
+      )!,
+      chatBadgePreferences: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}chat_badge_preferences'],
+      )!,
+    );
+  }
+
+  @override
+  $SystemSettingsTableTable createAlias(String alias) {
+    return $SystemSettingsTableTable(attachedDatabase, alias);
+  }
+}
+
+class SystemSettingsData extends DataClass
+    implements Insertable<SystemSettingsData> {
+  final String id;
+  final String? systemName;
+  final bool showQuickFront;
+  final String accentColorHex;
+  final bool perMemberAccentColors;
+  final int terminology;
+  final String? customTerminology;
+  final String? customPluralTerminology;
+  final bool frontingRemindersEnabled;
+  final int frontingReminderIntervalMinutes;
+  final int themeMode;
+  final int themeBrightness;
+  final int themeStyle;
+  final bool chatEnabled;
+  final bool pollsEnabled;
+  final bool habitsEnabled;
+  final bool sleepTrackingEnabled;
+  final int quickSwitchThresholdSeconds;
+  final bool chatLogsFront;
+  final bool hasCompletedOnboarding;
+  final bool syncThemeEnabled;
+  final int timingMode;
+  final bool habitsBadgeEnabled;
+  final bool notesEnabled;
+  final String? systemDescription;
+  final Uint8List? systemAvatarData;
+  final bool remindersEnabled;
+  final double fontScale;
+  final int fontFamily;
+  final bool pinLockEnabled;
+  final bool biometricLockEnabled;
+  final int autoLockDelaySeconds;
+  final bool isDeleted;
+  final String previousAccentColorHex;
+  final String navBarItems;
+  final String navBarOverflowItems;
+  final bool syncNavigationEnabled;
+  final String chatBadgePreferences;
+  const SystemSettingsData({
+    required this.id,
+    this.systemName,
+    required this.showQuickFront,
+    required this.accentColorHex,
+    required this.perMemberAccentColors,
+    required this.terminology,
+    this.customTerminology,
+    this.customPluralTerminology,
+    required this.frontingRemindersEnabled,
+    required this.frontingReminderIntervalMinutes,
+    required this.themeMode,
+    required this.themeBrightness,
+    required this.themeStyle,
+    required this.chatEnabled,
+    required this.pollsEnabled,
+    required this.habitsEnabled,
+    required this.sleepTrackingEnabled,
+    required this.quickSwitchThresholdSeconds,
+    required this.chatLogsFront,
+    required this.hasCompletedOnboarding,
+    required this.syncThemeEnabled,
+    required this.timingMode,
+    required this.habitsBadgeEnabled,
+    required this.notesEnabled,
+    this.systemDescription,
+    this.systemAvatarData,
+    required this.remindersEnabled,
+    required this.fontScale,
+    required this.fontFamily,
+    required this.pinLockEnabled,
+    required this.biometricLockEnabled,
+    required this.autoLockDelaySeconds,
+    required this.isDeleted,
+    required this.previousAccentColorHex,
+    required this.navBarItems,
+    required this.navBarOverflowItems,
+    required this.syncNavigationEnabled,
+    required this.chatBadgePreferences,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || systemName != null) {
+      map['system_name'] = Variable<String>(systemName);
+    }
+    map['show_quick_front'] = Variable<bool>(showQuickFront);
+    map['accent_color_hex'] = Variable<String>(accentColorHex);
+    map['per_member_accent_colors'] = Variable<bool>(perMemberAccentColors);
+    map['terminology'] = Variable<int>(terminology);
+    if (!nullToAbsent || customTerminology != null) {
+      map['custom_terminology'] = Variable<String>(customTerminology);
+    }
+    if (!nullToAbsent || customPluralTerminology != null) {
+      map['custom_plural_terminology'] = Variable<String>(
+        customPluralTerminology,
+      );
+    }
+    map['fronting_reminders_enabled'] = Variable<bool>(
+      frontingRemindersEnabled,
+    );
+    map['fronting_reminder_interval_minutes'] = Variable<int>(
+      frontingReminderIntervalMinutes,
+    );
+    map['theme_mode'] = Variable<int>(themeMode);
+    map['theme_brightness'] = Variable<int>(themeBrightness);
+    map['theme_style'] = Variable<int>(themeStyle);
+    map['chat_enabled'] = Variable<bool>(chatEnabled);
+    map['polls_enabled'] = Variable<bool>(pollsEnabled);
+    map['habits_enabled'] = Variable<bool>(habitsEnabled);
+    map['sleep_tracking_enabled'] = Variable<bool>(sleepTrackingEnabled);
+    map['quick_switch_threshold_seconds'] = Variable<int>(
+      quickSwitchThresholdSeconds,
+    );
+    map['chat_logs_front'] = Variable<bool>(chatLogsFront);
+    map['has_completed_onboarding'] = Variable<bool>(hasCompletedOnboarding);
+    map['sync_theme_enabled'] = Variable<bool>(syncThemeEnabled);
+    map['timing_mode'] = Variable<int>(timingMode);
+    map['habits_badge_enabled'] = Variable<bool>(habitsBadgeEnabled);
+    map['notes_enabled'] = Variable<bool>(notesEnabled);
+    if (!nullToAbsent || systemDescription != null) {
+      map['system_description'] = Variable<String>(systemDescription);
+    }
+    if (!nullToAbsent || systemAvatarData != null) {
+      map['system_avatar_data'] = Variable<Uint8List>(systemAvatarData);
+    }
+    map['reminders_enabled'] = Variable<bool>(remindersEnabled);
+    map['font_scale'] = Variable<double>(fontScale);
+    map['font_family'] = Variable<int>(fontFamily);
+    map['pin_lock_enabled'] = Variable<bool>(pinLockEnabled);
+    map['biometric_lock_enabled'] = Variable<bool>(biometricLockEnabled);
+    map['auto_lock_delay_seconds'] = Variable<int>(autoLockDelaySeconds);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['previous_accent_color_hex'] = Variable<String>(previousAccentColorHex);
+    map['nav_bar_items'] = Variable<String>(navBarItems);
+    map['nav_bar_overflow_items'] = Variable<String>(navBarOverflowItems);
+    map['sync_navigation_enabled'] = Variable<bool>(syncNavigationEnabled);
+    map['chat_badge_preferences'] = Variable<String>(chatBadgePreferences);
+    return map;
+  }
+
+  SystemSettingsTableCompanion toCompanion(bool nullToAbsent) {
+    return SystemSettingsTableCompanion(
+      id: Value(id),
+      systemName: systemName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systemName),
+      showQuickFront: Value(showQuickFront),
+      accentColorHex: Value(accentColorHex),
+      perMemberAccentColors: Value(perMemberAccentColors),
+      terminology: Value(terminology),
+      customTerminology: customTerminology == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customTerminology),
+      customPluralTerminology: customPluralTerminology == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customPluralTerminology),
+      frontingRemindersEnabled: Value(frontingRemindersEnabled),
+      frontingReminderIntervalMinutes: Value(frontingReminderIntervalMinutes),
+      themeMode: Value(themeMode),
+      themeBrightness: Value(themeBrightness),
+      themeStyle: Value(themeStyle),
+      chatEnabled: Value(chatEnabled),
+      pollsEnabled: Value(pollsEnabled),
+      habitsEnabled: Value(habitsEnabled),
+      sleepTrackingEnabled: Value(sleepTrackingEnabled),
+      quickSwitchThresholdSeconds: Value(quickSwitchThresholdSeconds),
+      chatLogsFront: Value(chatLogsFront),
+      hasCompletedOnboarding: Value(hasCompletedOnboarding),
+      syncThemeEnabled: Value(syncThemeEnabled),
+      timingMode: Value(timingMode),
+      habitsBadgeEnabled: Value(habitsBadgeEnabled),
+      notesEnabled: Value(notesEnabled),
+      systemDescription: systemDescription == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systemDescription),
+      systemAvatarData: systemAvatarData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systemAvatarData),
+      remindersEnabled: Value(remindersEnabled),
+      fontScale: Value(fontScale),
+      fontFamily: Value(fontFamily),
+      pinLockEnabled: Value(pinLockEnabled),
+      biometricLockEnabled: Value(biometricLockEnabled),
+      autoLockDelaySeconds: Value(autoLockDelaySeconds),
+      isDeleted: Value(isDeleted),
+      previousAccentColorHex: Value(previousAccentColorHex),
+      navBarItems: Value(navBarItems),
+      navBarOverflowItems: Value(navBarOverflowItems),
+      syncNavigationEnabled: Value(syncNavigationEnabled),
+      chatBadgePreferences: Value(chatBadgePreferences),
+    );
+  }
+
+  factory SystemSettingsData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SystemSettingsData(
+      id: serializer.fromJson<String>(json['id']),
+      systemName: serializer.fromJson<String?>(json['systemName']),
+      showQuickFront: serializer.fromJson<bool>(json['showQuickFront']),
+      accentColorHex: serializer.fromJson<String>(json['accentColorHex']),
+      perMemberAccentColors: serializer.fromJson<bool>(
+        json['perMemberAccentColors'],
+      ),
+      terminology: serializer.fromJson<int>(json['terminology']),
+      customTerminology: serializer.fromJson<String?>(
+        json['customTerminology'],
+      ),
+      customPluralTerminology: serializer.fromJson<String?>(
+        json['customPluralTerminology'],
+      ),
+      frontingRemindersEnabled: serializer.fromJson<bool>(
+        json['frontingRemindersEnabled'],
+      ),
+      frontingReminderIntervalMinutes: serializer.fromJson<int>(
+        json['frontingReminderIntervalMinutes'],
+      ),
+      themeMode: serializer.fromJson<int>(json['themeMode']),
+      themeBrightness: serializer.fromJson<int>(json['themeBrightness']),
+      themeStyle: serializer.fromJson<int>(json['themeStyle']),
+      chatEnabled: serializer.fromJson<bool>(json['chatEnabled']),
+      pollsEnabled: serializer.fromJson<bool>(json['pollsEnabled']),
+      habitsEnabled: serializer.fromJson<bool>(json['habitsEnabled']),
+      sleepTrackingEnabled: serializer.fromJson<bool>(
+        json['sleepTrackingEnabled'],
+      ),
+      quickSwitchThresholdSeconds: serializer.fromJson<int>(
+        json['quickSwitchThresholdSeconds'],
+      ),
+      chatLogsFront: serializer.fromJson<bool>(json['chatLogsFront']),
+      hasCompletedOnboarding: serializer.fromJson<bool>(
+        json['hasCompletedOnboarding'],
+      ),
+      syncThemeEnabled: serializer.fromJson<bool>(json['syncThemeEnabled']),
+      timingMode: serializer.fromJson<int>(json['timingMode']),
+      habitsBadgeEnabled: serializer.fromJson<bool>(json['habitsBadgeEnabled']),
+      notesEnabled: serializer.fromJson<bool>(json['notesEnabled']),
+      systemDescription: serializer.fromJson<String?>(
+        json['systemDescription'],
+      ),
+      systemAvatarData: serializer.fromJson<Uint8List?>(
+        json['systemAvatarData'],
+      ),
+      remindersEnabled: serializer.fromJson<bool>(json['remindersEnabled']),
+      fontScale: serializer.fromJson<double>(json['fontScale']),
+      fontFamily: serializer.fromJson<int>(json['fontFamily']),
+      pinLockEnabled: serializer.fromJson<bool>(json['pinLockEnabled']),
+      biometricLockEnabled: serializer.fromJson<bool>(
+        json['biometricLockEnabled'],
+      ),
+      autoLockDelaySeconds: serializer.fromJson<int>(
+        json['autoLockDelaySeconds'],
+      ),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      previousAccentColorHex: serializer.fromJson<String>(
+        json['previousAccentColorHex'],
+      ),
+      navBarItems: serializer.fromJson<String>(json['navBarItems']),
+      navBarOverflowItems: serializer.fromJson<String>(
+        json['navBarOverflowItems'],
+      ),
+      syncNavigationEnabled: serializer.fromJson<bool>(
+        json['syncNavigationEnabled'],
+      ),
+      chatBadgePreferences: serializer.fromJson<String>(
+        json['chatBadgePreferences'],
+      ),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'systemName': serializer.toJson<String?>(systemName),
+      'showQuickFront': serializer.toJson<bool>(showQuickFront),
+      'accentColorHex': serializer.toJson<String>(accentColorHex),
+      'perMemberAccentColors': serializer.toJson<bool>(perMemberAccentColors),
+      'terminology': serializer.toJson<int>(terminology),
+      'customTerminology': serializer.toJson<String?>(customTerminology),
+      'customPluralTerminology': serializer.toJson<String?>(
+        customPluralTerminology,
+      ),
+      'frontingRemindersEnabled': serializer.toJson<bool>(
+        frontingRemindersEnabled,
+      ),
+      'frontingReminderIntervalMinutes': serializer.toJson<int>(
+        frontingReminderIntervalMinutes,
+      ),
+      'themeMode': serializer.toJson<int>(themeMode),
+      'themeBrightness': serializer.toJson<int>(themeBrightness),
+      'themeStyle': serializer.toJson<int>(themeStyle),
+      'chatEnabled': serializer.toJson<bool>(chatEnabled),
+      'pollsEnabled': serializer.toJson<bool>(pollsEnabled),
+      'habitsEnabled': serializer.toJson<bool>(habitsEnabled),
+      'sleepTrackingEnabled': serializer.toJson<bool>(sleepTrackingEnabled),
+      'quickSwitchThresholdSeconds': serializer.toJson<int>(
+        quickSwitchThresholdSeconds,
+      ),
+      'chatLogsFront': serializer.toJson<bool>(chatLogsFront),
+      'hasCompletedOnboarding': serializer.toJson<bool>(hasCompletedOnboarding),
+      'syncThemeEnabled': serializer.toJson<bool>(syncThemeEnabled),
+      'timingMode': serializer.toJson<int>(timingMode),
+      'habitsBadgeEnabled': serializer.toJson<bool>(habitsBadgeEnabled),
+      'notesEnabled': serializer.toJson<bool>(notesEnabled),
+      'systemDescription': serializer.toJson<String?>(systemDescription),
+      'systemAvatarData': serializer.toJson<Uint8List?>(systemAvatarData),
+      'remindersEnabled': serializer.toJson<bool>(remindersEnabled),
+      'fontScale': serializer.toJson<double>(fontScale),
+      'fontFamily': serializer.toJson<int>(fontFamily),
+      'pinLockEnabled': serializer.toJson<bool>(pinLockEnabled),
+      'biometricLockEnabled': serializer.toJson<bool>(biometricLockEnabled),
+      'autoLockDelaySeconds': serializer.toJson<int>(autoLockDelaySeconds),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'previousAccentColorHex': serializer.toJson<String>(
+        previousAccentColorHex,
+      ),
+      'navBarItems': serializer.toJson<String>(navBarItems),
+      'navBarOverflowItems': serializer.toJson<String>(navBarOverflowItems),
+      'syncNavigationEnabled': serializer.toJson<bool>(syncNavigationEnabled),
+      'chatBadgePreferences': serializer.toJson<String>(chatBadgePreferences),
+    };
+  }
+
+  SystemSettingsData copyWith({
+    String? id,
+    Value<String?> systemName = const Value.absent(),
+    bool? showQuickFront,
+    String? accentColorHex,
+    bool? perMemberAccentColors,
+    int? terminology,
+    Value<String?> customTerminology = const Value.absent(),
+    Value<String?> customPluralTerminology = const Value.absent(),
+    bool? frontingRemindersEnabled,
+    int? frontingReminderIntervalMinutes,
+    int? themeMode,
+    int? themeBrightness,
+    int? themeStyle,
+    bool? chatEnabled,
+    bool? pollsEnabled,
+    bool? habitsEnabled,
+    bool? sleepTrackingEnabled,
+    int? quickSwitchThresholdSeconds,
+    bool? chatLogsFront,
+    bool? hasCompletedOnboarding,
+    bool? syncThemeEnabled,
+    int? timingMode,
+    bool? habitsBadgeEnabled,
+    bool? notesEnabled,
+    Value<String?> systemDescription = const Value.absent(),
+    Value<Uint8List?> systemAvatarData = const Value.absent(),
+    bool? remindersEnabled,
+    double? fontScale,
+    int? fontFamily,
+    bool? pinLockEnabled,
+    bool? biometricLockEnabled,
+    int? autoLockDelaySeconds,
+    bool? isDeleted,
+    String? previousAccentColorHex,
+    String? navBarItems,
+    String? navBarOverflowItems,
+    bool? syncNavigationEnabled,
+    String? chatBadgePreferences,
+  }) => SystemSettingsData(
+    id: id ?? this.id,
+    systemName: systemName.present ? systemName.value : this.systemName,
+    showQuickFront: showQuickFront ?? this.showQuickFront,
+    accentColorHex: accentColorHex ?? this.accentColorHex,
+    perMemberAccentColors: perMemberAccentColors ?? this.perMemberAccentColors,
+    terminology: terminology ?? this.terminology,
+    customTerminology: customTerminology.present
+        ? customTerminology.value
+        : this.customTerminology,
+    customPluralTerminology: customPluralTerminology.present
+        ? customPluralTerminology.value
+        : this.customPluralTerminology,
+    frontingRemindersEnabled:
+        frontingRemindersEnabled ?? this.frontingRemindersEnabled,
+    frontingReminderIntervalMinutes:
+        frontingReminderIntervalMinutes ?? this.frontingReminderIntervalMinutes,
+    themeMode: themeMode ?? this.themeMode,
+    themeBrightness: themeBrightness ?? this.themeBrightness,
+    themeStyle: themeStyle ?? this.themeStyle,
+    chatEnabled: chatEnabled ?? this.chatEnabled,
+    pollsEnabled: pollsEnabled ?? this.pollsEnabled,
+    habitsEnabled: habitsEnabled ?? this.habitsEnabled,
+    sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
+    quickSwitchThresholdSeconds:
+        quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
+    chatLogsFront: chatLogsFront ?? this.chatLogsFront,
+    hasCompletedOnboarding:
+        hasCompletedOnboarding ?? this.hasCompletedOnboarding,
+    syncThemeEnabled: syncThemeEnabled ?? this.syncThemeEnabled,
+    timingMode: timingMode ?? this.timingMode,
+    habitsBadgeEnabled: habitsBadgeEnabled ?? this.habitsBadgeEnabled,
+    notesEnabled: notesEnabled ?? this.notesEnabled,
+    systemDescription: systemDescription.present
+        ? systemDescription.value
+        : this.systemDescription,
+    systemAvatarData: systemAvatarData.present
+        ? systemAvatarData.value
+        : this.systemAvatarData,
+    remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+    fontScale: fontScale ?? this.fontScale,
+    fontFamily: fontFamily ?? this.fontFamily,
+    pinLockEnabled: pinLockEnabled ?? this.pinLockEnabled,
+    biometricLockEnabled: biometricLockEnabled ?? this.biometricLockEnabled,
+    autoLockDelaySeconds: autoLockDelaySeconds ?? this.autoLockDelaySeconds,
+    isDeleted: isDeleted ?? this.isDeleted,
+    previousAccentColorHex:
+        previousAccentColorHex ?? this.previousAccentColorHex,
+    navBarItems: navBarItems ?? this.navBarItems,
+    navBarOverflowItems: navBarOverflowItems ?? this.navBarOverflowItems,
+    syncNavigationEnabled: syncNavigationEnabled ?? this.syncNavigationEnabled,
+    chatBadgePreferences: chatBadgePreferences ?? this.chatBadgePreferences,
+  );
+  SystemSettingsData copyWithCompanion(SystemSettingsTableCompanion data) {
+    return SystemSettingsData(
+      id: data.id.present ? data.id.value : this.id,
+      systemName: data.systemName.present
+          ? data.systemName.value
+          : this.systemName,
+      showQuickFront: data.showQuickFront.present
+          ? data.showQuickFront.value
+          : this.showQuickFront,
+      accentColorHex: data.accentColorHex.present
+          ? data.accentColorHex.value
+          : this.accentColorHex,
+      perMemberAccentColors: data.perMemberAccentColors.present
+          ? data.perMemberAccentColors.value
+          : this.perMemberAccentColors,
+      terminology: data.terminology.present
+          ? data.terminology.value
+          : this.terminology,
+      customTerminology: data.customTerminology.present
+          ? data.customTerminology.value
+          : this.customTerminology,
+      customPluralTerminology: data.customPluralTerminology.present
+          ? data.customPluralTerminology.value
+          : this.customPluralTerminology,
+      frontingRemindersEnabled: data.frontingRemindersEnabled.present
+          ? data.frontingRemindersEnabled.value
+          : this.frontingRemindersEnabled,
+      frontingReminderIntervalMinutes:
+          data.frontingReminderIntervalMinutes.present
+          ? data.frontingReminderIntervalMinutes.value
+          : this.frontingReminderIntervalMinutes,
+      themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      themeBrightness: data.themeBrightness.present
+          ? data.themeBrightness.value
+          : this.themeBrightness,
+      themeStyle: data.themeStyle.present
+          ? data.themeStyle.value
+          : this.themeStyle,
+      chatEnabled: data.chatEnabled.present
+          ? data.chatEnabled.value
+          : this.chatEnabled,
+      pollsEnabled: data.pollsEnabled.present
+          ? data.pollsEnabled.value
+          : this.pollsEnabled,
+      habitsEnabled: data.habitsEnabled.present
+          ? data.habitsEnabled.value
+          : this.habitsEnabled,
+      sleepTrackingEnabled: data.sleepTrackingEnabled.present
+          ? data.sleepTrackingEnabled.value
+          : this.sleepTrackingEnabled,
+      quickSwitchThresholdSeconds: data.quickSwitchThresholdSeconds.present
+          ? data.quickSwitchThresholdSeconds.value
+          : this.quickSwitchThresholdSeconds,
+      chatLogsFront: data.chatLogsFront.present
+          ? data.chatLogsFront.value
+          : this.chatLogsFront,
+      hasCompletedOnboarding: data.hasCompletedOnboarding.present
+          ? data.hasCompletedOnboarding.value
+          : this.hasCompletedOnboarding,
+      syncThemeEnabled: data.syncThemeEnabled.present
+          ? data.syncThemeEnabled.value
+          : this.syncThemeEnabled,
+      timingMode: data.timingMode.present
+          ? data.timingMode.value
+          : this.timingMode,
+      habitsBadgeEnabled: data.habitsBadgeEnabled.present
+          ? data.habitsBadgeEnabled.value
+          : this.habitsBadgeEnabled,
+      notesEnabled: data.notesEnabled.present
+          ? data.notesEnabled.value
+          : this.notesEnabled,
+      systemDescription: data.systemDescription.present
+          ? data.systemDescription.value
+          : this.systemDescription,
+      systemAvatarData: data.systemAvatarData.present
+          ? data.systemAvatarData.value
+          : this.systemAvatarData,
+      remindersEnabled: data.remindersEnabled.present
+          ? data.remindersEnabled.value
+          : this.remindersEnabled,
+      fontScale: data.fontScale.present ? data.fontScale.value : this.fontScale,
+      fontFamily: data.fontFamily.present
+          ? data.fontFamily.value
+          : this.fontFamily,
+      pinLockEnabled: data.pinLockEnabled.present
+          ? data.pinLockEnabled.value
+          : this.pinLockEnabled,
+      biometricLockEnabled: data.biometricLockEnabled.present
+          ? data.biometricLockEnabled.value
+          : this.biometricLockEnabled,
+      autoLockDelaySeconds: data.autoLockDelaySeconds.present
+          ? data.autoLockDelaySeconds.value
+          : this.autoLockDelaySeconds,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      previousAccentColorHex: data.previousAccentColorHex.present
+          ? data.previousAccentColorHex.value
+          : this.previousAccentColorHex,
+      navBarItems: data.navBarItems.present
+          ? data.navBarItems.value
+          : this.navBarItems,
+      navBarOverflowItems: data.navBarOverflowItems.present
+          ? data.navBarOverflowItems.value
+          : this.navBarOverflowItems,
+      syncNavigationEnabled: data.syncNavigationEnabled.present
+          ? data.syncNavigationEnabled.value
+          : this.syncNavigationEnabled,
+      chatBadgePreferences: data.chatBadgePreferences.present
+          ? data.chatBadgePreferences.value
+          : this.chatBadgePreferences,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SystemSettingsData(')
+          ..write('id: $id, ')
+          ..write('systemName: $systemName, ')
+          ..write('showQuickFront: $showQuickFront, ')
+          ..write('accentColorHex: $accentColorHex, ')
+          ..write('perMemberAccentColors: $perMemberAccentColors, ')
+          ..write('terminology: $terminology, ')
+          ..write('customTerminology: $customTerminology, ')
+          ..write('customPluralTerminology: $customPluralTerminology, ')
+          ..write('frontingRemindersEnabled: $frontingRemindersEnabled, ')
+          ..write(
+            'frontingReminderIntervalMinutes: $frontingReminderIntervalMinutes, ',
+          )
+          ..write('themeMode: $themeMode, ')
+          ..write('themeBrightness: $themeBrightness, ')
+          ..write('themeStyle: $themeStyle, ')
+          ..write('chatEnabled: $chatEnabled, ')
+          ..write('pollsEnabled: $pollsEnabled, ')
+          ..write('habitsEnabled: $habitsEnabled, ')
+          ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
+          ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
+          ..write('chatLogsFront: $chatLogsFront, ')
+          ..write('hasCompletedOnboarding: $hasCompletedOnboarding, ')
+          ..write('syncThemeEnabled: $syncThemeEnabled, ')
+          ..write('timingMode: $timingMode, ')
+          ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
+          ..write('notesEnabled: $notesEnabled, ')
+          ..write('systemDescription: $systemDescription, ')
+          ..write('systemAvatarData: $systemAvatarData, ')
+          ..write('remindersEnabled: $remindersEnabled, ')
+          ..write('fontScale: $fontScale, ')
+          ..write('fontFamily: $fontFamily, ')
+          ..write('pinLockEnabled: $pinLockEnabled, ')
+          ..write('biometricLockEnabled: $biometricLockEnabled, ')
+          ..write('autoLockDelaySeconds: $autoLockDelaySeconds, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('previousAccentColorHex: $previousAccentColorHex, ')
+          ..write('navBarItems: $navBarItems, ')
+          ..write('navBarOverflowItems: $navBarOverflowItems, ')
+          ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
+          ..write('chatBadgePreferences: $chatBadgePreferences')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    systemName,
+    showQuickFront,
+    accentColorHex,
+    perMemberAccentColors,
+    terminology,
+    customTerminology,
+    customPluralTerminology,
+    frontingRemindersEnabled,
+    frontingReminderIntervalMinutes,
+    themeMode,
+    themeBrightness,
+    themeStyle,
+    chatEnabled,
+    pollsEnabled,
+    habitsEnabled,
+    sleepTrackingEnabled,
+    quickSwitchThresholdSeconds,
+    chatLogsFront,
+    hasCompletedOnboarding,
+    syncThemeEnabled,
+    timingMode,
+    habitsBadgeEnabled,
+    notesEnabled,
+    systemDescription,
+    $driftBlobEquality.hash(systemAvatarData),
+    remindersEnabled,
+    fontScale,
+    fontFamily,
+    pinLockEnabled,
+    biometricLockEnabled,
+    autoLockDelaySeconds,
+    isDeleted,
+    previousAccentColorHex,
+    navBarItems,
+    navBarOverflowItems,
+    syncNavigationEnabled,
+    chatBadgePreferences,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SystemSettingsData &&
+          other.id == this.id &&
+          other.systemName == this.systemName &&
+          other.showQuickFront == this.showQuickFront &&
+          other.accentColorHex == this.accentColorHex &&
+          other.perMemberAccentColors == this.perMemberAccentColors &&
+          other.terminology == this.terminology &&
+          other.customTerminology == this.customTerminology &&
+          other.customPluralTerminology == this.customPluralTerminology &&
+          other.frontingRemindersEnabled == this.frontingRemindersEnabled &&
+          other.frontingReminderIntervalMinutes ==
+              this.frontingReminderIntervalMinutes &&
+          other.themeMode == this.themeMode &&
+          other.themeBrightness == this.themeBrightness &&
+          other.themeStyle == this.themeStyle &&
+          other.chatEnabled == this.chatEnabled &&
+          other.pollsEnabled == this.pollsEnabled &&
+          other.habitsEnabled == this.habitsEnabled &&
+          other.sleepTrackingEnabled == this.sleepTrackingEnabled &&
+          other.quickSwitchThresholdSeconds ==
+              this.quickSwitchThresholdSeconds &&
+          other.chatLogsFront == this.chatLogsFront &&
+          other.hasCompletedOnboarding == this.hasCompletedOnboarding &&
+          other.syncThemeEnabled == this.syncThemeEnabled &&
+          other.timingMode == this.timingMode &&
+          other.habitsBadgeEnabled == this.habitsBadgeEnabled &&
+          other.notesEnabled == this.notesEnabled &&
+          other.systemDescription == this.systemDescription &&
+          $driftBlobEquality.equals(
+            other.systemAvatarData,
+            this.systemAvatarData,
+          ) &&
+          other.remindersEnabled == this.remindersEnabled &&
+          other.fontScale == this.fontScale &&
+          other.fontFamily == this.fontFamily &&
+          other.pinLockEnabled == this.pinLockEnabled &&
+          other.biometricLockEnabled == this.biometricLockEnabled &&
+          other.autoLockDelaySeconds == this.autoLockDelaySeconds &&
+          other.isDeleted == this.isDeleted &&
+          other.previousAccentColorHex == this.previousAccentColorHex &&
+          other.navBarItems == this.navBarItems &&
+          other.navBarOverflowItems == this.navBarOverflowItems &&
+          other.syncNavigationEnabled == this.syncNavigationEnabled &&
+          other.chatBadgePreferences == this.chatBadgePreferences);
+}
+
+class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
+  final Value<String> id;
+  final Value<String?> systemName;
+  final Value<bool> showQuickFront;
+  final Value<String> accentColorHex;
+  final Value<bool> perMemberAccentColors;
+  final Value<int> terminology;
+  final Value<String?> customTerminology;
+  final Value<String?> customPluralTerminology;
+  final Value<bool> frontingRemindersEnabled;
+  final Value<int> frontingReminderIntervalMinutes;
+  final Value<int> themeMode;
+  final Value<int> themeBrightness;
+  final Value<int> themeStyle;
+  final Value<bool> chatEnabled;
+  final Value<bool> pollsEnabled;
+  final Value<bool> habitsEnabled;
+  final Value<bool> sleepTrackingEnabled;
+  final Value<int> quickSwitchThresholdSeconds;
+  final Value<bool> chatLogsFront;
+  final Value<bool> hasCompletedOnboarding;
+  final Value<bool> syncThemeEnabled;
+  final Value<int> timingMode;
+  final Value<bool> habitsBadgeEnabled;
+  final Value<bool> notesEnabled;
+  final Value<String?> systemDescription;
+  final Value<Uint8List?> systemAvatarData;
+  final Value<bool> remindersEnabled;
+  final Value<double> fontScale;
+  final Value<int> fontFamily;
+  final Value<bool> pinLockEnabled;
+  final Value<bool> biometricLockEnabled;
+  final Value<int> autoLockDelaySeconds;
+  final Value<bool> isDeleted;
+  final Value<String> previousAccentColorHex;
+  final Value<String> navBarItems;
+  final Value<String> navBarOverflowItems;
+  final Value<bool> syncNavigationEnabled;
+  final Value<String> chatBadgePreferences;
+  final Value<int> rowid;
+  const SystemSettingsTableCompanion({
+    this.id = const Value.absent(),
+    this.systemName = const Value.absent(),
+    this.showQuickFront = const Value.absent(),
+    this.accentColorHex = const Value.absent(),
+    this.perMemberAccentColors = const Value.absent(),
+    this.terminology = const Value.absent(),
+    this.customTerminology = const Value.absent(),
+    this.customPluralTerminology = const Value.absent(),
+    this.frontingRemindersEnabled = const Value.absent(),
+    this.frontingReminderIntervalMinutes = const Value.absent(),
+    this.themeMode = const Value.absent(),
+    this.themeBrightness = const Value.absent(),
+    this.themeStyle = const Value.absent(),
+    this.chatEnabled = const Value.absent(),
+    this.pollsEnabled = const Value.absent(),
+    this.habitsEnabled = const Value.absent(),
+    this.sleepTrackingEnabled = const Value.absent(),
+    this.quickSwitchThresholdSeconds = const Value.absent(),
+    this.chatLogsFront = const Value.absent(),
+    this.hasCompletedOnboarding = const Value.absent(),
+    this.syncThemeEnabled = const Value.absent(),
+    this.timingMode = const Value.absent(),
+    this.habitsBadgeEnabled = const Value.absent(),
+    this.notesEnabled = const Value.absent(),
+    this.systemDescription = const Value.absent(),
+    this.systemAvatarData = const Value.absent(),
+    this.remindersEnabled = const Value.absent(),
+    this.fontScale = const Value.absent(),
+    this.fontFamily = const Value.absent(),
+    this.pinLockEnabled = const Value.absent(),
+    this.biometricLockEnabled = const Value.absent(),
+    this.autoLockDelaySeconds = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.previousAccentColorHex = const Value.absent(),
+    this.navBarItems = const Value.absent(),
+    this.navBarOverflowItems = const Value.absent(),
+    this.syncNavigationEnabled = const Value.absent(),
+    this.chatBadgePreferences = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SystemSettingsTableCompanion.insert({
+    this.id = const Value.absent(),
+    this.systemName = const Value.absent(),
+    this.showQuickFront = const Value.absent(),
+    this.accentColorHex = const Value.absent(),
+    this.perMemberAccentColors = const Value.absent(),
+    this.terminology = const Value.absent(),
+    this.customTerminology = const Value.absent(),
+    this.customPluralTerminology = const Value.absent(),
+    this.frontingRemindersEnabled = const Value.absent(),
+    this.frontingReminderIntervalMinutes = const Value.absent(),
+    this.themeMode = const Value.absent(),
+    this.themeBrightness = const Value.absent(),
+    this.themeStyle = const Value.absent(),
+    this.chatEnabled = const Value.absent(),
+    this.pollsEnabled = const Value.absent(),
+    this.habitsEnabled = const Value.absent(),
+    this.sleepTrackingEnabled = const Value.absent(),
+    this.quickSwitchThresholdSeconds = const Value.absent(),
+    this.chatLogsFront = const Value.absent(),
+    this.hasCompletedOnboarding = const Value.absent(),
+    this.syncThemeEnabled = const Value.absent(),
+    this.timingMode = const Value.absent(),
+    this.habitsBadgeEnabled = const Value.absent(),
+    this.notesEnabled = const Value.absent(),
+    this.systemDescription = const Value.absent(),
+    this.systemAvatarData = const Value.absent(),
+    this.remindersEnabled = const Value.absent(),
+    this.fontScale = const Value.absent(),
+    this.fontFamily = const Value.absent(),
+    this.pinLockEnabled = const Value.absent(),
+    this.biometricLockEnabled = const Value.absent(),
+    this.autoLockDelaySeconds = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.previousAccentColorHex = const Value.absent(),
+    this.navBarItems = const Value.absent(),
+    this.navBarOverflowItems = const Value.absent(),
+    this.syncNavigationEnabled = const Value.absent(),
+    this.chatBadgePreferences = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  static Insertable<SystemSettingsData> custom({
+    Expression<String>? id,
+    Expression<String>? systemName,
+    Expression<bool>? showQuickFront,
+    Expression<String>? accentColorHex,
+    Expression<bool>? perMemberAccentColors,
+    Expression<int>? terminology,
+    Expression<String>? customTerminology,
+    Expression<String>? customPluralTerminology,
+    Expression<bool>? frontingRemindersEnabled,
+    Expression<int>? frontingReminderIntervalMinutes,
+    Expression<int>? themeMode,
+    Expression<int>? themeBrightness,
+    Expression<int>? themeStyle,
+    Expression<bool>? chatEnabled,
+    Expression<bool>? pollsEnabled,
+    Expression<bool>? habitsEnabled,
+    Expression<bool>? sleepTrackingEnabled,
+    Expression<int>? quickSwitchThresholdSeconds,
+    Expression<bool>? chatLogsFront,
+    Expression<bool>? hasCompletedOnboarding,
+    Expression<bool>? syncThemeEnabled,
+    Expression<int>? timingMode,
+    Expression<bool>? habitsBadgeEnabled,
+    Expression<bool>? notesEnabled,
+    Expression<String>? systemDescription,
+    Expression<Uint8List>? systemAvatarData,
+    Expression<bool>? remindersEnabled,
+    Expression<double>? fontScale,
+    Expression<int>? fontFamily,
+    Expression<bool>? pinLockEnabled,
+    Expression<bool>? biometricLockEnabled,
+    Expression<int>? autoLockDelaySeconds,
+    Expression<bool>? isDeleted,
+    Expression<String>? previousAccentColorHex,
+    Expression<String>? navBarItems,
+    Expression<String>? navBarOverflowItems,
+    Expression<bool>? syncNavigationEnabled,
+    Expression<String>? chatBadgePreferences,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (systemName != null) 'system_name': systemName,
+      if (showQuickFront != null) 'show_quick_front': showQuickFront,
+      if (accentColorHex != null) 'accent_color_hex': accentColorHex,
+      if (perMemberAccentColors != null)
+        'per_member_accent_colors': perMemberAccentColors,
+      if (terminology != null) 'terminology': terminology,
+      if (customTerminology != null) 'custom_terminology': customTerminology,
+      if (customPluralTerminology != null)
+        'custom_plural_terminology': customPluralTerminology,
+      if (frontingRemindersEnabled != null)
+        'fronting_reminders_enabled': frontingRemindersEnabled,
+      if (frontingReminderIntervalMinutes != null)
+        'fronting_reminder_interval_minutes': frontingReminderIntervalMinutes,
+      if (themeMode != null) 'theme_mode': themeMode,
+      if (themeBrightness != null) 'theme_brightness': themeBrightness,
+      if (themeStyle != null) 'theme_style': themeStyle,
+      if (chatEnabled != null) 'chat_enabled': chatEnabled,
+      if (pollsEnabled != null) 'polls_enabled': pollsEnabled,
+      if (habitsEnabled != null) 'habits_enabled': habitsEnabled,
+      if (sleepTrackingEnabled != null)
+        'sleep_tracking_enabled': sleepTrackingEnabled,
+      if (quickSwitchThresholdSeconds != null)
+        'quick_switch_threshold_seconds': quickSwitchThresholdSeconds,
+      if (chatLogsFront != null) 'chat_logs_front': chatLogsFront,
+      if (hasCompletedOnboarding != null)
+        'has_completed_onboarding': hasCompletedOnboarding,
+      if (syncThemeEnabled != null) 'sync_theme_enabled': syncThemeEnabled,
+      if (timingMode != null) 'timing_mode': timingMode,
+      if (habitsBadgeEnabled != null)
+        'habits_badge_enabled': habitsBadgeEnabled,
+      if (notesEnabled != null) 'notes_enabled': notesEnabled,
+      if (systemDescription != null) 'system_description': systemDescription,
+      if (systemAvatarData != null) 'system_avatar_data': systemAvatarData,
+      if (remindersEnabled != null) 'reminders_enabled': remindersEnabled,
+      if (fontScale != null) 'font_scale': fontScale,
+      if (fontFamily != null) 'font_family': fontFamily,
+      if (pinLockEnabled != null) 'pin_lock_enabled': pinLockEnabled,
+      if (biometricLockEnabled != null)
+        'biometric_lock_enabled': biometricLockEnabled,
+      if (autoLockDelaySeconds != null)
+        'auto_lock_delay_seconds': autoLockDelaySeconds,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (previousAccentColorHex != null)
+        'previous_accent_color_hex': previousAccentColorHex,
+      if (navBarItems != null) 'nav_bar_items': navBarItems,
+      if (navBarOverflowItems != null)
+        'nav_bar_overflow_items': navBarOverflowItems,
+      if (syncNavigationEnabled != null)
+        'sync_navigation_enabled': syncNavigationEnabled,
+      if (chatBadgePreferences != null)
+        'chat_badge_preferences': chatBadgePreferences,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SystemSettingsTableCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? systemName,
+    Value<bool>? showQuickFront,
+    Value<String>? accentColorHex,
+    Value<bool>? perMemberAccentColors,
+    Value<int>? terminology,
+    Value<String?>? customTerminology,
+    Value<String?>? customPluralTerminology,
+    Value<bool>? frontingRemindersEnabled,
+    Value<int>? frontingReminderIntervalMinutes,
+    Value<int>? themeMode,
+    Value<int>? themeBrightness,
+    Value<int>? themeStyle,
+    Value<bool>? chatEnabled,
+    Value<bool>? pollsEnabled,
+    Value<bool>? habitsEnabled,
+    Value<bool>? sleepTrackingEnabled,
+    Value<int>? quickSwitchThresholdSeconds,
+    Value<bool>? chatLogsFront,
+    Value<bool>? hasCompletedOnboarding,
+    Value<bool>? syncThemeEnabled,
+    Value<int>? timingMode,
+    Value<bool>? habitsBadgeEnabled,
+    Value<bool>? notesEnabled,
+    Value<String?>? systemDescription,
+    Value<Uint8List?>? systemAvatarData,
+    Value<bool>? remindersEnabled,
+    Value<double>? fontScale,
+    Value<int>? fontFamily,
+    Value<bool>? pinLockEnabled,
+    Value<bool>? biometricLockEnabled,
+    Value<int>? autoLockDelaySeconds,
+    Value<bool>? isDeleted,
+    Value<String>? previousAccentColorHex,
+    Value<String>? navBarItems,
+    Value<String>? navBarOverflowItems,
+    Value<bool>? syncNavigationEnabled,
+    Value<String>? chatBadgePreferences,
+    Value<int>? rowid,
+  }) {
+    return SystemSettingsTableCompanion(
+      id: id ?? this.id,
+      systemName: systemName ?? this.systemName,
+      showQuickFront: showQuickFront ?? this.showQuickFront,
+      accentColorHex: accentColorHex ?? this.accentColorHex,
+      perMemberAccentColors:
+          perMemberAccentColors ?? this.perMemberAccentColors,
+      terminology: terminology ?? this.terminology,
+      customTerminology: customTerminology ?? this.customTerminology,
+      customPluralTerminology:
+          customPluralTerminology ?? this.customPluralTerminology,
+      frontingRemindersEnabled:
+          frontingRemindersEnabled ?? this.frontingRemindersEnabled,
+      frontingReminderIntervalMinutes:
+          frontingReminderIntervalMinutes ??
+          this.frontingReminderIntervalMinutes,
+      themeMode: themeMode ?? this.themeMode,
+      themeBrightness: themeBrightness ?? this.themeBrightness,
+      themeStyle: themeStyle ?? this.themeStyle,
+      chatEnabled: chatEnabled ?? this.chatEnabled,
+      pollsEnabled: pollsEnabled ?? this.pollsEnabled,
+      habitsEnabled: habitsEnabled ?? this.habitsEnabled,
+      sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
+      quickSwitchThresholdSeconds:
+          quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
+      chatLogsFront: chatLogsFront ?? this.chatLogsFront,
+      hasCompletedOnboarding:
+          hasCompletedOnboarding ?? this.hasCompletedOnboarding,
+      syncThemeEnabled: syncThemeEnabled ?? this.syncThemeEnabled,
+      timingMode: timingMode ?? this.timingMode,
+      habitsBadgeEnabled: habitsBadgeEnabled ?? this.habitsBadgeEnabled,
+      notesEnabled: notesEnabled ?? this.notesEnabled,
+      systemDescription: systemDescription ?? this.systemDescription,
+      systemAvatarData: systemAvatarData ?? this.systemAvatarData,
+      remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+      fontScale: fontScale ?? this.fontScale,
+      fontFamily: fontFamily ?? this.fontFamily,
+      pinLockEnabled: pinLockEnabled ?? this.pinLockEnabled,
+      biometricLockEnabled: biometricLockEnabled ?? this.biometricLockEnabled,
+      autoLockDelaySeconds: autoLockDelaySeconds ?? this.autoLockDelaySeconds,
+      isDeleted: isDeleted ?? this.isDeleted,
+      previousAccentColorHex:
+          previousAccentColorHex ?? this.previousAccentColorHex,
+      navBarItems: navBarItems ?? this.navBarItems,
+      navBarOverflowItems: navBarOverflowItems ?? this.navBarOverflowItems,
+      syncNavigationEnabled:
+          syncNavigationEnabled ?? this.syncNavigationEnabled,
+      chatBadgePreferences: chatBadgePreferences ?? this.chatBadgePreferences,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (systemName.present) {
+      map['system_name'] = Variable<String>(systemName.value);
+    }
+    if (showQuickFront.present) {
+      map['show_quick_front'] = Variable<bool>(showQuickFront.value);
+    }
+    if (accentColorHex.present) {
+      map['accent_color_hex'] = Variable<String>(accentColorHex.value);
+    }
+    if (perMemberAccentColors.present) {
+      map['per_member_accent_colors'] = Variable<bool>(
+        perMemberAccentColors.value,
+      );
+    }
+    if (terminology.present) {
+      map['terminology'] = Variable<int>(terminology.value);
+    }
+    if (customTerminology.present) {
+      map['custom_terminology'] = Variable<String>(customTerminology.value);
+    }
+    if (customPluralTerminology.present) {
+      map['custom_plural_terminology'] = Variable<String>(
+        customPluralTerminology.value,
+      );
+    }
+    if (frontingRemindersEnabled.present) {
+      map['fronting_reminders_enabled'] = Variable<bool>(
+        frontingRemindersEnabled.value,
+      );
+    }
+    if (frontingReminderIntervalMinutes.present) {
+      map['fronting_reminder_interval_minutes'] = Variable<int>(
+        frontingReminderIntervalMinutes.value,
+      );
+    }
+    if (themeMode.present) {
+      map['theme_mode'] = Variable<int>(themeMode.value);
+    }
+    if (themeBrightness.present) {
+      map['theme_brightness'] = Variable<int>(themeBrightness.value);
+    }
+    if (themeStyle.present) {
+      map['theme_style'] = Variable<int>(themeStyle.value);
+    }
+    if (chatEnabled.present) {
+      map['chat_enabled'] = Variable<bool>(chatEnabled.value);
+    }
+    if (pollsEnabled.present) {
+      map['polls_enabled'] = Variable<bool>(pollsEnabled.value);
+    }
+    if (habitsEnabled.present) {
+      map['habits_enabled'] = Variable<bool>(habitsEnabled.value);
+    }
+    if (sleepTrackingEnabled.present) {
+      map['sleep_tracking_enabled'] = Variable<bool>(
+        sleepTrackingEnabled.value,
+      );
+    }
+    if (quickSwitchThresholdSeconds.present) {
+      map['quick_switch_threshold_seconds'] = Variable<int>(
+        quickSwitchThresholdSeconds.value,
+      );
+    }
+    if (chatLogsFront.present) {
+      map['chat_logs_front'] = Variable<bool>(chatLogsFront.value);
+    }
+    if (hasCompletedOnboarding.present) {
+      map['has_completed_onboarding'] = Variable<bool>(
+        hasCompletedOnboarding.value,
+      );
+    }
+    if (syncThemeEnabled.present) {
+      map['sync_theme_enabled'] = Variable<bool>(syncThemeEnabled.value);
+    }
+    if (timingMode.present) {
+      map['timing_mode'] = Variable<int>(timingMode.value);
+    }
+    if (habitsBadgeEnabled.present) {
+      map['habits_badge_enabled'] = Variable<bool>(habitsBadgeEnabled.value);
+    }
+    if (notesEnabled.present) {
+      map['notes_enabled'] = Variable<bool>(notesEnabled.value);
+    }
+    if (systemDescription.present) {
+      map['system_description'] = Variable<String>(systemDescription.value);
+    }
+    if (systemAvatarData.present) {
+      map['system_avatar_data'] = Variable<Uint8List>(systemAvatarData.value);
+    }
+    if (remindersEnabled.present) {
+      map['reminders_enabled'] = Variable<bool>(remindersEnabled.value);
+    }
+    if (fontScale.present) {
+      map['font_scale'] = Variable<double>(fontScale.value);
+    }
+    if (fontFamily.present) {
+      map['font_family'] = Variable<int>(fontFamily.value);
+    }
+    if (pinLockEnabled.present) {
+      map['pin_lock_enabled'] = Variable<bool>(pinLockEnabled.value);
+    }
+    if (biometricLockEnabled.present) {
+      map['biometric_lock_enabled'] = Variable<bool>(
+        biometricLockEnabled.value,
+      );
+    }
+    if (autoLockDelaySeconds.present) {
+      map['auto_lock_delay_seconds'] = Variable<int>(
+        autoLockDelaySeconds.value,
+      );
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (previousAccentColorHex.present) {
+      map['previous_accent_color_hex'] = Variable<String>(
+        previousAccentColorHex.value,
+      );
+    }
+    if (navBarItems.present) {
+      map['nav_bar_items'] = Variable<String>(navBarItems.value);
+    }
+    if (navBarOverflowItems.present) {
+      map['nav_bar_overflow_items'] = Variable<String>(
+        navBarOverflowItems.value,
+      );
+    }
+    if (syncNavigationEnabled.present) {
+      map['sync_navigation_enabled'] = Variable<bool>(
+        syncNavigationEnabled.value,
+      );
+    }
+    if (chatBadgePreferences.present) {
+      map['chat_badge_preferences'] = Variable<String>(
+        chatBadgePreferences.value,
+      );
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SystemSettingsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('systemName: $systemName, ')
+          ..write('showQuickFront: $showQuickFront, ')
+          ..write('accentColorHex: $accentColorHex, ')
+          ..write('perMemberAccentColors: $perMemberAccentColors, ')
+          ..write('terminology: $terminology, ')
+          ..write('customTerminology: $customTerminology, ')
+          ..write('customPluralTerminology: $customPluralTerminology, ')
+          ..write('frontingRemindersEnabled: $frontingRemindersEnabled, ')
+          ..write(
+            'frontingReminderIntervalMinutes: $frontingReminderIntervalMinutes, ',
+          )
+          ..write('themeMode: $themeMode, ')
+          ..write('themeBrightness: $themeBrightness, ')
+          ..write('themeStyle: $themeStyle, ')
+          ..write('chatEnabled: $chatEnabled, ')
+          ..write('pollsEnabled: $pollsEnabled, ')
+          ..write('habitsEnabled: $habitsEnabled, ')
+          ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
+          ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
+          ..write('chatLogsFront: $chatLogsFront, ')
+          ..write('hasCompletedOnboarding: $hasCompletedOnboarding, ')
+          ..write('syncThemeEnabled: $syncThemeEnabled, ')
+          ..write('timingMode: $timingMode, ')
+          ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
+          ..write('notesEnabled: $notesEnabled, ')
+          ..write('systemDescription: $systemDescription, ')
+          ..write('systemAvatarData: $systemAvatarData, ')
+          ..write('remindersEnabled: $remindersEnabled, ')
+          ..write('fontScale: $fontScale, ')
+          ..write('fontFamily: $fontFamily, ')
+          ..write('pinLockEnabled: $pinLockEnabled, ')
+          ..write('biometricLockEnabled: $biometricLockEnabled, ')
+          ..write('autoLockDelaySeconds: $autoLockDelaySeconds, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('previousAccentColorHex: $previousAccentColorHex, ')
+          ..write('navBarItems: $navBarItems, ')
+          ..write('navBarOverflowItems: $navBarOverflowItems, ')
+          ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
+          ..write('chatBadgePreferences: $chatBadgePreferences, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PollsTable extends Polls with TableInfo<$PollsTable, Poll> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PollsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _questionMeta = const VerificationMeta(
+    'question',
+  );
+  @override
+  late final GeneratedColumn<String> question = GeneratedColumn<String>(
+    'question',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isAnonymousMeta = const VerificationMeta(
+    'isAnonymous',
+  );
+  @override
+  late final GeneratedColumn<bool> isAnonymous = GeneratedColumn<bool>(
+    'is_anonymous',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_anonymous" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _allowsMultipleVotesMeta =
+      const VerificationMeta('allowsMultipleVotes');
+  @override
+  late final GeneratedColumn<bool> allowsMultipleVotes = GeneratedColumn<bool>(
+    'allows_multiple_votes',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("allows_multiple_votes" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isClosedMeta = const VerificationMeta(
+    'isClosed',
+  );
+  @override
+  late final GeneratedColumn<bool> isClosed = GeneratedColumn<bool>(
+    'is_closed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_closed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    question,
+    isAnonymous,
+    allowsMultipleVotes,
+    isClosed,
+    description,
+    expiresAt,
+    createdAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'polls';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Poll> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('question')) {
+      context.handle(
+        _questionMeta,
+        question.isAcceptableOrUnknown(data['question']!, _questionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_questionMeta);
+    }
+    if (data.containsKey('is_anonymous')) {
+      context.handle(
+        _isAnonymousMeta,
+        isAnonymous.isAcceptableOrUnknown(
+          data['is_anonymous']!,
+          _isAnonymousMeta,
+        ),
+      );
+    }
+    if (data.containsKey('allows_multiple_votes')) {
+      context.handle(
+        _allowsMultipleVotesMeta,
+        allowsMultipleVotes.isAcceptableOrUnknown(
+          data['allows_multiple_votes']!,
+          _allowsMultipleVotesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_closed')) {
+      context.handle(
+        _isClosedMeta,
+        isClosed.isAcceptableOrUnknown(data['is_closed']!, _isClosedMeta),
+      );
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Poll map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Poll(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      question: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}question'],
+      )!,
+      isAnonymous: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_anonymous'],
+      )!,
+      allowsMultipleVotes: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}allows_multiple_votes'],
+      )!,
+      isClosed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_closed'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $PollsTable createAlias(String alias) {
+    return $PollsTable(attachedDatabase, alias);
+  }
+}
+
+class Poll extends DataClass implements Insertable<Poll> {
+  final String id;
+  final String question;
+  final bool isAnonymous;
+  final bool allowsMultipleVotes;
+  final bool isClosed;
+  final String? description;
+  final DateTime? expiresAt;
+  final DateTime createdAt;
+  final bool isDeleted;
+  const Poll({
+    required this.id,
+    required this.question,
+    required this.isAnonymous,
+    required this.allowsMultipleVotes,
+    required this.isClosed,
+    this.description,
+    this.expiresAt,
+    required this.createdAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['question'] = Variable<String>(question);
+    map['is_anonymous'] = Variable<bool>(isAnonymous);
+    map['allows_multiple_votes'] = Variable<bool>(allowsMultipleVotes);
+    map['is_closed'] = Variable<bool>(isClosed);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || expiresAt != null) {
+      map['expires_at'] = Variable<DateTime>(expiresAt);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  PollsCompanion toCompanion(bool nullToAbsent) {
+    return PollsCompanion(
+      id: Value(id),
+      question: Value(question),
+      isAnonymous: Value(isAnonymous),
+      allowsMultipleVotes: Value(allowsMultipleVotes),
+      isClosed: Value(isClosed),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      expiresAt: expiresAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expiresAt),
+      createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory Poll.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Poll(
+      id: serializer.fromJson<String>(json['id']),
+      question: serializer.fromJson<String>(json['question']),
+      isAnonymous: serializer.fromJson<bool>(json['isAnonymous']),
+      allowsMultipleVotes: serializer.fromJson<bool>(
+        json['allowsMultipleVotes'],
+      ),
+      isClosed: serializer.fromJson<bool>(json['isClosed']),
+      description: serializer.fromJson<String?>(json['description']),
+      expiresAt: serializer.fromJson<DateTime?>(json['expiresAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'question': serializer.toJson<String>(question),
+      'isAnonymous': serializer.toJson<bool>(isAnonymous),
+      'allowsMultipleVotes': serializer.toJson<bool>(allowsMultipleVotes),
+      'isClosed': serializer.toJson<bool>(isClosed),
+      'description': serializer.toJson<String?>(description),
+      'expiresAt': serializer.toJson<DateTime?>(expiresAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  Poll copyWith({
+    String? id,
+    String? question,
+    bool? isAnonymous,
+    bool? allowsMultipleVotes,
+    bool? isClosed,
+    Value<String?> description = const Value.absent(),
+    Value<DateTime?> expiresAt = const Value.absent(),
+    DateTime? createdAt,
+    bool? isDeleted,
+  }) => Poll(
+    id: id ?? this.id,
+    question: question ?? this.question,
+    isAnonymous: isAnonymous ?? this.isAnonymous,
+    allowsMultipleVotes: allowsMultipleVotes ?? this.allowsMultipleVotes,
+    isClosed: isClosed ?? this.isClosed,
+    description: description.present ? description.value : this.description,
+    expiresAt: expiresAt.present ? expiresAt.value : this.expiresAt,
+    createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  Poll copyWithCompanion(PollsCompanion data) {
+    return Poll(
+      id: data.id.present ? data.id.value : this.id,
+      question: data.question.present ? data.question.value : this.question,
+      isAnonymous: data.isAnonymous.present
+          ? data.isAnonymous.value
+          : this.isAnonymous,
+      allowsMultipleVotes: data.allowsMultipleVotes.present
+          ? data.allowsMultipleVotes.value
+          : this.allowsMultipleVotes,
+      isClosed: data.isClosed.present ? data.isClosed.value : this.isClosed,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Poll(')
+          ..write('id: $id, ')
+          ..write('question: $question, ')
+          ..write('isAnonymous: $isAnonymous, ')
+          ..write('allowsMultipleVotes: $allowsMultipleVotes, ')
+          ..write('isClosed: $isClosed, ')
+          ..write('description: $description, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    question,
+    isAnonymous,
+    allowsMultipleVotes,
+    isClosed,
+    description,
+    expiresAt,
+    createdAt,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Poll &&
+          other.id == this.id &&
+          other.question == this.question &&
+          other.isAnonymous == this.isAnonymous &&
+          other.allowsMultipleVotes == this.allowsMultipleVotes &&
+          other.isClosed == this.isClosed &&
+          other.description == this.description &&
+          other.expiresAt == this.expiresAt &&
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class PollsCompanion extends UpdateCompanion<Poll> {
+  final Value<String> id;
+  final Value<String> question;
+  final Value<bool> isAnonymous;
+  final Value<bool> allowsMultipleVotes;
+  final Value<bool> isClosed;
+  final Value<String?> description;
+  final Value<DateTime?> expiresAt;
+  final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const PollsCompanion({
+    this.id = const Value.absent(),
+    this.question = const Value.absent(),
+    this.isAnonymous = const Value.absent(),
+    this.allowsMultipleVotes = const Value.absent(),
+    this.isClosed = const Value.absent(),
+    this.description = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PollsCompanion.insert({
+    required String id,
+    required String question,
+    this.isAnonymous = const Value.absent(),
+    this.allowsMultipleVotes = const Value.absent(),
+    this.isClosed = const Value.absent(),
+    this.description = const Value.absent(),
+    this.expiresAt = const Value.absent(),
+    required DateTime createdAt,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       question = Value(question),
+       createdAt = Value(createdAt);
+  static Insertable<Poll> custom({
+    Expression<String>? id,
+    Expression<String>? question,
+    Expression<bool>? isAnonymous,
+    Expression<bool>? allowsMultipleVotes,
+    Expression<bool>? isClosed,
+    Expression<String>? description,
+    Expression<DateTime>? expiresAt,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (question != null) 'question': question,
+      if (isAnonymous != null) 'is_anonymous': isAnonymous,
+      if (allowsMultipleVotes != null)
+        'allows_multiple_votes': allowsMultipleVotes,
+      if (isClosed != null) 'is_closed': isClosed,
+      if (description != null) 'description': description,
+      if (expiresAt != null) 'expires_at': expiresAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PollsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? question,
+    Value<bool>? isAnonymous,
+    Value<bool>? allowsMultipleVotes,
+    Value<bool>? isClosed,
+    Value<String?>? description,
+    Value<DateTime?>? expiresAt,
+    Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return PollsCompanion(
+      id: id ?? this.id,
+      question: question ?? this.question,
+      isAnonymous: isAnonymous ?? this.isAnonymous,
+      allowsMultipleVotes: allowsMultipleVotes ?? this.allowsMultipleVotes,
+      isClosed: isClosed ?? this.isClosed,
+      description: description ?? this.description,
+      expiresAt: expiresAt ?? this.expiresAt,
+      createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (question.present) {
+      map['question'] = Variable<String>(question.value);
+    }
+    if (isAnonymous.present) {
+      map['is_anonymous'] = Variable<bool>(isAnonymous.value);
+    }
+    if (allowsMultipleVotes.present) {
+      map['allows_multiple_votes'] = Variable<bool>(allowsMultipleVotes.value);
+    }
+    if (isClosed.present) {
+      map['is_closed'] = Variable<bool>(isClosed.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PollsCompanion(')
+          ..write('id: $id, ')
+          ..write('question: $question, ')
+          ..write('isAnonymous: $isAnonymous, ')
+          ..write('allowsMultipleVotes: $allowsMultipleVotes, ')
+          ..write('isClosed: $isClosed, ')
+          ..write('description: $description, ')
+          ..write('expiresAt: $expiresAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PollOptionsTable extends PollOptions
+    with TableInfo<$PollOptionsTable, PollOption> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PollOptionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pollIdMeta = const VerificationMeta('pollId');
+  @override
+  late final GeneratedColumn<String> pollId = GeneratedColumn<String>(
+    'poll_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _optionTextMeta = const VerificationMeta(
+    'optionText',
+  );
+  @override
+  late final GeneratedColumn<String> optionText = GeneratedColumn<String>(
+    'option_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isOtherOptionMeta = const VerificationMeta(
+    'isOtherOption',
+  );
+  @override
+  late final GeneratedColumn<bool> isOtherOption = GeneratedColumn<bool>(
+    'is_other_option',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_other_option" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _colorHexMeta = const VerificationMeta(
+    'colorHex',
+  );
+  @override
+  late final GeneratedColumn<String> colorHex = GeneratedColumn<String>(
+    'color_hex',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    pollId,
+    optionText,
+    sortOrder,
+    isOtherOption,
+    colorHex,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'poll_options';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PollOption> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('poll_id')) {
+      context.handle(
+        _pollIdMeta,
+        pollId.isAcceptableOrUnknown(data['poll_id']!, _pollIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pollIdMeta);
+    }
+    if (data.containsKey('option_text')) {
+      context.handle(
+        _optionTextMeta,
+        optionText.isAcceptableOrUnknown(data['option_text']!, _optionTextMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_optionTextMeta);
+    }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
+    if (data.containsKey('is_other_option')) {
+      context.handle(
+        _isOtherOptionMeta,
+        isOtherOption.isAcceptableOrUnknown(
+          data['is_other_option']!,
+          _isOtherOptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('color_hex')) {
+      context.handle(
+        _colorHexMeta,
+        colorHex.isAcceptableOrUnknown(data['color_hex']!, _colorHexMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PollOption map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PollOption(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      pollId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}poll_id'],
+      )!,
+      optionText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}option_text'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
+      isOtherOption: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_other_option'],
+      )!,
+      colorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_hex'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $PollOptionsTable createAlias(String alias) {
+    return $PollOptionsTable(attachedDatabase, alias);
+  }
+}
+
+class PollOption extends DataClass implements Insertable<PollOption> {
+  final String id;
+  final String pollId;
+  final String optionText;
+  final int sortOrder;
+  final bool isOtherOption;
+  final String? colorHex;
+  final bool isDeleted;
+  const PollOption({
+    required this.id,
+    required this.pollId,
+    required this.optionText,
+    required this.sortOrder,
+    required this.isOtherOption,
+    this.colorHex,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['poll_id'] = Variable<String>(pollId);
+    map['option_text'] = Variable<String>(optionText);
+    map['sort_order'] = Variable<int>(sortOrder);
+    map['is_other_option'] = Variable<bool>(isOtherOption);
+    if (!nullToAbsent || colorHex != null) {
+      map['color_hex'] = Variable<String>(colorHex);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  PollOptionsCompanion toCompanion(bool nullToAbsent) {
+    return PollOptionsCompanion(
+      id: Value(id),
+      pollId: Value(pollId),
+      optionText: Value(optionText),
+      sortOrder: Value(sortOrder),
+      isOtherOption: Value(isOtherOption),
+      colorHex: colorHex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorHex),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory PollOption.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PollOption(
+      id: serializer.fromJson<String>(json['id']),
+      pollId: serializer.fromJson<String>(json['pollId']),
+      optionText: serializer.fromJson<String>(json['optionText']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      isOtherOption: serializer.fromJson<bool>(json['isOtherOption']),
+      colorHex: serializer.fromJson<String?>(json['colorHex']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'pollId': serializer.toJson<String>(pollId),
+      'optionText': serializer.toJson<String>(optionText),
+      'sortOrder': serializer.toJson<int>(sortOrder),
+      'isOtherOption': serializer.toJson<bool>(isOtherOption),
+      'colorHex': serializer.toJson<String?>(colorHex),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  PollOption copyWith({
+    String? id,
+    String? pollId,
+    String? optionText,
+    int? sortOrder,
+    bool? isOtherOption,
+    Value<String?> colorHex = const Value.absent(),
+    bool? isDeleted,
+  }) => PollOption(
+    id: id ?? this.id,
+    pollId: pollId ?? this.pollId,
+    optionText: optionText ?? this.optionText,
+    sortOrder: sortOrder ?? this.sortOrder,
+    isOtherOption: isOtherOption ?? this.isOtherOption,
+    colorHex: colorHex.present ? colorHex.value : this.colorHex,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  PollOption copyWithCompanion(PollOptionsCompanion data) {
+    return PollOption(
+      id: data.id.present ? data.id.value : this.id,
+      pollId: data.pollId.present ? data.pollId.value : this.pollId,
+      optionText: data.optionText.present
+          ? data.optionText.value
+          : this.optionText,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      isOtherOption: data.isOtherOption.present
+          ? data.isOtherOption.value
+          : this.isOtherOption,
+      colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PollOption(')
+          ..write('id: $id, ')
+          ..write('pollId: $pollId, ')
+          ..write('optionText: $optionText, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('isOtherOption: $isOtherOption, ')
+          ..write('colorHex: $colorHex, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    pollId,
+    optionText,
+    sortOrder,
+    isOtherOption,
+    colorHex,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PollOption &&
+          other.id == this.id &&
+          other.pollId == this.pollId &&
+          other.optionText == this.optionText &&
+          other.sortOrder == this.sortOrder &&
+          other.isOtherOption == this.isOtherOption &&
+          other.colorHex == this.colorHex &&
+          other.isDeleted == this.isDeleted);
+}
+
+class PollOptionsCompanion extends UpdateCompanion<PollOption> {
+  final Value<String> id;
+  final Value<String> pollId;
+  final Value<String> optionText;
+  final Value<int> sortOrder;
+  final Value<bool> isOtherOption;
+  final Value<String?> colorHex;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const PollOptionsCompanion({
+    this.id = const Value.absent(),
+    this.pollId = const Value.absent(),
+    this.optionText = const Value.absent(),
+    this.sortOrder = const Value.absent(),
+    this.isOtherOption = const Value.absent(),
+    this.colorHex = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PollOptionsCompanion.insert({
+    required String id,
+    required String pollId,
+    required String optionText,
+    this.sortOrder = const Value.absent(),
+    this.isOtherOption = const Value.absent(),
+    this.colorHex = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       pollId = Value(pollId),
+       optionText = Value(optionText);
+  static Insertable<PollOption> custom({
+    Expression<String>? id,
+    Expression<String>? pollId,
+    Expression<String>? optionText,
+    Expression<int>? sortOrder,
+    Expression<bool>? isOtherOption,
+    Expression<String>? colorHex,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (pollId != null) 'poll_id': pollId,
+      if (optionText != null) 'option_text': optionText,
+      if (sortOrder != null) 'sort_order': sortOrder,
+      if (isOtherOption != null) 'is_other_option': isOtherOption,
+      if (colorHex != null) 'color_hex': colorHex,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PollOptionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? pollId,
+    Value<String>? optionText,
+    Value<int>? sortOrder,
+    Value<bool>? isOtherOption,
+    Value<String?>? colorHex,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return PollOptionsCompanion(
+      id: id ?? this.id,
+      pollId: pollId ?? this.pollId,
+      optionText: optionText ?? this.optionText,
+      sortOrder: sortOrder ?? this.sortOrder,
+      isOtherOption: isOtherOption ?? this.isOtherOption,
+      colorHex: colorHex ?? this.colorHex,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (pollId.present) {
+      map['poll_id'] = Variable<String>(pollId.value);
+    }
+    if (optionText.present) {
+      map['option_text'] = Variable<String>(optionText.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
+    if (isOtherOption.present) {
+      map['is_other_option'] = Variable<bool>(isOtherOption.value);
+    }
+    if (colorHex.present) {
+      map['color_hex'] = Variable<String>(colorHex.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PollOptionsCompanion(')
+          ..write('id: $id, ')
+          ..write('pollId: $pollId, ')
+          ..write('optionText: $optionText, ')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('isOtherOption: $isOtherOption, ')
+          ..write('colorHex: $colorHex, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PollVotesTable extends PollVotes
+    with TableInfo<$PollVotesTable, PollVote> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PollVotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pollOptionIdMeta = const VerificationMeta(
+    'pollOptionId',
+  );
+  @override
+  late final GeneratedColumn<String> pollOptionId = GeneratedColumn<String>(
+    'poll_option_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _votedAtMeta = const VerificationMeta(
+    'votedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> votedAt = GeneratedColumn<DateTime>(
+    'voted_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _responseTextMeta = const VerificationMeta(
+    'responseText',
+  );
+  @override
+  late final GeneratedColumn<String> responseText = GeneratedColumn<String>(
+    'response_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    pollOptionId,
+    memberId,
+    votedAt,
+    responseText,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'poll_votes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PollVote> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('poll_option_id')) {
+      context.handle(
+        _pollOptionIdMeta,
+        pollOptionId.isAcceptableOrUnknown(
+          data['poll_option_id']!,
+          _pollOptionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_pollOptionIdMeta);
+    }
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memberIdMeta);
+    }
+    if (data.containsKey('voted_at')) {
+      context.handle(
+        _votedAtMeta,
+        votedAt.isAcceptableOrUnknown(data['voted_at']!, _votedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_votedAtMeta);
+    }
+    if (data.containsKey('response_text')) {
+      context.handle(
+        _responseTextMeta,
+        responseText.isAcceptableOrUnknown(
+          data['response_text']!,
+          _responseTextMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PollVote map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PollVote(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      pollOptionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}poll_option_id'],
+      )!,
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      )!,
+      votedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}voted_at'],
+      )!,
+      responseText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}response_text'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $PollVotesTable createAlias(String alias) {
+    return $PollVotesTable(attachedDatabase, alias);
+  }
+}
+
+class PollVote extends DataClass implements Insertable<PollVote> {
+  final String id;
+  final String pollOptionId;
+  final String memberId;
+  final DateTime votedAt;
+  final String? responseText;
+  final bool isDeleted;
+  const PollVote({
+    required this.id,
+    required this.pollOptionId,
+    required this.memberId,
+    required this.votedAt,
+    this.responseText,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['poll_option_id'] = Variable<String>(pollOptionId);
+    map['member_id'] = Variable<String>(memberId);
+    map['voted_at'] = Variable<DateTime>(votedAt);
+    if (!nullToAbsent || responseText != null) {
+      map['response_text'] = Variable<String>(responseText);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  PollVotesCompanion toCompanion(bool nullToAbsent) {
+    return PollVotesCompanion(
+      id: Value(id),
+      pollOptionId: Value(pollOptionId),
+      memberId: Value(memberId),
+      votedAt: Value(votedAt),
+      responseText: responseText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(responseText),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory PollVote.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PollVote(
+      id: serializer.fromJson<String>(json['id']),
+      pollOptionId: serializer.fromJson<String>(json['pollOptionId']),
+      memberId: serializer.fromJson<String>(json['memberId']),
+      votedAt: serializer.fromJson<DateTime>(json['votedAt']),
+      responseText: serializer.fromJson<String?>(json['responseText']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'pollOptionId': serializer.toJson<String>(pollOptionId),
+      'memberId': serializer.toJson<String>(memberId),
+      'votedAt': serializer.toJson<DateTime>(votedAt),
+      'responseText': serializer.toJson<String?>(responseText),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  PollVote copyWith({
+    String? id,
+    String? pollOptionId,
+    String? memberId,
+    DateTime? votedAt,
+    Value<String?> responseText = const Value.absent(),
+    bool? isDeleted,
+  }) => PollVote(
+    id: id ?? this.id,
+    pollOptionId: pollOptionId ?? this.pollOptionId,
+    memberId: memberId ?? this.memberId,
+    votedAt: votedAt ?? this.votedAt,
+    responseText: responseText.present ? responseText.value : this.responseText,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  PollVote copyWithCompanion(PollVotesCompanion data) {
+    return PollVote(
+      id: data.id.present ? data.id.value : this.id,
+      pollOptionId: data.pollOptionId.present
+          ? data.pollOptionId.value
+          : this.pollOptionId,
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      votedAt: data.votedAt.present ? data.votedAt.value : this.votedAt,
+      responseText: data.responseText.present
+          ? data.responseText.value
+          : this.responseText,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PollVote(')
+          ..write('id: $id, ')
+          ..write('pollOptionId: $pollOptionId, ')
+          ..write('memberId: $memberId, ')
+          ..write('votedAt: $votedAt, ')
+          ..write('responseText: $responseText, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, pollOptionId, memberId, votedAt, responseText, isDeleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PollVote &&
+          other.id == this.id &&
+          other.pollOptionId == this.pollOptionId &&
+          other.memberId == this.memberId &&
+          other.votedAt == this.votedAt &&
+          other.responseText == this.responseText &&
+          other.isDeleted == this.isDeleted);
+}
+
+class PollVotesCompanion extends UpdateCompanion<PollVote> {
+  final Value<String> id;
+  final Value<String> pollOptionId;
+  final Value<String> memberId;
+  final Value<DateTime> votedAt;
+  final Value<String?> responseText;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const PollVotesCompanion({
+    this.id = const Value.absent(),
+    this.pollOptionId = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.votedAt = const Value.absent(),
+    this.responseText = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PollVotesCompanion.insert({
+    required String id,
+    required String pollOptionId,
+    required String memberId,
+    required DateTime votedAt,
+    this.responseText = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       pollOptionId = Value(pollOptionId),
+       memberId = Value(memberId),
+       votedAt = Value(votedAt);
+  static Insertable<PollVote> custom({
+    Expression<String>? id,
+    Expression<String>? pollOptionId,
+    Expression<String>? memberId,
+    Expression<DateTime>? votedAt,
+    Expression<String>? responseText,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (pollOptionId != null) 'poll_option_id': pollOptionId,
+      if (memberId != null) 'member_id': memberId,
+      if (votedAt != null) 'voted_at': votedAt,
+      if (responseText != null) 'response_text': responseText,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PollVotesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? pollOptionId,
+    Value<String>? memberId,
+    Value<DateTime>? votedAt,
+    Value<String?>? responseText,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return PollVotesCompanion(
+      id: id ?? this.id,
+      pollOptionId: pollOptionId ?? this.pollOptionId,
+      memberId: memberId ?? this.memberId,
+      votedAt: votedAt ?? this.votedAt,
+      responseText: responseText ?? this.responseText,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (pollOptionId.present) {
+      map['poll_option_id'] = Variable<String>(pollOptionId.value);
+    }
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (votedAt.present) {
+      map['voted_at'] = Variable<DateTime>(votedAt.value);
+    }
+    if (responseText.present) {
+      map['response_text'] = Variable<String>(responseText.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PollVotesCompanion(')
+          ..write('id: $id, ')
+          ..write('pollOptionId: $pollOptionId, ')
+          ..write('memberId: $memberId, ')
+          ..write('votedAt: $votedAt, ')
+          ..write('responseText: $responseText, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SleepSessionsTable extends SleepSessions
+    with TableInfo<$SleepSessionsTable, SleepSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SleepSessionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _startTimeMeta = const VerificationMeta(
+    'startTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startTime = GeneratedColumn<DateTime>(
+    'start_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endTimeMeta = const VerificationMeta(
+    'endTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endTime = GeneratedColumn<DateTime>(
+    'end_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _qualityMeta = const VerificationMeta(
+    'quality',
+  );
+  @override
+  late final GeneratedColumn<int> quality = GeneratedColumn<int>(
+    'quality',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isHealthKitImportMeta = const VerificationMeta(
+    'isHealthKitImport',
+  );
+  @override
+  late final GeneratedColumn<bool> isHealthKitImport = GeneratedColumn<bool>(
+    'is_health_kit_import',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_health_kit_import" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    startTime,
+    endTime,
+    quality,
+    notes,
+    isHealthKitImport,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sleep_sessions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SleepSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('start_time')) {
+      context.handle(
+        _startTimeMeta,
+        startTime.isAcceptableOrUnknown(data['start_time']!, _startTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startTimeMeta);
+    }
+    if (data.containsKey('end_time')) {
+      context.handle(
+        _endTimeMeta,
+        endTime.isAcceptableOrUnknown(data['end_time']!, _endTimeMeta),
+      );
+    }
+    if (data.containsKey('quality')) {
+      context.handle(
+        _qualityMeta,
+        quality.isAcceptableOrUnknown(data['quality']!, _qualityMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('is_health_kit_import')) {
+      context.handle(
+        _isHealthKitImportMeta,
+        isHealthKitImport.isAcceptableOrUnknown(
+          data['is_health_kit_import']!,
+          _isHealthKitImportMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SleepSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SleepSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      startTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_time'],
+      )!,
+      endTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_time'],
+      ),
+      quality: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quality'],
+      )!,
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      isHealthKitImport: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_health_kit_import'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $SleepSessionsTable createAlias(String alias) {
+    return $SleepSessionsTable(attachedDatabase, alias);
+  }
+}
+
+class SleepSession extends DataClass implements Insertable<SleepSession> {
+  final String id;
+  final DateTime startTime;
+  final DateTime? endTime;
+  final int quality;
+  final String? notes;
+  final bool isHealthKitImport;
+  final bool isDeleted;
+  const SleepSession({
+    required this.id,
+    required this.startTime,
+    this.endTime,
+    required this.quality,
+    this.notes,
+    required this.isHealthKitImport,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['start_time'] = Variable<DateTime>(startTime);
+    if (!nullToAbsent || endTime != null) {
+      map['end_time'] = Variable<DateTime>(endTime);
+    }
+    map['quality'] = Variable<int>(quality);
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['is_health_kit_import'] = Variable<bool>(isHealthKitImport);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  SleepSessionsCompanion toCompanion(bool nullToAbsent) {
+    return SleepSessionsCompanion(
+      id: Value(id),
+      startTime: Value(startTime),
+      endTime: endTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endTime),
+      quality: Value(quality),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      isHealthKitImport: Value(isHealthKitImport),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory SleepSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SleepSession(
+      id: serializer.fromJson<String>(json['id']),
+      startTime: serializer.fromJson<DateTime>(json['startTime']),
+      endTime: serializer.fromJson<DateTime?>(json['endTime']),
+      quality: serializer.fromJson<int>(json['quality']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      isHealthKitImport: serializer.fromJson<bool>(json['isHealthKitImport']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'startTime': serializer.toJson<DateTime>(startTime),
+      'endTime': serializer.toJson<DateTime?>(endTime),
+      'quality': serializer.toJson<int>(quality),
+      'notes': serializer.toJson<String?>(notes),
+      'isHealthKitImport': serializer.toJson<bool>(isHealthKitImport),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  SleepSession copyWith({
+    String? id,
+    DateTime? startTime,
+    Value<DateTime?> endTime = const Value.absent(),
+    int? quality,
+    Value<String?> notes = const Value.absent(),
+    bool? isHealthKitImport,
+    bool? isDeleted,
+  }) => SleepSession(
+    id: id ?? this.id,
+    startTime: startTime ?? this.startTime,
+    endTime: endTime.present ? endTime.value : this.endTime,
+    quality: quality ?? this.quality,
+    notes: notes.present ? notes.value : this.notes,
+    isHealthKitImport: isHealthKitImport ?? this.isHealthKitImport,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  SleepSession copyWithCompanion(SleepSessionsCompanion data) {
+    return SleepSession(
+      id: data.id.present ? data.id.value : this.id,
+      startTime: data.startTime.present ? data.startTime.value : this.startTime,
+      endTime: data.endTime.present ? data.endTime.value : this.endTime,
+      quality: data.quality.present ? data.quality.value : this.quality,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      isHealthKitImport: data.isHealthKitImport.present
+          ? data.isHealthKitImport.value
+          : this.isHealthKitImport,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SleepSession(')
+          ..write('id: $id, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('quality: $quality, ')
+          ..write('notes: $notes, ')
+          ..write('isHealthKitImport: $isHealthKitImport, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    startTime,
+    endTime,
+    quality,
+    notes,
+    isHealthKitImport,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SleepSession &&
+          other.id == this.id &&
+          other.startTime == this.startTime &&
+          other.endTime == this.endTime &&
+          other.quality == this.quality &&
+          other.notes == this.notes &&
+          other.isHealthKitImport == this.isHealthKitImport &&
+          other.isDeleted == this.isDeleted);
+}
+
+class SleepSessionsCompanion extends UpdateCompanion<SleepSession> {
+  final Value<String> id;
+  final Value<DateTime> startTime;
+  final Value<DateTime?> endTime;
+  final Value<int> quality;
+  final Value<String?> notes;
+  final Value<bool> isHealthKitImport;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const SleepSessionsCompanion({
+    this.id = const Value.absent(),
+    this.startTime = const Value.absent(),
+    this.endTime = const Value.absent(),
+    this.quality = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.isHealthKitImport = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SleepSessionsCompanion.insert({
+    required String id,
+    required DateTime startTime,
+    this.endTime = const Value.absent(),
+    this.quality = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.isHealthKitImport = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       startTime = Value(startTime);
+  static Insertable<SleepSession> custom({
+    Expression<String>? id,
+    Expression<DateTime>? startTime,
+    Expression<DateTime>? endTime,
+    Expression<int>? quality,
+    Expression<String>? notes,
+    Expression<bool>? isHealthKitImport,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (startTime != null) 'start_time': startTime,
+      if (endTime != null) 'end_time': endTime,
+      if (quality != null) 'quality': quality,
+      if (notes != null) 'notes': notes,
+      if (isHealthKitImport != null) 'is_health_kit_import': isHealthKitImport,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SleepSessionsCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime>? startTime,
+    Value<DateTime?>? endTime,
+    Value<int>? quality,
+    Value<String?>? notes,
+    Value<bool>? isHealthKitImport,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return SleepSessionsCompanion(
+      id: id ?? this.id,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      quality: quality ?? this.quality,
+      notes: notes ?? this.notes,
+      isHealthKitImport: isHealthKitImport ?? this.isHealthKitImport,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (startTime.present) {
+      map['start_time'] = Variable<DateTime>(startTime.value);
+    }
+    if (endTime.present) {
+      map['end_time'] = Variable<DateTime>(endTime.value);
+    }
+    if (quality.present) {
+      map['quality'] = Variable<int>(quality.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (isHealthKitImport.present) {
+      map['is_health_kit_import'] = Variable<bool>(isHealthKitImport.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SleepSessionsCompanion(')
+          ..write('id: $id, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('quality: $quality, ')
+          ..write('notes: $notes, ')
+          ..write('isHealthKitImport: $isHealthKitImport, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PluralKitSyncStateTable extends PluralKitSyncState
+    with TableInfo<$PluralKitSyncStateTable, PluralKitSyncStateData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PluralKitSyncStateTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _systemIdMeta = const VerificationMeta(
+    'systemId',
+  );
+  @override
+  late final GeneratedColumn<String> systemId = GeneratedColumn<String>(
+    'system_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastSyncDateMeta = const VerificationMeta(
+    'lastSyncDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncDate = GeneratedColumn<DateTime>(
+    'last_sync_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastManualSyncDateMeta =
+      const VerificationMeta('lastManualSyncDate');
+  @override
+  late final GeneratedColumn<DateTime> lastManualSyncDate =
+      GeneratedColumn<DateTime>(
+        'last_manual_sync_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _isConnectedMeta = const VerificationMeta(
+    'isConnected',
+  );
+  @override
+  late final GeneratedColumn<bool> isConnected = GeneratedColumn<bool>(
+    'is_connected',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_connected" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _fieldSyncConfigMeta = const VerificationMeta(
+    'fieldSyncConfig',
+  );
+  @override
+  late final GeneratedColumn<String> fieldSyncConfig = GeneratedColumn<String>(
+    'field_sync_config',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    systemId,
+    lastSyncDate,
+    lastManualSyncDate,
+    isConnected,
+    fieldSyncConfig,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'plural_kit_sync_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PluralKitSyncStateData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('system_id')) {
+      context.handle(
+        _systemIdMeta,
+        systemId.isAcceptableOrUnknown(data['system_id']!, _systemIdMeta),
+      );
+    }
+    if (data.containsKey('last_sync_date')) {
+      context.handle(
+        _lastSyncDateMeta,
+        lastSyncDate.isAcceptableOrUnknown(
+          data['last_sync_date']!,
+          _lastSyncDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_manual_sync_date')) {
+      context.handle(
+        _lastManualSyncDateMeta,
+        lastManualSyncDate.isAcceptableOrUnknown(
+          data['last_manual_sync_date']!,
+          _lastManualSyncDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_connected')) {
+      context.handle(
+        _isConnectedMeta,
+        isConnected.isAcceptableOrUnknown(
+          data['is_connected']!,
+          _isConnectedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('field_sync_config')) {
+      context.handle(
+        _fieldSyncConfigMeta,
+        fieldSyncConfig.isAcceptableOrUnknown(
+          data['field_sync_config']!,
+          _fieldSyncConfigMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PluralKitSyncStateData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PluralKitSyncStateData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      systemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}system_id'],
+      ),
+      lastSyncDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_sync_date'],
+      ),
+      lastManualSyncDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_manual_sync_date'],
+      ),
+      isConnected: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_connected'],
+      )!,
+      fieldSyncConfig: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_sync_config'],
+      ),
+    );
+  }
+
+  @override
+  $PluralKitSyncStateTable createAlias(String alias) {
+    return $PluralKitSyncStateTable(attachedDatabase, alias);
+  }
+}
+
+class PluralKitSyncStateData extends DataClass
+    implements Insertable<PluralKitSyncStateData> {
+  final String id;
+  final String? systemId;
+  final DateTime? lastSyncDate;
+  final DateTime? lastManualSyncDate;
+  final bool isConnected;
+  final String? fieldSyncConfig;
+  const PluralKitSyncStateData({
+    required this.id,
+    this.systemId,
+    this.lastSyncDate,
+    this.lastManualSyncDate,
+    required this.isConnected,
+    this.fieldSyncConfig,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || systemId != null) {
+      map['system_id'] = Variable<String>(systemId);
+    }
+    if (!nullToAbsent || lastSyncDate != null) {
+      map['last_sync_date'] = Variable<DateTime>(lastSyncDate);
+    }
+    if (!nullToAbsent || lastManualSyncDate != null) {
+      map['last_manual_sync_date'] = Variable<DateTime>(lastManualSyncDate);
+    }
+    map['is_connected'] = Variable<bool>(isConnected);
+    if (!nullToAbsent || fieldSyncConfig != null) {
+      map['field_sync_config'] = Variable<String>(fieldSyncConfig);
+    }
+    return map;
+  }
+
+  PluralKitSyncStateCompanion toCompanion(bool nullToAbsent) {
+    return PluralKitSyncStateCompanion(
+      id: Value(id),
+      systemId: systemId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systemId),
+      lastSyncDate: lastSyncDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncDate),
+      lastManualSyncDate: lastManualSyncDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastManualSyncDate),
+      isConnected: Value(isConnected),
+      fieldSyncConfig: fieldSyncConfig == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fieldSyncConfig),
+    );
+  }
+
+  factory PluralKitSyncStateData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PluralKitSyncStateData(
+      id: serializer.fromJson<String>(json['id']),
+      systemId: serializer.fromJson<String?>(json['systemId']),
+      lastSyncDate: serializer.fromJson<DateTime?>(json['lastSyncDate']),
+      lastManualSyncDate: serializer.fromJson<DateTime?>(
+        json['lastManualSyncDate'],
+      ),
+      isConnected: serializer.fromJson<bool>(json['isConnected']),
+      fieldSyncConfig: serializer.fromJson<String?>(json['fieldSyncConfig']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'systemId': serializer.toJson<String?>(systemId),
+      'lastSyncDate': serializer.toJson<DateTime?>(lastSyncDate),
+      'lastManualSyncDate': serializer.toJson<DateTime?>(lastManualSyncDate),
+      'isConnected': serializer.toJson<bool>(isConnected),
+      'fieldSyncConfig': serializer.toJson<String?>(fieldSyncConfig),
+    };
+  }
+
+  PluralKitSyncStateData copyWith({
+    String? id,
+    Value<String?> systemId = const Value.absent(),
+    Value<DateTime?> lastSyncDate = const Value.absent(),
+    Value<DateTime?> lastManualSyncDate = const Value.absent(),
+    bool? isConnected,
+    Value<String?> fieldSyncConfig = const Value.absent(),
+  }) => PluralKitSyncStateData(
+    id: id ?? this.id,
+    systemId: systemId.present ? systemId.value : this.systemId,
+    lastSyncDate: lastSyncDate.present ? lastSyncDate.value : this.lastSyncDate,
+    lastManualSyncDate: lastManualSyncDate.present
+        ? lastManualSyncDate.value
+        : this.lastManualSyncDate,
+    isConnected: isConnected ?? this.isConnected,
+    fieldSyncConfig: fieldSyncConfig.present
+        ? fieldSyncConfig.value
+        : this.fieldSyncConfig,
+  );
+  PluralKitSyncStateData copyWithCompanion(PluralKitSyncStateCompanion data) {
+    return PluralKitSyncStateData(
+      id: data.id.present ? data.id.value : this.id,
+      systemId: data.systemId.present ? data.systemId.value : this.systemId,
+      lastSyncDate: data.lastSyncDate.present
+          ? data.lastSyncDate.value
+          : this.lastSyncDate,
+      lastManualSyncDate: data.lastManualSyncDate.present
+          ? data.lastManualSyncDate.value
+          : this.lastManualSyncDate,
+      isConnected: data.isConnected.present
+          ? data.isConnected.value
+          : this.isConnected,
+      fieldSyncConfig: data.fieldSyncConfig.present
+          ? data.fieldSyncConfig.value
+          : this.fieldSyncConfig,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PluralKitSyncStateData(')
+          ..write('id: $id, ')
+          ..write('systemId: $systemId, ')
+          ..write('lastSyncDate: $lastSyncDate, ')
+          ..write('lastManualSyncDate: $lastManualSyncDate, ')
+          ..write('isConnected: $isConnected, ')
+          ..write('fieldSyncConfig: $fieldSyncConfig')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    systemId,
+    lastSyncDate,
+    lastManualSyncDate,
+    isConnected,
+    fieldSyncConfig,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PluralKitSyncStateData &&
+          other.id == this.id &&
+          other.systemId == this.systemId &&
+          other.lastSyncDate == this.lastSyncDate &&
+          other.lastManualSyncDate == this.lastManualSyncDate &&
+          other.isConnected == this.isConnected &&
+          other.fieldSyncConfig == this.fieldSyncConfig);
+}
+
+class PluralKitSyncStateCompanion
+    extends UpdateCompanion<PluralKitSyncStateData> {
+  final Value<String> id;
+  final Value<String?> systemId;
+  final Value<DateTime?> lastSyncDate;
+  final Value<DateTime?> lastManualSyncDate;
+  final Value<bool> isConnected;
+  final Value<String?> fieldSyncConfig;
+  final Value<int> rowid;
+  const PluralKitSyncStateCompanion({
+    this.id = const Value.absent(),
+    this.systemId = const Value.absent(),
+    this.lastSyncDate = const Value.absent(),
+    this.lastManualSyncDate = const Value.absent(),
+    this.isConnected = const Value.absent(),
+    this.fieldSyncConfig = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PluralKitSyncStateCompanion.insert({
+    required String id,
+    this.systemId = const Value.absent(),
+    this.lastSyncDate = const Value.absent(),
+    this.lastManualSyncDate = const Value.absent(),
+    this.isConnected = const Value.absent(),
+    this.fieldSyncConfig = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<PluralKitSyncStateData> custom({
+    Expression<String>? id,
+    Expression<String>? systemId,
+    Expression<DateTime>? lastSyncDate,
+    Expression<DateTime>? lastManualSyncDate,
+    Expression<bool>? isConnected,
+    Expression<String>? fieldSyncConfig,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (systemId != null) 'system_id': systemId,
+      if (lastSyncDate != null) 'last_sync_date': lastSyncDate,
+      if (lastManualSyncDate != null)
+        'last_manual_sync_date': lastManualSyncDate,
+      if (isConnected != null) 'is_connected': isConnected,
+      if (fieldSyncConfig != null) 'field_sync_config': fieldSyncConfig,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PluralKitSyncStateCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? systemId,
+    Value<DateTime?>? lastSyncDate,
+    Value<DateTime?>? lastManualSyncDate,
+    Value<bool>? isConnected,
+    Value<String?>? fieldSyncConfig,
+    Value<int>? rowid,
+  }) {
+    return PluralKitSyncStateCompanion(
+      id: id ?? this.id,
+      systemId: systemId ?? this.systemId,
+      lastSyncDate: lastSyncDate ?? this.lastSyncDate,
+      lastManualSyncDate: lastManualSyncDate ?? this.lastManualSyncDate,
+      isConnected: isConnected ?? this.isConnected,
+      fieldSyncConfig: fieldSyncConfig ?? this.fieldSyncConfig,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (systemId.present) {
+      map['system_id'] = Variable<String>(systemId.value);
+    }
+    if (lastSyncDate.present) {
+      map['last_sync_date'] = Variable<DateTime>(lastSyncDate.value);
+    }
+    if (lastManualSyncDate.present) {
+      map['last_manual_sync_date'] = Variable<DateTime>(
+        lastManualSyncDate.value,
+      );
+    }
+    if (isConnected.present) {
+      map['is_connected'] = Variable<bool>(isConnected.value);
+    }
+    if (fieldSyncConfig.present) {
+      map['field_sync_config'] = Variable<String>(fieldSyncConfig.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PluralKitSyncStateCompanion(')
+          ..write('id: $id, ')
+          ..write('systemId: $systemId, ')
+          ..write('lastSyncDate: $lastSyncDate, ')
+          ..write('lastManualSyncDate: $lastManualSyncDate, ')
+          ..write('isConnected: $isConnected, ')
+          ..write('fieldSyncConfig: $fieldSyncConfig, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $HabitsTable extends Habits with TableInfo<$HabitsTable, Habit> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HabitsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _iconMeta = const VerificationMeta('icon');
+  @override
+  late final GeneratedColumn<String> icon = GeneratedColumn<String>(
+    'icon',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorHexMeta = const VerificationMeta(
+    'colorHex',
+  );
+  @override
+  late final GeneratedColumn<String> colorHex = GeneratedColumn<String>(
+    'color_hex',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
+    'modifiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> modifiedAt = GeneratedColumn<DateTime>(
+    'modified_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _frequencyMeta = const VerificationMeta(
+    'frequency',
+  );
+  @override
+  late final GeneratedColumn<String> frequency = GeneratedColumn<String>(
+    'frequency',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('daily'),
+  );
+  static const VerificationMeta _weeklyDaysMeta = const VerificationMeta(
+    'weeklyDays',
+  );
+  @override
+  late final GeneratedColumn<String> weeklyDays = GeneratedColumn<String>(
+    'weekly_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _intervalDaysMeta = const VerificationMeta(
+    'intervalDays',
+  );
+  @override
+  late final GeneratedColumn<int> intervalDays = GeneratedColumn<int>(
+    'interval_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _reminderTimeMeta = const VerificationMeta(
+    'reminderTime',
+  );
+  @override
+  late final GeneratedColumn<String> reminderTime = GeneratedColumn<String>(
+    'reminder_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notificationsEnabledMeta =
+      const VerificationMeta('notificationsEnabled');
+  @override
+  late final GeneratedColumn<bool> notificationsEnabled = GeneratedColumn<bool>(
+    'notifications_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("notifications_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _notificationMessageMeta =
+      const VerificationMeta('notificationMessage');
+  @override
+  late final GeneratedColumn<String> notificationMessage =
+      GeneratedColumn<String>(
+        'notification_message',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _assignedMemberIdMeta = const VerificationMeta(
+    'assignedMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> assignedMemberId = GeneratedColumn<String>(
+    'assigned_member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _onlyNotifyWhenFrontingMeta =
+      const VerificationMeta('onlyNotifyWhenFronting');
+  @override
+  late final GeneratedColumn<bool> onlyNotifyWhenFronting =
+      GeneratedColumn<bool>(
+        'only_notify_when_fronting',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("only_notify_when_fronting" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _isPrivateMeta = const VerificationMeta(
+    'isPrivate',
+  );
+  @override
+  late final GeneratedColumn<bool> isPrivate = GeneratedColumn<bool>(
+    'is_private',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_private" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _currentStreakMeta = const VerificationMeta(
+    'currentStreak',
+  );
+  @override
+  late final GeneratedColumn<int> currentStreak = GeneratedColumn<int>(
+    'current_streak',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _bestStreakMeta = const VerificationMeta(
+    'bestStreak',
+  );
+  @override
+  late final GeneratedColumn<int> bestStreak = GeneratedColumn<int>(
+    'best_streak',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _totalCompletionsMeta = const VerificationMeta(
+    'totalCompletions',
+  );
+  @override
+  late final GeneratedColumn<int> totalCompletions = GeneratedColumn<int>(
+    'total_completions',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    description,
+    icon,
+    colorHex,
+    isActive,
+    createdAt,
+    modifiedAt,
+    frequency,
+    weeklyDays,
+    intervalDays,
+    reminderTime,
+    notificationsEnabled,
+    notificationMessage,
+    assignedMemberId,
+    onlyNotifyWhenFronting,
+    isPrivate,
+    currentStreak,
+    bestStreak,
+    totalCompletions,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'habits';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Habit> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('icon')) {
+      context.handle(
+        _iconMeta,
+        icon.isAcceptableOrUnknown(data['icon']!, _iconMeta),
+      );
+    }
+    if (data.containsKey('color_hex')) {
+      context.handle(
+        _colorHexMeta,
+        colorHex.isAcceptableOrUnknown(data['color_hex']!, _colorHexMeta),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('modified_at')) {
+      context.handle(
+        _modifiedAtMeta,
+        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modifiedAtMeta);
+    }
+    if (data.containsKey('frequency')) {
+      context.handle(
+        _frequencyMeta,
+        frequency.isAcceptableOrUnknown(data['frequency']!, _frequencyMeta),
+      );
+    }
+    if (data.containsKey('weekly_days')) {
+      context.handle(
+        _weeklyDaysMeta,
+        weeklyDays.isAcceptableOrUnknown(data['weekly_days']!, _weeklyDaysMeta),
+      );
+    }
+    if (data.containsKey('interval_days')) {
+      context.handle(
+        _intervalDaysMeta,
+        intervalDays.isAcceptableOrUnknown(
+          data['interval_days']!,
+          _intervalDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_time')) {
+      context.handle(
+        _reminderTimeMeta,
+        reminderTime.isAcceptableOrUnknown(
+          data['reminder_time']!,
+          _reminderTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notifications_enabled')) {
+      context.handle(
+        _notificationsEnabledMeta,
+        notificationsEnabled.isAcceptableOrUnknown(
+          data['notifications_enabled']!,
+          _notificationsEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notification_message')) {
+      context.handle(
+        _notificationMessageMeta,
+        notificationMessage.isAcceptableOrUnknown(
+          data['notification_message']!,
+          _notificationMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('assigned_member_id')) {
+      context.handle(
+        _assignedMemberIdMeta,
+        assignedMemberId.isAcceptableOrUnknown(
+          data['assigned_member_id']!,
+          _assignedMemberIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('only_notify_when_fronting')) {
+      context.handle(
+        _onlyNotifyWhenFrontingMeta,
+        onlyNotifyWhenFronting.isAcceptableOrUnknown(
+          data['only_notify_when_fronting']!,
+          _onlyNotifyWhenFrontingMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_private')) {
+      context.handle(
+        _isPrivateMeta,
+        isPrivate.isAcceptableOrUnknown(data['is_private']!, _isPrivateMeta),
+      );
+    }
+    if (data.containsKey('current_streak')) {
+      context.handle(
+        _currentStreakMeta,
+        currentStreak.isAcceptableOrUnknown(
+          data['current_streak']!,
+          _currentStreakMeta,
+        ),
+      );
+    }
+    if (data.containsKey('best_streak')) {
+      context.handle(
+        _bestStreakMeta,
+        bestStreak.isAcceptableOrUnknown(data['best_streak']!, _bestStreakMeta),
+      );
+    }
+    if (data.containsKey('total_completions')) {
+      context.handle(
+        _totalCompletionsMeta,
+        totalCompletions.isAcceptableOrUnknown(
+          data['total_completions']!,
+          _totalCompletionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Habit map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Habit(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      icon: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon'],
+      ),
+      colorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_hex'],
+      ),
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      modifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}modified_at'],
+      )!,
+      frequency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}frequency'],
+      )!,
+      weeklyDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}weekly_days'],
+      ),
+      intervalDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}interval_days'],
+      ),
+      reminderTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reminder_time'],
+      ),
+      notificationsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}notifications_enabled'],
+      )!,
+      notificationMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notification_message'],
+      ),
+      assignedMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}assigned_member_id'],
+      ),
+      onlyNotifyWhenFronting: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}only_notify_when_fronting'],
+      )!,
+      isPrivate: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_private'],
+      )!,
+      currentStreak: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}current_streak'],
+      )!,
+      bestStreak: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}best_streak'],
+      )!,
+      totalCompletions: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_completions'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $HabitsTable createAlias(String alias) {
+    return $HabitsTable(attachedDatabase, alias);
+  }
+}
+
+class Habit extends DataClass implements Insertable<Habit> {
+  final String id;
+  final String name;
+  final String? description;
+  final String? icon;
+  final String? colorHex;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime modifiedAt;
+  final String frequency;
+  final String? weeklyDays;
+  final int? intervalDays;
+  final String? reminderTime;
+  final bool notificationsEnabled;
+  final String? notificationMessage;
+  final String? assignedMemberId;
+  final bool onlyNotifyWhenFronting;
+  final bool isPrivate;
+  final int currentStreak;
+  final int bestStreak;
+  final int totalCompletions;
+  final bool isDeleted;
+  const Habit({
+    required this.id,
+    required this.name,
+    this.description,
+    this.icon,
+    this.colorHex,
+    required this.isActive,
+    required this.createdAt,
+    required this.modifiedAt,
+    required this.frequency,
+    this.weeklyDays,
+    this.intervalDays,
+    this.reminderTime,
+    required this.notificationsEnabled,
+    this.notificationMessage,
+    this.assignedMemberId,
+    required this.onlyNotifyWhenFronting,
+    required this.isPrivate,
+    required this.currentStreak,
+    required this.bestStreak,
+    required this.totalCompletions,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || icon != null) {
+      map['icon'] = Variable<String>(icon);
+    }
+    if (!nullToAbsent || colorHex != null) {
+      map['color_hex'] = Variable<String>(colorHex);
+    }
+    map['is_active'] = Variable<bool>(isActive);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['modified_at'] = Variable<DateTime>(modifiedAt);
+    map['frequency'] = Variable<String>(frequency);
+    if (!nullToAbsent || weeklyDays != null) {
+      map['weekly_days'] = Variable<String>(weeklyDays);
+    }
+    if (!nullToAbsent || intervalDays != null) {
+      map['interval_days'] = Variable<int>(intervalDays);
+    }
+    if (!nullToAbsent || reminderTime != null) {
+      map['reminder_time'] = Variable<String>(reminderTime);
+    }
+    map['notifications_enabled'] = Variable<bool>(notificationsEnabled);
+    if (!nullToAbsent || notificationMessage != null) {
+      map['notification_message'] = Variable<String>(notificationMessage);
+    }
+    if (!nullToAbsent || assignedMemberId != null) {
+      map['assigned_member_id'] = Variable<String>(assignedMemberId);
+    }
+    map['only_notify_when_fronting'] = Variable<bool>(onlyNotifyWhenFronting);
+    map['is_private'] = Variable<bool>(isPrivate);
+    map['current_streak'] = Variable<int>(currentStreak);
+    map['best_streak'] = Variable<int>(bestStreak);
+    map['total_completions'] = Variable<int>(totalCompletions);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  HabitsCompanion toCompanion(bool nullToAbsent) {
+    return HabitsCompanion(
+      id: Value(id),
+      name: Value(name),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
+      colorHex: colorHex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorHex),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      modifiedAt: Value(modifiedAt),
+      frequency: Value(frequency),
+      weeklyDays: weeklyDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weeklyDays),
+      intervalDays: intervalDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(intervalDays),
+      reminderTime: reminderTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderTime),
+      notificationsEnabled: Value(notificationsEnabled),
+      notificationMessage: notificationMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notificationMessage),
+      assignedMemberId: assignedMemberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(assignedMemberId),
+      onlyNotifyWhenFronting: Value(onlyNotifyWhenFronting),
+      isPrivate: Value(isPrivate),
+      currentStreak: Value(currentStreak),
+      bestStreak: Value(bestStreak),
+      totalCompletions: Value(totalCompletions),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory Habit.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Habit(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      description: serializer.fromJson<String?>(json['description']),
+      icon: serializer.fromJson<String?>(json['icon']),
+      colorHex: serializer.fromJson<String?>(json['colorHex']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      modifiedAt: serializer.fromJson<DateTime>(json['modifiedAt']),
+      frequency: serializer.fromJson<String>(json['frequency']),
+      weeklyDays: serializer.fromJson<String?>(json['weeklyDays']),
+      intervalDays: serializer.fromJson<int?>(json['intervalDays']),
+      reminderTime: serializer.fromJson<String?>(json['reminderTime']),
+      notificationsEnabled: serializer.fromJson<bool>(
+        json['notificationsEnabled'],
+      ),
+      notificationMessage: serializer.fromJson<String?>(
+        json['notificationMessage'],
+      ),
+      assignedMemberId: serializer.fromJson<String?>(json['assignedMemberId']),
+      onlyNotifyWhenFronting: serializer.fromJson<bool>(
+        json['onlyNotifyWhenFronting'],
+      ),
+      isPrivate: serializer.fromJson<bool>(json['isPrivate']),
+      currentStreak: serializer.fromJson<int>(json['currentStreak']),
+      bestStreak: serializer.fromJson<int>(json['bestStreak']),
+      totalCompletions: serializer.fromJson<int>(json['totalCompletions']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'description': serializer.toJson<String?>(description),
+      'icon': serializer.toJson<String?>(icon),
+      'colorHex': serializer.toJson<String?>(colorHex),
+      'isActive': serializer.toJson<bool>(isActive),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'modifiedAt': serializer.toJson<DateTime>(modifiedAt),
+      'frequency': serializer.toJson<String>(frequency),
+      'weeklyDays': serializer.toJson<String?>(weeklyDays),
+      'intervalDays': serializer.toJson<int?>(intervalDays),
+      'reminderTime': serializer.toJson<String?>(reminderTime),
+      'notificationsEnabled': serializer.toJson<bool>(notificationsEnabled),
+      'notificationMessage': serializer.toJson<String?>(notificationMessage),
+      'assignedMemberId': serializer.toJson<String?>(assignedMemberId),
+      'onlyNotifyWhenFronting': serializer.toJson<bool>(onlyNotifyWhenFronting),
+      'isPrivate': serializer.toJson<bool>(isPrivate),
+      'currentStreak': serializer.toJson<int>(currentStreak),
+      'bestStreak': serializer.toJson<int>(bestStreak),
+      'totalCompletions': serializer.toJson<int>(totalCompletions),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  Habit copyWith({
+    String? id,
+    String? name,
+    Value<String?> description = const Value.absent(),
+    Value<String?> icon = const Value.absent(),
+    Value<String?> colorHex = const Value.absent(),
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? modifiedAt,
+    String? frequency,
+    Value<String?> weeklyDays = const Value.absent(),
+    Value<int?> intervalDays = const Value.absent(),
+    Value<String?> reminderTime = const Value.absent(),
+    bool? notificationsEnabled,
+    Value<String?> notificationMessage = const Value.absent(),
+    Value<String?> assignedMemberId = const Value.absent(),
+    bool? onlyNotifyWhenFronting,
+    bool? isPrivate,
+    int? currentStreak,
+    int? bestStreak,
+    int? totalCompletions,
+    bool? isDeleted,
+  }) => Habit(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    description: description.present ? description.value : this.description,
+    icon: icon.present ? icon.value : this.icon,
+    colorHex: colorHex.present ? colorHex.value : this.colorHex,
+    isActive: isActive ?? this.isActive,
+    createdAt: createdAt ?? this.createdAt,
+    modifiedAt: modifiedAt ?? this.modifiedAt,
+    frequency: frequency ?? this.frequency,
+    weeklyDays: weeklyDays.present ? weeklyDays.value : this.weeklyDays,
+    intervalDays: intervalDays.present ? intervalDays.value : this.intervalDays,
+    reminderTime: reminderTime.present ? reminderTime.value : this.reminderTime,
+    notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+    notificationMessage: notificationMessage.present
+        ? notificationMessage.value
+        : this.notificationMessage,
+    assignedMemberId: assignedMemberId.present
+        ? assignedMemberId.value
+        : this.assignedMemberId,
+    onlyNotifyWhenFronting:
+        onlyNotifyWhenFronting ?? this.onlyNotifyWhenFronting,
+    isPrivate: isPrivate ?? this.isPrivate,
+    currentStreak: currentStreak ?? this.currentStreak,
+    bestStreak: bestStreak ?? this.bestStreak,
+    totalCompletions: totalCompletions ?? this.totalCompletions,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  Habit copyWithCompanion(HabitsCompanion data) {
+    return Habit(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      icon: data.icon.present ? data.icon.value : this.icon,
+      colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      modifiedAt: data.modifiedAt.present
+          ? data.modifiedAt.value
+          : this.modifiedAt,
+      frequency: data.frequency.present ? data.frequency.value : this.frequency,
+      weeklyDays: data.weeklyDays.present
+          ? data.weeklyDays.value
+          : this.weeklyDays,
+      intervalDays: data.intervalDays.present
+          ? data.intervalDays.value
+          : this.intervalDays,
+      reminderTime: data.reminderTime.present
+          ? data.reminderTime.value
+          : this.reminderTime,
+      notificationsEnabled: data.notificationsEnabled.present
+          ? data.notificationsEnabled.value
+          : this.notificationsEnabled,
+      notificationMessage: data.notificationMessage.present
+          ? data.notificationMessage.value
+          : this.notificationMessage,
+      assignedMemberId: data.assignedMemberId.present
+          ? data.assignedMemberId.value
+          : this.assignedMemberId,
+      onlyNotifyWhenFronting: data.onlyNotifyWhenFronting.present
+          ? data.onlyNotifyWhenFronting.value
+          : this.onlyNotifyWhenFronting,
+      isPrivate: data.isPrivate.present ? data.isPrivate.value : this.isPrivate,
+      currentStreak: data.currentStreak.present
+          ? data.currentStreak.value
+          : this.currentStreak,
+      bestStreak: data.bestStreak.present
+          ? data.bestStreak.value
+          : this.bestStreak,
+      totalCompletions: data.totalCompletions.present
+          ? data.totalCompletions.value
+          : this.totalCompletions,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Habit(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('icon: $icon, ')
+          ..write('colorHex: $colorHex, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('frequency: $frequency, ')
+          ..write('weeklyDays: $weeklyDays, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('reminderTime: $reminderTime, ')
+          ..write('notificationsEnabled: $notificationsEnabled, ')
+          ..write('notificationMessage: $notificationMessage, ')
+          ..write('assignedMemberId: $assignedMemberId, ')
+          ..write('onlyNotifyWhenFronting: $onlyNotifyWhenFronting, ')
+          ..write('isPrivate: $isPrivate, ')
+          ..write('currentStreak: $currentStreak, ')
+          ..write('bestStreak: $bestStreak, ')
+          ..write('totalCompletions: $totalCompletions, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    name,
+    description,
+    icon,
+    colorHex,
+    isActive,
+    createdAt,
+    modifiedAt,
+    frequency,
+    weeklyDays,
+    intervalDays,
+    reminderTime,
+    notificationsEnabled,
+    notificationMessage,
+    assignedMemberId,
+    onlyNotifyWhenFronting,
+    isPrivate,
+    currentStreak,
+    bestStreak,
+    totalCompletions,
+    isDeleted,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Habit &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.description == this.description &&
+          other.icon == this.icon &&
+          other.colorHex == this.colorHex &&
+          other.isActive == this.isActive &&
+          other.createdAt == this.createdAt &&
+          other.modifiedAt == this.modifiedAt &&
+          other.frequency == this.frequency &&
+          other.weeklyDays == this.weeklyDays &&
+          other.intervalDays == this.intervalDays &&
+          other.reminderTime == this.reminderTime &&
+          other.notificationsEnabled == this.notificationsEnabled &&
+          other.notificationMessage == this.notificationMessage &&
+          other.assignedMemberId == this.assignedMemberId &&
+          other.onlyNotifyWhenFronting == this.onlyNotifyWhenFronting &&
+          other.isPrivate == this.isPrivate &&
+          other.currentStreak == this.currentStreak &&
+          other.bestStreak == this.bestStreak &&
+          other.totalCompletions == this.totalCompletions &&
+          other.isDeleted == this.isDeleted);
+}
+
+class HabitsCompanion extends UpdateCompanion<Habit> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> description;
+  final Value<String?> icon;
+  final Value<String?> colorHex;
+  final Value<bool> isActive;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> modifiedAt;
+  final Value<String> frequency;
+  final Value<String?> weeklyDays;
+  final Value<int?> intervalDays;
+  final Value<String?> reminderTime;
+  final Value<bool> notificationsEnabled;
+  final Value<String?> notificationMessage;
+  final Value<String?> assignedMemberId;
+  final Value<bool> onlyNotifyWhenFronting;
+  final Value<bool> isPrivate;
+  final Value<int> currentStreak;
+  final Value<int> bestStreak;
+  final Value<int> totalCompletions;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const HabitsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.description = const Value.absent(),
+    this.icon = const Value.absent(),
+    this.colorHex = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.frequency = const Value.absent(),
+    this.weeklyDays = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.reminderTime = const Value.absent(),
+    this.notificationsEnabled = const Value.absent(),
+    this.notificationMessage = const Value.absent(),
+    this.assignedMemberId = const Value.absent(),
+    this.onlyNotifyWhenFronting = const Value.absent(),
+    this.isPrivate = const Value.absent(),
+    this.currentStreak = const Value.absent(),
+    this.bestStreak = const Value.absent(),
+    this.totalCompletions = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HabitsCompanion.insert({
+    required String id,
+    required String name,
+    this.description = const Value.absent(),
+    this.icon = const Value.absent(),
+    this.colorHex = const Value.absent(),
+    this.isActive = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime modifiedAt,
+    this.frequency = const Value.absent(),
+    this.weeklyDays = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.reminderTime = const Value.absent(),
+    this.notificationsEnabled = const Value.absent(),
+    this.notificationMessage = const Value.absent(),
+    this.assignedMemberId = const Value.absent(),
+    this.onlyNotifyWhenFronting = const Value.absent(),
+    this.isPrivate = const Value.absent(),
+    this.currentStreak = const Value.absent(),
+    this.bestStreak = const Value.absent(),
+    this.totalCompletions = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt),
+       modifiedAt = Value(modifiedAt);
+  static Insertable<Habit> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? description,
+    Expression<String>? icon,
+    Expression<String>? colorHex,
+    Expression<bool>? isActive,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? modifiedAt,
+    Expression<String>? frequency,
+    Expression<String>? weeklyDays,
+    Expression<int>? intervalDays,
+    Expression<String>? reminderTime,
+    Expression<bool>? notificationsEnabled,
+    Expression<String>? notificationMessage,
+    Expression<String>? assignedMemberId,
+    Expression<bool>? onlyNotifyWhenFronting,
+    Expression<bool>? isPrivate,
+    Expression<int>? currentStreak,
+    Expression<int>? bestStreak,
+    Expression<int>? totalCompletions,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (icon != null) 'icon': icon,
+      if (colorHex != null) 'color_hex': colorHex,
+      if (isActive != null) 'is_active': isActive,
+      if (createdAt != null) 'created_at': createdAt,
+      if (modifiedAt != null) 'modified_at': modifiedAt,
+      if (frequency != null) 'frequency': frequency,
+      if (weeklyDays != null) 'weekly_days': weeklyDays,
+      if (intervalDays != null) 'interval_days': intervalDays,
+      if (reminderTime != null) 'reminder_time': reminderTime,
+      if (notificationsEnabled != null)
+        'notifications_enabled': notificationsEnabled,
+      if (notificationMessage != null)
+        'notification_message': notificationMessage,
+      if (assignedMemberId != null) 'assigned_member_id': assignedMemberId,
+      if (onlyNotifyWhenFronting != null)
+        'only_notify_when_fronting': onlyNotifyWhenFronting,
+      if (isPrivate != null) 'is_private': isPrivate,
+      if (currentStreak != null) 'current_streak': currentStreak,
+      if (bestStreak != null) 'best_streak': bestStreak,
+      if (totalCompletions != null) 'total_completions': totalCompletions,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HabitsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? description,
+    Value<String?>? icon,
+    Value<String?>? colorHex,
+    Value<bool>? isActive,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? modifiedAt,
+    Value<String>? frequency,
+    Value<String?>? weeklyDays,
+    Value<int?>? intervalDays,
+    Value<String?>? reminderTime,
+    Value<bool>? notificationsEnabled,
+    Value<String?>? notificationMessage,
+    Value<String?>? assignedMemberId,
+    Value<bool>? onlyNotifyWhenFronting,
+    Value<bool>? isPrivate,
+    Value<int>? currentStreak,
+    Value<int>? bestStreak,
+    Value<int>? totalCompletions,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return HabitsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      icon: icon ?? this.icon,
+      colorHex: colorHex ?? this.colorHex,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
+      frequency: frequency ?? this.frequency,
+      weeklyDays: weeklyDays ?? this.weeklyDays,
+      intervalDays: intervalDays ?? this.intervalDays,
+      reminderTime: reminderTime ?? this.reminderTime,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      notificationMessage: notificationMessage ?? this.notificationMessage,
+      assignedMemberId: assignedMemberId ?? this.assignedMemberId,
+      onlyNotifyWhenFronting:
+          onlyNotifyWhenFronting ?? this.onlyNotifyWhenFronting,
+      isPrivate: isPrivate ?? this.isPrivate,
+      currentStreak: currentStreak ?? this.currentStreak,
+      bestStreak: bestStreak ?? this.bestStreak,
+      totalCompletions: totalCompletions ?? this.totalCompletions,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (icon.present) {
+      map['icon'] = Variable<String>(icon.value);
+    }
+    if (colorHex.present) {
+      map['color_hex'] = Variable<String>(colorHex.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (modifiedAt.present) {
+      map['modified_at'] = Variable<DateTime>(modifiedAt.value);
+    }
+    if (frequency.present) {
+      map['frequency'] = Variable<String>(frequency.value);
+    }
+    if (weeklyDays.present) {
+      map['weekly_days'] = Variable<String>(weeklyDays.value);
+    }
+    if (intervalDays.present) {
+      map['interval_days'] = Variable<int>(intervalDays.value);
+    }
+    if (reminderTime.present) {
+      map['reminder_time'] = Variable<String>(reminderTime.value);
+    }
+    if (notificationsEnabled.present) {
+      map['notifications_enabled'] = Variable<bool>(notificationsEnabled.value);
+    }
+    if (notificationMessage.present) {
+      map['notification_message'] = Variable<String>(notificationMessage.value);
+    }
+    if (assignedMemberId.present) {
+      map['assigned_member_id'] = Variable<String>(assignedMemberId.value);
+    }
+    if (onlyNotifyWhenFronting.present) {
+      map['only_notify_when_fronting'] = Variable<bool>(
+        onlyNotifyWhenFronting.value,
+      );
+    }
+    if (isPrivate.present) {
+      map['is_private'] = Variable<bool>(isPrivate.value);
+    }
+    if (currentStreak.present) {
+      map['current_streak'] = Variable<int>(currentStreak.value);
+    }
+    if (bestStreak.present) {
+      map['best_streak'] = Variable<int>(bestStreak.value);
+    }
+    if (totalCompletions.present) {
+      map['total_completions'] = Variable<int>(totalCompletions.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HabitsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('icon: $icon, ')
+          ..write('colorHex: $colorHex, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('frequency: $frequency, ')
+          ..write('weeklyDays: $weeklyDays, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('reminderTime: $reminderTime, ')
+          ..write('notificationsEnabled: $notificationsEnabled, ')
+          ..write('notificationMessage: $notificationMessage, ')
+          ..write('assignedMemberId: $assignedMemberId, ')
+          ..write('onlyNotifyWhenFronting: $onlyNotifyWhenFronting, ')
+          ..write('isPrivate: $isPrivate, ')
+          ..write('currentStreak: $currentStreak, ')
+          ..write('bestStreak: $bestStreak, ')
+          ..write('totalCompletions: $totalCompletions, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $HabitCompletionsTable extends HabitCompletions
+    with TableInfo<$HabitCompletionsTable, HabitCompletion> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HabitCompletionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _habitIdMeta = const VerificationMeta(
+    'habitId',
+  );
+  @override
+  late final GeneratedColumn<String> habitId = GeneratedColumn<String>(
+    'habit_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _completedAtMeta = const VerificationMeta(
+    'completedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> completedAt = GeneratedColumn<DateTime>(
+    'completed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _completedByMemberIdMeta =
+      const VerificationMeta('completedByMemberId');
+  @override
+  late final GeneratedColumn<String> completedByMemberId =
+      GeneratedColumn<String>(
+        'completed_by_member_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _wasFrontingMeta = const VerificationMeta(
+    'wasFronting',
+  );
+  @override
+  late final GeneratedColumn<bool> wasFronting = GeneratedColumn<bool>(
+    'was_fronting',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("was_fronting" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _ratingMeta = const VerificationMeta('rating');
+  @override
+  late final GeneratedColumn<int> rating = GeneratedColumn<int>(
+    'rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
+    'modifiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> modifiedAt = GeneratedColumn<DateTime>(
+    'modified_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    habitId,
+    completedAt,
+    completedByMemberId,
+    notes,
+    wasFronting,
+    rating,
+    createdAt,
+    modifiedAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'habit_completions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<HabitCompletion> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('habit_id')) {
+      context.handle(
+        _habitIdMeta,
+        habitId.isAcceptableOrUnknown(data['habit_id']!, _habitIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_habitIdMeta);
+    }
+    if (data.containsKey('completed_at')) {
+      context.handle(
+        _completedAtMeta,
+        completedAt.isAcceptableOrUnknown(
+          data['completed_at']!,
+          _completedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_completedAtMeta);
+    }
+    if (data.containsKey('completed_by_member_id')) {
+      context.handle(
+        _completedByMemberIdMeta,
+        completedByMemberId.isAcceptableOrUnknown(
+          data['completed_by_member_id']!,
+          _completedByMemberIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('was_fronting')) {
+      context.handle(
+        _wasFrontingMeta,
+        wasFronting.isAcceptableOrUnknown(
+          data['was_fronting']!,
+          _wasFrontingMeta,
+        ),
+      );
+    }
+    if (data.containsKey('rating')) {
+      context.handle(
+        _ratingMeta,
+        rating.isAcceptableOrUnknown(data['rating']!, _ratingMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('modified_at')) {
+      context.handle(
+        _modifiedAtMeta,
+        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modifiedAtMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  HabitCompletion map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return HabitCompletion(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      habitId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}habit_id'],
+      )!,
+      completedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}completed_at'],
+      )!,
+      completedByMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}completed_by_member_id'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      wasFronting: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}was_fronting'],
+      )!,
+      rating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rating'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      modifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}modified_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $HabitCompletionsTable createAlias(String alias) {
+    return $HabitCompletionsTable(attachedDatabase, alias);
+  }
+}
+
+class HabitCompletion extends DataClass implements Insertable<HabitCompletion> {
+  final String id;
+  final String habitId;
+  final DateTime completedAt;
+  final String? completedByMemberId;
+  final String? notes;
+  final bool wasFronting;
+  final int? rating;
+  final DateTime createdAt;
+  final DateTime modifiedAt;
+  final bool isDeleted;
+  const HabitCompletion({
+    required this.id,
+    required this.habitId,
+    required this.completedAt,
+    this.completedByMemberId,
+    this.notes,
+    required this.wasFronting,
+    this.rating,
+    required this.createdAt,
+    required this.modifiedAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['habit_id'] = Variable<String>(habitId);
+    map['completed_at'] = Variable<DateTime>(completedAt);
+    if (!nullToAbsent || completedByMemberId != null) {
+      map['completed_by_member_id'] = Variable<String>(completedByMemberId);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    map['was_fronting'] = Variable<bool>(wasFronting);
+    if (!nullToAbsent || rating != null) {
+      map['rating'] = Variable<int>(rating);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['modified_at'] = Variable<DateTime>(modifiedAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  HabitCompletionsCompanion toCompanion(bool nullToAbsent) {
+    return HabitCompletionsCompanion(
+      id: Value(id),
+      habitId: Value(habitId),
+      completedAt: Value(completedAt),
+      completedByMemberId: completedByMemberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(completedByMemberId),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      wasFronting: Value(wasFronting),
+      rating: rating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rating),
+      createdAt: Value(createdAt),
+      modifiedAt: Value(modifiedAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory HabitCompletion.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return HabitCompletion(
+      id: serializer.fromJson<String>(json['id']),
+      habitId: serializer.fromJson<String>(json['habitId']),
+      completedAt: serializer.fromJson<DateTime>(json['completedAt']),
+      completedByMemberId: serializer.fromJson<String?>(
+        json['completedByMemberId'],
+      ),
+      notes: serializer.fromJson<String?>(json['notes']),
+      wasFronting: serializer.fromJson<bool>(json['wasFronting']),
+      rating: serializer.fromJson<int?>(json['rating']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      modifiedAt: serializer.fromJson<DateTime>(json['modifiedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'habitId': serializer.toJson<String>(habitId),
+      'completedAt': serializer.toJson<DateTime>(completedAt),
+      'completedByMemberId': serializer.toJson<String?>(completedByMemberId),
+      'notes': serializer.toJson<String?>(notes),
+      'wasFronting': serializer.toJson<bool>(wasFronting),
+      'rating': serializer.toJson<int?>(rating),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'modifiedAt': serializer.toJson<DateTime>(modifiedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  HabitCompletion copyWith({
+    String? id,
+    String? habitId,
+    DateTime? completedAt,
+    Value<String?> completedByMemberId = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    bool? wasFronting,
+    Value<int?> rating = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? modifiedAt,
+    bool? isDeleted,
+  }) => HabitCompletion(
+    id: id ?? this.id,
+    habitId: habitId ?? this.habitId,
+    completedAt: completedAt ?? this.completedAt,
+    completedByMemberId: completedByMemberId.present
+        ? completedByMemberId.value
+        : this.completedByMemberId,
+    notes: notes.present ? notes.value : this.notes,
+    wasFronting: wasFronting ?? this.wasFronting,
+    rating: rating.present ? rating.value : this.rating,
+    createdAt: createdAt ?? this.createdAt,
+    modifiedAt: modifiedAt ?? this.modifiedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  HabitCompletion copyWithCompanion(HabitCompletionsCompanion data) {
+    return HabitCompletion(
+      id: data.id.present ? data.id.value : this.id,
+      habitId: data.habitId.present ? data.habitId.value : this.habitId,
+      completedAt: data.completedAt.present
+          ? data.completedAt.value
+          : this.completedAt,
+      completedByMemberId: data.completedByMemberId.present
+          ? data.completedByMemberId.value
+          : this.completedByMemberId,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      wasFronting: data.wasFronting.present
+          ? data.wasFronting.value
+          : this.wasFronting,
+      rating: data.rating.present ? data.rating.value : this.rating,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      modifiedAt: data.modifiedAt.present
+          ? data.modifiedAt.value
+          : this.modifiedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HabitCompletion(')
+          ..write('id: $id, ')
+          ..write('habitId: $habitId, ')
+          ..write('completedAt: $completedAt, ')
+          ..write('completedByMemberId: $completedByMemberId, ')
+          ..write('notes: $notes, ')
+          ..write('wasFronting: $wasFronting, ')
+          ..write('rating: $rating, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    habitId,
+    completedAt,
+    completedByMemberId,
+    notes,
+    wasFronting,
+    rating,
+    createdAt,
+    modifiedAt,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is HabitCompletion &&
+          other.id == this.id &&
+          other.habitId == this.habitId &&
+          other.completedAt == this.completedAt &&
+          other.completedByMemberId == this.completedByMemberId &&
+          other.notes == this.notes &&
+          other.wasFronting == this.wasFronting &&
+          other.rating == this.rating &&
+          other.createdAt == this.createdAt &&
+          other.modifiedAt == this.modifiedAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class HabitCompletionsCompanion extends UpdateCompanion<HabitCompletion> {
+  final Value<String> id;
+  final Value<String> habitId;
+  final Value<DateTime> completedAt;
+  final Value<String?> completedByMemberId;
+  final Value<String?> notes;
+  final Value<bool> wasFronting;
+  final Value<int?> rating;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> modifiedAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const HabitCompletionsCompanion({
+    this.id = const Value.absent(),
+    this.habitId = const Value.absent(),
+    this.completedAt = const Value.absent(),
+    this.completedByMemberId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.wasFronting = const Value.absent(),
+    this.rating = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HabitCompletionsCompanion.insert({
+    required String id,
+    required String habitId,
+    required DateTime completedAt,
+    this.completedByMemberId = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.wasFronting = const Value.absent(),
+    this.rating = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime modifiedAt,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       habitId = Value(habitId),
+       completedAt = Value(completedAt),
+       createdAt = Value(createdAt),
+       modifiedAt = Value(modifiedAt);
+  static Insertable<HabitCompletion> custom({
+    Expression<String>? id,
+    Expression<String>? habitId,
+    Expression<DateTime>? completedAt,
+    Expression<String>? completedByMemberId,
+    Expression<String>? notes,
+    Expression<bool>? wasFronting,
+    Expression<int>? rating,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? modifiedAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (habitId != null) 'habit_id': habitId,
+      if (completedAt != null) 'completed_at': completedAt,
+      if (completedByMemberId != null)
+        'completed_by_member_id': completedByMemberId,
+      if (notes != null) 'notes': notes,
+      if (wasFronting != null) 'was_fronting': wasFronting,
+      if (rating != null) 'rating': rating,
+      if (createdAt != null) 'created_at': createdAt,
+      if (modifiedAt != null) 'modified_at': modifiedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HabitCompletionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? habitId,
+    Value<DateTime>? completedAt,
+    Value<String?>? completedByMemberId,
+    Value<String?>? notes,
+    Value<bool>? wasFronting,
+    Value<int?>? rating,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? modifiedAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return HabitCompletionsCompanion(
+      id: id ?? this.id,
+      habitId: habitId ?? this.habitId,
+      completedAt: completedAt ?? this.completedAt,
+      completedByMemberId: completedByMemberId ?? this.completedByMemberId,
+      notes: notes ?? this.notes,
+      wasFronting: wasFronting ?? this.wasFronting,
+      rating: rating ?? this.rating,
+      createdAt: createdAt ?? this.createdAt,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (habitId.present) {
+      map['habit_id'] = Variable<String>(habitId.value);
+    }
+    if (completedAt.present) {
+      map['completed_at'] = Variable<DateTime>(completedAt.value);
+    }
+    if (completedByMemberId.present) {
+      map['completed_by_member_id'] = Variable<String>(
+        completedByMemberId.value,
+      );
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (wasFronting.present) {
+      map['was_fronting'] = Variable<bool>(wasFronting.value);
+    }
+    if (rating.present) {
+      map['rating'] = Variable<int>(rating.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (modifiedAt.present) {
+      map['modified_at'] = Variable<DateTime>(modifiedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HabitCompletionsCompanion(')
+          ..write('id: $id, ')
+          ..write('habitId: $habitId, ')
+          ..write('completedAt: $completedAt, ')
+          ..write('completedByMemberId: $completedByMemberId, ')
+          ..write('notes: $notes, ')
+          ..write('wasFronting: $wasFronting, ')
+          ..write('rating: $rating, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncQuarantineTableTable extends SyncQuarantineTable
+    with TableInfo<$SyncQuarantineTableTable, SyncQuarantineData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncQuarantineTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityIdMeta = const VerificationMeta(
+    'entityId',
+  );
+  @override
+  late final GeneratedColumn<String> entityId = GeneratedColumn<String>(
+    'entity_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fieldNameMeta = const VerificationMeta(
+    'fieldName',
+  );
+  @override
+  late final GeneratedColumn<String> fieldName = GeneratedColumn<String>(
+    'field_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _expectedTypeMeta = const VerificationMeta(
+    'expectedType',
+  );
+  @override
+  late final GeneratedColumn<String> expectedType = GeneratedColumn<String>(
+    'expected_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedTypeMeta = const VerificationMeta(
+    'receivedType',
+  );
+  @override
+  late final GeneratedColumn<String> receivedType = GeneratedColumn<String>(
+    'received_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedValueMeta = const VerificationMeta(
+    'receivedValue',
+  );
+  @override
+  late final GeneratedColumn<String> receivedValue = GeneratedColumn<String>(
+    'received_value',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sourceDeviceMeta = const VerificationMeta(
+    'sourceDevice',
+  );
+  @override
+  late final GeneratedColumn<String> sourceDevice = GeneratedColumn<String>(
+    'source_device',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _retryCountMeta = const VerificationMeta(
+    'retryCount',
+  );
+  @override
+  late final GeneratedColumn<int> retryCount = GeneratedColumn<int>(
+    'retry_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastRetryAtMeta = const VerificationMeta(
+    'lastRetryAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastRetryAt = GeneratedColumn<DateTime>(
+    'last_retry_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
+  @override
+  late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    entityType,
+    entityId,
+    fieldName,
+    expectedType,
+    receivedType,
+    receivedValue,
+    sourceDevice,
+    retryCount,
+    lastRetryAt,
+    createdAt,
+    errorMessage,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_quarantine';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncQuarantineData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('entity_id')) {
+      context.handle(
+        _entityIdMeta,
+        entityId.isAcceptableOrUnknown(data['entity_id']!, _entityIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityIdMeta);
+    }
+    if (data.containsKey('field_name')) {
+      context.handle(
+        _fieldNameMeta,
+        fieldName.isAcceptableOrUnknown(data['field_name']!, _fieldNameMeta),
+      );
+    }
+    if (data.containsKey('expected_type')) {
+      context.handle(
+        _expectedTypeMeta,
+        expectedType.isAcceptableOrUnknown(
+          data['expected_type']!,
+          _expectedTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_expectedTypeMeta);
+    }
+    if (data.containsKey('received_type')) {
+      context.handle(
+        _receivedTypeMeta,
+        receivedType.isAcceptableOrUnknown(
+          data['received_type']!,
+          _receivedTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedTypeMeta);
+    }
+    if (data.containsKey('received_value')) {
+      context.handle(
+        _receivedValueMeta,
+        receivedValue.isAcceptableOrUnknown(
+          data['received_value']!,
+          _receivedValueMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_device')) {
+      context.handle(
+        _sourceDeviceMeta,
+        sourceDevice.isAcceptableOrUnknown(
+          data['source_device']!,
+          _sourceDeviceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('retry_count')) {
+      context.handle(
+        _retryCountMeta,
+        retryCount.isAcceptableOrUnknown(data['retry_count']!, _retryCountMeta),
+      );
+    }
+    if (data.containsKey('last_retry_at')) {
+      context.handle(
+        _lastRetryAtMeta,
+        lastRetryAt.isAcceptableOrUnknown(
+          data['last_retry_at']!,
+          _lastRetryAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('error_message')) {
+      context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
+          _errorMessageMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncQuarantineData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncQuarantineData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      entityId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_id'],
+      )!,
+      fieldName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}field_name'],
+      ),
+      expectedType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}expected_type'],
+      )!,
+      receivedType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}received_type'],
+      )!,
+      receivedValue: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}received_value'],
+      ),
+      sourceDevice: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_device'],
+      ),
+      retryCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}retry_count'],
+      )!,
+      lastRetryAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_retry_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
+    );
+  }
+
+  @override
+  $SyncQuarantineTableTable createAlias(String alias) {
+    return $SyncQuarantineTableTable(attachedDatabase, alias);
+  }
+}
+
+class SyncQuarantineData extends DataClass
+    implements Insertable<SyncQuarantineData> {
+  final String id;
+  final String entityType;
+  final String entityId;
+  final String? fieldName;
+  final String expectedType;
+  final String receivedType;
+  final String? receivedValue;
+  final String? sourceDevice;
+  final int retryCount;
+  final DateTime? lastRetryAt;
+  final DateTime createdAt;
+  final String? errorMessage;
+  const SyncQuarantineData({
+    required this.id,
+    required this.entityType,
+    required this.entityId,
+    this.fieldName,
+    required this.expectedType,
+    required this.receivedType,
+    this.receivedValue,
+    this.sourceDevice,
+    required this.retryCount,
+    this.lastRetryAt,
+    required this.createdAt,
+    this.errorMessage,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['entity_type'] = Variable<String>(entityType);
+    map['entity_id'] = Variable<String>(entityId);
+    if (!nullToAbsent || fieldName != null) {
+      map['field_name'] = Variable<String>(fieldName);
+    }
+    map['expected_type'] = Variable<String>(expectedType);
+    map['received_type'] = Variable<String>(receivedType);
+    if (!nullToAbsent || receivedValue != null) {
+      map['received_value'] = Variable<String>(receivedValue);
+    }
+    if (!nullToAbsent || sourceDevice != null) {
+      map['source_device'] = Variable<String>(sourceDevice);
+    }
+    map['retry_count'] = Variable<int>(retryCount);
+    if (!nullToAbsent || lastRetryAt != null) {
+      map['last_retry_at'] = Variable<DateTime>(lastRetryAt);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || errorMessage != null) {
+      map['error_message'] = Variable<String>(errorMessage);
+    }
+    return map;
+  }
+
+  SyncQuarantineTableCompanion toCompanion(bool nullToAbsent) {
+    return SyncQuarantineTableCompanion(
+      id: Value(id),
+      entityType: Value(entityType),
+      entityId: Value(entityId),
+      fieldName: fieldName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fieldName),
+      expectedType: Value(expectedType),
+      receivedType: Value(receivedType),
+      receivedValue: receivedValue == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivedValue),
+      sourceDevice: sourceDevice == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceDevice),
+      retryCount: Value(retryCount),
+      lastRetryAt: lastRetryAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastRetryAt),
+      createdAt: Value(createdAt),
+      errorMessage: errorMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMessage),
+    );
+  }
+
+  factory SyncQuarantineData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncQuarantineData(
+      id: serializer.fromJson<String>(json['id']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      entityId: serializer.fromJson<String>(json['entityId']),
+      fieldName: serializer.fromJson<String?>(json['fieldName']),
+      expectedType: serializer.fromJson<String>(json['expectedType']),
+      receivedType: serializer.fromJson<String>(json['receivedType']),
+      receivedValue: serializer.fromJson<String?>(json['receivedValue']),
+      sourceDevice: serializer.fromJson<String?>(json['sourceDevice']),
+      retryCount: serializer.fromJson<int>(json['retryCount']),
+      lastRetryAt: serializer.fromJson<DateTime?>(json['lastRetryAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'entityType': serializer.toJson<String>(entityType),
+      'entityId': serializer.toJson<String>(entityId),
+      'fieldName': serializer.toJson<String?>(fieldName),
+      'expectedType': serializer.toJson<String>(expectedType),
+      'receivedType': serializer.toJson<String>(receivedType),
+      'receivedValue': serializer.toJson<String?>(receivedValue),
+      'sourceDevice': serializer.toJson<String?>(sourceDevice),
+      'retryCount': serializer.toJson<int>(retryCount),
+      'lastRetryAt': serializer.toJson<DateTime?>(lastRetryAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'errorMessage': serializer.toJson<String?>(errorMessage),
+    };
+  }
+
+  SyncQuarantineData copyWith({
+    String? id,
+    String? entityType,
+    String? entityId,
+    Value<String?> fieldName = const Value.absent(),
+    String? expectedType,
+    String? receivedType,
+    Value<String?> receivedValue = const Value.absent(),
+    Value<String?> sourceDevice = const Value.absent(),
+    int? retryCount,
+    Value<DateTime?> lastRetryAt = const Value.absent(),
+    DateTime? createdAt,
+    Value<String?> errorMessage = const Value.absent(),
+  }) => SyncQuarantineData(
+    id: id ?? this.id,
+    entityType: entityType ?? this.entityType,
+    entityId: entityId ?? this.entityId,
+    fieldName: fieldName.present ? fieldName.value : this.fieldName,
+    expectedType: expectedType ?? this.expectedType,
+    receivedType: receivedType ?? this.receivedType,
+    receivedValue: receivedValue.present
+        ? receivedValue.value
+        : this.receivedValue,
+    sourceDevice: sourceDevice.present ? sourceDevice.value : this.sourceDevice,
+    retryCount: retryCount ?? this.retryCount,
+    lastRetryAt: lastRetryAt.present ? lastRetryAt.value : this.lastRetryAt,
+    createdAt: createdAt ?? this.createdAt,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+  );
+  SyncQuarantineData copyWithCompanion(SyncQuarantineTableCompanion data) {
+    return SyncQuarantineData(
+      id: data.id.present ? data.id.value : this.id,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      entityId: data.entityId.present ? data.entityId.value : this.entityId,
+      fieldName: data.fieldName.present ? data.fieldName.value : this.fieldName,
+      expectedType: data.expectedType.present
+          ? data.expectedType.value
+          : this.expectedType,
+      receivedType: data.receivedType.present
+          ? data.receivedType.value
+          : this.receivedType,
+      receivedValue: data.receivedValue.present
+          ? data.receivedValue.value
+          : this.receivedValue,
+      sourceDevice: data.sourceDevice.present
+          ? data.sourceDevice.value
+          : this.sourceDevice,
+      retryCount: data.retryCount.present
+          ? data.retryCount.value
+          : this.retryCount,
+      lastRetryAt: data.lastRetryAt.present
+          ? data.lastRetryAt.value
+          : this.lastRetryAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      errorMessage: data.errorMessage.present
+          ? data.errorMessage.value
+          : this.errorMessage,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQuarantineData(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('fieldName: $fieldName, ')
+          ..write('expectedType: $expectedType, ')
+          ..write('receivedType: $receivedType, ')
+          ..write('receivedValue: $receivedValue, ')
+          ..write('sourceDevice: $sourceDevice, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('lastRetryAt: $lastRetryAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('errorMessage: $errorMessage')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    entityType,
+    entityId,
+    fieldName,
+    expectedType,
+    receivedType,
+    receivedValue,
+    sourceDevice,
+    retryCount,
+    lastRetryAt,
+    createdAt,
+    errorMessage,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncQuarantineData &&
+          other.id == this.id &&
+          other.entityType == this.entityType &&
+          other.entityId == this.entityId &&
+          other.fieldName == this.fieldName &&
+          other.expectedType == this.expectedType &&
+          other.receivedType == this.receivedType &&
+          other.receivedValue == this.receivedValue &&
+          other.sourceDevice == this.sourceDevice &&
+          other.retryCount == this.retryCount &&
+          other.lastRetryAt == this.lastRetryAt &&
+          other.createdAt == this.createdAt &&
+          other.errorMessage == this.errorMessage);
+}
+
+class SyncQuarantineTableCompanion extends UpdateCompanion<SyncQuarantineData> {
+  final Value<String> id;
+  final Value<String> entityType;
+  final Value<String> entityId;
+  final Value<String?> fieldName;
+  final Value<String> expectedType;
+  final Value<String> receivedType;
+  final Value<String?> receivedValue;
+  final Value<String?> sourceDevice;
+  final Value<int> retryCount;
+  final Value<DateTime?> lastRetryAt;
+  final Value<DateTime> createdAt;
+  final Value<String?> errorMessage;
+  final Value<int> rowid;
+  const SyncQuarantineTableCompanion({
+    this.id = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.entityId = const Value.absent(),
+    this.fieldName = const Value.absent(),
+    this.expectedType = const Value.absent(),
+    this.receivedType = const Value.absent(),
+    this.receivedValue = const Value.absent(),
+    this.sourceDevice = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.lastRetryAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncQuarantineTableCompanion.insert({
+    required String id,
+    required String entityType,
+    required String entityId,
+    this.fieldName = const Value.absent(),
+    required String expectedType,
+    required String receivedType,
+    this.receivedValue = const Value.absent(),
+    this.sourceDevice = const Value.absent(),
+    this.retryCount = const Value.absent(),
+    this.lastRetryAt = const Value.absent(),
+    required DateTime createdAt,
+    this.errorMessage = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       entityType = Value(entityType),
+       entityId = Value(entityId),
+       expectedType = Value(expectedType),
+       receivedType = Value(receivedType),
+       createdAt = Value(createdAt);
+  static Insertable<SyncQuarantineData> custom({
+    Expression<String>? id,
+    Expression<String>? entityType,
+    Expression<String>? entityId,
+    Expression<String>? fieldName,
+    Expression<String>? expectedType,
+    Expression<String>? receivedType,
+    Expression<String>? receivedValue,
+    Expression<String>? sourceDevice,
+    Expression<int>? retryCount,
+    Expression<DateTime>? lastRetryAt,
+    Expression<DateTime>? createdAt,
+    Expression<String>? errorMessage,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (entityType != null) 'entity_type': entityType,
+      if (entityId != null) 'entity_id': entityId,
+      if (fieldName != null) 'field_name': fieldName,
+      if (expectedType != null) 'expected_type': expectedType,
+      if (receivedType != null) 'received_type': receivedType,
+      if (receivedValue != null) 'received_value': receivedValue,
+      if (sourceDevice != null) 'source_device': sourceDevice,
+      if (retryCount != null) 'retry_count': retryCount,
+      if (lastRetryAt != null) 'last_retry_at': lastRetryAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncQuarantineTableCompanion copyWith({
+    Value<String>? id,
+    Value<String>? entityType,
+    Value<String>? entityId,
+    Value<String?>? fieldName,
+    Value<String>? expectedType,
+    Value<String>? receivedType,
+    Value<String?>? receivedValue,
+    Value<String?>? sourceDevice,
+    Value<int>? retryCount,
+    Value<DateTime?>? lastRetryAt,
+    Value<DateTime>? createdAt,
+    Value<String?>? errorMessage,
+    Value<int>? rowid,
+  }) {
+    return SyncQuarantineTableCompanion(
+      id: id ?? this.id,
+      entityType: entityType ?? this.entityType,
+      entityId: entityId ?? this.entityId,
+      fieldName: fieldName ?? this.fieldName,
+      expectedType: expectedType ?? this.expectedType,
+      receivedType: receivedType ?? this.receivedType,
+      receivedValue: receivedValue ?? this.receivedValue,
+      sourceDevice: sourceDevice ?? this.sourceDevice,
+      retryCount: retryCount ?? this.retryCount,
+      lastRetryAt: lastRetryAt ?? this.lastRetryAt,
+      createdAt: createdAt ?? this.createdAt,
+      errorMessage: errorMessage ?? this.errorMessage,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (entityId.present) {
+      map['entity_id'] = Variable<String>(entityId.value);
+    }
+    if (fieldName.present) {
+      map['field_name'] = Variable<String>(fieldName.value);
+    }
+    if (expectedType.present) {
+      map['expected_type'] = Variable<String>(expectedType.value);
+    }
+    if (receivedType.present) {
+      map['received_type'] = Variable<String>(receivedType.value);
+    }
+    if (receivedValue.present) {
+      map['received_value'] = Variable<String>(receivedValue.value);
+    }
+    if (sourceDevice.present) {
+      map['source_device'] = Variable<String>(sourceDevice.value);
+    }
+    if (retryCount.present) {
+      map['retry_count'] = Variable<int>(retryCount.value);
+    }
+    if (lastRetryAt.present) {
+      map['last_retry_at'] = Variable<DateTime>(lastRetryAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (errorMessage.present) {
+      map['error_message'] = Variable<String>(errorMessage.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncQuarantineTableCompanion(')
+          ..write('id: $id, ')
+          ..write('entityType: $entityType, ')
+          ..write('entityId: $entityId, ')
+          ..write('fieldName: $fieldName, ')
+          ..write('expectedType: $expectedType, ')
+          ..write('receivedType: $receivedType, ')
+          ..write('receivedValue: $receivedValue, ')
+          ..write('sourceDevice: $sourceDevice, ')
+          ..write('retryCount: $retryCount, ')
+          ..write('lastRetryAt: $lastRetryAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MemberGroupsTable extends MemberGroups
+    with TableInfo<$MemberGroupsTable, MemberGroupRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MemberGroupsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorHexMeta = const VerificationMeta(
+    'colorHex',
+  );
+  @override
+  late final GeneratedColumn<String> colorHex = GeneratedColumn<String>(
+    'color_hex',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _emojiMeta = const VerificationMeta('emoji');
+  @override
+  late final GeneratedColumn<String> emoji = GeneratedColumn<String>(
+    'emoji',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _displayOrderMeta = const VerificationMeta(
+    'displayOrder',
+  );
+  @override
+  late final GeneratedColumn<int> displayOrder = GeneratedColumn<int>(
+    'display_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _parentGroupIdMeta = const VerificationMeta(
+    'parentGroupId',
+  );
+  @override
+  late final GeneratedColumn<String> parentGroupId = GeneratedColumn<String>(
+    'parent_group_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    description,
+    colorHex,
+    emoji,
+    displayOrder,
+    parentGroupId,
+    createdAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'member_groups';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MemberGroupRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('color_hex')) {
+      context.handle(
+        _colorHexMeta,
+        colorHex.isAcceptableOrUnknown(data['color_hex']!, _colorHexMeta),
+      );
+    }
+    if (data.containsKey('emoji')) {
+      context.handle(
+        _emojiMeta,
+        emoji.isAcceptableOrUnknown(data['emoji']!, _emojiMeta),
+      );
+    }
+    if (data.containsKey('display_order')) {
+      context.handle(
+        _displayOrderMeta,
+        displayOrder.isAcceptableOrUnknown(
+          data['display_order']!,
+          _displayOrderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('parent_group_id')) {
+      context.handle(
+        _parentGroupIdMeta,
+        parentGroupId.isAcceptableOrUnknown(
+          data['parent_group_id']!,
+          _parentGroupIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MemberGroupRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MemberGroupRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
+      colorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_hex'],
+      ),
+      emoji: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emoji'],
+      ),
+      displayOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}display_order'],
+      )!,
+      parentGroupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_group_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $MemberGroupsTable createAlias(String alias) {
+    return $MemberGroupsTable(attachedDatabase, alias);
+  }
+}
+
+class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
+  final String id;
+  final String name;
+  final String? description;
+  final String? colorHex;
+  final String? emoji;
+  final int displayOrder;
+  final String? parentGroupId;
+  final DateTime createdAt;
+  final bool isDeleted;
+  const MemberGroupRow({
+    required this.id,
+    required this.name,
+    this.description,
+    this.colorHex,
+    this.emoji,
+    required this.displayOrder,
+    this.parentGroupId,
+    required this.createdAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
+    if (!nullToAbsent || colorHex != null) {
+      map['color_hex'] = Variable<String>(colorHex);
+    }
+    if (!nullToAbsent || emoji != null) {
+      map['emoji'] = Variable<String>(emoji);
+    }
+    map['display_order'] = Variable<int>(displayOrder);
+    if (!nullToAbsent || parentGroupId != null) {
+      map['parent_group_id'] = Variable<String>(parentGroupId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  MemberGroupsCompanion toCompanion(bool nullToAbsent) {
+    return MemberGroupsCompanion(
+      id: Value(id),
+      name: Value(name),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
+      colorHex: colorHex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorHex),
+      emoji: emoji == null && nullToAbsent
+          ? const Value.absent()
+          : Value(emoji),
+      displayOrder: Value(displayOrder),
+      parentGroupId: parentGroupId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentGroupId),
+      createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory MemberGroupRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MemberGroupRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      description: serializer.fromJson<String?>(json['description']),
+      colorHex: serializer.fromJson<String?>(json['colorHex']),
+      emoji: serializer.fromJson<String?>(json['emoji']),
+      displayOrder: serializer.fromJson<int>(json['displayOrder']),
+      parentGroupId: serializer.fromJson<String?>(json['parentGroupId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'description': serializer.toJson<String?>(description),
+      'colorHex': serializer.toJson<String?>(colorHex),
+      'emoji': serializer.toJson<String?>(emoji),
+      'displayOrder': serializer.toJson<int>(displayOrder),
+      'parentGroupId': serializer.toJson<String?>(parentGroupId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  MemberGroupRow copyWith({
+    String? id,
+    String? name,
+    Value<String?> description = const Value.absent(),
+    Value<String?> colorHex = const Value.absent(),
+    Value<String?> emoji = const Value.absent(),
+    int? displayOrder,
+    Value<String?> parentGroupId = const Value.absent(),
+    DateTime? createdAt,
+    bool? isDeleted,
+  }) => MemberGroupRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    description: description.present ? description.value : this.description,
+    colorHex: colorHex.present ? colorHex.value : this.colorHex,
+    emoji: emoji.present ? emoji.value : this.emoji,
+    displayOrder: displayOrder ?? this.displayOrder,
+    parentGroupId: parentGroupId.present
+        ? parentGroupId.value
+        : this.parentGroupId,
+    createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  MemberGroupRow copyWithCompanion(MemberGroupsCompanion data) {
+    return MemberGroupRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
+      emoji: data.emoji.present ? data.emoji.value : this.emoji,
+      displayOrder: data.displayOrder.present
+          ? data.displayOrder.value
+          : this.displayOrder,
+      parentGroupId: data.parentGroupId.present
+          ? data.parentGroupId.value
+          : this.parentGroupId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemberGroupRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('colorHex: $colorHex, ')
+          ..write('emoji: $emoji, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('parentGroupId: $parentGroupId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    description,
+    colorHex,
+    emoji,
+    displayOrder,
+    parentGroupId,
+    createdAt,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MemberGroupRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.description == this.description &&
+          other.colorHex == this.colorHex &&
+          other.emoji == this.emoji &&
+          other.displayOrder == this.displayOrder &&
+          other.parentGroupId == this.parentGroupId &&
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String?> description;
+  final Value<String?> colorHex;
+  final Value<String?> emoji;
+  final Value<int> displayOrder;
+  final Value<String?> parentGroupId;
+  final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const MemberGroupsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.description = const Value.absent(),
+    this.colorHex = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.displayOrder = const Value.absent(),
+    this.parentGroupId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MemberGroupsCompanion.insert({
+    required String id,
+    required String name,
+    this.description = const Value.absent(),
+    this.colorHex = const Value.absent(),
+    this.emoji = const Value.absent(),
+    this.displayOrder = const Value.absent(),
+    this.parentGroupId = const Value.absent(),
+    required DateTime createdAt,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt);
+  static Insertable<MemberGroupRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? description,
+    Expression<String>? colorHex,
+    Expression<String>? emoji,
+    Expression<int>? displayOrder,
+    Expression<String>? parentGroupId,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (description != null) 'description': description,
+      if (colorHex != null) 'color_hex': colorHex,
+      if (emoji != null) 'emoji': emoji,
+      if (displayOrder != null) 'display_order': displayOrder,
+      if (parentGroupId != null) 'parent_group_id': parentGroupId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MemberGroupsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String?>? description,
+    Value<String?>? colorHex,
+    Value<String?>? emoji,
+    Value<int>? displayOrder,
+    Value<String?>? parentGroupId,
+    Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return MemberGroupsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      colorHex: colorHex ?? this.colorHex,
+      emoji: emoji ?? this.emoji,
+      displayOrder: displayOrder ?? this.displayOrder,
+      parentGroupId: parentGroupId ?? this.parentGroupId,
+      createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (colorHex.present) {
+      map['color_hex'] = Variable<String>(colorHex.value);
+    }
+    if (emoji.present) {
+      map['emoji'] = Variable<String>(emoji.value);
+    }
+    if (displayOrder.present) {
+      map['display_order'] = Variable<int>(displayOrder.value);
+    }
+    if (parentGroupId.present) {
+      map['parent_group_id'] = Variable<String>(parentGroupId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemberGroupsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('description: $description, ')
+          ..write('colorHex: $colorHex, ')
+          ..write('emoji: $emoji, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('parentGroupId: $parentGroupId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MemberGroupEntriesTable extends MemberGroupEntries
+    with TableInfo<$MemberGroupEntriesTable, MemberGroupEntryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MemberGroupEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupIdMeta = const VerificationMeta(
+    'groupId',
+  );
+  @override
+  late final GeneratedColumn<String> groupId = GeneratedColumn<String>(
+    'group_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, groupId, memberId, isDeleted];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'member_group_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MemberGroupEntryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('group_id')) {
+      context.handle(
+        _groupIdMeta,
+        groupId.isAcceptableOrUnknown(data['group_id']!, _groupIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupIdMeta);
+    }
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memberIdMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MemberGroupEntryRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MemberGroupEntryRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      groupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_id'],
+      )!,
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $MemberGroupEntriesTable createAlias(String alias) {
+    return $MemberGroupEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class MemberGroupEntryRow extends DataClass
+    implements Insertable<MemberGroupEntryRow> {
+  final String id;
+  final String groupId;
+  final String memberId;
+  final bool isDeleted;
+  const MemberGroupEntryRow({
+    required this.id,
+    required this.groupId,
+    required this.memberId,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['group_id'] = Variable<String>(groupId);
+    map['member_id'] = Variable<String>(memberId);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  MemberGroupEntriesCompanion toCompanion(bool nullToAbsent) {
+    return MemberGroupEntriesCompanion(
+      id: Value(id),
+      groupId: Value(groupId),
+      memberId: Value(memberId),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory MemberGroupEntryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MemberGroupEntryRow(
+      id: serializer.fromJson<String>(json['id']),
+      groupId: serializer.fromJson<String>(json['groupId']),
+      memberId: serializer.fromJson<String>(json['memberId']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'groupId': serializer.toJson<String>(groupId),
+      'memberId': serializer.toJson<String>(memberId),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  MemberGroupEntryRow copyWith({
+    String? id,
+    String? groupId,
+    String? memberId,
+    bool? isDeleted,
+  }) => MemberGroupEntryRow(
+    id: id ?? this.id,
+    groupId: groupId ?? this.groupId,
+    memberId: memberId ?? this.memberId,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  MemberGroupEntryRow copyWithCompanion(MemberGroupEntriesCompanion data) {
+    return MemberGroupEntryRow(
+      id: data.id.present ? data.id.value : this.id,
+      groupId: data.groupId.present ? data.groupId.value : this.groupId,
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemberGroupEntryRow(')
+          ..write('id: $id, ')
+          ..write('groupId: $groupId, ')
+          ..write('memberId: $memberId, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, groupId, memberId, isDeleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MemberGroupEntryRow &&
+          other.id == this.id &&
+          other.groupId == this.groupId &&
+          other.memberId == this.memberId &&
+          other.isDeleted == this.isDeleted);
+}
+
+class MemberGroupEntriesCompanion extends UpdateCompanion<MemberGroupEntryRow> {
+  final Value<String> id;
+  final Value<String> groupId;
+  final Value<String> memberId;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const MemberGroupEntriesCompanion({
+    this.id = const Value.absent(),
+    this.groupId = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MemberGroupEntriesCompanion.insert({
+    required String id,
+    required String groupId,
+    required String memberId,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       groupId = Value(groupId),
+       memberId = Value(memberId);
+  static Insertable<MemberGroupEntryRow> custom({
+    Expression<String>? id,
+    Expression<String>? groupId,
+    Expression<String>? memberId,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (groupId != null) 'group_id': groupId,
+      if (memberId != null) 'member_id': memberId,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MemberGroupEntriesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? groupId,
+    Value<String>? memberId,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return MemberGroupEntriesCompanion(
+      id: id ?? this.id,
+      groupId: groupId ?? this.groupId,
+      memberId: memberId ?? this.memberId,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (groupId.present) {
+      map['group_id'] = Variable<String>(groupId.value);
+    }
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MemberGroupEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('groupId: $groupId, ')
+          ..write('memberId: $memberId, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CustomFieldsTable extends CustomFields
+    with TableInfo<$CustomFieldsTable, CustomFieldRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CustomFieldsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fieldTypeMeta = const VerificationMeta(
+    'fieldType',
+  );
+  @override
+  late final GeneratedColumn<int> fieldType = GeneratedColumn<int>(
+    'field_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _datePrecisionMeta = const VerificationMeta(
+    'datePrecision',
+  );
+  @override
+  late final GeneratedColumn<int> datePrecision = GeneratedColumn<int>(
+    'date_precision',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _displayOrderMeta = const VerificationMeta(
+    'displayOrder',
+  );
+  @override
+  late final GeneratedColumn<int> displayOrder = GeneratedColumn<int>(
+    'display_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    fieldType,
+    datePrecision,
+    displayOrder,
+    createdAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'custom_fields';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CustomFieldRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('field_type')) {
+      context.handle(
+        _fieldTypeMeta,
+        fieldType.isAcceptableOrUnknown(data['field_type']!, _fieldTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fieldTypeMeta);
+    }
+    if (data.containsKey('date_precision')) {
+      context.handle(
+        _datePrecisionMeta,
+        datePrecision.isAcceptableOrUnknown(
+          data['date_precision']!,
+          _datePrecisionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('display_order')) {
+      context.handle(
+        _displayOrderMeta,
+        displayOrder.isAcceptableOrUnknown(
+          data['display_order']!,
+          _displayOrderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CustomFieldRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CustomFieldRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      fieldType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}field_type'],
+      )!,
+      datePrecision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}date_precision'],
+      ),
+      displayOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}display_order'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $CustomFieldsTable createAlias(String alias) {
+    return $CustomFieldsTable(attachedDatabase, alias);
+  }
+}
+
+class CustomFieldRow extends DataClass implements Insertable<CustomFieldRow> {
+  final String id;
+  final String name;
+  final int fieldType;
+  final int? datePrecision;
+  final int displayOrder;
+  final DateTime createdAt;
+  final bool isDeleted;
+  const CustomFieldRow({
+    required this.id,
+    required this.name,
+    required this.fieldType,
+    this.datePrecision,
+    required this.displayOrder,
+    required this.createdAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['field_type'] = Variable<int>(fieldType);
+    if (!nullToAbsent || datePrecision != null) {
+      map['date_precision'] = Variable<int>(datePrecision);
+    }
+    map['display_order'] = Variable<int>(displayOrder);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  CustomFieldsCompanion toCompanion(bool nullToAbsent) {
+    return CustomFieldsCompanion(
+      id: Value(id),
+      name: Value(name),
+      fieldType: Value(fieldType),
+      datePrecision: datePrecision == null && nullToAbsent
+          ? const Value.absent()
+          : Value(datePrecision),
+      displayOrder: Value(displayOrder),
+      createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory CustomFieldRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CustomFieldRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      fieldType: serializer.fromJson<int>(json['fieldType']),
+      datePrecision: serializer.fromJson<int?>(json['datePrecision']),
+      displayOrder: serializer.fromJson<int>(json['displayOrder']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'fieldType': serializer.toJson<int>(fieldType),
+      'datePrecision': serializer.toJson<int?>(datePrecision),
+      'displayOrder': serializer.toJson<int>(displayOrder),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  CustomFieldRow copyWith({
+    String? id,
+    String? name,
+    int? fieldType,
+    Value<int?> datePrecision = const Value.absent(),
+    int? displayOrder,
+    DateTime? createdAt,
+    bool? isDeleted,
+  }) => CustomFieldRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    fieldType: fieldType ?? this.fieldType,
+    datePrecision: datePrecision.present
+        ? datePrecision.value
+        : this.datePrecision,
+    displayOrder: displayOrder ?? this.displayOrder,
+    createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  CustomFieldRow copyWithCompanion(CustomFieldsCompanion data) {
+    return CustomFieldRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      fieldType: data.fieldType.present ? data.fieldType.value : this.fieldType,
+      datePrecision: data.datePrecision.present
+          ? data.datePrecision.value
+          : this.datePrecision,
+      displayOrder: data.displayOrder.present
+          ? data.displayOrder.value
+          : this.displayOrder,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomFieldRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('fieldType: $fieldType, ')
+          ..write('datePrecision: $datePrecision, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    fieldType,
+    datePrecision,
+    displayOrder,
+    createdAt,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CustomFieldRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.fieldType == this.fieldType &&
+          other.datePrecision == this.datePrecision &&
+          other.displayOrder == this.displayOrder &&
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class CustomFieldsCompanion extends UpdateCompanion<CustomFieldRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<int> fieldType;
+  final Value<int?> datePrecision;
+  final Value<int> displayOrder;
+  final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const CustomFieldsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.fieldType = const Value.absent(),
+    this.datePrecision = const Value.absent(),
+    this.displayOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CustomFieldsCompanion.insert({
+    required String id,
+    required String name,
+    required int fieldType,
+    this.datePrecision = const Value.absent(),
+    this.displayOrder = const Value.absent(),
+    required DateTime createdAt,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       fieldType = Value(fieldType),
+       createdAt = Value(createdAt);
+  static Insertable<CustomFieldRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<int>? fieldType,
+    Expression<int>? datePrecision,
+    Expression<int>? displayOrder,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (fieldType != null) 'field_type': fieldType,
+      if (datePrecision != null) 'date_precision': datePrecision,
+      if (displayOrder != null) 'display_order': displayOrder,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CustomFieldsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<int>? fieldType,
+    Value<int?>? datePrecision,
+    Value<int>? displayOrder,
+    Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return CustomFieldsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      fieldType: fieldType ?? this.fieldType,
+      datePrecision: datePrecision ?? this.datePrecision,
+      displayOrder: displayOrder ?? this.displayOrder,
+      createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (fieldType.present) {
+      map['field_type'] = Variable<int>(fieldType.value);
+    }
+    if (datePrecision.present) {
+      map['date_precision'] = Variable<int>(datePrecision.value);
+    }
+    if (displayOrder.present) {
+      map['display_order'] = Variable<int>(displayOrder.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomFieldsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('fieldType: $fieldType, ')
+          ..write('datePrecision: $datePrecision, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CustomFieldValuesTable extends CustomFieldValues
+    with TableInfo<$CustomFieldValuesTable, CustomFieldValueRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CustomFieldValuesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _customFieldIdMeta = const VerificationMeta(
+    'customFieldId',
+  );
+  @override
+  late final GeneratedColumn<String> customFieldId = GeneratedColumn<String>(
+    'custom_field_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+    'value',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    customFieldId,
+    memberId,
+    value,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'custom_field_values';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CustomFieldValueRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('custom_field_id')) {
+      context.handle(
+        _customFieldIdMeta,
+        customFieldId.isAcceptableOrUnknown(
+          data['custom_field_id']!,
+          _customFieldIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_customFieldIdMeta);
+    }
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_memberIdMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+        _valueMeta,
+        value.isAcceptableOrUnknown(data['value']!, _valueMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_valueMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CustomFieldValueRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CustomFieldValueRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      customFieldId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_field_id'],
+      )!,
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      )!,
+      value: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}value'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $CustomFieldValuesTable createAlias(String alias) {
+    return $CustomFieldValuesTable(attachedDatabase, alias);
+  }
+}
+
+class CustomFieldValueRow extends DataClass
+    implements Insertable<CustomFieldValueRow> {
+  final String id;
+  final String customFieldId;
+  final String memberId;
+  final String value;
+  final bool isDeleted;
+  const CustomFieldValueRow({
+    required this.id,
+    required this.customFieldId,
+    required this.memberId,
+    required this.value,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['custom_field_id'] = Variable<String>(customFieldId);
+    map['member_id'] = Variable<String>(memberId);
+    map['value'] = Variable<String>(value);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  CustomFieldValuesCompanion toCompanion(bool nullToAbsent) {
+    return CustomFieldValuesCompanion(
+      id: Value(id),
+      customFieldId: Value(customFieldId),
+      memberId: Value(memberId),
+      value: Value(value),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory CustomFieldValueRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CustomFieldValueRow(
+      id: serializer.fromJson<String>(json['id']),
+      customFieldId: serializer.fromJson<String>(json['customFieldId']),
+      memberId: serializer.fromJson<String>(json['memberId']),
+      value: serializer.fromJson<String>(json['value']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'customFieldId': serializer.toJson<String>(customFieldId),
+      'memberId': serializer.toJson<String>(memberId),
+      'value': serializer.toJson<String>(value),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  CustomFieldValueRow copyWith({
+    String? id,
+    String? customFieldId,
+    String? memberId,
+    String? value,
+    bool? isDeleted,
+  }) => CustomFieldValueRow(
+    id: id ?? this.id,
+    customFieldId: customFieldId ?? this.customFieldId,
+    memberId: memberId ?? this.memberId,
+    value: value ?? this.value,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  CustomFieldValueRow copyWithCompanion(CustomFieldValuesCompanion data) {
+    return CustomFieldValueRow(
+      id: data.id.present ? data.id.value : this.id,
+      customFieldId: data.customFieldId.present
+          ? data.customFieldId.value
+          : this.customFieldId,
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      value: data.value.present ? data.value.value : this.value,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomFieldValueRow(')
+          ..write('id: $id, ')
+          ..write('customFieldId: $customFieldId, ')
+          ..write('memberId: $memberId, ')
+          ..write('value: $value, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, customFieldId, memberId, value, isDeleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CustomFieldValueRow &&
+          other.id == this.id &&
+          other.customFieldId == this.customFieldId &&
+          other.memberId == this.memberId &&
+          other.value == this.value &&
+          other.isDeleted == this.isDeleted);
+}
+
+class CustomFieldValuesCompanion extends UpdateCompanion<CustomFieldValueRow> {
+  final Value<String> id;
+  final Value<String> customFieldId;
+  final Value<String> memberId;
+  final Value<String> value;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const CustomFieldValuesCompanion({
+    this.id = const Value.absent(),
+    this.customFieldId = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.value = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CustomFieldValuesCompanion.insert({
+    required String id,
+    required String customFieldId,
+    required String memberId,
+    required String value,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       customFieldId = Value(customFieldId),
+       memberId = Value(memberId),
+       value = Value(value);
+  static Insertable<CustomFieldValueRow> custom({
+    Expression<String>? id,
+    Expression<String>? customFieldId,
+    Expression<String>? memberId,
+    Expression<String>? value,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (customFieldId != null) 'custom_field_id': customFieldId,
+      if (memberId != null) 'member_id': memberId,
+      if (value != null) 'value': value,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CustomFieldValuesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? customFieldId,
+    Value<String>? memberId,
+    Value<String>? value,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return CustomFieldValuesCompanion(
+      id: id ?? this.id,
+      customFieldId: customFieldId ?? this.customFieldId,
+      memberId: memberId ?? this.memberId,
+      value: value ?? this.value,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (customFieldId.present) {
+      map['custom_field_id'] = Variable<String>(customFieldId.value);
+    }
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomFieldValuesCompanion(')
+          ..write('id: $id, ')
+          ..write('customFieldId: $customFieldId, ')
+          ..write('memberId: $memberId, ')
+          ..write('value: $value, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $NotesTable extends Notes with TableInfo<$NotesTable, NoteRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NotesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _colorHexMeta = const VerificationMeta(
+    'colorHex',
+  );
+  @override
+  late final GeneratedColumn<String> colorHex = GeneratedColumn<String>(
+    'color_hex',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _memberIdMeta = const VerificationMeta(
+    'memberId',
+  );
+  @override
+  late final GeneratedColumn<String> memberId = GeneratedColumn<String>(
+    'member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+    'date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
+    'modifiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> modifiedAt = GeneratedColumn<DateTime>(
+    'modified_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    body,
+    colorHex,
+    memberId,
+    date,
+    createdAt,
+    modifiedAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'notes';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NoteRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('color_hex')) {
+      context.handle(
+        _colorHexMeta,
+        colorHex.isAcceptableOrUnknown(data['color_hex']!, _colorHexMeta),
+      );
+    }
+    if (data.containsKey('member_id')) {
+      context.handle(
+        _memberIdMeta,
+        memberId.isAcceptableOrUnknown(data['member_id']!, _memberIdMeta),
+      );
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+        _dateMeta,
+        date.isAcceptableOrUnknown(data['date']!, _dateMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('modified_at')) {
+      context.handle(
+        _modifiedAtMeta,
+        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modifiedAtMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NoteRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NoteRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      colorHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_hex'],
+      ),
+      memberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}member_id'],
+      ),
+      date: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}date'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      modifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}modified_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $NotesTable createAlias(String alias) {
+    return $NotesTable(attachedDatabase, alias);
+  }
+}
+
+class NoteRow extends DataClass implements Insertable<NoteRow> {
+  final String id;
+  final String title;
+  final String body;
+  final String? colorHex;
+  final String? memberId;
+  final DateTime date;
+  final DateTime createdAt;
+  final DateTime modifiedAt;
+  final bool isDeleted;
+  const NoteRow({
+    required this.id,
+    required this.title,
+    required this.body,
+    this.colorHex,
+    this.memberId,
+    required this.date,
+    required this.createdAt,
+    required this.modifiedAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['title'] = Variable<String>(title);
+    map['body'] = Variable<String>(body);
+    if (!nullToAbsent || colorHex != null) {
+      map['color_hex'] = Variable<String>(colorHex);
+    }
+    if (!nullToAbsent || memberId != null) {
+      map['member_id'] = Variable<String>(memberId);
+    }
+    map['date'] = Variable<DateTime>(date);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['modified_at'] = Variable<DateTime>(modifiedAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  NotesCompanion toCompanion(bool nullToAbsent) {
+    return NotesCompanion(
+      id: Value(id),
+      title: Value(title),
+      body: Value(body),
+      colorHex: colorHex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorHex),
+      memberId: memberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(memberId),
+      date: Value(date),
+      createdAt: Value(createdAt),
+      modifiedAt: Value(modifiedAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory NoteRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NoteRow(
+      id: serializer.fromJson<String>(json['id']),
+      title: serializer.fromJson<String>(json['title']),
+      body: serializer.fromJson<String>(json['body']),
+      colorHex: serializer.fromJson<String?>(json['colorHex']),
+      memberId: serializer.fromJson<String?>(json['memberId']),
+      date: serializer.fromJson<DateTime>(json['date']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      modifiedAt: serializer.fromJson<DateTime>(json['modifiedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'title': serializer.toJson<String>(title),
+      'body': serializer.toJson<String>(body),
+      'colorHex': serializer.toJson<String?>(colorHex),
+      'memberId': serializer.toJson<String?>(memberId),
+      'date': serializer.toJson<DateTime>(date),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'modifiedAt': serializer.toJson<DateTime>(modifiedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  NoteRow copyWith({
+    String? id,
+    String? title,
+    String? body,
+    Value<String?> colorHex = const Value.absent(),
+    Value<String?> memberId = const Value.absent(),
+    DateTime? date,
+    DateTime? createdAt,
+    DateTime? modifiedAt,
+    bool? isDeleted,
+  }) => NoteRow(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    body: body ?? this.body,
+    colorHex: colorHex.present ? colorHex.value : this.colorHex,
+    memberId: memberId.present ? memberId.value : this.memberId,
+    date: date ?? this.date,
+    createdAt: createdAt ?? this.createdAt,
+    modifiedAt: modifiedAt ?? this.modifiedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  NoteRow copyWithCompanion(NotesCompanion data) {
+    return NoteRow(
+      id: data.id.present ? data.id.value : this.id,
+      title: data.title.present ? data.title.value : this.title,
+      body: data.body.present ? data.body.value : this.body,
+      colorHex: data.colorHex.present ? data.colorHex.value : this.colorHex,
+      memberId: data.memberId.present ? data.memberId.value : this.memberId,
+      date: data.date.present ? data.date.value : this.date,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      modifiedAt: data.modifiedAt.present
+          ? data.modifiedAt.value
+          : this.modifiedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoteRow(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('colorHex: $colorHex, ')
+          ..write('memberId: $memberId, ')
+          ..write('date: $date, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    title,
+    body,
+    colorHex,
+    memberId,
+    date,
+    createdAt,
+    modifiedAt,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NoteRow &&
+          other.id == this.id &&
+          other.title == this.title &&
+          other.body == this.body &&
+          other.colorHex == this.colorHex &&
+          other.memberId == this.memberId &&
+          other.date == this.date &&
+          other.createdAt == this.createdAt &&
+          other.modifiedAt == this.modifiedAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class NotesCompanion extends UpdateCompanion<NoteRow> {
+  final Value<String> id;
+  final Value<String> title;
+  final Value<String> body;
+  final Value<String?> colorHex;
+  final Value<String?> memberId;
+  final Value<DateTime> date;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> modifiedAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const NotesCompanion({
+    this.id = const Value.absent(),
+    this.title = const Value.absent(),
+    this.body = const Value.absent(),
+    this.colorHex = const Value.absent(),
+    this.memberId = const Value.absent(),
+    this.date = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  NotesCompanion.insert({
+    required String id,
+    required String title,
+    required String body,
+    this.colorHex = const Value.absent(),
+    this.memberId = const Value.absent(),
+    required DateTime date,
+    required DateTime createdAt,
+    required DateTime modifiedAt,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       title = Value(title),
+       body = Value(body),
+       date = Value(date),
+       createdAt = Value(createdAt),
+       modifiedAt = Value(modifiedAt);
+  static Insertable<NoteRow> custom({
+    Expression<String>? id,
+    Expression<String>? title,
+    Expression<String>? body,
+    Expression<String>? colorHex,
+    Expression<String>? memberId,
+    Expression<DateTime>? date,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? modifiedAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (title != null) 'title': title,
+      if (body != null) 'body': body,
+      if (colorHex != null) 'color_hex': colorHex,
+      if (memberId != null) 'member_id': memberId,
+      if (date != null) 'date': date,
+      if (createdAt != null) 'created_at': createdAt,
+      if (modifiedAt != null) 'modified_at': modifiedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  NotesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? title,
+    Value<String>? body,
+    Value<String?>? colorHex,
+    Value<String?>? memberId,
+    Value<DateTime>? date,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? modifiedAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return NotesCompanion(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      colorHex: colorHex ?? this.colorHex,
+      memberId: memberId ?? this.memberId,
+      date: date ?? this.date,
+      createdAt: createdAt ?? this.createdAt,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (colorHex.present) {
+      map['color_hex'] = Variable<String>(colorHex.value);
+    }
+    if (memberId.present) {
+      map['member_id'] = Variable<String>(memberId.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (modifiedAt.present) {
+      map['modified_at'] = Variable<DateTime>(modifiedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NotesCompanion(')
+          ..write('id: $id, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('colorHex: $colorHex, ')
+          ..write('memberId: $memberId, ')
+          ..write('date: $date, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FrontSessionCommentsTable extends FrontSessionComments
+    with TableInfo<$FrontSessionCommentsTable, FrontSessionCommentRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FrontSessionCommentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timestampMeta = const VerificationMeta(
+    'timestamp',
+  );
+  @override
+  late final GeneratedColumn<DateTime> timestamp = GeneratedColumn<DateTime>(
+    'timestamp',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sessionId,
+    body,
+    timestamp,
+    createdAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'front_session_comments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FrontSessionCommentRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyMeta);
+    }
+    if (data.containsKey('timestamp')) {
+      context.handle(
+        _timestampMeta,
+        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timestampMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FrontSessionCommentRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FrontSessionCommentRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      )!,
+      timestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}timestamp'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $FrontSessionCommentsTable createAlias(String alias) {
+    return $FrontSessionCommentsTable(attachedDatabase, alias);
+  }
+}
+
+class FrontSessionCommentRow extends DataClass
+    implements Insertable<FrontSessionCommentRow> {
+  final String id;
+  final String sessionId;
+  final String body;
+  final DateTime timestamp;
+  final DateTime createdAt;
+  final bool isDeleted;
+  const FrontSessionCommentRow({
+    required this.id,
+    required this.sessionId,
+    required this.body,
+    required this.timestamp,
+    required this.createdAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['session_id'] = Variable<String>(sessionId);
+    map['body'] = Variable<String>(body);
+    map['timestamp'] = Variable<DateTime>(timestamp);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  FrontSessionCommentsCompanion toCompanion(bool nullToAbsent) {
+    return FrontSessionCommentsCompanion(
+      id: Value(id),
+      sessionId: Value(sessionId),
+      body: Value(body),
+      timestamp: Value(timestamp),
+      createdAt: Value(createdAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory FrontSessionCommentRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FrontSessionCommentRow(
+      id: serializer.fromJson<String>(json['id']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      body: serializer.fromJson<String>(json['body']),
+      timestamp: serializer.fromJson<DateTime>(json['timestamp']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'body': serializer.toJson<String>(body),
+      'timestamp': serializer.toJson<DateTime>(timestamp),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  FrontSessionCommentRow copyWith({
+    String? id,
+    String? sessionId,
+    String? body,
+    DateTime? timestamp,
+    DateTime? createdAt,
+    bool? isDeleted,
+  }) => FrontSessionCommentRow(
+    id: id ?? this.id,
+    sessionId: sessionId ?? this.sessionId,
+    body: body ?? this.body,
+    timestamp: timestamp ?? this.timestamp,
+    createdAt: createdAt ?? this.createdAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  FrontSessionCommentRow copyWithCompanion(FrontSessionCommentsCompanion data) {
+    return FrontSessionCommentRow(
+      id: data.id.present ? data.id.value : this.id,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      body: data.body.present ? data.body.value : this.body,
+      timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FrontSessionCommentRow(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('body: $body, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, sessionId, body, timestamp, createdAt, isDeleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FrontSessionCommentRow &&
+          other.id == this.id &&
+          other.sessionId == this.sessionId &&
+          other.body == this.body &&
+          other.timestamp == this.timestamp &&
+          other.createdAt == this.createdAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class FrontSessionCommentsCompanion
+    extends UpdateCompanion<FrontSessionCommentRow> {
+  final Value<String> id;
+  final Value<String> sessionId;
+  final Value<String> body;
+  final Value<DateTime> timestamp;
+  final Value<DateTime> createdAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const FrontSessionCommentsCompanion({
+    this.id = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.body = const Value.absent(),
+    this.timestamp = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FrontSessionCommentsCompanion.insert({
+    required String id,
+    required String sessionId,
+    required String body,
+    required DateTime timestamp,
+    required DateTime createdAt,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sessionId = Value(sessionId),
+       body = Value(body),
+       timestamp = Value(timestamp),
+       createdAt = Value(createdAt);
+  static Insertable<FrontSessionCommentRow> custom({
+    Expression<String>? id,
+    Expression<String>? sessionId,
+    Expression<String>? body,
+    Expression<DateTime>? timestamp,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sessionId != null) 'session_id': sessionId,
+      if (body != null) 'body': body,
+      if (timestamp != null) 'timestamp': timestamp,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FrontSessionCommentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? sessionId,
+    Value<String>? body,
+    Value<DateTime>? timestamp,
+    Value<DateTime>? createdAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return FrontSessionCommentsCompanion(
+      id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      body: body ?? this.body,
+      timestamp: timestamp ?? this.timestamp,
+      createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (timestamp.present) {
+      map['timestamp'] = Variable<DateTime>(timestamp.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FrontSessionCommentsCompanion(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('body: $body, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ConversationCategoriesTable extends ConversationCategories
+    with TableInfo<$ConversationCategoriesTable, ConversationCategoryRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ConversationCategoriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayOrderMeta = const VerificationMeta(
+    'displayOrder',
+  );
+  @override
+  late final GeneratedColumn<int> displayOrder = GeneratedColumn<int>(
+    'display_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
+    'modifiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> modifiedAt = GeneratedColumn<DateTime>(
+    'modified_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    displayOrder,
+    createdAt,
+    modifiedAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'conversation_categories';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ConversationCategoryRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('display_order')) {
+      context.handle(
+        _displayOrderMeta,
+        displayOrder.isAcceptableOrUnknown(
+          data['display_order']!,
+          _displayOrderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('modified_at')) {
+      context.handle(
+        _modifiedAtMeta,
+        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modifiedAtMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ConversationCategoryRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ConversationCategoryRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      displayOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}display_order'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      modifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}modified_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $ConversationCategoriesTable createAlias(String alias) {
+    return $ConversationCategoriesTable(attachedDatabase, alias);
+  }
+}
+
+class ConversationCategoryRow extends DataClass
+    implements Insertable<ConversationCategoryRow> {
+  final String id;
+  final String name;
+  final int displayOrder;
+  final DateTime createdAt;
+  final DateTime modifiedAt;
+  final bool isDeleted;
+  const ConversationCategoryRow({
+    required this.id,
+    required this.name,
+    required this.displayOrder,
+    required this.createdAt,
+    required this.modifiedAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['display_order'] = Variable<int>(displayOrder);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['modified_at'] = Variable<DateTime>(modifiedAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  ConversationCategoriesCompanion toCompanion(bool nullToAbsent) {
+    return ConversationCategoriesCompanion(
+      id: Value(id),
+      name: Value(name),
+      displayOrder: Value(displayOrder),
+      createdAt: Value(createdAt),
+      modifiedAt: Value(modifiedAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory ConversationCategoryRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ConversationCategoryRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      displayOrder: serializer.fromJson<int>(json['displayOrder']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      modifiedAt: serializer.fromJson<DateTime>(json['modifiedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'displayOrder': serializer.toJson<int>(displayOrder),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'modifiedAt': serializer.toJson<DateTime>(modifiedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  ConversationCategoryRow copyWith({
+    String? id,
+    String? name,
+    int? displayOrder,
+    DateTime? createdAt,
+    DateTime? modifiedAt,
+    bool? isDeleted,
+  }) => ConversationCategoryRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    displayOrder: displayOrder ?? this.displayOrder,
+    createdAt: createdAt ?? this.createdAt,
+    modifiedAt: modifiedAt ?? this.modifiedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  ConversationCategoryRow copyWithCompanion(
+    ConversationCategoriesCompanion data,
+  ) {
+    return ConversationCategoryRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      displayOrder: data.displayOrder.present
+          ? data.displayOrder.value
+          : this.displayOrder,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      modifiedAt: data.modifiedAt.present
+          ? data.modifiedAt.value
+          : this.modifiedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ConversationCategoryRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, displayOrder, createdAt, modifiedAt, isDeleted);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ConversationCategoryRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.displayOrder == this.displayOrder &&
+          other.createdAt == this.createdAt &&
+          other.modifiedAt == this.modifiedAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class ConversationCategoriesCompanion
+    extends UpdateCompanion<ConversationCategoryRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<int> displayOrder;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> modifiedAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const ConversationCategoriesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.displayOrder = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ConversationCategoriesCompanion.insert({
+    required String id,
+    required String name,
+    this.displayOrder = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime modifiedAt,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt),
+       modifiedAt = Value(modifiedAt);
+  static Insertable<ConversationCategoryRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<int>? displayOrder,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? modifiedAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (displayOrder != null) 'display_order': displayOrder,
+      if (createdAt != null) 'created_at': createdAt,
+      if (modifiedAt != null) 'modified_at': modifiedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ConversationCategoriesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<int>? displayOrder,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? modifiedAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return ConversationCategoriesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      displayOrder: displayOrder ?? this.displayOrder,
+      createdAt: createdAt ?? this.createdAt,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (displayOrder.present) {
+      map['display_order'] = Variable<int>(displayOrder.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (modifiedAt.present) {
+      map['modified_at'] = Variable<DateTime>(modifiedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ConversationCategoriesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('displayOrder: $displayOrder, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RemindersTable extends Reminders
+    with TableInfo<$RemindersTable, ReminderRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RemindersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageMeta = const VerificationMeta(
+    'message',
+  );
+  @override
+  late final GeneratedColumn<String> message = GeneratedColumn<String>(
+    'message',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _triggerMeta = const VerificationMeta(
+    'trigger',
+  );
+  @override
+  late final GeneratedColumn<int> trigger = GeneratedColumn<int>(
+    'trigger',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _intervalDaysMeta = const VerificationMeta(
+    'intervalDays',
+  );
+  @override
+  late final GeneratedColumn<int> intervalDays = GeneratedColumn<int>(
+    'interval_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _timeOfDayMeta = const VerificationMeta(
+    'timeOfDay',
+  );
+  @override
+  late final GeneratedColumn<String> timeOfDay = GeneratedColumn<String>(
+    'time_of_day',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _delayHoursMeta = const VerificationMeta(
+    'delayHours',
+  );
+  @override
+  late final GeneratedColumn<int> delayHours = GeneratedColumn<int>(
+    'delay_hours',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modifiedAtMeta = const VerificationMeta(
+    'modifiedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> modifiedAt = GeneratedColumn<DateTime>(
+    'modified_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    message,
+    trigger,
+    intervalDays,
+    timeOfDay,
+    delayHours,
+    isActive,
+    createdAt,
+    modifiedAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reminders';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ReminderRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('message')) {
+      context.handle(
+        _messageMeta,
+        message.isAcceptableOrUnknown(data['message']!, _messageMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_messageMeta);
+    }
+    if (data.containsKey('trigger')) {
+      context.handle(
+        _triggerMeta,
+        trigger.isAcceptableOrUnknown(data['trigger']!, _triggerMeta),
+      );
+    }
+    if (data.containsKey('interval_days')) {
+      context.handle(
+        _intervalDaysMeta,
+        intervalDays.isAcceptableOrUnknown(
+          data['interval_days']!,
+          _intervalDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('time_of_day')) {
+      context.handle(
+        _timeOfDayMeta,
+        timeOfDay.isAcceptableOrUnknown(data['time_of_day']!, _timeOfDayMeta),
+      );
+    }
+    if (data.containsKey('delay_hours')) {
+      context.handle(
+        _delayHoursMeta,
+        delayHours.isAcceptableOrUnknown(data['delay_hours']!, _delayHoursMeta),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('modified_at')) {
+      context.handle(
+        _modifiedAtMeta,
+        modifiedAt.isAcceptableOrUnknown(data['modified_at']!, _modifiedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modifiedAtMeta);
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReminderRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReminderRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      message: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message'],
+      )!,
+      trigger: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}trigger'],
+      )!,
+      intervalDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}interval_days'],
+      ),
+      timeOfDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}time_of_day'],
+      ),
+      delayHours: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delay_hours'],
+      ),
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      modifiedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}modified_at'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $RemindersTable createAlias(String alias) {
+    return $RemindersTable(attachedDatabase, alias);
+  }
+}
+
+class ReminderRow extends DataClass implements Insertable<ReminderRow> {
+  final String id;
+  final String name;
+  final String message;
+  final int trigger;
+  final int? intervalDays;
+  final String? timeOfDay;
+  final int? delayHours;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime modifiedAt;
+  final bool isDeleted;
+  const ReminderRow({
+    required this.id,
+    required this.name,
+    required this.message,
+    required this.trigger,
+    this.intervalDays,
+    this.timeOfDay,
+    this.delayHours,
+    required this.isActive,
+    required this.createdAt,
+    required this.modifiedAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['message'] = Variable<String>(message);
+    map['trigger'] = Variable<int>(trigger);
+    if (!nullToAbsent || intervalDays != null) {
+      map['interval_days'] = Variable<int>(intervalDays);
+    }
+    if (!nullToAbsent || timeOfDay != null) {
+      map['time_of_day'] = Variable<String>(timeOfDay);
+    }
+    if (!nullToAbsent || delayHours != null) {
+      map['delay_hours'] = Variable<int>(delayHours);
+    }
+    map['is_active'] = Variable<bool>(isActive);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['modified_at'] = Variable<DateTime>(modifiedAt);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  RemindersCompanion toCompanion(bool nullToAbsent) {
+    return RemindersCompanion(
+      id: Value(id),
+      name: Value(name),
+      message: Value(message),
+      trigger: Value(trigger),
+      intervalDays: intervalDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(intervalDays),
+      timeOfDay: timeOfDay == null && nullToAbsent
+          ? const Value.absent()
+          : Value(timeOfDay),
+      delayHours: delayHours == null && nullToAbsent
+          ? const Value.absent()
+          : Value(delayHours),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      modifiedAt: Value(modifiedAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory ReminderRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReminderRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      message: serializer.fromJson<String>(json['message']),
+      trigger: serializer.fromJson<int>(json['trigger']),
+      intervalDays: serializer.fromJson<int?>(json['intervalDays']),
+      timeOfDay: serializer.fromJson<String?>(json['timeOfDay']),
+      delayHours: serializer.fromJson<int?>(json['delayHours']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      modifiedAt: serializer.fromJson<DateTime>(json['modifiedAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'message': serializer.toJson<String>(message),
+      'trigger': serializer.toJson<int>(trigger),
+      'intervalDays': serializer.toJson<int?>(intervalDays),
+      'timeOfDay': serializer.toJson<String?>(timeOfDay),
+      'delayHours': serializer.toJson<int?>(delayHours),
+      'isActive': serializer.toJson<bool>(isActive),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'modifiedAt': serializer.toJson<DateTime>(modifiedAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  ReminderRow copyWith({
+    String? id,
+    String? name,
+    String? message,
+    int? trigger,
+    Value<int?> intervalDays = const Value.absent(),
+    Value<String?> timeOfDay = const Value.absent(),
+    Value<int?> delayHours = const Value.absent(),
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? modifiedAt,
+    bool? isDeleted,
+  }) => ReminderRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    message: message ?? this.message,
+    trigger: trigger ?? this.trigger,
+    intervalDays: intervalDays.present ? intervalDays.value : this.intervalDays,
+    timeOfDay: timeOfDay.present ? timeOfDay.value : this.timeOfDay,
+    delayHours: delayHours.present ? delayHours.value : this.delayHours,
+    isActive: isActive ?? this.isActive,
+    createdAt: createdAt ?? this.createdAt,
+    modifiedAt: modifiedAt ?? this.modifiedAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  ReminderRow copyWithCompanion(RemindersCompanion data) {
+    return ReminderRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      message: data.message.present ? data.message.value : this.message,
+      trigger: data.trigger.present ? data.trigger.value : this.trigger,
+      intervalDays: data.intervalDays.present
+          ? data.intervalDays.value
+          : this.intervalDays,
+      timeOfDay: data.timeOfDay.present ? data.timeOfDay.value : this.timeOfDay,
+      delayHours: data.delayHours.present
+          ? data.delayHours.value
+          : this.delayHours,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      modifiedAt: data.modifiedAt.present
+          ? data.modifiedAt.value
+          : this.modifiedAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReminderRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('message: $message, ')
+          ..write('trigger: $trigger, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('timeOfDay: $timeOfDay, ')
+          ..write('delayHours: $delayHours, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    message,
+    trigger,
+    intervalDays,
+    timeOfDay,
+    delayHours,
+    isActive,
+    createdAt,
+    modifiedAt,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReminderRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.message == this.message &&
+          other.trigger == this.trigger &&
+          other.intervalDays == this.intervalDays &&
+          other.timeOfDay == this.timeOfDay &&
+          other.delayHours == this.delayHours &&
+          other.isActive == this.isActive &&
+          other.createdAt == this.createdAt &&
+          other.modifiedAt == this.modifiedAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class RemindersCompanion extends UpdateCompanion<ReminderRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> message;
+  final Value<int> trigger;
+  final Value<int?> intervalDays;
+  final Value<String?> timeOfDay;
+  final Value<int?> delayHours;
+  final Value<bool> isActive;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> modifiedAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const RemindersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.message = const Value.absent(),
+    this.trigger = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.timeOfDay = const Value.absent(),
+    this.delayHours = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.modifiedAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RemindersCompanion.insert({
+    required String id,
+    required String name,
+    required String message,
+    this.trigger = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.timeOfDay = const Value.absent(),
+    this.delayHours = const Value.absent(),
+    this.isActive = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime modifiedAt,
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       message = Value(message),
+       createdAt = Value(createdAt),
+       modifiedAt = Value(modifiedAt);
+  static Insertable<ReminderRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? message,
+    Expression<int>? trigger,
+    Expression<int>? intervalDays,
+    Expression<String>? timeOfDay,
+    Expression<int>? delayHours,
+    Expression<bool>? isActive,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? modifiedAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (message != null) 'message': message,
+      if (trigger != null) 'trigger': trigger,
+      if (intervalDays != null) 'interval_days': intervalDays,
+      if (timeOfDay != null) 'time_of_day': timeOfDay,
+      if (delayHours != null) 'delay_hours': delayHours,
+      if (isActive != null) 'is_active': isActive,
+      if (createdAt != null) 'created_at': createdAt,
+      if (modifiedAt != null) 'modified_at': modifiedAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RemindersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? message,
+    Value<int>? trigger,
+    Value<int?>? intervalDays,
+    Value<String?>? timeOfDay,
+    Value<int?>? delayHours,
+    Value<bool>? isActive,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? modifiedAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return RemindersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      message: message ?? this.message,
+      trigger: trigger ?? this.trigger,
+      intervalDays: intervalDays ?? this.intervalDays,
+      timeOfDay: timeOfDay ?? this.timeOfDay,
+      delayHours: delayHours ?? this.delayHours,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      modifiedAt: modifiedAt ?? this.modifiedAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (message.present) {
+      map['message'] = Variable<String>(message.value);
+    }
+    if (trigger.present) {
+      map['trigger'] = Variable<int>(trigger.value);
+    }
+    if (intervalDays.present) {
+      map['interval_days'] = Variable<int>(intervalDays.value);
+    }
+    if (timeOfDay.present) {
+      map['time_of_day'] = Variable<String>(timeOfDay.value);
+    }
+    if (delayHours.present) {
+      map['delay_hours'] = Variable<int>(delayHours.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (modifiedAt.present) {
+      map['modified_at'] = Variable<DateTime>(modifiedAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RemindersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('message: $message, ')
+          ..write('trigger: $trigger, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('timeOfDay: $timeOfDay, ')
+          ..write('delayHours: $delayHours, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('modifiedAt: $modifiedAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FriendsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _publicKeyHexMeta = const VerificationMeta(
+    'publicKeyHex',
+  );
+  @override
+  late final GeneratedColumn<String> publicKeyHex = GeneratedColumn<String>(
+    'public_key_hex',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sharedSecretHexMeta = const VerificationMeta(
+    'sharedSecretHex',
+  );
+  @override
+  late final GeneratedColumn<String> sharedSecretHex = GeneratedColumn<String>(
+    'shared_secret_hex',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _grantedScopesMeta = const VerificationMeta(
+    'grantedScopes',
+  );
+  @override
+  late final GeneratedColumn<String> grantedScopes = GeneratedColumn<String>(
+    'granted_scopes',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _isVerifiedMeta = const VerificationMeta(
+    'isVerified',
+  );
+  @override
+  late final GeneratedColumn<bool> isVerified = GeneratedColumn<bool>(
+    'is_verified',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_verified" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastSyncAtMeta = const VerificationMeta(
+    'lastSyncAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSyncAt = GeneratedColumn<DateTime>(
+    'last_sync_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    displayName,
+    publicKeyHex,
+    sharedSecretHex,
+    grantedScopes,
+    isVerified,
+    createdAt,
+    lastSyncAt,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'friends';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<FriendRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('public_key_hex')) {
+      context.handle(
+        _publicKeyHexMeta,
+        publicKeyHex.isAcceptableOrUnknown(
+          data['public_key_hex']!,
+          _publicKeyHexMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_publicKeyHexMeta);
+    }
+    if (data.containsKey('shared_secret_hex')) {
+      context.handle(
+        _sharedSecretHexMeta,
+        sharedSecretHex.isAcceptableOrUnknown(
+          data['shared_secret_hex']!,
+          _sharedSecretHexMeta,
+        ),
+      );
+    }
+    if (data.containsKey('granted_scopes')) {
+      context.handle(
+        _grantedScopesMeta,
+        grantedScopes.isAcceptableOrUnknown(
+          data['granted_scopes']!,
+          _grantedScopesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_verified')) {
+      context.handle(
+        _isVerifiedMeta,
+        isVerified.isAcceptableOrUnknown(data['is_verified']!, _isVerifiedMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('last_sync_at')) {
+      context.handle(
+        _lastSyncAtMeta,
+        lastSyncAt.isAcceptableOrUnknown(
+          data['last_sync_at']!,
+          _lastSyncAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FriendRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FriendRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      publicKeyHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}public_key_hex'],
+      )!,
+      sharedSecretHex: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}shared_secret_hex'],
+      ),
+      grantedScopes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}granted_scopes'],
+      )!,
+      isVerified: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_verified'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastSyncAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_sync_at'],
+      ),
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $FriendsTable createAlias(String alias) {
+    return $FriendsTable(attachedDatabase, alias);
+  }
+}
+
+class FriendRow extends DataClass implements Insertable<FriendRow> {
+  final String id;
+  final String displayName;
+  final String publicKeyHex;
+  final String? sharedSecretHex;
+
+  /// JSON-encoded list of granted scope strings.
+  final String grantedScopes;
+  final bool isVerified;
+  final DateTime createdAt;
+  final DateTime? lastSyncAt;
+  final bool isDeleted;
+  const FriendRow({
+    required this.id,
+    required this.displayName,
+    required this.publicKeyHex,
+    this.sharedSecretHex,
+    required this.grantedScopes,
+    required this.isVerified,
+    required this.createdAt,
+    this.lastSyncAt,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['display_name'] = Variable<String>(displayName);
+    map['public_key_hex'] = Variable<String>(publicKeyHex);
+    if (!nullToAbsent || sharedSecretHex != null) {
+      map['shared_secret_hex'] = Variable<String>(sharedSecretHex);
+    }
+    map['granted_scopes'] = Variable<String>(grantedScopes);
+    map['is_verified'] = Variable<bool>(isVerified);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || lastSyncAt != null) {
+      map['last_sync_at'] = Variable<DateTime>(lastSyncAt);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  FriendsCompanion toCompanion(bool nullToAbsent) {
+    return FriendsCompanion(
+      id: Value(id),
+      displayName: Value(displayName),
+      publicKeyHex: Value(publicKeyHex),
+      sharedSecretHex: sharedSecretHex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sharedSecretHex),
+      grantedScopes: Value(grantedScopes),
+      isVerified: Value(isVerified),
+      createdAt: Value(createdAt),
+      lastSyncAt: lastSyncAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSyncAt),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory FriendRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FriendRow(
+      id: serializer.fromJson<String>(json['id']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      publicKeyHex: serializer.fromJson<String>(json['publicKeyHex']),
+      sharedSecretHex: serializer.fromJson<String?>(json['sharedSecretHex']),
+      grantedScopes: serializer.fromJson<String>(json['grantedScopes']),
+      isVerified: serializer.fromJson<bool>(json['isVerified']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lastSyncAt: serializer.fromJson<DateTime?>(json['lastSyncAt']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'displayName': serializer.toJson<String>(displayName),
+      'publicKeyHex': serializer.toJson<String>(publicKeyHex),
+      'sharedSecretHex': serializer.toJson<String?>(sharedSecretHex),
+      'grantedScopes': serializer.toJson<String>(grantedScopes),
+      'isVerified': serializer.toJson<bool>(isVerified),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lastSyncAt': serializer.toJson<DateTime?>(lastSyncAt),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  FriendRow copyWith({
+    String? id,
+    String? displayName,
+    String? publicKeyHex,
+    Value<String?> sharedSecretHex = const Value.absent(),
+    String? grantedScopes,
+    bool? isVerified,
+    DateTime? createdAt,
+    Value<DateTime?> lastSyncAt = const Value.absent(),
+    bool? isDeleted,
+  }) => FriendRow(
+    id: id ?? this.id,
+    displayName: displayName ?? this.displayName,
+    publicKeyHex: publicKeyHex ?? this.publicKeyHex,
+    sharedSecretHex: sharedSecretHex.present
+        ? sharedSecretHex.value
+        : this.sharedSecretHex,
+    grantedScopes: grantedScopes ?? this.grantedScopes,
+    isVerified: isVerified ?? this.isVerified,
+    createdAt: createdAt ?? this.createdAt,
+    lastSyncAt: lastSyncAt.present ? lastSyncAt.value : this.lastSyncAt,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  FriendRow copyWithCompanion(FriendsCompanion data) {
+    return FriendRow(
+      id: data.id.present ? data.id.value : this.id,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      publicKeyHex: data.publicKeyHex.present
+          ? data.publicKeyHex.value
+          : this.publicKeyHex,
+      sharedSecretHex: data.sharedSecretHex.present
+          ? data.sharedSecretHex.value
+          : this.sharedSecretHex,
+      grantedScopes: data.grantedScopes.present
+          ? data.grantedScopes.value
+          : this.grantedScopes,
+      isVerified: data.isVerified.present
+          ? data.isVerified.value
+          : this.isVerified,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastSyncAt: data.lastSyncAt.present
+          ? data.lastSyncAt.value
+          : this.lastSyncAt,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FriendRow(')
+          ..write('id: $id, ')
+          ..write('displayName: $displayName, ')
+          ..write('publicKeyHex: $publicKeyHex, ')
+          ..write('sharedSecretHex: $sharedSecretHex, ')
+          ..write('grantedScopes: $grantedScopes, ')
+          ..write('isVerified: $isVerified, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastSyncAt: $lastSyncAt, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    displayName,
+    publicKeyHex,
+    sharedSecretHex,
+    grantedScopes,
+    isVerified,
+    createdAt,
+    lastSyncAt,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FriendRow &&
+          other.id == this.id &&
+          other.displayName == this.displayName &&
+          other.publicKeyHex == this.publicKeyHex &&
+          other.sharedSecretHex == this.sharedSecretHex &&
+          other.grantedScopes == this.grantedScopes &&
+          other.isVerified == this.isVerified &&
+          other.createdAt == this.createdAt &&
+          other.lastSyncAt == this.lastSyncAt &&
+          other.isDeleted == this.isDeleted);
+}
+
+class FriendsCompanion extends UpdateCompanion<FriendRow> {
+  final Value<String> id;
+  final Value<String> displayName;
+  final Value<String> publicKeyHex;
+  final Value<String?> sharedSecretHex;
+  final Value<String> grantedScopes;
+  final Value<bool> isVerified;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> lastSyncAt;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const FriendsCompanion({
+    this.id = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.publicKeyHex = const Value.absent(),
+    this.sharedSecretHex = const Value.absent(),
+    this.grantedScopes = const Value.absent(),
+    this.isVerified = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastSyncAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  FriendsCompanion.insert({
+    required String id,
+    required String displayName,
+    required String publicKeyHex,
+    this.sharedSecretHex = const Value.absent(),
+    this.grantedScopes = const Value.absent(),
+    this.isVerified = const Value.absent(),
+    required DateTime createdAt,
+    this.lastSyncAt = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       displayName = Value(displayName),
+       publicKeyHex = Value(publicKeyHex),
+       createdAt = Value(createdAt);
+  static Insertable<FriendRow> custom({
+    Expression<String>? id,
+    Expression<String>? displayName,
+    Expression<String>? publicKeyHex,
+    Expression<String>? sharedSecretHex,
+    Expression<String>? grantedScopes,
+    Expression<bool>? isVerified,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastSyncAt,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (displayName != null) 'display_name': displayName,
+      if (publicKeyHex != null) 'public_key_hex': publicKeyHex,
+      if (sharedSecretHex != null) 'shared_secret_hex': sharedSecretHex,
+      if (grantedScopes != null) 'granted_scopes': grantedScopes,
+      if (isVerified != null) 'is_verified': isVerified,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastSyncAt != null) 'last_sync_at': lastSyncAt,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  FriendsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? displayName,
+    Value<String>? publicKeyHex,
+    Value<String?>? sharedSecretHex,
+    Value<String>? grantedScopes,
+    Value<bool>? isVerified,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? lastSyncAt,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return FriendsCompanion(
+      id: id ?? this.id,
+      displayName: displayName ?? this.displayName,
+      publicKeyHex: publicKeyHex ?? this.publicKeyHex,
+      sharedSecretHex: sharedSecretHex ?? this.sharedSecretHex,
+      grantedScopes: grantedScopes ?? this.grantedScopes,
+      isVerified: isVerified ?? this.isVerified,
+      createdAt: createdAt ?? this.createdAt,
+      lastSyncAt: lastSyncAt ?? this.lastSyncAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (publicKeyHex.present) {
+      map['public_key_hex'] = Variable<String>(publicKeyHex.value);
+    }
+    if (sharedSecretHex.present) {
+      map['shared_secret_hex'] = Variable<String>(sharedSecretHex.value);
+    }
+    if (grantedScopes.present) {
+      map['granted_scopes'] = Variable<String>(grantedScopes.value);
+    }
+    if (isVerified.present) {
+      map['is_verified'] = Variable<bool>(isVerified.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastSyncAt.present) {
+      map['last_sync_at'] = Variable<DateTime>(lastSyncAt.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FriendsCompanion(')
+          ..write('id: $id, ')
+          ..write('displayName: $displayName, ')
+          ..write('publicKeyHex: $publicKeyHex, ')
+          ..write('sharedSecretHex: $sharedSecretHex, ')
+          ..write('grantedScopes: $grantedScopes, ')
+          ..write('isVerified: $isVerified, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastSyncAt: $lastSyncAt, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+abstract class _$AppDatabase extends GeneratedDatabase {
+  _$AppDatabase(QueryExecutor e) : super(e);
+  $AppDatabaseManager get managers => $AppDatabaseManager(this);
+  late final $MembersTable members = $MembersTable(this);
+  late final $FrontingSessionsTable frontingSessions = $FrontingSessionsTable(
+    this,
+  );
+  late final $ConversationsTable conversations = $ConversationsTable(this);
+  late final $ChatMessagesTable chatMessages = $ChatMessagesTable(this);
+  late final $SystemSettingsTableTable systemSettingsTable =
+      $SystemSettingsTableTable(this);
+  late final $PollsTable polls = $PollsTable(this);
+  late final $PollOptionsTable pollOptions = $PollOptionsTable(this);
+  late final $PollVotesTable pollVotes = $PollVotesTable(this);
+  late final $SleepSessionsTable sleepSessions = $SleepSessionsTable(this);
+  late final $PluralKitSyncStateTable pluralKitSyncState =
+      $PluralKitSyncStateTable(this);
+  late final $HabitsTable habits = $HabitsTable(this);
+  late final $HabitCompletionsTable habitCompletions = $HabitCompletionsTable(
+    this,
+  );
+  late final $SyncQuarantineTableTable syncQuarantineTable =
+      $SyncQuarantineTableTable(this);
+  late final $MemberGroupsTable memberGroups = $MemberGroupsTable(this);
+  late final $MemberGroupEntriesTable memberGroupEntries =
+      $MemberGroupEntriesTable(this);
+  late final $CustomFieldsTable customFields = $CustomFieldsTable(this);
+  late final $CustomFieldValuesTable customFieldValues =
+      $CustomFieldValuesTable(this);
+  late final $NotesTable notes = $NotesTable(this);
+  late final $FrontSessionCommentsTable frontSessionComments =
+      $FrontSessionCommentsTable(this);
+  late final $ConversationCategoriesTable conversationCategories =
+      $ConversationCategoriesTable(this);
+  late final $RemindersTable reminders = $RemindersTable(this);
+  late final $FriendsTable friends = $FriendsTable(this);
+  late final MembersDao membersDao = MembersDao(this as AppDatabase);
+  late final FrontingSessionsDao frontingSessionsDao = FrontingSessionsDao(
+    this as AppDatabase,
+  );
+  late final ConversationsDao conversationsDao = ConversationsDao(
+    this as AppDatabase,
+  );
+  late final ChatMessagesDao chatMessagesDao = ChatMessagesDao(
+    this as AppDatabase,
+  );
+  late final SystemSettingsDao systemSettingsDao = SystemSettingsDao(
+    this as AppDatabase,
+  );
+  late final PollsDao pollsDao = PollsDao(this as AppDatabase);
+  late final PollOptionsDao pollOptionsDao = PollOptionsDao(
+    this as AppDatabase,
+  );
+  late final PollVotesDao pollVotesDao = PollVotesDao(this as AppDatabase);
+  late final SleepSessionsDao sleepSessionsDao = SleepSessionsDao(
+    this as AppDatabase,
+  );
+  late final PluralKitSyncDao pluralKitSyncDao = PluralKitSyncDao(
+    this as AppDatabase,
+  );
+  late final HabitsDao habitsDao = HabitsDao(this as AppDatabase);
+  late final SyncQuarantineDao syncQuarantineDao = SyncQuarantineDao(
+    this as AppDatabase,
+  );
+  late final MemberGroupsDao memberGroupsDao = MemberGroupsDao(
+    this as AppDatabase,
+  );
+  late final CustomFieldsDao customFieldsDao = CustomFieldsDao(
+    this as AppDatabase,
+  );
+  late final NotesDao notesDao = NotesDao(this as AppDatabase);
+  late final FrontSessionCommentsDao frontSessionCommentsDao =
+      FrontSessionCommentsDao(this as AppDatabase);
+  late final ConversationCategoriesDao conversationCategoriesDao =
+      ConversationCategoriesDao(this as AppDatabase);
+  late final RemindersDao remindersDao = RemindersDao(this as AppDatabase);
+  late final FriendsDao friendsDao = FriendsDao(this as AppDatabase);
+  @override
+  Iterable<TableInfo<Table, Object?>> get allTables =>
+      allSchemaEntities.whereType<TableInfo<Table, Object?>>();
+  @override
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    members,
+    frontingSessions,
+    conversations,
+    chatMessages,
+    systemSettingsTable,
+    polls,
+    pollOptions,
+    pollVotes,
+    sleepSessions,
+    pluralKitSyncState,
+    habits,
+    habitCompletions,
+    syncQuarantineTable,
+    memberGroups,
+    memberGroupEntries,
+    customFields,
+    customFieldValues,
+    notes,
+    frontSessionComments,
+    conversationCategories,
+    reminders,
+    friends,
+  ];
+}
+
+typedef $$MembersTableCreateCompanionBuilder =
+    MembersCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> pronouns,
+      Value<String> emoji,
+      Value<int?> age,
+      Value<String?> bio,
+      Value<Uint8List?> avatarImageData,
+      Value<bool> isActive,
+      required DateTime createdAt,
+      Value<int> displayOrder,
+      Value<bool> isAdmin,
+      Value<bool> customColorEnabled,
+      Value<String?> customColorHex,
+      Value<String?> parentSystemId,
+      Value<String?> pluralkitUuid,
+      Value<String?> pluralkitId,
+      Value<bool> markdownEnabled,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$MembersTableUpdateCompanionBuilder =
+    MembersCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> pronouns,
+      Value<String> emoji,
+      Value<int?> age,
+      Value<String?> bio,
+      Value<Uint8List?> avatarImageData,
+      Value<bool> isActive,
+      Value<DateTime> createdAt,
+      Value<int> displayOrder,
+      Value<bool> isAdmin,
+      Value<bool> customColorEnabled,
+      Value<String?> customColorHex,
+      Value<String?> parentSystemId,
+      Value<String?> pluralkitUuid,
+      Value<String?> pluralkitId,
+      Value<bool> markdownEnabled,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$MembersTableFilterComposer
+    extends Composer<_$AppDatabase, $MembersTable> {
+  $$MembersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pronouns => $composableBuilder(
+    column: $table.pronouns,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get age => $composableBuilder(
+    column: $table.age,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bio => $composableBuilder(
+    column: $table.bio,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get avatarImageData => $composableBuilder(
+    column: $table.avatarImageData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAdmin => $composableBuilder(
+    column: $table.isAdmin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get customColorEnabled => $composableBuilder(
+    column: $table.customColorEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customColorHex => $composableBuilder(
+    column: $table.customColorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentSystemId => $composableBuilder(
+    column: $table.parentSystemId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pluralkitId => $composableBuilder(
+    column: $table.pluralkitId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get markdownEnabled => $composableBuilder(
+    column: $table.markdownEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MembersTableOrderingComposer
+    extends Composer<_$AppDatabase, $MembersTable> {
+  $$MembersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pronouns => $composableBuilder(
+    column: $table.pronouns,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get age => $composableBuilder(
+    column: $table.age,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bio => $composableBuilder(
+    column: $table.bio,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get avatarImageData => $composableBuilder(
+    column: $table.avatarImageData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isAdmin => $composableBuilder(
+    column: $table.isAdmin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get customColorEnabled => $composableBuilder(
+    column: $table.customColorEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customColorHex => $composableBuilder(
+    column: $table.customColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentSystemId => $composableBuilder(
+    column: $table.parentSystemId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pluralkitId => $composableBuilder(
+    column: $table.pluralkitId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get markdownEnabled => $composableBuilder(
+    column: $table.markdownEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MembersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MembersTable> {
+  $$MembersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get pronouns =>
+      $composableBuilder(column: $table.pronouns, builder: (column) => column);
+
+  GeneratedColumn<String> get emoji =>
+      $composableBuilder(column: $table.emoji, builder: (column) => column);
+
+  GeneratedColumn<int> get age =>
+      $composableBuilder(column: $table.age, builder: (column) => column);
+
+  GeneratedColumn<String> get bio =>
+      $composableBuilder(column: $table.bio, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get avatarImageData => $composableBuilder(
+    column: $table.avatarImageData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isAdmin =>
+      $composableBuilder(column: $table.isAdmin, builder: (column) => column);
+
+  GeneratedColumn<bool> get customColorEnabled => $composableBuilder(
+    column: $table.customColorEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customColorHex => $composableBuilder(
+    column: $table.customColorHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parentSystemId => $composableBuilder(
+    column: $table.parentSystemId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pluralkitId => $composableBuilder(
+    column: $table.pluralkitId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get markdownEnabled => $composableBuilder(
+    column: $table.markdownEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$MembersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MembersTable,
+          Member,
+          $$MembersTableFilterComposer,
+          $$MembersTableOrderingComposer,
+          $$MembersTableAnnotationComposer,
+          $$MembersTableCreateCompanionBuilder,
+          $$MembersTableUpdateCompanionBuilder,
+          (Member, BaseReferences<_$AppDatabase, $MembersTable, Member>),
+          Member,
+          PrefetchHooks Function()
+        > {
+  $$MembersTableTableManager(_$AppDatabase db, $MembersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MembersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MembersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MembersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> pronouns = const Value.absent(),
+                Value<String> emoji = const Value.absent(),
+                Value<int?> age = const Value.absent(),
+                Value<String?> bio = const Value.absent(),
+                Value<Uint8List?> avatarImageData = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> displayOrder = const Value.absent(),
+                Value<bool> isAdmin = const Value.absent(),
+                Value<bool> customColorEnabled = const Value.absent(),
+                Value<String?> customColorHex = const Value.absent(),
+                Value<String?> parentSystemId = const Value.absent(),
+                Value<String?> pluralkitUuid = const Value.absent(),
+                Value<String?> pluralkitId = const Value.absent(),
+                Value<bool> markdownEnabled = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MembersCompanion(
+                id: id,
+                name: name,
+                pronouns: pronouns,
+                emoji: emoji,
+                age: age,
+                bio: bio,
+                avatarImageData: avatarImageData,
+                isActive: isActive,
+                createdAt: createdAt,
+                displayOrder: displayOrder,
+                isAdmin: isAdmin,
+                customColorEnabled: customColorEnabled,
+                customColorHex: customColorHex,
+                parentSystemId: parentSystemId,
+                pluralkitUuid: pluralkitUuid,
+                pluralkitId: pluralkitId,
+                markdownEnabled: markdownEnabled,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> pronouns = const Value.absent(),
+                Value<String> emoji = const Value.absent(),
+                Value<int?> age = const Value.absent(),
+                Value<String?> bio = const Value.absent(),
+                Value<Uint8List?> avatarImageData = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> displayOrder = const Value.absent(),
+                Value<bool> isAdmin = const Value.absent(),
+                Value<bool> customColorEnabled = const Value.absent(),
+                Value<String?> customColorHex = const Value.absent(),
+                Value<String?> parentSystemId = const Value.absent(),
+                Value<String?> pluralkitUuid = const Value.absent(),
+                Value<String?> pluralkitId = const Value.absent(),
+                Value<bool> markdownEnabled = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MembersCompanion.insert(
+                id: id,
+                name: name,
+                pronouns: pronouns,
+                emoji: emoji,
+                age: age,
+                bio: bio,
+                avatarImageData: avatarImageData,
+                isActive: isActive,
+                createdAt: createdAt,
+                displayOrder: displayOrder,
+                isAdmin: isAdmin,
+                customColorEnabled: customColorEnabled,
+                customColorHex: customColorHex,
+                parentSystemId: parentSystemId,
+                pluralkitUuid: pluralkitUuid,
+                pluralkitId: pluralkitId,
+                markdownEnabled: markdownEnabled,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MembersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MembersTable,
+      Member,
+      $$MembersTableFilterComposer,
+      $$MembersTableOrderingComposer,
+      $$MembersTableAnnotationComposer,
+      $$MembersTableCreateCompanionBuilder,
+      $$MembersTableUpdateCompanionBuilder,
+      (Member, BaseReferences<_$AppDatabase, $MembersTable, Member>),
+      Member,
+      PrefetchHooks Function()
+    >;
+typedef $$FrontingSessionsTableCreateCompanionBuilder =
+    FrontingSessionsCompanion Function({
+      required String id,
+      required DateTime startTime,
+      Value<DateTime?> endTime,
+      Value<String?> memberId,
+      Value<String> coFronterIds,
+      Value<String?> notes,
+      Value<int?> confidence,
+      Value<String?> pluralkitUuid,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$FrontingSessionsTableUpdateCompanionBuilder =
+    FrontingSessionsCompanion Function({
+      Value<String> id,
+      Value<DateTime> startTime,
+      Value<DateTime?> endTime,
+      Value<String?> memberId,
+      Value<String> coFronterIds,
+      Value<String?> notes,
+      Value<int?> confidence,
+      Value<String?> pluralkitUuid,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$FrontingSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $FrontingSessionsTable> {
+  $$FrontingSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coFronterIds => $composableBuilder(
+    column: $table.coFronterIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FrontingSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FrontingSessionsTable> {
+  $$FrontingSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get coFronterIds => $composableBuilder(
+    column: $table.coFronterIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FrontingSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FrontingSessionsTable> {
+  $$FrontingSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startTime =>
+      $composableBuilder(column: $table.startTime, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endTime =>
+      $composableBuilder(column: $table.endTime, builder: (column) => column);
+
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<String> get coFronterIds => $composableBuilder(
+    column: $table.coFronterIds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<int> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$FrontingSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FrontingSessionsTable,
+          FrontingSession,
+          $$FrontingSessionsTableFilterComposer,
+          $$FrontingSessionsTableOrderingComposer,
+          $$FrontingSessionsTableAnnotationComposer,
+          $$FrontingSessionsTableCreateCompanionBuilder,
+          $$FrontingSessionsTableUpdateCompanionBuilder,
+          (
+            FrontingSession,
+            BaseReferences<
+              _$AppDatabase,
+              $FrontingSessionsTable,
+              FrontingSession
+            >,
+          ),
+          FrontingSession,
+          PrefetchHooks Function()
+        > {
+  $$FrontingSessionsTableTableManager(
+    _$AppDatabase db,
+    $FrontingSessionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FrontingSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FrontingSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FrontingSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> startTime = const Value.absent(),
+                Value<DateTime?> endTime = const Value.absent(),
+                Value<String?> memberId = const Value.absent(),
+                Value<String> coFronterIds = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int?> confidence = const Value.absent(),
+                Value<String?> pluralkitUuid = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FrontingSessionsCompanion(
+                id: id,
+                startTime: startTime,
+                endTime: endTime,
+                memberId: memberId,
+                coFronterIds: coFronterIds,
+                notes: notes,
+                confidence: confidence,
+                pluralkitUuid: pluralkitUuid,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required DateTime startTime,
+                Value<DateTime?> endTime = const Value.absent(),
+                Value<String?> memberId = const Value.absent(),
+                Value<String> coFronterIds = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int?> confidence = const Value.absent(),
+                Value<String?> pluralkitUuid = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FrontingSessionsCompanion.insert(
+                id: id,
+                startTime: startTime,
+                endTime: endTime,
+                memberId: memberId,
+                coFronterIds: coFronterIds,
+                notes: notes,
+                confidence: confidence,
+                pluralkitUuid: pluralkitUuid,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FrontingSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FrontingSessionsTable,
+      FrontingSession,
+      $$FrontingSessionsTableFilterComposer,
+      $$FrontingSessionsTableOrderingComposer,
+      $$FrontingSessionsTableAnnotationComposer,
+      $$FrontingSessionsTableCreateCompanionBuilder,
+      $$FrontingSessionsTableUpdateCompanionBuilder,
+      (
+        FrontingSession,
+        BaseReferences<_$AppDatabase, $FrontingSessionsTable, FrontingSession>,
+      ),
+      FrontingSession,
+      PrefetchHooks Function()
+    >;
+typedef $$ConversationsTableCreateCompanionBuilder =
+    ConversationsCompanion Function({
+      required String id,
+      required DateTime createdAt,
+      required DateTime lastActivityAt,
+      Value<String?> title,
+      Value<String?> emoji,
+      Value<bool> isDirectMessage,
+      Value<String?> creatorId,
+      Value<String> participantIds,
+      Value<String> lastReadTimestamps,
+      Value<String> archivedByMemberIds,
+      Value<String> mutedByMemberIds,
+      Value<String?> description,
+      Value<String?> categoryId,
+      Value<int> displayOrder,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$ConversationsTableUpdateCompanionBuilder =
+    ConversationsCompanion Function({
+      Value<String> id,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastActivityAt,
+      Value<String?> title,
+      Value<String?> emoji,
+      Value<bool> isDirectMessage,
+      Value<String?> creatorId,
+      Value<String> participantIds,
+      Value<String> lastReadTimestamps,
+      Value<String> archivedByMemberIds,
+      Value<String> mutedByMemberIds,
+      Value<String?> description,
+      Value<String?> categoryId,
+      Value<int> displayOrder,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$ConversationsTableFilterComposer
+    extends Composer<_$AppDatabase, $ConversationsTable> {
+  $$ConversationsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastActivityAt => $composableBuilder(
+    column: $table.lastActivityAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDirectMessage => $composableBuilder(
+    column: $table.isDirectMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get creatorId => $composableBuilder(
+    column: $table.creatorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get participantIds => $composableBuilder(
+    column: $table.participantIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastReadTimestamps => $composableBuilder(
+    column: $table.lastReadTimestamps,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get archivedByMemberIds => $composableBuilder(
+    column: $table.archivedByMemberIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mutedByMemberIds => $composableBuilder(
+    column: $table.mutedByMemberIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ConversationsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ConversationsTable> {
+  $$ConversationsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastActivityAt => $composableBuilder(
+    column: $table.lastActivityAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDirectMessage => $composableBuilder(
+    column: $table.isDirectMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get creatorId => $composableBuilder(
+    column: $table.creatorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get participantIds => $composableBuilder(
+    column: $table.participantIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastReadTimestamps => $composableBuilder(
+    column: $table.lastReadTimestamps,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get archivedByMemberIds => $composableBuilder(
+    column: $table.archivedByMemberIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mutedByMemberIds => $composableBuilder(
+    column: $table.mutedByMemberIds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ConversationsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ConversationsTable> {
+  $$ConversationsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastActivityAt => $composableBuilder(
+    column: $table.lastActivityAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get emoji =>
+      $composableBuilder(column: $table.emoji, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDirectMessage => $composableBuilder(
+    column: $table.isDirectMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get creatorId =>
+      $composableBuilder(column: $table.creatorId, builder: (column) => column);
+
+  GeneratedColumn<String> get participantIds => $composableBuilder(
+    column: $table.participantIds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get lastReadTimestamps => $composableBuilder(
+    column: $table.lastReadTimestamps,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get archivedByMemberIds => $composableBuilder(
+    column: $table.archivedByMemberIds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mutedByMemberIds => $composableBuilder(
+    column: $table.mutedByMemberIds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get categoryId => $composableBuilder(
+    column: $table.categoryId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$ConversationsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ConversationsTable,
+          Conversation,
+          $$ConversationsTableFilterComposer,
+          $$ConversationsTableOrderingComposer,
+          $$ConversationsTableAnnotationComposer,
+          $$ConversationsTableCreateCompanionBuilder,
+          $$ConversationsTableUpdateCompanionBuilder,
+          (
+            Conversation,
+            BaseReferences<_$AppDatabase, $ConversationsTable, Conversation>,
+          ),
+          Conversation,
+          PrefetchHooks Function()
+        > {
+  $$ConversationsTableTableManager(_$AppDatabase db, $ConversationsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ConversationsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ConversationsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ConversationsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastActivityAt = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> emoji = const Value.absent(),
+                Value<bool> isDirectMessage = const Value.absent(),
+                Value<String?> creatorId = const Value.absent(),
+                Value<String> participantIds = const Value.absent(),
+                Value<String> lastReadTimestamps = const Value.absent(),
+                Value<String> archivedByMemberIds = const Value.absent(),
+                Value<String> mutedByMemberIds = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> categoryId = const Value.absent(),
+                Value<int> displayOrder = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ConversationsCompanion(
+                id: id,
+                createdAt: createdAt,
+                lastActivityAt: lastActivityAt,
+                title: title,
+                emoji: emoji,
+                isDirectMessage: isDirectMessage,
+                creatorId: creatorId,
+                participantIds: participantIds,
+                lastReadTimestamps: lastReadTimestamps,
+                archivedByMemberIds: archivedByMemberIds,
+                mutedByMemberIds: mutedByMemberIds,
+                description: description,
+                categoryId: categoryId,
+                displayOrder: displayOrder,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required DateTime createdAt,
+                required DateTime lastActivityAt,
+                Value<String?> title = const Value.absent(),
+                Value<String?> emoji = const Value.absent(),
+                Value<bool> isDirectMessage = const Value.absent(),
+                Value<String?> creatorId = const Value.absent(),
+                Value<String> participantIds = const Value.absent(),
+                Value<String> lastReadTimestamps = const Value.absent(),
+                Value<String> archivedByMemberIds = const Value.absent(),
+                Value<String> mutedByMemberIds = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> categoryId = const Value.absent(),
+                Value<int> displayOrder = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ConversationsCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                lastActivityAt: lastActivityAt,
+                title: title,
+                emoji: emoji,
+                isDirectMessage: isDirectMessage,
+                creatorId: creatorId,
+                participantIds: participantIds,
+                lastReadTimestamps: lastReadTimestamps,
+                archivedByMemberIds: archivedByMemberIds,
+                mutedByMemberIds: mutedByMemberIds,
+                description: description,
+                categoryId: categoryId,
+                displayOrder: displayOrder,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ConversationsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ConversationsTable,
+      Conversation,
+      $$ConversationsTableFilterComposer,
+      $$ConversationsTableOrderingComposer,
+      $$ConversationsTableAnnotationComposer,
+      $$ConversationsTableCreateCompanionBuilder,
+      $$ConversationsTableUpdateCompanionBuilder,
+      (
+        Conversation,
+        BaseReferences<_$AppDatabase, $ConversationsTable, Conversation>,
+      ),
+      Conversation,
+      PrefetchHooks Function()
+    >;
+typedef $$ChatMessagesTableCreateCompanionBuilder =
+    ChatMessagesCompanion Function({
+      required String id,
+      required String content,
+      required DateTime timestamp,
+      Value<bool> isSystemMessage,
+      Value<DateTime?> editedAt,
+      Value<String?> authorId,
+      required String conversationId,
+      Value<String> reactions,
+      Value<String?> replyToId,
+      Value<String?> replyToAuthorId,
+      Value<String?> replyToContent,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$ChatMessagesTableUpdateCompanionBuilder =
+    ChatMessagesCompanion Function({
+      Value<String> id,
+      Value<String> content,
+      Value<DateTime> timestamp,
+      Value<bool> isSystemMessage,
+      Value<DateTime?> editedAt,
+      Value<String?> authorId,
+      Value<String> conversationId,
+      Value<String> reactions,
+      Value<String?> replyToId,
+      Value<String?> replyToAuthorId,
+      Value<String?> replyToContent,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$ChatMessagesTableFilterComposer
+    extends Composer<_$AppDatabase, $ChatMessagesTable> {
+  $$ChatMessagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSystemMessage => $composableBuilder(
+    column: $table.isSystemMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get editedAt => $composableBuilder(
+    column: $table.editedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reactions => $composableBuilder(
+    column: $table.reactions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get replyToId => $composableBuilder(
+    column: $table.replyToId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get replyToAuthorId => $composableBuilder(
+    column: $table.replyToAuthorId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get replyToContent => $composableBuilder(
+    column: $table.replyToContent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ChatMessagesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ChatMessagesTable> {
+  $$ChatMessagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSystemMessage => $composableBuilder(
+    column: $table.isSystemMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get editedAt => $composableBuilder(
+    column: $table.editedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get authorId => $composableBuilder(
+    column: $table.authorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reactions => $composableBuilder(
+    column: $table.reactions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get replyToId => $composableBuilder(
+    column: $table.replyToId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get replyToAuthorId => $composableBuilder(
+    column: $table.replyToAuthorId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get replyToContent => $composableBuilder(
+    column: $table.replyToContent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ChatMessagesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ChatMessagesTable> {
+  $$ChatMessagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get timestamp =>
+      $composableBuilder(column: $table.timestamp, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSystemMessage => $composableBuilder(
+    column: $table.isSystemMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get editedAt =>
+      $composableBuilder(column: $table.editedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get authorId =>
+      $composableBuilder(column: $table.authorId, builder: (column) => column);
+
+  GeneratedColumn<String> get conversationId => $composableBuilder(
+    column: $table.conversationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reactions =>
+      $composableBuilder(column: $table.reactions, builder: (column) => column);
+
+  GeneratedColumn<String> get replyToId =>
+      $composableBuilder(column: $table.replyToId, builder: (column) => column);
+
+  GeneratedColumn<String> get replyToAuthorId => $composableBuilder(
+    column: $table.replyToAuthorId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get replyToContent => $composableBuilder(
+    column: $table.replyToContent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$ChatMessagesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ChatMessagesTable,
+          ChatMessage,
+          $$ChatMessagesTableFilterComposer,
+          $$ChatMessagesTableOrderingComposer,
+          $$ChatMessagesTableAnnotationComposer,
+          $$ChatMessagesTableCreateCompanionBuilder,
+          $$ChatMessagesTableUpdateCompanionBuilder,
+          (
+            ChatMessage,
+            BaseReferences<_$AppDatabase, $ChatMessagesTable, ChatMessage>,
+          ),
+          ChatMessage,
+          PrefetchHooks Function()
+        > {
+  $$ChatMessagesTableTableManager(_$AppDatabase db, $ChatMessagesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ChatMessagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ChatMessagesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ChatMessagesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<DateTime> timestamp = const Value.absent(),
+                Value<bool> isSystemMessage = const Value.absent(),
+                Value<DateTime?> editedAt = const Value.absent(),
+                Value<String?> authorId = const Value.absent(),
+                Value<String> conversationId = const Value.absent(),
+                Value<String> reactions = const Value.absent(),
+                Value<String?> replyToId = const Value.absent(),
+                Value<String?> replyToAuthorId = const Value.absent(),
+                Value<String?> replyToContent = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatMessagesCompanion(
+                id: id,
+                content: content,
+                timestamp: timestamp,
+                isSystemMessage: isSystemMessage,
+                editedAt: editedAt,
+                authorId: authorId,
+                conversationId: conversationId,
+                reactions: reactions,
+                replyToId: replyToId,
+                replyToAuthorId: replyToAuthorId,
+                replyToContent: replyToContent,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String content,
+                required DateTime timestamp,
+                Value<bool> isSystemMessage = const Value.absent(),
+                Value<DateTime?> editedAt = const Value.absent(),
+                Value<String?> authorId = const Value.absent(),
+                required String conversationId,
+                Value<String> reactions = const Value.absent(),
+                Value<String?> replyToId = const Value.absent(),
+                Value<String?> replyToAuthorId = const Value.absent(),
+                Value<String?> replyToContent = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ChatMessagesCompanion.insert(
+                id: id,
+                content: content,
+                timestamp: timestamp,
+                isSystemMessage: isSystemMessage,
+                editedAt: editedAt,
+                authorId: authorId,
+                conversationId: conversationId,
+                reactions: reactions,
+                replyToId: replyToId,
+                replyToAuthorId: replyToAuthorId,
+                replyToContent: replyToContent,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ChatMessagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ChatMessagesTable,
+      ChatMessage,
+      $$ChatMessagesTableFilterComposer,
+      $$ChatMessagesTableOrderingComposer,
+      $$ChatMessagesTableAnnotationComposer,
+      $$ChatMessagesTableCreateCompanionBuilder,
+      $$ChatMessagesTableUpdateCompanionBuilder,
+      (
+        ChatMessage,
+        BaseReferences<_$AppDatabase, $ChatMessagesTable, ChatMessage>,
+      ),
+      ChatMessage,
+      PrefetchHooks Function()
+    >;
+typedef $$SystemSettingsTableTableCreateCompanionBuilder =
+    SystemSettingsTableCompanion Function({
+      Value<String> id,
+      Value<String?> systemName,
+      Value<bool> showQuickFront,
+      Value<String> accentColorHex,
+      Value<bool> perMemberAccentColors,
+      Value<int> terminology,
+      Value<String?> customTerminology,
+      Value<String?> customPluralTerminology,
+      Value<bool> frontingRemindersEnabled,
+      Value<int> frontingReminderIntervalMinutes,
+      Value<int> themeMode,
+      Value<int> themeBrightness,
+      Value<int> themeStyle,
+      Value<bool> chatEnabled,
+      Value<bool> pollsEnabled,
+      Value<bool> habitsEnabled,
+      Value<bool> sleepTrackingEnabled,
+      Value<int> quickSwitchThresholdSeconds,
+      Value<bool> chatLogsFront,
+      Value<bool> hasCompletedOnboarding,
+      Value<bool> syncThemeEnabled,
+      Value<int> timingMode,
+      Value<bool> habitsBadgeEnabled,
+      Value<bool> notesEnabled,
+      Value<String?> systemDescription,
+      Value<Uint8List?> systemAvatarData,
+      Value<bool> remindersEnabled,
+      Value<double> fontScale,
+      Value<int> fontFamily,
+      Value<bool> pinLockEnabled,
+      Value<bool> biometricLockEnabled,
+      Value<int> autoLockDelaySeconds,
+      Value<bool> isDeleted,
+      Value<String> previousAccentColorHex,
+      Value<String> navBarItems,
+      Value<String> navBarOverflowItems,
+      Value<bool> syncNavigationEnabled,
+      Value<String> chatBadgePreferences,
+      Value<int> rowid,
+    });
+typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
+    SystemSettingsTableCompanion Function({
+      Value<String> id,
+      Value<String?> systemName,
+      Value<bool> showQuickFront,
+      Value<String> accentColorHex,
+      Value<bool> perMemberAccentColors,
+      Value<int> terminology,
+      Value<String?> customTerminology,
+      Value<String?> customPluralTerminology,
+      Value<bool> frontingRemindersEnabled,
+      Value<int> frontingReminderIntervalMinutes,
+      Value<int> themeMode,
+      Value<int> themeBrightness,
+      Value<int> themeStyle,
+      Value<bool> chatEnabled,
+      Value<bool> pollsEnabled,
+      Value<bool> habitsEnabled,
+      Value<bool> sleepTrackingEnabled,
+      Value<int> quickSwitchThresholdSeconds,
+      Value<bool> chatLogsFront,
+      Value<bool> hasCompletedOnboarding,
+      Value<bool> syncThemeEnabled,
+      Value<int> timingMode,
+      Value<bool> habitsBadgeEnabled,
+      Value<bool> notesEnabled,
+      Value<String?> systemDescription,
+      Value<Uint8List?> systemAvatarData,
+      Value<bool> remindersEnabled,
+      Value<double> fontScale,
+      Value<int> fontFamily,
+      Value<bool> pinLockEnabled,
+      Value<bool> biometricLockEnabled,
+      Value<int> autoLockDelaySeconds,
+      Value<bool> isDeleted,
+      Value<String> previousAccentColorHex,
+      Value<String> navBarItems,
+      Value<String> navBarOverflowItems,
+      Value<bool> syncNavigationEnabled,
+      Value<String> chatBadgePreferences,
+      Value<int> rowid,
+    });
+
+class $$SystemSettingsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SystemSettingsTableTable> {
+  $$SystemSettingsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get systemName => $composableBuilder(
+    column: $table.systemName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get showQuickFront => $composableBuilder(
+    column: $table.showQuickFront,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accentColorHex => $composableBuilder(
+    column: $table.accentColorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get perMemberAccentColors => $composableBuilder(
+    column: $table.perMemberAccentColors,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get terminology => $composableBuilder(
+    column: $table.terminology,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customTerminology => $composableBuilder(
+    column: $table.customTerminology,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customPluralTerminology => $composableBuilder(
+    column: $table.customPluralTerminology,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get frontingRemindersEnabled => $composableBuilder(
+    column: $table.frontingRemindersEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get frontingReminderIntervalMinutes => $composableBuilder(
+    column: $table.frontingReminderIntervalMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get themeMode => $composableBuilder(
+    column: $table.themeMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get themeBrightness => $composableBuilder(
+    column: $table.themeBrightness,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get themeStyle => $composableBuilder(
+    column: $table.themeStyle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get chatEnabled => $composableBuilder(
+    column: $table.chatEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pollsEnabled => $composableBuilder(
+    column: $table.pollsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get habitsEnabled => $composableBuilder(
+    column: $table.habitsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get sleepTrackingEnabled => $composableBuilder(
+    column: $table.sleepTrackingEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get quickSwitchThresholdSeconds => $composableBuilder(
+    column: $table.quickSwitchThresholdSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get chatLogsFront => $composableBuilder(
+    column: $table.chatLogsFront,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hasCompletedOnboarding => $composableBuilder(
+    column: $table.hasCompletedOnboarding,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get syncThemeEnabled => $composableBuilder(
+    column: $table.syncThemeEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get timingMode => $composableBuilder(
+    column: $table.timingMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get habitsBadgeEnabled => $composableBuilder(
+    column: $table.habitsBadgeEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get notesEnabled => $composableBuilder(
+    column: $table.notesEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get systemDescription => $composableBuilder(
+    column: $table.systemDescription,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get systemAvatarData => $composableBuilder(
+    column: $table.systemAvatarData,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get remindersEnabled => $composableBuilder(
+    column: $table.remindersEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get fontScale => $composableBuilder(
+    column: $table.fontScale,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pinLockEnabled => $composableBuilder(
+    column: $table.pinLockEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get biometricLockEnabled => $composableBuilder(
+    column: $table.biometricLockEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get autoLockDelaySeconds => $composableBuilder(
+    column: $table.autoLockDelaySeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get previousAccentColorHex => $composableBuilder(
+    column: $table.previousAccentColorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get navBarItems => $composableBuilder(
+    column: $table.navBarItems,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get navBarOverflowItems => $composableBuilder(
+    column: $table.navBarOverflowItems,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get syncNavigationEnabled => $composableBuilder(
+    column: $table.syncNavigationEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get chatBadgePreferences => $composableBuilder(
+    column: $table.chatBadgePreferences,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SystemSettingsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SystemSettingsTableTable> {
+  $$SystemSettingsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get systemName => $composableBuilder(
+    column: $table.systemName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get showQuickFront => $composableBuilder(
+    column: $table.showQuickFront,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accentColorHex => $composableBuilder(
+    column: $table.accentColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get perMemberAccentColors => $composableBuilder(
+    column: $table.perMemberAccentColors,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get terminology => $composableBuilder(
+    column: $table.terminology,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customTerminology => $composableBuilder(
+    column: $table.customTerminology,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customPluralTerminology => $composableBuilder(
+    column: $table.customPluralTerminology,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get frontingRemindersEnabled => $composableBuilder(
+    column: $table.frontingRemindersEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get frontingReminderIntervalMinutes =>
+      $composableBuilder(
+        column: $table.frontingReminderIntervalMinutes,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<int> get themeMode => $composableBuilder(
+    column: $table.themeMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get themeBrightness => $composableBuilder(
+    column: $table.themeBrightness,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get themeStyle => $composableBuilder(
+    column: $table.themeStyle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get chatEnabled => $composableBuilder(
+    column: $table.chatEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get pollsEnabled => $composableBuilder(
+    column: $table.pollsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get habitsEnabled => $composableBuilder(
+    column: $table.habitsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get sleepTrackingEnabled => $composableBuilder(
+    column: $table.sleepTrackingEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get quickSwitchThresholdSeconds => $composableBuilder(
+    column: $table.quickSwitchThresholdSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get chatLogsFront => $composableBuilder(
+    column: $table.chatLogsFront,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hasCompletedOnboarding => $composableBuilder(
+    column: $table.hasCompletedOnboarding,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get syncThemeEnabled => $composableBuilder(
+    column: $table.syncThemeEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get timingMode => $composableBuilder(
+    column: $table.timingMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get habitsBadgeEnabled => $composableBuilder(
+    column: $table.habitsBadgeEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get notesEnabled => $composableBuilder(
+    column: $table.notesEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get systemDescription => $composableBuilder(
+    column: $table.systemDescription,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get systemAvatarData => $composableBuilder(
+    column: $table.systemAvatarData,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get remindersEnabled => $composableBuilder(
+    column: $table.remindersEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get fontScale => $composableBuilder(
+    column: $table.fontScale,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get pinLockEnabled => $composableBuilder(
+    column: $table.pinLockEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get biometricLockEnabled => $composableBuilder(
+    column: $table.biometricLockEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get autoLockDelaySeconds => $composableBuilder(
+    column: $table.autoLockDelaySeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get previousAccentColorHex => $composableBuilder(
+    column: $table.previousAccentColorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get navBarItems => $composableBuilder(
+    column: $table.navBarItems,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get navBarOverflowItems => $composableBuilder(
+    column: $table.navBarOverflowItems,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get syncNavigationEnabled => $composableBuilder(
+    column: $table.syncNavigationEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get chatBadgePreferences => $composableBuilder(
+    column: $table.chatBadgePreferences,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SystemSettingsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SystemSettingsTableTable> {
+  $$SystemSettingsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get systemName => $composableBuilder(
+    column: $table.systemName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get showQuickFront => $composableBuilder(
+    column: $table.showQuickFront,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get accentColorHex => $composableBuilder(
+    column: $table.accentColorHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get perMemberAccentColors => $composableBuilder(
+    column: $table.perMemberAccentColors,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get terminology => $composableBuilder(
+    column: $table.terminology,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customTerminology => $composableBuilder(
+    column: $table.customTerminology,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customPluralTerminology => $composableBuilder(
+    column: $table.customPluralTerminology,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get frontingRemindersEnabled => $composableBuilder(
+    column: $table.frontingRemindersEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get frontingReminderIntervalMinutes =>
+      $composableBuilder(
+        column: $table.frontingReminderIntervalMinutes,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<int> get themeMode =>
+      $composableBuilder(column: $table.themeMode, builder: (column) => column);
+
+  GeneratedColumn<int> get themeBrightness => $composableBuilder(
+    column: $table.themeBrightness,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get themeStyle => $composableBuilder(
+    column: $table.themeStyle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get chatEnabled => $composableBuilder(
+    column: $table.chatEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get pollsEnabled => $composableBuilder(
+    column: $table.pollsEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get habitsEnabled => $composableBuilder(
+    column: $table.habitsEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get sleepTrackingEnabled => $composableBuilder(
+    column: $table.sleepTrackingEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get quickSwitchThresholdSeconds => $composableBuilder(
+    column: $table.quickSwitchThresholdSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get chatLogsFront => $composableBuilder(
+    column: $table.chatLogsFront,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get hasCompletedOnboarding => $composableBuilder(
+    column: $table.hasCompletedOnboarding,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get syncThemeEnabled => $composableBuilder(
+    column: $table.syncThemeEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get timingMode => $composableBuilder(
+    column: $table.timingMode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get habitsBadgeEnabled => $composableBuilder(
+    column: $table.habitsBadgeEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get notesEnabled => $composableBuilder(
+    column: $table.notesEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get systemDescription => $composableBuilder(
+    column: $table.systemDescription,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get systemAvatarData => $composableBuilder(
+    column: $table.systemAvatarData,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get remindersEnabled => $composableBuilder(
+    column: $table.remindersEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get fontScale =>
+      $composableBuilder(column: $table.fontScale, builder: (column) => column);
+
+  GeneratedColumn<int> get fontFamily => $composableBuilder(
+    column: $table.fontFamily,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get pinLockEnabled => $composableBuilder(
+    column: $table.pinLockEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get biometricLockEnabled => $composableBuilder(
+    column: $table.biometricLockEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get autoLockDelaySeconds => $composableBuilder(
+    column: $table.autoLockDelaySeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get previousAccentColorHex => $composableBuilder(
+    column: $table.previousAccentColorHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get navBarItems => $composableBuilder(
+    column: $table.navBarItems,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get navBarOverflowItems => $composableBuilder(
+    column: $table.navBarOverflowItems,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get syncNavigationEnabled => $composableBuilder(
+    column: $table.syncNavigationEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get chatBadgePreferences => $composableBuilder(
+    column: $table.chatBadgePreferences,
+    builder: (column) => column,
+  );
+}
+
+class $$SystemSettingsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SystemSettingsTableTable,
+          SystemSettingsData,
+          $$SystemSettingsTableTableFilterComposer,
+          $$SystemSettingsTableTableOrderingComposer,
+          $$SystemSettingsTableTableAnnotationComposer,
+          $$SystemSettingsTableTableCreateCompanionBuilder,
+          $$SystemSettingsTableTableUpdateCompanionBuilder,
+          (
+            SystemSettingsData,
+            BaseReferences<
+              _$AppDatabase,
+              $SystemSettingsTableTable,
+              SystemSettingsData
+            >,
+          ),
+          SystemSettingsData,
+          PrefetchHooks Function()
+        > {
+  $$SystemSettingsTableTableTableManager(
+    _$AppDatabase db,
+    $SystemSettingsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SystemSettingsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SystemSettingsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$SystemSettingsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> systemName = const Value.absent(),
+                Value<bool> showQuickFront = const Value.absent(),
+                Value<String> accentColorHex = const Value.absent(),
+                Value<bool> perMemberAccentColors = const Value.absent(),
+                Value<int> terminology = const Value.absent(),
+                Value<String?> customTerminology = const Value.absent(),
+                Value<String?> customPluralTerminology = const Value.absent(),
+                Value<bool> frontingRemindersEnabled = const Value.absent(),
+                Value<int> frontingReminderIntervalMinutes =
+                    const Value.absent(),
+                Value<int> themeMode = const Value.absent(),
+                Value<int> themeBrightness = const Value.absent(),
+                Value<int> themeStyle = const Value.absent(),
+                Value<bool> chatEnabled = const Value.absent(),
+                Value<bool> pollsEnabled = const Value.absent(),
+                Value<bool> habitsEnabled = const Value.absent(),
+                Value<bool> sleepTrackingEnabled = const Value.absent(),
+                Value<int> quickSwitchThresholdSeconds = const Value.absent(),
+                Value<bool> chatLogsFront = const Value.absent(),
+                Value<bool> hasCompletedOnboarding = const Value.absent(),
+                Value<bool> syncThemeEnabled = const Value.absent(),
+                Value<int> timingMode = const Value.absent(),
+                Value<bool> habitsBadgeEnabled = const Value.absent(),
+                Value<bool> notesEnabled = const Value.absent(),
+                Value<String?> systemDescription = const Value.absent(),
+                Value<Uint8List?> systemAvatarData = const Value.absent(),
+                Value<bool> remindersEnabled = const Value.absent(),
+                Value<double> fontScale = const Value.absent(),
+                Value<int> fontFamily = const Value.absent(),
+                Value<bool> pinLockEnabled = const Value.absent(),
+                Value<bool> biometricLockEnabled = const Value.absent(),
+                Value<int> autoLockDelaySeconds = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> previousAccentColorHex = const Value.absent(),
+                Value<String> navBarItems = const Value.absent(),
+                Value<String> navBarOverflowItems = const Value.absent(),
+                Value<bool> syncNavigationEnabled = const Value.absent(),
+                Value<String> chatBadgePreferences = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SystemSettingsTableCompanion(
+                id: id,
+                systemName: systemName,
+                showQuickFront: showQuickFront,
+                accentColorHex: accentColorHex,
+                perMemberAccentColors: perMemberAccentColors,
+                terminology: terminology,
+                customTerminology: customTerminology,
+                customPluralTerminology: customPluralTerminology,
+                frontingRemindersEnabled: frontingRemindersEnabled,
+                frontingReminderIntervalMinutes:
+                    frontingReminderIntervalMinutes,
+                themeMode: themeMode,
+                themeBrightness: themeBrightness,
+                themeStyle: themeStyle,
+                chatEnabled: chatEnabled,
+                pollsEnabled: pollsEnabled,
+                habitsEnabled: habitsEnabled,
+                sleepTrackingEnabled: sleepTrackingEnabled,
+                quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
+                chatLogsFront: chatLogsFront,
+                hasCompletedOnboarding: hasCompletedOnboarding,
+                syncThemeEnabled: syncThemeEnabled,
+                timingMode: timingMode,
+                habitsBadgeEnabled: habitsBadgeEnabled,
+                notesEnabled: notesEnabled,
+                systemDescription: systemDescription,
+                systemAvatarData: systemAvatarData,
+                remindersEnabled: remindersEnabled,
+                fontScale: fontScale,
+                fontFamily: fontFamily,
+                pinLockEnabled: pinLockEnabled,
+                biometricLockEnabled: biometricLockEnabled,
+                autoLockDelaySeconds: autoLockDelaySeconds,
+                isDeleted: isDeleted,
+                previousAccentColorHex: previousAccentColorHex,
+                navBarItems: navBarItems,
+                navBarOverflowItems: navBarOverflowItems,
+                syncNavigationEnabled: syncNavigationEnabled,
+                chatBadgePreferences: chatBadgePreferences,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> systemName = const Value.absent(),
+                Value<bool> showQuickFront = const Value.absent(),
+                Value<String> accentColorHex = const Value.absent(),
+                Value<bool> perMemberAccentColors = const Value.absent(),
+                Value<int> terminology = const Value.absent(),
+                Value<String?> customTerminology = const Value.absent(),
+                Value<String?> customPluralTerminology = const Value.absent(),
+                Value<bool> frontingRemindersEnabled = const Value.absent(),
+                Value<int> frontingReminderIntervalMinutes =
+                    const Value.absent(),
+                Value<int> themeMode = const Value.absent(),
+                Value<int> themeBrightness = const Value.absent(),
+                Value<int> themeStyle = const Value.absent(),
+                Value<bool> chatEnabled = const Value.absent(),
+                Value<bool> pollsEnabled = const Value.absent(),
+                Value<bool> habitsEnabled = const Value.absent(),
+                Value<bool> sleepTrackingEnabled = const Value.absent(),
+                Value<int> quickSwitchThresholdSeconds = const Value.absent(),
+                Value<bool> chatLogsFront = const Value.absent(),
+                Value<bool> hasCompletedOnboarding = const Value.absent(),
+                Value<bool> syncThemeEnabled = const Value.absent(),
+                Value<int> timingMode = const Value.absent(),
+                Value<bool> habitsBadgeEnabled = const Value.absent(),
+                Value<bool> notesEnabled = const Value.absent(),
+                Value<String?> systemDescription = const Value.absent(),
+                Value<Uint8List?> systemAvatarData = const Value.absent(),
+                Value<bool> remindersEnabled = const Value.absent(),
+                Value<double> fontScale = const Value.absent(),
+                Value<int> fontFamily = const Value.absent(),
+                Value<bool> pinLockEnabled = const Value.absent(),
+                Value<bool> biometricLockEnabled = const Value.absent(),
+                Value<int> autoLockDelaySeconds = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<String> previousAccentColorHex = const Value.absent(),
+                Value<String> navBarItems = const Value.absent(),
+                Value<String> navBarOverflowItems = const Value.absent(),
+                Value<bool> syncNavigationEnabled = const Value.absent(),
+                Value<String> chatBadgePreferences = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SystemSettingsTableCompanion.insert(
+                id: id,
+                systemName: systemName,
+                showQuickFront: showQuickFront,
+                accentColorHex: accentColorHex,
+                perMemberAccentColors: perMemberAccentColors,
+                terminology: terminology,
+                customTerminology: customTerminology,
+                customPluralTerminology: customPluralTerminology,
+                frontingRemindersEnabled: frontingRemindersEnabled,
+                frontingReminderIntervalMinutes:
+                    frontingReminderIntervalMinutes,
+                themeMode: themeMode,
+                themeBrightness: themeBrightness,
+                themeStyle: themeStyle,
+                chatEnabled: chatEnabled,
+                pollsEnabled: pollsEnabled,
+                habitsEnabled: habitsEnabled,
+                sleepTrackingEnabled: sleepTrackingEnabled,
+                quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
+                chatLogsFront: chatLogsFront,
+                hasCompletedOnboarding: hasCompletedOnboarding,
+                syncThemeEnabled: syncThemeEnabled,
+                timingMode: timingMode,
+                habitsBadgeEnabled: habitsBadgeEnabled,
+                notesEnabled: notesEnabled,
+                systemDescription: systemDescription,
+                systemAvatarData: systemAvatarData,
+                remindersEnabled: remindersEnabled,
+                fontScale: fontScale,
+                fontFamily: fontFamily,
+                pinLockEnabled: pinLockEnabled,
+                biometricLockEnabled: biometricLockEnabled,
+                autoLockDelaySeconds: autoLockDelaySeconds,
+                isDeleted: isDeleted,
+                previousAccentColorHex: previousAccentColorHex,
+                navBarItems: navBarItems,
+                navBarOverflowItems: navBarOverflowItems,
+                syncNavigationEnabled: syncNavigationEnabled,
+                chatBadgePreferences: chatBadgePreferences,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SystemSettingsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SystemSettingsTableTable,
+      SystemSettingsData,
+      $$SystemSettingsTableTableFilterComposer,
+      $$SystemSettingsTableTableOrderingComposer,
+      $$SystemSettingsTableTableAnnotationComposer,
+      $$SystemSettingsTableTableCreateCompanionBuilder,
+      $$SystemSettingsTableTableUpdateCompanionBuilder,
+      (
+        SystemSettingsData,
+        BaseReferences<
+          _$AppDatabase,
+          $SystemSettingsTableTable,
+          SystemSettingsData
+        >,
+      ),
+      SystemSettingsData,
+      PrefetchHooks Function()
+    >;
+typedef $$PollsTableCreateCompanionBuilder =
+    PollsCompanion Function({
+      required String id,
+      required String question,
+      Value<bool> isAnonymous,
+      Value<bool> allowsMultipleVotes,
+      Value<bool> isClosed,
+      Value<String?> description,
+      Value<DateTime?> expiresAt,
+      required DateTime createdAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$PollsTableUpdateCompanionBuilder =
+    PollsCompanion Function({
+      Value<String> id,
+      Value<String> question,
+      Value<bool> isAnonymous,
+      Value<bool> allowsMultipleVotes,
+      Value<bool> isClosed,
+      Value<String?> description,
+      Value<DateTime?> expiresAt,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$PollsTableFilterComposer extends Composer<_$AppDatabase, $PollsTable> {
+  $$PollsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get question => $composableBuilder(
+    column: $table.question,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isAnonymous => $composableBuilder(
+    column: $table.isAnonymous,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get allowsMultipleVotes => $composableBuilder(
+    column: $table.allowsMultipleVotes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isClosed => $composableBuilder(
+    column: $table.isClosed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PollsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PollsTable> {
+  $$PollsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get question => $composableBuilder(
+    column: $table.question,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isAnonymous => $composableBuilder(
+    column: $table.isAnonymous,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get allowsMultipleVotes => $composableBuilder(
+    column: $table.allowsMultipleVotes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isClosed => $composableBuilder(
+    column: $table.isClosed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PollsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PollsTable> {
+  $$PollsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get question =>
+      $composableBuilder(column: $table.question, builder: (column) => column);
+
+  GeneratedColumn<bool> get isAnonymous => $composableBuilder(
+    column: $table.isAnonymous,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get allowsMultipleVotes => $composableBuilder(
+    column: $table.allowsMultipleVotes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isClosed =>
+      $composableBuilder(column: $table.isClosed, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$PollsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PollsTable,
+          Poll,
+          $$PollsTableFilterComposer,
+          $$PollsTableOrderingComposer,
+          $$PollsTableAnnotationComposer,
+          $$PollsTableCreateCompanionBuilder,
+          $$PollsTableUpdateCompanionBuilder,
+          (Poll, BaseReferences<_$AppDatabase, $PollsTable, Poll>),
+          Poll,
+          PrefetchHooks Function()
+        > {
+  $$PollsTableTableManager(_$AppDatabase db, $PollsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PollsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PollsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PollsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> question = const Value.absent(),
+                Value<bool> isAnonymous = const Value.absent(),
+                Value<bool> allowsMultipleVotes = const Value.absent(),
+                Value<bool> isClosed = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<DateTime?> expiresAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PollsCompanion(
+                id: id,
+                question: question,
+                isAnonymous: isAnonymous,
+                allowsMultipleVotes: allowsMultipleVotes,
+                isClosed: isClosed,
+                description: description,
+                expiresAt: expiresAt,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String question,
+                Value<bool> isAnonymous = const Value.absent(),
+                Value<bool> allowsMultipleVotes = const Value.absent(),
+                Value<bool> isClosed = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<DateTime?> expiresAt = const Value.absent(),
+                required DateTime createdAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PollsCompanion.insert(
+                id: id,
+                question: question,
+                isAnonymous: isAnonymous,
+                allowsMultipleVotes: allowsMultipleVotes,
+                isClosed: isClosed,
+                description: description,
+                expiresAt: expiresAt,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PollsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PollsTable,
+      Poll,
+      $$PollsTableFilterComposer,
+      $$PollsTableOrderingComposer,
+      $$PollsTableAnnotationComposer,
+      $$PollsTableCreateCompanionBuilder,
+      $$PollsTableUpdateCompanionBuilder,
+      (Poll, BaseReferences<_$AppDatabase, $PollsTable, Poll>),
+      Poll,
+      PrefetchHooks Function()
+    >;
+typedef $$PollOptionsTableCreateCompanionBuilder =
+    PollOptionsCompanion Function({
+      required String id,
+      required String pollId,
+      required String optionText,
+      Value<int> sortOrder,
+      Value<bool> isOtherOption,
+      Value<String?> colorHex,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$PollOptionsTableUpdateCompanionBuilder =
+    PollOptionsCompanion Function({
+      Value<String> id,
+      Value<String> pollId,
+      Value<String> optionText,
+      Value<int> sortOrder,
+      Value<bool> isOtherOption,
+      Value<String?> colorHex,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$PollOptionsTableFilterComposer
+    extends Composer<_$AppDatabase, $PollOptionsTable> {
+  $$PollOptionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pollId => $composableBuilder(
+    column: $table.pollId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get optionText => $composableBuilder(
+    column: $table.optionText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isOtherOption => $composableBuilder(
+    column: $table.isOtherOption,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PollOptionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PollOptionsTable> {
+  $$PollOptionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pollId => $composableBuilder(
+    column: $table.pollId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get optionText => $composableBuilder(
+    column: $table.optionText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isOtherOption => $composableBuilder(
+    column: $table.isOtherOption,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PollOptionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PollOptionsTable> {
+  $$PollOptionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get pollId =>
+      $composableBuilder(column: $table.pollId, builder: (column) => column);
+
+  GeneratedColumn<String> get optionText => $composableBuilder(
+    column: $table.optionText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<bool> get isOtherOption => $composableBuilder(
+    column: $table.isOtherOption,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get colorHex =>
+      $composableBuilder(column: $table.colorHex, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$PollOptionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PollOptionsTable,
+          PollOption,
+          $$PollOptionsTableFilterComposer,
+          $$PollOptionsTableOrderingComposer,
+          $$PollOptionsTableAnnotationComposer,
+          $$PollOptionsTableCreateCompanionBuilder,
+          $$PollOptionsTableUpdateCompanionBuilder,
+          (
+            PollOption,
+            BaseReferences<_$AppDatabase, $PollOptionsTable, PollOption>,
+          ),
+          PollOption,
+          PrefetchHooks Function()
+        > {
+  $$PollOptionsTableTableManager(_$AppDatabase db, $PollOptionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PollOptionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PollOptionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PollOptionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> pollId = const Value.absent(),
+                Value<String> optionText = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
+                Value<bool> isOtherOption = const Value.absent(),
+                Value<String?> colorHex = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PollOptionsCompanion(
+                id: id,
+                pollId: pollId,
+                optionText: optionText,
+                sortOrder: sortOrder,
+                isOtherOption: isOtherOption,
+                colorHex: colorHex,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String pollId,
+                required String optionText,
+                Value<int> sortOrder = const Value.absent(),
+                Value<bool> isOtherOption = const Value.absent(),
+                Value<String?> colorHex = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PollOptionsCompanion.insert(
+                id: id,
+                pollId: pollId,
+                optionText: optionText,
+                sortOrder: sortOrder,
+                isOtherOption: isOtherOption,
+                colorHex: colorHex,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PollOptionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PollOptionsTable,
+      PollOption,
+      $$PollOptionsTableFilterComposer,
+      $$PollOptionsTableOrderingComposer,
+      $$PollOptionsTableAnnotationComposer,
+      $$PollOptionsTableCreateCompanionBuilder,
+      $$PollOptionsTableUpdateCompanionBuilder,
+      (
+        PollOption,
+        BaseReferences<_$AppDatabase, $PollOptionsTable, PollOption>,
+      ),
+      PollOption,
+      PrefetchHooks Function()
+    >;
+typedef $$PollVotesTableCreateCompanionBuilder =
+    PollVotesCompanion Function({
+      required String id,
+      required String pollOptionId,
+      required String memberId,
+      required DateTime votedAt,
+      Value<String?> responseText,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$PollVotesTableUpdateCompanionBuilder =
+    PollVotesCompanion Function({
+      Value<String> id,
+      Value<String> pollOptionId,
+      Value<String> memberId,
+      Value<DateTime> votedAt,
+      Value<String?> responseText,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$PollVotesTableFilterComposer
+    extends Composer<_$AppDatabase, $PollVotesTable> {
+  $$PollVotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pollOptionId => $composableBuilder(
+    column: $table.pollOptionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get votedAt => $composableBuilder(
+    column: $table.votedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get responseText => $composableBuilder(
+    column: $table.responseText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PollVotesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PollVotesTable> {
+  $$PollVotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pollOptionId => $composableBuilder(
+    column: $table.pollOptionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get votedAt => $composableBuilder(
+    column: $table.votedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get responseText => $composableBuilder(
+    column: $table.responseText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PollVotesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PollVotesTable> {
+  $$PollVotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get pollOptionId => $composableBuilder(
+    column: $table.pollOptionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get votedAt =>
+      $composableBuilder(column: $table.votedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get responseText => $composableBuilder(
+    column: $table.responseText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$PollVotesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PollVotesTable,
+          PollVote,
+          $$PollVotesTableFilterComposer,
+          $$PollVotesTableOrderingComposer,
+          $$PollVotesTableAnnotationComposer,
+          $$PollVotesTableCreateCompanionBuilder,
+          $$PollVotesTableUpdateCompanionBuilder,
+          (PollVote, BaseReferences<_$AppDatabase, $PollVotesTable, PollVote>),
+          PollVote,
+          PrefetchHooks Function()
+        > {
+  $$PollVotesTableTableManager(_$AppDatabase db, $PollVotesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PollVotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PollVotesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PollVotesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> pollOptionId = const Value.absent(),
+                Value<String> memberId = const Value.absent(),
+                Value<DateTime> votedAt = const Value.absent(),
+                Value<String?> responseText = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PollVotesCompanion(
+                id: id,
+                pollOptionId: pollOptionId,
+                memberId: memberId,
+                votedAt: votedAt,
+                responseText: responseText,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String pollOptionId,
+                required String memberId,
+                required DateTime votedAt,
+                Value<String?> responseText = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PollVotesCompanion.insert(
+                id: id,
+                pollOptionId: pollOptionId,
+                memberId: memberId,
+                votedAt: votedAt,
+                responseText: responseText,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PollVotesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PollVotesTable,
+      PollVote,
+      $$PollVotesTableFilterComposer,
+      $$PollVotesTableOrderingComposer,
+      $$PollVotesTableAnnotationComposer,
+      $$PollVotesTableCreateCompanionBuilder,
+      $$PollVotesTableUpdateCompanionBuilder,
+      (PollVote, BaseReferences<_$AppDatabase, $PollVotesTable, PollVote>),
+      PollVote,
+      PrefetchHooks Function()
+    >;
+typedef $$SleepSessionsTableCreateCompanionBuilder =
+    SleepSessionsCompanion Function({
+      required String id,
+      required DateTime startTime,
+      Value<DateTime?> endTime,
+      Value<int> quality,
+      Value<String?> notes,
+      Value<bool> isHealthKitImport,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$SleepSessionsTableUpdateCompanionBuilder =
+    SleepSessionsCompanion Function({
+      Value<String> id,
+      Value<DateTime> startTime,
+      Value<DateTime?> endTime,
+      Value<int> quality,
+      Value<String?> notes,
+      Value<bool> isHealthKitImport,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$SleepSessionsTableFilterComposer
+    extends Composer<_$AppDatabase, $SleepSessionsTable> {
+  $$SleepSessionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get quality => $composableBuilder(
+    column: $table.quality,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isHealthKitImport => $composableBuilder(
+    column: $table.isHealthKitImport,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SleepSessionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SleepSessionsTable> {
+  $$SleepSessionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get quality => $composableBuilder(
+    column: $table.quality,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isHealthKitImport => $composableBuilder(
+    column: $table.isHealthKitImport,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SleepSessionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SleepSessionsTable> {
+  $$SleepSessionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startTime =>
+      $composableBuilder(column: $table.startTime, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endTime =>
+      $composableBuilder(column: $table.endTime, builder: (column) => column);
+
+  GeneratedColumn<int> get quality =>
+      $composableBuilder(column: $table.quality, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<bool> get isHealthKitImport => $composableBuilder(
+    column: $table.isHealthKitImport,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$SleepSessionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SleepSessionsTable,
+          SleepSession,
+          $$SleepSessionsTableFilterComposer,
+          $$SleepSessionsTableOrderingComposer,
+          $$SleepSessionsTableAnnotationComposer,
+          $$SleepSessionsTableCreateCompanionBuilder,
+          $$SleepSessionsTableUpdateCompanionBuilder,
+          (
+            SleepSession,
+            BaseReferences<_$AppDatabase, $SleepSessionsTable, SleepSession>,
+          ),
+          SleepSession,
+          PrefetchHooks Function()
+        > {
+  $$SleepSessionsTableTableManager(_$AppDatabase db, $SleepSessionsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SleepSessionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SleepSessionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SleepSessionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime> startTime = const Value.absent(),
+                Value<DateTime?> endTime = const Value.absent(),
+                Value<int> quality = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<bool> isHealthKitImport = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SleepSessionsCompanion(
+                id: id,
+                startTime: startTime,
+                endTime: endTime,
+                quality: quality,
+                notes: notes,
+                isHealthKitImport: isHealthKitImport,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required DateTime startTime,
+                Value<DateTime?> endTime = const Value.absent(),
+                Value<int> quality = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<bool> isHealthKitImport = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SleepSessionsCompanion.insert(
+                id: id,
+                startTime: startTime,
+                endTime: endTime,
+                quality: quality,
+                notes: notes,
+                isHealthKitImport: isHealthKitImport,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SleepSessionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SleepSessionsTable,
+      SleepSession,
+      $$SleepSessionsTableFilterComposer,
+      $$SleepSessionsTableOrderingComposer,
+      $$SleepSessionsTableAnnotationComposer,
+      $$SleepSessionsTableCreateCompanionBuilder,
+      $$SleepSessionsTableUpdateCompanionBuilder,
+      (
+        SleepSession,
+        BaseReferences<_$AppDatabase, $SleepSessionsTable, SleepSession>,
+      ),
+      SleepSession,
+      PrefetchHooks Function()
+    >;
+typedef $$PluralKitSyncStateTableCreateCompanionBuilder =
+    PluralKitSyncStateCompanion Function({
+      required String id,
+      Value<String?> systemId,
+      Value<DateTime?> lastSyncDate,
+      Value<DateTime?> lastManualSyncDate,
+      Value<bool> isConnected,
+      Value<String?> fieldSyncConfig,
+      Value<int> rowid,
+    });
+typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
+    PluralKitSyncStateCompanion Function({
+      Value<String> id,
+      Value<String?> systemId,
+      Value<DateTime?> lastSyncDate,
+      Value<DateTime?> lastManualSyncDate,
+      Value<bool> isConnected,
+      Value<String?> fieldSyncConfig,
+      Value<int> rowid,
+    });
+
+class $$PluralKitSyncStateTableFilterComposer
+    extends Composer<_$AppDatabase, $PluralKitSyncStateTable> {
+  $$PluralKitSyncStateTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get systemId => $composableBuilder(
+    column: $table.systemId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncDate => $composableBuilder(
+    column: $table.lastSyncDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastManualSyncDate => $composableBuilder(
+    column: $table.lastManualSyncDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isConnected => $composableBuilder(
+    column: $table.isConnected,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldSyncConfig => $composableBuilder(
+    column: $table.fieldSyncConfig,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PluralKitSyncStateTableOrderingComposer
+    extends Composer<_$AppDatabase, $PluralKitSyncStateTable> {
+  $$PluralKitSyncStateTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get systemId => $composableBuilder(
+    column: $table.systemId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncDate => $composableBuilder(
+    column: $table.lastSyncDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastManualSyncDate => $composableBuilder(
+    column: $table.lastManualSyncDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isConnected => $composableBuilder(
+    column: $table.isConnected,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldSyncConfig => $composableBuilder(
+    column: $table.fieldSyncConfig,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PluralKitSyncStateTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PluralKitSyncStateTable> {
+  $$PluralKitSyncStateTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get systemId =>
+      $composableBuilder(column: $table.systemId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncDate => $composableBuilder(
+    column: $table.lastSyncDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastManualSyncDate => $composableBuilder(
+    column: $table.lastManualSyncDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isConnected => $composableBuilder(
+    column: $table.isConnected,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fieldSyncConfig => $composableBuilder(
+    column: $table.fieldSyncConfig,
+    builder: (column) => column,
+  );
+}
+
+class $$PluralKitSyncStateTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PluralKitSyncStateTable,
+          PluralKitSyncStateData,
+          $$PluralKitSyncStateTableFilterComposer,
+          $$PluralKitSyncStateTableOrderingComposer,
+          $$PluralKitSyncStateTableAnnotationComposer,
+          $$PluralKitSyncStateTableCreateCompanionBuilder,
+          $$PluralKitSyncStateTableUpdateCompanionBuilder,
+          (
+            PluralKitSyncStateData,
+            BaseReferences<
+              _$AppDatabase,
+              $PluralKitSyncStateTable,
+              PluralKitSyncStateData
+            >,
+          ),
+          PluralKitSyncStateData,
+          PrefetchHooks Function()
+        > {
+  $$PluralKitSyncStateTableTableManager(
+    _$AppDatabase db,
+    $PluralKitSyncStateTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PluralKitSyncStateTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PluralKitSyncStateTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PluralKitSyncStateTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> systemId = const Value.absent(),
+                Value<DateTime?> lastSyncDate = const Value.absent(),
+                Value<DateTime?> lastManualSyncDate = const Value.absent(),
+                Value<bool> isConnected = const Value.absent(),
+                Value<String?> fieldSyncConfig = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PluralKitSyncStateCompanion(
+                id: id,
+                systemId: systemId,
+                lastSyncDate: lastSyncDate,
+                lastManualSyncDate: lastManualSyncDate,
+                isConnected: isConnected,
+                fieldSyncConfig: fieldSyncConfig,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> systemId = const Value.absent(),
+                Value<DateTime?> lastSyncDate = const Value.absent(),
+                Value<DateTime?> lastManualSyncDate = const Value.absent(),
+                Value<bool> isConnected = const Value.absent(),
+                Value<String?> fieldSyncConfig = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PluralKitSyncStateCompanion.insert(
+                id: id,
+                systemId: systemId,
+                lastSyncDate: lastSyncDate,
+                lastManualSyncDate: lastManualSyncDate,
+                isConnected: isConnected,
+                fieldSyncConfig: fieldSyncConfig,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PluralKitSyncStateTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PluralKitSyncStateTable,
+      PluralKitSyncStateData,
+      $$PluralKitSyncStateTableFilterComposer,
+      $$PluralKitSyncStateTableOrderingComposer,
+      $$PluralKitSyncStateTableAnnotationComposer,
+      $$PluralKitSyncStateTableCreateCompanionBuilder,
+      $$PluralKitSyncStateTableUpdateCompanionBuilder,
+      (
+        PluralKitSyncStateData,
+        BaseReferences<
+          _$AppDatabase,
+          $PluralKitSyncStateTable,
+          PluralKitSyncStateData
+        >,
+      ),
+      PluralKitSyncStateData,
+      PrefetchHooks Function()
+    >;
+typedef $$HabitsTableCreateCompanionBuilder =
+    HabitsCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> description,
+      Value<String?> icon,
+      Value<String?> colorHex,
+      Value<bool> isActive,
+      required DateTime createdAt,
+      required DateTime modifiedAt,
+      Value<String> frequency,
+      Value<String?> weeklyDays,
+      Value<int?> intervalDays,
+      Value<String?> reminderTime,
+      Value<bool> notificationsEnabled,
+      Value<String?> notificationMessage,
+      Value<String?> assignedMemberId,
+      Value<bool> onlyNotifyWhenFronting,
+      Value<bool> isPrivate,
+      Value<int> currentStreak,
+      Value<int> bestStreak,
+      Value<int> totalCompletions,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$HabitsTableUpdateCompanionBuilder =
+    HabitsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> description,
+      Value<String?> icon,
+      Value<String?> colorHex,
+      Value<bool> isActive,
+      Value<DateTime> createdAt,
+      Value<DateTime> modifiedAt,
+      Value<String> frequency,
+      Value<String?> weeklyDays,
+      Value<int?> intervalDays,
+      Value<String?> reminderTime,
+      Value<bool> notificationsEnabled,
+      Value<String?> notificationMessage,
+      Value<String?> assignedMemberId,
+      Value<bool> onlyNotifyWhenFronting,
+      Value<bool> isPrivate,
+      Value<int> currentStreak,
+      Value<int> bestStreak,
+      Value<int> totalCompletions,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$HabitsTableFilterComposer
+    extends Composer<_$AppDatabase, $HabitsTable> {
+  $$HabitsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get icon => $composableBuilder(
+    column: $table.icon,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get frequency => $composableBuilder(
+    column: $table.frequency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get weeklyDays => $composableBuilder(
+    column: $table.weeklyDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reminderTime => $composableBuilder(
+    column: $table.reminderTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get notificationsEnabled => $composableBuilder(
+    column: $table.notificationsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notificationMessage => $composableBuilder(
+    column: $table.notificationMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get assignedMemberId => $composableBuilder(
+    column: $table.assignedMemberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get onlyNotifyWhenFronting => $composableBuilder(
+    column: $table.onlyNotifyWhenFronting,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isPrivate => $composableBuilder(
+    column: $table.isPrivate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get currentStreak => $composableBuilder(
+    column: $table.currentStreak,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get bestStreak => $composableBuilder(
+    column: $table.bestStreak,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalCompletions => $composableBuilder(
+    column: $table.totalCompletions,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$HabitsTableOrderingComposer
+    extends Composer<_$AppDatabase, $HabitsTable> {
+  $$HabitsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get icon => $composableBuilder(
+    column: $table.icon,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get frequency => $composableBuilder(
+    column: $table.frequency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get weeklyDays => $composableBuilder(
+    column: $table.weeklyDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reminderTime => $composableBuilder(
+    column: $table.reminderTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get notificationsEnabled => $composableBuilder(
+    column: $table.notificationsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notificationMessage => $composableBuilder(
+    column: $table.notificationMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get assignedMemberId => $composableBuilder(
+    column: $table.assignedMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get onlyNotifyWhenFronting => $composableBuilder(
+    column: $table.onlyNotifyWhenFronting,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isPrivate => $composableBuilder(
+    column: $table.isPrivate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get currentStreak => $composableBuilder(
+    column: $table.currentStreak,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get bestStreak => $composableBuilder(
+    column: $table.bestStreak,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalCompletions => $composableBuilder(
+    column: $table.totalCompletions,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$HabitsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $HabitsTable> {
+  $$HabitsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get icon =>
+      $composableBuilder(column: $table.icon, builder: (column) => column);
+
+  GeneratedColumn<String> get colorHex =>
+      $composableBuilder(column: $table.colorHex, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get frequency =>
+      $composableBuilder(column: $table.frequency, builder: (column) => column);
+
+  GeneratedColumn<String> get weeklyDays => $composableBuilder(
+    column: $table.weeklyDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get reminderTime => $composableBuilder(
+    column: $table.reminderTime,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get notificationsEnabled => $composableBuilder(
+    column: $table.notificationsEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notificationMessage => $composableBuilder(
+    column: $table.notificationMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get assignedMemberId => $composableBuilder(
+    column: $table.assignedMemberId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get onlyNotifyWhenFronting => $composableBuilder(
+    column: $table.onlyNotifyWhenFronting,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isPrivate =>
+      $composableBuilder(column: $table.isPrivate, builder: (column) => column);
+
+  GeneratedColumn<int> get currentStreak => $composableBuilder(
+    column: $table.currentStreak,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get bestStreak => $composableBuilder(
+    column: $table.bestStreak,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get totalCompletions => $composableBuilder(
+    column: $table.totalCompletions,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$HabitsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HabitsTable,
+          Habit,
+          $$HabitsTableFilterComposer,
+          $$HabitsTableOrderingComposer,
+          $$HabitsTableAnnotationComposer,
+          $$HabitsTableCreateCompanionBuilder,
+          $$HabitsTableUpdateCompanionBuilder,
+          (Habit, BaseReferences<_$AppDatabase, $HabitsTable, Habit>),
+          Habit,
+          PrefetchHooks Function()
+        > {
+  $$HabitsTableTableManager(_$AppDatabase db, $HabitsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HabitsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$HabitsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$HabitsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> icon = const Value.absent(),
+                Value<String?> colorHex = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> modifiedAt = const Value.absent(),
+                Value<String> frequency = const Value.absent(),
+                Value<String?> weeklyDays = const Value.absent(),
+                Value<int?> intervalDays = const Value.absent(),
+                Value<String?> reminderTime = const Value.absent(),
+                Value<bool> notificationsEnabled = const Value.absent(),
+                Value<String?> notificationMessage = const Value.absent(),
+                Value<String?> assignedMemberId = const Value.absent(),
+                Value<bool> onlyNotifyWhenFronting = const Value.absent(),
+                Value<bool> isPrivate = const Value.absent(),
+                Value<int> currentStreak = const Value.absent(),
+                Value<int> bestStreak = const Value.absent(),
+                Value<int> totalCompletions = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HabitsCompanion(
+                id: id,
+                name: name,
+                description: description,
+                icon: icon,
+                colorHex: colorHex,
+                isActive: isActive,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                frequency: frequency,
+                weeklyDays: weeklyDays,
+                intervalDays: intervalDays,
+                reminderTime: reminderTime,
+                notificationsEnabled: notificationsEnabled,
+                notificationMessage: notificationMessage,
+                assignedMemberId: assignedMemberId,
+                onlyNotifyWhenFronting: onlyNotifyWhenFronting,
+                isPrivate: isPrivate,
+                currentStreak: currentStreak,
+                bestStreak: bestStreak,
+                totalCompletions: totalCompletions,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> description = const Value.absent(),
+                Value<String?> icon = const Value.absent(),
+                Value<String?> colorHex = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime modifiedAt,
+                Value<String> frequency = const Value.absent(),
+                Value<String?> weeklyDays = const Value.absent(),
+                Value<int?> intervalDays = const Value.absent(),
+                Value<String?> reminderTime = const Value.absent(),
+                Value<bool> notificationsEnabled = const Value.absent(),
+                Value<String?> notificationMessage = const Value.absent(),
+                Value<String?> assignedMemberId = const Value.absent(),
+                Value<bool> onlyNotifyWhenFronting = const Value.absent(),
+                Value<bool> isPrivate = const Value.absent(),
+                Value<int> currentStreak = const Value.absent(),
+                Value<int> bestStreak = const Value.absent(),
+                Value<int> totalCompletions = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HabitsCompanion.insert(
+                id: id,
+                name: name,
+                description: description,
+                icon: icon,
+                colorHex: colorHex,
+                isActive: isActive,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                frequency: frequency,
+                weeklyDays: weeklyDays,
+                intervalDays: intervalDays,
+                reminderTime: reminderTime,
+                notificationsEnabled: notificationsEnabled,
+                notificationMessage: notificationMessage,
+                assignedMemberId: assignedMemberId,
+                onlyNotifyWhenFronting: onlyNotifyWhenFronting,
+                isPrivate: isPrivate,
+                currentStreak: currentStreak,
+                bestStreak: bestStreak,
+                totalCompletions: totalCompletions,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$HabitsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HabitsTable,
+      Habit,
+      $$HabitsTableFilterComposer,
+      $$HabitsTableOrderingComposer,
+      $$HabitsTableAnnotationComposer,
+      $$HabitsTableCreateCompanionBuilder,
+      $$HabitsTableUpdateCompanionBuilder,
+      (Habit, BaseReferences<_$AppDatabase, $HabitsTable, Habit>),
+      Habit,
+      PrefetchHooks Function()
+    >;
+typedef $$HabitCompletionsTableCreateCompanionBuilder =
+    HabitCompletionsCompanion Function({
+      required String id,
+      required String habitId,
+      required DateTime completedAt,
+      Value<String?> completedByMemberId,
+      Value<String?> notes,
+      Value<bool> wasFronting,
+      Value<int?> rating,
+      required DateTime createdAt,
+      required DateTime modifiedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$HabitCompletionsTableUpdateCompanionBuilder =
+    HabitCompletionsCompanion Function({
+      Value<String> id,
+      Value<String> habitId,
+      Value<DateTime> completedAt,
+      Value<String?> completedByMemberId,
+      Value<String?> notes,
+      Value<bool> wasFronting,
+      Value<int?> rating,
+      Value<DateTime> createdAt,
+      Value<DateTime> modifiedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$HabitCompletionsTableFilterComposer
+    extends Composer<_$AppDatabase, $HabitCompletionsTable> {
+  $$HabitCompletionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get habitId => $composableBuilder(
+    column: $table.habitId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get completedByMemberId => $composableBuilder(
+    column: $table.completedByMemberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get wasFronting => $composableBuilder(
+    column: $table.wasFronting,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$HabitCompletionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $HabitCompletionsTable> {
+  $$HabitCompletionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get habitId => $composableBuilder(
+    column: $table.habitId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get completedByMemberId => $composableBuilder(
+    column: $table.completedByMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get wasFronting => $composableBuilder(
+    column: $table.wasFronting,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$HabitCompletionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $HabitCompletionsTable> {
+  $$HabitCompletionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get habitId =>
+      $composableBuilder(column: $table.habitId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get completedAt => $composableBuilder(
+    column: $table.completedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get completedByMemberId => $composableBuilder(
+    column: $table.completedByMemberId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<bool> get wasFronting => $composableBuilder(
+    column: $table.wasFronting,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get rating =>
+      $composableBuilder(column: $table.rating, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$HabitCompletionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $HabitCompletionsTable,
+          HabitCompletion,
+          $$HabitCompletionsTableFilterComposer,
+          $$HabitCompletionsTableOrderingComposer,
+          $$HabitCompletionsTableAnnotationComposer,
+          $$HabitCompletionsTableCreateCompanionBuilder,
+          $$HabitCompletionsTableUpdateCompanionBuilder,
+          (
+            HabitCompletion,
+            BaseReferences<
+              _$AppDatabase,
+              $HabitCompletionsTable,
+              HabitCompletion
+            >,
+          ),
+          HabitCompletion,
+          PrefetchHooks Function()
+        > {
+  $$HabitCompletionsTableTableManager(
+    _$AppDatabase db,
+    $HabitCompletionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HabitCompletionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$HabitCompletionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$HabitCompletionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> habitId = const Value.absent(),
+                Value<DateTime> completedAt = const Value.absent(),
+                Value<String?> completedByMemberId = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<bool> wasFronting = const Value.absent(),
+                Value<int?> rating = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> modifiedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HabitCompletionsCompanion(
+                id: id,
+                habitId: habitId,
+                completedAt: completedAt,
+                completedByMemberId: completedByMemberId,
+                notes: notes,
+                wasFronting: wasFronting,
+                rating: rating,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String habitId,
+                required DateTime completedAt,
+                Value<String?> completedByMemberId = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<bool> wasFronting = const Value.absent(),
+                Value<int?> rating = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime modifiedAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => HabitCompletionsCompanion.insert(
+                id: id,
+                habitId: habitId,
+                completedAt: completedAt,
+                completedByMemberId: completedByMemberId,
+                notes: notes,
+                wasFronting: wasFronting,
+                rating: rating,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$HabitCompletionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $HabitCompletionsTable,
+      HabitCompletion,
+      $$HabitCompletionsTableFilterComposer,
+      $$HabitCompletionsTableOrderingComposer,
+      $$HabitCompletionsTableAnnotationComposer,
+      $$HabitCompletionsTableCreateCompanionBuilder,
+      $$HabitCompletionsTableUpdateCompanionBuilder,
+      (
+        HabitCompletion,
+        BaseReferences<_$AppDatabase, $HabitCompletionsTable, HabitCompletion>,
+      ),
+      HabitCompletion,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncQuarantineTableTableCreateCompanionBuilder =
+    SyncQuarantineTableCompanion Function({
+      required String id,
+      required String entityType,
+      required String entityId,
+      Value<String?> fieldName,
+      required String expectedType,
+      required String receivedType,
+      Value<String?> receivedValue,
+      Value<String?> sourceDevice,
+      Value<int> retryCount,
+      Value<DateTime?> lastRetryAt,
+      required DateTime createdAt,
+      Value<String?> errorMessage,
+      Value<int> rowid,
+    });
+typedef $$SyncQuarantineTableTableUpdateCompanionBuilder =
+    SyncQuarantineTableCompanion Function({
+      Value<String> id,
+      Value<String> entityType,
+      Value<String> entityId,
+      Value<String?> fieldName,
+      Value<String> expectedType,
+      Value<String> receivedType,
+      Value<String?> receivedValue,
+      Value<String?> sourceDevice,
+      Value<int> retryCount,
+      Value<DateTime?> lastRetryAt,
+      Value<DateTime> createdAt,
+      Value<String?> errorMessage,
+      Value<int> rowid,
+    });
+
+class $$SyncQuarantineTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncQuarantineTableTable> {
+  $$SyncQuarantineTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fieldName => $composableBuilder(
+    column: $table.fieldName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get expectedType => $composableBuilder(
+    column: $table.expectedType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receivedType => $composableBuilder(
+    column: $table.receivedType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get receivedValue => $composableBuilder(
+    column: $table.receivedValue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceDevice => $composableBuilder(
+    column: $table.sourceDevice,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastRetryAt => $composableBuilder(
+    column: $table.lastRetryAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncQuarantineTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncQuarantineTableTable> {
+  $$SyncQuarantineTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityId => $composableBuilder(
+    column: $table.entityId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fieldName => $composableBuilder(
+    column: $table.fieldName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get expectedType => $composableBuilder(
+    column: $table.expectedType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receivedType => $composableBuilder(
+    column: $table.receivedType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receivedValue => $composableBuilder(
+    column: $table.receivedValue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceDevice => $composableBuilder(
+    column: $table.sourceDevice,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastRetryAt => $composableBuilder(
+    column: $table.lastRetryAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncQuarantineTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncQuarantineTableTable> {
+  $$SyncQuarantineTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get entityId =>
+      $composableBuilder(column: $table.entityId, builder: (column) => column);
+
+  GeneratedColumn<String> get fieldName =>
+      $composableBuilder(column: $table.fieldName, builder: (column) => column);
+
+  GeneratedColumn<String> get expectedType => $composableBuilder(
+    column: $table.expectedType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get receivedType => $composableBuilder(
+    column: $table.receivedType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get receivedValue => $composableBuilder(
+    column: $table.receivedValue,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceDevice => $composableBuilder(
+    column: $table.sourceDevice,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get retryCount => $composableBuilder(
+    column: $table.retryCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastRetryAt => $composableBuilder(
+    column: $table.lastRetryAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncQuarantineTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncQuarantineTableTable,
+          SyncQuarantineData,
+          $$SyncQuarantineTableTableFilterComposer,
+          $$SyncQuarantineTableTableOrderingComposer,
+          $$SyncQuarantineTableTableAnnotationComposer,
+          $$SyncQuarantineTableTableCreateCompanionBuilder,
+          $$SyncQuarantineTableTableUpdateCompanionBuilder,
+          (
+            SyncQuarantineData,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncQuarantineTableTable,
+              SyncQuarantineData
+            >,
+          ),
+          SyncQuarantineData,
+          PrefetchHooks Function()
+        > {
+  $$SyncQuarantineTableTableTableManager(
+    _$AppDatabase db,
+    $SyncQuarantineTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncQuarantineTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncQuarantineTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$SyncQuarantineTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> entityType = const Value.absent(),
+                Value<String> entityId = const Value.absent(),
+                Value<String?> fieldName = const Value.absent(),
+                Value<String> expectedType = const Value.absent(),
+                Value<String> receivedType = const Value.absent(),
+                Value<String?> receivedValue = const Value.absent(),
+                Value<String?> sourceDevice = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> lastRetryAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncQuarantineTableCompanion(
+                id: id,
+                entityType: entityType,
+                entityId: entityId,
+                fieldName: fieldName,
+                expectedType: expectedType,
+                receivedType: receivedType,
+                receivedValue: receivedValue,
+                sourceDevice: sourceDevice,
+                retryCount: retryCount,
+                lastRetryAt: lastRetryAt,
+                createdAt: createdAt,
+                errorMessage: errorMessage,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String entityType,
+                required String entityId,
+                Value<String?> fieldName = const Value.absent(),
+                required String expectedType,
+                required String receivedType,
+                Value<String?> receivedValue = const Value.absent(),
+                Value<String?> sourceDevice = const Value.absent(),
+                Value<int> retryCount = const Value.absent(),
+                Value<DateTime?> lastRetryAt = const Value.absent(),
+                required DateTime createdAt,
+                Value<String?> errorMessage = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncQuarantineTableCompanion.insert(
+                id: id,
+                entityType: entityType,
+                entityId: entityId,
+                fieldName: fieldName,
+                expectedType: expectedType,
+                receivedType: receivedType,
+                receivedValue: receivedValue,
+                sourceDevice: sourceDevice,
+                retryCount: retryCount,
+                lastRetryAt: lastRetryAt,
+                createdAt: createdAt,
+                errorMessage: errorMessage,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncQuarantineTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncQuarantineTableTable,
+      SyncQuarantineData,
+      $$SyncQuarantineTableTableFilterComposer,
+      $$SyncQuarantineTableTableOrderingComposer,
+      $$SyncQuarantineTableTableAnnotationComposer,
+      $$SyncQuarantineTableTableCreateCompanionBuilder,
+      $$SyncQuarantineTableTableUpdateCompanionBuilder,
+      (
+        SyncQuarantineData,
+        BaseReferences<
+          _$AppDatabase,
+          $SyncQuarantineTableTable,
+          SyncQuarantineData
+        >,
+      ),
+      SyncQuarantineData,
+      PrefetchHooks Function()
+    >;
+typedef $$MemberGroupsTableCreateCompanionBuilder =
+    MemberGroupsCompanion Function({
+      required String id,
+      required String name,
+      Value<String?> description,
+      Value<String?> colorHex,
+      Value<String?> emoji,
+      Value<int> displayOrder,
+      Value<String?> parentGroupId,
+      required DateTime createdAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$MemberGroupsTableUpdateCompanionBuilder =
+    MemberGroupsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String?> description,
+      Value<String?> colorHex,
+      Value<String?> emoji,
+      Value<int> displayOrder,
+      Value<String?> parentGroupId,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$MemberGroupsTableFilterComposer
+    extends Composer<_$AppDatabase, $MemberGroupsTable> {
+  $$MemberGroupsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentGroupId => $composableBuilder(
+    column: $table.parentGroupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MemberGroupsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MemberGroupsTable> {
+  $$MemberGroupsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get emoji => $composableBuilder(
+    column: $table.emoji,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get parentGroupId => $composableBuilder(
+    column: $table.parentGroupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MemberGroupsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MemberGroupsTable> {
+  $$MemberGroupsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get colorHex =>
+      $composableBuilder(column: $table.colorHex, builder: (column) => column);
+
+  GeneratedColumn<String> get emoji =>
+      $composableBuilder(column: $table.emoji, builder: (column) => column);
+
+  GeneratedColumn<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parentGroupId => $composableBuilder(
+    column: $table.parentGroupId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$MemberGroupsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MemberGroupsTable,
+          MemberGroupRow,
+          $$MemberGroupsTableFilterComposer,
+          $$MemberGroupsTableOrderingComposer,
+          $$MemberGroupsTableAnnotationComposer,
+          $$MemberGroupsTableCreateCompanionBuilder,
+          $$MemberGroupsTableUpdateCompanionBuilder,
+          (
+            MemberGroupRow,
+            BaseReferences<_$AppDatabase, $MemberGroupsTable, MemberGroupRow>,
+          ),
+          MemberGroupRow,
+          PrefetchHooks Function()
+        > {
+  $$MemberGroupsTableTableManager(_$AppDatabase db, $MemberGroupsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MemberGroupsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MemberGroupsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MemberGroupsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String?> description = const Value.absent(),
+                Value<String?> colorHex = const Value.absent(),
+                Value<String?> emoji = const Value.absent(),
+                Value<int> displayOrder = const Value.absent(),
+                Value<String?> parentGroupId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MemberGroupsCompanion(
+                id: id,
+                name: name,
+                description: description,
+                colorHex: colorHex,
+                emoji: emoji,
+                displayOrder: displayOrder,
+                parentGroupId: parentGroupId,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<String?> description = const Value.absent(),
+                Value<String?> colorHex = const Value.absent(),
+                Value<String?> emoji = const Value.absent(),
+                Value<int> displayOrder = const Value.absent(),
+                Value<String?> parentGroupId = const Value.absent(),
+                required DateTime createdAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MemberGroupsCompanion.insert(
+                id: id,
+                name: name,
+                description: description,
+                colorHex: colorHex,
+                emoji: emoji,
+                displayOrder: displayOrder,
+                parentGroupId: parentGroupId,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MemberGroupsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MemberGroupsTable,
+      MemberGroupRow,
+      $$MemberGroupsTableFilterComposer,
+      $$MemberGroupsTableOrderingComposer,
+      $$MemberGroupsTableAnnotationComposer,
+      $$MemberGroupsTableCreateCompanionBuilder,
+      $$MemberGroupsTableUpdateCompanionBuilder,
+      (
+        MemberGroupRow,
+        BaseReferences<_$AppDatabase, $MemberGroupsTable, MemberGroupRow>,
+      ),
+      MemberGroupRow,
+      PrefetchHooks Function()
+    >;
+typedef $$MemberGroupEntriesTableCreateCompanionBuilder =
+    MemberGroupEntriesCompanion Function({
+      required String id,
+      required String groupId,
+      required String memberId,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$MemberGroupEntriesTableUpdateCompanionBuilder =
+    MemberGroupEntriesCompanion Function({
+      Value<String> id,
+      Value<String> groupId,
+      Value<String> memberId,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$MemberGroupEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $MemberGroupEntriesTable> {
+  $$MemberGroupEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MemberGroupEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $MemberGroupEntriesTable> {
+  $$MemberGroupEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupId => $composableBuilder(
+    column: $table.groupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MemberGroupEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MemberGroupEntriesTable> {
+  $$MemberGroupEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get groupId =>
+      $composableBuilder(column: $table.groupId, builder: (column) => column);
+
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$MemberGroupEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MemberGroupEntriesTable,
+          MemberGroupEntryRow,
+          $$MemberGroupEntriesTableFilterComposer,
+          $$MemberGroupEntriesTableOrderingComposer,
+          $$MemberGroupEntriesTableAnnotationComposer,
+          $$MemberGroupEntriesTableCreateCompanionBuilder,
+          $$MemberGroupEntriesTableUpdateCompanionBuilder,
+          (
+            MemberGroupEntryRow,
+            BaseReferences<
+              _$AppDatabase,
+              $MemberGroupEntriesTable,
+              MemberGroupEntryRow
+            >,
+          ),
+          MemberGroupEntryRow,
+          PrefetchHooks Function()
+        > {
+  $$MemberGroupEntriesTableTableManager(
+    _$AppDatabase db,
+    $MemberGroupEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MemberGroupEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MemberGroupEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MemberGroupEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> groupId = const Value.absent(),
+                Value<String> memberId = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MemberGroupEntriesCompanion(
+                id: id,
+                groupId: groupId,
+                memberId: memberId,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String groupId,
+                required String memberId,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MemberGroupEntriesCompanion.insert(
+                id: id,
+                groupId: groupId,
+                memberId: memberId,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MemberGroupEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MemberGroupEntriesTable,
+      MemberGroupEntryRow,
+      $$MemberGroupEntriesTableFilterComposer,
+      $$MemberGroupEntriesTableOrderingComposer,
+      $$MemberGroupEntriesTableAnnotationComposer,
+      $$MemberGroupEntriesTableCreateCompanionBuilder,
+      $$MemberGroupEntriesTableUpdateCompanionBuilder,
+      (
+        MemberGroupEntryRow,
+        BaseReferences<
+          _$AppDatabase,
+          $MemberGroupEntriesTable,
+          MemberGroupEntryRow
+        >,
+      ),
+      MemberGroupEntryRow,
+      PrefetchHooks Function()
+    >;
+typedef $$CustomFieldsTableCreateCompanionBuilder =
+    CustomFieldsCompanion Function({
+      required String id,
+      required String name,
+      required int fieldType,
+      Value<int?> datePrecision,
+      Value<int> displayOrder,
+      required DateTime createdAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$CustomFieldsTableUpdateCompanionBuilder =
+    CustomFieldsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<int> fieldType,
+      Value<int?> datePrecision,
+      Value<int> displayOrder,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$CustomFieldsTableFilterComposer
+    extends Composer<_$AppDatabase, $CustomFieldsTable> {
+  $$CustomFieldsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fieldType => $composableBuilder(
+    column: $table.fieldType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get datePrecision => $composableBuilder(
+    column: $table.datePrecision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CustomFieldsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CustomFieldsTable> {
+  $$CustomFieldsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fieldType => $composableBuilder(
+    column: $table.fieldType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get datePrecision => $composableBuilder(
+    column: $table.datePrecision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CustomFieldsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CustomFieldsTable> {
+  $$CustomFieldsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get fieldType =>
+      $composableBuilder(column: $table.fieldType, builder: (column) => column);
+
+  GeneratedColumn<int> get datePrecision => $composableBuilder(
+    column: $table.datePrecision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$CustomFieldsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CustomFieldsTable,
+          CustomFieldRow,
+          $$CustomFieldsTableFilterComposer,
+          $$CustomFieldsTableOrderingComposer,
+          $$CustomFieldsTableAnnotationComposer,
+          $$CustomFieldsTableCreateCompanionBuilder,
+          $$CustomFieldsTableUpdateCompanionBuilder,
+          (
+            CustomFieldRow,
+            BaseReferences<_$AppDatabase, $CustomFieldsTable, CustomFieldRow>,
+          ),
+          CustomFieldRow,
+          PrefetchHooks Function()
+        > {
+  $$CustomFieldsTableTableManager(_$AppDatabase db, $CustomFieldsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CustomFieldsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CustomFieldsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CustomFieldsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> fieldType = const Value.absent(),
+                Value<int?> datePrecision = const Value.absent(),
+                Value<int> displayOrder = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CustomFieldsCompanion(
+                id: id,
+                name: name,
+                fieldType: fieldType,
+                datePrecision: datePrecision,
+                displayOrder: displayOrder,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required int fieldType,
+                Value<int?> datePrecision = const Value.absent(),
+                Value<int> displayOrder = const Value.absent(),
+                required DateTime createdAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CustomFieldsCompanion.insert(
+                id: id,
+                name: name,
+                fieldType: fieldType,
+                datePrecision: datePrecision,
+                displayOrder: displayOrder,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CustomFieldsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CustomFieldsTable,
+      CustomFieldRow,
+      $$CustomFieldsTableFilterComposer,
+      $$CustomFieldsTableOrderingComposer,
+      $$CustomFieldsTableAnnotationComposer,
+      $$CustomFieldsTableCreateCompanionBuilder,
+      $$CustomFieldsTableUpdateCompanionBuilder,
+      (
+        CustomFieldRow,
+        BaseReferences<_$AppDatabase, $CustomFieldsTable, CustomFieldRow>,
+      ),
+      CustomFieldRow,
+      PrefetchHooks Function()
+    >;
+typedef $$CustomFieldValuesTableCreateCompanionBuilder =
+    CustomFieldValuesCompanion Function({
+      required String id,
+      required String customFieldId,
+      required String memberId,
+      required String value,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$CustomFieldValuesTableUpdateCompanionBuilder =
+    CustomFieldValuesCompanion Function({
+      Value<String> id,
+      Value<String> customFieldId,
+      Value<String> memberId,
+      Value<String> value,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$CustomFieldValuesTableFilterComposer
+    extends Composer<_$AppDatabase, $CustomFieldValuesTable> {
+  $$CustomFieldValuesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customFieldId => $composableBuilder(
+    column: $table.customFieldId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CustomFieldValuesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CustomFieldValuesTable> {
+  $$CustomFieldValuesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customFieldId => $composableBuilder(
+    column: $table.customFieldId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get value => $composableBuilder(
+    column: $table.value,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CustomFieldValuesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CustomFieldValuesTable> {
+  $$CustomFieldValuesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get customFieldId => $composableBuilder(
+    column: $table.customFieldId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$CustomFieldValuesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CustomFieldValuesTable,
+          CustomFieldValueRow,
+          $$CustomFieldValuesTableFilterComposer,
+          $$CustomFieldValuesTableOrderingComposer,
+          $$CustomFieldValuesTableAnnotationComposer,
+          $$CustomFieldValuesTableCreateCompanionBuilder,
+          $$CustomFieldValuesTableUpdateCompanionBuilder,
+          (
+            CustomFieldValueRow,
+            BaseReferences<
+              _$AppDatabase,
+              $CustomFieldValuesTable,
+              CustomFieldValueRow
+            >,
+          ),
+          CustomFieldValueRow,
+          PrefetchHooks Function()
+        > {
+  $$CustomFieldValuesTableTableManager(
+    _$AppDatabase db,
+    $CustomFieldValuesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CustomFieldValuesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CustomFieldValuesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CustomFieldValuesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> customFieldId = const Value.absent(),
+                Value<String> memberId = const Value.absent(),
+                Value<String> value = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CustomFieldValuesCompanion(
+                id: id,
+                customFieldId: customFieldId,
+                memberId: memberId,
+                value: value,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String customFieldId,
+                required String memberId,
+                required String value,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CustomFieldValuesCompanion.insert(
+                id: id,
+                customFieldId: customFieldId,
+                memberId: memberId,
+                value: value,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CustomFieldValuesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CustomFieldValuesTable,
+      CustomFieldValueRow,
+      $$CustomFieldValuesTableFilterComposer,
+      $$CustomFieldValuesTableOrderingComposer,
+      $$CustomFieldValuesTableAnnotationComposer,
+      $$CustomFieldValuesTableCreateCompanionBuilder,
+      $$CustomFieldValuesTableUpdateCompanionBuilder,
+      (
+        CustomFieldValueRow,
+        BaseReferences<
+          _$AppDatabase,
+          $CustomFieldValuesTable,
+          CustomFieldValueRow
+        >,
+      ),
+      CustomFieldValueRow,
+      PrefetchHooks Function()
+    >;
+typedef $$NotesTableCreateCompanionBuilder =
+    NotesCompanion Function({
+      required String id,
+      required String title,
+      required String body,
+      Value<String?> colorHex,
+      Value<String?> memberId,
+      required DateTime date,
+      required DateTime createdAt,
+      required DateTime modifiedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$NotesTableUpdateCompanionBuilder =
+    NotesCompanion Function({
+      Value<String> id,
+      Value<String> title,
+      Value<String> body,
+      Value<String?> colorHex,
+      Value<String?> memberId,
+      Value<DateTime> date,
+      Value<DateTime> createdAt,
+      Value<DateTime> modifiedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$NotesTableFilterComposer extends Composer<_$AppDatabase, $NotesTable> {
+  $$NotesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NotesTableOrderingComposer
+    extends Composer<_$AppDatabase, $NotesTable> {
+  $$NotesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorHex => $composableBuilder(
+    column: $table.colorHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get memberId => $composableBuilder(
+    column: $table.memberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+    column: $table.date,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NotesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NotesTable> {
+  $$NotesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<String> get colorHex =>
+      $composableBuilder(column: $table.colorHex, builder: (column) => column);
+
+  GeneratedColumn<String> get memberId =>
+      $composableBuilder(column: $table.memberId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$NotesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NotesTable,
+          NoteRow,
+          $$NotesTableFilterComposer,
+          $$NotesTableOrderingComposer,
+          $$NotesTableAnnotationComposer,
+          $$NotesTableCreateCompanionBuilder,
+          $$NotesTableUpdateCompanionBuilder,
+          (NoteRow, BaseReferences<_$AppDatabase, $NotesTable, NoteRow>),
+          NoteRow,
+          PrefetchHooks Function()
+        > {
+  $$NotesTableTableManager(_$AppDatabase db, $NotesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NotesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NotesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NotesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<String?> colorHex = const Value.absent(),
+                Value<String?> memberId = const Value.absent(),
+                Value<DateTime> date = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> modifiedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NotesCompanion(
+                id: id,
+                title: title,
+                body: body,
+                colorHex: colorHex,
+                memberId: memberId,
+                date: date,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String title,
+                required String body,
+                Value<String?> colorHex = const Value.absent(),
+                Value<String?> memberId = const Value.absent(),
+                required DateTime date,
+                required DateTime createdAt,
+                required DateTime modifiedAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NotesCompanion.insert(
+                id: id,
+                title: title,
+                body: body,
+                colorHex: colorHex,
+                memberId: memberId,
+                date: date,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NotesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NotesTable,
+      NoteRow,
+      $$NotesTableFilterComposer,
+      $$NotesTableOrderingComposer,
+      $$NotesTableAnnotationComposer,
+      $$NotesTableCreateCompanionBuilder,
+      $$NotesTableUpdateCompanionBuilder,
+      (NoteRow, BaseReferences<_$AppDatabase, $NotesTable, NoteRow>),
+      NoteRow,
+      PrefetchHooks Function()
+    >;
+typedef $$FrontSessionCommentsTableCreateCompanionBuilder =
+    FrontSessionCommentsCompanion Function({
+      required String id,
+      required String sessionId,
+      required String body,
+      required DateTime timestamp,
+      required DateTime createdAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$FrontSessionCommentsTableUpdateCompanionBuilder =
+    FrontSessionCommentsCompanion Function({
+      Value<String> id,
+      Value<String> sessionId,
+      Value<String> body,
+      Value<DateTime> timestamp,
+      Value<DateTime> createdAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$FrontSessionCommentsTableFilterComposer
+    extends Composer<_$AppDatabase, $FrontSessionCommentsTable> {
+  $$FrontSessionCommentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FrontSessionCommentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FrontSessionCommentsTable> {
+  $$FrontSessionCommentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FrontSessionCommentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FrontSessionCommentsTable> {
+  $$FrontSessionCommentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get timestamp =>
+      $composableBuilder(column: $table.timestamp, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$FrontSessionCommentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FrontSessionCommentsTable,
+          FrontSessionCommentRow,
+          $$FrontSessionCommentsTableFilterComposer,
+          $$FrontSessionCommentsTableOrderingComposer,
+          $$FrontSessionCommentsTableAnnotationComposer,
+          $$FrontSessionCommentsTableCreateCompanionBuilder,
+          $$FrontSessionCommentsTableUpdateCompanionBuilder,
+          (
+            FrontSessionCommentRow,
+            BaseReferences<
+              _$AppDatabase,
+              $FrontSessionCommentsTable,
+              FrontSessionCommentRow
+            >,
+          ),
+          FrontSessionCommentRow,
+          PrefetchHooks Function()
+        > {
+  $$FrontSessionCommentsTableTableManager(
+    _$AppDatabase db,
+    $FrontSessionCommentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FrontSessionCommentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FrontSessionCommentsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$FrontSessionCommentsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<String> body = const Value.absent(),
+                Value<DateTime> timestamp = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FrontSessionCommentsCompanion(
+                id: id,
+                sessionId: sessionId,
+                body: body,
+                timestamp: timestamp,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String sessionId,
+                required String body,
+                required DateTime timestamp,
+                required DateTime createdAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FrontSessionCommentsCompanion.insert(
+                id: id,
+                sessionId: sessionId,
+                body: body,
+                timestamp: timestamp,
+                createdAt: createdAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FrontSessionCommentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FrontSessionCommentsTable,
+      FrontSessionCommentRow,
+      $$FrontSessionCommentsTableFilterComposer,
+      $$FrontSessionCommentsTableOrderingComposer,
+      $$FrontSessionCommentsTableAnnotationComposer,
+      $$FrontSessionCommentsTableCreateCompanionBuilder,
+      $$FrontSessionCommentsTableUpdateCompanionBuilder,
+      (
+        FrontSessionCommentRow,
+        BaseReferences<
+          _$AppDatabase,
+          $FrontSessionCommentsTable,
+          FrontSessionCommentRow
+        >,
+      ),
+      FrontSessionCommentRow,
+      PrefetchHooks Function()
+    >;
+typedef $$ConversationCategoriesTableCreateCompanionBuilder =
+    ConversationCategoriesCompanion Function({
+      required String id,
+      required String name,
+      Value<int> displayOrder,
+      required DateTime createdAt,
+      required DateTime modifiedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$ConversationCategoriesTableUpdateCompanionBuilder =
+    ConversationCategoriesCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<int> displayOrder,
+      Value<DateTime> createdAt,
+      Value<DateTime> modifiedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$ConversationCategoriesTableFilterComposer
+    extends Composer<_$AppDatabase, $ConversationCategoriesTable> {
+  $$ConversationCategoriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ConversationCategoriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ConversationCategoriesTable> {
+  $$ConversationCategoriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ConversationCategoriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ConversationCategoriesTable> {
+  $$ConversationCategoriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get displayOrder => $composableBuilder(
+    column: $table.displayOrder,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$ConversationCategoriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ConversationCategoriesTable,
+          ConversationCategoryRow,
+          $$ConversationCategoriesTableFilterComposer,
+          $$ConversationCategoriesTableOrderingComposer,
+          $$ConversationCategoriesTableAnnotationComposer,
+          $$ConversationCategoriesTableCreateCompanionBuilder,
+          $$ConversationCategoriesTableUpdateCompanionBuilder,
+          (
+            ConversationCategoryRow,
+            BaseReferences<
+              _$AppDatabase,
+              $ConversationCategoriesTable,
+              ConversationCategoryRow
+            >,
+          ),
+          ConversationCategoryRow,
+          PrefetchHooks Function()
+        > {
+  $$ConversationCategoriesTableTableManager(
+    _$AppDatabase db,
+    $ConversationCategoriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ConversationCategoriesTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$ConversationCategoriesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$ConversationCategoriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> displayOrder = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> modifiedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ConversationCategoriesCompanion(
+                id: id,
+                name: name,
+                displayOrder: displayOrder,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<int> displayOrder = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime modifiedAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ConversationCategoriesCompanion.insert(
+                id: id,
+                name: name,
+                displayOrder: displayOrder,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ConversationCategoriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ConversationCategoriesTable,
+      ConversationCategoryRow,
+      $$ConversationCategoriesTableFilterComposer,
+      $$ConversationCategoriesTableOrderingComposer,
+      $$ConversationCategoriesTableAnnotationComposer,
+      $$ConversationCategoriesTableCreateCompanionBuilder,
+      $$ConversationCategoriesTableUpdateCompanionBuilder,
+      (
+        ConversationCategoryRow,
+        BaseReferences<
+          _$AppDatabase,
+          $ConversationCategoriesTable,
+          ConversationCategoryRow
+        >,
+      ),
+      ConversationCategoryRow,
+      PrefetchHooks Function()
+    >;
+typedef $$RemindersTableCreateCompanionBuilder =
+    RemindersCompanion Function({
+      required String id,
+      required String name,
+      required String message,
+      Value<int> trigger,
+      Value<int?> intervalDays,
+      Value<String?> timeOfDay,
+      Value<int?> delayHours,
+      Value<bool> isActive,
+      required DateTime createdAt,
+      required DateTime modifiedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$RemindersTableUpdateCompanionBuilder =
+    RemindersCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> message,
+      Value<int> trigger,
+      Value<int?> intervalDays,
+      Value<String?> timeOfDay,
+      Value<int?> delayHours,
+      Value<bool> isActive,
+      Value<DateTime> createdAt,
+      Value<DateTime> modifiedAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$RemindersTableFilterComposer
+    extends Composer<_$AppDatabase, $RemindersTable> {
+  $$RemindersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get message => $composableBuilder(
+    column: $table.message,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get trigger => $composableBuilder(
+    column: $table.trigger,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get timeOfDay => $composableBuilder(
+    column: $table.timeOfDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get delayHours => $composableBuilder(
+    column: $table.delayHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RemindersTableOrderingComposer
+    extends Composer<_$AppDatabase, $RemindersTable> {
+  $$RemindersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get message => $composableBuilder(
+    column: $table.message,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get trigger => $composableBuilder(
+    column: $table.trigger,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get timeOfDay => $composableBuilder(
+    column: $table.timeOfDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get delayHours => $composableBuilder(
+    column: $table.delayHours,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RemindersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RemindersTable> {
+  $$RemindersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get message =>
+      $composableBuilder(column: $table.message, builder: (column) => column);
+
+  GeneratedColumn<int> get trigger =>
+      $composableBuilder(column: $table.trigger, builder: (column) => column);
+
+  GeneratedColumn<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get timeOfDay =>
+      $composableBuilder(column: $table.timeOfDay, builder: (column) => column);
+
+  GeneratedColumn<int> get delayHours => $composableBuilder(
+    column: $table.delayHours,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get modifiedAt => $composableBuilder(
+    column: $table.modifiedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$RemindersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RemindersTable,
+          ReminderRow,
+          $$RemindersTableFilterComposer,
+          $$RemindersTableOrderingComposer,
+          $$RemindersTableAnnotationComposer,
+          $$RemindersTableCreateCompanionBuilder,
+          $$RemindersTableUpdateCompanionBuilder,
+          (
+            ReminderRow,
+            BaseReferences<_$AppDatabase, $RemindersTable, ReminderRow>,
+          ),
+          ReminderRow,
+          PrefetchHooks Function()
+        > {
+  $$RemindersTableTableManager(_$AppDatabase db, $RemindersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RemindersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RemindersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RemindersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> message = const Value.absent(),
+                Value<int> trigger = const Value.absent(),
+                Value<int?> intervalDays = const Value.absent(),
+                Value<String?> timeOfDay = const Value.absent(),
+                Value<int?> delayHours = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> modifiedAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RemindersCompanion(
+                id: id,
+                name: name,
+                message: message,
+                trigger: trigger,
+                intervalDays: intervalDays,
+                timeOfDay: timeOfDay,
+                delayHours: delayHours,
+                isActive: isActive,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required String message,
+                Value<int> trigger = const Value.absent(),
+                Value<int?> intervalDays = const Value.absent(),
+                Value<String?> timeOfDay = const Value.absent(),
+                Value<int?> delayHours = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime modifiedAt,
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RemindersCompanion.insert(
+                id: id,
+                name: name,
+                message: message,
+                trigger: trigger,
+                intervalDays: intervalDays,
+                timeOfDay: timeOfDay,
+                delayHours: delayHours,
+                isActive: isActive,
+                createdAt: createdAt,
+                modifiedAt: modifiedAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RemindersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RemindersTable,
+      ReminderRow,
+      $$RemindersTableFilterComposer,
+      $$RemindersTableOrderingComposer,
+      $$RemindersTableAnnotationComposer,
+      $$RemindersTableCreateCompanionBuilder,
+      $$RemindersTableUpdateCompanionBuilder,
+      (
+        ReminderRow,
+        BaseReferences<_$AppDatabase, $RemindersTable, ReminderRow>,
+      ),
+      ReminderRow,
+      PrefetchHooks Function()
+    >;
+typedef $$FriendsTableCreateCompanionBuilder =
+    FriendsCompanion Function({
+      required String id,
+      required String displayName,
+      required String publicKeyHex,
+      Value<String?> sharedSecretHex,
+      Value<String> grantedScopes,
+      Value<bool> isVerified,
+      required DateTime createdAt,
+      Value<DateTime?> lastSyncAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$FriendsTableUpdateCompanionBuilder =
+    FriendsCompanion Function({
+      Value<String> id,
+      Value<String> displayName,
+      Value<String> publicKeyHex,
+      Value<String?> sharedSecretHex,
+      Value<String> grantedScopes,
+      Value<bool> isVerified,
+      Value<DateTime> createdAt,
+      Value<DateTime?> lastSyncAt,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$FriendsTableFilterComposer
+    extends Composer<_$AppDatabase, $FriendsTable> {
+  $$FriendsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get publicKeyHex => $composableBuilder(
+    column: $table.publicKeyHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sharedSecretHex => $composableBuilder(
+    column: $table.sharedSecretHex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get grantedScopes => $composableBuilder(
+    column: $table.grantedScopes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isVerified => $composableBuilder(
+    column: $table.isVerified,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSyncAt => $composableBuilder(
+    column: $table.lastSyncAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$FriendsTableOrderingComposer
+    extends Composer<_$AppDatabase, $FriendsTable> {
+  $$FriendsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get publicKeyHex => $composableBuilder(
+    column: $table.publicKeyHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sharedSecretHex => $composableBuilder(
+    column: $table.sharedSecretHex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get grantedScopes => $composableBuilder(
+    column: $table.grantedScopes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isVerified => $composableBuilder(
+    column: $table.isVerified,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSyncAt => $composableBuilder(
+    column: $table.lastSyncAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$FriendsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FriendsTable> {
+  $$FriendsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get publicKeyHex => $composableBuilder(
+    column: $table.publicKeyHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sharedSecretHex => $composableBuilder(
+    column: $table.sharedSecretHex,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get grantedScopes => $composableBuilder(
+    column: $table.grantedScopes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isVerified => $composableBuilder(
+    column: $table.isVerified,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastSyncAt => $composableBuilder(
+    column: $table.lastSyncAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$FriendsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $FriendsTable,
+          FriendRow,
+          $$FriendsTableFilterComposer,
+          $$FriendsTableOrderingComposer,
+          $$FriendsTableAnnotationComposer,
+          $$FriendsTableCreateCompanionBuilder,
+          $$FriendsTableUpdateCompanionBuilder,
+          (FriendRow, BaseReferences<_$AppDatabase, $FriendsTable, FriendRow>),
+          FriendRow,
+          PrefetchHooks Function()
+        > {
+  $$FriendsTableTableManager(_$AppDatabase db, $FriendsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FriendsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FriendsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FriendsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<String> publicKeyHex = const Value.absent(),
+                Value<String?> sharedSecretHex = const Value.absent(),
+                Value<String> grantedScopes = const Value.absent(),
+                Value<bool> isVerified = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> lastSyncAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FriendsCompanion(
+                id: id,
+                displayName: displayName,
+                publicKeyHex: publicKeyHex,
+                sharedSecretHex: sharedSecretHex,
+                grantedScopes: grantedScopes,
+                isVerified: isVerified,
+                createdAt: createdAt,
+                lastSyncAt: lastSyncAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String displayName,
+                required String publicKeyHex,
+                Value<String?> sharedSecretHex = const Value.absent(),
+                Value<String> grantedScopes = const Value.absent(),
+                Value<bool> isVerified = const Value.absent(),
+                required DateTime createdAt,
+                Value<DateTime?> lastSyncAt = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => FriendsCompanion.insert(
+                id: id,
+                displayName: displayName,
+                publicKeyHex: publicKeyHex,
+                sharedSecretHex: sharedSecretHex,
+                grantedScopes: grantedScopes,
+                isVerified: isVerified,
+                createdAt: createdAt,
+                lastSyncAt: lastSyncAt,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$FriendsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $FriendsTable,
+      FriendRow,
+      $$FriendsTableFilterComposer,
+      $$FriendsTableOrderingComposer,
+      $$FriendsTableAnnotationComposer,
+      $$FriendsTableCreateCompanionBuilder,
+      $$FriendsTableUpdateCompanionBuilder,
+      (FriendRow, BaseReferences<_$AppDatabase, $FriendsTable, FriendRow>),
+      FriendRow,
+      PrefetchHooks Function()
+    >;
+
+class $AppDatabaseManager {
+  final _$AppDatabase _db;
+  $AppDatabaseManager(this._db);
+  $$MembersTableTableManager get members =>
+      $$MembersTableTableManager(_db, _db.members);
+  $$FrontingSessionsTableTableManager get frontingSessions =>
+      $$FrontingSessionsTableTableManager(_db, _db.frontingSessions);
+  $$ConversationsTableTableManager get conversations =>
+      $$ConversationsTableTableManager(_db, _db.conversations);
+  $$ChatMessagesTableTableManager get chatMessages =>
+      $$ChatMessagesTableTableManager(_db, _db.chatMessages);
+  $$SystemSettingsTableTableTableManager get systemSettingsTable =>
+      $$SystemSettingsTableTableTableManager(_db, _db.systemSettingsTable);
+  $$PollsTableTableManager get polls =>
+      $$PollsTableTableManager(_db, _db.polls);
+  $$PollOptionsTableTableManager get pollOptions =>
+      $$PollOptionsTableTableManager(_db, _db.pollOptions);
+  $$PollVotesTableTableManager get pollVotes =>
+      $$PollVotesTableTableManager(_db, _db.pollVotes);
+  $$SleepSessionsTableTableManager get sleepSessions =>
+      $$SleepSessionsTableTableManager(_db, _db.sleepSessions);
+  $$PluralKitSyncStateTableTableManager get pluralKitSyncState =>
+      $$PluralKitSyncStateTableTableManager(_db, _db.pluralKitSyncState);
+  $$HabitsTableTableManager get habits =>
+      $$HabitsTableTableManager(_db, _db.habits);
+  $$HabitCompletionsTableTableManager get habitCompletions =>
+      $$HabitCompletionsTableTableManager(_db, _db.habitCompletions);
+  $$SyncQuarantineTableTableTableManager get syncQuarantineTable =>
+      $$SyncQuarantineTableTableTableManager(_db, _db.syncQuarantineTable);
+  $$MemberGroupsTableTableManager get memberGroups =>
+      $$MemberGroupsTableTableManager(_db, _db.memberGroups);
+  $$MemberGroupEntriesTableTableManager get memberGroupEntries =>
+      $$MemberGroupEntriesTableTableManager(_db, _db.memberGroupEntries);
+  $$CustomFieldsTableTableManager get customFields =>
+      $$CustomFieldsTableTableManager(_db, _db.customFields);
+  $$CustomFieldValuesTableTableManager get customFieldValues =>
+      $$CustomFieldValuesTableTableManager(_db, _db.customFieldValues);
+  $$NotesTableTableManager get notes =>
+      $$NotesTableTableManager(_db, _db.notes);
+  $$FrontSessionCommentsTableTableManager get frontSessionComments =>
+      $$FrontSessionCommentsTableTableManager(_db, _db.frontSessionComments);
+  $$ConversationCategoriesTableTableManager get conversationCategories =>
+      $$ConversationCategoriesTableTableManager(
+        _db,
+        _db.conversationCategories,
+      );
+  $$RemindersTableTableManager get reminders =>
+      $$RemindersTableTableManager(_db, _db.reminders);
+  $$FriendsTableTableManager get friends =>
+      $$FriendsTableTableManager(_db, _db.friends);
+}

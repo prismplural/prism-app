@@ -1,0 +1,98 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+
+/// Control bar for the timeline with zoom and navigation buttons.
+class TimelineControls extends ConsumerWidget {
+  const TimelineControls({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final state = ref.watch(timelineStateProvider);
+    final notifier = ref.read(timelineStateProvider.notifier);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          // Jump to date
+          GestureDetector(
+            onTap: () => _pickDate(context, ref),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 16,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Jump to date',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Spacer(),
+
+          // Today button
+          PrismIconButton(
+            icon: Icons.today_rounded,
+            tooltip: 'Jump to now',
+            onPressed: () {
+              ref.read(timelineJumpTargetProvider.notifier).jumpTo(
+                    DateTime.now(),
+                  );
+            },
+            size: 36,
+            iconSize: 18,
+          ),
+          const SizedBox(width: 4),
+
+          // Zoom out
+          PrismIconButton(
+            icon: Icons.remove_rounded,
+            tooltip: 'Zoom out',
+            onPressed: notifier.zoomOut,
+            size: 36,
+            iconSize: 18,
+            enabled: state.pixelsPerHour > TimelineState.minPixelsPerHour,
+          ),
+          const SizedBox(width: 4),
+
+          // Zoom in
+          PrismIconButton(
+            icon: Icons.add_rounded,
+            tooltip: 'Zoom in',
+            onPressed: notifier.zoomIn,
+            size: 36,
+            iconSize: 18,
+            enabled: state.pixelsPerHour < TimelineState.maxPixelsPerHour,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickDate(BuildContext context, WidgetRef ref) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+    );
+    if (picked != null) {
+      // Jump to noon on the picked date so the day is centered
+      ref.read(timelineJumpTargetProvider.notifier).jumpTo(
+            DateTime(picked.year, picked.month, picked.day, 12),
+          );
+    }
+  }
+}
