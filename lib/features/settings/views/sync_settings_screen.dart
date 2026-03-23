@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_content.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -23,6 +24,88 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+
+// ---------------------------------------------------------------------------
+// Sync entity counts provider
+// ---------------------------------------------------------------------------
+
+class SyncEntityCounts {
+  const SyncEntityCounts({required this.total, required this.last24h});
+  final int total;
+  final int last24h;
+}
+
+final syncEntityCountsProvider = FutureProvider<SyncEntityCounts>((ref) async {
+  final db = ref.watch(databaseProvider);
+
+  // All synced entity tables with is_deleted column.
+  const tables = [
+    'members',
+    'fronting_sessions',
+    'conversations',
+    'chat_messages',
+    'polls',
+    'poll_options',
+    'poll_votes',
+    'sleep_sessions',
+    'habits',
+    'habit_completions',
+    'member_groups',
+    'member_group_entries',
+    'custom_fields',
+    'custom_field_values',
+    'notes',
+    'front_session_comments',
+    'conversation_categories',
+    'reminders',
+    'friends',
+  ];
+
+  // Tables mapped to the date column to use for "last 24h" filtering.
+  // Tables without a date column are excluded from the 24h count.
+  const dateColumns = <String, String>{
+    'members': 'created_at',
+    'fronting_sessions': 'start_time',
+    'conversations': 'created_at',
+    'chat_messages': 'timestamp',
+    'polls': 'created_at',
+    'poll_votes': 'voted_at',
+    'sleep_sessions': 'start_time',
+    'habits': 'created_at',
+    'habit_completions': 'created_at',
+    'member_groups': 'created_at',
+    'custom_fields': 'created_at',
+    'notes': 'created_at',
+    'front_session_comments': 'created_at',
+    'conversation_categories': 'created_at',
+    'reminders': 'created_at',
+    'friends': 'created_at',
+  };
+
+  // Build a single SQL query: total count across all tables.
+  final totalParts =
+      tables.map((t) => 'SELECT COUNT(*) AS c FROM $t WHERE is_deleted = 0');
+  final totalSql =
+      'SELECT SUM(c) AS total FROM (${totalParts.join(' UNION ALL ')})';
+
+  final totalResult = await db.customSelect(totalSql).getSingle();
+  final total = totalResult.read<int>('total');
+
+  // Build a single SQL query: count of entities with a recent date.
+  final cutoff = DateTime.now()
+      .subtract(const Duration(hours: 24))
+      .millisecondsSinceEpoch ~/ 1000;
+  final recentParts = dateColumns.entries.map((e) =>
+      'SELECT COUNT(*) AS c FROM ${e.key} '
+      'WHERE is_deleted = 0 AND ${e.value} >= $cutoff');
+  final recentSql =
+      'SELECT SUM(c) AS total FROM (${recentParts.join(' UNION ALL ')})';
+
+  final recentResult = await db.customSelect(recentSql).getSingle();
+  final last24h = recentResult.read<int>('total');
+
+  return SyncEntityCounts(total: total, last24h: last24h);
+});
 
 class SyncSettingsScreen extends ConsumerWidget {
   const SyncSettingsScreen({super.key});
@@ -351,6 +434,8 @@ class _ConfiguredView extends ConsumerWidget {
           child: PrismSectionCard(
             child: Column(
               children: [
+                _SyncEntityCountRows(),
+                const Divider(height: 1),
                 _DetailRow(label: 'Relay', value: relayUrl),
                 const Divider(height: 1),
                 _DetailRow(label: 'Sync ID', value: syncId),
@@ -397,6 +482,13 @@ class _ConfiguredView extends ConsumerWidget {
     ffi.PrismSyncHandle handle,
   ) async {
     try {
+      // If the WebSocket is disconnected, trigger an immediate reconnect
+      // (resets exponential backoff) so real-time notifications resume.
+      try {
+        await ffi.reconnectWebsocket(handle: handle);
+      } catch (_) {
+        // Non-fatal: the manual sync cycle below will still run.
+      }
       await ffi.syncNow(handle: handle);
       if (context.mounted) {
         PrismToast.show(context, message: 'Sync finished');
@@ -675,6 +767,38 @@ class _QuarantineItemTile extends StatelessWidget {
           color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
+    );
+  }
+}
+
+/// Shows synced entity counts (total and last 24h) in the Details section.
+class _SyncEntityCountRows extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final countsAsync = ref.watch(syncEntityCountsProvider);
+
+    return countsAsync.when(
+      data: (counts) => Column(
+        children: [
+          _DetailRow(
+            label: 'Synced last 24h',
+            value: '${counts.last24h} entities',
+          ),
+          const Divider(height: 1),
+          _DetailRow(
+            label: 'Total synced',
+            value: '${counts.total} entities',
+          ),
+        ],
+      ),
+      loading: () => const Column(
+        children: [
+          _DetailRow(label: 'Synced last 24h', value: '...'),
+          Divider(height: 1),
+          _DetailRow(label: 'Total synced', value: '...'),
+        ],
+      ),
+      error: (_, _) => const SizedBox.shrink(),
     );
   }
 }

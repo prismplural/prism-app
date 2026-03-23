@@ -36,6 +36,11 @@ class _PrismAppState extends ConsumerState<PrismApp> {
   void _onResume() {
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle != null) {
+      // Re-establish the WebSocket if it dropped while backgrounded,
+      // resetting the exponential backoff for an immediate reconnect.
+      ffi.reconnectWebsocket(handle: handle).catchError((e) {
+        debugPrint('WebSocket reconnect on resume failed (non-fatal): $e');
+      });
       ffi.onResume(handle: handle).catchError((e) {
         // Non-fatal: sync engine may not be configured yet
         debugPrint('onResume failed (non-fatal): $e');

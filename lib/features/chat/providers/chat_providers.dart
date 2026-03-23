@@ -298,8 +298,30 @@ class ChatNotifier extends Notifier<void> {
   }
 
   Future<void> deleteMessage(String messageId) async {
-    final repo = ref.read(chatMessageRepositoryProvider);
-    await repo.deleteMessage(messageId);
+    final msgRepo = ref.read(chatMessageRepositoryProvider);
+    final convRepo = ref.read(conversationRepositoryProvider);
+
+    // Look up the message before deleting so we know which conversation to fix.
+    final message = await msgRepo.getMessageById(messageId);
+    await msgRepo.deleteMessage(messageId);
+
+    // After deletion, update the conversation's lastActivityAt to reflect the
+    // latest remaining message. Without this, the conversation list shows "now"
+    // because the original sendMessage set lastActivityAt but deleting the
+    // message never reverted it.
+    if (message != null) {
+      final conv = await convRepo.getConversationById(message.conversationId);
+      if (conv != null) {
+        final latestMessage =
+            await msgRepo.getLatestMessage(message.conversationId);
+        final newActivityAt = latestMessage?.timestamp ?? conv.createdAt;
+        if (newActivityAt != conv.lastActivityAt) {
+          await convRepo.updateConversation(
+            conv.copyWith(lastActivityAt: newActivityAt),
+          );
+        }
+      }
+    }
   }
 
   Future<void> updateConversation(
