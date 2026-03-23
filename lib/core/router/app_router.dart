@@ -42,6 +42,9 @@ import '../../features/habits/views/habit_detail_screen.dart';
 import '../../features/data_management/views/import_export_screen.dart';
 import '../../features/fronting/ui/fronting_sanitization_screen.dart';
 import '../../features/settings/views/features_settings_screen.dart';
+import '../../features/settings/views/chat_feature_settings_screen.dart';
+import '../../features/settings/views/habits_feature_settings_screen.dart';
+import '../../features/settings/views/fronting_feature_settings_screen.dart';
 import '../../features/settings/views/about_screen.dart';
 import '../../features/settings/views/reset_data_screen.dart';
 import '../../features/settings/views/custom_fields_screen.dart';
@@ -398,6 +401,23 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'features',
                     builder: (context, state) => const FeaturesSettingsScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'chat',
+                        builder: (context, state) =>
+                            const ChatFeatureSettingsScreen(),
+                      ),
+                      GoRoute(
+                        path: 'habits',
+                        builder: (context, state) =>
+                            const HabitsFeatureSettingsScreen(),
+                      ),
+                      GoRoute(
+                        path: 'fronting',
+                        builder: (context, state) =>
+                            const FrontingFeatureSettingsScreen(),
+                      ),
+                    ],
                   ),
                   GoRoute(
                     path: 'reset',
