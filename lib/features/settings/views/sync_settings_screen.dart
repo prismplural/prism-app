@@ -35,7 +35,8 @@ class SyncEntityCounts {
   final int last24h;
 }
 
-final syncEntityCountsProvider = FutureProvider<SyncEntityCounts>((ref) async {
+final syncEntityCountsProvider =
+    FutureProvider.autoDispose<SyncEntityCounts>((ref) async {
   final db = ref.watch(databaseProvider);
 
   // All synced entity tables with is_deleted column.

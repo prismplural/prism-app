@@ -40,6 +40,14 @@ class NavigationSettingsScreen extends ConsumerWidget {
         if (!tab.isLocked && !tab.isEnabled(settings)) tab,
     ];
 
+    // Build the unified flat list: primary header + primary items + overflow header + overflow items
+    final List<_UnifiedEntry> entries = [
+      const _UnifiedEntry.header('Nav Bar'),
+      for (final tab in primaryTabs) _UnifiedEntry.item(tab),
+      const _UnifiedEntry.header('More Menu'),
+      for (final tab in overflowTabs) _UnifiedEntry.item(tab),
+    ];
+
     return PrismPageScaffold(
       topBar: const PrismTopBar(
         title: 'Navigation',
@@ -72,162 +80,57 @@ class NavigationSettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          // Primary nav bar items
-          PrismSection(
-            title: 'Nav Bar',
-            child: DragTarget<AppShellTab>(
-              onWillAcceptWithDetails: (details) {
-                // Accept items from overflow section (not already in primary)
-                final tab = details.data;
-                return !primaryTabs.any((t) => t.id == tab.id);
-              },
-              onAcceptWithDetails: (details) {
-                _moveOverflowToPrimary(
-                    ref, primaryTabs, overflowTabs, details.data);
-              },
-              builder: (context, candidateData, rejectedData) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  decoration: candidateData.isNotEmpty
-                      ? BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: theme.colorScheme.primary
-                                .withValues(alpha: 0.5),
-                            width: 2,
-                          ),
-                        )
-                      : null,
-                  child: PrismSectionCard(
-                    child: ReorderableListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: primaryTabs.length,
-                      onReorder: (oldIndex, newIndex) {
-                        _onReorderPrimary(
-                            ref, primaryTabs, oldIndex, newIndex);
-                      },
-                      proxyDecorator: (child, index, animation) {
-                        return Material(
-                          elevation: 4,
-                          borderRadius: BorderRadius.circular(12),
-                          child: child,
-                        );
-                      },
-                      itemBuilder: (context, index) {
-                        final tab = primaryTabs[index];
-                        return _DraggableNavItem(
-                          key: ValueKey(tab.id),
-                          tab: tab,
-                          terminologyPlural: terms.plural,
-                          isLocked: tab.isLocked,
-                          reorderIndex: index,
-                          section: _NavSection.primary,
-                          onRemove: tab.isLocked
-                              ? null
-                              : () =>
-                                  _removeFromPrimary(ref, primaryTabs, tab),
-                          onMoveToOverflow: tab.isLocked
-                              ? null
-                              : () => _movePrimaryToOverflow(
-                                  ref, primaryTabs, overflowTabs, tab),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
+          // Unified reorderable list with section headers
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: PrismSectionCard(
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: entries.length,
+                onReorder: (oldIndex, newIndex) {
+                  _onReorder(ref, entries, oldIndex, newIndex);
+                },
+                proxyDecorator: (child, index, animation) {
+                  return Material(
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(12),
+                    child: child,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final entry = entries[index];
 
-          // Overflow / More menu items
-          PrismSection(
-            title: 'More Menu',
-            child: DragTarget<AppShellTab>(
-              onWillAcceptWithDetails: (details) {
-                // Accept items from primary section (not already in overflow)
-                final tab = details.data;
-                return !overflowTabs.any((t) => t.id == tab.id);
-              },
-              onAcceptWithDetails: (details) {
-                _movePrimaryToOverflow(
-                    ref, primaryTabs, overflowTabs, details.data);
-              },
-              builder: (context, candidateData, rejectedData) {
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  decoration: candidateData.isNotEmpty
-                      ? BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: theme.colorScheme.primary
-                                .withValues(alpha: 0.5),
-                            width: 2,
-                          ),
-                        )
-                      : null,
-                  child: overflowTabs.isEmpty && candidateData.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          child: Text(
-                            'Items here appear when you tap the menu button on the nav bar.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant
-                                  .withValues(alpha: 0.6),
-                            ),
-                          ),
-                        )
-                      : overflowTabs.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 12),
-                              child: Text(
-                                'Drop here to move to More menu',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                            )
-                          : PrismSectionCard(
-                              child: ReorderableListView.builder(
-                                shrinkWrap: true,
-                                physics:
-                                    const NeverScrollableScrollPhysics(),
-                                itemCount: overflowTabs.length,
-                                onReorder: (oldIndex, newIndex) {
-                                  _onReorderOverflow(
-                                      ref, overflowTabs, oldIndex, newIndex);
-                                },
-                                proxyDecorator:
-                                    (child, index, animation) {
-                                  return Material(
-                                    elevation: 4,
-                                    borderRadius:
-                                        BorderRadius.circular(12),
-                                    child: child,
-                                  );
-                                },
-                                itemBuilder: (context, index) {
-                                  final tab = overflowTabs[index];
-                                  return _DraggableNavItem(
-                                    key: ValueKey(tab.id),
-                                    tab: tab,
-                                    terminologyPlural: terms.plural,
-                                    isLocked: false,
-                                    reorderIndex: index,
-                                    section: _NavSection.overflow,
-                                    onRemove: () => _removeFromOverflow(
-                                        ref, overflowTabs, tab),
-                                    onMoveToPrimary: () =>
-                                        _moveOverflowToPrimary(ref,
-                                            primaryTabs, overflowTabs, tab),
-                                  );
-                                },
-                              ),
-                            ),
-                );
-              },
+                  if (entry.isHeader) {
+                    return _SectionHeader(
+                      key: ValueKey('header_${entry.headerTitle}'),
+                      title: entry.headerTitle!,
+                    );
+                  }
+
+                  final tab = entry.tab!;
+                  final isInPrimary = _isInPrimarySection(entries, index);
+
+                  return _NavItem(
+                    key: ValueKey(tab.id),
+                    tab: tab,
+                    terminologyPlural: terms.plural,
+                    isLocked: tab.isLocked,
+                    reorderIndex: index,
+                    onRemove: tab.isLocked
+                        ? null
+                        : () => _removeItem(ref, entries, index),
+                    onMoveToOverflow: tab.isLocked || !isInPrimary
+                        ? null
+                        : () => _moveToOtherSection(
+                            ref, entries, index, false),
+                    onMoveToPrimary: tab.isLocked || isInPrimary
+                        ? null
+                        : () => _moveToOtherSection(
+                            ref, entries, index, true),
+                  );
+                },
+              ),
             ),
           ),
 
@@ -281,29 +184,108 @@ class NavigationSettingsScreen extends ConsumerWidget {
     );
   }
 
-  // --- Primary bar operations ---
+  // --- Unified list helpers ---
 
-  void _onReorderPrimary(
-      WidgetRef ref, List<AppShellTab> current, int oldIndex, int newIndex) {
+  /// Find the index of the overflow header in the entries list.
+  int _overflowHeaderIndex(List<_UnifiedEntry> entries) {
+    return entries.indexWhere(
+        (e) => e.isHeader && e.headerTitle == 'More Menu');
+  }
+
+  /// Whether the item at [index] is in the primary section (before overflow header).
+  bool _isInPrimarySection(List<_UnifiedEntry> entries, int index) {
+    return index < _overflowHeaderIndex(entries);
+  }
+
+  /// Handle reorder within the unified list. Headers cannot move, and locked
+  /// items (Home at index 1, Settings at the end) stay put.
+  void _onReorder(
+      WidgetRef ref, List<_UnifiedEntry> entries, int oldIndex, int newIndex) {
     if (newIndex > oldIndex) newIndex--;
-    final reordered = List<AppShellTab>.from(current);
+
+    final entry = entries[oldIndex];
+
+    // Headers are not draggable -- ignore
+    if (entry.isHeader) return;
+
+    // Locked items cannot move
+    if (entry.tab!.isLocked) return;
+
+    // Cannot drop onto a header position (index 0 or the overflow header index)
+    // Build the reordered list to figure out final positions
+    final reordered = List<_UnifiedEntry>.from(entries);
     final item = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, item);
 
-    final homeIndex =
-        reordered.indexWhere((t) => t.id == AppShellTabId.home);
-    final settingsIndex =
-        reordered.indexWhere((t) => t.id == AppShellTabId.settings);
-    if (homeIndex != 0 || settingsIndex != reordered.length - 1) return;
-
-    _savePrimary(ref, reordered);
+    // Validate: headers must stay in original relative order and locked items
+    // must remain in their correct positions. Extract and save.
+    _saveFromEntries(ref, reordered);
   }
 
-  void _removeFromPrimary(
-      WidgetRef ref, List<AppShellTab> current, AppShellTab tab) {
-    final updated = current.where((t) => t.id != tab.id).toList();
-    _savePrimary(ref, updated);
+  /// Move an item to the other section using the arrow buttons.
+  void _moveToOtherSection(
+      WidgetRef ref, List<_UnifiedEntry> entries, int index, bool toPrimary) {
+    final reordered = List<_UnifiedEntry>.from(entries);
+    final item = reordered.removeAt(index);
+    final overflowIdx = _overflowHeaderIndex(reordered);
+
+    if (toPrimary) {
+      // Insert just before the overflow header (end of primary section)
+      reordered.insert(overflowIdx, item);
+    } else {
+      // Insert just after the overflow header (start of overflow section)
+      reordered.insert(overflowIdx + 1, item);
+    }
+    _saveFromEntries(ref, reordered);
   }
+
+  /// Remove an item from the unified list entirely.
+  void _removeItem(
+      WidgetRef ref, List<_UnifiedEntry> entries, int index) {
+    final reordered = List<_UnifiedEntry>.from(entries);
+    reordered.removeAt(index);
+    _saveFromEntries(ref, reordered);
+  }
+
+  /// Derive primary and overflow tab lists from the unified entries and persist.
+  void _saveFromEntries(WidgetRef ref, List<_UnifiedEntry> entries) {
+    final overflowIdx = entries.indexWhere(
+        (e) => e.isHeader && e.headerTitle == 'More Menu');
+
+    final primaryItems = <AppShellTab>[];
+    final overflowItems = <AppShellTab>[];
+
+    for (int i = 0; i < entries.length; i++) {
+      final e = entries[i];
+      if (e.isHeader) continue;
+      if (i < overflowIdx) {
+        primaryItems.add(e.tab!);
+      } else {
+        overflowItems.add(e.tab!);
+      }
+    }
+
+    // Validate locked positions: Home must be first in primary, Settings last
+    final homeIdx =
+        primaryItems.indexWhere((t) => t.id == AppShellTabId.home);
+    final settingsIdx =
+        primaryItems.indexWhere((t) => t.id == AppShellTabId.settings);
+
+    // If Home is not at position 0 in primary, or Settings is somewhere wrong,
+    // reject the reorder silently (same behavior as the old code).
+    if (homeIdx >= 0 && homeIdx != 0) return;
+    if (settingsIdx >= 0 && settingsIdx != primaryItems.length - 1) return;
+
+    // Also check if Settings ended up in overflow -- not allowed
+    if (overflowItems.any((t) => t.id == AppShellTabId.settings)) return;
+    // And Home in overflow -- not allowed
+    if (overflowItems.any((t) => t.id == AppShellTabId.home)) return;
+
+    _savePrimary(ref, primaryItems);
+    _saveOverflow(ref, overflowItems);
+  }
+
+  // --- Add operations (from Available section) ---
 
   void _addToPrimary(
       WidgetRef ref, List<AppShellTab> current, AppShellTab tab) {
@@ -318,45 +300,9 @@ class NavigationSettingsScreen extends ConsumerWidget {
     _savePrimary(ref, updated);
   }
 
-  void _movePrimaryToOverflow(WidgetRef ref, List<AppShellTab> primary,
-      List<AppShellTab> overflow, AppShellTab tab) {
-    _savePrimary(ref, primary.where((t) => t.id != tab.id).toList());
-    _saveOverflow(ref, [...overflow, tab]);
-  }
-
-  // --- Overflow operations ---
-
-  void _onReorderOverflow(
-      WidgetRef ref, List<AppShellTab> current, int oldIndex, int newIndex) {
-    if (newIndex > oldIndex) newIndex--;
-    final reordered = List<AppShellTab>.from(current);
-    final item = reordered.removeAt(oldIndex);
-    reordered.insert(newIndex, item);
-    _saveOverflow(ref, reordered);
-  }
-
-  void _removeFromOverflow(
-      WidgetRef ref, List<AppShellTab> current, AppShellTab tab) {
-    _saveOverflow(ref, current.where((t) => t.id != tab.id).toList());
-  }
-
   void _addToOverflow(
       WidgetRef ref, List<AppShellTab> current, AppShellTab tab) {
     _saveOverflow(ref, [...current, tab]);
-  }
-
-  void _moveOverflowToPrimary(WidgetRef ref, List<AppShellTab> primary,
-      List<AppShellTab> overflow, AppShellTab tab) {
-    _saveOverflow(ref, overflow.where((t) => t.id != tab.id).toList());
-    final updated = List<AppShellTab>.from(primary);
-    final settingsIdx =
-        updated.indexWhere((t) => t.id == AppShellTabId.settings);
-    if (settingsIdx >= 0) {
-      updated.insert(settingsIdx, tab);
-    } else {
-      updated.add(tab);
-    }
-    _savePrimary(ref, updated);
   }
 
   // --- Persistence ---
@@ -372,83 +318,35 @@ class NavigationSettingsScreen extends ConsumerWidget {
   }
 }
 
-enum _NavSection { primary, overflow }
+/// A unified entry in the flat reorderable list: either a section header or a tab item.
+class _UnifiedEntry {
+  final String? headerTitle;
+  final AppShellTab? tab;
 
-/// Wraps [_NavItem] in a [LongPressDraggable] so items can be dragged
-/// between the primary nav bar and the overflow (More menu) sections.
-/// Locked items (Home, Settings) are not draggable across sections.
-class _DraggableNavItem extends StatelessWidget {
-  const _DraggableNavItem({
-    super.key,
-    required this.tab,
-    required this.terminologyPlural,
-    required this.isLocked,
-    required this.reorderIndex,
-    required this.section,
-    this.onRemove,
-    this.onMoveToOverflow,
-    this.onMoveToPrimary,
-  });
+  const _UnifiedEntry.header(this.headerTitle) : tab = null;
+  const _UnifiedEntry.item(this.tab) : headerTitle = null;
 
-  final AppShellTab tab;
-  final String terminologyPlural;
-  final bool isLocked;
-  final int reorderIndex;
-  final _NavSection section;
-  final VoidCallback? onRemove;
-  final VoidCallback? onMoveToOverflow;
-  final VoidCallback? onMoveToPrimary;
+  bool get isHeader => headerTitle != null;
+}
+
+/// Non-draggable section header displayed within the ReorderableListView.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({super.key, required this.title});
+
+  final String title;
 
   @override
   Widget build(BuildContext context) {
-    final child = _NavItem(
-      tab: tab,
-      terminologyPlural: terminologyPlural,
-      isLocked: isLocked,
-      reorderIndex: reorderIndex,
-      onRemove: onRemove,
-      onMoveToOverflow: onMoveToOverflow,
-      onMoveToPrimary: onMoveToPrimary,
-    );
-
-    // Locked items cannot be dragged across sections
-    if (isLocked) return child;
-
     final theme = Theme.of(context);
-
-    return LongPressDraggable<AppShellTab>(
-      data: tab,
-      delay: const Duration(milliseconds: 300),
-      feedback: Material(
-        elevation: 6,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.85,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(tab.icon, color: theme.colorScheme.onPrimaryContainer),
-              const SizedBox(width: 12),
-              Text(
-                tab.displayLabel(terminologyPlural: terminologyPlural),
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
-                ),
-              ),
-            ],
-          ),
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 4),
+      child: Text(
+        title,
+        style: theme.textTheme.labelMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
         ),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: child,
-      ),
-      child: child,
     );
   }
 }

@@ -240,6 +240,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                   child: SingleChildScrollView(
                     controller: _horizontalController,
                     scrollDirection: Axis.horizontal,
+                    physics: const NeverScrollableScrollPhysics(),
                     child: buildHeaderColumns(),
                   ),
                 )
