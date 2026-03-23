@@ -342,7 +342,7 @@ class _NavItem extends StatelessWidget {
             if (onMoveToPrimary != null)
               IconButton(
                 icon: Icon(
-                  Icons.arrow_downward,
+                  Icons.arrow_upward,
                   size: 18,
                   color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 ),
@@ -353,7 +353,7 @@ class _NavItem extends StatelessWidget {
             if (onMoveToOverflow != null)
               IconButton(
                 icon: Icon(
-                  Icons.arrow_upward,
+                  Icons.arrow_downward,
                   size: 18,
                   color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 ),

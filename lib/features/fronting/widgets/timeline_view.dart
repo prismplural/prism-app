@@ -24,13 +24,15 @@ class TimelineView extends ConsumerStatefulWidget {
 
 class _TimelineViewState extends ConsumerState<TimelineView> {
   late ScrollController _verticalController;
+  final ScrollController _horizontalController = ScrollController();
   Timer? _refreshTimer;
   bool _hasAutoScrolled = false;
   DateTime? _viewStart;
   bool _isLoadingMore = false;
 
   static const double _headerRowHeight = 56.0;
-  static const double _columnWidth = 48.0;
+  static const double _minColumnWidth = 36.0;
+  static const double _maxColumnWidth = 48.0;
   static const double _columnPadding = 4.0;
   static const double _timeGutterWidth = 52.0;
   static const double _loadMoreThreshold = 500.0;
@@ -51,6 +53,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   void dispose() {
     _verticalController.removeListener(_onScroll);
     _verticalController.dispose();
+    _horizontalController.dispose();
     _refreshTimer?.cancel();
     super.dispose();
   }
@@ -103,7 +106,26 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                       'Start a fronting session to see it appear on the timeline.',
                 );
               }
-              return _buildTimeline(context, theme, timelineState, rows);
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final availableWidth =
+                      constraints.maxWidth - _timeGutterWidth;
+                  final idealColumnWidth = rows.isNotEmpty
+                      ? (availableWidth / rows.length - _columnPadding).clamp(
+                          _minColumnWidth,
+                          _maxColumnWidth,
+                        )
+                      : _maxColumnWidth;
+                  return _buildTimeline(
+                    context,
+                    theme,
+                    timelineState,
+                    rows,
+                    idealColumnWidth,
+                    availableWidth,
+                  );
+                },
+              );
             },
           ),
         ),
@@ -116,9 +138,11 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     ThemeData theme,
     TimelineState timelineState,
     List<TimelineMemberRow> rows,
+    double columnWidth,
+    double availableWidth,
   ) {
     final pxPerHour = timelineState.pixelsPerHour;
-    final totalColumnWidth = _columnWidth + _columnPadding;
+    final totalColumnWidth = columnWidth + _columnPadding;
 
     // Compute time range from loaded data
     final now = DateTime.now();
@@ -134,10 +158,14 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       }
     }
     // Round down to start of day + 1 day buffer before earliest session
-    final viewStart = DateTime(earliest.year, earliest.month, earliest.day)
-        .subtract(const Duration(days: 1));
+    final viewStart = DateTime(
+      earliest.year,
+      earliest.month,
+      earliest.day,
+    ).subtract(const Duration(days: 1));
 
-    final totalHours = viewEnd.difference(viewStart).inMilliseconds /
+    final totalHours =
+        viewEnd.difference(viewStart).inMilliseconds /
         Duration.millisecondsPerHour;
     final totalHeight = totalHours * pxPerHour;
 
@@ -161,6 +189,44 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       });
     }
 
+    final columnsWidth = rows.length * totalColumnWidth;
+    final needsHorizontalScroll = columnsWidth > availableWidth;
+
+    Widget buildHeaderColumns() {
+      return Row(
+        children: [
+          for (var i = 0; i < rows.length; i++)
+            _MemberHeader(
+              row: rows[i],
+              rowIndex: i,
+              width: totalColumnWidth,
+              columnWidth: columnWidth,
+              primaryColor: theme.colorScheme.primary,
+              brightness: theme.brightness,
+            ),
+        ],
+      );
+    }
+
+    Widget buildSessionColumns() {
+      return CustomPaint(
+        size: Size(columnsWidth, totalHeight),
+        painter: TimelinePainter(
+          rows: rows,
+          columnWidth: columnWidth,
+          columnPadding: _columnPadding,
+          pixelsPerHour: pxPerHour,
+          viewStart: viewStart,
+          viewEnd: viewEnd,
+          primaryColor: theme.colorScheme.primary,
+          surfaceColor: theme.colorScheme.surface,
+          onSurfaceColor: theme.colorScheme.onSurface,
+          surfaceContainerColor: theme.colorScheme.surfaceContainerHighest,
+          brightness: theme.brightness,
+        ),
+      );
+    }
+
     return Column(
       children: [
         // Sticky header row: member avatars/names
@@ -169,14 +235,16 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
           child: Row(
             children: [
               SizedBox(width: _timeGutterWidth),
-              for (var i = 0; i < rows.length; i++)
-                _MemberHeader(
-                  row: rows[i],
-                  rowIndex: i,
-                  width: totalColumnWidth,
-                  primaryColor: theme.colorScheme.primary,
-                  brightness: theme.brightness,
-                ),
+              if (needsHorizontalScroll)
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    child: buildHeaderColumns(),
+                  ),
+                )
+              else
+                buildHeaderColumns(),
             ],
           ),
         ),
@@ -204,34 +272,32 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                         viewStart: viewStart,
                         viewEnd: viewEnd,
                         textColor: theme.colorScheme.onSurfaceVariant,
-                        gridColor:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.12),
+                        gridColor: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.12,
+                        ),
                       ),
                     ),
                   ),
                   // Session columns
-                  Expanded(
-                    child: CustomPaint(
-                      size: Size(
-                        rows.length * totalColumnWidth,
-                        totalHeight,
+                  if (needsHorizontalScroll)
+                    Expanded(
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          if (notification is ScrollUpdateNotification) {
+                            _horizontalController.jumpTo(
+                              notification.metrics.pixels,
+                            );
+                          }
+                          return false;
+                        },
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: buildSessionColumns(),
+                        ),
                       ),
-                      painter: TimelinePainter(
-                        rows: rows,
-                        columnWidth: _columnWidth,
-                        columnPadding: _columnPadding,
-                        pixelsPerHour: pxPerHour,
-                        viewStart: viewStart,
-                        viewEnd: viewEnd,
-                        primaryColor: theme.colorScheme.primary,
-                        surfaceColor: theme.colorScheme.surface,
-                        onSurfaceColor: theme.colorScheme.onSurface,
-                        surfaceContainerColor:
-                            theme.colorScheme.surfaceContainerHighest,
-                        brightness: theme.brightness,
-                      ),
-                    ),
-                  ),
+                    )
+                  else
+                    Expanded(child: buildSessionColumns()),
                 ],
               ),
             ),
@@ -244,7 +310,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   void _scrollToTime(DateTime time, double pxPerHour, {bool animate = true}) {
     if (!_verticalController.hasClients || _viewStart == null) return;
 
-    final targetY = time.difference(_viewStart!).inMilliseconds /
+    final targetY =
+        time.difference(_viewStart!).inMilliseconds /
         Duration.millisecondsPerHour *
         pxPerHour;
     final viewportHeight = _verticalController.position.viewportDimension;
@@ -271,6 +338,7 @@ class _MemberHeader extends StatelessWidget {
     required this.row,
     required this.rowIndex,
     required this.width,
+    required this.columnWidth,
     required this.primaryColor,
     required this.brightness,
   });
@@ -278,6 +346,7 @@ class _MemberHeader extends StatelessWidget {
   final TimelineMemberRow row;
   final int rowIndex;
   final double width;
+  final double columnWidth;
   final Color primaryColor;
   final Brightness brightness;
 
@@ -305,7 +374,7 @@ class _MemberHeader extends StatelessWidget {
             style: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w500,
               color: color,
-              fontSize: 9,
+              fontSize: columnWidth > 44 ? 11 : 10,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

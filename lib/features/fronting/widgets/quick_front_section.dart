@@ -57,7 +57,10 @@ class QuickFrontSection extends ConsumerWidget {
             final countDiff =
                 (counts[b.id] ?? 0).compareTo(counts[a.id] ?? 0);
             if (countDiff != 0) return countDiff;
-            return a.displayOrder.compareTo(b.displayOrder);
+            final orderDiff = a.displayOrder.compareTo(b.displayOrder);
+            if (orderDiff != 0) return orderDiff;
+            // Stable tiebreaker so equal-frequency members never swap
+            return a.id.compareTo(b.id);
           });
         final top = sorted.take(4).toList();
 

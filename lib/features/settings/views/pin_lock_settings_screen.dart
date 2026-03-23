@@ -112,22 +112,28 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                 ),
               ),
 
-              // Biometric (only if PIN is set and biometric is available)
-              if (isPinEnabled && pinSet && biometricAvailable)
-                PrismSection(
-                  title: 'Biometric',
-                  child: PrismSectionCard(
-                    child: PrismSwitchRow(
-                      icon: Icons.fingerprint,
-                      iconColor: Colors.teal,
-                      title: 'Biometric Unlock',
-                      subtitle: 'Use Face ID or fingerprint to unlock',
-                      value: settings.biometricLockEnabled,
-                      onChanged: (value) {
-                        ref
-                            .read(settingsNotifierProvider.notifier)
-                            .updateBiometricLockEnabled(value);
-                      },
+              // Biometric (shown when available, disabled when PIN is not set)
+              if (biometricAvailable)
+                Opacity(
+                  opacity: isPinEnabled && pinSet ? 1.0 : 0.5,
+                  child: PrismSection(
+                    title: 'Biometric',
+                    child: PrismSectionCard(
+                      child: PrismSwitchRow(
+                        icon: Icons.fingerprint,
+                        iconColor: Colors.teal,
+                        title: 'Biometric Unlock',
+                        subtitle: isPinEnabled && pinSet
+                            ? 'Use Face ID or fingerprint to unlock'
+                            : 'Enable PIN Lock to use biometric unlock',
+                        value: settings.biometricLockEnabled,
+                        enabled: isPinEnabled && pinSet,
+                        onChanged: (value) {
+                          ref
+                              .read(settingsNotifierProvider.notifier)
+                              .updateBiometricLockEnabled(value);
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -159,20 +165,33 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                                   ),
                             ),
                           ),
-                          SegmentedButton<int>(
-                            segments: const [
-                              ButtonSegment(value: 0, label: Text('Instant')),
-                              ButtonSegment(value: 15, label: Text('15s')),
-                              ButtonSegment(value: 60, label: Text('1m')),
-                              ButtonSegment(value: 300, label: Text('5m')),
-                              ButtonSegment(value: 900, label: Text('15m')),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final entry in const {
+                                0: 'Instant',
+                                15: '15s',
+                                60: '1m',
+                                300: '5m',
+                                900: '15m',
+                              }.entries)
+                                ChoiceChip(
+                                  label: Text(entry.value),
+                                  selected:
+                                      settings.autoLockDelaySeconds ==
+                                          entry.key,
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      ref
+                                          .read(settingsNotifierProvider
+                                              .notifier)
+                                          .updateAutoLockDelaySeconds(
+                                              entry.key);
+                                    }
+                                  },
+                                ),
                             ],
-                            selected: {settings.autoLockDelaySeconds},
-                            onSelectionChanged: (selected) {
-                              ref
-                                  .read(settingsNotifierProvider.notifier)
-                                  .updateAutoLockDelaySeconds(selected.first);
-                            },
                           ),
                         ],
                       ),
@@ -289,7 +308,7 @@ class _CapturePinScreen extends StatefulWidget {
 class _CapturePinScreenState extends State<_CapturePinScreen>
     with SingleTickerProviderStateMixin {
   String _pin = '';
-  static const _pinLength = 4;
+  static const _pinLength = 6;
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
