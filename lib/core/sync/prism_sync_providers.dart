@@ -1092,6 +1092,14 @@ class WebSocketConnectedNotifier extends Notifier<bool> {
 // ---------------------------------------------------------------------------
 
 /// Call to trigger an immediate sync cycle.
+///
+/// Also attempts to reconnect the WebSocket if it is currently disconnected,
+/// resetting the exponential backoff so real-time notifications resume
+/// immediately rather than waiting for the next backoff interval.
 Future<void> triggerSync(ffi.PrismSyncHandle handle) async {
+  // Best-effort WebSocket reconnect (non-fatal if it fails).
+  try {
+    await ffi.reconnectWebsocket(handle: handle);
+  } catch (_) {}
   await ffi.syncNow(handle: handle);
 }

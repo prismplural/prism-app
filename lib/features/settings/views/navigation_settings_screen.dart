@@ -75,65 +75,37 @@ class NavigationSettingsScreen extends ConsumerWidget {
           // Primary nav bar items
           PrismSection(
             title: 'Nav Bar',
-            child: PrismSectionCard(
-              child: ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: primaryTabs.length,
-                onReorder: (oldIndex, newIndex) {
-                  _onReorderPrimary(ref, primaryTabs, oldIndex, newIndex);
-                },
-                proxyDecorator: (child, index, animation) {
-                  return Material(
-                    elevation: 4,
-                    borderRadius: BorderRadius.circular(12),
-                    child: child,
-                  );
-                },
-                itemBuilder: (context, index) {
-                  final tab = primaryTabs[index];
-                  return _NavItem(
-                    key: ValueKey(tab.id),
-                    tab: tab,
-                    terminologyPlural: terms.plural,
-                    isLocked: tab.isLocked,
-                    reorderIndex: index,
-                    onRemove: tab.isLocked
-                        ? null
-                        : () => _removeFromPrimary(ref, primaryTabs, tab),
-                    onMoveToOverflow: tab.isLocked
-                        ? null
-                        : () => _movePrimaryToOverflow(
-                            ref, primaryTabs, overflowTabs, tab),
-                  );
-                },
-              ),
-            ),
-          ),
-
-          // Overflow / More menu items
-          PrismSection(
-            title: 'More Menu',
-            child: overflowTabs.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: Text(
-                      'Items here appear when you tap the menu button on the nav bar.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.6),
-                      ),
-                    ),
-                  )
-                : PrismSectionCard(
+            child: DragTarget<AppShellTab>(
+              onWillAcceptWithDetails: (details) {
+                // Accept items from overflow section (not already in primary)
+                final tab = details.data;
+                return !primaryTabs.any((t) => t.id == tab.id);
+              },
+              onAcceptWithDetails: (details) {
+                _moveOverflowToPrimary(
+                    ref, primaryTabs, overflowTabs, details.data);
+              },
+              builder: (context, candidateData, rejectedData) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: candidateData.isNotEmpty
+                      ? BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.5),
+                            width: 2,
+                          ),
+                        )
+                      : null,
+                  child: PrismSectionCard(
                     child: ReorderableListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: overflowTabs.length,
+                      itemCount: primaryTabs.length,
                       onReorder: (oldIndex, newIndex) {
-                        _onReorderOverflow(
-                            ref, overflowTabs, oldIndex, newIndex);
+                        _onReorderPrimary(
+                            ref, primaryTabs, oldIndex, newIndex);
                       },
                       proxyDecorator: (child, index, animation) {
                         return Material(
@@ -143,21 +115,120 @@ class NavigationSettingsScreen extends ConsumerWidget {
                         );
                       },
                       itemBuilder: (context, index) {
-                        final tab = overflowTabs[index];
-                        return _NavItem(
+                        final tab = primaryTabs[index];
+                        return _DraggableNavItem(
                           key: ValueKey(tab.id),
                           tab: tab,
                           terminologyPlural: terms.plural,
-                          isLocked: false,
+                          isLocked: tab.isLocked,
                           reorderIndex: index,
-                          onRemove: () => _removeFromOverflow(
-                              ref, overflowTabs, tab),
-                          onMoveToPrimary: () => _moveOverflowToPrimary(
-                              ref, primaryTabs, overflowTabs, tab),
+                          section: _NavSection.primary,
+                          onRemove: tab.isLocked
+                              ? null
+                              : () =>
+                                  _removeFromPrimary(ref, primaryTabs, tab),
+                          onMoveToOverflow: tab.isLocked
+                              ? null
+                              : () => _movePrimaryToOverflow(
+                                  ref, primaryTabs, overflowTabs, tab),
                         );
                       },
                     ),
                   ),
+                );
+              },
+            ),
+          ),
+
+          // Overflow / More menu items
+          PrismSection(
+            title: 'More Menu',
+            child: DragTarget<AppShellTab>(
+              onWillAcceptWithDetails: (details) {
+                // Accept items from primary section (not already in overflow)
+                final tab = details.data;
+                return !overflowTabs.any((t) => t.id == tab.id);
+              },
+              onAcceptWithDetails: (details) {
+                _movePrimaryToOverflow(
+                    ref, primaryTabs, overflowTabs, details.data);
+              },
+              builder: (context, candidateData, rejectedData) {
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  decoration: candidateData.isNotEmpty
+                      ? BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: theme.colorScheme.primary
+                                .withValues(alpha: 0.5),
+                            width: 2,
+                          ),
+                        )
+                      : null,
+                  child: overflowTabs.isEmpty && candidateData.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Text(
+                            'Items here appear when you tap the menu button on the nav bar.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.6),
+                            ),
+                          ),
+                        )
+                      : overflowTabs.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              child: Text(
+                                'Drop here to move to More menu',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            )
+                          : PrismSectionCard(
+                              child: ReorderableListView.builder(
+                                shrinkWrap: true,
+                                physics:
+                                    const NeverScrollableScrollPhysics(),
+                                itemCount: overflowTabs.length,
+                                onReorder: (oldIndex, newIndex) {
+                                  _onReorderOverflow(
+                                      ref, overflowTabs, oldIndex, newIndex);
+                                },
+                                proxyDecorator:
+                                    (child, index, animation) {
+                                  return Material(
+                                    elevation: 4,
+                                    borderRadius:
+                                        BorderRadius.circular(12),
+                                    child: child,
+                                  );
+                                },
+                                itemBuilder: (context, index) {
+                                  final tab = overflowTabs[index];
+                                  return _DraggableNavItem(
+                                    key: ValueKey(tab.id),
+                                    tab: tab,
+                                    terminologyPlural: terms.plural,
+                                    isLocked: false,
+                                    reorderIndex: index,
+                                    section: _NavSection.overflow,
+                                    onRemove: () => _removeFromOverflow(
+                                        ref, overflowTabs, tab),
+                                    onMoveToPrimary: () =>
+                                        _moveOverflowToPrimary(ref,
+                                            primaryTabs, overflowTabs, tab),
+                                  );
+                                },
+                              ),
+                            ),
+                );
+              },
+            ),
           ),
 
           // Available tabs to add
@@ -298,6 +369,87 @@ class NavigationSettingsScreen extends ConsumerWidget {
   void _saveOverflow(WidgetRef ref, List<AppShellTab> tabs) {
     final ids = tabs.map((t) => t.id.name).toList();
     ref.read(settingsNotifierProvider.notifier).updateNavBarOverflowItems(ids);
+  }
+}
+
+enum _NavSection { primary, overflow }
+
+/// Wraps [_NavItem] in a [LongPressDraggable] so items can be dragged
+/// between the primary nav bar and the overflow (More menu) sections.
+/// Locked items (Home, Settings) are not draggable across sections.
+class _DraggableNavItem extends StatelessWidget {
+  const _DraggableNavItem({
+    super.key,
+    required this.tab,
+    required this.terminologyPlural,
+    required this.isLocked,
+    required this.reorderIndex,
+    required this.section,
+    this.onRemove,
+    this.onMoveToOverflow,
+    this.onMoveToPrimary,
+  });
+
+  final AppShellTab tab;
+  final String terminologyPlural;
+  final bool isLocked;
+  final int reorderIndex;
+  final _NavSection section;
+  final VoidCallback? onRemove;
+  final VoidCallback? onMoveToOverflow;
+  final VoidCallback? onMoveToPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = _NavItem(
+      tab: tab,
+      terminologyPlural: terminologyPlural,
+      isLocked: isLocked,
+      reorderIndex: reorderIndex,
+      onRemove: onRemove,
+      onMoveToOverflow: onMoveToOverflow,
+      onMoveToPrimary: onMoveToPrimary,
+    );
+
+    // Locked items cannot be dragged across sections
+    if (isLocked) return child;
+
+    final theme = Theme.of(context);
+
+    return LongPressDraggable<AppShellTab>(
+      data: tab,
+      delay: const Duration(milliseconds: 300),
+      feedback: Material(
+        elevation: 6,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.85,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(tab.icon, color: theme.colorScheme.onPrimaryContainer),
+              const SizedBox(width: 12),
+              Text(
+                tab.displayLabel(terminologyPlural: terminologyPlural),
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: child,
+      ),
+      child: child,
+    );
   }
 }
 
