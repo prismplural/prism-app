@@ -7,7 +7,6 @@ import 'package:prism_plurality/data/mappers/system_settings_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 
 class DriftSystemSettingsRepository
     with SyncRecordMixin
@@ -177,7 +176,7 @@ class DriftSystemSettingsRepository
   }
 
   @override
-  Future<void> updateTimingMode(FrontingTimingMode value) async {
+  Future<void> updateTimingMode(domain.FrontingTimingMode value) async {
     await _dao.updateTimingMode(value.index);
     await _syncField('timing_mode', value.index);
   }

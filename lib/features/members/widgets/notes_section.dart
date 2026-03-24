@@ -18,10 +18,7 @@ class NotesSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notesEnabled = ref.watch(systemSettingsProvider).whenOrNull(
-          data: (s) => s.notesEnabled,
-        ) ??
-        true;
+    final notesEnabled = ref.watch(notesEnabledProvider);
     if (!notesEnabled) return const SizedBox.shrink();
 
     final notesAsync = ref.watch(recentMemberNotesProvider(memberId));

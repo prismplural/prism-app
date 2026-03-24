@@ -58,6 +58,12 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
 
   // ── Completions ──────────────────────────────────────────────────
 
+  Future<List<HabitCompletion>> getAllCompletions() =>
+      (select(habitCompletions)
+            ..where((c) => c.isDeleted.equals(false))
+            ..orderBy([(c) => OrderingTerm.desc(c.completedAt)]))
+          .get();
+
   Stream<List<HabitCompletion>> watchCompletionsForHabit(
           String habitId) =>
       (select(habitCompletions)

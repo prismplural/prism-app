@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 
 part 'system_settings.freezed.dart';
 part 'system_settings.g.dart';
@@ -12,6 +11,19 @@ Uint8List? _uint8ListFromJson(String? json) =>
 
 String? _uint8ListToJson(Uint8List? bytes) =>
     bytes == null ? null : base64Encode(bytes);
+
+/// Controls how strictly fronting session timing is validated.
+enum FrontingTimingMode {
+  flexible,
+  strict;
+
+  Duration get gapThreshold => switch (this) {
+    FrontingTimingMode.flexible => const Duration(minutes: 5),
+    FrontingTimingMode.strict => Duration.zero,
+  };
+
+  Duration get adjacentMergeThreshold => const Duration(seconds: 60);
+}
 
 /// Brightness preference (orthogonal to theme style).
 enum ThemeBrightness {

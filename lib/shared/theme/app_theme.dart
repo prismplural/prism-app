@@ -373,6 +373,9 @@ class AppTheme {
 
   /// Material You theme — uses the system's dynamic color palette.
   /// Falls back to the standard Prism theme if [dynamicScheme] is null.
+  ///
+  /// Routes through [_buildTheme] so Material You gets the same 15+
+  /// component-theme customizations as Standard / OLED variants.
   static ThemeData materialYouLight(ColorScheme? dynamicScheme) {
     final colorScheme =
         dynamicScheme ??
@@ -381,13 +384,29 @@ class AppTheme {
           brightness: Brightness.light,
         );
 
-    final base = ThemeData(
-      useMaterial3: true,
-      colorScheme: colorScheme,
-      brightness: Brightness.light,
+    final accent = colorScheme.primary;
+
+    final colors = _ThemeColors(
+      scaffold: colorScheme.surfaceContainerLowest,
+      cardColor: colorScheme.surfaceContainerLow,
+      fillColor: colorScheme.onSurface.withValues(alpha: 0.04),
+      borderColor: colorScheme.onSurface.withValues(alpha: 0.1),
+      focusBorderColor: accent.withValues(alpha: 0.6),
+      dividerColor: colorScheme.onSurface.withValues(alpha: 0.06),
+      sheetBg: colorScheme.surfaceContainerLow,
+      dialogBg: colorScheme.surfaceContainerLow,
+      popupBg: colorScheme.surfaceContainerLow,
+      snackBarBg: colorScheme.inverseSurface,
+      dragHandleColor: colorScheme.onSurface.withValues(alpha: 0.2),
+      filledButtonBg: colorScheme.onSurface.withValues(alpha: 0.06),
+      filledButtonFg: colorScheme.onSurface.withValues(alpha: 0.8),
+      iconButtonBg: colorScheme.onSurface.withValues(alpha: 0.06),
+      iconButtonFg: colorScheme.onSurface.withValues(alpha: 0.8),
+      textButtonFg: colorScheme.onSurface.withValues(alpha: 0.8),
+      isDark: false,
     );
 
-    return base.copyWith(textTheme: _adjustTextTheme(base.textTheme));
+    return _buildTheme(colorScheme, accent, colors);
   }
 
   static ThemeData materialYouDark(ColorScheme? dynamicScheme) {
@@ -398,12 +417,28 @@ class AppTheme {
           brightness: Brightness.dark,
         );
 
-    final base = ThemeData(
-      useMaterial3: true,
-      colorScheme: colorScheme,
-      brightness: Brightness.dark,
+    final accent = colorScheme.primary;
+
+    final colors = _ThemeColors(
+      scaffold: colorScheme.surfaceContainerLowest,
+      cardColor: colorScheme.onSurface.withValues(alpha: 0.06),
+      fillColor: colorScheme.onSurface.withValues(alpha: 0.06),
+      borderColor: colorScheme.onSurface.withValues(alpha: 0.1),
+      focusBorderColor: accent.withValues(alpha: 0.7),
+      dividerColor: colorScheme.onSurface.withValues(alpha: 0.06),
+      sheetBg: colorScheme.surfaceContainerHigh,
+      dialogBg: colorScheme.surfaceContainerHigh,
+      popupBg: colorScheme.surfaceContainerHigh,
+      snackBarBg: colorScheme.inverseSurface,
+      dragHandleColor: colorScheme.onSurface.withValues(alpha: 0.3),
+      filledButtonBg: colorScheme.onSurface.withValues(alpha: 0.1),
+      filledButtonFg: colorScheme.onSurface,
+      iconButtonBg: colorScheme.onSurface.withValues(alpha: 0.1),
+      iconButtonFg: colorScheme.onSurface,
+      textButtonFg: colorScheme.onSurface.withValues(alpha: 0.8),
+      isDark: true,
     );
 
-    return base.copyWith(textTheme: _adjustTextTheme(base.textTheme));
+    return _buildTheme(colorScheme, accent, colors);
   }
 }

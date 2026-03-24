@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -26,7 +27,9 @@ class ConversationTile extends ConsumerWidget {
     final theme = Theme.of(context);
     final speakingAs = ref.watch(speakingAsProvider);
     final lastMessageAsync = ref.watch(lastMessageProvider(conversation.id));
-    final membersAsync = ref.watch(activeMembersProvider);
+    final participantMapAsync = ref.watch(
+      membersByIdsProvider(memberIdsKey(conversation.participantIds)),
+    );
 
     final bool hasUnread = _hasUnread(speakingAs);
     final unreadCount = ref.watch(unreadMessageCountProvider(conversation.id));
@@ -48,7 +51,7 @@ class ConversationTile extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _displayTitle(membersAsync, speakingAs),
+                      _displayTitle(participantMapAsync, speakingAs),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyLarge?.copyWith(
@@ -116,8 +119,17 @@ class ConversationTile extends ConsumerWidget {
       ),
     );
 
+    // Use ColorFiltered instead of Opacity to avoid an extra compositing layer.
     if (isArchived) {
-      return Opacity(opacity: 0.6, child: child);
+      return ColorFiltered(
+        colorFilter: const ColorFilter.matrix(<double>[
+          1, 0, 0, 0, 0, // R
+          0, 1, 0, 0, 0, // G
+          0, 0, 1, 0, 0, // B
+          0, 0, 0, 0.6, 0, // A
+        ]),
+        child: child,
+      );
     }
     return child;
   }
@@ -181,7 +193,7 @@ class ConversationTile extends ConsumerWidget {
   }
 
   String _displayTitle(
-    AsyncValue<List<Member>> membersAsync,
+    AsyncValue<Map<String, Member>> participantMapAsync,
     String? speakingAs,
   ) {
     if (conversation.title != null &&
@@ -190,14 +202,12 @@ class ConversationTile extends ConsumerWidget {
     }
 
     // For DMs, show the other participant's name
-    return membersAsync.when(
-      data: (members) {
+    return participantMapAsync.when(
+      data: (participantMap) {
         final otherNames = conversation.participantIds
             .where((id) => id != speakingAs)
-            .map((id) {
-          final member = members.where((m) => m.id == id).firstOrNull;
-          return member?.name ?? 'Unknown';
-        }).toList();
+            .map((id) => participantMap[id]?.name ?? 'Unknown')
+            .toList();
         if (otherNames.isEmpty) return 'Conversation';
         return otherNames.join(', ');
       },

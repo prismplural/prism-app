@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 
 class SystemSettingsMapper {
   SystemSettingsMapper._();
@@ -32,7 +31,7 @@ class SystemSettingsMapper {
       hasCompletedOnboarding: row.hasCompletedOnboarding,
       syncThemeEnabled: row.syncThemeEnabled,
       habitsBadgeEnabled: row.habitsBadgeEnabled,
-      timingMode: FrontingTimingMode.values[row.timingMode],
+      timingMode: domain.FrontingTimingMode.values[row.timingMode],
       notesEnabled: row.notesEnabled,
       previousAccentColorHex: row.previousAccentColorHex,
       systemDescription: row.systemDescription,

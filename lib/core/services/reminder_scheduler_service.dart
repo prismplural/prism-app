@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -199,14 +201,23 @@ final reminderSchedulerServiceProvider =
 final reminderSchedulerListenerProvider = Provider<void>((ref) {
   final service = ref.watch(reminderSchedulerServiceProvider);
 
-  // Watch active reminders and reschedule when they change.
+  // Debounce timer for rescheduleAll — prevents rapid-fire rescheduling
+  // during sync bursts where many reminder entities arrive in quick
+  // succession. Only the last emission within the 500ms window fires.
+  Timer? debounceTimer;
+  ref.onDispose(() => debounceTimer?.cancel());
+
+  // Watch active reminders and reschedule when they change (debounced).
   ref.listen(
     activeRemindersProvider,
     (previous, next) {
       final reminders = next.value;
       if (reminders != null) {
-        service.rescheduleAll(reminders).catchError((e) {
-          debugPrint('Reminder reschedule failed (non-fatal): $e');
+        debounceTimer?.cancel();
+        debounceTimer = Timer(const Duration(milliseconds: 500), () {
+          service.rescheduleAll(reminders).catchError((e) {
+            debugPrint('Reminder reschedule failed (non-fatal): $e');
+          });
         });
       }
     },

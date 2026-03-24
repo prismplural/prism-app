@@ -109,9 +109,7 @@ DateTime? _asDateTime(dynamic value) {
   return null;
 }
 
-/// Non-nullable DateTime with epoch fallback (for required timestamp fields).
-DateTime _dt(dynamic v) =>
-    _asDateTime(v) ?? DateTime.fromMillisecondsSinceEpoch(0);
+
 
 /// Nullable blob from base64 string.
 Uint8List? _blob(dynamic v) {
@@ -211,9 +209,8 @@ class _FieldContext {
     final raw = fields[key];
     final v = _asDateTime(raw);
     if (v != null) return Value(v);
-    // DateTime fields use epoch fallback, but still report the mismatch
     _report(key, 'DateTime', raw);
-    return Value(_dt(raw));
+    return const Value.absent();
   }
 
   // -- Nullable DateTime -----------------------------------------------------

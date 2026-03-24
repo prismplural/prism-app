@@ -45,6 +45,7 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
         child = _WelcomeBackView(
           key: const ValueKey('success'),
           counts: pairingState.counts,
+          syncIncomplete: pairingState.syncIncomplete,
           onGetStarted: () async {
             await ref
                 .read(devicePairingProvider.notifier)
@@ -367,10 +368,12 @@ class _WelcomeBackView extends StatelessWidget {
     super.key,
     required this.counts,
     required this.onGetStarted,
+    this.syncIncomplete = false,
   });
 
   final SyncCounts? counts;
   final VoidCallback onGetStarted;
+  final bool syncIncomplete;
 
   @override
   Widget build(BuildContext context) {
@@ -400,6 +403,38 @@ class _WelcomeBackView extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
+          if (syncIncomplete) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.amber.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.sync,
+                    size: 18,
+                    color: Colors.amber.withValues(alpha: 0.9),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Some data is still syncing and will appear shortly.',
+                      style: TextStyle(
+                        color: Colors.amber.withValues(alpha: 0.9),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (counts != null) ...[
             const SizedBox(height: 28),
             Container(

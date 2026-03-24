@@ -350,3 +350,42 @@ final timingModeProvider = Provider<FrontingTimingMode>((ref) {
           .whenOrNull(data: (s) => s.timingMode) ??
       FrontingTimingMode.flexible;
 });
+
+/// Narrow provider for `hasCompletedOnboarding` flag.
+final hasCompletedOnboardingProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.hasCompletedOnboarding,
+          ) ??
+      false;
+});
+
+/// Narrow provider for `notesEnabled` flag.
+final notesEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.notesEnabled,
+          ) ??
+      true;
+});
+
+/// Narrow provider for system name.
+final systemNameProvider = Provider<String?>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+        data: (s) => s.systemName,
+      );
+});
+
+/// Narrow provider for `syncThemeEnabled` flag.
+final syncThemeEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.syncThemeEnabled,
+          ) ??
+      false;
+});
+
+/// Narrow provider for `syncNavigationEnabled` flag.
+final syncNavigationEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.syncNavigationEnabled,
+          ) ??
+      true;
+});

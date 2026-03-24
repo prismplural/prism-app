@@ -67,14 +67,19 @@ class GroupMemberAvatar extends StatelessWidget {
       child: ClipOval(
         child: SizedBox.square(
           dimension: size,
-          child: _buildLayout(visible, size),
+          child: _buildLayout(context, visible, size),
         ),
       ),
     );
   }
 
-  Widget _buildLayout(List<GroupAvatarMember> visible, double containerSize) {
+  Widget _buildLayout(
+    BuildContext context,
+    List<GroupAvatarMember> visible,
+    double containerSize,
+  ) {
     final itemSize = containerSize * 0.48;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
 
     switch (visible.length) {
       case 2:
@@ -86,12 +91,12 @@ class GroupMemberAvatar extends StatelessWidget {
             Positioned(
               top: offset * 0.3,
               left: offset * 0.3,
-              child: _miniAvatar(visible[0], dualSize),
+              child: _miniAvatar(visible[0], dualSize, dpr),
             ),
             Positioned(
               bottom: offset * 0.3,
               right: offset * 0.3,
-              child: _miniAvatar(visible[1], dualSize),
+              child: _miniAvatar(visible[1], dualSize, dpr),
             ),
           ],
         );
@@ -102,11 +107,11 @@ class GroupMemberAvatar extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _miniAvatar(visible[0], itemSize * 0.9),
-                _miniAvatar(visible[1], itemSize * 0.9),
+                _miniAvatar(visible[0], itemSize * 0.9, dpr),
+                _miniAvatar(visible[1], itemSize * 0.9, dpr),
               ],
             ),
-            _miniAvatar(visible[2], itemSize * 0.9),
+            _miniAvatar(visible[2], itemSize * 0.9, dpr),
           ],
         );
       case 4:
@@ -116,15 +121,15 @@ class GroupMemberAvatar extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _miniAvatar(visible[0], itemSize * 0.85),
-                _miniAvatar(visible[1], itemSize * 0.85),
+                _miniAvatar(visible[0], itemSize * 0.85, dpr),
+                _miniAvatar(visible[1], itemSize * 0.85, dpr),
               ],
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _miniAvatar(visible[2], itemSize * 0.85),
-                _miniAvatar(visible[3], itemSize * 0.85),
+                _miniAvatar(visible[2], itemSize * 0.85, dpr),
+                _miniAvatar(visible[3], itemSize * 0.85, dpr),
               ],
             ),
           ],
@@ -134,14 +139,21 @@ class GroupMemberAvatar extends StatelessWidget {
     }
   }
 
-  Widget _miniAvatar(GroupAvatarMember member, double itemSize) {
+  Widget _miniAvatar(
+    GroupAvatarMember member,
+    double itemSize,
+    double devicePixelRatio,
+  ) {
     if (member.avatarImageData != null && member.avatarImageData!.isNotEmpty) {
+      final pixelSize = (itemSize * devicePixelRatio).ceil();
       return ClipOval(
         child: Image.memory(
           member.avatarImageData!,
           width: itemSize,
           height: itemSize,
           fit: BoxFit.cover,
+          cacheWidth: pixelSize,
+          cacheHeight: pixelSize,
           errorBuilder: (_, _, _) =>
               _miniEmoji(member.emoji, itemSize),
         ),

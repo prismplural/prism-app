@@ -20,7 +20,9 @@ class TimelinePainter extends CustomPainter {
     required this.onSurfaceColor,
     required this.surfaceContainerColor,
     required this.brightness,
-  });
+    ValueNotifier<DateTime>? nowNotifier,
+  }) : _nowNotifier = nowNotifier,
+       super(repaint: nowNotifier);
 
   final List<TimelineMemberRow> rows;
   final double columnWidth;
@@ -33,6 +35,9 @@ class TimelinePainter extends CustomPainter {
   final Color onSurfaceColor;
   final Color surfaceContainerColor;
   final Brightness brightness;
+  final ValueNotifier<DateTime>? _nowNotifier;
+
+  DateTime get _now => _nowNotifier?.value ?? DateTime.now();
 
   double _timeToY(DateTime time) {
     final diff = time.difference(viewStart);
@@ -83,7 +88,7 @@ class TimelinePainter extends CustomPainter {
   }
 
   void _drawSessionBars(Canvas canvas, Size size) {
-    final now = DateTime.now();
+    final now = _now;
     final totalColumnWidth = columnWidth + columnPadding;
     final barInset = columnPadding / 2;
 
@@ -131,7 +136,7 @@ class TimelinePainter extends CustomPainter {
   }
 
   void _drawNowLine(Canvas canvas, Size size) {
-    final now = DateTime.now();
+    final now = _now;
     if (now.isBefore(viewStart) || now.isAfter(viewEnd)) return;
 
     final y = _timeToY(now);

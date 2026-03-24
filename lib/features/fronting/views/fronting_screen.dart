@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
 import 'package:prism_plurality/features/fronting/views/empty_system_view.dart';
+import 'package:prism_plurality/features/fronting/views/sleep_history_list.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
@@ -15,6 +16,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/polls/views/create_poll_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
@@ -62,9 +64,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
 
     final isEmpty = membersAsync.whenOrNull(data: (members) => members.isEmpty);
 
-    final settingsAsync = ref.watch(systemSettingsProvider);
-    final systemName =
-        settingsAsync.whenOrNull(data: (s) => s.systemName) ?? 'Prism';
+    final systemName = ref.watch(systemNameProvider) ?? 'Prism';
 
     if (isEmpty == true) {
       return Scaffold(
@@ -150,6 +150,9 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
 
         // 3. Sessions grouped by day (active session naturally at top)
         const SessionHistoryList(limit: 30),
+
+        // 4. Recent sleep sessions
+        const SleepHistoryList(),
 
         // Bottom padding to clear floating nav bar
         SliverPadding(
@@ -372,14 +375,21 @@ class _AddButtonState extends ConsumerState<_AddButton> {
                     style: const TextStyle(fontSize: 24),
                   ),
                   title: Text(member.name),
-                  onTap: () {
+                  onTap: () async {
                     Navigator.of(ctx).pop();
-                    ref
-                        .read(sleepNotifierProvider.notifier)
-                        .endSleep(sleepSession!.id);
-                    ref
-                        .read(frontingNotifierProvider.notifier)
-                        .startFronting(member.id);
+                    try {
+                      await ref
+                          .read(sleepNotifierProvider.notifier)
+                          .endSleep(sleepSession!.id);
+                      await ref
+                          .read(frontingNotifierProvider.notifier)
+                          .startFronting(member.id);
+                    } catch (e) {
+                      if (context.mounted) {
+                        PrismToast.error(context,
+                            message: 'Error waking up: $e');
+                      }
+                    }
                   },
                 ),
               )

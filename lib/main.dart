@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:prism_sync/generated/frb_generated.dart';
-import 'package:workmanager/workmanager.dart';
+// import 'package:workmanager/workmanager.dart';
 
 import 'package:prism_plurality/core/services/secure_storage.dart';
-import 'package:prism_plurality/features/pluralkit/services/pluralkit_background_service.dart';
+// import 'package:prism_plurality/features/pluralkit/services/pluralkit_background_service.dart';
 import 'app.dart';
 
 void main() async {
@@ -15,6 +15,7 @@ void main() async {
 
   // iOS Keychain survives app uninstall — clear stale data on fresh install.
   await clearKeychainIfFreshInstall();
+  await migrateRelayUrl();
 
   // On iOS/macOS, the Rust library is statically linked via -force_load in the
   // podspec. Use ExternalLibrary.process() to find symbols in the current process
@@ -33,10 +34,11 @@ void main() async {
     ),
   );
 
-  // Defer non-critical native init until after first frame.
-  if (Platform.isIOS || Platform.isAndroid) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Workmanager().initialize(callbackDispatcher);
-    });
-  }
+  // TODO: Enable when background tasks are implemented.
+  // The callbackDispatcher is currently a stub that no-ops on all task names.
+  // if (Platform.isIOS || Platform.isAndroid) {
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     Workmanager().initialize(callbackDispatcher);
+  //   });
+  // }
 }

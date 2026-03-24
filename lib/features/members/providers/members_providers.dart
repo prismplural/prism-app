@@ -81,6 +81,7 @@ class MembersNotifier extends Notifier<void> {
   Future<void> reorderMembers(List<Member> members) async {
     final repo = ref.read(memberRepositoryProvider);
     for (var i = 0; i < members.length; i++) {
+      if (members[i].displayOrder == i) continue;
       await repo.updateMember(members[i].copyWith(displayOrder: i));
     }
   }

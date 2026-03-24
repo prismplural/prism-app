@@ -28,7 +28,7 @@ abstract final class AppConstants {
   static const String syncDatabaseName = 'prism_sync.db';
 
   /// Default relay URL for sync
-  static const String defaultRelayUrl = 'https://prismrelay.neatkit.xyz';
+  static const String defaultRelayUrl = 'https://sync.prismplural.com';
 
   /// CRDT sync constants
   static const int maxClockDriftSeconds = 300; // 5 minutes

@@ -19,7 +19,7 @@ class QuickFrontSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(activeMembersProvider);
     final sessionsAsync = ref.watch(activeSessionsProvider);
-    final historyAsync = ref.watch(frontingHistoryProvider(200));
+    final countsAsync = ref.watch(memberFrontingCountsProvider);
 
     return membersAsync.when(
       loading: () => const SizedBox(
@@ -39,14 +39,8 @@ class QuickFrontSection extends ConsumerWidget {
         final currentMemberId =
             activeSessions.isNotEmpty ? activeSessions.first.memberId : null;
 
-        // Count fronting sessions per member to sort by frequency.
-        final history = historyAsync.value ?? <FrontingSession>[];
-        final counts = <String, int>{};
-        for (final session in history) {
-          if (session.memberId != null) {
-            counts[session.memberId!] = (counts[session.memberId!] ?? 0) + 1;
-          }
-        }
+        // Use SQL-aggregated counts instead of loading full session objects.
+        final counts = countsAsync.value ?? <String, int>{};
 
         // Sort by frequency (descending), current fronter always first.
         final sorted = [...members]

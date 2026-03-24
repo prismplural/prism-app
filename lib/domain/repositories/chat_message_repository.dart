@@ -8,6 +8,7 @@ abstract class ChatMessageRepository {
   });
   Stream<List<domain.ChatMessage>> watchMessagesForConversation(
       String conversationId);
+  Future<List<domain.ChatMessage>> getAllMessages();
   Future<domain.ChatMessage?> getMessageById(String id);
   Future<void> createMessage(domain.ChatMessage message);
   Future<void> updateMessage(domain.ChatMessage message);

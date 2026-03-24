@@ -16,6 +16,15 @@ final dataExportServiceProvider = Provider<DataExportService>((ref) {
     systemSettingsRepository: ref.watch(systemSettingsRepositoryProvider),
     habitRepository: ref.watch(habitRepositoryProvider),
     pluralKitSyncDao: ref.watch(pluralKitSyncDaoProvider),
+    memberGroupsRepository: ref.watch(memberGroupsRepositoryProvider),
+    customFieldsRepository: ref.watch(customFieldsRepositoryProvider),
+    notesRepository: ref.watch(notesRepositoryProvider),
+    frontSessionCommentsRepository:
+        ref.watch(frontSessionCommentsRepositoryProvider),
+    conversationCategoriesRepository:
+        ref.watch(conversationCategoriesRepositoryProvider),
+    remindersRepository: ref.watch(remindersRepositoryProvider),
+    friendsRepository: ref.watch(friendsRepositoryProvider),
   );
 });
 
@@ -31,5 +40,14 @@ final dataImportServiceProvider = Provider<DataImportService>((ref) {
     systemSettingsRepository: ref.watch(systemSettingsRepositoryProvider),
     habitRepository: ref.watch(habitRepositoryProvider),
     pluralKitSyncDao: ref.watch(pluralKitSyncDaoProvider),
+    memberGroupsRepository: ref.watch(memberGroupsRepositoryProvider),
+    customFieldsRepository: ref.watch(customFieldsRepositoryProvider),
+    notesRepository: ref.watch(notesRepositoryProvider),
+    frontSessionCommentsRepository:
+        ref.watch(frontSessionCommentsRepositoryProvider),
+    conversationCategoriesRepository:
+        ref.watch(conversationCategoriesRepositoryProvider),
+    remindersRepository: ref.watch(remindersRepositoryProvider),
+    friendsRepository: ref.watch(friendsRepositoryProvider),
   );
 });

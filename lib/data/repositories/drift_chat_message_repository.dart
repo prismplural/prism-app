@@ -44,6 +44,12 @@ class DriftChatMessageRepository
   }
 
   @override
+  Future<List<domain.ChatMessage>> getAllMessages() async {
+    final rows = await _dao.getAllMessages();
+    return rows.map(ChatMessageMapper.toDomain).toList();
+  }
+
+  @override
   Future<domain.ChatMessage?> getMessageById(String id) async {
     final row = await _dao.getMessageById(id);
     return row != null ? ChatMessageMapper.toDomain(row) : null;

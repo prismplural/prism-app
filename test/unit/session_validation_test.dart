@@ -61,6 +61,9 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
       [];
   @override
   Future<int> getCount() async => sessions.length;
+  @override
+  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50}) async =>
+      {};
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

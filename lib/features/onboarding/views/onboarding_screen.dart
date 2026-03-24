@@ -50,11 +50,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final isSyncDeviceStep = step == OnboardingStep.syncDevice;
 
     // Check if user has existing data (re-running onboarding)
-    final settingsAsync = ref.watch(systemSettingsProvider);
-    final hasExistingData = settingsAsync.whenOrNull(
-          data: (s) => s.hasCompletedOnboarding,
-        ) ??
-        false;
+    final hasExistingData = ref.watch(hasCompletedOnboardingProvider);
 
     return PopScope(
       canPop: hasExistingData,

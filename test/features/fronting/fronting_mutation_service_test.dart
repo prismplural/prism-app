@@ -212,4 +212,9 @@ class _ThrowOnTargetUpdateRepository implements FrontingSessionRepository {
   Future<int> getCount() {
     return _delegate.getCount();
   }
+
+  @override
+  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50}) {
+    return _delegate.getMemberFrontingCounts(limit: limit);
+  }
 }
