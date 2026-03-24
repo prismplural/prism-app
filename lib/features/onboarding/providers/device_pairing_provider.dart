@@ -31,11 +31,17 @@ class PairingState {
   final String? errorMessage;
   final SyncCounts? counts;
 
+  /// When true, the initial data sync timed out and some data may still be
+  /// arriving in the background. The pairing itself succeeded, but the user
+  /// should be informed that not all data may be visible yet.
+  final bool syncIncomplete;
+
   const PairingState({
     this.step = PairingStep.enterUrl,
     this.url,
     this.errorMessage,
     this.counts,
+    this.syncIncomplete = false,
   });
 
   PairingState copyWith({
@@ -43,6 +49,7 @@ class PairingState {
     Object? url = _sentinel,
     Object? errorMessage = _sentinel,
     Object? counts = _sentinel,
+    bool? syncIncomplete,
   }) {
     return PairingState(
       step: step ?? this.step,
@@ -51,6 +58,7 @@ class PairingState {
           ? this.errorMessage
           : errorMessage as String?,
       counts: counts == _sentinel ? this.counts : counts as SyncCounts?,
+      syncIncomplete: syncIncomplete ?? this.syncIncomplete,
     );
   }
 }
@@ -221,12 +229,14 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // Try to bootstrap from ephemeral snapshot (fast path for new device)
       try {
         final restored = await ffi.bootstrapFromSnapshot(handle: handle);
-        if (restored > BigInt.zero) {
+        if (kDebugMode && restored > BigInt.zero) {
           debugPrint('[PAIRING] Bootstrapped $restored entities from snapshot');
         }
       } catch (e, stackTrace) {
         // Non-fatal — will sync incrementally
-        debugPrint('[PAIRING] Snapshot bootstrap failed (non-fatal): $e');
+        if (kDebugMode) {
+          debugPrint('[PAIRING] Snapshot bootstrap failed (non-fatal): $e');
+        }
         ErrorReportingService.instance.report(
           'Snapshot bootstrap failed (non-fatal): $e',
           severity: ErrorSeverity.warning,
@@ -254,10 +264,12 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // Wait for ALL remote changes (from both bootstrap and syncNow)
       // to finish being applied to the Drift database. The batch was
       // started before the bootstrap, so it captures everything.
+      var syncTimedOut = false;
       await syncAdapter.syncBatchComplete
           .timeout(const Duration(seconds: 10), onTimeout: () {
+        syncTimedOut = true;
         if (kDebugMode) {
-          print('[PAIRING] syncBatchComplete timed out — continuing');
+          print('[PAIRING] syncBatchComplete timed out — continuing with incomplete data');
         }
       });
 
@@ -278,7 +290,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
           '[PAIRING] Local data counts: members=${counts.members}, sessions=${counts.frontingSessions}, convos=${counts.conversations}, messages=${counts.messages}, habits=${counts.habits}',
         );
       }
-      state = state.copyWith(step: PairingStep.success, counts: counts);
+      state = state.copyWith(
+        step: PairingStep.success,
+        counts: counts,
+        syncIncomplete: syncTimedOut,
+      );
     }).timeout(const Duration(seconds: 60));
   }
 

@@ -116,4 +116,26 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
     final row = await query.getSingle();
     return row.read(count)!;
   }
+
+  /// Returns a map of member_id -> session count for non-deleted sessions,
+  /// considering only the most recent [limit] sessions.
+  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50}) async {
+    // Use a raw query to COUNT grouped by member_id within the top N sessions.
+    final results = await customSelect(
+      'SELECT member_id, COUNT(*) AS cnt '
+      'FROM (SELECT member_id FROM fronting_sessions '
+      '  WHERE is_deleted = 0 AND member_id IS NOT NULL '
+      '  ORDER BY start_time DESC LIMIT ?) '
+      'GROUP BY member_id',
+      variables: [Variable.withInt(limit)],
+    ).get();
+
+    final counts = <String, int>{};
+    for (final row in results) {
+      final memberId = row.read<String>('member_id');
+      final count = row.read<int>('cnt');
+      counts[memberId] = count;
+    }
+    return counts;
+  }
 }

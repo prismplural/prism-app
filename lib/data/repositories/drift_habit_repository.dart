@@ -80,6 +80,12 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
   }
 
   @override
+  Future<List<domain.HabitCompletion>> getAllCompletions() async {
+    final rows = await _dao.getAllCompletions();
+    return rows.map(HabitCompletionMapper.toDomain).toList();
+  }
+
+  @override
   Stream<List<domain.HabitCompletion>> watchCompletionsForHabit(
     String habitId,
   ) {

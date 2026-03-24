@@ -103,24 +103,9 @@ class PrismEmojiPicker extends StatelessWidget {
   }
 
   void _openPicker(BuildContext context) {
-    final theme = Theme.of(context);
-
-    showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => _PickerBody(
-        theme: theme,
-        onSelected: (emoji) {
-          Navigator.of(context, rootNavigator: true).pop();
-          onSelected(emoji);
-        },
-      ),
-    );
+    showPicker(context).then((emoji) {
+      if (emoji != null) onSelected(emoji);
+    });
   }
 
   @override

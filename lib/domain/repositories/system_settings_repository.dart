@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 
 abstract class SystemSettingsRepository {
   Future<domain.SystemSettings> getSettings();
@@ -34,7 +33,7 @@ abstract class SystemSettingsRepository {
   Future<void> updateThemeMode(domain.AppThemeMode value);
   Future<void> updateThemeBrightness(domain.ThemeBrightness value);
   Future<void> updateThemeStyle(domain.ThemeStyle value);
-  Future<void> updateTimingMode(FrontingTimingMode value);
+  Future<void> updateTimingMode(domain.FrontingTimingMode value);
 
   // Int fields
   Future<void> updateFrontingReminderIntervalMinutes(int value);

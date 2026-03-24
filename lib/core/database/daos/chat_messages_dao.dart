@@ -34,6 +34,12 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(m) => OrderingTerm.desc(m.timestamp)]))
           .watch();
 
+  Future<List<ChatMessage>> getAllMessages() =>
+      (select(chatMessages)
+            ..where((m) => m.isDeleted.equals(false))
+            ..orderBy([(m) => OrderingTerm.desc(m.timestamp)]))
+          .get();
+
   Future<ChatMessage?> getMessageById(String id) =>
       (select(chatMessages)..where((m) => m.id.equals(id)))
           .getSingleOrNull();

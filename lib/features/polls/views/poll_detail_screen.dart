@@ -78,6 +78,20 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   final _otherTextController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // Auto-select voting-as member when active members load, if not already set.
+    ref.listenManual(activeMembersProvider, (_, next) {
+      final members = next.value;
+      if (members != null &&
+          members.isNotEmpty &&
+          ref.read(votingAsProvider) == null) {
+        ref.read(votingAsProvider.notifier).setMember(members.first.id);
+      }
+    }, fireImmediately: true);
+  }
+
+  @override
   void dispose() {
     _otherTextController.dispose();
     super.dispose();
@@ -183,15 +197,6 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     final theme = Theme.of(context);
     final membersAsync = ref.watch(activeMembersProvider);
     final votingAs = ref.watch(votingAsProvider);
-
-    // Auto-select voting-as if not set
-    membersAsync.whenData((members) {
-      if (votingAs == null && members.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          ref.read(votingAsProvider.notifier).setMember(members.first.id);
-        });
-      }
-    });
 
     return PrismPageScaffold(
       topBar: PrismTopBar(

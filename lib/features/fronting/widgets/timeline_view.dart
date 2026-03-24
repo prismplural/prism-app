@@ -29,6 +29,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   bool _hasAutoScrolled = false;
   DateTime? _viewStart;
   bool _isLoadingMore = false;
+  final ValueNotifier<DateTime> _nowNotifier =
+      ValueNotifier<DateTime>(DateTime.now());
 
   static const double _headerRowHeight = 56.0;
   static const double _minColumnWidth = 36.0;
@@ -43,9 +45,10 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     _verticalController = ScrollController();
     _verticalController.addListener(_onScroll);
 
-    // Refresh every 30 seconds to update "now" line and active sessions
+    // Refresh every 30 seconds to update "now" line and active session bars.
+    // Only the CustomPaint repaints — no setState rebuild of the whole widget.
     _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
+      if (mounted) _nowNotifier.value = DateTime.now();
     });
   }
 
@@ -55,6 +58,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     _verticalController.dispose();
     _horizontalController.dispose();
     _refreshTimer?.cancel();
+    _nowNotifier.dispose();
     super.dispose();
   }
 
@@ -192,19 +196,26 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     final columnsWidth = rows.length * totalColumnWidth;
     final needsHorizontalScroll = columnsWidth > availableWidth;
 
-    Widget buildHeaderColumns() {
-      return Row(
-        children: [
-          for (var i = 0; i < rows.length; i++)
-            _MemberHeader(
-              row: rows[i],
-              rowIndex: i,
-              width: totalColumnWidth,
-              columnWidth: columnWidth,
-              primaryColor: theme.colorScheme.primary,
-              brightness: theme.brightness,
-            ),
-        ],
+    Widget buildHeaderColumns({ScrollController? controller}) {
+      return SizedBox(
+        width: columnsWidth,
+        child: ListView.builder(
+          controller: controller,
+          scrollDirection: Axis.horizontal,
+          physics: controller != null
+              ? const NeverScrollableScrollPhysics()
+              : null,
+          itemCount: rows.length,
+          itemExtent: totalColumnWidth,
+          itemBuilder: (context, i) => _MemberHeader(
+            row: rows[i],
+            rowIndex: i,
+            width: totalColumnWidth,
+            columnWidth: columnWidth,
+            primaryColor: theme.colorScheme.primary,
+            brightness: theme.brightness,
+          ),
+        ),
       );
     }
 
@@ -223,6 +234,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
           onSurfaceColor: theme.colorScheme.onSurface,
           surfaceContainerColor: theme.colorScheme.surfaceContainerHighest,
           brightness: theme.brightness,
+          nowNotifier: _nowNotifier,
         ),
       );
     }
@@ -237,11 +249,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
               SizedBox(width: _timeGutterWidth),
               if (needsHorizontalScroll)
                 Expanded(
-                  child: SingleChildScrollView(
+                  child: buildHeaderColumns(
                     controller: _horizontalController,
-                    scrollDirection: Axis.horizontal,
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: buildHeaderColumns(),
                   ),
                 )
               else

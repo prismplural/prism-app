@@ -68,47 +68,10 @@ class MessageBubble extends ConsumerStatefulWidget {
   ConsumerState<MessageBubble> createState() => _MessageBubbleState();
 }
 
-class _MessageBubbleState extends ConsumerState<MessageBubble>
-    with SingleTickerProviderStateMixin {
+class _MessageBubbleState extends ConsumerState<MessageBubble> {
   bool _showAbsoluteTime = false;
-  late final AnimationController _appearController;
-  late final Animation<Offset> _slideAnimation;
-  late final Animation<double> _fadeAnimation;
 
   bool _appeared = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _appearController = AnimationController(vsync: this, duration: Anim.normal);
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _appearController, curve: Anim.enter));
-    _fadeAnimation = CurvedAnimation(
-      parent: _appearController,
-      curve: Anim.enter,
-    );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_appeared) {
-      _appeared = true;
-      if (MediaQuery.of(context).disableAnimations) {
-        _appearController.value = 1.0;
-      } else {
-        _appearController.forward();
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _appearController.dispose();
-    super.dispose();
-  }
 
   void _toggleTimeFormat() {
     Haptics.light();
@@ -414,11 +377,23 @@ class _MessageBubbleState extends ConsumerState<MessageBubble>
 
     final actions = _buildActions(isOwn);
 
-    final slideWidget = SlideTransition(
-      position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: BlurPopupAnchor(
+    final slideWidget = TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: _appeared ? 1.0 : 0.0, end: 1.0),
+      duration: disableAnimations ? Duration.zero : Anim.normal,
+      curve: Anim.enter,
+      onEnd: () {
+        if (!_appeared) _appeared = true;
+      },
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1.0 - value) * 4.0),
+            child: child,
+          ),
+        );
+      },
+      child: BlurPopupAnchor(
           trigger: BlurPopupTrigger.longPress,
           width: 260,
           itemCount: _contextMenuItemCount(isOwn),
@@ -531,7 +506,6 @@ class _MessageBubbleState extends ConsumerState<MessageBubble>
             ),
           ),
         ),
-      ),
     );
 
     if (disableAnimations) {
@@ -550,13 +524,15 @@ class _MessageBubbleState extends ConsumerState<MessageBubble>
       return slideWidget;
     }
 
+    if (!widget.isHighlighted) return slideWidget;
+
     return Stack(
       children: [
         Positioned.fill(
           child: AnimatedOpacity(
-            duration: Duration(milliseconds: widget.isHighlighted ? 0 : 1200),
+            duration: const Duration(milliseconds: 1200),
             curve: Curves.easeOut,
-            opacity: widget.isHighlighted ? 1.0 : 0.0,
+            opacity: 1.0,
             child: ColoredBox(
               color: theme.colorScheme.primary.withValues(alpha: 0.08),
             ),
@@ -690,20 +666,19 @@ class _ReplyQuote extends StatelessWidget {
       button: onTap != null && !isDeleted,
       child: GestureDetector(
         onTap: isDeleted ? null : onTap,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Row(
             children: [
-              if (!isDeleted)
-                Container(
-                  width: 2,
-                  margin: const EdgeInsets.only(right: 6),
-                  decoration: BoxDecoration(
-                    color: authorColor,
-                  ),
-                ),
               Expanded(
-              child: TintedGlassSurface(
+              child: Container(
+                decoration: !isDeleted
+                    ? BoxDecoration(
+                        border: Border(
+                          left: BorderSide(color: authorColor, width: 2),
+                        ),
+                      )
+                    : null,
+                padding: !isDeleted ? const EdgeInsets.only(left: 6) : EdgeInsets.zero,
+                child: TintedGlassSurface(
                 tint: isDeleted ? null : authorColor,
                 borderRadius: BorderRadius.circular(12),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -739,10 +714,10 @@ class _ReplyQuote extends StatelessWidget {
                           ),
                         ],
                       ),
+                ),
               ),
             ),
           ],
-        ),
         ),
       ),
     );

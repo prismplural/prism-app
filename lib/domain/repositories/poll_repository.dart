@@ -16,6 +16,7 @@ abstract class PollRepository {
   Future<void> closePoll(String id);
 
   // Options
+  Future<List<domain.PollOption>> getAllOptions();
   Future<List<domain.PollOption>> getOptionsForPoll(String pollId);
   Stream<List<domain.PollOption>> watchOptionsForPoll(String pollId);
   Future<void> createOption(domain.PollOption option, String pollId);

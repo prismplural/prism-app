@@ -104,6 +104,11 @@ class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   bool _wasDesktop = false;
   bool _locked = false;
+
+  /// Whether the initial PIN check has completed. While false, the app shows
+  /// a loading/locked state to prevent content from being visible before we
+  /// know whether PIN lock is enabled.
+  bool _pinCheckResolved = false;
   bool _navExpanded = false;
   final _navBarKey = GlobalKey<_FloatingNavBarState>();
   DateTime? _backgroundedAt;
@@ -112,7 +117,8 @@ class _AppShellState extends ConsumerState<AppShell>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Check if we should start locked.
+    // Attempt an immediate check; if providers are still loading,
+    // listeners set up in build() will resolve it when they emit data.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialLock();
     });
@@ -125,14 +131,34 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _checkInitialLock() {
-    final settings = ref.read(systemSettingsProvider).value;
-    if (settings == null) return;
+    if (_pinCheckResolved) return;
+
+    final settingsAsync = ref.read(systemSettingsProvider);
+    final isPinSetAsync = ref.read(isPinSetProvider);
+
+    // If either provider is still loading, bail out — the ref.listen
+    // callbacks in build() will call us again when they resolve.
+    if (settingsAsync is AsyncLoading || isPinSetAsync is AsyncLoading) return;
+
+    final settings = settingsAsync.value;
+    if (settings == null) {
+      // Settings errored or empty — treat as resolved (no lock).
+      setState(() => _pinCheckResolved = true);
+      return;
+    }
+
     if (settings.pinLockEnabled) {
-      final isPinSet = ref.read(isPinSetProvider).value ?? false;
+      final isPinSet = isPinSetAsync.value ?? false;
       if (isPinSet) {
-        setState(() => _locked = true);
+        setState(() {
+          _locked = true;
+          _pinCheckResolved = true;
+        });
+        return;
       }
     }
+
+    setState(() => _pinCheckResolved = true);
   }
 
   @override
@@ -191,6 +217,13 @@ class _AppShellState extends ConsumerState<AppShell>
     );
 
     final safeCurrentIndex = currentVisibleIndex < 0 ? 0 : currentVisibleIndex;
+
+    // Retry the initial PIN check when providers resolve (handles cold start
+    // where providers were still loading during _checkInitialLock).
+    if (!_pinCheckResolved) {
+      ref.listen(systemSettingsProvider, (_, __) => _checkInitialLock());
+      ref.listen(isPinSetProvider, (_, __) => _checkInitialLock());
+    }
 
     // Keep syncStatusProvider alive so DeviceRevoked events are received.
     ref.watch(syncStatusProvider);
@@ -342,6 +375,8 @@ class _AppShellState extends ConsumerState<AppShell>
     }
 
     // PIN lock overlay — sits above everything including the nav bar.
+    // Also show an opaque barrier while the initial PIN check is resolving
+    // so that app content is never visible before we know the lock state.
     if (_locked) {
       return Stack(
         children: [
@@ -350,6 +385,21 @@ class _AppShellState extends ConsumerState<AppShell>
             child: PinInputScreen(
               mode: PinInputMode.unlock,
               onSuccess: () => setState(() => _locked = false),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (!_pinCheckResolved) {
+      return Stack(
+        children: [
+          shell,
+          Positioned.fill(
+            child: ColoredBox(
+              color: MediaQuery.platformBrightnessOf(context) == Brightness.dark
+                  ? Colors.black
+                  : Colors.white,
             ),
           ),
         ],

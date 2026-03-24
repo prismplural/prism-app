@@ -128,14 +128,14 @@ class _GroupDetailBody extends ConsumerWidget {
                   );
                 }
 
-                return Column(
-                  children: [
-                    for (final entry in entries)
-                      _GroupMemberTile(
-                        entry: entry,
-                        groupId: group.id,
-                      ),
-                  ],
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: entries.length,
+                  itemBuilder: (context, index) => _GroupMemberTile(
+                    entry: entries[index],
+                    groupId: group.id,
+                  ),
                 );
               },
             ),

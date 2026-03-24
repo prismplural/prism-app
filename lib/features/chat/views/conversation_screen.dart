@@ -214,14 +214,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     // separators between days.
                     final groupItems = _groupBuilder.build(messages);
 
-                    // Populate GlobalKeys for each message (idempotent).
+                    // Populate GlobalKeys for each message and prune stale entries.
+                    final currentMessageIds = <String>{};
                     for (final item in groupItems) {
                       if (item is MessageGroup) {
                         for (final msg in item.messages) {
+                          currentMessageIds.add(msg.id);
                           _messageKeys.putIfAbsent(msg.id, GlobalKey.new);
                         }
                       }
                     }
+                    _messageKeys.removeWhere((id, _) => !currentMessageIds.contains(id));
 
                     // Auto-scroll to initial message (from search)
                     if (!_hasScrolledToInitial &&
@@ -312,21 +315,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 }
 
 String _conversationTitle(WidgetRef ref, Conversation conversation) {
-  final membersAsync = ref.watch(activeMembersProvider);
   final speakingAs = ref.watch(speakingAsProvider);
 
   if (conversation.title != null && conversation.title!.isNotEmpty) {
     return conversation.title!;
   }
 
-  return membersAsync.when(
-    data: (members) {
+  final participantMapAsync = ref.watch(
+    membersByIdsProvider(memberIdsKey(conversation.participantIds)),
+  );
+
+  return participantMapAsync.when(
+    data: (participantMap) {
       final names = conversation.participantIds
           .where((id) => id != speakingAs)
-          .map(
-            (id) =>
-                members.where((m) => m.id == id).firstOrNull?.name ?? 'Unknown',
-          )
+          .map((id) => participantMap[id]?.name ?? 'Unknown')
           .toList();
       return names.isEmpty ? 'Conversation' : names.join(', ');
     },

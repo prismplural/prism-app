@@ -9,6 +9,12 @@ class PollOptionsDao extends DatabaseAccessor<AppDatabase>
     with _$PollOptionsDaoMixin {
   PollOptionsDao(super.db);
 
+  Future<List<PollOption>> getAllOptions() =>
+      (select(pollOptions)
+            ..where((o) => o.isDeleted.equals(false))
+            ..orderBy([(o) => OrderingTerm.asc(o.sortOrder)]))
+          .get();
+
   Future<List<PollOption>> getOptionsForPoll(String pollId) =>
       (select(pollOptions)
             ..where((o) =>

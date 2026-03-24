@@ -1,14 +1,8 @@
-enum FrontingTimingMode {
-  flexible,
-  strict;
+import 'package:prism_plurality/domain/models/system_settings.dart';
 
-  Duration get gapThreshold => switch (this) {
-    FrontingTimingMode.flexible => const Duration(minutes: 5),
-    FrontingTimingMode.strict => Duration.zero,
-  };
-
-  Duration get adjacentMergeThreshold => const Duration(seconds: 60);
-}
+// FrontingTimingMode is defined in domain/models/system_settings.dart
+export 'package:prism_plurality/domain/models/system_settings.dart'
+    show FrontingTimingMode;
 
 class FrontingValidationConfig {
   final FrontingTimingMode timingMode;

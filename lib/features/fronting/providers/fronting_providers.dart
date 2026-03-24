@@ -46,6 +46,15 @@ final frontingHistoryProvider = StreamProvider.autoDispose
       return repo.watchRecentSessions(limit: limit);
     });
 
+/// Member fronting frequency counts (member_id -> session count) for the
+/// most recent sessions. Used by QuickFrontSection to sort by frequency
+/// without loading full session objects.
+final memberFrontingCountsProvider =
+    FutureProvider.autoDispose<Map<String, int>>((ref) {
+  final repo = ref.watch(frontingSessionRepositoryProvider);
+  return repo.getMemberFrontingCounts(limit: 50);
+});
+
 /// Single session by ID. Uses a stream for real-time updates after edits.
 final sessionByIdProvider = StreamProvider.autoDispose
     .family<FrontingSession?, String>((ref, id) {

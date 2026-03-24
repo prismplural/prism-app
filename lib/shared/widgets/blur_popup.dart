@@ -161,6 +161,8 @@ class _BlurPopupRoute extends PopupRoute<void> {
   final double width;
   final double borderRadius;
 
+  CurvedAnimation? _cachedCurved;
+
   @override
   Color? get barrierColor => Colors.black.withValues(alpha: 0.15);
 
@@ -177,17 +179,24 @@ class _BlurPopupRoute extends PopupRoute<void> {
   Duration get reverseTransitionDuration => const Duration(milliseconds: 150);
 
   @override
+  void dispose() {
+    _cachedCurved?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget buildTransitions(
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final curved = CurvedAnimation(
+    _cachedCurved ??= CurvedAnimation(
       parent: animation,
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
+    final curved = _cachedCurved!;
 
     // Scale origin: from the anchor edge.
     final alignment = direction == BlurPopupDirection.up

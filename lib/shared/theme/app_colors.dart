@@ -34,15 +34,21 @@ class AppColors {
   }
 
   /// Parse a hex color string (with or without leading '#') into a [Color].
+  ///
+  /// Returns [prismPurple] if parsing fails (e.g. corrupted DB data).
   static Color fromHex(String hex) {
-    final buffer = StringBuffer();
-    if (hex.startsWith('#')) {
-      hex = hex.substring(1);
+    try {
+      final buffer = StringBuffer();
+      if (hex.startsWith('#')) {
+        hex = hex.substring(1);
+      }
+      if (hex.length == 6) {
+        buffer.write('FF');
+      }
+      buffer.write(hex);
+      return Color(int.parse(buffer.toString(), radix: 16));
+    } catch (_) {
+      return prismPurple;
     }
-    if (hex.length == 6) {
-      buffer.write('FF');
-    }
-    buffer.write(hex);
-    return Color(int.parse(buffer.toString(), radix: 16));
   }
 }

@@ -98,6 +98,10 @@ class _OnboardingRedirectNotifier extends ChangeNotifier {
   }
 }
 
+// NOTE: File-level global — can retain stale state across hot reload.
+// Tightly coupled to GoRouter's refreshListenable API, so not easily fixable
+// without a GoRouter lifecycle change. Acceptable for production; be aware
+// during development that a hot restart (not hot reload) resets this.
 final _onboardingRedirectNotifier = _OnboardingRedirectNotifier();
 
 final routerProvider = Provider<GoRouter>((ref) {

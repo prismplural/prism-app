@@ -4,6 +4,12 @@ import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart' show AppDatabase, PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/domain/models/note.dart';
+import 'package:prism_plurality/domain/models/front_session_comment.dart';
+import 'package:prism_plurality/domain/models/friend_record.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
@@ -12,6 +18,13 @@ import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/poll_repository.dart';
 import 'package:prism_plurality/domain/repositories/sleep_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
+import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
+import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
+import 'package:prism_plurality/domain/repositories/notes_repository.dart';
+import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
+import 'package:prism_plurality/domain/repositories/conversation_categories_repository.dart';
+import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
+import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 import 'package:prism_plurality/features/data_management/models/v3_export_models.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
@@ -29,6 +42,15 @@ class ImportPreview {
     this.systemSettings = 0,
     this.habits = 0,
     this.habitCompletions = 0,
+    this.memberGroups = 0,
+    this.memberGroupEntries = 0,
+    this.customFields = 0,
+    this.customFieldValues = 0,
+    this.notes = 0,
+    this.frontSessionComments = 0,
+    this.conversationCategories = 0,
+    this.reminders = 0,
+    this.friends = 0,
     this.formatVersion = '',
     this.exportDate = '',
   });
@@ -43,6 +65,15 @@ class ImportPreview {
   final int systemSettings;
   final int habits;
   final int habitCompletions;
+  final int memberGroups;
+  final int memberGroupEntries;
+  final int customFields;
+  final int customFieldValues;
+  final int notes;
+  final int frontSessionComments;
+  final int conversationCategories;
+  final int reminders;
+  final int friends;
   final String formatVersion;
   final String exportDate;
 
@@ -56,7 +87,16 @@ class ImportPreview {
       pollOptions +
       systemSettings +
       habits +
-      habitCompletions;
+      habitCompletions +
+      memberGroups +
+      memberGroupEntries +
+      customFields +
+      customFieldValues +
+      notes +
+      frontSessionComments +
+      conversationCategories +
+      reminders +
+      friends;
 }
 
 /// Result of a completed import operation.
@@ -72,6 +112,15 @@ class ImportResult {
     this.settingsUpdated = false,
     this.habitsCreated = 0,
     this.habitCompletionsCreated = 0,
+    this.memberGroupsCreated = 0,
+    this.memberGroupEntriesCreated = 0,
+    this.customFieldsCreated = 0,
+    this.customFieldValuesCreated = 0,
+    this.notesCreated = 0,
+    this.frontSessionCommentsCreated = 0,
+    this.conversationCategoriesCreated = 0,
+    this.remindersCreated = 0,
+    this.friendsCreated = 0,
   });
 
   final int membersCreated;
@@ -84,6 +133,15 @@ class ImportResult {
   final bool settingsUpdated;
   final int habitsCreated;
   final int habitCompletionsCreated;
+  final int memberGroupsCreated;
+  final int memberGroupEntriesCreated;
+  final int customFieldsCreated;
+  final int customFieldValuesCreated;
+  final int notesCreated;
+  final int frontSessionCommentsCreated;
+  final int conversationCategoriesCreated;
+  final int remindersCreated;
+  final int friendsCreated;
 
   int get totalRecordsCreated =>
       membersCreated +
@@ -95,7 +153,16 @@ class ImportResult {
       pollOptionsCreated +
       (settingsUpdated ? 1 : 0) +
       habitsCreated +
-      habitCompletionsCreated;
+      habitCompletionsCreated +
+      memberGroupsCreated +
+      memberGroupEntriesCreated +
+      customFieldsCreated +
+      customFieldValuesCreated +
+      notesCreated +
+      frontSessionCommentsCreated +
+      conversationCategoriesCreated +
+      remindersCreated +
+      friendsCreated;
 }
 
 class DataImportService {
@@ -110,6 +177,13 @@ class DataImportService {
     required this.systemSettingsRepository,
     required this.habitRepository,
     required this.pluralKitSyncDao,
+    required this.memberGroupsRepository,
+    required this.customFieldsRepository,
+    required this.notesRepository,
+    required this.frontSessionCommentsRepository,
+    required this.conversationCategoriesRepository,
+    required this.remindersRepository,
+    required this.friendsRepository,
   });
 
   final AppDatabase db;
@@ -122,6 +196,13 @@ class DataImportService {
   final SystemSettingsRepository systemSettingsRepository;
   final HabitRepository habitRepository;
   final PluralKitSyncDao pluralKitSyncDao;
+  final MemberGroupsRepository memberGroupsRepository;
+  final CustomFieldsRepository customFieldsRepository;
+  final NotesRepository notesRepository;
+  final FrontSessionCommentsRepository frontSessionCommentsRepository;
+  final ConversationCategoriesRepository conversationCategoriesRepository;
+  final RemindersRepository remindersRepository;
+  final FriendsRepository friendsRepository;
 
   /// Resolve raw file bytes to a JSON string.
   ///
@@ -167,6 +248,15 @@ class DataImportService {
       systemSettings: export.systemSettings.length,
       habits: export.habits.length,
       habitCompletions: export.habitCompletions.length,
+      memberGroups: export.memberGroups.length,
+      memberGroupEntries: export.memberGroupEntries.length,
+      customFields: export.customFields.length,
+      customFieldValues: export.customFieldValues.length,
+      notes: export.notes.length,
+      frontSessionComments: export.frontSessionComments.length,
+      conversationCategories: export.conversationCategories.length,
+      reminders: export.reminders.length,
+      friends: export.friends.length,
       formatVersion: export.formatVersion,
       exportDate: export.exportDate,
     );
@@ -213,6 +303,7 @@ class DataImportService {
             customColorHex: h.customColorHex,
             pluralkitUuid: h.pluralkitUuid,
             pluralkitId: h.pluralkitId,
+            markdownEnabled: h.markdownEnabled,
           ),
         );
         membersCreated++;
@@ -308,6 +399,9 @@ class DataImportService {
                 ? (jsonDecode(c.mutedByMemberIds!) as List).cast<String>()
                 : [],
             lastReadTimestamps: timestamps,
+            description: c.description,
+            categoryId: c.categoryId,
+            displayOrder: c.displayOrder,
           ),
         );
         conversationsCreated++;
@@ -315,9 +409,11 @@ class DataImportService {
 
       // 5. Import messages
       var messagesCreated = 0;
+      // Preload existing message IDs to avoid per-record queries
+      final allExistingMsgs = await chatMessageRepository.getAllMessages();
+      final existingMessageIds = allExistingMsgs.map((m) => m.id).toSet();
       for (final m in export.messages) {
-        final existing = await chatMessageRepository.getMessageById(m.id);
-        if (existing != null) continue;
+        if (existingMessageIds.contains(m.id)) continue;
 
         await chatMessageRepository.createMessage(
           ChatMessage(
@@ -338,6 +434,9 @@ class DataImportService {
                   ),
                 )
                 .toList(),
+            replyToId: m.replyToId,
+            replyToAuthorId: m.replyToAuthorId,
+            replyToContent: m.replyToContent,
           ),
         );
         messagesCreated++;
@@ -355,6 +454,7 @@ class DataImportService {
           Poll(
             id: p.id,
             question: p.question,
+            description: p.description,
             isAnonymous: p.isAnonymous,
             allowsMultipleVotes: p.allowsMultipleVotes,
             isClosed: p.isClosed,
@@ -367,11 +467,16 @@ class DataImportService {
         pollsCreated++;
       }
 
+      // Preload existing poll option IDs to avoid per-record queries
+      final existingOptionIds = <String>{};
+      for (final p in existingPolls) {
+        final opts = await pollRepository.getOptionsForPoll(p.id);
+        for (final opt in opts) {
+          existingOptionIds.add(opt.id);
+        }
+      }
       for (final o in export.pollOptions) {
-        final existingOptions = await pollRepository.getOptionsForPoll(
-          o.pollId,
-        );
-        if (existingOptions.any((existing) => existing.id == o.id)) continue;
+        if (existingOptionIds.contains(o.id)) continue;
 
         await pollRepository.createOption(
           PollOption(
@@ -379,6 +484,7 @@ class DataImportService {
             text: o.text,
             sortOrder: o.sortOrder,
             isOtherOption: o.isOtherOption,
+            colorHex: o.colorHex,
           ),
           o.pollId,
         );
@@ -408,14 +514,26 @@ class DataImportService {
             showQuickFront: s.showQuickFront,
             accentColorHex: s.accentColorHex,
             perMemberAccentColors: s.perMemberAccentColors,
-            terminology: SystemTerminology.values[s.terminology],
+            terminology: s.terminology >= 0 &&
+                    s.terminology < SystemTerminology.values.length
+                ? SystemTerminology.values[s.terminology]
+                : SystemTerminology.headmates,
             customTerminology: s.customTerminology,
             customPluralTerminology: s.customPluralTerminology,
             frontingRemindersEnabled: s.frontingRemindersEnabled,
             frontingReminderIntervalMinutes: s.frontingReminderIntervalMinutes,
-            themeMode: AppThemeMode.values[s.themeMode],
-            themeBrightness: ThemeBrightness.values[s.themeBrightness],
-            themeStyle: ThemeStyle.values[s.themeStyle],
+            themeMode: s.themeMode >= 0 &&
+                    s.themeMode < AppThemeMode.values.length
+                ? AppThemeMode.values[s.themeMode]
+                : AppThemeMode.system,
+            themeBrightness: s.themeBrightness >= 0 &&
+                    s.themeBrightness < ThemeBrightness.values.length
+                ? ThemeBrightness.values[s.themeBrightness]
+                : ThemeBrightness.system,
+            themeStyle: s.themeStyle >= 0 &&
+                    s.themeStyle < ThemeStyle.values.length
+                ? ThemeStyle.values[s.themeStyle]
+                : ThemeStyle.standard,
             chatEnabled: s.chatEnabled,
             pollsEnabled: s.pollsEnabled,
             habitsEnabled: s.habitsEnabled,
@@ -424,8 +542,33 @@ class DataImportService {
             chatLogsFront: s.chatLogsFront,
             hasCompletedOnboarding: s.hasCompletedOnboarding,
             syncThemeEnabled: s.syncThemeEnabled,
-            timingMode:
-                FrontingTimingMode.values[s.timingMode ?? 0],
+            timingMode: (s.timingMode ?? 0) >= 0 &&
+                    (s.timingMode ?? 0) < FrontingTimingMode.values.length
+                ? FrontingTimingMode.values[s.timingMode ?? 0]
+                : FrontingTimingMode.flexible,
+            habitsBadgeEnabled: s.habitsBadgeEnabled,
+            notesEnabled: s.notesEnabled,
+            previousAccentColorHex: s.previousAccentColorHex,
+            systemDescription: s.systemDescription,
+            systemAvatarData: s.systemAvatarData != null
+                ? base64Decode(s.systemAvatarData!)
+                : null,
+            remindersEnabled: s.remindersEnabled,
+            fontScale: s.fontScale,
+            fontFamily: s.fontFamily >= 0 &&
+                    s.fontFamily < FontFamily.values.length
+                ? FontFamily.values[s.fontFamily]
+                : FontFamily.system,
+            // Force device-local security settings to false on import —
+            // PIN/biometric lock must be configured through the settings UI
+            // where the user actually sets a PIN on this device.
+            pinLockEnabled: false,
+            biometricLockEnabled: false,
+            autoLockDelaySeconds: s.autoLockDelaySeconds,
+            navBarItems: s.navBarItems,
+            navBarOverflowItems: s.navBarOverflowItems,
+            syncNavigationEnabled: s.syncNavigationEnabled,
+            chatBadgePreferences: s.chatBadgePreferences,
           ),
         );
         settingsUpdated = true;
@@ -472,13 +615,16 @@ class DataImportService {
 
       // 9. Import habit completions
       var habitCompletionsCreated = 0;
-      for (final c in export.habitCompletions) {
-        final existingCompletions = await habitRepository.getCompletionsForHabit(
-          c.habitId,
-        );
-        if (existingCompletions.any((existing) => existing.id == c.id)) {
-          continue;
+      // Preload existing completion IDs to avoid per-record queries
+      final existingCompletionIds = <String>{};
+      for (final h in existingHabits) {
+        final completions = await habitRepository.getCompletionsForHabit(h.id);
+        for (final c in completions) {
+          existingCompletionIds.add(c.id);
         }
+      }
+      for (final c in export.habitCompletions) {
+        if (existingCompletionIds.contains(c.id)) continue;
 
         await habitRepository.createCompletion(
           HabitCompletion(
@@ -518,6 +664,206 @@ class DataImportService {
         );
       }
 
+      // 11. Import member groups
+      var memberGroupsCreated = 0;
+      final existingGroups =
+          await memberGroupsRepository.watchAllGroups().first;
+      final existingGroupIds = existingGroups.map((g) => g.id).toSet();
+
+      for (final g in export.memberGroups) {
+        if (existingGroupIds.contains(g.id)) continue;
+        await memberGroupsRepository.createGroup(
+          MemberGroup(
+            id: g.id,
+            name: g.name,
+            description: g.description,
+            colorHex: g.colorHex,
+            emoji: g.emoji,
+            displayOrder: g.displayOrder,
+            parentGroupId: g.parentGroupId,
+            createdAt: DateTime.parse(g.createdAt),
+          ),
+        );
+        memberGroupsCreated++;
+      }
+
+      // 12. Import member group entries
+      var memberGroupEntriesCreated = 0;
+      for (final e in export.memberGroupEntries) {
+        final existingEntries = await memberGroupsRepository
+            .watchGroupEntries(e.groupId)
+            .first;
+        if (existingEntries.any((existing) => existing.id == e.id)) continue;
+        await memberGroupsRepository.addMemberToGroup(
+          e.groupId,
+          e.memberId,
+          e.id,
+        );
+        memberGroupEntriesCreated++;
+      }
+
+      // 13. Import custom fields
+      var customFieldsCreated = 0;
+      final existingFields =
+          await customFieldsRepository.watchAllFields().first;
+      final existingFieldIds = existingFields.map((f) => f.id).toSet();
+
+      for (final f in export.customFields) {
+        if (existingFieldIds.contains(f.id)) continue;
+        await customFieldsRepository.createField(
+          CustomField(
+            id: f.id,
+            name: f.name,
+            fieldType: f.fieldType >= 0 &&
+                    f.fieldType < CustomFieldType.values.length
+                ? CustomFieldType.values[f.fieldType]
+                : CustomFieldType.text,
+            datePrecision: f.datePrecision != null &&
+                    f.datePrecision! >= 0 &&
+                    f.datePrecision! < DatePrecision.values.length
+                ? DatePrecision.values[f.datePrecision!]
+                : null,
+            displayOrder: f.displayOrder,
+            createdAt: DateTime.parse(f.createdAt),
+          ),
+        );
+        customFieldsCreated++;
+      }
+
+      // 14. Import custom field values
+      var customFieldValuesCreated = 0;
+      for (final v in export.customFieldValues) {
+        final existing = await customFieldsRepository.getValueForField(
+          v.customFieldId,
+          v.memberId,
+        );
+        if (existing != null) continue;
+        await customFieldsRepository.upsertValue(
+          CustomFieldValue(
+            id: v.id,
+            customFieldId: v.customFieldId,
+            memberId: v.memberId,
+            value: v.value,
+          ),
+        );
+        customFieldValuesCreated++;
+      }
+
+      // 15. Import notes
+      var notesCreated = 0;
+      final existingNotes = await notesRepository.watchAllNotes().first;
+      final existingNoteIds = existingNotes.map((n) => n.id).toSet();
+
+      for (final n in export.notes) {
+        if (existingNoteIds.contains(n.id)) continue;
+        await notesRepository.createNote(
+          Note(
+            id: n.id,
+            title: n.title,
+            body: n.body,
+            colorHex: n.colorHex,
+            memberId: n.memberId,
+            date: DateTime.parse(n.date),
+            createdAt: DateTime.parse(n.createdAt),
+            modifiedAt: DateTime.parse(n.modifiedAt),
+          ),
+        );
+        notesCreated++;
+      }
+
+      // 16. Import front session comments
+      var frontSessionCommentsCreated = 0;
+      for (final c in export.frontSessionComments) {
+        final existingComments = await frontSessionCommentsRepository
+            .watchCommentsForSession(c.sessionId)
+            .first;
+        if (existingComments.any((existing) => existing.id == c.id)) continue;
+        await frontSessionCommentsRepository.createComment(
+          FrontSessionComment(
+            id: c.id,
+            sessionId: c.sessionId,
+            body: c.body,
+            timestamp: DateTime.parse(c.timestamp),
+            createdAt: DateTime.parse(c.createdAt),
+          ),
+        );
+        frontSessionCommentsCreated++;
+      }
+
+      // 17. Import conversation categories
+      var conversationCategoriesCreated = 0;
+      final existingCategories =
+          await conversationCategoriesRepository.watchAll().first;
+      final existingCategoryIds =
+          existingCategories.map((c) => c.id).toSet();
+
+      for (final c in export.conversationCategories) {
+        if (existingCategoryIds.contains(c.id)) continue;
+        await conversationCategoriesRepository.create(
+          ConversationCategory(
+            id: c.id,
+            name: c.name,
+            displayOrder: c.displayOrder,
+            createdAt: DateTime.parse(c.createdAt),
+            modifiedAt: DateTime.parse(c.modifiedAt),
+          ),
+        );
+        conversationCategoriesCreated++;
+      }
+
+      // 18. Import reminders
+      var remindersCreated = 0;
+      final existingReminders =
+          await remindersRepository.watchAll().first;
+      final existingReminderIds =
+          existingReminders.map((r) => r.id).toSet();
+
+      for (final r in export.reminders) {
+        if (existingReminderIds.contains(r.id)) continue;
+        await remindersRepository.create(
+          Reminder(
+            id: r.id,
+            name: r.name,
+            message: r.message,
+            trigger: r.trigger >= 0 &&
+                    r.trigger < ReminderTrigger.values.length
+                ? ReminderTrigger.values[r.trigger]
+                : ReminderTrigger.scheduled,
+            intervalDays: r.intervalDays,
+            timeOfDay: r.timeOfDay,
+            delayHours: r.delayHours,
+            isActive: r.isActive,
+            createdAt: DateTime.parse(r.createdAt),
+            modifiedAt: DateTime.parse(r.modifiedAt),
+          ),
+        );
+        remindersCreated++;
+      }
+
+      // 19. Import friends
+      var friendsCreated = 0;
+      final existingFriends = await friendsRepository.watchAll().first;
+      final existingFriendIds = existingFriends.map((f) => f.id).toSet();
+
+      for (final f in export.friends) {
+        if (existingFriendIds.contains(f.id)) continue;
+        await friendsRepository.createFriend(
+          FriendRecord(
+            id: f.id,
+            displayName: f.displayName,
+            publicKeyHex: f.publicKeyHex,
+            sharedSecretHex: f.sharedSecretHex,
+            grantedScopes: f.grantedScopes,
+            isVerified: f.isVerified,
+            createdAt: DateTime.parse(f.createdAt),
+            lastSyncAt: f.lastSyncAt != null
+                ? DateTime.parse(f.lastSyncAt!)
+                : null,
+          ),
+        );
+        friendsCreated++;
+      }
+
       return ImportResult(
         membersCreated: membersCreated,
         frontSessionsCreated: frontSessionsCreated,
@@ -529,6 +875,15 @@ class DataImportService {
         settingsUpdated: settingsUpdated,
         habitsCreated: habitsCreated,
         habitCompletionsCreated: habitCompletionsCreated,
+        memberGroupsCreated: memberGroupsCreated,
+        memberGroupEntriesCreated: memberGroupEntriesCreated,
+        customFieldsCreated: customFieldsCreated,
+        customFieldValuesCreated: customFieldValuesCreated,
+        notesCreated: notesCreated,
+        frontSessionCommentsCreated: frontSessionCommentsCreated,
+        conversationCategoriesCreated: conversationCategoriesCreated,
+        remindersCreated: remindersCreated,
+        friendsCreated: friendsCreated,
       );
     });
   }

@@ -11,6 +11,7 @@ abstract class HabitRepository {
   Future<void> updateHabit(domain.Habit habit);
   Future<void> deleteHabit(String id);
 
+  Future<List<domain.HabitCompletion>> getAllCompletions();
   Stream<List<domain.HabitCompletion>> watchCompletionsForHabit(String habitId);
   Future<List<domain.HabitCompletion>> getCompletionsForHabit(
     String habitId, {

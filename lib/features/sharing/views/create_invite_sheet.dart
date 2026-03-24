@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/sharing/share_invite.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/sensitive_clipboard.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -243,7 +243,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
 
   void _copyToClipboard() {
     if (_invite == null) return;
-    Clipboard.setData(ClipboardData(text: _invite!.toShareString()));
-    PrismToast.show(context, message: 'Invite copied to clipboard');
+    SensitiveClipboard.copy(_invite!.toShareString());
+    PrismToast.show(context, message: 'Invite copied (auto-clears in 15s)');
   }
 }

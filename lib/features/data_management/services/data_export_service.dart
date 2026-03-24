@@ -6,6 +6,13 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
+import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/domain/models/note.dart';
+import 'package:prism_plurality/domain/models/front_session_comment.dart';
+import 'package:prism_plurality/domain/models/friend_record.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
@@ -14,6 +21,13 @@ import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/poll_repository.dart';
 import 'package:prism_plurality/domain/repositories/sleep_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
+import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
+import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
+import 'package:prism_plurality/domain/repositories/notes_repository.dart';
+import 'package:prism_plurality/domain/repositories/front_session_comments_repository.dart';
+import 'package:prism_plurality/domain/repositories/conversation_categories_repository.dart';
+import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
+import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 import 'package:prism_plurality/features/data_management/models/v3_export_models.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 
@@ -28,6 +42,13 @@ class DataExportService {
     required this.systemSettingsRepository,
     required this.habitRepository,
     required this.pluralKitSyncDao,
+    required this.memberGroupsRepository,
+    required this.customFieldsRepository,
+    required this.notesRepository,
+    required this.frontSessionCommentsRepository,
+    required this.conversationCategoriesRepository,
+    required this.remindersRepository,
+    required this.friendsRepository,
     Future<Directory> Function()? cacheDirectoryProvider,
   }) : _cacheDirectoryProvider =
            cacheDirectoryProvider ?? getApplicationCacheDirectory;
@@ -41,6 +62,13 @@ class DataExportService {
   final SystemSettingsRepository systemSettingsRepository;
   final HabitRepository habitRepository;
   final PluralKitSyncDao pluralKitSyncDao;
+  final MemberGroupsRepository memberGroupsRepository;
+  final CustomFieldsRepository customFieldsRepository;
+  final NotesRepository notesRepository;
+  final FrontSessionCommentsRepository frontSessionCommentsRepository;
+  final ConversationCategoriesRepository conversationCategoriesRepository;
+  final RemindersRepository remindersRepository;
+  final FriendsRepository friendsRepository;
   final Future<Directory> Function() _cacheDirectoryProvider;
 
   /// Build the [V3Export] model from the current database state.
@@ -58,16 +86,10 @@ class DataExportService {
     final polls = await pollRepository.getAllPolls();
     final settings = await systemSettingsRepository.getSettings();
 
-    // Fetch messages for all conversations
-    final allMessages = <ChatMessage>[];
-    for (final conv in conversations) {
-      final msgs = await chatMessageRepository.getMessagesForConversation(
-        conv.id,
-      );
-      allMessages.addAll(msgs);
-    }
+    // Fetch all messages in a single query
+    final allMessages = await chatMessageRepository.getAllMessages();
 
-    // Fetch options and votes for all polls
+    // Fetch options for all polls, then votes per option
     final allOptions = <V3PollOption>[];
     for (final poll in polls) {
       final options = await pollRepository.getOptionsForPoll(poll.id);
@@ -86,18 +108,69 @@ class DataExportService {
     final v3Polls = polls.map(_mapPoll).toList();
     final v3Settings = [_mapSettings(settings)];
 
-    // Fetch habits and their completions
+    // Fetch habits and all completions in single queries
     final habits = await habitRepository.getAllHabits();
-    final allCompletions = <HabitCompletion>[];
-    for (final habit in habits) {
-      final completions = await habitRepository.getCompletionsForHabit(
-        habit.id,
-      );
-      allCompletions.addAll(completions);
-    }
+    final allCompletions = await habitRepository.getAllCompletions();
 
     final v3Habits = habits.map(_mapHabit).toList();
     final v3HabitCompletions = allCompletions.map(_mapHabitCompletion).toList();
+
+    // Fetch member groups and entries
+    final memberGroups = await memberGroupsRepository.watchAllGroups().first;
+    final allGroupEntries = <MemberGroupEntry>[];
+    for (final group in memberGroups) {
+      final entries =
+          await memberGroupsRepository.watchGroupEntries(group.id).first;
+      allGroupEntries.addAll(entries);
+    }
+    final v3MemberGroups = memberGroups.map(_mapMemberGroup).toList();
+    final v3MemberGroupEntries =
+        allGroupEntries.map(_mapMemberGroupEntry).toList();
+
+    // Fetch custom fields and values
+    final customFields = await customFieldsRepository.watchAllFields().first;
+    final allFieldValues = <CustomFieldValue>[];
+    for (final field in customFields) {
+      for (final member in members) {
+        final value = await customFieldsRepository.getValueForField(
+          field.id,
+          member.id,
+        );
+        if (value != null) allFieldValues.add(value);
+      }
+    }
+    final v3CustomFields = customFields.map(_mapCustomField).toList();
+    final v3CustomFieldValues =
+        allFieldValues.map(_mapCustomFieldValue).toList();
+
+    // Fetch notes
+    final allNotes = await notesRepository.watchAllNotes().first;
+    final v3Notes = allNotes.map(_mapNote).toList();
+
+    // Fetch front session comments
+    final allComments = <FrontSessionComment>[];
+    for (final session in sessions) {
+      final comments = await frontSessionCommentsRepository
+          .watchCommentsForSession(session.id)
+          .first;
+      allComments.addAll(comments);
+    }
+    final v3FrontSessionComments =
+        allComments.map(_mapFrontSessionComment).toList();
+
+    // Fetch conversation categories
+    final categories =
+        await conversationCategoriesRepository.watchAll().first;
+    final v3ConversationCategories =
+        categories.map(_mapConversationCategory).toList();
+
+    // Fetch reminders
+    final reminders = await remindersRepository.watchAll().first;
+    final v3Reminders = reminders.map(_mapReminder).toList();
+
+    // Fetch friends
+    final friends = await friendsRepository.watchAll().first;
+    final v3Friends = friends.map(_mapFriend).toList();
 
     // Fetch PluralKit sync state
     final pkState = await pluralKitSyncDao.getSyncState();
@@ -118,7 +191,16 @@ class DataExportService {
         allOptions.length +
         v3Settings.length +
         v3Habits.length +
-        v3HabitCompletions.length;
+        v3HabitCompletions.length +
+        v3MemberGroups.length +
+        v3MemberGroupEntries.length +
+        v3CustomFields.length +
+        v3CustomFieldValues.length +
+        v3Notes.length +
+        v3FrontSessionComments.length +
+        v3ConversationCategories.length +
+        v3Reminders.length +
+        v3Friends.length;
 
     return V3Export(
       formatVersion: '2025.1',
@@ -137,6 +219,15 @@ class DataExportService {
       habits: v3Habits,
       habitCompletions: v3HabitCompletions,
       pluralKitSyncState: v3PkSyncState,
+      memberGroups: v3MemberGroups,
+      memberGroupEntries: v3MemberGroupEntries,
+      customFields: v3CustomFields,
+      customFieldValues: v3CustomFieldValues,
+      notes: v3Notes,
+      frontSessionComments: v3FrontSessionComments,
+      conversationCategories: v3ConversationCategories,
+      reminders: v3Reminders,
+      friends: v3Friends,
     );
   }
 
@@ -196,6 +287,7 @@ class DataExportService {
     parentSystemId: m.parentSystemId,
     pluralkitUuid: m.pluralkitUuid,
     pluralkitId: m.pluralkitId,
+    markdownEnabled: m.markdownEnabled,
   );
 
   V3FrontSession _mapFrontSession(FrontingSession s) => V3FrontSession(
@@ -236,6 +328,9 @@ class DataExportService {
     mutedByMemberIds: c.mutedByMemberIds.isNotEmpty
         ? jsonEncode(c.mutedByMemberIds)
         : null,
+    description: c.description,
+    categoryId: c.categoryId,
+    displayOrder: c.displayOrder,
   );
 
   V3Message _mapMessage(ChatMessage m) => V3Message(
@@ -256,11 +351,15 @@ class DataExportService {
           ),
         )
         .toList(),
+    replyToId: m.replyToId,
+    replyToAuthorId: m.replyToAuthorId,
+    replyToContent: m.replyToContent,
   );
 
   V3Poll _mapPoll(Poll p) => V3Poll(
     id: p.id,
     question: p.question,
+    description: p.description,
     isAnonymous: p.isAnonymous,
     allowsMultipleVotes: p.allowsMultipleVotes,
     isClosed: p.isClosed,
@@ -278,6 +377,7 @@ class DataExportService {
     text: o.text,
     sortOrder: o.sortOrder,
     isOtherOption: o.isOtherOption,
+    colorHex: o.colorHex,
     votes: votes
         .map(
           (v) => V3PollVote(
@@ -312,6 +412,23 @@ class DataExportService {
     hasCompletedOnboarding: s.hasCompletedOnboarding,
     syncThemeEnabled: s.syncThemeEnabled,
     timingMode: s.timingMode.index,
+    habitsBadgeEnabled: s.habitsBadgeEnabled,
+    notesEnabled: s.notesEnabled,
+    previousAccentColorHex: s.previousAccentColorHex,
+    systemDescription: s.systemDescription,
+    systemAvatarData: s.systemAvatarData != null
+        ? base64Encode(s.systemAvatarData!)
+        : null,
+    remindersEnabled: s.remindersEnabled,
+    fontScale: s.fontScale,
+    fontFamily: s.fontFamily.index,
+    pinLockEnabled: s.pinLockEnabled,
+    biometricLockEnabled: s.biometricLockEnabled,
+    autoLockDelaySeconds: s.autoLockDelaySeconds,
+    navBarItems: s.navBarItems,
+    navBarOverflowItems: s.navBarOverflowItems,
+    syncNavigationEnabled: s.syncNavigationEnabled,
+    chatBadgePreferences: s.chatBadgePreferences,
   );
 
   V3Habit _mapHabit(Habit h) => V3Habit(
@@ -347,5 +464,95 @@ class DataExportService {
     rating: c.rating,
     createdAt: c.createdAt.toUtc().toIso8601String(),
     modifiedAt: c.modifiedAt.toUtc().toIso8601String(),
+  );
+
+  V3MemberGroup _mapMemberGroup(MemberGroup g) => V3MemberGroup(
+    id: g.id,
+    name: g.name,
+    description: g.description,
+    colorHex: g.colorHex,
+    emoji: g.emoji,
+    displayOrder: g.displayOrder,
+    parentGroupId: g.parentGroupId,
+    createdAt: g.createdAt.toUtc().toIso8601String(),
+  );
+
+  V3MemberGroupEntry _mapMemberGroupEntry(MemberGroupEntry e) =>
+      V3MemberGroupEntry(
+    id: e.id,
+    groupId: e.groupId,
+    memberId: e.memberId,
+  );
+
+  V3CustomField _mapCustomField(CustomField f) => V3CustomField(
+    id: f.id,
+    name: f.name,
+    fieldType: f.fieldType.index,
+    datePrecision: f.datePrecision?.index,
+    displayOrder: f.displayOrder,
+    createdAt: f.createdAt.toUtc().toIso8601String(),
+  );
+
+  V3CustomFieldValue _mapCustomFieldValue(CustomFieldValue v) =>
+      V3CustomFieldValue(
+    id: v.id,
+    customFieldId: v.customFieldId,
+    memberId: v.memberId,
+    value: v.value,
+  );
+
+  V3Note _mapNote(Note n) => V3Note(
+    id: n.id,
+    title: n.title,
+    body: n.body,
+    colorHex: n.colorHex,
+    memberId: n.memberId,
+    date: n.date.toUtc().toIso8601String(),
+    createdAt: n.createdAt.toUtc().toIso8601String(),
+    modifiedAt: n.modifiedAt.toUtc().toIso8601String(),
+  );
+
+  V3FrontSessionComment _mapFrontSessionComment(FrontSessionComment c) =>
+      V3FrontSessionComment(
+    id: c.id,
+    sessionId: c.sessionId,
+    body: c.body,
+    timestamp: c.timestamp.toUtc().toIso8601String(),
+    createdAt: c.createdAt.toUtc().toIso8601String(),
+  );
+
+  V3ConversationCategory _mapConversationCategory(ConversationCategory c) =>
+      V3ConversationCategory(
+    id: c.id,
+    name: c.name,
+    displayOrder: c.displayOrder,
+    createdAt: c.createdAt.toUtc().toIso8601String(),
+    modifiedAt: c.modifiedAt.toUtc().toIso8601String(),
+  );
+
+  V3Reminder _mapReminder(Reminder r) => V3Reminder(
+    id: r.id,
+    name: r.name,
+    message: r.message,
+    trigger: r.trigger.index,
+    intervalDays: r.intervalDays,
+    timeOfDay: r.timeOfDay,
+    delayHours: r.delayHours,
+    isActive: r.isActive,
+    createdAt: r.createdAt.toUtc().toIso8601String(),
+    modifiedAt: r.modifiedAt.toUtc().toIso8601String(),
+  );
+
+  V3Friend _mapFriend(FriendRecord f) => V3Friend(
+    id: f.id,
+    displayName: f.displayName,
+    publicKeyHex: f.publicKeyHex,
+    // Exclude sharedSecretHex from export — cryptographic secret should not
+    // appear in plaintext backup files. Friends must re-verify after restore.
+    sharedSecretHex: null,
+    grantedScopes: f.grantedScopes,
+    isVerified: f.isVerified,
+    createdAt: f.createdAt.toUtc().toIso8601String(),
+    lastSyncAt: f.lastSyncAt?.toUtc().toIso8601String(),
   );
 }

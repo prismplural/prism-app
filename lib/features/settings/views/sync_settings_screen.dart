@@ -704,8 +704,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
 class _SyncThemeToggle extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(systemSettingsProvider);
-    final value = settings.whenOrNull(data: (s) => s.syncThemeEnabled) ?? false;
+    final value = ref.watch(syncThemeEnabledProvider);
 
     return PrismSwitchRow(
       icon: Icons.palette_outlined,
@@ -723,9 +722,7 @@ class _SyncThemeToggle extends ConsumerWidget {
 class _SyncNavigationToggle extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(systemSettingsProvider);
-    final value =
-        settings.whenOrNull(data: (s) => s.syncNavigationEnabled) ?? true;
+    final value = ref.watch(syncNavigationEnabledProvider);
 
     return PrismSwitchRow(
       icon: Icons.tab_outlined,

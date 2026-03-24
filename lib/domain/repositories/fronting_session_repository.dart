@@ -19,4 +19,5 @@ abstract class FrontingSessionRepository {
   Future<List<domain.FrontingSession>> getSessionsBetween(
       DateTime start, DateTime end);
   Future<int> getCount();
+  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50});
 }

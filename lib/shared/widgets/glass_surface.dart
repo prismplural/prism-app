@@ -87,25 +87,19 @@ class GlassSurface extends ConsumerWidget {
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
 
     final effectiveBorderRadius = shape == BoxShape.circle
         ? BorderRadius.circular((width ?? 40) / 2)
         : (borderRadius ?? BorderRadius.circular(PrismTokens.radiusMedium));
 
+    final darkBase = Colors.white.withValues(alpha: 0.08);
     final fillColor = tint != null
         ? Color.alphaBlend(
             tint!.withValues(alpha: 0.15),
-            isDark
-                ? (isOled
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.white.withValues(alpha: 0.08))
-                : Colors.white.withValues(alpha: 0.65),
+            isDark ? darkBase : Colors.white.withValues(alpha: 0.65),
           )
         : isDark
-        ? (isOled
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.white.withValues(alpha: 0.08))
+        ? darkBase
         : Colors.white.withValues(alpha: 0.65);
     final effectiveFillColor = backgroundColor ?? fillColor;
     final effectiveBorderColor =
