@@ -22,12 +22,17 @@ import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
 enum ImportState {
   idle,
   parsing,
+  verifying,
+  fetching,
   previewing,
   importing,
   downloadingAvatars,
   complete,
   error,
 }
+
+/// Where the import data came from.
+enum ImportSource { file, api }
 
 /// Result of a completed import.
 class ImportResult {
@@ -116,6 +121,7 @@ class SpImporter {
     MemberGroupsRepository? groupsRepo,
     RemindersRepository? remindersRepo,
     bool downloadAvatars = true,
+    bool clearExistingData = false,
     void Function(int current, int total, String label)? onProgress,
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -138,7 +144,31 @@ class SpImporter {
 
     // Import all entity data atomically. If any insert fails the entire
     // transaction is rolled back and the exception propagates to the caller.
+    // When clearExistingData is true, the wipe happens inside the same
+    // transaction so a failed import rolls back everything — no data loss.
     await db.transaction(() async {
+      if (clearExistingData) {
+        onProgress?.call(0, totalItems, 'Clearing existing data...');
+        await db.customStatement('DELETE FROM habit_completions');
+        await db.customStatement('DELETE FROM habits');
+        await db.customStatement('DELETE FROM poll_votes');
+        await db.customStatement('DELETE FROM poll_options');
+        await db.customStatement('DELETE FROM polls');
+        await db.customStatement('DELETE FROM chat_messages');
+        await db.customStatement('DELETE FROM conversation_categories');
+        await db.customStatement('DELETE FROM conversations');
+        await db.customStatement('DELETE FROM front_session_comments');
+        await db.customStatement('DELETE FROM sleep_sessions');
+        await db.customStatement('DELETE FROM fronting_sessions');
+        await db.customStatement('DELETE FROM custom_field_values');
+        await db.customStatement('DELETE FROM custom_fields');
+        await db.customStatement('DELETE FROM member_group_entries');
+        await db.customStatement('DELETE FROM member_groups');
+        await db.customStatement('DELETE FROM notes');
+        await db.customStatement('DELETE FROM reminders');
+        await db.customStatement('DELETE FROM members');
+      }
+
       // 1. Import members.
       for (final member in mapped.members) {
         onProgress?.call(currentItem, totalItems, 'Importing members...');

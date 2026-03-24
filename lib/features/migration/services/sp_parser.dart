@@ -177,7 +177,7 @@ class SpFrontHistory {
       endTime: endMs != null ? parseTime(endMs) : null,
       comment: json['comment'] as String?,
       customStatus: json['customStatus'] as String?,
-      isCustomFront: json['customFront'] == true,
+      isCustomFront: json['custom'] == true || json['customFront'] == true,
     );
   }
 }
@@ -285,9 +285,9 @@ class SpMessage {
     return SpMessage(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       channelId: channelId,
-      senderId: json['sender']?.toString() ?? json['member']?.toString(),
+      senderId: json['sender']?.toString() ?? json['writer']?.toString() ?? json['member']?.toString(),
       content: (json['message'] ?? json['content'] ?? '').toString(),
-      timestamp: parseTime(json['timestamp'] ?? json['createdAt']),
+      timestamp: parseTime(json['timestamp'] ?? json['writtenAt'] ?? json['createdAt']),
     );
   }
 }
@@ -488,7 +488,7 @@ class SpAutomatedTimer {
   final String id;
   final String name;
   final String? message;
-  final int? delayHours;
+  final num? delayHours;
   final bool enabled;
 
   const SpAutomatedTimer({
@@ -504,10 +504,10 @@ class SpAutomatedTimer {
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       name: (json['name'] ?? 'Timer').toString(),
       message: json['message'] as String?,
-      delayHours: json['delayInHours'] is int
-          ? json['delayInHours'] as int
+      delayHours: json['delayInHours'] is num
+          ? json['delayInHours'] as num
           : json['delayInHours'] is String
-              ? int.tryParse(json['delayInHours'] as String)
+              ? num.tryParse(json['delayInHours'] as String)
               : null,
       enabled: json['enabled'] != false,
     );
@@ -537,14 +537,18 @@ class SpRepeatedTimer {
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       name: (json['name'] ?? 'Timer').toString(),
       message: json['message'] as String?,
-      intervalDays: json['intervalInDays'] is int
-          ? json['intervalInDays'] as int
-          : json['intervalInDays'] is String
-              ? int.tryParse(json['intervalInDays'] as String)
-              : json['interval'] is int
-                  ? json['interval'] as int
-                  : null,
-      timeOfDay: json['time'] as String? ?? json['timeOfDay'] as String?,
+      intervalDays: json['dayInterval'] is int
+          ? json['dayInterval'] as int
+          : json['intervalInDays'] is int
+              ? json['intervalInDays'] as int
+              : json['intervalInDays'] is String
+                  ? int.tryParse(json['intervalInDays'] as String)
+                  : json['interval'] is int
+                      ? json['interval'] as int
+                      : null,
+      timeOfDay: json['time'] is Map
+          ? '${json['time']['hour']}:${json['time']['minute'].toString().padLeft(2, '0')}'
+          : json['time'] as String? ?? json['timeOfDay'] as String?,
       enabled: json['enabled'] != false,
     );
   }
@@ -580,12 +584,12 @@ class SpParser {
     return SpExportData(
       members: _parseList(json['members'], SpMember.fromJson),
       customFronts:
-          _parseList(json['customFronts'], SpCustomFront.fromJson),
+          _parseList(json['frontStatuses'] ?? json['customFronts'], SpCustomFront.fromJson),
       frontHistory:
           _parseList(json['frontHistory'], SpFrontHistory.fromJson),
       groups: _parseList(json['groups'], SpGroup.fromJson),
       channels: _parseList(json['channels'], SpChannel.fromJson),
-      messages: _parseMessages(json['messages'], json['boardMessages']),
+      messages: _parseMessages(json['messages'], json['boardMessages'], json['chatMessages']),
       polls: _parseList(json['polls'], SpPoll.fromJson),
       notes: _parseList(json['notes'], SpNote.fromJson),
       comments: _parseList(json['comments'], SpComment.fromJson),
@@ -594,9 +598,9 @@ class SpParser {
       boardMessages:
           _parseList(json['boardMessages'], SpBoardMessage.fromJson),
       automatedTimers:
-          _parseList(json['automatedTimers'], SpAutomatedTimer.fromJson),
+          _parseList(json['automatedReminders'] ?? json['automatedTimers'], SpAutomatedTimer.fromJson),
       repeatedTimers:
-          _parseList(json['repeatedTimers'], SpRepeatedTimer.fromJson),
+          _parseList(json['repeatedReminders'] ?? json['repeatedRemidners'] ?? json['repeatedTimers'], SpRepeatedTimer.fromJson),
       systemName: systemName,
     );
   }
@@ -630,6 +634,7 @@ class SpParser {
   static List<SpMessage> _parseMessages(
     dynamic channelMessages,
     dynamic boardMessages,
+    dynamic flatChatMessages,
   ) {
     final messages = <SpMessage>[];
 
@@ -644,6 +649,16 @@ class SpParser {
               messages.add(SpMessage.fromJson(msg, channelId));
             }
           }
+        }
+      }
+    }
+
+    // Flat chatMessages list (real export format)
+    if (flatChatMessages is List) {
+      for (final msg in flatChatMessages) {
+        if (msg is Map<String, dynamic>) {
+          final channelId = (msg['channel'] ?? '').toString();
+          messages.add(SpMessage.fromJson(msg, channelId));
         }
       }
     }

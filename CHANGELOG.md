@@ -2,6 +2,17 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.1] - 2026-03-23
+
+### Added
+- **Simply Plural API import:** Import data directly from your SP account by pasting an API token — no file export needed. Two-path choice on import screen: API (recommended) or file.
+- **Reset & re-import:** "Start Fresh" option for users who imported SP data earlier but kept using SP. Clears existing data atomically within the import transaction, so a failed import rolls back everything.
+- **Chat channel import via API:** API import now fetches chat channels and messages (previously only available via file export).
+
+### Fixed
+- **SP file import parser bugs:** Fixed key-name mismatches with real SP exports — custom fronts (`frontStatuses`), chat messages (`chatMessages` flat list), automated reminders, and repeated reminders were all silently dropped. Now handles both old and new export formats.
+- **Start Fresh transaction safety:** Data clearing now runs inside the same database transaction as the import. If import fails, no data is lost.
+
 ## [0.2.0] - 2026-03-23
 
 ### Added
