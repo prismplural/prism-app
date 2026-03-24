@@ -66,6 +66,12 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => context.push(AppRoutePaths.settingsMembers),
                     ),
                     _SettingsLink(
+                      icon: Icons.workspaces_outlined,
+                      iconColor: Colors.cyan,
+                      title: 'Groups',
+                      onTap: () => context.push(AppRoutePaths.settingsGroups),
+                    ),
+                    _SettingsLink(
                       icon: Icons.tune_outlined,
                       iconColor: Colors.deepPurple,
                       title: 'Custom Fields',
