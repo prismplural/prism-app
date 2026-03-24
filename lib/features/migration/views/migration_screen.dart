@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
@@ -12,10 +13,11 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 /// Migration screen for importing data from Simply Plural.
 ///
 /// Guides the user through a multi-step flow:
-/// 1. Select export file
-/// 2. Preview detected data
-/// 3. Import progress
-/// 4. Completion summary
+/// 1. Choose import method (API or file)
+/// 2. (API) Enter token -> verify -> fetch
+/// 3. Preview detected data
+/// 4. Import progress
+/// 5. Completion summary
 class MigrationScreen extends ConsumerWidget {
   const MigrationScreen({super.key});
 
@@ -32,6 +34,10 @@ class MigrationScreen extends ConsumerWidget {
       body: switch (migration.step) {
         ImportState.idle => _IdleView(ref: ref),
         ImportState.parsing => const _LoadingView(message: 'Reading file...'),
+        ImportState.verifying => migration.spUsername != null
+            ? _ConnectedView(username: migration.spUsername!, ref: ref)
+            : const _LoadingView(message: 'Verifying token...'),
+        ImportState.fetching => _FetchingView(state: migration),
         ImportState.previewing => _PreviewView(
             data: migration.exportData!,
             ref: ref,
@@ -46,6 +52,7 @@ class MigrationScreen extends ConsumerWidget {
         ImportState.error => _ErrorView(
             message: migration.error ?? 'An unknown error occurred.',
             ref: ref,
+            source: migration.source,
           ),
       },
     );
@@ -53,7 +60,7 @@ class MigrationScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Step 1: Idle / File selection
+// Step 1: Idle / Method selection
 // ---------------------------------------------------------------------------
 
 class _IdleView extends StatelessWidget {
@@ -83,44 +90,40 @@ class _IdleView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Bring your existing data into Prism. Export your data from '
-          'Simply Plural, then import it here to get started quickly.',
+          'Bring your existing data into Prism. Choose how you would '
+          'like to import your Simply Plural data.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 32),
-
-        // Instructions
-        const _StepTile(
-          step: 1,
-          title: 'Export from Simply Plural',
-          subtitle: 'Go to Settings > Export in Simply Plural and '
-              'save the JSON export file.',
-        ),
-        const _StepTile(
-          step: 2,
-          title: 'Select the file here',
-          subtitle: 'Choose the exported JSON file from your device.',
-        ),
-        const _StepTile(
-          step: 3,
-          title: 'Review & confirm',
-          subtitle: 'Preview what will be imported and confirm '
-              'before any data is added.',
-        ),
         const SizedBox(height: 24),
 
-        // Select file button
-        PrismButton(
-          onPressed: () {
+        // Option 1: API import
+        _ImportMethodCard(
+          icon: Icons.cloud_download_outlined,
+          title: 'Connect with API',
+          subtitle: 'No file export needed — imports directly from your account',
+          recommended: true,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => _TokenInputScreen(ref: ref),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+
+        // Option 2: File import
+        _ImportMethodCard(
+          icon: Icons.file_upload_outlined,
+          title: 'Import from file',
+          subtitle: 'Use a JSON export file from Simply Plural',
+          recommended: false,
+          onTap: () {
             ref.read(importerProvider.notifier).selectAndParseFile();
           },
-          icon: Icons.file_upload_outlined,
-          label: 'Select SP Export File',
-          tone: PrismButtonTone.filled,
-          expanded: true,
         ),
         const SizedBox(height: 24),
 
@@ -144,7 +147,8 @@ class _IdleView extends StatelessWidget {
                 const _SupportedItem(
                     icon: Icons.flash_on, label: 'Fronting history'),
                 const _SupportedItem(
-                    icon: Icons.chat_bubble_outline, label: 'Chat channels & messages'),
+                    icon: Icons.chat_bubble_outline,
+                    label: 'Chat channels & messages'),
                 const _SupportedItem(
                     icon: Icons.poll_outlined, label: 'Polls'),
                 const _SupportedItem(
@@ -153,11 +157,427 @@ class _IdleView extends StatelessWidget {
                     icon: Icons.notes, label: 'Member descriptions'),
                 const _SupportedItem(
                     icon: Icons.image_outlined, label: 'Avatar images'),
+                const _SupportedItem(
+                    icon: Icons.note_outlined, label: 'Notes'),
+                const _SupportedItem(
+                    icon: Icons.text_fields, label: 'Custom fields'),
+                const _SupportedItem(
+                    icon: Icons.group_outlined, label: 'Groups'),
+                const _SupportedItem(
+                    icon: Icons.comment_outlined,
+                    label: 'Comments on front sessions'),
+                const _SupportedItem(
+                    icon: Icons.alarm, label: 'Reminders'),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Import method card
+// ---------------------------------------------------------------------------
+
+class _ImportMethodCard extends StatelessWidget {
+  const _ImportMethodCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.recommended,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool recommended;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 32,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (recommended) ...[
+                          const SizedBox(width: 8),
+                          Chip(
+                            label: Text(
+                              'Recommended',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSecondaryContainer,
+                              ),
+                            ),
+                            backgroundColor:
+                                theme.colorScheme.secondaryContainer,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            labelPadding:
+                                const EdgeInsets.symmetric(horizontal: 6),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Token input (API flow)
+// ---------------------------------------------------------------------------
+
+class _TokenInputScreen extends ConsumerStatefulWidget {
+  const _TokenInputScreen({required this.ref});
+
+  final WidgetRef ref;
+
+  @override
+  ConsumerState<_TokenInputScreen> createState() => _TokenInputScreenState();
+}
+
+class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
+  final _tokenController = TextEditingController();
+  bool _obscured = true;
+  bool _showHelp = false;
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Listen for state changes to pop back when verification succeeds or
+    // transitions to a non-idle state that the main screen handles.
+    final migration = ref.watch(importerProvider);
+    if (migration.step != ImportState.idle &&
+        migration.step != ImportState.verifying) {
+      // Pop after build completes so we don't interfere with the widget tree.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      });
+    }
+    // If verification succeeded and username is set, pop to show _ConnectedView.
+    if (migration.step == ImportState.verifying &&
+        migration.spUsername != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+      });
+    }
+
+    final isVerifying =
+        migration.step == ImportState.verifying && migration.spUsername == null;
+
+    return PrismPageScaffold(
+      topBar: const PrismTopBar(
+        title: 'Connect to Simply Plural',
+        showBackButton: true,
+      ),
+      bodyPadding: EdgeInsets.zero,
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Icon(
+            Icons.cloud_download_outlined,
+            size: 48,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Connect to Simply Plural',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Enter your API token to import data directly.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Token input
+          TextField(
+            controller: _tokenController,
+            obscureText: _obscured,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: InputDecoration(
+              labelText: 'API Token',
+              hintText: 'Paste your token here',
+              border: const OutlineInputBorder(),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _obscured ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() => _obscured = !_obscured);
+                    },
+                    tooltip: _obscured ? 'Show token' : 'Hide token',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.paste),
+                    onPressed: () async {
+                      final data = await Clipboard.getData('text/plain');
+                      if (data?.text != null) {
+                        _tokenController.text = data!.text!;
+                      }
+                    },
+                    tooltip: 'Paste from clipboard',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Help expandable
+          GestureDetector(
+            onTap: () {
+              setState(() => _showHelp = !_showHelp);
+            },
+            child: Row(
+              children: [
+                Icon(
+                  _showHelp ? Icons.expand_less : Icons.expand_more,
+                  size: 20,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Where do I find this?',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_showHelp) ...[
+            const SizedBox(height: 8),
+            Card(
+              color: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.5),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  'In Simply Plural, go to Settings \u2192 Account \u2192 '
+                  'Tokens. Create a new token with Read permission and '
+                  'copy it.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
+
+          // Verify button
+          PrismButton(
+            onPressed: () {
+              ref
+                  .read(importerProvider.notifier)
+                  .verifyToken(_tokenController.text);
+            },
+            icon: Icons.verified_outlined,
+            label: 'Verify Token',
+            tone: PrismButtonTone.filled,
+            expanded: true,
+            isLoading: isVerifying,
+            enabled: !isVerifying,
+          ),
+          const SizedBox(height: 8),
+
+          // Back button
+          PrismButton(
+            onPressed: () {
+              ref.read(importerProvider.notifier).reset();
+              Navigator.of(context).pop();
+            },
+            label: 'Back',
+            tone: PrismButtonTone.outlined,
+            expanded: true,
+            enabled: !isVerifying,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Connected view (after token verification)
+// ---------------------------------------------------------------------------
+
+class _ConnectedView extends StatelessWidget {
+  const _ConnectedView({required this.username, required this.ref});
+
+  final String username;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.check_circle,
+              size: 64,
+              color: Colors.green.shade600,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Connected',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Signed in as $username',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 32),
+            PrismButton(
+              onPressed: () {
+                ref.read(importerProvider.notifier).fetchFromApi();
+              },
+              icon: Icons.download,
+              label: 'Continue',
+              tone: PrismButtonTone.filled,
+              expanded: true,
+            ),
+            const SizedBox(height: 8),
+            PrismButton(
+              onPressed: () {
+                ref.read(importerProvider.notifier).reset();
+              },
+              label: 'Cancel',
+              tone: PrismButtonTone.outlined,
+              expanded: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fetching view (API data download)
+// ---------------------------------------------------------------------------
+
+class _FetchingView extends StatelessWidget {
+  const _FetchingView({required this.state});
+
+  final MigrationState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 80,
+              height: 80,
+              child: CircularProgressIndicator(
+                strokeWidth: 6,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Fetching data from Simply Plural...',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              state.progressLabel,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -199,6 +619,7 @@ class _PreviewView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasPreviousImport = ref.watch(hasPreviousSpImportProvider);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -218,7 +639,7 @@ class _PreviewView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Review what was found in your export file before importing.',
+          'Review what was found before importing.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -257,18 +678,100 @@ class _PreviewView extends StatelessWidget {
           ),
         ),
 
+        // API limitation note — reminders aren't available via the API
+        if (ref.read(importerProvider).source == ImportSource.api &&
+            data.automatedTimers.isEmpty &&
+            data.repeatedTimers.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Card(
+              color: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.5),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Reminders are not available via the API. '
+                        'To import reminders, use a file export instead.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
         const SizedBox(height: 24),
 
-        // Action buttons
-        PrismButton(
-          onPressed: () {
-            ref.read(importerProvider.notifier).executeImport();
+        // Action buttons — show "Start fresh" option if previous import exists
+        hasPreviousImport.when(
+          data: (hasPrevious) {
+            if (hasPrevious) {
+              return Column(
+                children: [
+                  PrismButton(
+                    onPressed: () {
+                      ref.read(importerProvider.notifier).executeImport();
+                    },
+                    icon: Icons.download,
+                    label: 'Import All (add to existing)',
+                    tone: PrismButtonTone.filled,
+                    expanded: true,
+                  ),
+                  const SizedBox(height: 8),
+                  PrismButton(
+                    onPressed: () {
+                      _showStartFreshDialog(context);
+                    },
+                    icon: Icons.refresh,
+                    label: 'Start Fresh (replace all data)',
+                    tone: PrismButtonTone.outlined,
+                    expanded: true,
+                  ),
+                ],
+              );
+            }
+            return PrismButton(
+              onPressed: () {
+                ref.read(importerProvider.notifier).executeImport();
+              },
+              icon: Icons.download,
+              label: 'Import All',
+              tone: PrismButtonTone.filled,
+              expanded: true,
+            );
           },
-          icon: Icons.download,
-          label: 'Import All',
-          tone: PrismButtonTone.filled,
-          expanded: true,
+          loading: () => PrismButton(
+            onPressed: () {
+              ref.read(importerProvider.notifier).executeImport();
+            },
+            icon: Icons.download,
+            label: 'Import All',
+            tone: PrismButtonTone.filled,
+            expanded: true,
+          ),
+          error: (_, _) => PrismButton(
+            onPressed: () {
+              ref.read(importerProvider.notifier).executeImport();
+            },
+            icon: Icons.download,
+            label: 'Import All',
+            tone: PrismButtonTone.filled,
+            expanded: true,
+          ),
         ),
+
         const SizedBox(height: 8),
         PrismButton(
           onPressed: () {
@@ -280,6 +783,45 @@ class _PreviewView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  void _showStartFreshDialog(BuildContext context) {
+    showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        return AlertDialog(
+          title: const Text('Replace all data?'),
+          content: Text(
+            'This will delete all existing members, front history, '
+            'conversations, and other data before importing. '
+            'This action cannot be undone.\n\n'
+            'If you have sync set up, other paired devices should '
+            'also be reset to avoid conflicts.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+              ),
+              child: const Text('Replace All'),
+            ),
+          ],
+        );
+      },
+    ).then((confirmed) {
+      if (confirmed == true) {
+        ref
+            .read(importerProvider.notifier)
+            .executeImport(resetFirst: true);
+      }
+    });
   }
 }
 
@@ -410,6 +952,20 @@ class _CompleteView extends StatelessWidget {
                     count: result.conversationsImported),
                 _ResultRow(label: 'Messages', count: result.messagesImported),
                 _ResultRow(label: 'Polls', count: result.pollsImported),
+                if (result.notesImported > 0)
+                  _ResultRow(label: 'Notes', count: result.notesImported),
+                if (result.commentsImported > 0)
+                  _ResultRow(
+                      label: 'Comments', count: result.commentsImported),
+                if (result.customFieldsImported > 0)
+                  _ResultRow(
+                      label: 'Custom fields',
+                      count: result.customFieldsImported),
+                if (result.groupsImported > 0)
+                  _ResultRow(label: 'Groups', count: result.groupsImported),
+                if (result.remindersImported > 0)
+                  _ResultRow(
+                      label: 'Reminders', count: result.remindersImported),
                 if (result.avatarsDownloaded > 0)
                   _ResultRow(
                       label: 'Avatars downloaded',
@@ -501,10 +1057,15 @@ class _ResultRow extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.ref});
+  const _ErrorView({
+    required this.message,
+    required this.ref,
+    required this.source,
+  });
 
   final String message;
   final WidgetRef ref;
+  final ImportSource source;
 
   @override
   Widget build(BuildContext context) {
@@ -544,6 +1105,24 @@ class _ErrorView extends StatelessWidget {
               label: 'Try Again',
               tone: PrismButtonTone.filled,
             ),
+            if (source == ImportSource.api) ...[
+              const SizedBox(height: 8),
+              PrismButton(
+                onPressed: () {
+                  ref.read(importerProvider.notifier).reset();
+                  // After resetting, the idle view will show with both options.
+                  // The user can then tap "Import from file".
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    ref
+                        .read(importerProvider.notifier)
+                        .selectAndParseFile();
+                  });
+                },
+                icon: Icons.file_upload_outlined,
+                label: 'Try file import instead',
+                tone: PrismButtonTone.outlined,
+              ),
+            ],
           ],
         ),
       ),
@@ -554,64 +1133,6 @@ class _ErrorView extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Shared widgets
 // ---------------------------------------------------------------------------
-
-class _StepTile extends StatelessWidget {
-  const _StepTile({
-    required this.step,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final int step;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: theme.colorScheme.primaryContainer,
-            child: Text(
-              '$step',
-              style: theme.textTheme.titleSmall?.copyWith(
-                color: theme.colorScheme.onPrimaryContainer,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _SupportedItem extends StatelessWidget {
   const _SupportedItem({required this.icon, required this.label});

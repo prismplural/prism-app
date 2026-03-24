@@ -613,7 +613,7 @@ class SpMapper {
         name: name,
         message: message,
         trigger: domain.ReminderTrigger.onFrontChange,
-        delayHours: timer.delayHours,
+        delayHours: timer.delayHours?.toInt(),
         isActive: timer.enabled,
         createdAt: now,
         modifiedAt: now,
