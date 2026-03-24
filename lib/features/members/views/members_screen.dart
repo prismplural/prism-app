@@ -51,14 +51,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         : AppRoutePaths.settingsMember(id);
   }
 
-  String _groupsPath(BuildContext context) {
-    return _isTopLevelBranch
-        ? '${AppRoutePaths.members}/groups'
-        : AppRoutePaths.settingsGroups;
-  }
-
   void _showOptionsMenu(List<Member>? members, dynamic terms) {
-    PrismDialog.show<void>(
+    PrismSheet.show<void>(
       context: context,
       title: 'Options',
       builder: (ctx) {
@@ -67,25 +61,6 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.folder_outlined),
-              title: const Text('Groups'),
-              onTap: () {
-                Navigator.of(ctx).pop();
-                context.push(_groupsPath(context));
-              },
-            ),
-            if (members != null)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.search),
-                title: Text('Search ${terms.pluralLower}'),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _openSearch(members);
-                },
-              ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(_showInactive
@@ -283,6 +258,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         title: terms.plural,
         showBackButton: widget.showBackButton,
         actions: [
+          PrismTopBarAction(
+            icon: Icons.search,
+            tooltip: terms.searchHint,
+            onPressed: () {
+              final members = membersAsync.value;
+              if (members != null) _openSearch(members);
+            },
+          ),
           PrismTopBarAction(
             icon: Icons.add,
             tooltip: terms.addButtonText,
