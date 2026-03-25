@@ -50,7 +50,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                       icon: Icons.front_hand_outlined,
                       iconColor: Colors.purple,
                       title: 'Fronting',
-                      subtitle: 'Quick switch and other options',
+                      subtitle: 'Quick switch settings',
                       onTap: () => context.go('/settings/features/fronting'),
                     ),
                     const Divider(height: 1, indent: 60, endIndent: 12),

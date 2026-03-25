@@ -89,7 +89,7 @@ class _SleepFeatureSettingsScreenState
                 child: PrismSwitchRow(
                   icon: Icons.bedtime_outlined,
                   iconColor: Colors.indigo,
-                  title: 'Enable Sleep Tracking',
+                  title: 'Enable Sleep',
                   subtitle: 'Log and monitor sleep sessions',
                   value: settings.sleepTrackingEnabled,
                   onChanged: (value) => ref

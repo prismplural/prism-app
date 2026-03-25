@@ -29,13 +29,14 @@ class PrismSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w700,
+          if (title.isNotEmpty)
+            Text(
+              title,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
           if (description != null) ...[
             const SizedBox(height: 6),
             Text(

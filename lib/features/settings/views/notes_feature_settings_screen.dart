@@ -31,7 +31,7 @@ class NotesFeatureSettingsScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
-                'Write notes and journal entries for system members.',
+                'A personal journal for system members. Disabling hides notes from navigation but keeps existing entries.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
