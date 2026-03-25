@@ -27,6 +27,7 @@ hex = "0.4"
 sha2 = "0.10"
 rand = "0.8"
 thiserror = "2"
+reqwest = { version = "0.12", default-features = false }
 
 [dev-dependencies]
 reqwest = { version = "0.12", features = ["json"] }
