@@ -2,6 +2,20 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.2] - 2026-03-24
+
+### Changed
+- **Features settings rework:** All features now navigate to their own settings subview instead of mixing inline toggles with tappable rows. Removed the "Features with settings" / "Other features" labels — the list is now a single flat view with consistent Enabled/Disabled status on each row.
+- **Sleep and Reminders moved to Features:** Sleep settings and Reminders moved from the main Settings > App section into Settings > Features, giving each its own subview with toggle and options.
+- **Sleep toggle bug fixed:** The sleep tracking toggle now persists correctly across app restarts (was previously using an ephemeral in-memory provider that reset on every launch).
+- **PrismSection empty title:** Section headers no longer render invisible whitespace when given an empty title.
+
+### Added
+- **Polls feature settings screen:** Dedicated subview with enable/disable toggle and description.
+- **Notes feature settings screen:** Dedicated subview with enable/disable toggle and description.
+- **Sleep feature settings screen:** Rebuilt with proper Material pattern — toggle plus radio picker for default quality (matching the Fronting quick switch pattern).
+- **Reminders feature settings screen:** Toggle plus "Manage Reminders" link to the existing reminders CRUD screen.
+
 ## [0.2.1] - 2026-03-23
 
 ### Added
