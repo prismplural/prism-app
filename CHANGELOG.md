@@ -2,6 +2,12 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.3] - 2026-03-24
+
+### Changed
+- **Features list polish:** Removed subtitle text from feature rows in Settings > Features. Enabled features now show an accent-colored status dot instead. Cleaner, less visual clutter.
+- **Feature detail descriptions:** Upgraded description text from `bodyMedium` to `bodyLarge` with more breathing room, so feature descriptions feel intentional rather than cramped.
+
 ## [0.2.2] - 2026-03-24
 
 ### Changed
