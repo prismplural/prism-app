@@ -303,6 +303,9 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// partial credentials don't linger and confuse future startup logic.
   Future<void> _cleanupKeychainOnFailure() async {
     const prefix = 'prism_sync.';
+    // NOTE: database_key is intentionally NOT cleaned up here. It is a
+    // local encryption key (Signal model) that must survive failed pairing
+    // attempts — deleting it would make the encrypted local DB unreadable.
     const keysToClean = [
       '${prefix}wrapped_dek',
       '${prefix}dek_salt',
@@ -314,8 +317,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       '${prefix}relay_url',
       '${prefix}mnemonic',
       '${prefix}runtime_dek',
-      '${prefix}database_key',
-      '${prefix}database_encrypted',
     ];
     for (final key in keysToClean) {
       try {

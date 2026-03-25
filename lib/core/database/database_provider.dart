@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart' as raw;
 import 'app_database.dart';
 import 'database_encryption.dart';
 
@@ -26,44 +27,126 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final file = await getDatabaseFile();
-
-    // Check if we have a database encryption key cached in secure storage.
     final hexKey = await readDatabaseKeyHex();
-    final encrypted = await isDatabaseEncrypted();
 
-    if (hexKey != null && encrypted) {
-      // Database is encrypted — open with the cipher setup callback.
-      debugPrint('[DB_PROVIDER] Opening encrypted database');
+    // ── Path 1: No DB file on disk ──────────────────────────────────────
+    // Fresh install or post-reset. Generate a key if needed, then let Drift
+    // create a new encrypted database.
+    if (!file.existsSync()) {
+      final key = hexKey ?? await ensureLocalDatabaseKey();
+      debugPrint('[DB_PROVIDER] Fresh install — creating encrypted database');
       return NativeDatabase.createInBackground(
         file,
-        setup: makeCipherSetup(hexKey),
+        setup: makeCipherSetup(key),
       );
     }
 
-    if (hexKey != null && !encrypted) {
-      // Key is available but database hasn't been migrated yet.
-      // This can happen if the migration at startup failed or was skipped.
-      // Attempt migration now before opening.
-      debugPrint('[DB_PROVIDER] Key available but DB not encrypted — attempting migration');
-      final migrated = await migratePlaintextToEncrypted(
-        dbFile: file,
-        hexKey: hexKey,
-      );
-      if (migrated) {
-        debugPrint('[DB_PROVIDER] Migration succeeded — opening encrypted');
+    // ── Path 2: DB file exists + key exists ─────────────────────────────
+    // Most common path on a normal restart.
+    if (hexKey != null) {
+      if (_tryOpenEncrypted(file.path, hexKey)) {
+        debugPrint('[DB_PROVIDER] Opening encrypted database');
         return NativeDatabase.createInBackground(
           file,
           setup: makeCipherSetup(hexKey),
         );
-      } else {
-        // Migration failed — fall back to plaintext to avoid data loss.
+      }
+
+      // Key exists but can't open as encrypted — DB may be plaintext
+      // (upgrade from pre-encryption version where key was backfilled
+      // before migration ran).
+      if (_tryOpenPlaintext(file.path)) {
+        debugPrint('[DB_PROVIDER] Key exists but DB is plaintext — migrating');
+        final migrated = await migratePlaintextToEncrypted(
+          dbFile: file,
+          hexKey: hexKey,
+        );
+        if (migrated) {
+          return NativeDatabase.createInBackground(
+            file,
+            setup: makeCipherSetup(hexKey),
+          );
+        }
+        // Migration failed — fall back to plaintext to preserve data.
         debugPrint('[DB_PROVIDER] Migration failed — falling back to plaintext');
         return NativeDatabase.createInBackground(file);
       }
+
+      // Key exists but DB is neither openable with it nor plaintext.
+      // Fail closed — the DB may be encrypted with a different key
+      // (e.g. backup/restore where the keychain didn't transfer).
+      throw StateError(
+        'Database file exists but cannot be opened with the stored key '
+        'or as plaintext. It may be encrypted with a different key or '
+        'corrupted. A full data reset may be required.',
+      );
     }
 
-    // No encryption key available (sync not set up) — open plaintext.
-    debugPrint('[DB_PROVIDER] No database key — opening plaintext');
-    return NativeDatabase.createInBackground(file);
+    // ── Path 3: DB file exists + no key ─────────────────────────────────
+    // Upgrade from a version before always-on encryption, or keychain was
+    // cleared. Probe the file to determine its state.
+    if (_tryOpenPlaintext(file.path)) {
+      debugPrint('[DB_PROVIDER] No key, plaintext DB — generating key and migrating');
+      final key = await ensureLocalDatabaseKey();
+      final migrated = await migratePlaintextToEncrypted(
+        dbFile: file,
+        hexKey: key,
+      );
+      if (migrated) {
+        return NativeDatabase.createInBackground(
+          file,
+          setup: makeCipherSetup(key),
+        );
+      }
+      // Migration failed — fall back to plaintext to preserve data.
+      debugPrint('[DB_PROVIDER] Migration failed — falling back to plaintext');
+      return NativeDatabase.createInBackground(file);
+    }
+
+    // DB exists, no key, and it's not plaintext — encrypted with a lost key.
+    // Fail closed. This can happen after backup/restore where the
+    // first_unlock_this_device keychain item didn't transfer.
+    throw StateError(
+      'Database file exists but cannot be opened as plaintext and no '
+      'encryption key is available. The key may have been lost during '
+      'backup/restore. A full data reset may be required.',
+    );
   });
+}
+
+// ---------------------------------------------------------------------------
+// DB state probes — lightweight open/query/close to determine file state.
+// ---------------------------------------------------------------------------
+
+/// Try to open the database with the given encryption key and read from it.
+/// Returns true if the DB is readable with this key.
+bool _tryOpenEncrypted(String path, String hexKey) {
+  try {
+    final db = raw.sqlite3.open(path);
+    try {
+      db.execute("PRAGMA key = \"x'$hexKey'\";");
+      db.select('SELECT count(*) FROM sqlite_master;');
+      return true;
+    } finally {
+      db.dispose();
+    }
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Try to open the database as plaintext (no encryption key) and read from it.
+/// Returns true if the DB is readable without a key.
+bool _tryOpenPlaintext(String path) {
+  try {
+    final db = raw.sqlite3.open(path);
+    try {
+      db.select('SELECT count(*) FROM sqlite_master;');
+      return true;
+    } finally {
+      db.dispose();
+    }
+  } catch (_) {
+    return false;
+  }
 }

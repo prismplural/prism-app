@@ -27,10 +27,11 @@ class AdpInfoScreen extends StatelessWidget {
             icon: Icons.lock_outline,
             title: 'Encryption',
             body:
-                'All data is encrypted with XChaCha20-Poly1305 before '
-                'it leaves your device for sync. Local storage is not '
-                'currently encrypted at rest. Your sync encryption keys '
-                'are stored in the platform keychain.',
+                'Your local database is always encrypted at rest using '
+                'AES-256. A device-generated encryption key is stored '
+                'in the platform keychain. When sync is enabled, your '
+                'data is additionally encrypted end-to-end with '
+                'XChaCha20-Poly1305 before leaving your device.',
           ),
           const SizedBox(height: 12),
           _InfoCard(
@@ -41,25 +42,38 @@ class AdpInfoScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Your password protects a hierarchy of keys:',
+                  'Two layers of encryption protect your data:',
                   style: theme.textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 12),
-                DefaultTextStyle(
-                  style: theme.textTheme.bodySmall!.copyWith(
-                    fontFamily: 'monospace',
-                    height: 1.6,
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Password'),
-                      Text('  └─ MEK (Master Encryption Key)'),
-                      Text('       ├─ DEK (Data Encryption Key)'),
-                      Text('       ├─ Sync Key'),
-                      Text('       ├─ Identity Key'),
-                      Text('       └─ DB Key'),
-                    ],
+                Semantics(
+                  label: 'Device encryption: a random key generated on your '
+                      'device encrypts the local database using AES-256. '
+                      'Sync encryption: your password and recovery phrase '
+                      'derive a master key, which wraps a data encryption '
+                      'key, which derives sync, identity, and pairing keys.',
+                  child: ExcludeSemantics(
+                    child: DefaultTextStyle(
+                      style: theme.textTheme.bodySmall!.copyWith(
+                        fontFamily: 'monospace',
+                        height: 1.6,
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Device (always active)'),
+                          Text('  Random Key → AES-256 → Local DB'),
+                          Text(''),
+                          Text('Sync (when enabled)'),
+                          Text('  Password + Recovery Phrase'),
+                          Text('    └─ MEK (Master Encryption Key)'),
+                          Text('         └─ DEK (Data Encryption Key)'),
+                          Text('              ├─ Sync Key'),
+                          Text('              ├─ Identity Key'),
+                          Text('              └─ Pairing Key'),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],

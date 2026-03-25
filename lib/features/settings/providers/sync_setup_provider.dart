@@ -220,6 +220,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
   /// future startup logic.
   Future<void> _cleanupKeychainOnFailure() async {
     const prefix = 'prism_sync.';
+    // NOTE: database_key is intentionally NOT cleaned up here. It is a
+    // local encryption key (Signal model) that must survive failed sync
+    // attempts — deleting it would make the encrypted local DB unreadable.
     const keysToClean = [
       '${prefix}wrapped_dek',
       '${prefix}dek_salt',
@@ -231,8 +234,6 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       '${prefix}relay_url',
       '${prefix}mnemonic',
       '${prefix}runtime_dek',
-      '${prefix}database_key',
-      '${prefix}database_encrypted',
     ];
     for (final key in keysToClean) {
       try {
