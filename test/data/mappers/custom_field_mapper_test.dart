@@ -5,6 +5,8 @@ import 'package:prism_plurality/data/mappers/custom_field_value_mapper.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
 import 'package:prism_plurality/domain/models/custom_field_value.dart' as domain;
 
+import '../../helpers/mapper_test_helpers.dart';
+
 void main() {
   // ══════════════════════════════════════════════════════════════════════════
   // CustomFieldMapper
@@ -13,27 +15,8 @@ void main() {
   group('CustomFieldMapper', () {
     final now = DateTime(2026, 3, 20, 12, 0);
 
-    db.CustomFieldRow makeRow({
-      String id = 'field-1',
-      String name = 'Role',
-      int fieldType = 0,
-      int? datePrecision,
-      int displayOrder = 0,
-      DateTime? createdAt,
-    }) {
-      return db.CustomFieldRow(
-        id: id,
-        name: name,
-        fieldType: fieldType,
-        datePrecision: datePrecision,
-        displayOrder: displayOrder,
-        createdAt: createdAt ?? now,
-        isDeleted: false,
-      );
-    }
-
     test('toDomain maps text field correctly', () {
-      final row = makeRow(
+      final row = makeDbCustomField(
         id: 'f-text',
         name: 'Favorite Food',
         fieldType: 0,
@@ -50,14 +33,14 @@ void main() {
     });
 
     test('toDomain maps color field correctly', () {
-      final row = makeRow(fieldType: 1);
+      final row = makeDbCustomField(fieldType: 1);
       final model = CustomFieldMapper.toDomain(row);
       expect(model.fieldType, domain.CustomFieldType.color);
       expect(model.datePrecision, isNull);
     });
 
     test('toDomain maps date field with full precision', () {
-      final row = makeRow(fieldType: 2, datePrecision: 0);
+      final row = makeDbCustomField(fieldType: 2, datePrecision: 0);
       final model = CustomFieldMapper.toDomain(row);
       expect(model.fieldType, domain.CustomFieldType.date);
       expect(model.datePrecision, domain.DatePrecision.full);
@@ -65,7 +48,8 @@ void main() {
 
     test('toDomain maps all date precision values', () {
       for (final precision in domain.DatePrecision.values) {
-        final row = makeRow(fieldType: 2, datePrecision: precision.index);
+        final row =
+            makeDbCustomField(fieldType: 2, datePrecision: precision.index);
         final model = CustomFieldMapper.toDomain(row);
         expect(model.fieldType, domain.CustomFieldType.date);
         expect(model.datePrecision, precision);
@@ -74,7 +58,7 @@ void main() {
 
     test('toDomain maps all field type values', () {
       for (final type in domain.CustomFieldType.values) {
-        final row = makeRow(fieldType: type.index);
+        final row = makeDbCustomField(fieldType: type.index);
         final model = CustomFieldMapper.toDomain(row);
         expect(model.fieldType, type);
       }

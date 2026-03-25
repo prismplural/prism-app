@@ -5,6 +5,8 @@ import 'package:prism_plurality/data/mappers/member_group_entry_mapper.dart';
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
 import 'package:prism_plurality/domain/models/member_group_entry.dart' as domain;
 
+import '../../helpers/mapper_test_helpers.dart';
+
 void main() {
   // ══════════════════════════════════════════════════════════════════════════
   // MemberGroupMapper
@@ -13,31 +15,8 @@ void main() {
   group('MemberGroupMapper', () {
     final now = DateTime(2026, 3, 20, 12, 0);
 
-    db.MemberGroupRow makeRow({
-      String id = 'group-1',
-      String name = 'Subsystem A',
-      String? description = 'A group',
-      String? colorHex = '#FF5733',
-      String? emoji = '🌟',
-      int displayOrder = 0,
-      String? parentGroupId,
-      DateTime? createdAt,
-    }) {
-      return db.MemberGroupRow(
-        id: id,
-        name: name,
-        description: description,
-        colorHex: colorHex,
-        emoji: emoji,
-        displayOrder: displayOrder,
-        parentGroupId: parentGroupId,
-        createdAt: createdAt ?? now,
-        isDeleted: false,
-      );
-    }
-
     test('toDomain maps all fields correctly', () {
-      final row = makeRow(
+      final row = makeDbMemberGroup(
         id: 'g-1',
         name: 'Protectors',
         description: 'Safety crew',
@@ -59,7 +38,7 @@ void main() {
     });
 
     test('toDomain handles null optional fields', () {
-      final row = makeRow(
+      final row = makeDbMemberGroup(
         description: null,
         colorHex: null,
         emoji: null,

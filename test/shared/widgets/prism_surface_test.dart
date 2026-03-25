@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
+import '../../helpers/widget_test_helpers.dart';
+
 void main() {
-  Widget buildApp(Widget child) {
-    return MaterialApp(home: Scaffold(body: child));
-  }
 
   group('PrismSurface', () {
     testWidgets('renders child', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         const PrismSurface(child: Text('Hello')),
       ));
 
@@ -18,7 +17,7 @@ void main() {
 
     testWidgets('fires onTap callback', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         PrismSurface(
           onTap: () => tapped = true,
           child: const Text('Tap me'),
@@ -31,7 +30,7 @@ void main() {
 
     testWidgets('fires onLongPress callback', (tester) async {
       var longPressed = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         PrismSurface(
           onTap: () {},
           onLongPress: () => longPressed = true,
@@ -44,7 +43,7 @@ void main() {
     });
 
     testWidgets('wraps content in ClipRRect for child clipping', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         const PrismSurface(child: Text('Clipped')),
       ));
 
@@ -54,7 +53,7 @@ void main() {
     });
 
     testWidgets('does not wrap in InkWell when no onTap', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         const PrismSurface(child: Text('Static')),
       ));
 
@@ -62,7 +61,7 @@ void main() {
     });
 
     testWidgets('wraps in InkWell when onTap is provided', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         PrismSurface(onTap: () {}, child: const Text('Tappable')),
       ));
 
@@ -70,7 +69,7 @@ void main() {
     });
 
     testWidgets('applies margin as outer Padding', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         const PrismSurface(
           margin: EdgeInsets.all(20),
           child: Text('Margined'),
@@ -84,7 +83,7 @@ void main() {
 
     for (final tone in PrismSurfaceTone.values) {
       testWidgets('renders with $tone tone', (tester) async {
-        await tester.pumpWidget(buildApp(
+        await tester.pumpWidget(testApp(center: false,
           PrismSurface(tone: tone, child: Text(tone.name)),
         ));
 
@@ -93,7 +92,7 @@ void main() {
     }
 
     testWidgets('sets semantic label when tappable', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         PrismSurface(
           onTap: () {},
           semanticLabel: 'Card action',

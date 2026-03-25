@@ -11,6 +11,8 @@ import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/models/poll.dart' as domain;
 
+import '../helpers/mapper_test_helpers.dart';
+
 void main() {
   // ════════════════════════════════════════════════════════════════════════════
   // MemberMapper
@@ -19,49 +21,9 @@ void main() {
   group('MemberMapper', () {
     final now = DateTime(2025, 3, 1, 12, 0);
 
-    db.Member makeDbRow({
-      String id = 'member-1',
-      String name = 'Alice',
-      String? pronouns = 'she/her',
-      String emoji = '🌸',
-      int? age = 25,
-      String? bio = 'Hello world',
-      Uint8List? avatarImageData,
-      bool isActive = true,
-      DateTime? createdAt,
-      int displayOrder = 0,
-      bool isAdmin = false,
-      bool customColorEnabled = false,
-      String? customColorHex,
-      String? parentSystemId,
-      String? pluralkitUuid,
-      String? pluralkitId,
-    }) {
-      return db.Member(
-        id: id,
-        name: name,
-        pronouns: pronouns,
-        emoji: emoji,
-        age: age,
-        bio: bio,
-        avatarImageData: avatarImageData,
-        isActive: isActive,
-        createdAt: createdAt ?? now,
-        displayOrder: displayOrder,
-        isAdmin: isAdmin,
-        customColorEnabled: customColorEnabled,
-        customColorHex: customColorHex,
-        parentSystemId: parentSystemId,
-        pluralkitUuid: pluralkitUuid,
-        pluralkitId: pluralkitId,
-        markdownEnabled: false,
-        isDeleted: false,
-      );
-    }
-
     test('toDomain maps all fields correctly', () {
       final avatar = Uint8List.fromList([1, 2, 3, 4]);
-      final row = makeDbRow(
+      final row = makeDbMember(
         id: 'abc',
         name: 'Test',
         pronouns: 'they/them',
@@ -98,7 +60,7 @@ void main() {
     });
 
     test('toDomain handles null optional fields', () {
-      final row = makeDbRow(
+      final row = makeDbMember(
         pronouns: null,
         age: null,
         bio: null,
@@ -212,7 +174,7 @@ void main() {
     });
 
     test('toDomain handles empty string bio and pronouns', () {
-      final row = makeDbRow(
+      final row = makeDbMember(
         bio: '',
         pronouns: '',
       );
@@ -230,31 +192,8 @@ void main() {
     final start = DateTime(2025, 3, 1, 10, 0);
     final end = DateTime(2025, 3, 1, 11, 0);
 
-    db.FrontingSession makeDbRow({
-      String id = 'session-1',
-      DateTime? startTime,
-      DateTime? endTime,
-      String? memberId = 'member-1',
-      String coFronterIds = '[]',
-      String? notes,
-      int? confidence,
-      String? pluralkitUuid,
-    }) {
-      return db.FrontingSession(
-        id: id,
-        startTime: startTime ?? start,
-        endTime: endTime,
-        memberId: memberId,
-        coFronterIds: coFronterIds,
-        notes: notes,
-        confidence: confidence,
-        pluralkitUuid: pluralkitUuid,
-        isDeleted: false,
-      );
-    }
-
     test('toDomain maps all fields correctly', () {
-      final row = makeDbRow(
+      final row = makeDbFrontingSession(
         id: 'fs-1',
         startTime: start,
         endTime: end,
@@ -277,19 +216,19 @@ void main() {
     });
 
     test('toDomain handles empty coFronterIds string', () {
-      final row = makeDbRow(coFronterIds: '');
+      final row = makeDbFrontingSession(coFronterIds: '');
       final model = FrontingSessionMapper.toDomain(row);
       expect(model.coFronterIds, isEmpty);
     });
 
     test('toDomain handles empty JSON array for coFronterIds', () {
-      final row = makeDbRow(coFronterIds: '[]');
+      final row = makeDbFrontingSession(coFronterIds: '[]');
       final model = FrontingSessionMapper.toDomain(row);
       expect(model.coFronterIds, isEmpty);
     });
 
     test('toDomain handles null optional fields', () {
-      final row = makeDbRow(
+      final row = makeDbFrontingSession(
         endTime: null,
         memberId: null,
         notes: null,
@@ -308,14 +247,14 @@ void main() {
 
     test('toDomain maps all confidence enum values correctly', () {
       for (final conf in domain.FrontConfidence.values) {
-        final row = makeDbRow(confidence: conf.index);
+        final row = makeDbFrontingSession(confidence: conf.index);
         final model = FrontingSessionMapper.toDomain(row);
         expect(model.confidence, conf);
       }
     });
 
     test('toDomain falls back to unsure for unknown confidence index', () {
-      final row = makeDbRow(confidence: 999);
+      final row = makeDbFrontingSession(confidence: 999);
       final model = FrontingSessionMapper.toDomain(row);
       expect(model.confidence, domain.FrontConfidence.unsure);
     });
@@ -390,7 +329,7 @@ void main() {
 
     test('toDomain gracefully handles malformed coFronterIds JSON', () {
       // The mapper catches JSON parse errors and returns empty list
-      final row = makeDbRow(coFronterIds: 'not valid json!!!');
+      final row = makeDbFrontingSession(coFronterIds: 'not valid json!!!');
       final model = FrontingSessionMapper.toDomain(row);
       expect(model.coFronterIds, isEmpty);
     });
@@ -404,29 +343,8 @@ void main() {
     final created = DateTime(2025, 3, 1, 12, 0);
     final expires = DateTime(2025, 3, 8, 12, 0);
 
-    db.Poll makeDbRow({
-      String id = 'poll-1',
-      String question = 'Favorite color?',
-      bool isAnonymous = false,
-      bool allowsMultipleVotes = false,
-      bool isClosed = false,
-      DateTime? expiresAt,
-      DateTime? createdAt,
-    }) {
-      return db.Poll(
-        id: id,
-        question: question,
-        isAnonymous: isAnonymous,
-        allowsMultipleVotes: allowsMultipleVotes,
-        isClosed: isClosed,
-        expiresAt: expiresAt,
-        createdAt: createdAt ?? created,
-        isDeleted: false,
-      );
-    }
-
     test('toDomain maps all fields correctly', () {
-      final row = makeDbRow(
+      final row = makeDbPoll(
         id: 'p-1',
         question: 'What for dinner?',
         isAnonymous: true,
@@ -448,13 +366,13 @@ void main() {
     });
 
     test('toDomain handles null expiresAt', () {
-      final row = makeDbRow(expiresAt: null);
+      final row = makeDbPoll(expiresAt: null);
       final model = PollMapper.toDomain(row);
       expect(model.expiresAt, isNull);
     });
 
     test('toDomain defaults to false booleans and empty options', () {
-      final row = makeDbRow(
+      final row = makeDbPoll(
         isAnonymous: false,
         allowsMultipleVotes: false,
         isClosed: false,
@@ -523,7 +441,7 @@ void main() {
     });
 
     test('toDomain handles empty question string', () {
-      final row = makeDbRow(question: '');
+      final row = makeDbPoll(question: '');
       final model = PollMapper.toDomain(row);
       expect(model.question, '');
     });

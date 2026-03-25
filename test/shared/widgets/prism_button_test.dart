@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
+import '../../helpers/widget_test_helpers.dart';
+
 void main() {
-  Widget buildApp(Widget child) {
-    return MaterialApp(home: Scaffold(body: Center(child: child)));
-  }
 
   group('PrismButton', () {
     testWidgets('renders label text', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismButton(label: 'Save', onPressed: () {}),
       ));
 
@@ -17,7 +16,7 @@ void main() {
     });
 
     testWidgets('renders icon when provided', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismButton(label: 'Add', icon: Icons.add, onPressed: () {}),
       ));
 
@@ -27,7 +26,7 @@ void main() {
 
     testWidgets('fires onPressed when tapped', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismButton(label: 'Go', onPressed: () => tapped = true),
       ));
 
@@ -37,7 +36,7 @@ void main() {
 
     testWidgets('does not fire onPressed when disabled', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismButton(
           label: 'Go',
           onPressed: () => tapped = true,
@@ -51,7 +50,7 @@ void main() {
 
     testWidgets('does not fire onPressed when loading', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismButton(
           label: 'Go',
           onPressed: () => tapped = true,
@@ -65,7 +64,7 @@ void main() {
     });
 
     testWidgets('shows CircularProgressIndicator when loading', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismButton(label: 'Go', onPressed: () {}, isLoading: true),
       ));
 
@@ -74,7 +73,7 @@ void main() {
     });
 
     testWidgets('uses semanticLabel when provided', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismButton(
           label: 'X',
           onPressed: () {},
@@ -89,7 +88,7 @@ void main() {
     group('tones', () {
       for (final tone in PrismButtonTone.values) {
         testWidgets('renders with $tone tone', (tester) async {
-          await tester.pumpWidget(buildApp(
+          await tester.pumpWidget(testApp(
             PrismButton(label: tone.name, onPressed: () {}, tone: tone),
           ));
 
@@ -102,7 +101,7 @@ void main() {
 
     group('expanded', () {
       testWidgets('uses MainAxisSize.min by default', (tester) async {
-        await tester.pumpWidget(buildApp(
+        await tester.pumpWidget(testApp(
           PrismButton(label: 'Narrow', onPressed: () {}),
         ));
 
@@ -111,7 +110,7 @@ void main() {
       });
 
       testWidgets('uses MainAxisSize.max when expanded', (tester) async {
-        await tester.pumpWidget(buildApp(
+        await tester.pumpWidget(testApp(
           PrismButton(label: 'Wide', onPressed: () {}, expanded: true),
         ));
 
@@ -122,7 +121,7 @@ void main() {
 
     group('density', () {
       testWidgets('compact density uses smaller padding', (tester) async {
-        await tester.pumpWidget(buildApp(
+        await tester.pumpWidget(testApp(
           PrismButton(
             label: 'Compact',
             onPressed: () {},
@@ -139,7 +138,7 @@ void main() {
       });
 
       testWidgets('regular density uses larger padding', (tester) async {
-        await tester.pumpWidget(buildApp(
+        await tester.pumpWidget(testApp(
           PrismButton(
             label: 'Regular',
             onPressed: () {},
@@ -159,7 +158,7 @@ void main() {
 
   group('PrismIconButton', () {
     testWidgets('renders icon', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismIconButton(icon: Icons.settings, onPressed: () {}),
       ));
 
@@ -168,7 +167,7 @@ void main() {
 
     testWidgets('fires onPressed when tapped', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismIconButton(icon: Icons.add, onPressed: () => tapped = true),
       ));
 
@@ -178,7 +177,7 @@ void main() {
 
     testWidgets('does not fire when disabled', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismIconButton(
           icon: Icons.add,
           onPressed: () => tapped = true,
@@ -191,7 +190,7 @@ void main() {
     });
 
     testWidgets('shows tooltip when provided', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismIconButton(
           icon: Icons.add,
           onPressed: () {},
@@ -204,7 +203,7 @@ void main() {
 
     testWidgets('fires onLongPress', (tester) async {
       var longPressed = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(
         PrismIconButton(
           icon: Icons.add,
           onPressed: () {},

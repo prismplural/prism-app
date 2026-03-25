@@ -3,14 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
+import '../../helpers/widget_test_helpers.dart';
+
 void main() {
-  Widget buildApp(Widget child) {
-    return MaterialApp(home: Scaffold(body: child));
-  }
 
   group('PrismSectionCard', () {
     testWidgets('renders child content', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         const PrismSectionCard(child: Text('Card content')),
       ));
 
@@ -18,7 +17,7 @@ void main() {
     });
 
     testWidgets('delegates to PrismSurface', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         const PrismSectionCard(child: Text('Hello')),
       ));
 
@@ -27,7 +26,7 @@ void main() {
 
     testWidgets('forwards onTap to PrismSurface', (tester) async {
       var tapped = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         PrismSectionCard(
           onTap: () => tapped = true,
           child: const Text('Tap target'),
@@ -40,7 +39,7 @@ void main() {
 
     testWidgets('forwards onLongPress to PrismSurface', (tester) async {
       var longPressed = false;
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         PrismSectionCard(
           onTap: () {},
           onLongPress: () => longPressed = true,
@@ -53,7 +52,7 @@ void main() {
     });
 
     testWidgets('is not tappable when no callbacks provided', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         const PrismSectionCard(child: Text('Static card')),
       ));
 
@@ -62,7 +61,7 @@ void main() {
     });
 
     testWidgets('forwards tone to PrismSurface', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         const PrismSectionCard(
           tone: PrismSurfaceTone.strong,
           child: Text('Strong'),
@@ -74,7 +73,7 @@ void main() {
     });
 
     testWidgets('forwards accentColor to PrismSurface', (tester) async {
-      await tester.pumpWidget(buildApp(
+      await tester.pumpWidget(testApp(center: false,
         const PrismSectionCard(
           accentColor: Colors.red,
           child: Text('Accented'),
