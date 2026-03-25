@@ -20,8 +20,11 @@ abstract final class AppRoutePaths {
   static const settingsFeaturesChat = '/settings/features/chat';
   static const settingsFeaturesHabits = '/settings/features/habits';
   static const settingsFeaturesFronting = '/settings/features/fronting';
+  static const settingsFeaturesSleep = '/settings/features/sleep';
+  static const settingsFeaturesPolls = '/settings/features/polls';
+  static const settingsFeaturesNotes = '/settings/features/notes';
+  static const settingsFeaturesReminders = '/settings/features/reminders';
   static const settingsAppearance = '/settings/appearance';
-  static const settingsSleep = '/settings/sleep';
   static const settingsHabits = '/settings/habits';
   static const settingsStatistics = '/settings/statistics';
   static const settingsSync = '/settings/sync';

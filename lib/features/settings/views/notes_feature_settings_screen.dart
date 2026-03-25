@@ -38,6 +38,7 @@ class NotesFeatureSettingsScreen extends ConsumerWidget {
               ),
             ),
             PrismSection(
+              title: '',
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: PrismSwitchRow(

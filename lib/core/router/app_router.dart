@@ -15,7 +15,10 @@ import '../../features/chat/views/conversation_screen.dart';
 import '../../features/polls/views/polls_list_screen.dart';
 import '../../features/polls/views/poll_detail_screen.dart';
 import '../../features/settings/views/settings_screen.dart';
-import '../../features/settings/views/sleep_settings_screen.dart';
+import '../../features/settings/views/sleep_feature_settings_screen.dart';
+import '../../features/settings/views/polls_feature_settings_screen.dart';
+import '../../features/settings/views/notes_feature_settings_screen.dart';
+import '../../features/settings/views/reminders_feature_settings_screen.dart';
 import '../../features/settings/views/sync_settings_screen.dart';
 import '../../features/settings/views/notification_settings_screen.dart';
 import '../../features/settings/views/appearance_settings_screen.dart';
@@ -330,7 +333,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'sleep',
-                    builder: (context, state) => const SleepSettingsScreen(),
+                    redirect: (context, state) => '/settings/features/sleep',
                   ),
                   GoRoute(
                     name: AppRouteNames.settingsSync,
@@ -420,6 +423,26 @@ final routerProvider = Provider<GoRouter>((ref) {
                         path: 'fronting',
                         builder: (context, state) =>
                             const FrontingFeatureSettingsScreen(),
+                      ),
+                      GoRoute(
+                        path: 'sleep',
+                        builder: (context, state) =>
+                            const SleepFeatureSettingsScreen(),
+                      ),
+                      GoRoute(
+                        path: 'polls',
+                        builder: (context, state) =>
+                            const PollsFeatureSettingsScreen(),
+                      ),
+                      GoRoute(
+                        path: 'notes',
+                        builder: (context, state) =>
+                            const NotesFeatureSettingsScreen(),
+                      ),
+                      GoRoute(
+                        path: 'reminders',
+                        builder: (context, state) =>
+                            const RemindersFeatureSettingsScreen(),
                       ),
                     ],
                   ),
