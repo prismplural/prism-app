@@ -3,37 +3,16 @@ import 'package:prism_plurality/core/database/app_database.dart' as db;
 import 'package:prism_plurality/data/mappers/note_mapper.dart';
 import 'package:prism_plurality/domain/models/note.dart' as domain;
 
+import '../../helpers/mapper_test_helpers.dart';
+
 void main() {
   group('NoteMapper', () {
     final now = DateTime(2026, 3, 20, 12, 0);
     final later = DateTime(2026, 3, 20, 14, 30);
     final noteDate = DateTime(2026, 3, 19);
 
-    db.NoteRow makeRow({
-      String id = 'note-1',
-      String title = 'Test Note',
-      String body = 'Some content',
-      String? colorHex,
-      String? memberId,
-      DateTime? date,
-      DateTime? createdAt,
-      DateTime? modifiedAt,
-    }) {
-      return db.NoteRow(
-        id: id,
-        title: title,
-        body: body,
-        colorHex: colorHex,
-        memberId: memberId,
-        date: date ?? noteDate,
-        createdAt: createdAt ?? now,
-        modifiedAt: modifiedAt ?? later,
-        isDeleted: false,
-      );
-    }
-
     test('toDomain maps all fields correctly', () {
-      final row = makeRow(
+      final row = makeDbNote(
         id: 'note-full',
         title: 'My Note',
         body: 'Detailed body text',
@@ -56,7 +35,7 @@ void main() {
     });
 
     test('toDomain handles null optional fields', () {
-      final row = makeRow(
+      final row = makeDbNote(
         colorHex: null,
         memberId: null,
       );

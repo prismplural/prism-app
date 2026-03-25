@@ -4,30 +4,15 @@ import 'package:prism_plurality/data/mappers/front_session_comment_mapper.dart';
 import 'package:prism_plurality/domain/models/front_session_comment.dart'
     as domain;
 
+import '../../helpers/mapper_test_helpers.dart';
+
 void main() {
   group('FrontSessionCommentMapper', () {
     final now = DateTime(2026, 3, 20, 12, 0);
     final commentTime = DateTime(2026, 3, 20, 10, 45);
 
-    db.FrontSessionCommentRow makeRow({
-      String id = 'comment-1',
-      String sessionId = 'session-1',
-      String body = 'A comment',
-      DateTime? timestamp,
-      DateTime? createdAt,
-    }) {
-      return db.FrontSessionCommentRow(
-        id: id,
-        sessionId: sessionId,
-        body: body,
-        timestamp: timestamp ?? commentTime,
-        createdAt: createdAt ?? now,
-        isDeleted: false,
-      );
-    }
-
     test('toDomain maps all fields correctly', () {
-      final row = makeRow(
+      final row = makeDbFrontSessionComment(
         id: 'comment-full',
         sessionId: 'session-42',
         body: 'Feeling good today',
@@ -88,7 +73,7 @@ void main() {
     });
 
     test('handles empty body', () {
-      final row = makeRow(body: '');
+      final row = makeDbFrontSessionComment(body: '');
       final model = FrontSessionCommentMapper.toDomain(row);
       expect(model.body, '');
     });

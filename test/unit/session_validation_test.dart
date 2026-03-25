@@ -1,70 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
-import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 
-// ── Simple fake repository for testing executeDelete / mergeAdjacent / etc. ──
-
-class FakeFrontingSessionRepository implements FrontingSessionRepository {
-  final List<FrontingSession> sessions = [];
-  final List<String> deletedIds = [];
-
-  @override
-  Future<void> createSession(FrontingSession session) async {
-    sessions.add(session);
-  }
-
-  @override
-  Future<void> updateSession(FrontingSession session) async {
-    sessions.removeWhere((s) => s.id == session.id);
-    sessions.add(session);
-  }
-
-  @override
-  Future<void> deleteSession(String id) async {
-    sessions.removeWhere((s) => s.id == id);
-    deletedIds.add(id);
-  }
-
-  // Unused — only the three above are called by the service under test.
-  @override
-  Future<List<FrontingSession>> getAllSessions() async => sessions;
-  @override
-  Stream<List<FrontingSession>> watchAllSessions() => const Stream.empty();
-  @override
-  Future<List<FrontingSession>> getActiveSessions() async => [];
-  @override
-  Stream<List<FrontingSession>> watchActiveSessions() => const Stream.empty();
-  @override
-  Future<FrontingSession?> getActiveSession() async => null;
-  @override
-  Stream<FrontingSession?> watchActiveSession() => const Stream.empty();
-  @override
-  Future<FrontingSession?> getSessionById(String id) async => null;
-  @override
-  Stream<FrontingSession?> watchSessionById(String id) =>
-      const Stream.empty();
-  @override
-  Future<List<FrontingSession>> getSessionsForMember(String memberId) async =>
-      [];
-  @override
-  Future<List<FrontingSession>> getRecentSessions({int limit = 20}) async =>
-      [];
-  @override
-  Stream<List<FrontingSession>> watchRecentSessions({int limit = 20}) =>
-      const Stream.empty();
-  @override
-  Future<void> endSession(String id, DateTime endTime) async {}
-  @override
-  Future<List<FrontingSession>> getSessionsBetween(
-          DateTime start, DateTime end) async =>
-      [];
-  @override
-  Future<int> getCount() async => sessions.length;
-  @override
-  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50}) async =>
-      {};
-}
+import '../helpers/fake_repositories.dart';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
