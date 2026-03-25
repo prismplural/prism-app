@@ -33,8 +33,8 @@ SpExportData _makeExportData({
 }
 
 /// Two standard test members used across multiple test groups.
-final _memberA = SpMember(id: 'sp-a', name: 'Alice');
-final _memberB = SpMember(id: 'sp-b', name: 'Bob');
+const _memberA = SpMember(id: 'sp-a', name: 'Alice');
+const _memberB = SpMember(id: 'sp-b', name: 'Bob');
 
 void main() {
   group('Notes mapping', () {
@@ -270,7 +270,7 @@ void main() {
     test('field type "color" maps to CustomFieldType.color', () {
       final data = _makeExportData(
         customFields: [
-          SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 'color'),
+          const SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 'color'),
         ],
       );
 
@@ -284,7 +284,7 @@ void main() {
     test('field type "date" maps to CustomFieldType.date', () {
       final data = _makeExportData(
         customFields: [
-          SpCustomFieldDef(id: 'cf1', name: 'Birthday', type: 'date'),
+          const SpCustomFieldDef(id: 'cf1', name: 'Birthday', type: 'date'),
         ],
       );
 
@@ -297,7 +297,7 @@ void main() {
     test('unknown type maps to CustomFieldType.text', () {
       final data = _makeExportData(
         customFields: [
-          SpCustomFieldDef(id: 'cf1', name: 'Other', type: 'number'),
+          const SpCustomFieldDef(id: 'cf1', name: 'Other', type: 'number'),
         ],
       );
 
@@ -311,14 +311,14 @@ void main() {
         () {
       final data = _makeExportData(
         members: [
-          SpMember(
+          const SpMember(
             id: 'sp-a',
             name: 'Alice',
             info: {'cf1': 'Blue'},
           ),
         ],
         customFields: [
-          SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 'color'),
+          const SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 'color'),
         ],
       );
 
@@ -340,9 +340,9 @@ void main() {
     test('groups mapped with color normalization', () {
       final data = _makeExportData(
         groups: [
-          SpGroup(id: 'g1', name: 'Group A', color: 'FF0000'),
-          SpGroup(id: 'g2', name: 'Group B', color: '#00FF00'),
-          SpGroup(id: 'g3', name: 'Group C', color: '#'),
+          const SpGroup(id: 'g1', name: 'Group A', color: 'FF0000'),
+          const SpGroup(id: 'g2', name: 'Group B', color: '#00FF00'),
+          const SpGroup(id: 'g3', name: 'Group C', color: '#'),
         ],
       );
 
@@ -359,7 +359,7 @@ void main() {
       final data = _makeExportData(
         members: [_memberA, _memberB],
         groups: [
-          SpGroup(
+          const SpGroup(
               id: 'g1', name: 'Team', memberIds: ['sp-a', 'sp-b']),
         ],
       );
@@ -382,7 +382,7 @@ void main() {
       final data = _makeExportData(
         members: [_memberA],
         groups: [
-          SpGroup(
+          const SpGroup(
             id: 'g1',
             name: 'Team',
             memberIds: ['sp-a', 'nonexistent'],

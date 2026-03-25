@@ -34,7 +34,7 @@ void main() {
           return http.Response('Unauthorized', 401);
         }),
       );
-      expect(() => client.verifyToken(), throwsA(isA<SpAuthError>()));
+      expect(client.verifyToken, throwsA(isA<SpAuthError>()));
       client.dispose();
     });
 
@@ -45,7 +45,7 @@ void main() {
           return http.Response('Forbidden', 403);
         }),
       );
-      expect(() => client.verifyToken(), throwsA(isA<SpAuthError>()));
+      expect(client.verifyToken, throwsA(isA<SpAuthError>()));
       client.dispose();
     });
 
@@ -90,7 +90,7 @@ void main() {
           return http.Response('Internal Server Error', 500);
         }),
       );
-      expect(() => client.verifyToken(), throwsA(isA<SpApiError>()));
+      expect(client.verifyToken, throwsA(isA<SpApiError>()));
       client.dispose();
     });
 
@@ -123,7 +123,7 @@ void main() {
 
   group('SpApiClient.fetchAll', () {
     /// Build a mock client that routes SP API endpoints to fixture data.
-    MockClient _buildMockClient({
+    MockClient buildMockClient({
       List<Map<String, dynamic>> members = const [],
       List<Map<String, dynamic>> customFronts = const [],
       List<Map<String, dynamic>> frontHistory = const [],
@@ -192,7 +192,7 @@ void main() {
     test('assembles SpExportData from API responses', () async {
       final client = SpApiClient(
         token: 'test-token',
-        httpClient: _buildMockClient(
+        httpClient: buildMockClient(
           members: [
             {'_id': 'mem1', 'name': 'Kai', 'pronouns': 'he/him'},
           ],
@@ -227,7 +227,7 @@ void main() {
       final progressCalls = <String>[];
       final client = SpApiClient(
         token: 'test-token',
-        httpClient: _buildMockClient(
+        httpClient: buildMockClient(
           members: [
             {'_id': 'mem1', 'name': 'Kai'},
           ],
@@ -248,7 +248,7 @@ void main() {
     test('partial note failure continues with other data', () async {
       final client = SpApiClient(
         token: 'test-token',
-        httpClient: _buildMockClient(
+        httpClient: buildMockClient(
           members: [
             {'_id': 'mem1', 'name': 'Kai'},
             {'_id': 'mem2', 'name': 'Luna'},
@@ -274,7 +274,7 @@ void main() {
     test('empty system returns empty SpExportData', () async {
       final client = SpApiClient(
         token: 'test-token',
-        httpClient: _buildMockClient(),
+        httpClient: buildMockClient(),
       );
 
       final data = await client.fetchAll();

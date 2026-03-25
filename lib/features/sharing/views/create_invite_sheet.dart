@@ -51,10 +51,10 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
             title: _invite != null ? 'Share Invite' : 'Create Invite',
             trailing: _invite == null
                 ? (_generating
-                    ? SizedBox(
+                    ? const SizedBox(
                         width: PrismTokens.topBarActionSize,
                         height: PrismTokens.topBarActionSize,
-                        child: const Center(
+                        child: Center(
                           child: SizedBox(
                             width: 20,
                             height: 20,

@@ -172,7 +172,7 @@ void main() {
 
   group('CustomFieldValueMapper', () {
     test('toDomain maps all fields', () {
-      final row = db.CustomFieldValueRow(
+      const row = db.CustomFieldValueRow(
         id: 'val-1',
         customFieldId: 'field-1',
         memberId: 'member-1',
@@ -188,7 +188,7 @@ void main() {
     });
 
     test('toCompanion preserves all fields', () {
-      final model = domain.CustomFieldValue(
+      const model = domain.CustomFieldValue(
         id: 'val-2',
         customFieldId: 'field-2',
         memberId: 'member-2',
@@ -203,7 +203,7 @@ void main() {
     });
 
     test('round-trip preserves data', () {
-      final original = domain.CustomFieldValue(
+      const original = domain.CustomFieldValue(
         id: 'rt-val',
         customFieldId: 'f-rt',
         memberId: 'm-rt',
@@ -227,7 +227,7 @@ void main() {
     });
 
     test('handles empty string value', () {
-      final row = db.CustomFieldValueRow(
+      const row = db.CustomFieldValueRow(
         id: 'val-empty',
         customFieldId: 'f-1',
         memberId: 'm-1',

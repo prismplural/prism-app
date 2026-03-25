@@ -19,7 +19,7 @@ void main() {
 
   tearDown(() => db.close());
 
-  ConversationCategory _makeCategory({
+  ConversationCategory makeCategory({
     required String id,
     String name = 'General',
     int displayOrder = 0,
@@ -36,7 +36,7 @@ void main() {
 
   group('create + watchAll round-trip', () {
     test('created category appears in watchAll stream', () async {
-      final category = _makeCategory(id: 'c1', name: 'Work');
+      final category = makeCategory(id: 'c1', name: 'Work');
 
       await repo.create(category);
 
@@ -48,8 +48,8 @@ void main() {
     });
 
     test('multiple categories appear in watchAll', () async {
-      await repo.create(_makeCategory(id: 'c1', name: 'Work'));
-      await repo.create(_makeCategory(id: 'c2', name: 'Personal'));
+      await repo.create(makeCategory(id: 'c1', name: 'Work'));
+      await repo.create(makeCategory(id: 'c2', name: 'Personal'));
 
       final all = await repo.watchAll().first;
       expect(all, hasLength(2));
@@ -58,9 +58,9 @@ void main() {
 
   group('update', () {
     test('update changes name', () async {
-      await repo.create(_makeCategory(id: 'c1', name: 'Old Name'));
+      await repo.create(makeCategory(id: 'c1', name: 'Old Name'));
 
-      final updated = _makeCategory(id: 'c1', name: 'New Name');
+      final updated = makeCategory(id: 'c1', name: 'New Name');
       await repo.update(updated);
 
       final all = await repo.watchAll().first;
@@ -69,9 +69,9 @@ void main() {
     });
 
     test('update changes displayOrder', () async {
-      await repo.create(_makeCategory(id: 'c1', displayOrder: 0));
+      await repo.create(makeCategory(id: 'c1', displayOrder: 0));
 
-      final updated = _makeCategory(id: 'c1', displayOrder: 5);
+      final updated = makeCategory(id: 'c1', displayOrder: 5);
       await repo.update(updated);
 
       final all = await repo.watchAll().first;
@@ -81,8 +81,8 @@ void main() {
 
   group('delete', () {
     test('soft-delete removes from watchAll', () async {
-      await repo.create(_makeCategory(id: 'c1', name: 'Keep'));
-      await repo.create(_makeCategory(id: 'c2', name: 'Remove'));
+      await repo.create(makeCategory(id: 'c1', name: 'Keep'));
+      await repo.create(makeCategory(id: 'c2', name: 'Remove'));
 
       await repo.delete('c2');
 
@@ -92,7 +92,7 @@ void main() {
     });
 
     test('soft-deleted category not returned by getById', () async {
-      await repo.create(_makeCategory(id: 'c1'));
+      await repo.create(makeCategory(id: 'c1'));
       await repo.delete('c1');
 
       final result = await repo.getById('c1');
@@ -102,9 +102,9 @@ void main() {
 
   group('ordering by displayOrder', () {
     test('watchAll returns categories ordered by displayOrder ascending', () async {
-      await repo.create(_makeCategory(id: 'c3', name: 'Third', displayOrder: 3));
-      await repo.create(_makeCategory(id: 'c1', name: 'First', displayOrder: 1));
-      await repo.create(_makeCategory(id: 'c2', name: 'Second', displayOrder: 2));
+      await repo.create(makeCategory(id: 'c3', name: 'Third', displayOrder: 3));
+      await repo.create(makeCategory(id: 'c1', name: 'First', displayOrder: 1));
+      await repo.create(makeCategory(id: 'c2', name: 'Second', displayOrder: 2));
 
       final all = await repo.watchAll().first;
       expect(all, hasLength(3));
@@ -114,8 +114,8 @@ void main() {
     });
 
     test('categories with same displayOrder are stable', () async {
-      await repo.create(_makeCategory(id: 'c1', name: 'A', displayOrder: 0));
-      await repo.create(_makeCategory(id: 'c2', name: 'B', displayOrder: 0));
+      await repo.create(makeCategory(id: 'c1', name: 'A', displayOrder: 0));
+      await repo.create(makeCategory(id: 'c2', name: 'B', displayOrder: 0));
 
       final all = await repo.watchAll().first;
       expect(all, hasLength(2));
@@ -127,7 +127,7 @@ void main() {
 
   group('getById', () {
     test('returns category when it exists', () async {
-      await repo.create(_makeCategory(id: 'c1', name: 'Found'));
+      await repo.create(makeCategory(id: 'c1', name: 'Found'));
 
       final found = await repo.getById('c1');
       expect(found, isNotNull);

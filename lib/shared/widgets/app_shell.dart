@@ -221,8 +221,8 @@ class _AppShellState extends ConsumerState<AppShell>
     // Retry the initial PIN check when providers resolve (handles cold start
     // where providers were still loading during _checkInitialLock).
     if (!_pinCheckResolved) {
-      ref.listen(systemSettingsProvider, (_, __) => _checkInitialLock());
-      ref.listen(isPinSetProvider, (_, __) => _checkInitialLock());
+      ref.listen(systemSettingsProvider, (_, _) => _checkInitialLock());
+      ref.listen(isPinSetProvider, (_, _) => _checkInitialLock());
     }
 
     // Keep syncStatusProvider alive so DeviceRevoked events are received.
@@ -428,7 +428,7 @@ class _AppShellState extends ConsumerState<AppShell>
 /// trailing edge. Tapping the trigger expands the pill upward to reveal a
 /// second row of overflow tabs. Tapping any icon or outside collapses it.
 class _FloatingNavBar extends StatefulWidget {
-  _FloatingNavBar({
+  const _FloatingNavBar({
     super.key,
     required this.primaryTabs,
     required this.overflowTabs,

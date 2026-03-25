@@ -109,5 +109,5 @@ class DeviceListNotifier extends AsyncNotifier<List<Device>> {
 
 final deviceListProvider =
     AsyncNotifierProvider<DeviceListNotifier, List<Device>>(
-  () => DeviceListNotifier(),
+  DeviceListNotifier.new,
 );

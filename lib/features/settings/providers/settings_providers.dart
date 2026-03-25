@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 
 /// Transient storage for a generated mnemonic during secret key setup.
 /// Auto-disposed when no longer watched (Riverpod 3 auto-disposes by default).

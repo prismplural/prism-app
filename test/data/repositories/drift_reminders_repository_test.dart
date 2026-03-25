@@ -19,7 +19,7 @@ void main() {
 
   tearDown(() => db.close());
 
-  Reminder _makeReminder({
+  Reminder makeReminder({
     required String id,
     String name = 'Test Reminder',
     String message = 'Test message',
@@ -46,7 +46,7 @@ void main() {
 
   group('create + watchAll round-trip', () {
     test('created reminder appears in watchAll stream', () async {
-      final reminder = _makeReminder(id: 'r1', name: 'Daily Check');
+      final reminder = makeReminder(id: 'r1', name: 'Daily Check');
 
       await repo.create(reminder);
 
@@ -60,8 +60,8 @@ void main() {
     });
 
     test('multiple reminders appear in watchAll', () async {
-      await repo.create(_makeReminder(id: 'r1', name: 'First'));
-      await repo.create(_makeReminder(id: 'r2', name: 'Second'));
+      await repo.create(makeReminder(id: 'r1', name: 'First'));
+      await repo.create(makeReminder(id: 'r2', name: 'Second'));
 
       final all = await repo.watchAll().first;
       expect(all, hasLength(2));
@@ -70,7 +70,7 @@ void main() {
 
   group('update', () {
     test('update changes fields', () async {
-      final original = _makeReminder(
+      final original = makeReminder(
         id: 'r1',
         name: 'Original',
         message: 'Old message',
@@ -94,7 +94,7 @@ void main() {
     });
 
     test('update trigger type', () async {
-      final original = _makeReminder(
+      final original = makeReminder(
         id: 'r1',
         trigger: ReminderTrigger.scheduled,
         intervalDays: 7,
@@ -115,8 +115,8 @@ void main() {
 
   group('delete', () {
     test('soft-delete removes from watchAll', () async {
-      await repo.create(_makeReminder(id: 'r1'));
-      await repo.create(_makeReminder(id: 'r2'));
+      await repo.create(makeReminder(id: 'r1'));
+      await repo.create(makeReminder(id: 'r2'));
 
       await repo.delete('r1');
 
@@ -126,7 +126,7 @@ void main() {
     });
 
     test('soft-deleted reminder not returned by getById', () async {
-      await repo.create(_makeReminder(id: 'r1'));
+      await repo.create(makeReminder(id: 'r1'));
       await repo.delete('r1');
 
       final result = await repo.getById('r1');
@@ -136,9 +136,9 @@ void main() {
 
   group('watchActive', () {
     test('only returns active reminders', () async {
-      await repo.create(_makeReminder(id: 'r1', isActive: true));
-      await repo.create(_makeReminder(id: 'r2', isActive: false));
-      await repo.create(_makeReminder(id: 'r3', isActive: true));
+      await repo.create(makeReminder(id: 'r1', isActive: true));
+      await repo.create(makeReminder(id: 'r2', isActive: false));
+      await repo.create(makeReminder(id: 'r3', isActive: true));
 
       final active = await repo.watchActive().first;
       expect(active, hasLength(2));
@@ -147,7 +147,7 @@ void main() {
     });
 
     test('soft-deleted active reminder excluded from watchActive', () async {
-      await repo.create(_makeReminder(id: 'r1', isActive: true));
+      await repo.create(makeReminder(id: 'r1', isActive: true));
       await repo.delete('r1');
 
       final active = await repo.watchActive().first;
@@ -157,7 +157,7 @@ void main() {
 
   group('getById', () {
     test('returns reminder when it exists', () async {
-      await repo.create(_makeReminder(
+      await repo.create(makeReminder(
         id: 'r1',
         name: 'Find Me',
         trigger: ReminderTrigger.onFrontChange,

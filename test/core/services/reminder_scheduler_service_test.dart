@@ -162,7 +162,7 @@ void main() {
       // The formula is: 5000 + (id.hashCode.abs() % 10000)
       // This is deterministic per runtime for the same string.
       const base = 5000;
-      final id = 'test-reminder-abc';
+      const id = 'test-reminder-abc';
       final expected = base + (id.hashCode.abs() % 10000);
 
       // Compute twice to verify determinism.

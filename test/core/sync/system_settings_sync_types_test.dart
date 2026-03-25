@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 
 /// Mirrors the field map produced by DriftSystemSettingsRepository._settingsFields
 /// and the individual _syncField calls for enum fields.

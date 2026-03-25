@@ -561,7 +561,7 @@ class SpMapper {
         dmConvMap[pairKey] = convId;
 
         final participantIds = <String>[
-          if (byId != null) byId,
+          ?byId,
           if (forId != null && forId != byId) forId,
         ];
 

@@ -15,7 +15,6 @@ import 'package:prism_plurality/domain/repositories/conversation_repository.dart
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
-import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
 

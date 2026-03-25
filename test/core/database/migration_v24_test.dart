@@ -47,7 +47,7 @@ void main() {
 
       final rows = await db.customSelect(
         'SELECT * FROM conversation_categories WHERE id = ?',
-        variables: [Variable('cc1')],
+        variables: [const Variable('cc1')],
       ).get();
 
       expect(rows, hasLength(1));
@@ -81,7 +81,7 @@ void main() {
 
       final rows = await db.customSelect(
         'SELECT * FROM reminders WHERE id = ?',
-        variables: [Variable('r1')],
+        variables: [const Variable('r1')],
       ).get();
 
       expect(rows, hasLength(1));
@@ -103,7 +103,7 @@ void main() {
 
       final rows = await db.customSelect(
         'SELECT * FROM reminders WHERE id = ?',
-        variables: [Variable('r2')],
+        variables: [const Variable('r2')],
       ).get();
 
       expect(rows, hasLength(1));

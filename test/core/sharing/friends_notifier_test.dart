@@ -81,7 +81,7 @@ void main() {
     addTearDown(container.dispose);
 
     // Read the provider to trigger build() and the stream subscription.
-    final sub = container.listen(friendsProvider, (_, __) {});
+    final sub = container.listen(friendsProvider, (_, _) {});
 
     // Let the stream subscription establish.
     await Future<void>.delayed(Duration.zero);
@@ -105,7 +105,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final sub = container.listen(friendsProvider, (_, __) {});
+    final sub = container.listen(friendsProvider, (_, _) {});
     await Future<void>.delayed(Duration.zero);
 
     expect(fakeRepo.activeListeners, 1);
@@ -129,7 +129,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final sub = container.listen(friendsProvider, (_, __) {});
+    final sub = container.listen(friendsProvider, (_, _) {});
     await Future<void>.delayed(Duration.zero);
 
     // Initially empty.

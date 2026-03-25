@@ -209,7 +209,7 @@ void main() {
     test('automated timer maps to onFrontChange trigger', () {
       final data = _makeExportData(
         automatedTimers: [
-          SpAutomatedTimer(
+          const SpAutomatedTimer(
             id: 'at1',
             name: 'Front Alert',
             message: 'You switched!',
@@ -234,7 +234,7 @@ void main() {
     test('repeated timer maps to scheduled trigger with intervalDays and timeOfDay', () {
       final data = _makeExportData(
         repeatedTimers: [
-          SpRepeatedTimer(
+          const SpRepeatedTimer(
             id: 'rt1',
             name: 'Daily Log',
             message: 'Write your log',

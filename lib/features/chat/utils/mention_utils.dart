@@ -1,5 +1,6 @@
 /// Mention token format: @[uuid]
 /// Used to embed member references in chat message content.
+library;
 
 final mentionRegex = RegExp(
   r'@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]',

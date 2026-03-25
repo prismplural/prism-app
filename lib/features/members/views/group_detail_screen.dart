@@ -118,8 +118,8 @@ class _GroupDetailBody extends ConsumerWidget {
               error: (e, _) => Text('Error: $e'),
               data: (entries) {
                 if (entries.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
                     child: EmptyState(
                       icon: Icons.person_add_outlined,
                       title: 'No members',

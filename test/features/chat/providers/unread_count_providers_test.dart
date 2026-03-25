@@ -13,9 +13,7 @@ void main() {
       final lastActivityAt = DateTime(2026, 1, 2);
       DateTime? lastRead;
 
-      final hasUnread = lastRead == null
-          ? lastActivityAt.isAfter(createdAt)
-          : lastActivityAt.isAfter(lastRead);
+      final hasUnread = lastActivityAt.isAfter(createdAt);
 
       expect(hasUnread, isTrue);
     });
