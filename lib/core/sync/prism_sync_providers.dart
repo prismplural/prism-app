@@ -867,70 +867,33 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
 
   /// Check whether this device was revoked with a remote wipe flag.
   ///
-  /// Called when sync fails with a 401/unauthorized error to determine
-  /// whether the device was revoked and needs to wipe its data.
+  /// Called when sync fails with an error. The relay embeds wipe status
+  /// directly in the 401 response body as `device_revoked` with
+  /// `remote_wipe`, so we parse it from the error message.
   Future<void> _checkWipeStatusOn401(String errorMessage) async {
-    // Only trigger on auth-related errors
-    if (!errorMessage.contains('401') &&
-        !errorMessage.toLowerCase().contains('unauthorized') &&
-        !errorMessage.toLowerCase().contains('forbidden')) {
+    // The relay returns: {"error":"device_revoked","remote_wipe":true/false}
+    // which surfaces in the error message as "device revoked (remote_wipe=true)"
+    if (!errorMessage.contains('device revoked') &&
+        !errorMessage.contains('device_revoked')) {
       return;
     }
 
+    final remoteWipe = errorMessage.contains('remote_wipe=true') ||
+        errorMessage.contains('"remote_wipe":true') ||
+        errorMessage.contains('"remote_wipe": true');
+
     try {
-      // Read relay URL, sync ID, and device ID before clearing them
-      String? relayUrl;
-      String? syncId;
-      String? deviceId;
-
-      final relayUrlRaw = await _storage.read(key: kSyncRelayUrlKey);
-      if (relayUrlRaw != null && relayUrlRaw.isNotEmpty) {
-        try {
-          relayUrl = utf8.decode(base64Decode(relayUrlRaw));
-        } catch (_) {
-          relayUrl = relayUrlRaw;
-        }
-      }
-
-      final syncIdRaw = await _storage.read(key: kSyncIdKey);
-      if (syncIdRaw != null && syncIdRaw.isNotEmpty) {
-        try {
-          syncId = utf8.decode(base64Decode(syncIdRaw));
-        } catch (_) {
-          syncId = syncIdRaw;
-        }
-      }
-
-      final deviceIdRaw = await _storage.read(
-        key: '${_secureStorePrefix}device_id',
-      );
-      if (deviceIdRaw != null && deviceIdRaw.isNotEmpty) {
-        try {
-          deviceId = utf8.decode(base64Decode(deviceIdRaw));
-        } catch (_) {
-          deviceId = deviceIdRaw;
-        }
-      }
-
-      if (relayUrl == null || syncId == null || deviceId == null) return;
-
-      final wipeStatus = await ffi.checkWipeStatus(
-        relayUrl: relayUrl,
-        syncId: syncId,
-        deviceId: deviceId,
-      );
-
-      if (wipeStatus == true) {
+      if (remoteWipe) {
         debugPrint('[SYNC] Device flagged for remote wipe — wiping sync data');
         await _wipeSyncDatabase();
-        await _clearSyncCredentials();
-        ref
-            .read(syncHealthProvider.notifier)
-            .setState(SyncHealthState.disconnected);
       }
+      await _clearSyncCredentials();
+      ref
+          .read(syncHealthProvider.notifier)
+          .setState(SyncHealthState.disconnected);
     } catch (e, st) {
       ErrorReportingService.instance.report(
-        'Wipe status check failed (non-fatal): $e',
+        'Wipe status handling failed (non-fatal): $e',
         severity: ErrorSeverity.warning,
         stackTrace: st,
       );
