@@ -36,13 +36,12 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
-                    PrismSettingsRow(
+                    _featureRow(
+                      context,
                       icon: Icons.chat_outlined,
                       iconColor: Colors.blue,
                       title: 'Chat',
-                      subtitle: settings.chatEnabled
-                          ? 'Enabled'
-                          : 'Disabled',
+                      enabled: settings.chatEnabled,
                       onTap: () => context.go('/settings/features/chat'),
                     ),
                     const Divider(height: 1, indent: 60, endIndent: 12),
@@ -50,57 +49,51 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                       icon: Icons.front_hand_outlined,
                       iconColor: Colors.purple,
                       title: 'Fronting',
-                      subtitle: 'Quick switch settings',
                       onTap: () => context.go('/settings/features/fronting'),
                     ),
                     const Divider(height: 1, indent: 60, endIndent: 12),
-                    PrismSettingsRow(
+                    _featureRow(
+                      context,
                       icon: Icons.check_circle_outline,
                       iconColor: Colors.green,
                       title: 'Habits',
-                      subtitle: settings.habitsEnabled
-                          ? 'Enabled'
-                          : 'Disabled',
+                      enabled: settings.habitsEnabled,
                       onTap: () => context.go('/settings/features/habits'),
                     ),
                     const Divider(height: 1, indent: 60, endIndent: 12),
-                    PrismSettingsRow(
+                    _featureRow(
+                      context,
                       icon: Icons.bedtime_outlined,
                       iconColor: Colors.indigo,
                       title: 'Sleep',
-                      subtitle: settings.sleepTrackingEnabled
-                          ? 'Enabled'
-                          : 'Disabled',
+                      enabled: settings.sleepTrackingEnabled,
                       onTap: () => context.go('/settings/features/sleep'),
                     ),
                     const Divider(height: 1, indent: 60, endIndent: 12),
-                    PrismSettingsRow(
+                    _featureRow(
+                      context,
                       icon: Icons.poll_outlined,
                       iconColor: Colors.purple,
                       title: 'Polls',
-                      subtitle: settings.pollsEnabled
-                          ? 'Enabled'
-                          : 'Disabled',
+                      enabled: settings.pollsEnabled,
                       onTap: () => context.go('/settings/features/polls'),
                     ),
                     const Divider(height: 1, indent: 60, endIndent: 12),
-                    PrismSettingsRow(
+                    _featureRow(
+                      context,
                       icon: Icons.sticky_note_2_outlined,
                       iconColor: Colors.teal,
                       title: 'Notes',
-                      subtitle: settings.notesEnabled
-                          ? 'Enabled'
-                          : 'Disabled',
+                      enabled: settings.notesEnabled,
                       onTap: () => context.go('/settings/features/notes'),
                     ),
                     const Divider(height: 1, indent: 60, endIndent: 12),
-                    PrismSettingsRow(
+                    _featureRow(
+                      context,
                       icon: Icons.alarm,
                       iconColor: Colors.amber,
                       title: 'Reminders',
-                      subtitle: settings.remindersEnabled
-                          ? 'Enabled'
-                          : 'Disabled',
+                      enabled: settings.remindersEnabled,
                       onTap: () => context.go('/settings/features/reminders'),
                     ),
                   ],
@@ -119,6 +112,50 @@ class FeaturesSettingsScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _featureRow(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final chevronColor =
+        theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+
+    return PrismSettingsRow(
+      icon: icon,
+      iconColor: iconColor,
+      title: title,
+      showChevron: false,
+      trailing: Semantics(
+        label: enabled ? 'Enabled' : 'Disabled',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (enabled) ...[
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Icon(
+              Icons.chevron_right_rounded,
+              color: chevronColor,
+            ),
+          ],
+        ),
+      ),
+      onTap: onTap,
     );
   }
 }

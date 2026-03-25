@@ -72,12 +72,12 @@ class _SleepFeatureSettingsScreenState
           padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Text(
                 'Sleep sessions help you track rest patterns alongside '
                 'fronting sessions. You can start a sleep session from the '
                 'moon icon on the fronting screen.',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),

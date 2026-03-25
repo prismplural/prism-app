@@ -29,10 +29,10 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
           padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Text(
                 'Internal messaging between system members.',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),

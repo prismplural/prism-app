@@ -31,10 +31,10 @@ class RemindersFeatureSettingsScreen extends ConsumerWidget {
           padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
               child: Text(
                 'Get reminded on a schedule or when fronters change. Disabling hides reminders from navigation but keeps existing ones.',
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
