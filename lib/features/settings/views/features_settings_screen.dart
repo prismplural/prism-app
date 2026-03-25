@@ -31,6 +31,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
           padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
           children: [
             PrismSection(
+              title: '',
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: Column(

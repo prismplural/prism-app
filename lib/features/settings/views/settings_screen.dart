@@ -111,26 +111,12 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () => context.push(AppRoutePaths.settingsFeatures),
                     ),
                     _SettingsLink(
-                      icon: Icons.bedtime,
-                      iconColor: Colors.indigo,
-                      title: 'Sleep',
-                      onTap: () => context.push(AppRoutePaths.settingsSleep),
-                    ),
-                    _SettingsLink(
                       icon: Icons.lock_outline,
                       iconColor: Colors.indigo,
                       title: 'Privacy & Security',
                       onTap: () =>
                           context.push(AppRoutePaths.settingsPinLock),
                     ),
-                    if (settings.remindersEnabled)
-                      _SettingsLink(
-                        icon: Icons.alarm,
-                        iconColor: Colors.amber,
-                        title: 'Reminders',
-                        onTap: () =>
-                            context.push(AppRoutePaths.settingsReminders),
-                      ),
                     _SettingsLink(
                       icon: Icons.notifications_outlined,
                       iconColor: Colors.orange,
