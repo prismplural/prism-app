@@ -33,7 +33,7 @@ class RemindersFeatureSettingsScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
-                'Set up scheduled reminders and front-change notifications for your system.',
+                'Get reminded on a schedule or when fronters change. Disabling hides reminders from navigation but keeps existing ones.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

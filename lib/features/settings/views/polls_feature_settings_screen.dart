@@ -31,7 +31,7 @@ class PollsFeatureSettingsScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
               child: Text(
-                'Create polls for your system to vote on decisions together.',
+                'Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
