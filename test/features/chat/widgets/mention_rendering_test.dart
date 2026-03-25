@@ -38,7 +38,7 @@ void main() {
     });
 
     test('mentionRegex correctly splits content', () {
-      final content = 'Before @[$id1] middle @[$id2] after';
+      const content = 'Before @[$id1] middle @[$id2] after';
       final matches = mentionRegex.allMatches(content).toList();
 
       expect(matches, hasLength(2));
@@ -55,7 +55,7 @@ void main() {
     });
 
     test('adjacent mentions have no gap', () {
-      final content = '@[$id1]@[$id2]';
+      const content = '@[$id1]@[$id2]';
       final nameMap = {id1: 'A', id2: 'B'};
       expect(replaceMentionsWithNames(content, nameMap), '@A@B');
     });

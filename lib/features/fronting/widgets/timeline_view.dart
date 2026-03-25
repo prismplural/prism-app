@@ -246,7 +246,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
           height: _headerRowHeight,
           child: Row(
             children: [
-              SizedBox(width: _timeGutterWidth),
+              const SizedBox(width: _timeGutterWidth),
               if (needsHorizontalScroll)
                 Expanded(
                   child: buildHeaderColumns(

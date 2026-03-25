@@ -138,7 +138,7 @@ void main() {
 
   group('MemberGroupEntryMapper', () {
     test('toDomain maps all fields', () {
-      final row = db.MemberGroupEntryRow(
+      const row = db.MemberGroupEntryRow(
         id: 'entry-1',
         groupId: 'group-1',
         memberId: 'member-1',
@@ -152,7 +152,7 @@ void main() {
     });
 
     test('toCompanion preserves all fields', () {
-      final model = domain.MemberGroupEntry(
+      const model = domain.MemberGroupEntry(
         id: 'entry-2',
         groupId: 'group-2',
         memberId: 'member-2',
@@ -165,7 +165,7 @@ void main() {
     });
 
     test('round-trip preserves data', () {
-      final original = domain.MemberGroupEntry(
+      const original = domain.MemberGroupEntry(
         id: 'rt-entry',
         groupId: 'g-rt',
         memberId: 'm-rt',

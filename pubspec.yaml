@@ -81,7 +81,7 @@ dependencies:
   flutter_rust_bridge: 2.11.1
   pointycastle: ^4.0.0
   crypto: ^3.0.6
-  local_auth: ^2.3.0
+  local_auth: ^3.0.0
 
 dev_dependencies:
   flutter_test:

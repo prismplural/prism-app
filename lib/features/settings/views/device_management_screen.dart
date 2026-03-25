@@ -56,7 +56,7 @@ class DeviceManagementScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               children: [
                 if (currentDevice != null) ...[
-                  _SectionHeader(title: 'This Device'),
+                  const _SectionHeader(title: 'This Device'),
                   _DeviceTile(
                     device: currentDevice,
                     isCurrent: true,

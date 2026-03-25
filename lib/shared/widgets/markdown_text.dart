@@ -49,26 +49,26 @@ class MarkdownText extends StatelessWidget {
     final base = MarkdownStyleSheet.fromTheme(theme);
 
     // Strip letter spacing from all text styles and apply reasonable heading caps.
-    TextStyle _strip(TextStyle? style) =>
+    TextStyle strip(TextStyle? style) =>
         (style ?? const TextStyle()).copyWith(letterSpacing: 0);
 
     return base.copyWith(
-      p: _strip(baseStyle ?? base.p),
-      h1: _strip(base.h1)
+      p: strip(baseStyle ?? base.p),
+      h1: strip(base.h1)
           .copyWith(fontSize: 24, fontWeight: FontWeight.bold),
-      h2: _strip(base.h2)
+      h2: strip(base.h2)
           .copyWith(fontSize: 21, fontWeight: FontWeight.bold),
-      h3: _strip(base.h3)
+      h3: strip(base.h3)
           .copyWith(fontSize: 18, fontWeight: FontWeight.w600),
-      h4: _strip(base.h4)
+      h4: strip(base.h4)
           .copyWith(fontSize: 16, fontWeight: FontWeight.w600),
-      h5: _strip(base.h5).copyWith(fontSize: 15),
-      h6: _strip(base.h6).copyWith(fontSize: 14),
-      em: _strip(base.em),
-      strong: _strip(base.strong),
-      blockquote: _strip(base.blockquote),
-      listBullet: _strip(base.listBullet),
-      code: _strip(base.code).copyWith(
+      h5: strip(base.h5).copyWith(fontSize: 15),
+      h6: strip(base.h6).copyWith(fontSize: 14),
+      em: strip(base.em),
+      strong: strip(base.strong),
+      blockquote: strip(base.blockquote),
+      listBullet: strip(base.listBullet),
+      code: strip(base.code).copyWith(
         backgroundColor: theme.colorScheme.surfaceContainerHighest,
       ),
       codeblockDecoration: BoxDecoration(

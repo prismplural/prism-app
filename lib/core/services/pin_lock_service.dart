@@ -103,10 +103,8 @@ class PinLockService {
     try {
       return await _localAuth.authenticate(
         localizedReason: 'Unlock Prism',
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: true,
-        ),
+        persistAcrossBackgrounding: true,
+        biometricOnly: true,
       );
     } catch (_) {
       return false;
