@@ -196,9 +196,16 @@ Future<SyncHealthState> _autoConfigureIfReady(
       maxRetries: 3,
     );
 
-    // Backfill the database encryption key if it's missing (e.g. upgrade
-    // from a version that didn't cache it). This ensures the next restart
-    // can migrate the database to encrypted.
+    // Safety-net backfill: derive and cache the DB key from sync state if
+    // the keychain slot is empty. With always-on encryption (Signal model),
+    // ensureLocalDatabaseKey() populates this slot at first launch, so this
+    // guard is normally a no-op. It remains as defense-in-depth for edge
+    // cases (e.g. upgrade from a very old version).
+    //
+    // CROSS-FILE INVARIANT: The `existingDbKey == null` check is critical.
+    // ensureLocalDatabaseKey() in database_encryption.dart may have already
+    // written a local CSPRNG key. This guard must NOT overwrite it — doing
+    // so would make the encrypted database unreadable.
     try {
       final existingDbKey = await readDatabaseKeyHex();
       if (existingDbKey == null) {
@@ -288,13 +295,15 @@ Future<void> cacheRuntimeKeys(ffi.PrismSyncHandle handle) async {
   final dekB64 = base64Encode(dekBytes);
   await _storage.write(key: kRuntimeDekKey, value: dekB64);
 
-  // Derive and cache the database encryption key for at-rest encryption.
-  // Only cache if no key exists yet — if the database is already encrypted
-  // with a previous key (e.g. after sync reset + re-setup), we must keep
-  // the existing key to avoid making the database unreadable.
-  // The actual migration from plaintext → encrypted happens on the next
-  // app startup (in database_provider.dart) to avoid closing the DB
-  // mid-session.
+  // Safety-net backfill: derive and cache the DB key from sync state if
+  // the keychain slot is empty. With always-on encryption (Signal model),
+  // ensureLocalDatabaseKey() populates this slot at first launch, so this
+  // is normally a no-op.
+  //
+  // CROSS-FILE INVARIANT: The `existingKey == null` check must be preserved.
+  // ensureLocalDatabaseKey() in database_encryption.dart writes a local
+  // CSPRNG key at first launch. Overwriting it here would make the local
+  // encrypted database unreadable.
   try {
     final existingKey = await readDatabaseKeyHex();
     if (existingKey == null) {

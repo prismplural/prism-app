@@ -226,7 +226,12 @@ class ResetDataNotifier extends Notifier<void> {
       }
     }
 
-    // 2. Clear ALL sync credentials from platform keychain
+    // 2. Clear sync credentials from platform keychain.
+    // IMPORTANT: database_key is intentionally NOT listed here. It is a
+    // local encryption key (Signal model) that must survive sync resets.
+    // Only _resetAll() clears it (via clearDatabaseEncryptionState), and
+    // only after deleting the DB files. Adding it here would make the
+    // encrypted local database permanently unreadable.
     final storage = ref.read(resetSecureStoreProvider);
     for (final key in [
       'wrapped_dek',
@@ -325,12 +330,11 @@ class ResetDataNotifier extends Notifier<void> {
       const SystemSettings(hasCompletedOnboarding: false),
     );
 
-    // Clear database encryption state and schedule the encrypted database
-    // file for deletion. The current in-memory connection continues to work
-    // (SQLite holds the file open), but on next app restart Drift will
-    // create a fresh plaintext database. If sync is set up again later, a
-    // new key will be derived and the DB will be re-encrypted.
-    await clearDatabaseEncryptionState();
+    // Delete the encrypted database files FIRST, then clear the encryption
+    // key. This ordering is critical: if file deletion fails but the key is
+    // already cleared, next launch would have no key for an encrypted DB
+    // (unrecoverable). With this order, a failed file delete still leaves
+    // the key available to open the DB on next launch.
     try {
       final dir = await ref.read(resetDocumentsDirectoryProvider.future);
       final appDbPath = p.join(dir.path, 'prism.db');
@@ -341,6 +345,9 @@ class ResetDataNotifier extends Notifier<void> {
     } catch (e) {
       _log('App DB file delete after full reset failed (non-fatal): $e');
     }
+    // Now safe to clear the key — the DB files are gone (or still openable
+    // with the key if deletion failed above).
+    await clearDatabaseEncryptionState();
     _notifyTableChanges([
       'habit_completions',
       'habits',

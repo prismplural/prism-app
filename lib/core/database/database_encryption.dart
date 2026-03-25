@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
@@ -9,19 +10,25 @@ import 'package:prism_plurality/core/services/secure_storage.dart';
 // Secure storage keys
 // ---------------------------------------------------------------------------
 
-/// Hex-encoded 32-byte database encryption key, derived from DEK via HKDF.
+/// Hex-encoded 32-byte database encryption key stored in the platform keychain.
 ///
-/// Written when sync is first set up and the DEK becomes available.
-/// Read on every subsequent app startup to open the database encrypted.
+/// On first launch this is populated with a CSPRNG-generated random key
+/// (Signal model). If sync is set up later, the existing key is preserved —
+/// see the guard in `cacheRuntimeKeys()` at prism_sync_providers.dart which
+/// checks `existingKey == null` before writing the HKDF-derived key.
 const kDatabaseKeyStorageKey = 'prism_sync.database_key';
 
-/// Flag indicating the on-disk database file has been migrated to encrypted.
-///
-/// Set to "true" after a successful plaintext-to-encrypted migration so that
-/// subsequent launches skip the migration step and open directly with the key.
-const kDatabaseEncryptedFlag = 'prism_sync.database_encrypted';
-
 const _storage = secureStorage;
+
+// ---------------------------------------------------------------------------
+// Key validation
+// ---------------------------------------------------------------------------
+
+/// Whether [hex] is a valid 64-character lowercase hex string (32 bytes).
+bool validateHexKey(String? hex) {
+  if (hex == null || hex.length != 64) return false;
+  return RegExp(r'^[0-9a-f]{64}$').hasMatch(hex);
+}
 
 // ---------------------------------------------------------------------------
 // Key management
@@ -30,10 +37,15 @@ const _storage = secureStorage;
 /// Read the cached database encryption key from secure storage.
 ///
 /// Returns the hex-encoded key string suitable for
-/// `PRAGMA key = "x'<hex>'";`, or null if no key has been cached yet
-/// (sync not set up).
+/// `PRAGMA key = "x'<hex>'";`, or null if no key has been cached yet.
 Future<String?> readDatabaseKeyHex() async {
-  return _storage.read(key: kDatabaseKeyStorageKey);
+  final hex = await _storage.read(key: kDatabaseKeyStorageKey);
+  // Treat corrupted/invalid keys as missing so the caller can recover.
+  if (hex != null && !validateHexKey(hex)) {
+    debugPrint('[DB_ENCRYPT] Invalid key in keychain (${hex.length} chars) — treating as missing');
+    return null;
+  }
+  return hex;
 }
 
 /// Cache the database encryption key in secure storage.
@@ -45,26 +57,45 @@ Future<void> cacheDatabaseKey(Uint8List keyBytes) async {
   await _storage.write(key: kDatabaseKeyStorageKey, value: hex);
 }
 
-// ---------------------------------------------------------------------------
-// Encryption state tracking
-// ---------------------------------------------------------------------------
-
-/// Whether the on-disk database has already been migrated to encrypted format.
-Future<bool> isDatabaseEncrypted() async {
-  final flag = await _storage.read(key: kDatabaseEncryptedFlag);
-  return flag == 'true';
-}
-
-/// Mark the database as encrypted in secure storage.
-Future<void> markDatabaseEncrypted() async {
-  await _storage.write(key: kDatabaseEncryptedFlag, value: 'true');
-}
-
-/// Clear all encryption-related keys from secure storage.
+/// Ensure a database encryption key exists in the platform keychain.
 ///
-/// Called during a full data/sync reset to allow a fresh start.
+/// If a valid key already exists, returns it. Otherwise generates a new
+/// 32-byte key via the platform CSPRNG (`Random.secure()`), persists it,
+/// and verifies the write succeeded before returning.
+///
+/// This is the Signal model: encryption is always on, the key is device-bound,
+/// and the user never interacts with it.
+Future<String> ensureLocalDatabaseKey() async {
+  final existing = await readDatabaseKeyHex();
+  if (existing != null) return existing;
+
+  // Generate 32 random bytes via platform CSPRNG.
+  final rng = Random.secure();
+  final bytes = Uint8List(32);
+  for (var i = 0; i < 32; i++) {
+    bytes[i] = rng.nextInt(256);
+  }
+  final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+  // Persist and verify the write succeeded.
+  await _storage.write(key: kDatabaseKeyStorageKey, value: hex);
+  final readBack = await _storage.read(key: kDatabaseKeyStorageKey);
+  if (readBack != hex) {
+    throw StateError(
+      'Failed to persist database encryption key to platform keychain. '
+      'Read-back did not match written value.',
+    );
+  }
+
+  debugPrint('[DB_ENCRYPT] Generated and cached new local database key');
+  return hex;
+}
+
+/// Clear the database encryption key from secure storage.
+///
+/// Called during a full data reset. The caller must delete the DB files
+/// BEFORE calling this — otherwise next launch has no key for an encrypted DB.
 Future<void> clearDatabaseEncryptionState() async {
-  await _storage.delete(key: kDatabaseEncryptedFlag);
   await _storage.delete(key: kDatabaseKeyStorageKey);
 }
 
@@ -78,6 +109,7 @@ Future<void> clearDatabaseEncryptionState() async {
 /// SQLite3MultipleCiphers (sqlite3mc) uses its default cipher (AES-256 CBC)
 /// when you supply a raw hex key with `PRAGMA key = "x'...'";`.
 void Function(raw.Database) makeCipherSetup(String hexKey) {
+  assert(validateHexKey(hexKey), 'Invalid hex key: expected 64 lowercase hex chars');
   return (raw.Database db) {
     // Set the encryption key. The x'...' syntax passes raw key bytes.
     db.execute("PRAGMA key = \"x'$hexKey'\";");
@@ -106,7 +138,6 @@ Future<bool> migratePlaintextToEncrypted({
   if (!dbFile.existsSync()) {
     // No database file yet -- nothing to migrate. Drift will create a new
     // encrypted database when it opens with the setup callback.
-    await markDatabaseEncrypted();
     return true;
   }
 
@@ -173,7 +204,6 @@ Future<bool> migratePlaintextToEncrypted({
       } catch (_) {}
     }
 
-    await markDatabaseEncrypted();
     debugPrint('[DB_ENCRYPT] Successfully encrypted database');
     return true;
   } catch (e, st) {
