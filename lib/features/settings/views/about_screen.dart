@@ -11,7 +11,7 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'About'),
+      topBar: const PrismTopBar(title: 'About', showBackButton: true),
       body: SingleChildScrollView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
         child: const AboutSection(),
