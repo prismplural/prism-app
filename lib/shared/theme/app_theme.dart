@@ -248,6 +248,19 @@ class AppTheme {
         ),
         behavior: SnackBarBehavior.floating,
       ),
+      tooltipTheme: TooltipThemeData(
+        waitDuration: const Duration(milliseconds: 800),
+        decoration: BoxDecoration(
+          color: colors.isDark
+              ? Colors.white.withValues(alpha: 0.9)
+              : const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(PrismTokens.radiusSmall / 2),
+        ),
+        textStyle: TextStyle(
+          color: colors.isDark ? Colors.black : Colors.white,
+          fontSize: 12,
+        ),
+      ),
     );
   }
 

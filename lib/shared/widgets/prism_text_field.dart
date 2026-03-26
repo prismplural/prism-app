@@ -77,9 +77,28 @@ class PrismTextField extends StatelessWidget {
   final bool? isDense;
   final bool? alignLabelWithHint;
 
+  bool get _isMultiLine =>
+      (maxLines != null && maxLines! > 1) ||
+      (minLines != null && minLines! > 1);
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final inputTheme = theme.inputDecorationTheme;
+
+    // Multi-line standard fields use a rounded rectangle instead of the
+    // theme-level pill (BorderRadius.circular(999)).
+    OutlineInputBorder? multiLineBorder(InputBorder? themeBorder) {
+      if (!_isMultiLine || fieldStyle != PrismTextFieldStyle.standard) {
+        return null;
+      }
+      const radius = BorderRadius.all(Radius.circular(12));
+      if (themeBorder is OutlineInputBorder) {
+        return themeBorder.copyWith(borderRadius: radius);
+      }
+      return null;
+    }
+
     final decoration = InputDecoration(
       labelText: labelText,
       hintText: hintText,
@@ -94,13 +113,13 @@ class PrismTextField extends StatelessWidget {
       alignLabelWithHint: alignLabelWithHint,
       border: fieldStyle == PrismTextFieldStyle.borderless
           ? InputBorder.none
-          : null,
+          : multiLineBorder(inputTheme.border),
       enabledBorder: fieldStyle == PrismTextFieldStyle.borderless
           ? InputBorder.none
-          : null,
+          : multiLineBorder(inputTheme.enabledBorder),
       focusedBorder: fieldStyle == PrismTextFieldStyle.borderless
           ? InputBorder.none
-          : null,
+          : multiLineBorder(inputTheme.focusedBorder),
       disabledBorder: fieldStyle == PrismTextFieldStyle.borderless
           ? InputBorder.none
           : null,
