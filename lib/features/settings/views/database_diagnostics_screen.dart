@@ -7,6 +7,8 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/database_diagnostics_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -141,9 +143,16 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
               label: const Text('Check Integrity'),
               onPressed: () {
                 ref.invalidate(healthReportProvider);
-                showDialog(
+                PrismDialog.show(
                   context: context,
-                  builder: (_) => const _HealthReportDialog(),
+                  title: 'Integrity Check',
+                  builder: (_) => const _HealthReportDialogContent(),
+                  actions: [
+                    PrismButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      label: 'Close',
+                    ),
+                  ],
                 );
               },
             ),
@@ -190,86 +199,77 @@ class _CountRow extends StatelessWidget {
   }
 }
 
-class _HealthReportDialog extends ConsumerWidget {
-  const _HealthReportDialog();
+class _HealthReportDialogContent extends ConsumerWidget {
+  const _HealthReportDialogContent();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reportAsync = ref.watch(healthReportProvider);
 
-    return AlertDialog(
-      title: const Text('Integrity Check'),
-      content: SizedBox(
-        width: double.maxFinite,
-        child: reportAsync.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.all(24),
-            child: PrismLoadingState(),
-          ),
-          error: (e, _) => Text('Error running check: $e'),
-          data: (report) => SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      report.isHealthy
-                          ? Icons.check_circle
-                          : Icons.warning_amber,
-                      color: report.isHealthy ? Colors.green : Colors.orange,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      report.isHealthy ? 'Database OK' : 'Issues Found',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Records: ${_formatCounts(report.recordCounts)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                if (report.issues.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  ...report.issues.map(
-                    (issue) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            size: 16,
-                            color: Colors.orange,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              issue,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+    return SizedBox(
+      width: double.maxFinite,
+      child: reportAsync.when(
+        loading: () => const Padding(
+          padding: EdgeInsets.all(24),
+          child: PrismLoadingState(),
+        ),
+        error: (e, _) => Text('Error running check: $e'),
+        data: (report) => SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    report.isHealthy
+                        ? Icons.check_circle
+                        : Icons.warning_amber,
+                    color: report.isHealthy ? Colors.green : Colors.orange,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    report.isHealthy ? 'Database OK' : 'Issues Found',
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Records: ${_formatCounts(report.recordCounts)}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              if (report.issues.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Divider(),
+                const SizedBox(height: 8),
+                ...report.issues.map(
+                  (issue) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 16,
+                          color: Colors.orange,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            issue,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
-        ),
-      ],
     );
   }
 

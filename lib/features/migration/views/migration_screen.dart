@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/widgets/import_preview_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
@@ -786,37 +787,18 @@ class _PreviewView extends StatelessWidget {
   }
 
   void _showStartFreshDialog(BuildContext context) {
-    showDialog<bool>(
+    PrismDialog.confirm(
       context: context,
-      builder: (dialogContext) {
-        final theme = Theme.of(dialogContext);
-        return AlertDialog(
-          title: const Text('Replace all data?'),
-          content: Text(
-            'This will delete all existing members, front history, '
-            'conversations, and other data before importing. '
-            'This action cannot be undone.\n\n'
-            'If you have sync set up, other paired devices should '
-            'also be reset to avoid conflicts.',
-            style: theme.textTheme.bodyMedium,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.error,
-              ),
-              child: const Text('Replace All'),
-            ),
-          ],
-        );
-      },
+      title: 'Replace all data?',
+      message: 'This will delete all existing members, front history, '
+          'conversations, and other data before importing. '
+          'This action cannot be undone.\n\n'
+          'If you have sync set up, other paired devices should '
+          'also be reset to avoid conflicts.',
+      confirmLabel: 'Replace All',
+      destructive: true,
     ).then((confirmed) {
-      if (confirmed == true) {
+      if (confirmed) {
         ref
             .read(importerProvider.notifier)
             .executeImport(resetFirst: true);

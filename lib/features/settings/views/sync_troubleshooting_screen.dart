@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/settings/providers/reset_data_provider.
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -287,36 +288,22 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
   }
 
   void _confirmReset(BuildContext context, WidgetRef ref) {
-    showDialog(
+    PrismDialog.confirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reset sync system?'),
-        content: const Text(
-          'This keeps your local app data, but wipes sync keys, relay '
+      title: 'Reset sync system?',
+      message: 'This keeps your local app data, but wipes sync keys, relay '
           'configuration, device identity, and sync history from this device. '
           'You will need to set up sync again afterward.',
-        ),
-        actions: [
-          PrismButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            label: 'Cancel',
-            tone: PrismButtonTone.subtle,
-          ),
-          PrismButton(
-            onPressed: () async {
-              Navigator.of(ctx).pop();
-              await ref
-                  .read(resetDataNotifierProvider.notifier)
-                  .reset(ResetCategory.sync);
-              if (!context.mounted) return;
-              PrismToast.show(context, message: 'Sync system reset');
-            },
-            label: 'Reset',
-            tone: PrismButtonTone.destructive,
-          ),
-        ],
-      ),
-    );
+      confirmLabel: 'Reset',
+      destructive: true,
+    ).then((confirmed) async {
+      if (!confirmed) return;
+      await ref
+          .read(resetDataNotifierProvider.notifier)
+          .reset(ResetCategory.sync);
+      if (!context.mounted) return;
+      PrismToast.show(context, message: 'Sync system reset');
+    });
   }
 
   String _formatDateTime(DateTime dt) {

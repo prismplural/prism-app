@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 enum _ExportState { idle, password, exporting, error, complete }
@@ -65,30 +66,15 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
   }
 
   Future<void> _confirmPlaintextExport() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await PrismDialog.confirm(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Export without encryption?'),
-        content: const Text(
-          'This will create a plain JSON file that anyone who opens it can read. '
+      title: 'Export without encryption?',
+      message: 'This will create a plain JSON file that anyone who opens it can read. '
           'Use encrypted export unless you specifically need an insecure backup.',
-        ),
-        actions: [
-          PrismButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            label: 'Cancel',
-            tone: PrismButtonTone.subtle,
-          ),
-          PrismButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            label: 'Export Unencrypted',
-            tone: PrismButtonTone.filled,
-          ),
-        ],
-      ),
+      confirmLabel: 'Export Unencrypted',
     );
 
-    if (confirmed == true) {
+    if (confirmed) {
       await _startExport(unencrypted: true);
     }
   }

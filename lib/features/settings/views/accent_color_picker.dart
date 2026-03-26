@@ -3,6 +3,8 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 
 /// Preset colors available for accent color selection.
 class _PresetColor {
@@ -75,38 +77,37 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
   void _openColorPicker() {
     var pickerColor = _parseHex(_selectedHex);
 
-    showDialog(
+    PrismDialog.show(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Pick a color'),
-          content: SingleChildScrollView(
-            child: ColorPicker(
-              pickerColor: pickerColor,
-              onColorChanged: (color) {
-                pickerColor = color;
-              },
-              enableAlpha: false,
-              hexInputBar: true,
-              labelTypes: const [],
-              pickerAreaHeightPercent: 0.7,
-            ),
+      title: 'Pick a color',
+      builder: (dialogContext) {
+        return SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: pickerColor,
+            onColorChanged: (color) {
+              pickerColor = color;
+            },
+            enableAlpha: false,
+            hexInputBar: true,
+            labelTypes: const [],
+            pickerAreaHeightPercent: 0.7,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _selectColor(_toHex(pickerColor));
-              },
-              child: const Text('Select'),
-            ),
-          ],
         );
       },
+      actions: [
+        PrismButton(
+          onPressed: () => Navigator.of(context).pop(),
+          label: 'Cancel',
+        ),
+        PrismButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _selectColor(_toHex(pickerColor));
+          },
+          label: 'Select',
+          tone: PrismButtonTone.filled,
+        ),
+      ],
     );
   }
 

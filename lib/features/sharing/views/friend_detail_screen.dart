@@ -297,51 +297,49 @@ class _VerifyCard extends ConsumerWidget {
     }
 
     if (!context.mounted) return;
-    showDialog(
+    PrismDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Verification Code'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Share this code with ${friend.displayName} and confirm '
-              'they see the same number.',
-            ),
-            const SizedBox(height: 24),
-            Text(
-              sasCode!,
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    fontFamily: 'monospace',
-                    letterSpacing: 8,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Do NOT confirm if the codes don\'t match.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-            ),
-          ],
-        ),
-        actions: [
-          PrismButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            label: 'Cancel',
-            tone: PrismButtonTone.subtle,
+      title: 'Verification Code',
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Share this code with ${friend.displayName} and confirm '
+            'they see the same number.',
           ),
-          PrismButton(
-            onPressed: () {
-              onVerified();
-              Navigator.of(ctx).pop();
-            },
-            label: 'Codes Match',
-            tone: PrismButtonTone.filled,
+          const SizedBox(height: 24),
+          Text(
+            sasCode!,
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  fontFamily: 'monospace',
+                  letterSpacing: 8,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Do NOT confirm if the codes don\'t match.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.error,
+                ),
           ),
         ],
       ),
+      actions: [
+        PrismButton(
+          onPressed: () => Navigator.of(context).pop(),
+          label: 'Cancel',
+          tone: PrismButtonTone.subtle,
+        ),
+        PrismButton(
+          onPressed: () {
+            onVerified();
+            Navigator.of(context).pop();
+          },
+          label: 'Codes Match',
+          tone: PrismButtonTone.filled,
+        ),
+      ],
     );
   }
 }

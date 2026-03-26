@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/shared/utils/sensitive_clipboard.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 class SecretKeyRevealContent extends StatefulWidget {
@@ -174,38 +175,19 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
 
   Future<void> _shareBackup() async {
     // Require explicit confirmation before exposing the key via the share sheet.
-    final confirmed = await showDialog<bool>(
+    final confirmed = await PrismDialog.confirm(
       context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(
-          Icons.warning_rounded,
-          color: Theme.of(ctx).colorScheme.error,
-          size: 32,
-        ),
-        title: const Text('Share Secret Key?'),
-        content: const Text(
-          'You are about to share your 12-word Secret Key using the system share sheet.\n\n'
-          'Anyone who receives this text — including cloud storage apps, messaging '
-          'apps, or clipboard sync services — can use it to access your data.\n\n'
+      title: 'Share Secret Key?',
+      message: 'You are about to share your 12-word Secret Key using the system share sheet.\n\n'
+          'Anyone who receives this text \u2014 including cloud storage apps, messaging '
+          'apps, or clipboard sync services \u2014 can use it to access your data.\n\n'
           'Only share to a secure, private destination you control, such as a '
           'password manager or an encrypted notes app.',
-        ),
-        actions: [
-          PrismButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            label: 'Cancel',
-            tone: PrismButtonTone.subtle,
-          ),
-          PrismButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            label: 'Share Anyway',
-            tone: PrismButtonTone.destructive,
-          ),
-        ],
-      ),
+      confirmLabel: 'Share Anyway',
+      destructive: true,
     );
 
-    if (confirmed != true) return;
+    if (!confirmed) return;
 
     final words = widget.mnemonic.split(' ');
     final numberedWords = words
