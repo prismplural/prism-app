@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/polls/providers/poll_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -76,17 +77,26 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   final Set<String> _selectedOptionIds = {};
   // For "Other" option text
   final _otherTextController = TextEditingController();
+  // Suppresses result display during multi-vote submission
+  bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    // Auto-select voting-as member when active members load, if not already set.
+    // Auto-select voting-as member: prefer current fronter, fall back to first active member.
     ref.listenManual(activeMembersProvider, (_, next) {
       final members = next.value;
       if (members != null &&
           members.isNotEmpty &&
           ref.read(votingAsProvider) == null) {
-        ref.read(votingAsProvider.notifier).setMember(members.first.id);
+        final fronter = ref.read(activeSessionProvider).value;
+        final fronterId = fronter?.memberId;
+        // Use the current fronter if they are in the active members list.
+        final defaultId = (fronterId != null &&
+                members.any((m) => m.id == fronterId))
+            ? fronterId
+            : members.first.id;
+        ref.read(votingAsProvider.notifier).setMember(defaultId);
       }
     }, fireImmediately: true);
   }
@@ -110,6 +120,23 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     );
   }
 
+  /// Whether results (progress bars, percentages, vote counts, voter names)
+  /// should be visible. Results are hidden until at least one system member
+  /// has voted OR the poll is closed, and also hidden during multi-vote submission.
+  bool get _shouldShowResults {
+    if (_isSubmitting) return false;
+    if (_isClosed) return true;
+    final members = ref.read(activeMembersProvider).value;
+    if (members == null || members.isEmpty) return false;
+    final memberIds = members.map((m) => m.id).toSet();
+    for (final option in widget.options) {
+      for (final vote in option.votes) {
+        if (memberIds.contains(vote.memberId)) return true;
+      }
+    }
+    return false;
+  }
+
   Future<void> _submitVote() async {
     final votingAs = ref.read(votingAsProvider);
     if (votingAs == null) {
@@ -121,6 +148,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
 
     try {
       if (widget.poll.allowsMultipleVotes) {
+        setState(() => _isSubmitting = true);
         for (final optionId in _selectedOptionIds) {
           final option = widget.options.firstWhere((o) => o.id == optionId);
           await notifier.addVote(
@@ -149,6 +177,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
       if (mounted) {
         PrismToast.show(context, message: 'Vote submitted');
         setState(() {
+          _isSubmitting = false;
           _selectedOptionId = null;
           _selectedOptionIds.clear();
           _otherTextController.clear();
@@ -156,6 +185,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isSubmitting = false);
         PrismToast.error(context, message: 'Failed to vote: $e');
       }
     }
@@ -310,17 +340,10 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                       itemBuilder: (context, index) {
                         final member = members[index];
                         final isSelected = votingAs == member.id;
-                        return ChoiceChip(
-                          avatar: MemberAvatar(
-                            avatarImageData: member.avatarImageData,
-                            emoji: member.emoji,
-                            customColorEnabled: member.customColorEnabled,
-                            customColorHex: member.customColorHex,
-                            size: 24,
-                          ),
-                          label: Text(member.name),
-                          selected: isSelected,
-                          onSelected: (_) {
+                        return _VotingAsMemberChip(
+                          member: member,
+                          isSelected: isSelected,
+                          onTap: () {
                             ref
                                 .read(votingAsProvider.notifier)
                                 .setMember(member.id);
@@ -348,6 +371,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                 option: option,
                 totalVotes: _totalVotes,
                 isClosed: _isClosed,
+                showResults: _shouldShowResults,
                 isAnonymous: widget.poll.isAnonymous,
                 isMultiVote: widget.poll.allowsMultipleVotes,
                 isSelected: widget.poll.allowsMultipleVotes
@@ -422,6 +446,7 @@ class _OptionTile extends ConsumerWidget {
     required this.option,
     required this.totalVotes,
     required this.isClosed,
+    required this.showResults,
     required this.isAnonymous,
     required this.isMultiVote,
     required this.isSelected,
@@ -432,6 +457,7 @@ class _OptionTile extends ConsumerWidget {
   final PollOption option;
   final int totalVotes;
   final bool isClosed;
+  final bool showResults;
   final bool isAnonymous;
   final bool isMultiVote;
   final bool isSelected;
@@ -503,14 +529,15 @@ class _OptionTile extends ConsumerWidget {
                     ),
                   ),
 
-                  // Vote count
-                  Text(
-                    '$voteCount',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
+                  // Vote count (only when results are visible)
+                  if (showResults)
+                    Text(
+                      '$voteCount',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
-                  ),
                 ],
               ),
 
@@ -532,7 +559,7 @@ class _OptionTile extends ConsumerWidget {
               ],
 
               // Results bar
-              if (isClosed || totalVotes > 0) ...[
+              if (showResults) ...[
                 const SizedBox(height: 8),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(4),
@@ -557,8 +584,8 @@ class _OptionTile extends ConsumerWidget {
                 ),
               ],
 
-              // Voter names (if not anonymous and poll is closed or has votes)
-              if (!isAnonymous && option.votes.isNotEmpty) ...[
+              // Voter names (if not anonymous and results are visible)
+              if (!isAnonymous && showResults && option.votes.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 _VoterNames(votes: option.votes),
               ],
@@ -599,6 +626,67 @@ class _VoterNames extends ConsumerWidget {
           padding: EdgeInsets.zero,
         );
       }).toList(),
+    );
+  }
+}
+
+// ── Voting-as member chip ──────────────────────────────────────────────────
+
+class _VotingAsMemberChip extends StatelessWidget {
+  const _VotingAsMemberChip({
+    required this.member,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final Member member;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: isSelected
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.surfaceContainerHighest,
+          border: isSelected
+              ? Border.all(
+                  color: theme.colorScheme.primary,
+                  width: 2,
+                )
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MemberAvatar(
+              avatarImageData: member.avatarImageData,
+              emoji: member.emoji,
+              customColorEnabled: member.customColorEnabled,
+              customColorHex: member.customColorHex,
+              size: 28,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              member.name,
+              style: theme.textTheme.labelMedium?.copyWith(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected
+                    ? theme.colorScheme.onPrimaryContainer
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
