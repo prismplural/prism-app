@@ -32,6 +32,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(systemSettingsProvider);
+    final permissionAsync = ref.watch(notificationPermissionProvider);
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
@@ -40,100 +41,89 @@ class NotificationSettingsScreen extends ConsumerWidget {
       body: settingsAsync.when(
         loading: () => const PrismLoadingState(),
         error: (e, _) => Center(child: Text('Error: $e')),
-        data: (settings) => ListView(
-          padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-          children: [
-            // ── Explanation ──────────────────────────────
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
+        data: (settings) {
+          final hasPermission = permissionAsync.value ?? false;
+
+          return ListView(
+            padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+            children: [
+              // ── Permission Status (top) ──────────────────
+              const _NotificationPermissionTile(),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+
+              // ── Fronting Reminders (grayed out without permission) ──
+              IgnorePointer(
+                ignoring: !hasPermission,
+                child: Opacity(
+                  opacity: hasPermission ? 1.0 : 0.4,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.info_outline,
-                              color: theme.colorScheme.primary),
-                          const SizedBox(width: 8),
-                          Text(
-                            'About Notifications',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                      PrismSwitchRow(
+                        title: 'Fronting reminders',
+                        subtitle: 'Get reminded to log fronting changes',
+                        value: settings.frontingRemindersEnabled,
+                        onChanged: (value) {
+                          ref
+                              .read(settingsNotifierProvider.notifier)
+                              .updateFrontingReminders(enabled: value);
+                        },
+                      ),
+                      if (settings.frontingRemindersEnabled) ...[
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                        PrismListRow(
+                          title: const Text('Reminder interval'),
+                          subtitle:
+                              const Text('How often to send reminders'),
+                          trailing: DropdownButton<int>(
+                            value: _reminderIntervals.containsKey(
+                                    settings.frontingReminderIntervalMinutes)
+                                ? settings.frontingReminderIntervalMinutes
+                                : 60,
+                            underline: const SizedBox.shrink(),
+                            items: _reminderIntervals.entries
+                                .map((e) => DropdownMenuItem(
+                                      value: e.key,
+                                      child: Text(e.value),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                ref
+                                    .read(settingsNotifierProvider.notifier)
+                                    .updateFrontingReminders(
+                                      enabled: true,
+                                      intervalMinutes: value,
+                                    );
+                              }
+                            },
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Fronting reminders help you stay aware of who is '
-                        'fronting by sending periodic notifications. This can '
-                        'be useful for logging switches and maintaining '
-                        'awareness throughout the day.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
               ),
-            ),
 
-            // ── Fronting Reminders Toggle ────────────────
-            PrismSwitchRow(
-              title: 'Fronting reminders',
-              subtitle:
-                'Get reminded to log fronting changes',
-              value: settings.frontingRemindersEnabled,
-              onChanged: (value) {
-                ref
-                    .read(settingsNotifierProvider.notifier)
-                    .updateFrontingReminders(enabled: value);
-              },
-            ),
+              // ── Chat Notifications (always enabled) ────
+              const _ChatBadgeSection(),
 
-            // ── Reminder Interval ────────────────────────
-            if (settings.frontingRemindersEnabled) ...[
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              PrismListRow(
-                title: const Text('Reminder interval'),
-                subtitle: const Text('How often to send reminders'),
-                trailing: DropdownButton<int>(
-                  value: _reminderIntervals
-                          .containsKey(settings.frontingReminderIntervalMinutes)
-                      ? settings.frontingReminderIntervalMinutes
-                      : 60,
-                  underline: const SizedBox.shrink(),
-                  items: _reminderIntervals.entries
-                      .map((e) => DropdownMenuItem(
-                            value: e.key,
-                            child: Text(e.value),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      ref
-                          .read(settingsNotifierProvider.notifier)
-                          .updateFrontingReminders(
-                            enabled: true,
-                            intervalMinutes: value,
-                          );
-                    }
-                  },
+              // ── About (reduced visual weight) ──────────
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Text(
+                  'Fronting reminders send periodic notifications to help you '
+                  'stay aware of who is fronting. This can be useful for '
+                  'logging switches and maintaining awareness throughout '
+                  'the day.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
-
-            // ── Chat Notifications ──────────────────────
-            const _ChatBadgeSection(),
-
-            // ── Permission Status ────────────────────────
-            const Divider(height: 1, indent: 16, endIndent: 16),
-            const _NotificationPermissionTile(),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
