@@ -223,34 +223,62 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
   void _showEditDialog(BuildContext context) {
     final controller = TextEditingController(text: widget.message.content);
+    var isSaving = false;
     PrismDialog.show(
       context: context,
       title: 'Edit Message',
-      actions: [
-        PrismButton(
-          label: 'Cancel',
-          onPressed: () => Navigator.of(context).pop(),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (builderContext, setDialogState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PrismTextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 4,
+              hintText: 'Message content',
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                PrismButton(
+                  label: 'Cancel',
+                  enabled: !isSaving,
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+                const SizedBox(width: 8),
+                PrismButton(
+                  label: 'Save',
+                  tone: PrismButtonTone.filled,
+                  isLoading: isSaving,
+                  enabled: !isSaving,
+                  onPressed: () async {
+                          final newContent = controller.text.trim();
+                          if (newContent.isEmpty) {
+                            Navigator.of(dialogContext).pop();
+                            return;
+                          }
+                          setDialogState(() => isSaving = true);
+                          try {
+                            await ref
+                                .read(chatNotifierProvider.notifier)
+                                .editMessage(widget.message.id, newContent);
+                          } catch (_) {
+                            if (builderContext.mounted) {
+                              setDialogState(() => isSaving = false);
+                            }
+                            return;
+                          }
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop();
+                          }
+                        },
+                ),
+              ],
+            ),
+          ],
         ),
-        PrismButton(
-          label: 'Save',
-          tone: PrismButtonTone.filled,
-          onPressed: () {
-            final newContent = controller.text.trim();
-            if (newContent.isNotEmpty) {
-              ref.read(chatNotifierProvider.notifier).editMessage(
-                    widget.message.id,
-                    newContent,
-                  );
-            }
-            Navigator.of(context).pop();
-          },
-        ),
-      ],
-      builder: (dialogContext) => PrismTextField(
-        controller: controller,
-        autofocus: true,
-        maxLines: 4,
-        hintText: 'Message content',
       ),
     );
   }
