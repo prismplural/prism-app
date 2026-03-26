@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+
 /// Detects screenshots on sensitive screens and shows a warning dialog.
 ///
 /// Uses a native EventChannel backed by:
@@ -50,26 +53,22 @@ class ScreenshotDetector {
   ///
   /// Call this from the [onScreenshot] stream listener on any sensitive screen.
   static Future<void> showScreenshotWarning(BuildContext context) {
-    return showDialog<void>(
+    return PrismDialog.show(
       context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(
-          Icons.warning_amber_rounded,
-          color: Theme.of(ctx).colorScheme.error,
-          size: 32,
-        ),
-        title: const Text('Screenshot Detected'),
-        content: const Text(
-          'The screenshot you just took may contain sensitive key material. '
+      title: 'Screenshot Detected',
+      message: 'The screenshot you just took may contain sensitive key material. '
           'Anyone you share it with could access your system data.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('I understand'),
-          ),
-        ],
+      builder: (ctx) => Icon(
+        Icons.warning_amber_rounded,
+        color: Theme.of(ctx).colorScheme.error,
+        size: 32,
       ),
+      actions: [
+        PrismButton(
+          onPressed: () => Navigator.of(context).pop(),
+          label: 'I understand',
+        ),
+      ],
     );
   }
 }

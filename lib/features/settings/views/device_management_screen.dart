@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/device_management_provider.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 
 class DeviceManagementScreen extends ConsumerWidget {
   const DeviceManagementScreen({super.key});
@@ -108,8 +109,11 @@ class DeviceManagementScreen extends ConsumerWidget {
     WidgetRef ref,
     Device device,
   ) async {
-    final result = await showDialog<({bool confirmed, bool wipe})>(
+    final result = await PrismDialog.show<({bool confirmed, bool wipe})>(
       context: context,
+      title: 'Revoke Device?',
+      message: 'Device ${device.shortId} will be removed from the sync '
+          'group and can no longer sync. This cannot be undone.',
       builder: (dialogContext) {
         var requestWipe = false;
 
@@ -117,74 +121,48 @@ class DeviceManagementScreen extends ConsumerWidget {
           builder: (builderContext, setState) {
             final theme = Theme.of(builderContext);
 
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              backgroundColor: theme.colorScheme.surface,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Request remote data wipe',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  subtitle: Text(
+                    'Asks the device to erase its sync data. This is a '
+                    'request \u2014 if the device is offline or '
+                    'compromised, it may not be honored.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface
+                          .withValues(alpha: 0.5),
+                    ),
+                  ),
+                  value: requestWipe,
+                  onChanged: (value) => setState(() {
+                    requestWipe = value;
+                  }),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Text(
-                      'Revoke Device?',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    PrismButton(
+                      label: 'Cancel',
+                      onPressed: () =>
+                          Navigator.of(dialogContext).pop(null),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Device ${device.shortId} will be removed from the sync '
-                      'group and can no longer sync. This cannot be undone.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        'Request remote data wipe',
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      subtitle: Text(
-                        'Asks the device to erase its sync data. This is a '
-                        'request \u2014 if the device is offline or '
-                        'compromised, it may not be honored.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.5),
-                        ),
-                      ),
-                      value: requestWipe,
-                      onChanged: (value) => setState(() {
-                        requestWipe = value;
-                      }),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        PrismButton(
-                          label: 'Cancel',
-                          onPressed: () =>
-                              Navigator.of(dialogContext).pop(null),
-                        ),
-                        const SizedBox(width: 8),
-                        PrismButton(
-                          label: 'Revoke',
-                          onPressed: () => Navigator.of(dialogContext)
-                              .pop((confirmed: true, wipe: requestWipe)),
-                          tone: PrismButtonTone.destructive,
-                        ),
-                      ],
+                    const SizedBox(width: 8),
+                    PrismButton(
+                      label: 'Revoke',
+                      onPressed: () => Navigator.of(dialogContext)
+                          .pop((confirmed: true, wipe: requestWipe)),
+                      tone: PrismButtonTone.destructive,
                     ),
                   ],
                 ),
-              ),
+              ],
             );
           },
         );
