@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -5,6 +7,31 @@ import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/habits/services/habit_notification_service.dart';
+
+/// Provides today's date (year, month, day only — no time component).
+///
+/// Automatically invalidates itself at midnight via a timer so that all
+/// date-dependent providers (todayCompletionsProvider, weeklyCompletionsProvider,
+/// dueHabitsCountProvider) re-evaluate with the new calendar day.
+///
+/// NOTE: For app lifecycle resume, the AppShell (which has WidgetsBindingObserver)
+/// should call `ref.invalidate(currentDateProvider)` in its `didChangeAppLifecycleState`
+/// when the state is `AppLifecycleState.resumed`. This handles the case where the
+/// device was asleep across midnight.
+final currentDateProvider = Provider<DateTime>((ref) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+
+  // Schedule invalidation at midnight.
+  final tomorrow = today.add(const Duration(days: 1));
+  final durationUntilMidnight = tomorrow.difference(now);
+  final timer = Timer(durationUntilMidnight, () {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(timer.cancel);
+
+  return today;
+});
 
 /// Watches all active habits.
 final habitsProvider = StreamProvider<List<Habit>>((ref) {
@@ -27,19 +54,24 @@ final habitCompletionsProvider =
 });
 
 /// Watches completions for today's date.
+/// Depends on [currentDateProvider] so it re-evaluates at midnight and on
+/// app resume.
 final todayCompletionsProvider =
     StreamProvider<List<HabitCompletion>>((ref) {
+  final today = ref.watch(currentDateProvider);
   final repo = ref.watch(habitRepositoryProvider);
-  return repo.watchCompletionsForDate(DateTime.now());
+  return repo.watchCompletionsForDate(today);
 });
 
 /// Watches completions for the current week (Monday–Sunday).
+/// Depends on [currentDateProvider] so it re-evaluates at midnight and on
+/// app resume.
 final weeklyCompletionsProvider =
     StreamProvider<List<HabitCompletion>>((ref) {
+  final today = ref.watch(currentDateProvider);
   final repo = ref.watch(habitRepositoryProvider);
-  final now = DateTime.now();
   // Monday = 1 in Dart's weekday
-  final monday = now.subtract(Duration(days: now.weekday - 1));
+  final monday = today.subtract(Duration(days: today.weekday - 1));
   final sunday = monday.add(const Duration(days: 6));
   return repo.watchCompletionsForDateRange(monday, sunday);
 });
@@ -49,7 +81,7 @@ final dueHabitsCountProvider = Provider<int>((ref) {
   final habits = ref.watch(habitsProvider).value ?? [];
   final completions = ref.watch(todayCompletionsProvider).value ?? [];
   final completedIds = completions.map((c) => c.habitId).toSet();
-  final now = DateTime.now();
+  final now = ref.watch(currentDateProvider);
 
   int count = 0;
   for (final habit in habits) {
