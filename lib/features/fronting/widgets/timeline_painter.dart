@@ -20,9 +20,10 @@ class TimelinePainter extends CustomPainter {
     required this.onSurfaceColor,
     required this.surfaceContainerColor,
     required this.brightness,
-    ValueNotifier<DateTime>? nowNotifier,
-  }) : _nowNotifier = nowNotifier,
-       super(repaint: nowNotifier);
+    this.scrollOffset = 0.0,
+    required this.viewportHeight,
+    Listenable? repaintListenable,
+  }) : super(repaint: repaintListenable);
 
   final List<TimelineMemberRow> rows;
   final double columnWidth;
@@ -35,9 +36,13 @@ class TimelinePainter extends CustomPainter {
   final Color onSurfaceColor;
   final Color surfaceContainerColor;
   final Brightness brightness;
-  final ValueNotifier<DateTime>? _nowNotifier;
+  final double scrollOffset;
+  final double viewportHeight;
 
-  DateTime get _now => _nowNotifier?.value ?? DateTime.now();
+  /// Visible Y range with a small bleed margin to avoid clipping at edges.
+  static const double _bleed = 10.0;
+  double get _visibleTop => scrollOffset - _bleed;
+  double get _visibleBottom => scrollOffset + viewportHeight + _bleed;
 
   double _timeToY(DateTime time) {
     final diff = time.difference(viewStart);
@@ -57,11 +62,15 @@ class TimelinePainter extends CustomPainter {
     final altPaint = Paint()
       ..color = onSurfaceColor.withValues(alpha: 0.05);
 
+    // Only draw the visible vertical slice of each stripe.
+    final top = math.max(0.0, _visibleTop);
+    final bottom = math.min(size.height, _visibleBottom);
+    if (top >= bottom) return;
+
     for (var i = 0; i < rows.length; i++) {
       if (i.isOdd) {
         canvas.drawRect(
-          Rect.fromLTWH(
-              i * totalColumnWidth, 0, totalColumnWidth, size.height),
+          Rect.fromLTWH(i * totalColumnWidth, top, totalColumnWidth, bottom - top),
           altPaint,
         );
       }
@@ -73,22 +82,26 @@ class TimelinePainter extends CustomPainter {
       ..color = onSurfaceColor.withValues(alpha: 0.08)
       ..strokeWidth = 0.5;
 
-    // Draw horizontal lines at each hour
+    // Calculate the first visible hour boundary from the scroll offset.
+    final visibleStartHours = _visibleTop / pixelsPerHour;
+    final startHourOffset = math.max(0, visibleStartHours.floor());
     var hour = DateTime(
-        viewStart.year, viewStart.month, viewStart.day, viewStart.hour);
+        viewStart.year, viewStart.month, viewStart.day, viewStart.hour)
+        .add(Duration(hours: startHourOffset));
     if (hour.isBefore(viewStart)) {
       hour = hour.add(const Duration(hours: 1));
     }
 
     while (hour.isBefore(viewEnd)) {
       final y = _timeToY(hour);
+      if (y > _visibleBottom) break;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
       hour = hour.add(const Duration(hours: 1));
     }
   }
 
   void _drawSessionBars(Canvas canvas, Size size) {
-    final now = _now;
+    final now = DateTime.now();
     final totalColumnWidth = columnWidth + columnPadding;
     final barInset = columnPadding / 2;
 
@@ -136,10 +149,13 @@ class TimelinePainter extends CustomPainter {
   }
 
   void _drawNowLine(Canvas canvas, Size size) {
-    final now = _now;
+    final now = DateTime.now();
     if (now.isBefore(viewStart) || now.isAfter(viewEnd)) return;
 
     final y = _timeToY(now);
+    // Skip if the now-line is outside the visible viewport (with margin for circle radius).
+    if (y < _visibleTop || y > _visibleBottom) return;
+
     final paint = Paint()
       ..color = primaryColor.withValues(alpha: 0.8)
       ..strokeWidth = 2.0;
@@ -156,7 +172,9 @@ class TimelinePainter extends CustomPainter {
         oldDelegate.viewStart != viewStart ||
         oldDelegate.viewEnd != viewEnd ||
         oldDelegate.primaryColor != primaryColor ||
-        oldDelegate.brightness != brightness;
+        oldDelegate.brightness != brightness ||
+        oldDelegate.scrollOffset != scrollOffset ||
+        oldDelegate.viewportHeight != viewportHeight;
   }
 }
 
@@ -171,13 +189,22 @@ class TimelineTimeGutterPainter extends CustomPainter {
     required this.viewEnd,
     required this.textColor,
     required this.gridColor,
-  });
+    this.scrollOffset = 0.0,
+    required this.viewportHeight,
+    Listenable? repaintListenable,
+  }) : super(repaint: repaintListenable);
 
   final double pixelsPerHour;
   final DateTime viewStart;
   final DateTime viewEnd;
   final Color textColor;
   final Color gridColor;
+  final double scrollOffset;
+  final double viewportHeight;
+
+  static const double _bleed = 20.0; // extra margin for text labels
+  double get _visibleTop => scrollOffset - _bleed;
+  double get _visibleBottom => scrollOffset + viewportHeight + _bleed;
 
   double _timeToY(DateTime time) {
     final diff = time.difference(viewStart);
@@ -217,8 +244,18 @@ class TimelineTimeGutterPainter extends CustomPainter {
       hour = hour.add(const Duration(hours: 1));
     }
 
+    // Skip ahead to the first visible hour boundary.
+    final visibleStartHours = _visibleTop / pixelsPerHour;
+    final skipHours = math.max(0, visibleStartHours.floor());
+    // Advance by interval-aligned steps.
+    final intervalsToSkip = (skipHours / hourInterval).floor();
+    if (intervalsToSkip > 0) {
+      hour = hour.add(Duration(hours: intervalsToSkip * hourInterval));
+    }
+
     while (hour.isBefore(viewEnd)) {
       final y = _timeToY(hour);
+      if (y > _visibleBottom) break;
       final isMidnight = hour.hour == 0;
 
       // Tick mark (full-width heavier line at midnight)
@@ -280,6 +317,8 @@ class TimelineTimeGutterPainter extends CustomPainter {
   bool shouldRepaint(covariant TimelineTimeGutterPainter oldDelegate) {
     return oldDelegate.pixelsPerHour != pixelsPerHour ||
         oldDelegate.viewStart != viewStart ||
-        oldDelegate.viewEnd != viewEnd;
+        oldDelegate.viewEnd != viewEnd ||
+        oldDelegate.scrollOffset != scrollOffset ||
+        oldDelegate.viewportHeight != viewportHeight;
   }
 }
