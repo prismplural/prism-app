@@ -109,13 +109,13 @@ class PinLockService {
     final version = await secureStorage.read(key: _pinHashVersionKey);
 
     if (version == '2') {
-      // Argon2id verification
+      // Argon2id verification — no fallback to SHA-256 since the stored
+      // hash is Argon2id format and SHA-256 comparison would always fail.
       try {
         final computed = hashPinArgon2id(pin, salt);
         return _constantTimeEquals(computed, storedHash);
       } catch (_) {
-        // Argon2id failed unexpectedly — fall back to legacy
-        return verifyPin(pin, storedHash, salt);
+        return false;
       }
     }
 
