@@ -45,6 +45,7 @@ dependencies:
   intl: ^0.20.2
   path_provider: ^2.1.5
   path: ^1.9.1
+  pool: ^1.5.1
   collection: ^1.19.1
   image: ^4.5.4
   image_picker: ^1.2.1
