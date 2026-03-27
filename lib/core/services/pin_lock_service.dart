@@ -70,13 +70,17 @@ class PinLockService {
   }
 
   /// Store a new PIN (hashed with Argon2id) in secure storage.
+  ///
+  /// Writes version key first so that if a partial write occurs (e.g., app
+  /// crash after hash but before salt), verifyStoredPin won't misinterpret
+  /// an Argon2id hash as legacy SHA-256.
   Future<void> storePin(String pin) async {
     final salt = _generateSalt();
     final hash = hashPinArgon2id(pin, salt);
     final hashBase64 = base64Encode(Uint8List.fromList(hash));
+    await secureStorage.write(key: _pinHashVersionKey, value: '2');
     await secureStorage.write(key: _pinHashKey, value: hashBase64);
     await secureStorage.write(key: _pinSaltKey, value: salt);
-    await secureStorage.write(key: _pinHashVersionKey, value: '2');
   }
 
   /// Clear the stored PIN.

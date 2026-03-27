@@ -252,7 +252,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
           onSurfaceColor: theme.colorScheme.onSurface,
           surfaceContainerColor: theme.colorScheme.surfaceContainerHighest,
           brightness: theme.brightness,
-          scrollOffset: _scrollOffsetNotifier.value,
+          scrollOffsetNotifier: _scrollOffsetNotifier,
           viewportHeight: scrollableViewportHeight,
           repaintListenable: mergedListenable,
         ),
@@ -305,7 +305,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                         gridColor: theme.colorScheme.onSurface.withValues(
                           alpha: 0.12,
                         ),
-                        scrollOffset: _scrollOffsetNotifier.value,
+                        scrollOffsetNotifier: _scrollOffsetNotifier,
                         viewportHeight: scrollableViewportHeight,
                         repaintListenable: _scrollOffsetNotifier,
                       ),
