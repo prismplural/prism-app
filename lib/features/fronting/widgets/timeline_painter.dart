@@ -20,8 +20,8 @@ class TimelinePainter extends CustomPainter {
     required this.onSurfaceColor,
     required this.surfaceContainerColor,
     required this.brightness,
-    this.scrollOffset = 0.0,
     required this.viewportHeight,
+    this.scrollOffsetNotifier,
     Listenable? repaintListenable,
   }) : super(repaint: repaintListenable);
 
@@ -36,13 +36,14 @@ class TimelinePainter extends CustomPainter {
   final Color onSurfaceColor;
   final Color surfaceContainerColor;
   final Brightness brightness;
-  final double scrollOffset;
   final double viewportHeight;
+  final ValueNotifier<double>? scrollOffsetNotifier;
 
   /// Visible Y range with a small bleed margin to avoid clipping at edges.
   static const double _bleed = 10.0;
-  double get _visibleTop => scrollOffset - _bleed;
-  double get _visibleBottom => scrollOffset + viewportHeight + _bleed;
+  double get _scrollOffset => scrollOffsetNotifier?.value ?? 0.0;
+  double get _visibleTop => _scrollOffset - _bleed;
+  double get _visibleBottom => _scrollOffset + viewportHeight + _bleed;
 
   double _timeToY(DateTime time) {
     final diff = time.difference(viewStart);
@@ -173,7 +174,6 @@ class TimelinePainter extends CustomPainter {
         oldDelegate.viewEnd != viewEnd ||
         oldDelegate.primaryColor != primaryColor ||
         oldDelegate.brightness != brightness ||
-        oldDelegate.scrollOffset != scrollOffset ||
         oldDelegate.viewportHeight != viewportHeight;
   }
 }
@@ -189,8 +189,8 @@ class TimelineTimeGutterPainter extends CustomPainter {
     required this.viewEnd,
     required this.textColor,
     required this.gridColor,
-    this.scrollOffset = 0.0,
     required this.viewportHeight,
+    this.scrollOffsetNotifier,
     Listenable? repaintListenable,
   }) : super(repaint: repaintListenable);
 
@@ -199,12 +199,13 @@ class TimelineTimeGutterPainter extends CustomPainter {
   final DateTime viewEnd;
   final Color textColor;
   final Color gridColor;
-  final double scrollOffset;
   final double viewportHeight;
+  final ValueNotifier<double>? scrollOffsetNotifier;
 
   static const double _bleed = 20.0; // extra margin for text labels
-  double get _visibleTop => scrollOffset - _bleed;
-  double get _visibleBottom => scrollOffset + viewportHeight + _bleed;
+  double get _scrollOffset => scrollOffsetNotifier?.value ?? 0.0;
+  double get _visibleTop => _scrollOffset - _bleed;
+  double get _visibleBottom => _scrollOffset + viewportHeight + _bleed;
 
   double _timeToY(DateTime time) {
     final diff = time.difference(viewStart);
@@ -318,7 +319,6 @@ class TimelineTimeGutterPainter extends CustomPainter {
     return oldDelegate.pixelsPerHour != pixelsPerHour ||
         oldDelegate.viewStart != viewStart ||
         oldDelegate.viewEnd != viewEnd ||
-        oldDelegate.scrollOffset != scrollOffset ||
         oldDelegate.viewportHeight != viewportHeight;
   }
 }
