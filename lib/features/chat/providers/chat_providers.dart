@@ -352,9 +352,7 @@ class ChatNotifier extends Notifier<void> {
     if (conv != null) {
       final existingIds = conv.participantIds.toSet();
       final newIds = memberIds.where((id) => !existingIds.contains(id)).toList();
-      for (final id in newIds) {
-        await repo.addParticipantId(conversationId, id);
-      }
+      await repo.addParticipantIds(conversationId, newIds);
       for (final id in memberIds) {
         ref.invalidate(memberConversationsProvider(id));
       }

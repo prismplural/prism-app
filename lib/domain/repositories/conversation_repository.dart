@@ -10,6 +10,7 @@ abstract class ConversationRepository {
   Future<void> updateConversation(domain.Conversation conversation);
   Future<void> deleteConversation(String id);
   Future<void> addParticipantId(String conversationId, String memberId);
+  Future<void> addParticipantIds(String conversationId, List<String> memberIds);
   Future<void> removeParticipantId(String conversationId, String memberId);
   Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds);
   Future<void> setMutedByMemberIds(String conversationId, List<String> memberIds);
