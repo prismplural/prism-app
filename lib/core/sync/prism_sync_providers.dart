@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' show min;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -524,39 +525,50 @@ Future<void> _applyRemoteChanges(
   DriftSyncAdapter adapter,
   SyncEvent event,
 ) async {
-  // Apply each change independently — individual field-level changes are
-  // idempotent (insertOnConflictUpdate), so partial application is safe and
-  // preferable to rolling back the entire batch on a single bad row.
-  for (final change in event.changes) {
-    try {
-      final table = change['table'] as String;
-      final entityId = change['entity_id'] as String;
-      final isDelete = change['is_delete'] as bool? ?? false;
-      final fields = (change['fields'] as Map<String, dynamic>?) ?? {};
+  // Apply changes in chunked transactions — each chunk of 20 changes runs
+  // inside a single Drift transaction for fewer WAL commits, while per-row
+  // try/catch keeps error handling granular (caught exceptions do NOT trigger
+  // Drift transaction rollback).
+  const chunkSize = 20;
+  final changes = event.changes;
 
-      if (kDebugMode) {
-        print(
-          '[SYNC_APPLY] table=$table id=$entityId delete=$isDelete fields=${fields.keys.toList()}',
-        );
-      }
+  for (var offset = 0; offset < changes.length; offset += chunkSize) {
+    final end = min(offset + chunkSize, changes.length);
+    final chunk = changes.sublist(offset, end);
 
-      if (isDelete) {
-        await adapter.hardDelete(table, entityId);
-      } else {
-        await adapter.applyFields(table, entityId, fields);
+    await db.transaction(() async {
+      for (final change in chunk) {
+        try {
+          final table = change['table'] as String;
+          final entityId = change['entity_id'] as String;
+          final isDelete = change['is_delete'] as bool? ?? false;
+          final fields = (change['fields'] as Map<String, dynamic>?) ?? {};
+
+          if (kDebugMode) {
+            print(
+              '[SYNC_APPLY] table=$table id=$entityId delete=$isDelete fields=${fields.keys.toList()}',
+            );
+          }
+
+          if (isDelete) {
+            await adapter.hardDelete(table, entityId);
+          } else {
+            await adapter.applyFields(table, entityId, fields);
+          }
+        } catch (e, st) {
+          final table = change['table'];
+          final entityId = change['entity_id'];
+          final fieldKeys = (change['fields'] as Map?)?.keys.toList() ?? [];
+          ErrorReportingService.instance.report(
+            'Sync apply failed for $table/$entityId: $e '
+            '(fields: $fieldKeys)',
+            severity: ErrorSeverity.warning,
+            stackTrace: st,
+          );
+          // Continue processing remaining changes — skip bad rows, apply good ones
+        }
       }
-    } catch (e, st) {
-      final table = change['table'];
-      final entityId = change['entity_id'];
-      final fieldKeys = (change['fields'] as Map?)?.keys.toList() ?? [];
-      ErrorReportingService.instance.report(
-        'Sync apply failed for $table/$entityId: $e '
-        '(fields: $fieldKeys)',
-        severity: ErrorSeverity.warning,
-        stackTrace: st,
-      );
-      // Continue processing remaining changes — skip bad rows, apply good ones
-    }
+    });
   }
 }
 
