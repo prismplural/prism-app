@@ -81,6 +81,21 @@ class DriftConversationRepository
   }
 
   @override
+  Future<void> addParticipantIds(String conversationId, List<String> memberIds) async {
+    if (memberIds.isEmpty) return;
+    final row = await _dao.getConversationById(conversationId);
+    if (row == null) return;
+    final conv = ConversationMapper.toDomain(row);
+    final existingIds = conv.participantIds.toSet();
+    final newIds = memberIds.where((id) => !existingIds.contains(id)).toList();
+    if (newIds.isEmpty) return;
+    final updatedIds = [...conv.participantIds, ...newIds];
+    final json = jsonEncode(updatedIds);
+    await _dao.updateParticipantIds(conversationId, json);
+    await syncRecordUpdate(_table, conversationId, {'participant_ids': json});
+  }
+
+  @override
   Future<void> removeParticipantId(String conversationId, String memberId) async {
     final row = await _dao.getConversationById(conversationId);
     if (row == null) return;

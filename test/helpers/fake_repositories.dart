@@ -294,10 +294,40 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
-  Future<void> addParticipantId(String conversationId, String memberId) async {}
+  Future<void> addParticipantId(String conversationId, String memberId) async {
+    final index = conversations.indexWhere((c) => c.id == conversationId);
+    if (index < 0) return;
+    final conv = conversations[index];
+    if (conv.participantIds.contains(memberId)) return;
+    conversations[index] = conv.copyWith(
+      participantIds: [...conv.participantIds, memberId],
+    );
+  }
 
   @override
-  Future<void> removeParticipantId(String conversationId, String memberId) async {}
+  Future<void> addParticipantIds(String conversationId, List<String> memberIds) async {
+    if (memberIds.isEmpty) return;
+    final index = conversations.indexWhere((c) => c.id == conversationId);
+    if (index < 0) return;
+    final conv = conversations[index];
+    final existingIds = conv.participantIds.toSet();
+    final newIds = memberIds.where((id) => !existingIds.contains(id)).toList();
+    if (newIds.isEmpty) return;
+    conversations[index] = conv.copyWith(
+      participantIds: [...conv.participantIds, ...newIds],
+    );
+  }
+
+  @override
+  Future<void> removeParticipantId(String conversationId, String memberId) async {
+    final index = conversations.indexWhere((c) => c.id == conversationId);
+    if (index < 0) return;
+    final conv = conversations[index];
+    if (!conv.participantIds.contains(memberId)) return;
+    conversations[index] = conv.copyWith(
+      participantIds: conv.participantIds.where((id) => id != memberId).toList(),
+    );
+  }
 
   @override
   Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds) async {}
