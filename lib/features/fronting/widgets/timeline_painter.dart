@@ -124,6 +124,9 @@ class TimelinePainter extends CustomPainter {
         final y1 = math.max(0.0, _timeToY(sessionStart));
         final y2 = math.min(size.height, _timeToY(sessionEnd));
 
+        // Skip bars entirely outside the visible viewport.
+        if (y2 < _visibleTop || y1 > _visibleBottom) continue;
+
         if (y2 - y1 < 1) continue; // too small to draw
 
         final barRect = RRect.fromRectAndRadius(
