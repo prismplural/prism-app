@@ -55,6 +55,13 @@ LazyDatabase _openConnection() {
       // Key exists but can't open as encrypted — DB may be plaintext
       // (upgrade from pre-encryption version where key was backfilled
       // before migration ran).
+      // NOTE: migratePlaintextToEncrypted runs on the calling isolate (not a
+      // background isolate). This is acceptable because:
+      // 1. PRAGMA rekey is fast for typical database sizes (<100ms)
+      // 2. This is a one-time migration from pre-encryption app versions
+      // 3. LazyDatabase defers opening until first query, by which point
+      //    the UI typically shows a loading state
+      // For very large databases (>100MB), consider moving to compute().
       if (_tryOpenPlaintext(file.path)) {
         debugPrint('[DB_PROVIDER] Key exists but DB is plaintext — migrating');
         final migrated = await migratePlaintextToEncrypted(
