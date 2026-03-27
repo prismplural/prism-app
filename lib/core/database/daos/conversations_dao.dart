@@ -48,6 +48,22 @@ class ConversationsDao extends DatabaseAccessor<AppDatabase>
         .write(conversation);
   }
 
+  Future<void> updateParticipantIds(String id, String participantIdsJson) =>
+      (update(conversations)..where((c) => c.id.equals(id)))
+          .write(ConversationsCompanion(participantIds: Value(participantIdsJson)));
+
+  Future<void> updateArchivedByMemberIds(String id, String archivedByJson) =>
+      (update(conversations)..where((c) => c.id.equals(id)))
+          .write(ConversationsCompanion(archivedByMemberIds: Value(archivedByJson)));
+
+  Future<void> updateMutedByMemberIds(String id, String mutedByJson) =>
+      (update(conversations)..where((c) => c.id.equals(id)))
+          .write(ConversationsCompanion(mutedByMemberIds: Value(mutedByJson)));
+
+  Future<void> updateLastReadTimestamps(String id, String timestampsJson) =>
+      (update(conversations)..where((c) => c.id.equals(id)))
+          .write(ConversationsCompanion(lastReadTimestamps: Value(timestampsJson)));
+
   Future<void> softDeleteConversation(String id) =>
       (update(conversations)..where((c) => c.id.equals(id))).write(
           const ConversationsCompanion(isDeleted: Value(true)));
