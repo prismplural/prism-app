@@ -149,8 +149,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         // members exist yet on this device, keep showing onboarding so
         // Device B doesn't land on an empty home screen.
         final memberRepo = ref.read(memberRepositoryProvider);
-        final members = await memberRepo.getAllMembers();
-        if (members.isEmpty) return null;
+        final count = await memberRepo.getCount();
+        if (count == 0) return null;
         return AppRoutePaths.home;
       }
       return null;
