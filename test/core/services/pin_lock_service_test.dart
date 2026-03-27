@@ -291,10 +291,10 @@ void main() {
     });
 
     test('isPinSet returns true after storePin', () {
-      final hash = PinLockService.hashPinArgon2id('1234', 'salt');
+      final hash = PinLockService.hashPinArgon2id('1234', 'test-salt-8bytes');
       final storage = <String, String>{
         'prism.pin_hash': base64Encode(Uint8List.fromList(hash)),
-        'prism.pin_salt': 'salt',
+        'prism.pin_salt': 'test-salt-8bytes',
         'prism.pin_hash_version': '2',
       };
 
@@ -303,10 +303,10 @@ void main() {
     });
 
     test('after clearPin, isPinSet returns false', () {
-      final hash = PinLockService.hashPinArgon2id('1234', 'salt');
+      final hash = PinLockService.hashPinArgon2id('1234', 'test-salt-8bytes');
       final storage = <String, String>{
         'prism.pin_hash': base64Encode(Uint8List.fromList(hash)),
-        'prism.pin_salt': 'salt',
+        'prism.pin_salt': 'test-salt-8bytes',
         'prism.pin_hash_version': '2',
       };
 

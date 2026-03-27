@@ -330,16 +330,40 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
-  Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds) async {}
+  Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds) async {
+    final index = conversations.indexWhere((c) => c.id == conversationId);
+    if (index < 0) return;
+    conversations[index] = conversations[index].copyWith(
+      archivedByMemberIds: memberIds,
+    );
+  }
 
   @override
-  Future<void> setMutedByMemberIds(String conversationId, List<String> memberIds) async {}
+  Future<void> setMutedByMemberIds(String conversationId, List<String> memberIds) async {
+    final index = conversations.indexWhere((c) => c.id == conversationId);
+    if (index < 0) return;
+    conversations[index] = conversations[index].copyWith(
+      mutedByMemberIds: memberIds,
+    );
+  }
 
   @override
-  Future<void> setLastReadTimestamps(String conversationId, Map<String, DateTime> timestamps) async {}
+  Future<void> setLastReadTimestamps(String conversationId, Map<String, DateTime> timestamps) async {
+    final index = conversations.indexWhere((c) => c.id == conversationId);
+    if (index < 0) return;
+    conversations[index] = conversations[index].copyWith(
+      lastReadTimestamps: timestamps,
+    );
+  }
 
   @override
-  Future<void> updateLastActivity(String id) async {}
+  Future<void> updateLastActivity(String id) async {
+    final index = conversations.indexWhere((c) => c.id == id);
+    if (index < 0) return;
+    conversations[index] = conversations[index].copyWith(
+      lastActivityAt: DateTime.now(),
+    );
+  }
 
   @override
   Future<int> getCount() async => conversations.length;
