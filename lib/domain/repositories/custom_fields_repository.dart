@@ -10,6 +10,7 @@ abstract class CustomFieldsRepository {
   Future<void> deleteField(String id);
 
   Stream<List<domain.CustomFieldValue>> watchValuesForMember(String memberId);
+  Future<List<domain.CustomFieldValue>> getAllValues();
   Future<domain.CustomFieldValue?> getValueForField(
       String fieldId, String memberId);
   Future<void> upsertValue(domain.CustomFieldValue value);

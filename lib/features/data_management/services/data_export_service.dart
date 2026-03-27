@@ -122,16 +122,7 @@ class DataExportService {
 
     // Fetch custom fields and values
     final customFields = await customFieldsRepository.watchAllFields().first;
-    final allFieldValues = <CustomFieldValue>[];
-    for (final field in customFields) {
-      for (final member in members) {
-        final value = await customFieldsRepository.getValueForField(
-          field.id,
-          member.id,
-        );
-        if (value != null) allFieldValues.add(value);
-      }
-    }
+    final allFieldValues = await customFieldsRepository.getAllValues();
     final v3CustomFields = customFields.map(_mapCustomField).toList();
     final v3CustomFieldValues =
         allFieldValues.map(_mapCustomFieldValue).toList();
