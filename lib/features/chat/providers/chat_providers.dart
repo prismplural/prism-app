@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pool/pool.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
@@ -115,6 +116,7 @@ class SpeakingAsNotifier extends Notifier<String?> {
 /// Chat actions notifier.
 class ChatNotifier extends Notifier<void> {
   static const _uuid = Uuid();
+  static final _mutationPool = Pool(1);
 
   @override
   void build() {}
@@ -279,42 +281,46 @@ class ChatNotifier extends Notifier<void> {
   }
 
   Future<void> editMessage(String messageId, String newContent) async {
-    final repo = ref.read(chatMessageRepositoryProvider);
-    final message = await repo.getMessageById(messageId);
-    if (message != null) {
-      final updated = message.copyWith(
-        content: newContent,
-        editedAt: DateTime.now(),
-      );
-      await repo.updateMessage(updated);
-    }
+    await _mutationPool.withResource(() async {
+      final repo = ref.read(chatMessageRepositoryProvider);
+      final message = await repo.getMessageById(messageId);
+      if (message != null) {
+        final updated = message.copyWith(
+          content: newContent,
+          editedAt: DateTime.now(),
+        );
+        await repo.updateMessage(updated);
+      }
+    });
   }
 
   Future<void> deleteMessage(String messageId) async {
-    final msgRepo = ref.read(chatMessageRepositoryProvider);
-    final convRepo = ref.read(conversationRepositoryProvider);
+    await _mutationPool.withResource(() async {
+      final msgRepo = ref.read(chatMessageRepositoryProvider);
+      final convRepo = ref.read(conversationRepositoryProvider);
 
-    // Look up the message before deleting so we know which conversation to fix.
-    final message = await msgRepo.getMessageById(messageId);
-    await msgRepo.deleteMessage(messageId);
+      // Look up the message before deleting so we know which conversation to fix.
+      final message = await msgRepo.getMessageById(messageId);
+      await msgRepo.deleteMessage(messageId);
 
-    // After deletion, update the conversation's lastActivityAt to reflect the
-    // latest remaining message. Without this, the conversation list shows "now"
-    // because the original sendMessage set lastActivityAt but deleting the
-    // message never reverted it.
-    if (message != null) {
-      final conv = await convRepo.getConversationById(message.conversationId);
-      if (conv != null) {
-        final latestMessage =
-            await msgRepo.getLatestMessage(message.conversationId);
-        final newActivityAt = latestMessage?.timestamp ?? conv.createdAt;
-        if (newActivityAt != conv.lastActivityAt) {
-          await convRepo.updateConversation(
-            conv.copyWith(lastActivityAt: newActivityAt),
-          );
+      // After deletion, update the conversation's lastActivityAt to reflect the
+      // latest remaining message. Without this, the conversation list shows "now"
+      // because the original sendMessage set lastActivityAt but deleting the
+      // message never reverted it.
+      if (message != null) {
+        final conv = await convRepo.getConversationById(message.conversationId);
+        if (conv != null) {
+          final latestMessage =
+              await msgRepo.getLatestMessage(message.conversationId);
+          final newActivityAt = latestMessage?.timestamp ?? conv.createdAt;
+          if (newActivityAt != conv.lastActivityAt) {
+            await convRepo.updateConversation(
+              conv.copyWith(lastActivityAt: newActivityAt),
+            );
+          }
         }
       }
-    }
+    });
   }
 
   Future<void> updateConversation(
@@ -403,29 +409,31 @@ class ChatNotifier extends Notifier<void> {
     required String emoji,
     required String memberId,
   }) async {
-    final repo = ref.read(chatMessageRepositoryProvider);
-    final message = await repo.getMessageById(messageId);
-    if (message == null) return;
+    await _mutationPool.withResource(() async {
+      final repo = ref.read(chatMessageRepositoryProvider);
+      final message = await repo.getMessageById(messageId);
+      if (message == null) return;
 
-    final existingIndex = message.reactions.indexWhere(
-      (r) => r.emoji == emoji && r.memberId == memberId,
-    );
+      final existingIndex = message.reactions.indexWhere(
+        (r) => r.emoji == emoji && r.memberId == memberId,
+      );
 
-    List<MessageReaction> updatedReactions;
-    if (existingIndex >= 0) {
-      updatedReactions = [...message.reactions]..removeAt(existingIndex);
-    } else {
-      updatedReactions = [
-        ...message.reactions,
-        MessageReaction(
-          id: _uuid.v4(),
-          emoji: emoji,
-          memberId: memberId,
-          timestamp: DateTime.now(),
-        ),
-      ];
-    }
-    await repo.updateMessage(message.copyWith(reactions: updatedReactions));
+      List<MessageReaction> updatedReactions;
+      if (existingIndex >= 0) {
+        updatedReactions = [...message.reactions]..removeAt(existingIndex);
+      } else {
+        updatedReactions = [
+          ...message.reactions,
+          MessageReaction(
+            id: _uuid.v4(),
+            emoji: emoji,
+            memberId: memberId,
+            timestamp: DateTime.now(),
+          ),
+        ];
+      }
+      await repo.updateMessage(message.copyWith(reactions: updatedReactions));
+    });
   }
 }
 
