@@ -276,5 +276,8 @@ class SpApiClient {
   }
 
   /// Dispose the underlying HTTP client.
-  void dispose() => _http.close();
+  void dispose() {
+    _headers.clear();
+    _http.close();
+  }
 }
