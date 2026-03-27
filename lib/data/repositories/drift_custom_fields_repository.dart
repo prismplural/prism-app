@@ -78,6 +78,12 @@ class DriftCustomFieldsRepository
   }
 
   @override
+  Future<List<domain.CustomFieldValue>> getAllValues() async {
+    final rows = await _dao.getAllValues();
+    return rows.map(CustomFieldValueMapper.toDomain).toList();
+  }
+
+  @override
   Future<domain.CustomFieldValue?> getValueForField(
       String fieldId, String memberId) async {
     final row = await _dao.getValueForField(fieldId, memberId);

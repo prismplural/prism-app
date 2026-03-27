@@ -46,6 +46,10 @@ class CustomFieldsDao extends DatabaseAccessor<AppDatabase>
 
   // ── Values ─────────────────────────────────────────────────────────
 
+  Future<List<CustomFieldValueRow>> getAllValues() =>
+      (select(customFieldValues)..where((v) => v.isDeleted.equals(false)))
+          .get();
+
   Stream<List<CustomFieldValueRow>> watchValuesForMember(String memberId) =>
       (select(customFieldValues)
             ..where((v) =>
