@@ -31,6 +31,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
   bool _isLoadingMore = false;
   final ValueNotifier<DateTime> _nowNotifier =
       ValueNotifier<DateTime>(DateTime.now());
+  final ValueNotifier<double> _scrollOffsetNotifier = ValueNotifier<double>(0.0);
 
   static const double _headerRowHeight = 56.0;
   static const double _minColumnWidth = 36.0;
@@ -59,11 +60,17 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     _horizontalController.dispose();
     _refreshTimer?.cancel();
     _nowNotifier.dispose();
+    _scrollOffsetNotifier.dispose();
     super.dispose();
   }
 
   void _onScroll() {
-    if (_isLoadingMore || !_verticalController.hasClients) return;
+    if (!_verticalController.hasClients) return;
+
+    // Update scroll offset for viewport culling in painters.
+    _scrollOffsetNotifier.value = _verticalController.offset;
+
+    if (_isLoadingMore) return;
 
     // Load more when near the top (scrolling back in time)
     if (_verticalController.offset < _loadMoreThreshold) {
@@ -120,6 +127,10 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                           _maxColumnWidth,
                         )
                       : _maxColumnWidth;
+                  // Viewport height for the scrollable area:
+                  // total height minus header row and divider.
+                  final scrollableHeight =
+                      constraints.maxHeight - _headerRowHeight - 1;
                   return _buildTimeline(
                     context,
                     theme,
@@ -127,6 +138,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                     rows,
                     idealColumnWidth,
                     availableWidth,
+                    scrollableHeight,
                   );
                 },
               );
@@ -144,6 +156,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     List<TimelineMemberRow> rows,
     double columnWidth,
     double availableWidth,
+    double scrollableViewportHeight,
   ) {
     final pxPerHour = timelineState.pixelsPerHour;
     final totalColumnWidth = columnWidth + _columnPadding;
@@ -219,6 +232,11 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       );
     }
 
+    final mergedListenable = Listenable.merge([
+      _nowNotifier,
+      _scrollOffsetNotifier,
+    ]);
+
     Widget buildSessionColumns() {
       return CustomPaint(
         size: Size(columnsWidth, totalHeight),
@@ -234,7 +252,9 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
           onSurfaceColor: theme.colorScheme.onSurface,
           surfaceContainerColor: theme.colorScheme.surfaceContainerHighest,
           brightness: theme.brightness,
-          nowNotifier: _nowNotifier,
+          scrollOffset: _scrollOffsetNotifier.value,
+          viewportHeight: scrollableViewportHeight,
+          repaintListenable: mergedListenable,
         ),
       );
     }
@@ -285,6 +305,9 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                         gridColor: theme.colorScheme.onSurface.withValues(
                           alpha: 0.12,
                         ),
+                        scrollOffset: _scrollOffsetNotifier.value,
+                        viewportHeight: scrollableViewportHeight,
+                        repaintListenable: _scrollOffsetNotifier,
                       ),
                     ),
                   ),
