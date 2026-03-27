@@ -3,7 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:hashlib/hashlib.dart';
+import 'package:hashlib/hashlib.dart' as hashlib;
 import 'package:local_auth/local_auth.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 
@@ -30,15 +30,15 @@ class PinLockService {
 
   /// Hash a PIN with Argon2id (slow hash, resistant to brute force).
   static List<int> hashPinArgon2id(String pin, String salt) {
-    final output = Argon2id(
+    final argon2 = hashlib.Argon2(
       hashLength: 32,
       iterations: 3,
       memorySizeKB: 19456, // 19 MB — mobile-friendly
       parallelism: 1,
-    ).convert(
-      utf8.encode(pin),
+      type: hashlib.Argon2Type.argon2id,
       salt: utf8.encode(salt),
     );
+    final output = argon2.convert(utf8.encode(pin));
     return output.bytes;
   }
 
