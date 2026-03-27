@@ -100,7 +100,6 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // those changes must not beat Dart's event-stream subscription.
     _handle = handle;
     state = AsyncData(handle);
-    await Future<void>.delayed(Duration.zero);
 
     // Auto-configure sync engine if credentials already exist (app restart)
     final health = await _autoConfigureIfReady(handle);
