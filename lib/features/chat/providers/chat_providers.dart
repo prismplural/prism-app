@@ -171,9 +171,7 @@ class ChatNotifier extends Notifier<void> {
     // Auto-unarchive if any member had it archived.
     final conv = await convRepo.getConversationById(conversationId);
     if (conv != null && conv.archivedByMemberIds.isNotEmpty) {
-      await convRepo.updateConversation(
-        conv.copyWith(archivedByMemberIds: []),
-      );
+      await convRepo.setArchivedByMemberIds(conversationId, []);
     }
   }
 
@@ -203,8 +201,7 @@ class ChatNotifier extends Notifier<void> {
     final conv = await convRepo.getConversationById(conversationId);
     if (conv == null) return;
 
-    final updatedIds = conv.participantIds.where((id) => id != memberId).toList();
-    await convRepo.updateConversation(conv.copyWith(participantIds: updatedIds));
+    await convRepo.removeParticipantId(conversationId, memberId);
     ref.invalidate(memberConversationsProvider(memberId));
 
     if (removedByName != null) {
@@ -250,9 +247,7 @@ class ChatNotifier extends Notifier<void> {
     if (conv.archivedByMemberIds.contains(memberId)) return;
 
     final updatedArchived = [...conv.archivedByMemberIds, memberId];
-    await convRepo.updateConversation(
-      conv.copyWith(archivedByMemberIds: updatedArchived),
-    );
+    await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
   }
 
   Future<void> unarchiveConversation(
@@ -265,9 +260,7 @@ class ChatNotifier extends Notifier<void> {
 
     final updatedArchived =
         conv.archivedByMemberIds.where((id) => id != memberId).toList();
-    await convRepo.updateConversation(
-      conv.copyWith(archivedByMemberIds: updatedArchived),
-    );
+    await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
   }
 
   Future<void> leaveConversation(
@@ -353,10 +346,9 @@ class ChatNotifier extends Notifier<void> {
     if (conv != null) {
       final existingIds = conv.participantIds.toSet();
       final newIds = memberIds.where((id) => !existingIds.contains(id)).toList();
-      final updatedIds = {...conv.participantIds, ...memberIds}.toList();
-      await repo.updateConversation(
-        conv.copyWith(participantIds: updatedIds),
-      );
+      for (final id in newIds) {
+        await repo.addParticipantId(conversationId, id);
+      }
       for (final id in memberIds) {
         ref.invalidate(memberConversationsProvider(id));
       }
@@ -391,9 +383,7 @@ class ChatNotifier extends Notifier<void> {
 
     final updatedTimestamps = Map<String, DateTime>.from(conv.lastReadTimestamps);
     updatedTimestamps[memberId] = DateTime.now();
-    await repo.updateConversation(
-      conv.copyWith(lastReadTimestamps: updatedTimestamps),
-    );
+    await repo.setLastReadTimestamps(conversationId, updatedTimestamps);
   }
 
   Future<void> toggleMute(String conversationId, String memberId) async {
@@ -405,9 +395,7 @@ class ChatNotifier extends Notifier<void> {
     final updatedMuted = muted
         ? conv.mutedByMemberIds.where((id) => id != memberId).toList()
         : [...conv.mutedByMemberIds, memberId];
-    await repo.updateConversation(
-      conv.copyWith(mutedByMemberIds: updatedMuted),
-    );
+    await repo.setMutedByMemberIds(conversationId, updatedMuted);
   }
 
   Future<void> toggleReaction({
