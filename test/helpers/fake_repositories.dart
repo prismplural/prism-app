@@ -294,6 +294,21 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
+  Future<void> addParticipantId(String conversationId, String memberId) async {}
+
+  @override
+  Future<void> removeParticipantId(String conversationId, String memberId) async {}
+
+  @override
+  Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds) async {}
+
+  @override
+  Future<void> setMutedByMemberIds(String conversationId, List<String> memberIds) async {}
+
+  @override
+  Future<void> setLastReadTimestamps(String conversationId, Map<String, DateTime> timestamps) async {}
+
+  @override
   Future<void> updateLastActivity(String id) async {}
 
   @override

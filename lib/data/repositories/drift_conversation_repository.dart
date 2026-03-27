@@ -69,6 +69,51 @@ class DriftConversationRepository
   }
 
   @override
+  Future<void> addParticipantId(String conversationId, String memberId) async {
+    final row = await _dao.getConversationById(conversationId);
+    if (row == null) return;
+    final conv = ConversationMapper.toDomain(row);
+    if (conv.participantIds.contains(memberId)) return;
+    final updatedIds = [...conv.participantIds, memberId];
+    final json = jsonEncode(updatedIds);
+    await _dao.updateParticipantIds(conversationId, json);
+    await syncRecordUpdate(_table, conversationId, {'participant_ids': json});
+  }
+
+  @override
+  Future<void> removeParticipantId(String conversationId, String memberId) async {
+    final row = await _dao.getConversationById(conversationId);
+    if (row == null) return;
+    final conv = ConversationMapper.toDomain(row);
+    if (!conv.participantIds.contains(memberId)) return;
+    final updatedIds = conv.participantIds.where((id) => id != memberId).toList();
+    final json = jsonEncode(updatedIds);
+    await _dao.updateParticipantIds(conversationId, json);
+    await syncRecordUpdate(_table, conversationId, {'participant_ids': json});
+  }
+
+  @override
+  Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds) async {
+    final json = jsonEncode(memberIds);
+    await _dao.updateArchivedByMemberIds(conversationId, json);
+    await syncRecordUpdate(_table, conversationId, {'archived_by_member_ids': json});
+  }
+
+  @override
+  Future<void> setMutedByMemberIds(String conversationId, List<String> memberIds) async {
+    final json = jsonEncode(memberIds);
+    await _dao.updateMutedByMemberIds(conversationId, json);
+    await syncRecordUpdate(_table, conversationId, {'muted_by_member_ids': json});
+  }
+
+  @override
+  Future<void> setLastReadTimestamps(String conversationId, Map<String, DateTime> timestamps) async {
+    final json = jsonEncode(timestamps.map((k, v) => MapEntry(k, v.toIso8601String())));
+    await _dao.updateLastReadTimestamps(conversationId, json);
+    await syncRecordUpdate(_table, conversationId, {'last_read_timestamps': json});
+  }
+
+  @override
   Future<void> deleteConversation(String id) async {
     await _dao.softDeleteConversation(id);
     await syncRecordDelete(_table, id);
