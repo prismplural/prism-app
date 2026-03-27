@@ -270,8 +270,9 @@ class SpImporter {
     // 6. Download avatars (best-effort, outside the transaction).
     //    Network I/O cannot be rolled back; failures here are silently skipped.
     var avatarsDownloaded = 0;
+    final warnings = List<String>.of(mapped.warnings);
     if (downloadAvatars && mapped.avatarUrls.isNotEmpty) {
-      avatarsDownloaded = await _downloadAvatars(
+      final result = await _downloadAvatars(
         mapped.members,
         mapped.avatarUrls,
         memberRepo,
@@ -283,6 +284,10 @@ class SpImporter {
           );
         },
       );
+      avatarsDownloaded = result.downloaded;
+      if (result.failed > 0) {
+        warnings.add('${result.failed} avatar(s) failed to download');
+      }
     }
 
     stopwatch.stop();
@@ -300,19 +305,20 @@ class SpImporter {
       groupsImported: mapped.groups.length,
       remindersImported: mapped.reminders.length,
       avatarsDownloaded: avatarsDownloaded,
-      warnings: mapped.warnings,
+      warnings: warnings,
       duration: stopwatch.elapsed,
     );
   }
 
   /// Download avatar images from URLs and update members.
-  Future<int> _downloadAvatars(
+  Future<({int downloaded, int failed})> _downloadAvatars(
     List<Member> members,
     Map<String, String> avatarUrls,
     MemberRepository memberRepo, {
     void Function(int count)? onProgress,
   }) async {
     var downloaded = 0;
+    var failed = 0;
 
     for (final member in members) {
       final url = avatarUrls[member.id];
@@ -330,12 +336,12 @@ class SpImporter {
           downloaded++;
         }
       } catch (_) {
-        // Skip failed downloads silently; avatars are non-critical.
+        failed++;
       }
 
       onProgress?.call(downloaded);
     }
 
-    return downloaded;
+    return (downloaded: downloaded, failed: failed);
   }
 }
