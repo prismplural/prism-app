@@ -2,6 +2,36 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.5] - 2026-03-27
+
+### Added
+- **Documentation site:** Full docs site with Eleventy — getting started, members, fronting, communication, tracking, sync & devices, FAQ, troubleshooting, philosophy, and self-hosting stub pages
+- **PIN security upgrade:** PIN hashing migrated from SHA-256 to Argon2id with automatic legacy migration on first unlock
+- **Conversation CRDT precision:** Targeted field-level update methods for conversations — archive, mute, participants, and read timestamps now emit single-field CRDT ops instead of full-row writes
+- **Chat mutation serialization:** Pool(1) serializes toggleReaction, editMessage, and deleteMessage to prevent read-modify-write race conditions
+
+### Changed
+- **Sync performance:** Remote changes now applied in chunked transactions (batches of 20) instead of individual sequential writes, reducing WAL commits
+- **Timeline rendering:** Grid lines, alternating columns, now-line, and session bars are viewport-culled — only visible elements are painted
+- **Export performance:** Custom field values exported via single batch query instead of O(n*m) individual lookups
+- **Router performance:** Onboarding redirect uses COUNT query instead of loading all member objects
+- **Migration warnings:** Failed avatar downloads are now surfaced in import result warnings instead of silently skipped
+- **Relay deployment:** Migrated from DigitalOcean to Hetzner CAX31 ARM64
+- **Site design:** Warmer tone, 3D phone mockup hero, glassmorphic download badges, cursor-tracking specular highlights, responsive navigation
+
+### Fixed
+- Habits stuck as completed on day change — date-dependent providers now invalidate at midnight
+- Chat edit dialog closing chat screen behind it + double-submit on save
+- Poll vote-as defaulting to first member instead of current fronter
+- Poll results visible before any system member has voted
+- Delete session dialog missing cancel button + 9 raw dialogs migrated to PrismDialog
+- Tooltip instant-open on desktop + pill-shaped borders on multi-line text fields
+- Notification screen layout + about screen missing back button
+- SharedPreferences flag ordering in one-time sync migration
+- SP API token not cleared on dispose
+- Removed fragile microtask yield before sync auto-configure
+- Always-on database encryption at rest (Signal model)
+
 ## [0.2.4] - 2026-03-25
 
 ### Changed
