@@ -8,44 +8,53 @@ class FrontingEditGuard {
   const FrontingEditGuard();
 
   /// Validate basic time constraints.
-  List<FrontingValidationIssue> validateTimeRange(DateTime start, DateTime? end) {
+  List<FrontingValidationIssue> validateTimeRange(
+    DateTime start,
+    DateTime? end,
+  ) {
     final issues = <FrontingValidationIssue>[];
     if (end != null && !end.isAfter(start)) {
-      issues.add(FrontingValidationIssue(
-        id: 'time_range:invalid',
-        type: FrontingIssueType.invalidRange,
-        severity: FrontingIssueSeverity.error,
-        sessionIds: [],
-        memberIds: [],
-        rangeStart: start,
-        rangeEnd: end,
-        summary: 'End time must be after start time',
-      ));
+      issues.add(
+        FrontingValidationIssue(
+          id: 'time_range:invalid',
+          type: FrontingIssueType.invalidRange,
+          severity: FrontingIssueSeverity.error,
+          sessionIds: [],
+          memberIds: [],
+          rangeStart: start,
+          rangeEnd: end,
+          summary: 'End time must be after start time',
+        ),
+      );
     }
     final now = DateTime.now();
     if (start.isAfter(now.add(const Duration(minutes: 1)))) {
-      issues.add(FrontingValidationIssue(
-        id: 'time_range:future_start',
-        type: FrontingIssueType.futureSession,
-        severity: FrontingIssueSeverity.error,
-        sessionIds: [],
-        memberIds: [],
-        rangeStart: start,
-        rangeEnd: end ?? start,
-        summary: 'Session cannot start in the future',
-      ));
+      issues.add(
+        FrontingValidationIssue(
+          id: 'time_range:future_start',
+          type: FrontingIssueType.futureSession,
+          severity: FrontingIssueSeverity.error,
+          sessionIds: [],
+          memberIds: [],
+          rangeStart: start,
+          rangeEnd: end ?? start,
+          summary: 'Session cannot start in the future',
+        ),
+      );
     }
     if (end != null && end.isAfter(now.add(const Duration(minutes: 1)))) {
-      issues.add(FrontingValidationIssue(
-        id: 'time_range:future_end',
-        type: FrontingIssueType.futureSession,
-        severity: FrontingIssueSeverity.error,
-        sessionIds: [],
-        memberIds: [],
-        rangeStart: start,
-        rangeEnd: end,
-        summary: 'Session cannot end in the future',
-      ));
+      issues.add(
+        FrontingValidationIssue(
+          id: 'time_range:future_end',
+          type: FrontingIssueType.futureSession,
+          severity: FrontingIssueSeverity.error,
+          sessionIds: [],
+          memberIds: [],
+          rangeStart: start,
+          rangeEnd: end,
+          summary: 'Session cannot end in the future',
+        ),
+      );
     }
     return issues;
   }
@@ -60,8 +69,16 @@ class FrontingEditGuard {
     // Apply patch to get proposed state
     final proposed = _applyPatch(original, patch);
 
-    // Check overlaps (exclude self)
-    final others = nearbySessions.where((s) => s.id != original.id && !s.isDeleted).toList();
+    // Sleep and fronting sessions are allowed to overlap each other, so edit
+    // validation only considers neighbors of the same session type.
+    final others = nearbySessions
+        .where(
+          (s) =>
+              s.id != original.id &&
+              !s.isDeleted &&
+              s.sessionType == original.sessionType,
+        )
+        .toList();
     final overlapping = <FrontingSessionSnapshot>[];
     for (final other in others) {
       final otherEnd = other.end;
@@ -71,8 +88,10 @@ class FrontingEditGuard {
       final aEnd = proposedEnd ?? DateTime(9999);
       final bEnd = otherEnd ?? DateTime(9999);
       // Touching boundaries (proposed.start == bEnd or other.start == aEnd) are NOT overlaps
-      if (proposed.start.isBefore(bEnd) && other.start.isBefore(aEnd) &&
-          proposed.start != bEnd && other.start != aEnd) {
+      if (proposed.start.isBefore(bEnd) &&
+          other.start.isBefore(aEnd) &&
+          proposed.start != bEnd &&
+          other.start != aEnd) {
         overlapping.add(other);
       }
     }
@@ -86,44 +105,53 @@ class FrontingEditGuard {
     if (proposed.start.isAfter(original.start)) {
       // Find session that ended at or before original.start (closest previous)
       final sorted = [...others]..sort((a, b) => a.start.compareTo(b.start));
-      final prev = sorted.where((s) =>
-          s.end != null && !s.end!.isAfter(original.start)).lastOrNull;
+      final prev = sorted
+          .where((s) => s.end != null && !s.end!.isAfter(original.start))
+          .lastOrNull;
       if (prev != null && prev.end != null) {
         final gapDuration = proposed.start.difference(prev.end!);
         if (gapDuration > threshold) {
-          gaps.add(GapInfo(
-            start: prev.end!,
-            end: proposed.start,
-            beforeSessionId: prev.id,
-            afterSessionId: original.id,
-          ));
+          gaps.add(
+            GapInfo(
+              start: prev.end!,
+              end: proposed.start,
+              beforeSessionId: prev.id,
+              afterSessionId: original.id,
+            ),
+          );
         }
       }
     }
 
     // If end moved earlier, check gap after
-    if (original.end != null && proposed.end != null &&
+    if (original.end != null &&
+        proposed.end != null &&
         proposed.end!.isBefore(original.end!)) {
       final sorted = [...others]..sort((a, b) => a.start.compareTo(b.start));
-      final next = sorted.where((s) => !s.start.isBefore(original.end!)).firstOrNull;
+      final next = sorted
+          .where((s) => !s.start.isBefore(original.end!))
+          .firstOrNull;
       if (next != null) {
         final gapDuration = next.start.difference(proposed.end!);
         if (gapDuration > threshold) {
-          gaps.add(GapInfo(
-            start: proposed.end!,
-            end: next.start,
-            beforeSessionId: original.id,
-            afterSessionId: next.id,
-          ));
+          gaps.add(
+            GapInfo(
+              start: proposed.end!,
+              end: next.start,
+              beforeSessionId: original.id,
+              afterSessionId: next.id,
+            ),
+          );
         }
       }
     }
 
     // Check duplicates
     final duplicateConfig = FrontingValidationConfig(timingMode: timingMode);
-    final duplicateIssues = detectDuplicates(
-      [proposed, ...others], duplicateConfig,
-    );
+    final duplicateIssues = detectDuplicates([
+      proposed,
+      ...others,
+    ], duplicateConfig);
     final duplicates = <FrontingSessionSnapshot>[];
     for (final issue in duplicateIssues) {
       if (issue.sessionIds.contains(proposed.id)) {
@@ -151,8 +179,16 @@ class FrontingEditGuard {
     FrontingSessionSnapshot session,
     List<FrontingSessionSnapshot> allSessions,
   ) {
-    final active = allSessions.where((s) => !s.isDeleted && s.id != session.id).toList();
-    active.sort((a, b) => a.start.compareTo(b.start));
+    final active =
+        allSessions
+            .where(
+              (s) =>
+                  !s.isDeleted &&
+                  s.id != session.id &&
+                  s.sessionType == session.sessionType,
+            )
+            .toList()
+          ..sort((a, b) => a.start.compareTo(b.start));
 
     FrontingSessionSnapshot? previous;
     FrontingSessionSnapshot? next;
@@ -182,12 +218,18 @@ class FrontingEditGuard {
   ) {
     return FrontingSessionSnapshot(
       id: original.id,
-      memberId: patch.clearMemberId ? null : (patch.memberId ?? original.memberId),
+      memberId: patch.clearMemberId
+          ? null
+          : (patch.memberId ?? original.memberId),
       start: patch.start ?? original.start,
       end: patch.clearEnd ? null : (patch.end ?? original.end),
       coFronterIds: patch.coFronterIds ?? original.coFronterIds,
       notes: patch.notes ?? original.notes,
       confidenceIndex: patch.confidenceIndex ?? original.confidenceIndex,
+      sessionType: original.sessionType,
+      quality: original.quality,
+      isHealthKitImport: original.isHealthKitImport,
+      isDeleted: original.isDeleted,
     );
   }
 }

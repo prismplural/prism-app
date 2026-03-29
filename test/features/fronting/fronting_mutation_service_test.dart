@@ -6,9 +6,13 @@ import 'package:prism_plurality/core/mutations/field_patch.dart';
 import 'package:prism_plurality/core/mutations/mutation_runner.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
-import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
 import 'package:prism_plurality/features/fronting/services/fronting_mutation_service.dart';
+import '../../helpers/fake_repositories.dart';
+
+Future<T> _passthroughTransactionRunner<T>(Future<T> Function() action) async {
+  return action();
+}
 
 void main() {
   group('FrontingMutationService', () {
@@ -89,7 +93,8 @@ void main() {
 
         final failingService = FrontingMutationService(
           repository: _ThrowOnTargetUpdateRepository(
-            delegate: repository,
+            db.frontingSessionsDao,
+            null,
             targetId: target.id,
           ),
           mutationRunner: MutationRunner(transactionRunner: db.transaction),
@@ -98,7 +103,9 @@ void main() {
         final result = await failingService.applyEdit(
           sessionId: target.id,
           patch: const UpdateFrontingSessionPatch(),
-          overlapsToTrim: [overlap.copyWith(startTime: DateTime(2026, 3, 11, 10, 15))],
+          overlapsToTrim: [
+            overlap.copyWith(startTime: DateTime(2026, 3, 11, 10, 15)),
+          ],
         );
 
         expect(result.isFailure, isTrue);
@@ -109,112 +116,95 @@ void main() {
         expect(persistedOverlap.endTime, DateTime(2026, 3, 11, 11, 30));
       },
     );
+
+    test(
+      'startSleep ends active fronting sessions and creates a sleep session',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final fronting = FrontingSession(
+          id: 'front-1',
+          startTime: DateTime(2026, 3, 11, 8),
+          memberId: 'alice',
+        );
+        await repo.createSession(fronting);
+
+        final sleepService = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
+
+        final result = await sleepService.startSleep(
+          notes: 'nap',
+          startTime: DateTime(2026, 3, 11, 10),
+        );
+
+        expect(result.isSuccess, isTrue);
+        expect(repo.sessions, hasLength(2));
+        final endedFronting = repo.sessions
+            .where((session) => session.id == fronting.id)
+            .single;
+        expect(endedFronting.endTime, DateTime(2026, 3, 11, 10));
+        final createdSleep = repo.sessions
+            .where((session) => session.isSleep)
+            .single;
+        expect(createdSleep.memberId, isNull);
+        expect(createdSleep.notes, 'nap');
+      },
+    );
+
+    test(
+      'startFronting ends active sleep sessions before creating fronting',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final sleep = FrontingSession(
+          id: 'sleep-1',
+          startTime: DateTime(2026, 3, 11, 8),
+          memberId: null,
+          sessionType: SessionType.sleep,
+        );
+        await repo.createSession(sleep);
+
+        final sleepAwareService = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
+
+        final result = await sleepAwareService.startFronting('bob');
+
+        expect(result.isSuccess, isTrue);
+        expect(repo.sessions, hasLength(2));
+        final endedSleep = repo.sessions
+            .where((session) => session.id == sleep.id)
+            .single;
+        expect(endedSleep.endTime, isNotNull);
+        final createdFronting = repo.sessions
+            .where((session) => session.id != sleep.id)
+            .single;
+        expect(createdFronting.memberId, 'bob');
+        expect(createdFronting.isSleep, isFalse);
+      },
+    );
   });
 }
 
-class _ThrowOnTargetUpdateRepository implements FrontingSessionRepository {
-  _ThrowOnTargetUpdateRepository({
-    required DriftFrontingSessionRepository delegate,
+class _ThrowOnTargetUpdateRepository extends DriftFrontingSessionRepository {
+  _ThrowOnTargetUpdateRepository(
+    super.dao,
+    super.syncHandle, {
     required String targetId,
-  }) : _delegate = delegate,
-       _targetId = targetId;
+  }) : _targetId = targetId;
 
-  final DriftFrontingSessionRepository _delegate;
   final String _targetId;
-
-  @override
-  Future<void> createSession(FrontingSession session) {
-    return _delegate.createSession(session);
-  }
-
-  @override
-  Future<void> deleteSession(String id) {
-    return _delegate.deleteSession(id);
-  }
-
-  @override
-  Future<void> endSession(String id, DateTime endTime) {
-    return _delegate.endSession(id, endTime);
-  }
-
-  @override
-  Future<FrontingSession?> getActiveSession() {
-    return _delegate.getActiveSession();
-  }
-
-  @override
-  Future<List<FrontingSession>> getActiveSessions() {
-    return _delegate.getActiveSessions();
-  }
-
-  @override
-  Future<List<FrontingSession>> getAllSessions() {
-    return _delegate.getAllSessions();
-  }
-
-  @override
-  Future<List<FrontingSession>> getRecentSessions({int limit = 20}) {
-    return _delegate.getRecentSessions(limit: limit);
-  }
-
-  @override
-  Future<FrontingSession?> getSessionById(String id) {
-    return _delegate.getSessionById(id);
-  }
-
-  @override
-  Future<List<FrontingSession>> getSessionsBetween(
-    DateTime start,
-    DateTime end,
-  ) {
-    return _delegate.getSessionsBetween(start, end);
-  }
-
-  @override
-  Future<List<FrontingSession>> getSessionsForMember(String memberId) {
-    return _delegate.getSessionsForMember(memberId);
-  }
 
   @override
   Future<void> updateSession(FrontingSession session) async {
     if (session.id == _targetId) {
       throw StateError('forced failure while updating $session');
     }
-    await _delegate.updateSession(session);
-  }
-
-  @override
-  Stream<List<FrontingSession>> watchActiveSessions() {
-    return _delegate.watchActiveSessions();
-  }
-
-  @override
-  Stream<List<FrontingSession>> watchAllSessions() {
-    return _delegate.watchAllSessions();
-  }
-
-  @override
-  Stream<List<FrontingSession>> watchRecentSessions({int limit = 20}) {
-    return _delegate.watchRecentSessions(limit: limit);
-  }
-
-  @override
-  Stream<FrontingSession?> watchSessionById(String id) {
-    return _delegate.watchSessionById(id);
-  }
-
-  @override
-  Stream<FrontingSession?> watchActiveSession() {
-    return _delegate.watchActiveSession();
-  }
-
-  @override
-  Future<int> getCount() {
-    return _delegate.getCount();
-  }
-
-  @override
-  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50}) {
-    return _delegate.getMemberFrontingCounts(limit: limit);
+    await super.updateSession(session);
   }
 }

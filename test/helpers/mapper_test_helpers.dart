@@ -56,22 +56,28 @@ db.Member makeDbMember({
 
 db.FrontingSession makeDbFrontingSession({
   String id = 'session-1',
+  int sessionType = 0,
   DateTime? startTime,
   DateTime? endTime,
   String? memberId = 'member-1',
   String coFronterIds = '[]',
   String? notes,
   int? confidence,
+  int? quality,
+  bool isHealthKitImport = false,
   String? pluralkitUuid,
 }) {
   return db.FrontingSession(
     id: id,
+    sessionType: sessionType,
     startTime: startTime ?? DateTime(2025, 3, 1, 10, 0),
     endTime: endTime,
     memberId: memberId,
     coFronterIds: coFronterIds,
     notes: notes,
     confidence: confidence,
+    quality: quality,
+    isHealthKitImport: isHealthKitImport,
     pluralkitUuid: pluralkitUuid,
     isDeleted: false,
   );

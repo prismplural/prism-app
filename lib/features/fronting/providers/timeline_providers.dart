@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
@@ -112,51 +113,70 @@ class TimelineMemberRow {
   }
 }
 
+class TimelineData {
+  const TimelineData({
+    required this.memberRows,
+    required this.sleepSessions,
+  });
+
+  final List<TimelineMemberRow> memberRows;
+  final List<FrontingSession> sleepSessions;
+}
+
 /// Provides timeline rows: sessions grouped by member for display.
 /// Expands co-fronters so each member who participated gets their own row entry.
 final timelineRowsProvider =
-    Provider.autoDispose<AsyncValue<List<TimelineMemberRow>>>((ref) {
+    Provider.autoDispose<AsyncValue<TimelineData>>((ref) {
   final limit = ref.watch(timelineSessionLimitProvider);
   final sessionsAsync = ref.watch(frontingHistoryProvider(limit));
+  final sleepSessionsAsync = ref.watch(recentSleepSessionsProvider);
   final membersAsync = ref.watch(activeMembersProvider);
 
   return sessionsAsync.when(
     loading: () => const AsyncValue.loading(),
     error: AsyncValue.error,
     data: (sessions) {
-      return membersAsync.when(
+      return sleepSessionsAsync.when(
         loading: () => const AsyncValue.loading(),
         error: AsyncValue.error,
-        data: (members) {
-          // Group sessions by member, expanding co-fronters.
-          final rowMap = <String, List<FrontingSession>>{};
+        data: (sleepSessions) {
+          return membersAsync.when(
+            loading: () => const AsyncValue.loading(),
+            error: AsyncValue.error,
+            data: (members) {
+              // Group fronting sessions by member, expanding co-fronters.
+              final rowMap = <String, List<FrontingSession>>{};
 
-          for (final session in sessions) {
-            // Primary fronter
-            final primaryId = session.memberId;
-            if (primaryId != null) {
-              rowMap.putIfAbsent(primaryId, () => []).add(session);
-            }
+              for (final session in sessions) {
+                final primaryId = session.memberId;
+                if (primaryId != null) {
+                  rowMap.putIfAbsent(primaryId, () => []).add(session);
+                }
 
-            // Co-fronters get their own row entries too
-            for (final coId in session.coFronterIds) {
-              rowMap.putIfAbsent(coId, () => []).add(session);
-            }
-          }
+                for (final coId in session.coFronterIds) {
+                  rowMap.putIfAbsent(coId, () => []).add(session);
+                }
+              }
 
-          // Build rows, only for members we know about
-          final rows = <TimelineMemberRow>[];
-          for (final member in members) {
-            final memberSessions = rowMap[member.id];
-            if (memberSessions != null && memberSessions.isNotEmpty) {
-              rows.add(TimelineMemberRow(
-                member: member,
-                sessions: memberSessions,
-              ));
-            }
-          }
+              final rows = <TimelineMemberRow>[];
+              for (final member in members) {
+                final memberSessions = rowMap[member.id];
+                if (memberSessions != null && memberSessions.isNotEmpty) {
+                  rows.add(TimelineMemberRow(
+                    member: member,
+                    sessions: memberSessions,
+                  ));
+                }
+              }
 
-          return AsyncValue.data(rows);
+              return AsyncValue.data(
+                TimelineData(
+                  memberRows: rows,
+                  sleepSessions: sleepSessions,
+                ),
+              );
+            },
+          );
         },
       );
     },

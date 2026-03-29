@@ -27,6 +27,12 @@ class DriftFrontingSessionRepository
   }
 
   @override
+  Future<List<domain.FrontingSession>> getFrontingSessions() async {
+    final rows = await _dao.getFrontingSessions();
+    return rows.map(FrontingSessionMapper.toDomain).toList();
+  }
+
+  @override
   Stream<List<domain.FrontingSession>> watchAllSessions() {
     return _dao.watchAllSessions().map(
       (rows) => rows.map(FrontingSessionMapper.toDomain).toList(),
@@ -36,6 +42,12 @@ class DriftFrontingSessionRepository
   @override
   Future<List<domain.FrontingSession>> getActiveSessions() async {
     final rows = await _dao.getActiveSessions();
+    return rows.map(FrontingSessionMapper.toDomain).toList();
+  }
+
+  @override
+  Future<List<domain.FrontingSession>> getAllActiveSessionsUnfiltered() async {
+    final rows = await _dao.getAllActiveSessionsUnfiltered();
     return rows.map(FrontingSessionMapper.toDomain).toList();
   }
 
@@ -58,6 +70,20 @@ class DriftFrontingSessionRepository
     return _dao.watchActiveSessions().map(
       (rows) =>
           rows.isEmpty ? null : FrontingSessionMapper.toDomain(rows.first),
+    );
+  }
+
+  @override
+  Stream<domain.FrontingSession?> watchActiveSleepSession() {
+    return _dao.watchActiveSleepSession().map(
+      (row) => row != null ? FrontingSessionMapper.toDomain(row) : null,
+    );
+  }
+
+  @override
+  Stream<List<domain.FrontingSession>> watchAllSleepSessions() {
+    return _dao.watchAllSleepSessions().map(
+      (rows) => rows.map(FrontingSessionMapper.toDomain).toList(),
     );
   }
 
@@ -87,6 +113,14 @@ class DriftFrontingSessionRepository
     int limit = 20,
   }) async {
     final rows = await _dao.getRecentSessions(limit: limit);
+    return rows.map(FrontingSessionMapper.toDomain).toList();
+  }
+
+  @override
+  Future<List<domain.FrontingSession>> getRecentSleepSessions({
+    int limit = 10,
+  }) async {
+    final rows = await _dao.getRecentSleepSessions(limit);
     return rows.map(FrontingSessionMapper.toDomain).toList();
   }
 
@@ -132,6 +166,9 @@ class DriftFrontingSessionRepository
   Future<int> getCount() => _dao.getCount();
 
   @override
+  Future<int> getFrontingCount() => _dao.getFrontingCount();
+
+  @override
   Future<Map<String, int>> getMemberFrontingCounts({int limit = 50}) =>
       _dao.getMemberFrontingCounts(limit: limit);
 
@@ -153,6 +190,9 @@ class DriftFrontingSessionRepository
       'notes': s.notes,
       'confidence': s.confidence?.index,
       'pluralkit_uuid': s.pluralkitUuid,
+      'session_type': s.sessionType.index,
+      'quality': s.quality?.index,
+      'is_health_kit_import': s.isHealthKitImport,
       'is_deleted': false,
     };
   }

@@ -4,7 +4,6 @@ export 'drift_conversation_repository.dart';
 export 'drift_chat_message_repository.dart';
 export 'drift_system_settings_repository.dart';
 export 'drift_poll_repository.dart';
-export 'drift_sleep_session_repository.dart';
 export 'drift_habit_repository.dart';
 export 'drift_notes_repository.dart';
 export 'drift_front_session_comments_repository.dart';

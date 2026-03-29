@@ -1,3 +1,5 @@
+import 'package:prism_plurality/domain/models/fronting_session.dart';
+
 enum FrontingIssueType {
   overlap,
   gap,
@@ -7,11 +9,7 @@ enum FrontingIssueType {
   futureSession,
 }
 
-enum FrontingIssueSeverity {
-  info,
-  warning,
-  error,
-}
+enum FrontingIssueSeverity { info, warning, error }
 
 class FrontingValidationIssue {
   final String id;
@@ -47,6 +45,9 @@ class FrontingSessionSnapshot {
   final List<String> coFronterIds;
   final String? notes;
   final int? confidenceIndex;
+  final SessionType sessionType;
+  final SleepQuality? quality;
+  final bool isHealthKitImport;
   final bool isDeleted;
 
   const FrontingSessionSnapshot({
@@ -57,6 +58,9 @@ class FrontingSessionSnapshot {
     this.coFronterIds = const [],
     this.notes,
     this.confidenceIndex,
+    this.sessionType = SessionType.normal,
+    this.quality,
+    this.isHealthKitImport = false,
     this.isDeleted = false,
   });
 }

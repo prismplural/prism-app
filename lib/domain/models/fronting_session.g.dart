@@ -25,6 +25,11 @@ _FrontingSession _$FrontingSessionFromJson(Map<String, dynamic> json) =>
         json['confidence'],
       ),
       pluralkitUuid: json['pluralkitUuid'] as String?,
+      sessionType:
+          $enumDecodeNullable(_$SessionTypeEnumMap, json['sessionType']) ??
+          SessionType.normal,
+      quality: $enumDecodeNullable(_$SleepQualityEnumMap, json['quality']),
+      isHealthKitImport: json['isHealthKitImport'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$FrontingSessionToJson(_FrontingSession instance) =>
@@ -37,10 +42,27 @@ Map<String, dynamic> _$FrontingSessionToJson(_FrontingSession instance) =>
       'notes': instance.notes,
       'confidence': _$FrontConfidenceEnumMap[instance.confidence],
       'pluralkitUuid': instance.pluralkitUuid,
+      'sessionType': _$SessionTypeEnumMap[instance.sessionType]!,
+      'quality': _$SleepQualityEnumMap[instance.quality],
+      'isHealthKitImport': instance.isHealthKitImport,
     };
 
 const _$FrontConfidenceEnumMap = {
   FrontConfidence.unsure: 'unsure',
   FrontConfidence.strong: 'strong',
   FrontConfidence.certain: 'certain',
+};
+
+const _$SessionTypeEnumMap = {
+  SessionType.normal: 'normal',
+  SessionType.sleep: 'sleep',
+};
+
+const _$SleepQualityEnumMap = {
+  SleepQuality.unknown: 'unknown',
+  SleepQuality.veryPoor: 'veryPoor',
+  SleepQuality.poor: 'poor',
+  SleepQuality.fair: 'fair',
+  SleepQuality.good: 'good',
+  SleepQuality.excellent: 'excellent',
 };

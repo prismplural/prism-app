@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_sanitizatio
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
+import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/ui/gap_resolution_dialog.dart';
 import 'package:prism_plurality/features/fronting/ui/overlap_resolution_dialog.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -46,6 +47,7 @@ class _EditFrontSessionScreenState
   final _notesController = TextEditingController();
   bool _saving = false;
   bool _loaded = false;
+  bool _redirectedToSleepEdit = false;
 
   @override
   void dispose() {
@@ -315,6 +317,21 @@ class _EditFrontSessionScreenState
         data: (session) {
           if (session == null) {
             return const Center(child: Text('Session not found'));
+          }
+
+          if (session.isSleep) {
+            if (!_redirectedToSleepEdit) {
+              _redirectedToSleepEdit = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                if (!mounted) return;
+                final navigator = Navigator.of(context);
+                await EditSleepSheet.show(context, session);
+                if (mounted && navigator.canPop()) {
+                  navigator.pop();
+                }
+              });
+            }
+            return const PrismLoadingState();
           }
 
           _initFromSession(session);

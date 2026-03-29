@@ -259,7 +259,6 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       'polls': () => db.select(db.polls).get(),
       'poll_options': () => db.select(db.pollOptions).get(),
       'poll_votes': () => db.select(db.pollVotes).get(),
-      'sleep_sessions': () => db.select(db.sleepSessions).get(),
       'habits': () => db.select(db.habits).get(),
       'habit_completions': () => db.select(db.habitCompletions).get(),
     };

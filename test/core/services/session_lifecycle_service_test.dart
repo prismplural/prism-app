@@ -2,6 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/session_lifecycle_service.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
+import '../../helpers/fake_repositories.dart';
 
 FrontingSession _session({
   required String id,
@@ -9,6 +10,7 @@ FrontingSession _session({
   DateTime? end,
   String? memberId,
   String? notes,
+  SessionType sessionType = SessionType.normal,
 }) {
   return FrontingSession(
     id: id,
@@ -16,6 +18,7 @@ FrontingSession _session({
     endTime: end,
     memberId: memberId,
     notes: notes,
+    sessionType: sessionType,
   );
 }
 
@@ -139,6 +142,33 @@ void main() {
       final ctx = service.getDeleteOptions(target, [target]);
       expect(ctx.availableOptions, [DeleteOption.delete]);
     });
+
+    test('sleep session only offers delete, even with neighbors', () {
+      final previous = _session(
+        id: 'prev',
+        start: DateTime(2026, 1, 1, 8),
+        end: DateTime(2026, 1, 1, 10),
+        memberId: 'alice',
+      );
+      final sleep = _session(
+        id: 'sleep',
+        start: DateTime(2026, 1, 1, 10),
+        end: DateTime(2026, 1, 1, 14),
+        memberId: null,
+        sessionType: SessionType.sleep,
+      );
+      final next = _session(
+        id: 'next',
+        start: DateTime(2026, 1, 1, 14),
+        end: DateTime(2026, 1, 1, 16),
+        memberId: 'bob',
+      );
+
+      final ctx = service.getDeleteOptions(sleep, [previous, sleep, next]);
+      expect(ctx.availableOptions, [DeleteOption.delete]);
+      expect(ctx.previous?.id, isNull);
+      expect(ctx.next?.id, isNull);
+    });
   });
 
   // ── evaluateQuickSwitch ──────────────────────
@@ -208,10 +238,7 @@ void main() {
         memberId: 'alice',
       );
 
-      final action = service.evaluateQuickSwitch(
-        session,
-        thresholdSeconds: 30,
-      );
+      final action = service.evaluateQuickSwitch(session, thresholdSeconds: 30);
 
       expect(action, QuickSwitchAction.createNew);
     });
@@ -254,18 +281,12 @@ void main() {
     });
 
     test('future start returns error', () {
-      final errors = service.validateTimeRange(
-        DateTime(2099, 1, 1),
-        null,
-      );
+      final errors = service.validateTimeRange(DateTime(2099, 1, 1), null);
       expect(errors, contains(SessionValidationError.futureSession));
     });
 
     test('null end time (active session) is valid', () {
-      final errors = service.validateTimeRange(
-        DateTime(2026, 1, 1, 10),
-        null,
-      );
+      final errors = service.validateTimeRange(DateTime(2026, 1, 1, 10), null);
       expect(errors, isEmpty);
     });
 
@@ -273,6 +294,41 @@ void main() {
       final t = DateTime(2026, 1, 1, 10);
       final errors = service.validateTimeRange(t, t);
       expect(errors, contains(SessionValidationError.invalidDuration));
+    });
+  });
+
+  group('delete execution', () {
+    test('sleep delete does not create an unknown filler session', () async {
+      final repo = FakeFrontingSessionRepository();
+      final sleep = _session(
+        id: 'sleep',
+        start: DateTime(2026, 1, 2, 10),
+        end: DateTime(2026, 1, 2, 12),
+        memberId: null,
+        sessionType: SessionType.sleep,
+      );
+      final preservedFronting = _session(
+        id: 'front',
+        start: DateTime(2026, 1, 2, 8),
+        end: DateTime(2026, 1, 2, 9),
+        memberId: 'alice',
+      );
+      await repo.createSession(preservedFronting);
+      await repo.createSession(sleep);
+
+      final ctx = service.getDeleteOptions(sleep, [preservedFronting, sleep]);
+      await service.executeDelete(DeleteOption.delete, ctx, repo);
+
+      expect(repo.deletedIds, contains('sleep'));
+      expect(
+        repo.sessions.any(
+          (session) => session.memberId == null && session.id != 'sleep',
+        ),
+        isFalse,
+        reason: 'sleep delete should not synthesize an unknown fronting filler',
+      );
+      expect(repo.sessions, hasLength(1));
+      expect(repo.sessions.single.id, 'front');
     });
   });
 
@@ -310,6 +366,4 @@ void main() {
       expect(overlaps, isEmpty);
     });
   });
-
 }
-

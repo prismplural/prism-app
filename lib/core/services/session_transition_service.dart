@@ -12,7 +12,7 @@ import 'package:uuid/uuid.dart';
 /// active fronter.
 class SessionTransitionService {
   const SessionTransitionService({required MutationRunner mutationRunner})
-      : _mutationRunner = mutationRunner;
+    : _mutationRunner = mutationRunner;
 
   final MutationRunner _mutationRunner;
 
@@ -37,7 +37,7 @@ class SessionTransitionService {
         final now = DateTime.now();
 
         // End all currently active sessions at exactly [now].
-        final activeSessions = await repo.getActiveSessions();
+        final activeSessions = await repo.getAllActiveSessionsUnfiltered();
         for (final session in activeSessions) {
           await repo.endSession(session.id, now);
         }
@@ -65,7 +65,7 @@ class SessionTransitionService {
       actionLabel: 'End all active sessions',
       action: () async {
         final now = DateTime.now();
-        final activeSessions = await repo.getActiveSessions();
+        final activeSessions = await repo.getAllActiveSessionsUnfiltered();
         for (final session in activeSessions) {
           await repo.endSession(session.id, now);
         }

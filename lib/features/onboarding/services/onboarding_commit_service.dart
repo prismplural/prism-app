@@ -71,10 +71,11 @@ class OnboardingCommitService {
           members.isNotEmpty) {
         // Check for existing conversations to avoid duplicates when
         // re-running onboarding.
-        final existingConversations =
-            await _conversationRepository.getAllConversations();
-        final existingTitles =
-            existingConversations.map((c) => c.title).toSet();
+        final existingConversations = await _conversationRepository
+            .getAllConversations();
+        final existingTitles = existingConversations
+            .map((c) => c.title)
+            .toSet();
 
         final creatorId = members.first.id;
         final participantIds = members.map((member) => member.id).toList();
@@ -98,7 +99,8 @@ class OnboardingCommitService {
       final selectedFronterId = onboarding.selectedFronterId;
       if (selectedFronterId != null &&
           members.any((member) => member.id == selectedFronterId)) {
-        final activeSessions = await _frontingRepository.getActiveSessions();
+        final activeSessions = await _frontingRepository
+            .getAllActiveSessionsUnfiltered();
         final now = DateTime.now();
         for (final session in activeSessions) {
           await _frontingRepository.endSession(session.id, now);

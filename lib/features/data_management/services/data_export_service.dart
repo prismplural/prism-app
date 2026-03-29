@@ -12,7 +12,6 @@ import 'package:prism_plurality/domain/repositories/fronting_session_repository.
 import 'package:prism_plurality/domain/repositories/habit_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/poll_repository.dart';
-import 'package:prism_plurality/domain/repositories/sleep_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
@@ -31,7 +30,6 @@ class DataExportService {
     required this.conversationRepository,
     required this.chatMessageRepository,
     required this.pollRepository,
-    required this.sleepSessionRepository,
     required this.systemSettingsRepository,
     required this.habitRepository,
     required this.pluralKitSyncDao,
@@ -51,7 +49,6 @@ class DataExportService {
   final ConversationRepository conversationRepository;
   final ChatMessageRepository chatMessageRepository;
   final PollRepository pollRepository;
-  final SleepSessionRepository sleepSessionRepository;
   final SystemSettingsRepository systemSettingsRepository;
   final HabitRepository habitRepository;
   final PluralKitSyncDao pluralKitSyncDao;
@@ -72,10 +69,9 @@ class DataExportService {
     // Fetch all data
     final members = await memberRepository.getAllMembers();
     final sessions = await frontingSessionRepository.getAllSessions();
+    final frontSessions = sessions.where((s) => !s.isSleep).toList();
+    final sleepSessions = sessions.where((s) => s.isSleep).toList();
     final conversations = await conversationRepository.getAllConversations();
-    final sleepSessions = await sleepSessionRepository.getRecentSleepSessions(
-      limit: 999999,
-    );
     final polls = await pollRepository.getAllPolls();
     final settings = await systemSettingsRepository.getSettings();
 
@@ -94,7 +90,7 @@ class DataExportService {
 
     // Convert to V3 models
     final v3Headmates = members.map(_mapMember).toList();
-    final v3Sessions = sessions.map(_mapFrontSession).toList();
+    final v3Sessions = frontSessions.map(_mapFrontSession).toList();
     final v3SleepSessions = sleepSessions.map(_mapSleepSession).toList();
     final v3Conversations = conversations.map(_mapConversation).toList();
     final v3Messages = allMessages.map(_mapMessage).toList();
@@ -112,20 +108,23 @@ class DataExportService {
     final memberGroups = await memberGroupsRepository.watchAllGroups().first;
     final allGroupEntries = <MemberGroupEntry>[];
     for (final group in memberGroups) {
-      final entries =
-          await memberGroupsRepository.watchGroupEntries(group.id).first;
+      final entries = await memberGroupsRepository
+          .watchGroupEntries(group.id)
+          .first;
       allGroupEntries.addAll(entries);
     }
     final v3MemberGroups = memberGroups.map(_mapMemberGroup).toList();
-    final v3MemberGroupEntries =
-        allGroupEntries.map(_mapMemberGroupEntry).toList();
+    final v3MemberGroupEntries = allGroupEntries
+        .map(_mapMemberGroupEntry)
+        .toList();
 
     // Fetch custom fields and values
     final customFields = await customFieldsRepository.watchAllFields().first;
     final allFieldValues = await customFieldsRepository.getAllValues();
     final v3CustomFields = customFields.map(_mapCustomField).toList();
-    final v3CustomFieldValues =
-        allFieldValues.map(_mapCustomFieldValue).toList();
+    final v3CustomFieldValues = allFieldValues
+        .map(_mapCustomFieldValue)
+        .toList();
 
     // Fetch notes
     final allNotes = await notesRepository.watchAllNotes().first;
@@ -139,14 +138,15 @@ class DataExportService {
           .first;
       allComments.addAll(comments);
     }
-    final v3FrontSessionComments =
-        allComments.map(_mapFrontSessionComment).toList();
+    final v3FrontSessionComments = allComments
+        .map(_mapFrontSessionComment)
+        .toList();
 
     // Fetch conversation categories
-    final categories =
-        await conversationCategoriesRepository.watchAll().first;
-    final v3ConversationCategories =
-        categories.map(_mapConversationCategory).toList();
+    final categories = await conversationCategoriesRepository.watchAll().first;
+    final v3ConversationCategories = categories
+        .map(_mapConversationCategory)
+        .toList();
 
     // Fetch reminders
     final reminders = await remindersRepository.watchAll().first;
@@ -285,11 +285,11 @@ class DataExportService {
     pluralkitUuid: s.pluralkitUuid,
   );
 
-  V3SleepSession _mapSleepSession(SleepSession s) => V3SleepSession(
+  V3SleepSession _mapSleepSession(FrontingSession s) => V3SleepSession(
     id: s.id,
     startTime: s.startTime.toUtc().toIso8601String(),
     endTime: s.endTime?.toUtc().toIso8601String(),
-    quality: s.quality.index,
+    quality: s.quality?.index ?? 0,
     notes: s.notes,
     isHealthKitImport: s.isHealthKitImport,
   );
@@ -462,11 +462,7 @@ class DataExportService {
   );
 
   V3MemberGroupEntry _mapMemberGroupEntry(MemberGroupEntry e) =>
-      V3MemberGroupEntry(
-    id: e.id,
-    groupId: e.groupId,
-    memberId: e.memberId,
-  );
+      V3MemberGroupEntry(id: e.id, groupId: e.groupId, memberId: e.memberId);
 
   V3CustomField _mapCustomField(CustomField f) => V3CustomField(
     id: f.id,
@@ -479,11 +475,11 @@ class DataExportService {
 
   V3CustomFieldValue _mapCustomFieldValue(CustomFieldValue v) =>
       V3CustomFieldValue(
-    id: v.id,
-    customFieldId: v.customFieldId,
-    memberId: v.memberId,
-    value: v.value,
-  );
+        id: v.id,
+        customFieldId: v.customFieldId,
+        memberId: v.memberId,
+        value: v.value,
+      );
 
   V3Note _mapNote(Note n) => V3Note(
     id: n.id,
@@ -498,21 +494,21 @@ class DataExportService {
 
   V3FrontSessionComment _mapFrontSessionComment(FrontSessionComment c) =>
       V3FrontSessionComment(
-    id: c.id,
-    sessionId: c.sessionId,
-    body: c.body,
-    timestamp: c.timestamp.toUtc().toIso8601String(),
-    createdAt: c.createdAt.toUtc().toIso8601String(),
-  );
+        id: c.id,
+        sessionId: c.sessionId,
+        body: c.body,
+        timestamp: c.timestamp.toUtc().toIso8601String(),
+        createdAt: c.createdAt.toUtc().toIso8601String(),
+      );
 
   V3ConversationCategory _mapConversationCategory(ConversationCategory c) =>
       V3ConversationCategory(
-    id: c.id,
-    name: c.name,
-    displayOrder: c.displayOrder,
-    createdAt: c.createdAt.toUtc().toIso8601String(),
-    modifiedAt: c.modifiedAt.toUtc().toIso8601String(),
-  );
+        id: c.id,
+        name: c.name,
+        displayOrder: c.displayOrder,
+        createdAt: c.createdAt.toUtc().toIso8601String(),
+        modifiedAt: c.modifiedAt.toUtc().toIso8601String(),
+      );
 
   V3Reminder _mapReminder(Reminder r) => V3Reminder(
     id: r.id,

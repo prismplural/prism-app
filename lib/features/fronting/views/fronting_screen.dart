@@ -90,7 +90,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     );
   }
 
-  List<Widget> _buildActions(bool isSleeping, SleepSession? sleepSession) {
+  List<Widget> _buildActions(bool isSleeping, FrontingSession? sleepSession) {
     final isTimelineView = ref.watch(timelineViewActiveProvider);
     return [
       PrismTopBarAction(
@@ -113,7 +113,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     ThemeData theme,
     String systemName,
     bool isSleeping,
-    SleepSession? sleepSession,
+    FrontingSession? sleepSession,
   ) {
     return CustomScrollView(
       controller: _scrollController,
@@ -166,7 +166,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     ThemeData theme,
     String systemName,
     bool isSleeping,
-    SleepSession? sleepSession,
+    FrontingSession? sleepSession,
   ) {
     return Column(
       children: [
@@ -230,7 +230,7 @@ class _AddButton extends ConsumerStatefulWidget {
   const _AddButton({required this.isSleeping, required this.sleepSession});
 
   final bool isSleeping;
-  final SleepSession? sleepSession;
+  final FrontingSession? sleepSession;
 
   @override
   ConsumerState<_AddButton> createState() => _AddButtonState();
@@ -240,7 +240,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
   final _popupKey = GlobalKey<BlurPopupAnchorState>();
 
   bool get isSleeping => widget.isSleeping;
-  SleepSession? get sleepSession => widget.sleepSession;
+  FrontingSession? get sleepSession => widget.sleepSession;
 
   @override
   Widget build(BuildContext context) {

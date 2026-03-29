@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_controls.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart';
@@ -108,8 +109,10 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
           child: rowsAsync.when(
             loading: () => const Center(child: PrismLoadingState()),
             error: (e, _) => Center(child: Text('Error: $e')),
-            data: (rows) {
-              if (rows.isEmpty) {
+            data: (data) {
+              final rows = data.memberRows;
+              final sleepSessions = data.sleepSessions;
+              if (rows.isEmpty && sleepSessions.isEmpty) {
                 return const EmptyState(
                   icon: Icons.timeline_rounded,
                   title: 'No fronting history',
@@ -136,6 +139,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
                     theme,
                     timelineState,
                     rows,
+                    sleepSessions,
                     idealColumnWidth,
                     availableWidth,
                     scrollableHeight,
@@ -154,6 +158,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     ThemeData theme,
     TimelineState timelineState,
     List<TimelineMemberRow> rows,
+    List<FrontingSession> sleepSessions,
     double columnWidth,
     double availableWidth,
     double scrollableViewportHeight,
@@ -165,13 +170,18 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     final now = DateTime.now();
     final viewEnd = DateTime(now.year, now.month, now.day, now.hour + 2);
 
-    // Find earliest session across all rows
+    // Find earliest session across both fronting and sleep history.
     DateTime earliest = now;
     for (final row in rows) {
       for (final session in row.sessions) {
         if (session.startTime.isBefore(earliest)) {
           earliest = session.startTime;
         }
+      }
+    }
+    for (final session in sleepSessions) {
+      if (session.startTime.isBefore(earliest)) {
+        earliest = session.startTime;
       }
     }
     // Round down to start of day + 1 day buffer before earliest session
@@ -206,7 +216,9 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
       });
     }
 
-    final columnsWidth = rows.length * totalColumnWidth;
+    final columnsWidth = rows.isNotEmpty
+        ? rows.length * totalColumnWidth
+        : availableWidth;
     final needsHorizontalScroll = columnsWidth > availableWidth;
 
     Widget buildHeaderColumns({ScrollController? controller}) {
@@ -242,6 +254,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         size: Size(columnsWidth, totalHeight),
         painter: TimelinePainter(
           rows: rows,
+          sleepSessions: sleepSessions,
           columnWidth: columnWidth,
           columnPadding: _columnPadding,
           pixelsPerHour: pxPerHour,

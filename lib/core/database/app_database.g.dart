@@ -1058,6 +1058,18 @@ class $FrontingSessionsTable extends FrontingSessions
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sessionTypeMeta = const VerificationMeta(
+    'sessionType',
+  );
+  @override
+  late final GeneratedColumn<int> sessionType = GeneratedColumn<int>(
+    'session_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _startTimeMeta = const VerificationMeta(
     'startTime',
   );
@@ -1123,6 +1135,32 @@ class $FrontingSessionsTable extends FrontingSessions
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _qualityMeta = const VerificationMeta(
+    'quality',
+  );
+  @override
+  late final GeneratedColumn<int> quality = GeneratedColumn<int>(
+    'quality',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isHealthKitImportMeta = const VerificationMeta(
+    'isHealthKitImport',
+  );
+  @override
+  late final GeneratedColumn<bool> isHealthKitImport = GeneratedColumn<bool>(
+    'is_health_kit_import',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_health_kit_import" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _pluralkitUuidMeta = const VerificationMeta(
     'pluralkitUuid',
   );
@@ -1152,12 +1190,15 @@ class $FrontingSessionsTable extends FrontingSessions
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    sessionType,
     startTime,
     endTime,
     memberId,
     coFronterIds,
     notes,
     confidence,
+    quality,
+    isHealthKitImport,
     pluralkitUuid,
     isDeleted,
   ];
@@ -1177,6 +1218,15 @@ class $FrontingSessionsTable extends FrontingSessions
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('session_type')) {
+      context.handle(
+        _sessionTypeMeta,
+        sessionType.isAcceptableOrUnknown(
+          data['session_type']!,
+          _sessionTypeMeta,
+        ),
+      );
     }
     if (data.containsKey('start_time')) {
       context.handle(
@@ -1219,6 +1269,21 @@ class $FrontingSessionsTable extends FrontingSessions
         confidence.isAcceptableOrUnknown(data['confidence']!, _confidenceMeta),
       );
     }
+    if (data.containsKey('quality')) {
+      context.handle(
+        _qualityMeta,
+        quality.isAcceptableOrUnknown(data['quality']!, _qualityMeta),
+      );
+    }
+    if (data.containsKey('is_health_kit_import')) {
+      context.handle(
+        _isHealthKitImportMeta,
+        isHealthKitImport.isAcceptableOrUnknown(
+          data['is_health_kit_import']!,
+          _isHealthKitImportMeta,
+        ),
+      );
+    }
     if (data.containsKey('pluralkit_uuid')) {
       context.handle(
         _pluralkitUuidMeta,
@@ -1247,6 +1312,10 @@ class $FrontingSessionsTable extends FrontingSessions
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
+      sessionType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}session_type'],
+      )!,
       startTime: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}start_time'],
@@ -1271,6 +1340,14 @@ class $FrontingSessionsTable extends FrontingSessions
         DriftSqlType.int,
         data['${effectivePrefix}confidence'],
       ),
+      quality: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quality'],
+      ),
+      isHealthKitImport: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_health_kit_import'],
+      )!,
       pluralkitUuid: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}pluralkit_uuid'],
@@ -1290,22 +1367,28 @@ class $FrontingSessionsTable extends FrontingSessions
 
 class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   final String id;
+  final int sessionType;
   final DateTime startTime;
   final DateTime? endTime;
   final String? memberId;
   final String coFronterIds;
   final String? notes;
   final int? confidence;
+  final int? quality;
+  final bool isHealthKitImport;
   final String? pluralkitUuid;
   final bool isDeleted;
   const FrontingSession({
     required this.id,
+    required this.sessionType,
     required this.startTime,
     this.endTime,
     this.memberId,
     required this.coFronterIds,
     this.notes,
     this.confidence,
+    this.quality,
+    required this.isHealthKitImport,
     this.pluralkitUuid,
     required this.isDeleted,
   });
@@ -1313,6 +1396,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    map['session_type'] = Variable<int>(sessionType);
     map['start_time'] = Variable<DateTime>(startTime);
     if (!nullToAbsent || endTime != null) {
       map['end_time'] = Variable<DateTime>(endTime);
@@ -1327,6 +1411,10 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     if (!nullToAbsent || confidence != null) {
       map['confidence'] = Variable<int>(confidence);
     }
+    if (!nullToAbsent || quality != null) {
+      map['quality'] = Variable<int>(quality);
+    }
+    map['is_health_kit_import'] = Variable<bool>(isHealthKitImport);
     if (!nullToAbsent || pluralkitUuid != null) {
       map['pluralkit_uuid'] = Variable<String>(pluralkitUuid);
     }
@@ -1337,6 +1425,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   FrontingSessionsCompanion toCompanion(bool nullToAbsent) {
     return FrontingSessionsCompanion(
       id: Value(id),
+      sessionType: Value(sessionType),
       startTime: Value(startTime),
       endTime: endTime == null && nullToAbsent
           ? const Value.absent()
@@ -1351,6 +1440,10 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       confidence: confidence == null && nullToAbsent
           ? const Value.absent()
           : Value(confidence),
+      quality: quality == null && nullToAbsent
+          ? const Value.absent()
+          : Value(quality),
+      isHealthKitImport: Value(isHealthKitImport),
       pluralkitUuid: pluralkitUuid == null && nullToAbsent
           ? const Value.absent()
           : Value(pluralkitUuid),
@@ -1365,12 +1458,15 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return FrontingSession(
       id: serializer.fromJson<String>(json['id']),
+      sessionType: serializer.fromJson<int>(json['sessionType']),
       startTime: serializer.fromJson<DateTime>(json['startTime']),
       endTime: serializer.fromJson<DateTime?>(json['endTime']),
       memberId: serializer.fromJson<String?>(json['memberId']),
       coFronterIds: serializer.fromJson<String>(json['coFronterIds']),
       notes: serializer.fromJson<String?>(json['notes']),
       confidence: serializer.fromJson<int?>(json['confidence']),
+      quality: serializer.fromJson<int?>(json['quality']),
+      isHealthKitImport: serializer.fromJson<bool>(json['isHealthKitImport']),
       pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
     );
@@ -1380,12 +1476,15 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'sessionType': serializer.toJson<int>(sessionType),
       'startTime': serializer.toJson<DateTime>(startTime),
       'endTime': serializer.toJson<DateTime?>(endTime),
       'memberId': serializer.toJson<String?>(memberId),
       'coFronterIds': serializer.toJson<String>(coFronterIds),
       'notes': serializer.toJson<String?>(notes),
       'confidence': serializer.toJson<int?>(confidence),
+      'quality': serializer.toJson<int?>(quality),
+      'isHealthKitImport': serializer.toJson<bool>(isHealthKitImport),
       'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
       'isDeleted': serializer.toJson<bool>(isDeleted),
     };
@@ -1393,22 +1492,28 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
 
   FrontingSession copyWith({
     String? id,
+    int? sessionType,
     DateTime? startTime,
     Value<DateTime?> endTime = const Value.absent(),
     Value<String?> memberId = const Value.absent(),
     String? coFronterIds,
     Value<String?> notes = const Value.absent(),
     Value<int?> confidence = const Value.absent(),
+    Value<int?> quality = const Value.absent(),
+    bool? isHealthKitImport,
     Value<String?> pluralkitUuid = const Value.absent(),
     bool? isDeleted,
   }) => FrontingSession(
     id: id ?? this.id,
+    sessionType: sessionType ?? this.sessionType,
     startTime: startTime ?? this.startTime,
     endTime: endTime.present ? endTime.value : this.endTime,
     memberId: memberId.present ? memberId.value : this.memberId,
     coFronterIds: coFronterIds ?? this.coFronterIds,
     notes: notes.present ? notes.value : this.notes,
     confidence: confidence.present ? confidence.value : this.confidence,
+    quality: quality.present ? quality.value : this.quality,
+    isHealthKitImport: isHealthKitImport ?? this.isHealthKitImport,
     pluralkitUuid: pluralkitUuid.present
         ? pluralkitUuid.value
         : this.pluralkitUuid,
@@ -1417,6 +1522,9 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   FrontingSession copyWithCompanion(FrontingSessionsCompanion data) {
     return FrontingSession(
       id: data.id.present ? data.id.value : this.id,
+      sessionType: data.sessionType.present
+          ? data.sessionType.value
+          : this.sessionType,
       startTime: data.startTime.present ? data.startTime.value : this.startTime,
       endTime: data.endTime.present ? data.endTime.value : this.endTime,
       memberId: data.memberId.present ? data.memberId.value : this.memberId,
@@ -1427,6 +1535,10 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       confidence: data.confidence.present
           ? data.confidence.value
           : this.confidence,
+      quality: data.quality.present ? data.quality.value : this.quality,
+      isHealthKitImport: data.isHealthKitImport.present
+          ? data.isHealthKitImport.value
+          : this.isHealthKitImport,
       pluralkitUuid: data.pluralkitUuid.present
           ? data.pluralkitUuid.value
           : this.pluralkitUuid,
@@ -1438,12 +1550,15 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   String toString() {
     return (StringBuffer('FrontingSession(')
           ..write('id: $id, ')
+          ..write('sessionType: $sessionType, ')
           ..write('startTime: $startTime, ')
           ..write('endTime: $endTime, ')
           ..write('memberId: $memberId, ')
           ..write('coFronterIds: $coFronterIds, ')
           ..write('notes: $notes, ')
           ..write('confidence: $confidence, ')
+          ..write('quality: $quality, ')
+          ..write('isHealthKitImport: $isHealthKitImport, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('isDeleted: $isDeleted')
           ..write(')'))
@@ -1453,12 +1568,15 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   @override
   int get hashCode => Object.hash(
     id,
+    sessionType,
     startTime,
     endTime,
     memberId,
     coFronterIds,
     notes,
     confidence,
+    quality,
+    isHealthKitImport,
     pluralkitUuid,
     isDeleted,
   );
@@ -1467,47 +1585,59 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       identical(this, other) ||
       (other is FrontingSession &&
           other.id == this.id &&
+          other.sessionType == this.sessionType &&
           other.startTime == this.startTime &&
           other.endTime == this.endTime &&
           other.memberId == this.memberId &&
           other.coFronterIds == this.coFronterIds &&
           other.notes == this.notes &&
           other.confidence == this.confidence &&
+          other.quality == this.quality &&
+          other.isHealthKitImport == this.isHealthKitImport &&
           other.pluralkitUuid == this.pluralkitUuid &&
           other.isDeleted == this.isDeleted);
 }
 
 class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
   final Value<String> id;
+  final Value<int> sessionType;
   final Value<DateTime> startTime;
   final Value<DateTime?> endTime;
   final Value<String?> memberId;
   final Value<String> coFronterIds;
   final Value<String?> notes;
   final Value<int?> confidence;
+  final Value<int?> quality;
+  final Value<bool> isHealthKitImport;
   final Value<String?> pluralkitUuid;
   final Value<bool> isDeleted;
   final Value<int> rowid;
   const FrontingSessionsCompanion({
     this.id = const Value.absent(),
+    this.sessionType = const Value.absent(),
     this.startTime = const Value.absent(),
     this.endTime = const Value.absent(),
     this.memberId = const Value.absent(),
     this.coFronterIds = const Value.absent(),
     this.notes = const Value.absent(),
     this.confidence = const Value.absent(),
+    this.quality = const Value.absent(),
+    this.isHealthKitImport = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FrontingSessionsCompanion.insert({
     required String id,
+    this.sessionType = const Value.absent(),
     required DateTime startTime,
     this.endTime = const Value.absent(),
     this.memberId = const Value.absent(),
     this.coFronterIds = const Value.absent(),
     this.notes = const Value.absent(),
     this.confidence = const Value.absent(),
+    this.quality = const Value.absent(),
+    this.isHealthKitImport = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1515,24 +1645,30 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
        startTime = Value(startTime);
   static Insertable<FrontingSession> custom({
     Expression<String>? id,
+    Expression<int>? sessionType,
     Expression<DateTime>? startTime,
     Expression<DateTime>? endTime,
     Expression<String>? memberId,
     Expression<String>? coFronterIds,
     Expression<String>? notes,
     Expression<int>? confidence,
+    Expression<int>? quality,
+    Expression<bool>? isHealthKitImport,
     Expression<String>? pluralkitUuid,
     Expression<bool>? isDeleted,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (sessionType != null) 'session_type': sessionType,
       if (startTime != null) 'start_time': startTime,
       if (endTime != null) 'end_time': endTime,
       if (memberId != null) 'member_id': memberId,
       if (coFronterIds != null) 'co_fronter_ids': coFronterIds,
       if (notes != null) 'notes': notes,
       if (confidence != null) 'confidence': confidence,
+      if (quality != null) 'quality': quality,
+      if (isHealthKitImport != null) 'is_health_kit_import': isHealthKitImport,
       if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (rowid != null) 'rowid': rowid,
@@ -1541,24 +1677,30 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
 
   FrontingSessionsCompanion copyWith({
     Value<String>? id,
+    Value<int>? sessionType,
     Value<DateTime>? startTime,
     Value<DateTime?>? endTime,
     Value<String?>? memberId,
     Value<String>? coFronterIds,
     Value<String?>? notes,
     Value<int?>? confidence,
+    Value<int?>? quality,
+    Value<bool>? isHealthKitImport,
     Value<String?>? pluralkitUuid,
     Value<bool>? isDeleted,
     Value<int>? rowid,
   }) {
     return FrontingSessionsCompanion(
       id: id ?? this.id,
+      sessionType: sessionType ?? this.sessionType,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       memberId: memberId ?? this.memberId,
       coFronterIds: coFronterIds ?? this.coFronterIds,
       notes: notes ?? this.notes,
       confidence: confidence ?? this.confidence,
+      quality: quality ?? this.quality,
+      isHealthKitImport: isHealthKitImport ?? this.isHealthKitImport,
       pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
       isDeleted: isDeleted ?? this.isDeleted,
       rowid: rowid ?? this.rowid,
@@ -1570,6 +1712,9 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (sessionType.present) {
+      map['session_type'] = Variable<int>(sessionType.value);
     }
     if (startTime.present) {
       map['start_time'] = Variable<DateTime>(startTime.value);
@@ -1589,6 +1734,12 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     if (confidence.present) {
       map['confidence'] = Variable<int>(confidence.value);
     }
+    if (quality.present) {
+      map['quality'] = Variable<int>(quality.value);
+    }
+    if (isHealthKitImport.present) {
+      map['is_health_kit_import'] = Variable<bool>(isHealthKitImport.value);
+    }
     if (pluralkitUuid.present) {
       map['pluralkit_uuid'] = Variable<String>(pluralkitUuid.value);
     }
@@ -1605,12 +1756,15 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
   String toString() {
     return (StringBuffer('FrontingSessionsCompanion(')
           ..write('id: $id, ')
+          ..write('sessionType: $sessionType, ')
           ..write('startTime: $startTime, ')
           ..write('endTime: $endTime, ')
           ..write('memberId: $memberId, ')
           ..write('coFronterIds: $coFronterIds, ')
           ..write('notes: $notes, ')
           ..write('confidence: $confidence, ')
+          ..write('quality: $quality, ')
+          ..write('isHealthKitImport: $isHealthKitImport, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('rowid: $rowid')
@@ -14872,9 +15026,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final PollVotesDao pollVotesDao = PollVotesDao(this as AppDatabase);
-  late final SleepSessionsDao sleepSessionsDao = SleepSessionsDao(
-    this as AppDatabase,
-  );
   late final PluralKitSyncDao pluralKitSyncDao = PluralKitSyncDao(
     this as AppDatabase,
   );
@@ -15385,12 +15536,15 @@ typedef $$MembersTableProcessedTableManager =
 typedef $$FrontingSessionsTableCreateCompanionBuilder =
     FrontingSessionsCompanion Function({
       required String id,
+      Value<int> sessionType,
       required DateTime startTime,
       Value<DateTime?> endTime,
       Value<String?> memberId,
       Value<String> coFronterIds,
       Value<String?> notes,
       Value<int?> confidence,
+      Value<int?> quality,
+      Value<bool> isHealthKitImport,
       Value<String?> pluralkitUuid,
       Value<bool> isDeleted,
       Value<int> rowid,
@@ -15398,12 +15552,15 @@ typedef $$FrontingSessionsTableCreateCompanionBuilder =
 typedef $$FrontingSessionsTableUpdateCompanionBuilder =
     FrontingSessionsCompanion Function({
       Value<String> id,
+      Value<int> sessionType,
       Value<DateTime> startTime,
       Value<DateTime?> endTime,
       Value<String?> memberId,
       Value<String> coFronterIds,
       Value<String?> notes,
       Value<int?> confidence,
+      Value<int?> quality,
+      Value<bool> isHealthKitImport,
       Value<String?> pluralkitUuid,
       Value<bool> isDeleted,
       Value<int> rowid,
@@ -15420,6 +15577,11 @@ class $$FrontingSessionsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sessionType => $composableBuilder(
+    column: $table.sessionType,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15453,6 +15615,16 @@ class $$FrontingSessionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get quality => $composableBuilder(
+    column: $table.quality,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isHealthKitImport => $composableBuilder(
+    column: $table.isHealthKitImport,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get pluralkitUuid => $composableBuilder(
     column: $table.pluralkitUuid,
     builder: (column) => ColumnFilters(column),
@@ -15475,6 +15647,11 @@ class $$FrontingSessionsTableOrderingComposer
   });
   ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sessionType => $composableBuilder(
+    column: $table.sessionType,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -15508,6 +15685,16 @@ class $$FrontingSessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get quality => $composableBuilder(
+    column: $table.quality,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isHealthKitImport => $composableBuilder(
+    column: $table.isHealthKitImport,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get pluralkitUuid => $composableBuilder(
     column: $table.pluralkitUuid,
     builder: (column) => ColumnOrderings(column),
@@ -15531,6 +15718,11 @@ class $$FrontingSessionsTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
+  GeneratedColumn<int> get sessionType => $composableBuilder(
+    column: $table.sessionType,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<DateTime> get startTime =>
       $composableBuilder(column: $table.startTime, builder: (column) => column);
 
@@ -15550,6 +15742,14 @@ class $$FrontingSessionsTableAnnotationComposer
 
   GeneratedColumn<int> get confidence => $composableBuilder(
     column: $table.confidence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get quality =>
+      $composableBuilder(column: $table.quality, builder: (column) => column);
+
+  GeneratedColumn<bool> get isHealthKitImport => $composableBuilder(
+    column: $table.isHealthKitImport,
     builder: (column) => column,
   );
 
@@ -15600,23 +15800,29 @@ class $$FrontingSessionsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
+                Value<int> sessionType = const Value.absent(),
                 Value<DateTime> startTime = const Value.absent(),
                 Value<DateTime?> endTime = const Value.absent(),
                 Value<String?> memberId = const Value.absent(),
                 Value<String> coFronterIds = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<int?> confidence = const Value.absent(),
+                Value<int?> quality = const Value.absent(),
+                Value<bool> isHealthKitImport = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontingSessionsCompanion(
                 id: id,
+                sessionType: sessionType,
                 startTime: startTime,
                 endTime: endTime,
                 memberId: memberId,
                 coFronterIds: coFronterIds,
                 notes: notes,
                 confidence: confidence,
+                quality: quality,
+                isHealthKitImport: isHealthKitImport,
                 pluralkitUuid: pluralkitUuid,
                 isDeleted: isDeleted,
                 rowid: rowid,
@@ -15624,23 +15830,29 @@ class $$FrontingSessionsTableTableManager
           createCompanionCallback:
               ({
                 required String id,
+                Value<int> sessionType = const Value.absent(),
                 required DateTime startTime,
                 Value<DateTime?> endTime = const Value.absent(),
                 Value<String?> memberId = const Value.absent(),
                 Value<String> coFronterIds = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<int?> confidence = const Value.absent(),
+                Value<int?> quality = const Value.absent(),
+                Value<bool> isHealthKitImport = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontingSessionsCompanion.insert(
                 id: id,
+                sessionType: sessionType,
                 startTime: startTime,
                 endTime: endTime,
                 memberId: memberId,
                 coFronterIds: coFronterIds,
                 notes: notes,
                 confidence: confidence,
+                quality: quality,
+                isHealthKitImport: isHealthKitImport,
                 pluralkitUuid: pluralkitUuid,
                 isDeleted: isDeleted,
                 rowid: rowid,
