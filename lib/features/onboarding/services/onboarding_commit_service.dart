@@ -45,6 +45,12 @@ class OnboardingCommitService {
   final ConversationRepository _conversationRepository;
   final FrontingSessionRepository _frontingRepository;
 
+  Future<void> completeImportedBootstrap() async {
+    final currentSettings = await _settingsRepository.getSettings();
+    if (currentSettings.hasCompletedOnboarding) return;
+    await _settingsRepository.updateHasCompletedOnboarding(true);
+  }
+
   Future<void> complete(OnboardingState onboarding) async {
     await _database.transaction(() async {
       final currentSettings = await _settingsRepository.getSettings();

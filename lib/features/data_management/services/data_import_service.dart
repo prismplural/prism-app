@@ -258,7 +258,10 @@ class DataImportService {
   /// The entire import runs inside a single database transaction. If any
   /// entity fails to insert the transaction is rolled back automatically and
   /// the exception propagates to the caller — the database is left unchanged.
-  Future<ImportResult> importData(String json) async {
+  Future<ImportResult> importData(
+    String json, {
+    bool preserveImportedOnboardingState = true,
+  }) async {
     final map = jsonDecode(json) as Map<String, dynamic>;
     final export = V3Export.fromJson(map);
 
@@ -534,7 +537,9 @@ class DataImportService {
             sleepTrackingEnabled: s.sleepTrackingEnabled,
             quickSwitchThresholdSeconds: s.quickSwitchThresholdSeconds,
             chatLogsFront: s.chatLogsFront,
-            hasCompletedOnboarding: s.hasCompletedOnboarding,
+            hasCompletedOnboarding: preserveImportedOnboardingState
+                ? s.hasCompletedOnboarding
+                : false,
             syncThemeEnabled: s.syncThemeEnabled,
             timingMode:
                 (s.timingMode ?? 0) >= 0 &&

@@ -1,9 +1,18 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
+import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
+import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
+import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
-import 'package:prism_plurality/features/migration/services/sp_importer.dart';
+import 'package:prism_plurality/features/migration/services/sp_importer.dart'
+    as sp_importer;
 
 /// Import Data step — lets user choose between PluralKit, Simply Plural,
 /// or skipping entirely (default: no import selected).
@@ -14,7 +23,7 @@ class ImportDataStep extends ConsumerStatefulWidget {
   ConsumerState<ImportDataStep> createState() => _ImportDataStepState();
 }
 
-enum _ImportSource { none, pluralKit, simplyPlural }
+enum _ImportSource { none, pluralKit, prismExport, simplyPlural }
 
 class _ImportDataStepState extends ConsumerState<ImportDataStep> {
   _ImportSource _selected = _ImportSource.none;
@@ -25,22 +34,26 @@ class _ImportDataStepState extends ConsumerState<ImportDataStep> {
       duration: const Duration(milliseconds: 300),
       child: switch (_selected) {
         _ImportSource.none => _SourcePicker(
-            key: const ValueKey('picker'),
-            onSelect: (source) {
-              setState(() => _selected = source);
-            },
-            onSyncDevice: () {
-              ref.read(onboardingProvider.notifier).enterSyncDeviceFlow();
-            },
-          ),
+          key: const ValueKey('picker'),
+          onSelect: (source) {
+            setState(() => _selected = source);
+          },
+          onSyncDevice: () {
+            ref.read(onboardingProvider.notifier).enterSyncDeviceFlow();
+          },
+        ),
         _ImportSource.pluralKit => _PluralKitImportFlow(
-            key: const ValueKey('pk'),
-            onBack: () => setState(() => _selected = _ImportSource.none),
-          ),
+          key: const ValueKey('pk'),
+          onBack: () => setState(() => _selected = _ImportSource.none),
+        ),
+        _ImportSource.prismExport => _PrismExportImportFlow(
+          key: const ValueKey('prism-export'),
+          onBack: () => setState(() => _selected = _ImportSource.none),
+        ),
         _ImportSource.simplyPlural => _SimplyPluralImportFlow(
-            key: const ValueKey('sp'),
-            onBack: () => setState(() => _selected = _ImportSource.none),
-          ),
+          key: const ValueKey('sp'),
+          onBack: () => setState(() => _selected = _ImportSource.none),
+        ),
       },
     );
   }
@@ -80,7 +93,8 @@ class _SourcePicker extends StatelessWidget {
             icon: Icons.devices,
             color: Colors.teal,
             title: 'Sync with Existing Device',
-            description: 'Scan a pairing QR code to sync data from another device',
+            description:
+                'Scan a pairing QR code to sync data from another device',
             onTap: onSyncDevice,
           ),
           const SizedBox(height: 16),
@@ -88,8 +102,18 @@ class _SourcePicker extends StatelessWidget {
             icon: Icons.sync,
             color: Colors.cyan,
             title: 'PluralKit',
-            description: 'Import members and fronting history from PluralKit via API token',
+            description:
+                'Import members and fronting history from PluralKit via API token',
             onTap: () => onSelect(_ImportSource.pluralKit),
+          ),
+          const SizedBox(height: 16),
+          _SourceCard(
+            icon: Icons.inventory_2_outlined,
+            color: Colors.green,
+            title: 'Prism Export',
+            description:
+                'Import from a Prism .json or encrypted .prism export file',
+            onTap: () => onSelect(_ImportSource.prismExport),
           ),
           const SizedBox(height: 16),
           _SourceCard(
@@ -272,9 +296,13 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                 const SizedBox(height: 8),
                 const _InstructionRow(number: '1', text: 'Open Discord'),
                 const _InstructionRow(
-                    number: '2', text: 'DM PluralKit bot: pk;token'),
+                  number: '2',
+                  text: 'DM PluralKit bot: pk;token',
+                ),
                 const _InstructionRow(
-                    number: '3', text: 'Copy the token and paste below'),
+                  number: '3',
+                  text: 'Copy the token and paste below',
+                ),
               ],
             ),
           ),
@@ -391,7 +419,8 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
       // We intentionally do NOT create members again here — the previous code
       // duplicated every PK member on each import because createMember() does
       // not set pluralkitUuid, so the service's dedup couldn't catch them.
-      final (systemName, importedMembers) = await pkNotifier.importMembersOnly();
+      final (systemName, importedMembers) = await pkNotifier
+          .importMembersOnly();
 
       if (systemName != null && systemName.isNotEmpty) {
         ref.read(onboardingProvider.notifier).setSystemName(systemName);
@@ -409,6 +438,418 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         _errorMessage = 'Import failed: $e';
       });
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Prism export import flow
+// ---------------------------------------------------------------------------
+
+enum _PrismExportStep { idle, password, preview, importing, error }
+
+class _PrismExportImportFlow extends ConsumerStatefulWidget {
+  const _PrismExportImportFlow({super.key, required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  ConsumerState<_PrismExportImportFlow> createState() =>
+      _PrismExportImportFlowState();
+}
+
+class _PrismExportImportFlowState
+    extends ConsumerState<_PrismExportImportFlow> {
+  _PrismExportStep _step = _PrismExportStep.idle;
+  String? _errorMessage;
+  String? _jsonContent;
+  Uint8List? _fileBytes;
+  ImportPreview? _preview;
+
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+  String? _passwordError;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json', 'prism'],
+        withData: false,
+        withReadStream: false,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      final path = result.files.single.path;
+      if (path == null) return;
+
+      final bytes = await File(path).readAsBytes();
+      if (!mounted) return;
+
+      if (ExportCrypto.isEncrypted(bytes)) {
+        setState(() {
+          _step = _PrismExportStep.password;
+          _fileBytes = bytes;
+          _passwordError = null;
+          _errorMessage = null;
+        });
+        return;
+      }
+
+      final service = ref.read(dataImportServiceProvider);
+      final json = DataImportService.resolveBytes(bytes);
+      final preview = service.parsePreview(json);
+
+      setState(() {
+        _step = _PrismExportStep.preview;
+        _jsonContent = json;
+        _preview = preview;
+        _errorMessage = null;
+      });
+    } on FormatException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _step = _PrismExportStep.error;
+        _errorMessage = e.message.toString();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _step = _PrismExportStep.error;
+        _errorMessage = 'Failed to read file: $e';
+      });
+    }
+  }
+
+  void _unlockFile() {
+    final password = _passwordController.text;
+    if (password.isEmpty) {
+      setState(() => _passwordError = 'Password cannot be empty');
+      return;
+    }
+
+    try {
+      final json = DataImportService.resolveBytes(
+        _fileBytes!,
+        password: password,
+      );
+      final service = ref.read(dataImportServiceProvider);
+      final preview = service.parsePreview(json);
+
+      if (!mounted) return;
+      setState(() {
+        _step = _PrismExportStep.preview;
+        _jsonContent = json;
+        _preview = preview;
+        _passwordError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      final message = e.toString();
+      setState(() {
+        _passwordError = message.contains('mac check')
+            ? 'Incorrect password'
+            : 'Decryption failed: $message';
+      });
+    }
+  }
+
+  Future<void> _startImport() async {
+    final jsonContent = _jsonContent;
+    final preview = _preview;
+    if (jsonContent == null) return;
+
+    setState(() => _step = _PrismExportStep.importing);
+
+    try {
+      final service = ref.read(dataImportServiceProvider);
+      await service.importData(
+        jsonContent,
+        preserveImportedOnboardingState: false,
+      );
+      if (!mounted) return;
+
+      ref
+          .read(onboardingProvider.notifier)
+          .showImportedDataReady(
+            OnboardingDataCounts(
+              members: preview?.headmates ?? 0,
+              frontingSessions: preview?.frontSessions ?? 0,
+              conversations: preview?.conversations ?? 0,
+              messages: preview?.messages ?? 0,
+              habits: preview?.habits ?? 0,
+              notes: preview?.notes ?? 0,
+            ),
+          );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _step = _PrismExportStep.error;
+        _errorMessage = 'Import failed: $e';
+      });
+    }
+  }
+
+  void _reset() {
+    setState(() {
+      _step = _PrismExportStep.idle;
+      _errorMessage = null;
+      _jsonContent = null;
+      _fileBytes = null;
+      _preview = null;
+      _passwordError = null;
+      _passwordController.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_step != _PrismExportStep.importing)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _BackLink(onTap: widget.onBack),
+            ),
+          const SizedBox(height: 16),
+          switch (_step) {
+            _PrismExportStep.idle => _buildIdle(),
+            _PrismExportStep.password => _buildPassword(),
+            _PrismExportStep.preview => _buildPreview(),
+            _PrismExportStep.importing => _buildImporting(),
+            _PrismExportStep.error => _buildError(),
+          },
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIdle() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'How to export from Prism:',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+              SizedBox(height: 8),
+              _InstructionRow(
+                number: '1',
+                text: 'Open Prism on your other device',
+              ),
+              _InstructionRow(
+                number: '2',
+                text: 'Go to Settings → Import & Export → Export Data',
+              ),
+              _InstructionRow(
+                number: '3',
+                text: 'Save the .json or .prism file and select it below',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _ActionButton(
+          label: 'Select Export File',
+          color: Colors.green,
+          onPressed: _pickFile,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPassword() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.lock_outline, color: Colors.white, size: 48),
+        const SizedBox(height: 16),
+        const Text(
+          'Encrypted Export',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Enter the export password to unlock this Prism backup.',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 14,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TextField(
+            controller: _passwordController,
+            obscureText: _obscurePassword,
+            style: const TextStyle(color: Colors.white),
+            autofocus: true,
+            onSubmitted: (_) => _unlockFile(),
+            decoration: InputDecoration(
+              hintText: 'Export password',
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+              errorText: _passwordError,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        _ActionButton(
+          label: 'Unlock Export',
+          color: Colors.green,
+          onPressed: _unlockFile,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPreview() {
+    final preview = _preview!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ready to import',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This will restore your exported Prism system and finish setup on this device.',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _PreviewRow(label: 'Members', count: preview.headmates),
+              _PreviewRow(
+                label: 'Fronting sessions',
+                count: preview.frontSessions,
+              ),
+              _PreviewRow(label: 'Conversations', count: preview.conversations),
+              _PreviewRow(label: 'Messages', count: preview.messages),
+              _PreviewRow(label: 'Habits', count: preview.habits),
+              _PreviewRow(label: 'Notes', count: preview.notes),
+              const Divider(color: Color(0x22FFFFFF), height: 24),
+              _PreviewRow(label: 'Total records', count: preview.totalRecords),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ActionButton(
+          label: 'Import and Continue',
+          color: Colors.green,
+          onPressed: _startImport,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildImporting() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Column(
+          children: [
+            CircularProgressIndicator(color: Colors.white),
+            SizedBox(height: 16),
+            Text(
+              'Importing your Prism export...',
+              style: TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _errorMessage ?? 'Import failed.',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _ActionButton(
+          label: 'Try Again',
+          color: Colors.redAccent,
+          onPressed: _reset,
+        ),
+      ],
+    );
   }
 }
 
@@ -438,7 +879,7 @@ class _SimplyPluralImportFlowState
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Back to source picker
-          if (migration.step == ImportState.idle)
+          if (migration.step == sp_importer.ImportState.idle)
             Align(
               alignment: Alignment.centerLeft,
               child: _BackLink(onTap: widget.onBack),
@@ -446,7 +887,7 @@ class _SimplyPluralImportFlowState
           const SizedBox(height: 16),
 
           // Instructions
-          if (migration.step == ImportState.idle) ...[
+          if (migration.step == sp_importer.ImportState.idle) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -491,7 +932,7 @@ class _SimplyPluralImportFlowState
           ],
 
           // Parsing
-          if (migration.step == ImportState.parsing)
+          if (migration.step == sp_importer.ImportState.parsing)
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(32),
@@ -509,7 +950,7 @@ class _SimplyPluralImportFlowState
             ),
 
           // Preview
-          if (migration.step == ImportState.previewing &&
+          if (migration.step == sp_importer.ImportState.previewing &&
               migration.exportData != null) ...[
             Container(
               padding: const EdgeInsets.all(16),
@@ -531,7 +972,8 @@ class _SimplyPluralImportFlowState
                   const SizedBox(height: 12),
                   _PreviewRow(
                     label: 'Members',
-                    count: migration.exportData!.members.length +
+                    count:
+                        migration.exportData!.members.length +
                         migration.exportData!.customFronts.length,
                   ),
                   _PreviewRow(
@@ -560,8 +1002,8 @@ class _SimplyPluralImportFlowState
           ],
 
           // Importing / downloading avatars
-          if (migration.step == ImportState.importing ||
-              migration.step == ImportState.downloadingAvatars) ...[
+          if (migration.step == sp_importer.ImportState.importing ||
+              migration.step == sp_importer.ImportState.downloadingAvatars) ...[
             Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -583,7 +1025,7 @@ class _SimplyPluralImportFlowState
           ],
 
           // Complete
-          if (migration.step == ImportState.complete) ...[
+          if (migration.step == sp_importer.ImportState.complete) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -609,7 +1051,7 @@ class _SimplyPluralImportFlowState
           ],
 
           // Error
-          if (migration.step == ImportState.error) ...[
+          if (migration.step == sp_importer.ImportState.error) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -660,8 +1102,11 @@ class _BackLink extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.arrow_back_ios,
-              size: 14, color: Colors.white.withValues(alpha: 0.7)),
+          Icon(
+            Icons.arrow_back_ios,
+            size: 14,
+            color: Colors.white.withValues(alpha: 0.7),
+          ),
           const SizedBox(width: 4),
           Text(
             'Other import options',
