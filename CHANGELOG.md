@@ -2,6 +2,19 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.6] - 2026-03-28
+
+### Fixed
+- `endSleep()` now validates the session is actually a sleep session before ending it (consistency with `deleteSleep()`)
+- Fake repository `getActiveSessions()` now correctly filters by session type to match real DAO behavior
+- Data export crash from broken variable reference after sleep session unification
+- Member index `idx_sessions_member_deleted_start` updated to include `session_type` for efficient filtered queries
+- Export service now uses targeted queries instead of fetching all sessions and filtering in-memory
+
+### Added
+- Session type boundary tests: cross-type overlap ignored, trimOverlap no-op across types, mergeAdjacent skip for sleep
+- Sleep mutation tests: startSleep ends prior sleep, endSleep/updateSleepQuality/deleteSleep happy + error paths, splitSession preserves sleep fields
+
 ## [0.2.5] - 2026-03-27
 
 ### Added
