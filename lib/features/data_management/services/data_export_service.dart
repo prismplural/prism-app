@@ -68,9 +68,9 @@ class DataExportService {
   Future<V3Export> buildExport() async {
     // Fetch all data
     final members = await memberRepository.getAllMembers();
-    final sessions = await frontingSessionRepository.getAllSessions();
-    final frontSessions = sessions.where((s) => !s.isSleep).toList();
-    final sleepSessions = sessions.where((s) => s.isSleep).toList();
+    final frontSessions = await frontingSessionRepository.getFrontingSessions();
+    final sleepSessions = await frontingSessionRepository
+        .getRecentSleepSessions(limit: 999999);
     final conversations = await conversationRepository.getAllConversations();
     final polls = await pollRepository.getAllPolls();
     final settings = await systemSettingsRepository.getSettings();
@@ -132,7 +132,7 @@ class DataExportService {
 
     // Fetch front session comments
     final allComments = <FrontSessionComment>[];
-    for (final session in sessions) {
+    for (final session in frontSessions) {
       final comments = await frontSessionCommentsRepository
           .watchCommentsForSession(session.id)
           .first;
