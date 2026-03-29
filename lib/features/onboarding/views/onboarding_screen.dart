@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/onboarding/widgets/add_members_step.dar
 import 'package:prism_plurality/features/onboarding/widgets/features_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/chat_setup_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/preferences_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
 import 'package:prism_plurality/features/onboarding/widgets/whos_fronting_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/complete_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/sync_device_step.dart';
@@ -47,7 +48,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final step = onboarding.currentStep;
     final isFirstStep = step == OnboardingStep.welcome;
     final isCompleteStep = step == OnboardingStep.complete;
-    final isSyncDeviceStep = step == OnboardingStep.syncDevice;
+    final isFullScreenStep =
+        step == OnboardingStep.syncDevice ||
+        step == OnboardingStep.importedDataReady;
 
     // Check if user has existing data (re-running onboarding)
     final hasExistingData = ref.watch(hasCompletedOnboardingProvider);
@@ -55,153 +58,178 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     return PopScope(
       canPop: hasExistingData,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !isFirstStep && !isSyncDeviceStep) {
+        if (!didPop && !isFirstStep && !isFullScreenStep) {
           notifier.back();
         }
       },
       child: Scaffold(
         body: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.black,
-              ...step.gradientColors,
-              Colors.black,
-            ],
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.black, ...step.gradientColors, Colors.black],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Top bar with close button and progress
-              if (!isSyncDeviceStep)
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  child: Row(
-                    children: [
-                      if (hasExistingData)
-                        IconButton(
-                          onPressed: () => context.go(AppRoutePaths.home),
-                          icon: const Icon(Icons.close, color: Colors.white70),
-                        )
-                      else
-                        const SizedBox(width: 48),
-                      Expanded(
-                        child: _ProgressIndicator(
-                          steps: _progressSteps,
-                          currentStep: step,
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Top bar with close button and progress
+                if (!isFullScreenStep)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        if (hasExistingData)
+                          IconButton(
+                            onPressed: () => context.go(AppRoutePaths.home),
+                            icon: const Icon(
+                              Icons.close,
+                              color: Colors.white70,
+                            ),
+                          )
+                        else
+                          const SizedBox(width: 48),
+                        Expanded(
+                          child: _ProgressIndicator(
+                            steps: _progressSteps,
+                            currentStep: step,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 48),
-                    ],
+                        const SizedBox(width: 48),
+                      ],
+                    ),
+                  ),
+
+                // Step header
+                if (!isCompleteStep && !isFullScreenStep) ...[
+                  const SizedBox(height: 8),
+                  Icon(step.icon, size: 40, color: step.iconColor),
+                  const SizedBox(height: 12),
+                  Text(
+                    step.title,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    step.subtitle,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+
+                // Step content
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: _buildStepContent(onboarding),
                   ),
                 ),
 
-              // Step header
-              if (!isCompleteStep && !isSyncDeviceStep) ...[
-                const SizedBox(height: 8),
-                Icon(step.icon, size: 40, color: step.iconColor),
-                const SizedBox(height: 12),
-                Text(
-                  step.title,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  step.subtitle,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.white.withValues(alpha: 0.7),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-              ],
-
-              // Step content
-              Expanded(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: _buildStepContent(step),
-                ),
-              ),
-
-              // Navigation buttons (hidden during sync device flow)
-              if (!isSyncDeviceStep)
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                child: Row(
-                  children: [
-                    if (!isFirstStep)
-                      _CircleButton(
-                        icon: Icons.arrow_back,
-                        onPressed: notifier.back,
-                      ),
-                    const Spacer(),
-                    _PillButton(
-                      label: isCompleteStep
-                          ? 'Get Started'
-                          : isFirstStep
+                // Navigation buttons (hidden during sync device flow)
+                if (!isFullScreenStep)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    child: Row(
+                      children: [
+                        if (!isFirstStep)
+                          _CircleButton(
+                            icon: Icons.arrow_back,
+                            onPressed: notifier.back,
+                          ),
+                        const Spacer(),
+                        _PillButton(
+                          label: isCompleteStep
+                              ? 'Get Started'
+                              : isFirstStep
                               ? 'Get Started'
                               : 'Continue',
-                      enabled: notifier.canProceed && !_isCompleting,
-                      isLoading: _isCompleting,
-                      onPressed: () {
-                        if (isCompleteStep) {
-                          _completeOnboarding();
-                        } else {
-                          notifier.next();
-                        }
-                      },
+                          enabled: notifier.canProceed && !_isCompleting,
+                          isLoading: _isCompleting,
+                          onPressed: () {
+                            if (isCompleteStep) {
+                              _completeOnboarding();
+                            } else {
+                              notifier.next();
+                            }
+                          },
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
     );
   }
 
-  Widget _buildStepContent(OnboardingStep step) {
+  Widget _buildStepContent(OnboardingState onboarding) {
+    final step = onboarding.currentStep;
     return switch (step) {
       OnboardingStep.welcome => const WelcomeStep(key: ValueKey('welcome')),
       OnboardingStep.syncDevice => SyncDeviceStep(
-          key: const ValueKey('sync-device'),
-          onBack: () {
-            final n = ref.read(onboardingProvider.notifier);
-            n.leaveSyncDeviceFlow();
-          },
-          onComplete: () => context.go(AppRoutePaths.home),
-        ),
-      OnboardingStep.importData =>
-        const ImportDataStep(key: ValueKey('import')),
-      OnboardingStep.systemName =>
-        const SystemNameStep(key: ValueKey('name')),
-      OnboardingStep.addMembers =>
-        const AddMembersStep(key: ValueKey('members')),
-      OnboardingStep.features =>
-        const FeaturesStep(key: ValueKey('features')),
-      OnboardingStep.chatSetup =>
-        const ChatSetupStep(key: ValueKey('chat')),
-      OnboardingStep.preferences =>
-        const PreferencesStep(key: ValueKey('prefs')),
-      OnboardingStep.whosFronting =>
-        const WhosFrontingStep(key: ValueKey('fronting')),
-      OnboardingStep.complete =>
-        const CompleteStep(key: ValueKey('complete')),
+        key: const ValueKey('sync-device'),
+        onBack: () {
+          final n = ref.read(onboardingProvider.notifier);
+          n.leaveSyncDeviceFlow();
+        },
+        onComplete: () => context.go(AppRoutePaths.home),
+      ),
+      OnboardingStep.importedDataReady => OnboardingDataReadyView(
+        key: const ValueKey('imported-data-ready'),
+        title: 'Import Complete',
+        description:
+            'Your Prism export has been restored and this device is ready.',
+        summaryLabel: 'Imported data',
+        counts: onboarding.importedDataCounts,
+        actionLabel: 'Get Started',
+        onAction: () async {
+          try {
+            await ref
+                .read(onboardingCommitServiceProvider)
+                .completeImportedBootstrap();
+            if (!mounted) return;
+            context.go(AppRoutePaths.home);
+          } catch (e) {
+            if (!mounted) return;
+            PrismToast.error(context, message: 'Error completing setup: $e');
+          }
+        },
+      ),
+      OnboardingStep.importData => const ImportDataStep(
+        key: ValueKey('import'),
+      ),
+      OnboardingStep.systemName => const SystemNameStep(key: ValueKey('name')),
+      OnboardingStep.addMembers => const AddMembersStep(
+        key: ValueKey('members'),
+      ),
+      OnboardingStep.features => const FeaturesStep(key: ValueKey('features')),
+      OnboardingStep.chatSetup => const ChatSetupStep(key: ValueKey('chat')),
+      OnboardingStep.preferences => const PreferencesStep(
+        key: ValueKey('prefs'),
+      ),
+      OnboardingStep.whosFronting => const WhosFrontingStep(
+        key: ValueKey('fronting'),
+      ),
+      OnboardingStep.complete => const CompleteStep(key: ValueKey('complete')),
     };
   }
 
@@ -230,10 +258,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
 /// Progress capsule indicators.
 class _ProgressIndicator extends StatelessWidget {
-  const _ProgressIndicator({
-    required this.steps,
-    required this.currentStep,
-  });
+  const _ProgressIndicator({required this.steps, required this.currentStep});
 
   final List<OnboardingStep> steps;
   final OnboardingStep currentStep;
@@ -258,8 +283,8 @@ class _ProgressIndicator extends StatelessWidget {
             color: isCurrent
                 ? Colors.white
                 : isPast
-                    ? Colors.white.withValues(alpha: 0.5)
-                    : Colors.white.withValues(alpha: 0.2),
+                ? Colors.white.withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.2),
           ),
         );
       }),
@@ -269,10 +294,7 @@ class _ProgressIndicator extends StatelessWidget {
 
 /// Circle back button with press feedback.
 class _CircleButton extends StatefulWidget {
-  const _CircleButton({
-    required this.icon,
-    required this.onPressed,
-  });
+  const _CircleButton({required this.icon, required this.onPressed});
 
   final IconData icon;
   final VoidCallback onPressed;
@@ -358,8 +380,8 @@ class _PillButtonState extends State<_PillButton> {
             color: _pressed
                 ? Colors.white.withValues(alpha: 0.35)
                 : canPress
-                    ? Colors.white.withValues(alpha: 0.2)
-                    : Colors.white.withValues(alpha: 0.08),
+                ? Colors.white.withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.08),
             border: Border.all(
               color: canPress
                   ? Colors.white.withValues(alpha: _pressed ? 0.5 : 0.3)

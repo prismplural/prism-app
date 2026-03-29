@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
+import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -42,14 +44,57 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
       case PairingStep.connecting:
         child = const _ConnectingView(key: ValueKey('connecting'));
       case PairingStep.success:
-        child = _WelcomeBackView(
+        child = OnboardingDataReadyView(
           key: const ValueKey('success'),
-          counts: pairingState.counts,
-          syncIncomplete: pairingState.syncIncomplete,
-          onGetStarted: () async {
-            await ref
-                .read(devicePairingProvider.notifier)
-                .completeOnboarding();
+          title: 'Welcome Back!',
+          description: 'Your device has been paired and your data is ready.',
+          summaryLabel: 'Synced data',
+          counts: pairingState.counts != null
+              ? OnboardingDataCounts(
+                  members: pairingState.counts!.members,
+                  frontingSessions: pairingState.counts!.frontingSessions,
+                  conversations: pairingState.counts!.conversations,
+                  messages: pairingState.counts!.messages,
+                  habits: pairingState.counts!.habits,
+                )
+              : null,
+          notice: pairingState.syncIncomplete
+              ? Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.amber.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.sync,
+                        size: 18,
+                        color: Colors.amber.withValues(alpha: 0.9),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Some data is still syncing and will appear shortly.',
+                          style: TextStyle(
+                            color: Colors.amber.withValues(alpha: 0.9),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : null,
+          actionLabel: 'Get Started',
+          onAction: () async {
+            await ref.read(devicePairingProvider.notifier).completeOnboarding();
             widget.onComplete();
           },
         );
@@ -363,127 +408,6 @@ class _ConnectingView extends StatelessWidget {
   }
 }
 
-class _WelcomeBackView extends StatelessWidget {
-  const _WelcomeBackView({
-    super.key,
-    required this.counts,
-    required this.onGetStarted,
-    this.syncIncomplete = false,
-  });
-
-  final SyncCounts? counts;
-  final VoidCallback onGetStarted;
-  final bool syncIncomplete;
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const SizedBox(height: 8),
-          const Icon(Icons.check_circle_outline, color: Colors.green, size: 56),
-          const SizedBox(height: 16),
-          const Text(
-            'Welcome Back!',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 26,
-              fontWeight: FontWeight.w700,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Your device has been paired and your data is ready.',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (syncIncomplete) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.amber.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: Colors.amber.withValues(alpha: 0.4),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.sync,
-                    size: 18,
-                    color: Colors.amber.withValues(alpha: 0.9),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Some data is still syncing and will appear shortly.',
-                      style: TextStyle(
-                        color: Colors.amber.withValues(alpha: 0.9),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          if (counts != null) ...[
-            const SizedBox(height: 28),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Synced data',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _CountRow(label: 'Members', count: counts!.members),
-                  _CountRow(
-                    label: 'Fronting sessions',
-                    count: counts!.frontingSessions,
-                  ),
-                  _CountRow(
-                    label: 'Conversations',
-                    count: counts!.conversations,
-                  ),
-                  _CountRow(label: 'Messages', count: counts!.messages),
-                  _CountRow(label: 'Habits', count: counts!.habits),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 32),
-          _ActionButton(
-            label: 'Get Started',
-            color: Colors.green,
-            onPressed: onGetStarted,
-          ),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-}
-
 class _ErrorView extends StatelessWidget {
   const _ErrorView({
     super.key,
@@ -558,41 +482,6 @@ class _ActionButton extends StatelessWidget {
         label: label,
         tone: tone,
         expanded: true,
-      ),
-    );
-  }
-}
-
-class _CountRow extends StatelessWidget {
-  const _CountRow({required this.label, required this.count});
-
-  final String label;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Text(
-            '$count',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
       ),
     );
   }

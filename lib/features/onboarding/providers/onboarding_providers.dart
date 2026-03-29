@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 
 enum OnboardingStep {
   welcome,
   syncDevice,
+  importedDataReady,
   importData,
   systemName,
   addMembers,
@@ -21,6 +23,7 @@ enum OnboardingStep {
   String get title => switch (this) {
     welcome => 'Welcome to Prism',
     syncDevice => 'Sync From Device',
+    importedDataReady => 'Data Ready',
     importData => 'Import Data',
     systemName => 'Name Your System',
     addMembers => 'Add Members',
@@ -34,6 +37,7 @@ enum OnboardingStep {
   String get subtitle => switch (this) {
     welcome => 'A safe space for managing your plural system',
     syncDevice => 'Pair with an existing device',
+    importedDataReady => 'Your imported system is ready to use',
     importData => 'Bring your data from another app',
     systemName => 'What would you like to call your system?',
     addMembers => 'Add the members of your system',
@@ -47,6 +51,7 @@ enum OnboardingStep {
   IconData get icon => switch (this) {
     welcome => Icons.auto_awesome,
     syncDevice => Icons.sync,
+    importedDataReady => Icons.check_circle,
     importData => Icons.download,
     systemName => Icons.label,
     addMembers => Icons.group,
@@ -60,6 +65,7 @@ enum OnboardingStep {
   Color get iconColor => switch (this) {
     welcome => Colors.purple,
     syncDevice => Colors.cyan,
+    importedDataReady => Colors.green,
     importData => Colors.cyan,
     systemName => Colors.blue,
     addMembers => Colors.green,
@@ -78,6 +84,10 @@ enum OnboardingStep {
     syncDevice => [
       Colors.cyan.withValues(alpha: 0.3),
       Colors.purple.withValues(alpha: 0.3),
+    ],
+    importedDataReady => [
+      Colors.green.withValues(alpha: 0.3),
+      Colors.teal.withValues(alpha: 0.3),
     ],
     importData => [
       Colors.cyan.withValues(alpha: 0.3),
@@ -128,6 +138,7 @@ class OnboardingState {
   final bool sleepTrackingEnabled;
   final String? selectedFronterId;
   final bool wasImportedFromPluralKit;
+  final OnboardingDataCounts? importedDataCounts;
   final String? customTermSingular;
   final String? customTermPlural;
   final bool isSyncPath;
@@ -149,6 +160,7 @@ class OnboardingState {
     this.sleepTrackingEnabled = true,
     this.selectedFronterId,
     this.wasImportedFromPluralKit = false,
+    this.importedDataCounts,
     this.customTermSingular,
     this.customTermPlural,
     this.isSyncPath = false,
@@ -170,6 +182,7 @@ class OnboardingState {
     bool? sleepTrackingEnabled,
     String? selectedFronterId,
     bool? wasImportedFromPluralKit,
+    Object? importedDataCounts = _sentinel,
     Object? customTermSingular = _sentinel,
     Object? customTermPlural = _sentinel,
     bool? isSyncPath,
@@ -192,6 +205,9 @@ class OnboardingState {
           : (selectedFronterId ?? this.selectedFronterId),
       wasImportedFromPluralKit:
           wasImportedFromPluralKit ?? this.wasImportedFromPluralKit,
+      importedDataCounts: importedDataCounts == _sentinel
+          ? this.importedDataCounts
+          : importedDataCounts as OnboardingDataCounts?,
       customTermSingular: customTermSingular == _sentinel
           ? this.customTermSingular
           : customTermSingular as String?,
@@ -240,6 +256,10 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   bool _shouldSkip(OnboardingStep step) {
     if (step == OnboardingStep.syncDevice && !state.isSyncPath) return true;
+    if (step == OnboardingStep.importedDataReady &&
+        state.importedDataCounts == null) {
+      return true;
+    }
     if (step == OnboardingStep.chatSetup && !state.chatEnabled) return true;
     return false;
   }
@@ -276,6 +296,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     return switch (state.currentStep) {
       OnboardingStep.welcome => true,
       OnboardingStep.syncDevice => false, // Managed by SyncDeviceStep itself
+      OnboardingStep.importedDataReady => false,
       OnboardingStep.importData => true,
       OnboardingStep.systemName => state.systemName.trim().isNotEmpty,
       OnboardingStep.addMembers => true,
@@ -301,6 +322,13 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   void setWasImportedFromPluralKit(bool value) {
     state = state.copyWith(wasImportedFromPluralKit: value);
+  }
+
+  void showImportedDataReady(OnboardingDataCounts counts) {
+    state = state.copyWith(
+      importedDataCounts: counts,
+      currentStep: OnboardingStep.importedDataReady,
+    );
   }
 
   Future<void> addDefaultMembers() async {
