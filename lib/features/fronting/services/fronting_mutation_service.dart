@@ -211,6 +211,10 @@ class FrontingMutationService {
     return _mutationRunner.run<void>(
       actionLabel: 'End sleep session',
       action: () async {
+        final session = await _requireSession(id);
+        if (!session.isSleep) {
+          throw AppFailure.notFound('Sleep session not found.');
+        }
         await _repository.endSession(id, DateTime.now());
       },
     );

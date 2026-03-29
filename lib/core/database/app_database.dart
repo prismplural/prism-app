@@ -119,7 +119,7 @@ class AppDatabase extends _$AppDatabase {
     );
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_sessions_member_deleted_start '
-      'ON fronting_sessions (member_id, is_deleted, start_time DESC)',
+      'ON fronting_sessions (member_id, session_type, is_deleted, start_time DESC)',
     );
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_sessions_type '

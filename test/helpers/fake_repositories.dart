@@ -445,7 +445,9 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
 
   @override
   Future<List<FrontingSession>> getActiveSessions() async {
-    return sessions.where((session) => session.isActive).toList();
+    return sessions
+        .where((session) => session.isActive && !session.isSleep)
+        .toList();
   }
 
   @override
