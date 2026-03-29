@@ -33,6 +33,9 @@ const String prismSyncSchema = '''
         "co_fronter_ids": "String",
         "notes": "String",
         "confidence": "Int",
+        "session_type": "Int",
+        "quality": "Int",
+        "is_health_kit_import": "Bool",
         "pluralkit_uuid": "String",
         "is_deleted": "Bool"
       }
@@ -131,16 +134,6 @@ const String prismSyncSchema = '''
         "member_id": "String",
         "voted_at": "DateTime",
         "response_text": "String",
-        "is_deleted": "Bool"
-      }
-    },
-    "sleep_sessions": {
-      "fields": {
-        "start_time": "DateTime",
-        "end_time": "DateTime",
-        "quality": "Int",
-        "notes": "String",
-        "is_health_kit_import": "Bool",
         "is_deleted": "Bool"
       }
     },

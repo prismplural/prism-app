@@ -1,7 +1,8 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
-import 'package:prism_plurality/core/database/app_database.dart' show AppDatabase, PluralKitSyncStateCompanion;
+import 'package:prism_plurality/core/database/app_database.dart'
+    show AppDatabase, PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
@@ -10,7 +11,6 @@ import 'package:prism_plurality/domain/repositories/fronting_session_repository.
 import 'package:prism_plurality/domain/repositories/habit_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/poll_repository.dart';
-import 'package:prism_plurality/domain/repositories/sleep_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
@@ -166,7 +166,6 @@ class DataImportService {
     required this.conversationRepository,
     required this.chatMessageRepository,
     required this.pollRepository,
-    required this.sleepSessionRepository,
     required this.systemSettingsRepository,
     required this.habitRepository,
     required this.pluralKitSyncDao,
@@ -185,7 +184,6 @@ class DataImportService {
   final ConversationRepository conversationRepository;
   final ChatMessageRepository chatMessageRepository;
   final PollRepository pollRepository;
-  final SleepSessionRepository sleepSessionRepository;
   final SystemSettingsRepository systemSettingsRepository;
   final HabitRepository habitRepository;
   final PluralKitSyncDao pluralKitSyncDao;
@@ -328,7 +326,9 @@ class DataImportService {
             memberId: s.headmateId,
             coFronterIds: s.coFronterIds,
             notes: s.notes,
-            confidence: s.confidence != null &&
+            sessionType: SessionType.normal,
+            confidence:
+                s.confidence != null &&
                     s.confidence! >= 0 &&
                     s.confidence! < FrontConfidence.values.length
                 ? FrontConfidence.values[s.confidence!]
@@ -341,18 +341,17 @@ class DataImportService {
 
       // 3. Import sleep sessions
       var sleepSessionsCreated = 0;
-      final existingSleep = await sleepSessionRepository.getRecentSleepSessions(
-        limit: 999999,
-      );
+      final existingSleep = existingSessions.where((s) => s.isSleep).toList();
       final existingSleepIds = existingSleep.map((s) => s.id).toSet();
 
       for (final s in export.sleepSessions) {
         if (existingSleepIds.contains(s.id)) continue;
-        await sleepSessionRepository.createSleepSession(
-          SleepSession(
+        await frontingSessionRepository.createSession(
+          FrontingSession(
             id: s.id,
             startTime: DateTime.parse(s.startTime),
             endTime: s.endTime != null ? DateTime.parse(s.endTime!) : null,
+            sessionType: SessionType.sleep,
             quality: s.quality >= 0 && s.quality < SleepQuality.values.length
                 ? SleepQuality.values[s.quality]
                 : SleepQuality.unknown,
@@ -507,7 +506,8 @@ class DataImportService {
             showQuickFront: s.showQuickFront,
             accentColorHex: s.accentColorHex,
             perMemberAccentColors: s.perMemberAccentColors,
-            terminology: s.terminology >= 0 &&
+            terminology:
+                s.terminology >= 0 &&
                     s.terminology < SystemTerminology.values.length
                 ? SystemTerminology.values[s.terminology]
                 : SystemTerminology.headmates,
@@ -515,16 +515,17 @@ class DataImportService {
             customPluralTerminology: s.customPluralTerminology,
             frontingRemindersEnabled: s.frontingRemindersEnabled,
             frontingReminderIntervalMinutes: s.frontingReminderIntervalMinutes,
-            themeMode: s.themeMode >= 0 &&
-                    s.themeMode < AppThemeMode.values.length
+            themeMode:
+                s.themeMode >= 0 && s.themeMode < AppThemeMode.values.length
                 ? AppThemeMode.values[s.themeMode]
                 : AppThemeMode.system,
-            themeBrightness: s.themeBrightness >= 0 &&
+            themeBrightness:
+                s.themeBrightness >= 0 &&
                     s.themeBrightness < ThemeBrightness.values.length
                 ? ThemeBrightness.values[s.themeBrightness]
                 : ThemeBrightness.system,
-            themeStyle: s.themeStyle >= 0 &&
-                    s.themeStyle < ThemeStyle.values.length
+            themeStyle:
+                s.themeStyle >= 0 && s.themeStyle < ThemeStyle.values.length
                 ? ThemeStyle.values[s.themeStyle]
                 : ThemeStyle.standard,
             chatEnabled: s.chatEnabled,
@@ -535,7 +536,8 @@ class DataImportService {
             chatLogsFront: s.chatLogsFront,
             hasCompletedOnboarding: s.hasCompletedOnboarding,
             syncThemeEnabled: s.syncThemeEnabled,
-            timingMode: (s.timingMode ?? 0) >= 0 &&
+            timingMode:
+                (s.timingMode ?? 0) >= 0 &&
                     (s.timingMode ?? 0) < FrontingTimingMode.values.length
                 ? FrontingTimingMode.values[s.timingMode ?? 0]
                 : FrontingTimingMode.flexible,
@@ -548,8 +550,8 @@ class DataImportService {
                 : null,
             remindersEnabled: s.remindersEnabled,
             fontScale: s.fontScale,
-            fontFamily: s.fontFamily >= 0 &&
-                    s.fontFamily < FontFamily.values.length
+            fontFamily:
+                s.fontFamily >= 0 && s.fontFamily < FontFamily.values.length
                 ? FontFamily.values[s.fontFamily]
                 : FontFamily.system,
             // Force device-local security settings to false on import —
@@ -644,9 +646,7 @@ class DataImportService {
             systemId: Value(pk.systemId),
             isConnected: Value(pk.isConnected),
             lastSyncDate: Value(
-              pk.lastSyncDate != null
-                  ? DateTime.parse(pk.lastSyncDate!)
-                  : null,
+              pk.lastSyncDate != null ? DateTime.parse(pk.lastSyncDate!) : null,
             ),
             lastManualSyncDate: Value(
               pk.lastManualSyncDate != null
@@ -659,8 +659,9 @@ class DataImportService {
 
       // 11. Import member groups
       var memberGroupsCreated = 0;
-      final existingGroups =
-          await memberGroupsRepository.watchAllGroups().first;
+      final existingGroups = await memberGroupsRepository
+          .watchAllGroups()
+          .first;
       final existingGroupIds = existingGroups.map((g) => g.id).toSet();
 
       for (final g in export.memberGroups) {
@@ -697,8 +698,9 @@ class DataImportService {
 
       // 13. Import custom fields
       var customFieldsCreated = 0;
-      final existingFields =
-          await customFieldsRepository.watchAllFields().first;
+      final existingFields = await customFieldsRepository
+          .watchAllFields()
+          .first;
       final existingFieldIds = existingFields.map((f) => f.id).toSet();
 
       for (final f in export.customFields) {
@@ -707,11 +709,12 @@ class DataImportService {
           CustomField(
             id: f.id,
             name: f.name,
-            fieldType: f.fieldType >= 0 &&
-                    f.fieldType < CustomFieldType.values.length
+            fieldType:
+                f.fieldType >= 0 && f.fieldType < CustomFieldType.values.length
                 ? CustomFieldType.values[f.fieldType]
                 : CustomFieldType.text,
-            datePrecision: f.datePrecision != null &&
+            datePrecision:
+                f.datePrecision != null &&
                     f.datePrecision! >= 0 &&
                     f.datePrecision! < DatePrecision.values.length
                 ? DatePrecision.values[f.datePrecision!]
@@ -785,10 +788,10 @@ class DataImportService {
 
       // 17. Import conversation categories
       var conversationCategoriesCreated = 0;
-      final existingCategories =
-          await conversationCategoriesRepository.watchAll().first;
-      final existingCategoryIds =
-          existingCategories.map((c) => c.id).toSet();
+      final existingCategories = await conversationCategoriesRepository
+          .watchAll()
+          .first;
+      final existingCategoryIds = existingCategories.map((c) => c.id).toSet();
 
       for (final c in export.conversationCategories) {
         if (existingCategoryIds.contains(c.id)) continue;
@@ -806,10 +809,8 @@ class DataImportService {
 
       // 18. Import reminders
       var remindersCreated = 0;
-      final existingReminders =
-          await remindersRepository.watchAll().first;
-      final existingReminderIds =
-          existingReminders.map((r) => r.id).toSet();
+      final existingReminders = await remindersRepository.watchAll().first;
+      final existingReminderIds = existingReminders.map((r) => r.id).toSet();
 
       for (final r in export.reminders) {
         if (existingReminderIds.contains(r.id)) continue;
@@ -818,8 +819,7 @@ class DataImportService {
             id: r.id,
             name: r.name,
             message: r.message,
-            trigger: r.trigger >= 0 &&
-                    r.trigger < ReminderTrigger.values.length
+            trigger: r.trigger >= 0 && r.trigger < ReminderTrigger.values.length
                 ? ReminderTrigger.values[r.trigger]
                 : ReminderTrigger.scheduled,
             intervalDays: r.intervalDays,

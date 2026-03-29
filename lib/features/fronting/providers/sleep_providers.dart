@@ -1,60 +1,52 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 
 /// Watches the current active sleep session (null if not sleeping).
-final activeSleepSessionProvider = StreamProvider<SleepSession?>((ref) {
-  final repo = ref.watch(sleepSessionRepositoryProvider);
+final activeSleepSessionProvider = StreamProvider<FrontingSession?>((ref) {
+  final repo = ref.watch(frontingSessionRepositoryProvider);
   return repo.watchActiveSleepSession();
 });
 
 /// Recent sleep sessions (last 10). Uses a stream for real-time updates.
 final recentSleepSessionsProvider =
-    StreamProvider<List<SleepSession>>((ref) {
-  final repo = ref.watch(sleepSessionRepositoryProvider);
+    StreamProvider<List<FrontingSession>>((ref) {
+  final repo = ref.watch(frontingSessionRepositoryProvider);
   return repo.watchAllSleepSessions().map((all) => all.take(10).toList());
 });
 
 /// Notifier for sleep session actions.
 class SleepNotifier extends Notifier<void> {
-  static const _uuid = Uuid();
-
   @override
   void build() {}
 
   Future<void> startSleep({
     String? notes,
     DateTime? startTime,
+    SleepQuality? quality,
   }) async {
-    final repo = ref.read(sleepSessionRepositoryProvider);
-    final session = SleepSession(
-      id: _uuid.v4(),
-      startTime: startTime ?? DateTime.now(),
+    await ref.read(frontingMutationServiceProvider).startSleep(
       notes: notes,
+      startTime: startTime,
+      quality: quality,
     );
-    await repo.createSleepSession(session);
   }
 
   Future<void> endSleep(String id) async {
-    final repo = ref.read(sleepSessionRepositoryProvider);
-    await repo.endSleepSession(id, DateTime.now());
+    await ref.read(frontingMutationServiceProvider).endSleep(id);
   }
 
   Future<void> updateSleepQuality(String id, SleepQuality quality) async {
-    final repo = ref.read(sleepSessionRepositoryProvider);
-    // We need to watch the active session to get the full model,
-    // but for a targeted update we can construct a minimal update.
-    final sessions = await repo.getRecentSleepSessions(limit: 50);
-    final session = sessions.where((s) => s.id == id).firstOrNull;
-    if (session == null) return;
-    await repo.updateSleepSession(session.copyWith(quality: quality));
+    await ref.read(frontingMutationServiceProvider).updateSleepQuality(
+      id,
+      quality,
+    );
   }
 
   Future<void> deleteSleep(String id) async {
-    final repo = ref.read(sleepSessionRepositoryProvider);
-    await repo.deleteSleepSession(id);
+    await ref.read(frontingMutationServiceProvider).deleteSleep(id);
   }
 }
 

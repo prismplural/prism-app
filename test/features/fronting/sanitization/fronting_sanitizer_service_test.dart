@@ -20,10 +20,7 @@ void main() {
 
     setUp(() {
       db = AppDatabase(NativeDatabase.memory());
-      repository = DriftFrontingSessionRepository(
-        db.frontingSessionsDao,
-        null,
-      );
+      repository = DriftFrontingSessionRepository(db.frontingSessionsDao, null);
       executor = FrontingChangeExecutor(
         repository: repository,
         mutationRunner: MutationRunner(transactionRunner: db.transaction),
@@ -77,10 +74,7 @@ void main() {
 
       test('maps startTime to start', () {
         final start = DateTime(2024, 6, 1, 10, 30);
-        final session = FrontingSession(
-          id: 'session-1',
-          startTime: start,
-        );
+        final session = FrontingSession(id: 'session-1', startTime: start);
         final snapshot = FrontingSanitizerService.toSnapshot(session);
         expect(snapshot.start, start);
       });
@@ -174,7 +168,8 @@ void main() {
           expect(
             snapshot.confidenceIndex,
             confidence.index,
-            reason: 'Expected confidenceIndex ${confidence.index} for $confidence',
+            reason:
+                'Expected confidenceIndex ${confidence.index} for $confidence',
           );
         }
       });
@@ -186,6 +181,7 @@ void main() {
         );
         final snapshot = FrontingSanitizerService.toSnapshot(session);
         expect(snapshot.isDeleted, isFalse);
+        expect(snapshot.sessionType, SessionType.normal);
       });
 
       test('returns a FrontingSessionSnapshot', () {
@@ -201,6 +197,28 @@ void main() {
     // ─── scan ──────────────────────────────────────────────────────────────
 
     test('scan returns empty list when no sessions exist', () async {
+      final issues = await service.scan();
+      expect(issues, isEmpty);
+    });
+
+    test('scan ignores sleep sessions when checking overlaps', () async {
+      final fronting = FrontingSession(
+        id: 'fronting-1',
+        startTime: DateTime(2026, 3, 18, 8),
+        endTime: DateTime(2026, 3, 18, 10),
+        memberId: 'member-1',
+      );
+      final sleep = FrontingSession(
+        id: 'sleep-1',
+        startTime: DateTime(2026, 3, 18, 8, 30),
+        endTime: DateTime(2026, 3, 18, 10, 30),
+        memberId: null,
+        sessionType: SessionType.sleep,
+      );
+
+      await repository.createSession(fronting);
+      await repository.createSession(sleep);
+
       final issues = await service.scan();
       expect(issues, isEmpty);
     });

@@ -174,10 +174,7 @@ void main() {
     });
 
     test('toDomain handles empty string bio and pronouns', () {
-      final row = makeDbMember(
-        bio: '',
-        pronouns: '',
-      );
+      final row = makeDbMember(bio: '', pronouns: '');
       final model = MemberMapper.toDomain(row);
       expect(model.bio, '');
       expect(model.pronouns, '');
@@ -212,7 +209,26 @@ void main() {
       expect(model.coFronterIds, ['co-1', 'co-2']);
       expect(model.notes, 'Felt good');
       expect(model.confidence, domain.FrontConfidence.strong);
+      expect(model.sessionType, domain.SessionType.normal);
+      expect(model.quality, isNull);
+      expect(model.isHealthKitImport, isFalse);
       expect(model.pluralkitUuid, 'pk-fs-1');
+    });
+
+    test('toDomain maps sleep rows with sleep quality fields', () {
+      final row = makeDbFrontingSession(
+        id: 'fs-sleep',
+        memberId: null,
+        sessionType: domain.SessionType.sleep.index,
+        quality: domain.SleepQuality.good.index,
+        isHealthKitImport: true,
+      );
+
+      final model = FrontingSessionMapper.toDomain(row);
+      expect(model.sessionType, domain.SessionType.sleep);
+      expect(model.quality, domain.SleepQuality.good);
+      expect(model.isHealthKitImport, isTrue);
+      expect(model.memberId, isNull);
     });
 
     test('toDomain handles empty coFronterIds string', () {
@@ -279,6 +295,9 @@ void main() {
       expect(jsonDecode(companion.coFronterIds.value), ['a', 'b', 'c']);
       expect(companion.notes.value, 'Test notes');
       expect(companion.confidence.value, domain.FrontConfidence.certain.index);
+      expect(companion.sessionType.value, domain.SessionType.normal.index);
+      expect(companion.quality.value, isNull);
+      expect(companion.isHealthKitImport.value, isFalse);
     });
 
     test('round-trip: domain -> companion -> toDomain preserves data', () {
@@ -296,12 +315,15 @@ void main() {
 
       final row = db.FrontingSession(
         id: companion.id.value,
+        sessionType: companion.sessionType.value,
         startTime: companion.startTime.value,
         endTime: companion.endTime.value,
         memberId: companion.memberId.value,
         coFronterIds: companion.coFronterIds.value,
         notes: companion.notes.value,
         confidence: companion.confidence.value,
+        quality: companion.quality.value,
+        isHealthKitImport: companion.isHealthKitImport.value,
         pluralkitUuid: companion.pluralkitUuid.value,
         isDeleted: false,
       );
@@ -314,10 +336,12 @@ void main() {
       expect(restored.coFronterIds, original.coFronterIds);
       expect(restored.notes, original.notes);
       expect(restored.confidence, original.confidence);
+      expect(restored.sessionType, original.sessionType);
+      expect(restored.quality, original.quality);
+      expect(restored.isHealthKitImport, original.isHealthKitImport);
     });
 
-    test('toCompanion with empty coFronterIds encodes as empty JSON array',
-        () {
+    test('toCompanion with empty coFronterIds encodes as empty JSON array', () {
       final model = domain.FrontingSession(
         id: 'fs-empty',
         startTime: start,

@@ -29,13 +29,14 @@ class SleepModeCard extends ConsumerWidget {
 class _ActiveSleepCard extends ConsumerWidget {
   const _ActiveSleepCard({required this.session});
 
-  final SleepSession session;
+  final FrontingSession session;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
     final sleepColor = Colors.indigo.shade300;
+    final quality = session.quality ?? SleepQuality.unknown;
 
     return Container(
       decoration: BoxDecoration(
@@ -92,11 +93,11 @@ class _ActiveSleepCard extends ConsumerWidget {
             ],
             const SizedBox(height: 16),
             _QualityRating(
-              quality: session.quality,
-              onChanged: (quality) {
-                ref
+              quality: quality,
+              onChanged: (rating) async {
+                await ref
                     .read(sleepNotifierProvider.notifier)
-                    .updateSleepQuality(session.id, quality);
+                    .updateSleepQuality(session.id, rating);
               },
             ),
             const SizedBox(height: 16),
@@ -141,7 +142,7 @@ class _QualityRating extends StatelessWidget {
     return Column(
       children: [
         Text(
-          'Sleep Quality',
+          quality == SleepQuality.unknown ? 'Sleep Quality: Unrated' : 'Sleep Quality: ${quality.label}',
           style: theme.textTheme.labelMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           ),
@@ -151,31 +152,30 @@ class _QualityRating extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(5, (index) {
             final q = qualityValues[index];
-            final isSelected = quality.index >= q.index && quality != SleepQuality.unknown;
-            return IconButton(
-              onPressed: () => onChanged(q),
-              icon: Icon(
-                isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
-                color: isSelected
-                    ? Colors.amber
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                size: 28,
+            final isSelected = quality != SleepQuality.unknown &&
+                quality.index >= q.index;
+            return Semantics(
+              button: true,
+              selected: isSelected,
+              label: 'Rate sleep as ${q.label}',
+              child: IconButton(
+                onPressed: () => onChanged(q),
+                icon: Icon(
+                  isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                  color: isSelected
+                      ? Colors.amber
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                  size: 28,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                constraints: const BoxConstraints.tightFor(
+                  width: 44,
+                  height: 44,
+                ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              constraints: const BoxConstraints(),
             );
           }),
         ),
-        if (quality != SleepQuality.unknown)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              quality.label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: Colors.amber,
-              ),
-            ),
-          ),
       ],
     );
   }

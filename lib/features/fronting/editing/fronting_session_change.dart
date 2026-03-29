@@ -1,3 +1,5 @@
+import 'package:prism_plurality/domain/models/fronting_session.dart';
+
 /// Typed draft for creating a new session.
 class FrontingSessionDraft {
   final String? memberId; // null = Unknown fronter
@@ -6,6 +8,9 @@ class FrontingSessionDraft {
   final List<String> coFronterIds;
   final String? notes;
   final int? confidenceIndex;
+  final SessionType sessionType;
+  final SleepQuality? quality;
+  final bool isHealthKitImport;
 
   const FrontingSessionDraft({
     required this.memberId,
@@ -14,6 +19,9 @@ class FrontingSessionDraft {
     this.coFronterIds = const [],
     this.notes,
     this.confidenceIndex,
+    this.sessionType = SessionType.normal,
+    this.quality,
+    this.isHealthKitImport = false,
   });
 }
 
@@ -65,10 +73,7 @@ class CreateSessionChange extends FrontingSessionChange {
 class UpdateSessionChange extends FrontingSessionChange {
   final String sessionId;
   final FrontingSessionPatch patch;
-  const UpdateSessionChange({
-    required this.sessionId,
-    required this.patch,
-  });
+  const UpdateSessionChange({required this.sessionId, required this.patch});
 }
 
 class DeleteSessionChange extends FrontingSessionChange {

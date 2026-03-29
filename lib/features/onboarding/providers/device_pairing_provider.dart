@@ -360,7 +360,8 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         .getSingle();
     final sessions = await db
         .customSelect(
-          'SELECT COUNT(*) AS c FROM fronting_sessions WHERE is_deleted = 0',
+          'SELECT COUNT(*) AS c FROM fronting_sessions '
+          'WHERE is_deleted = 0 AND session_type = 0',
         )
         .getSingle();
     final convos = await db

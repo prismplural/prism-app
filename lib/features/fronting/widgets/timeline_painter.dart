@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 
 /// Paints the timeline session bars and "now" indicator.
@@ -10,6 +11,7 @@ import 'package:prism_plurality/features/fronting/providers/timeline_providers.d
 class TimelinePainter extends CustomPainter {
   TimelinePainter({
     required this.rows,
+    required this.sleepSessions,
     required this.columnWidth,
     required this.columnPadding,
     required this.pixelsPerHour,
@@ -26,6 +28,7 @@ class TimelinePainter extends CustomPainter {
   }) : super(repaint: repaintListenable);
 
   final List<TimelineMemberRow> rows;
+  final List<FrontingSession> sleepSessions;
   final double columnWidth;
   final double columnPadding;
   final double pixelsPerHour;
@@ -52,10 +55,45 @@ class TimelinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _drawSleepBars(canvas, size);
     _drawAlternatingColumns(canvas, size);
     _drawTimeGrid(canvas, size);
     _drawSessionBars(canvas, size);
     _drawNowLine(canvas, size);
+  }
+
+  void _drawSleepBars(Canvas canvas, Size size) {
+    final now = DateTime.now();
+    final sleepFillPaint = Paint()
+      ..color = Colors.indigo.withValues(alpha: 0.16);
+    final sleepBorderPaint = Paint()
+      ..color = Colors.indigo.withValues(alpha: 0.28)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    for (final session in sleepSessions) {
+      final sessionStart = session.startTime;
+      final sessionEnd = session.endTime ?? now;
+
+      if (sessionEnd.isBefore(viewStart) || sessionStart.isAfter(viewEnd)) {
+        continue;
+      }
+
+      final y1 = math.max(0.0, _timeToY(sessionStart));
+      final y2 = math.min(size.height, _timeToY(sessionEnd));
+      if (y2 < _visibleTop || y1 > _visibleBottom) continue;
+      if (y2 - y1 < 1) continue;
+
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, y1, size.width, y2 - y1),
+        const Radius.circular(10),
+      );
+
+      canvas.drawRRect(rect, sleepFillPaint);
+      if (session.isActive) {
+        canvas.drawRRect(rect, sleepBorderPaint);
+      }
+    }
   }
 
   void _drawAlternatingColumns(Canvas canvas, Size size) {
@@ -172,6 +210,7 @@ class TimelinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant TimelinePainter oldDelegate) {
     return oldDelegate.rows != rows ||
+        oldDelegate.sleepSessions != sleepSessions ||
         oldDelegate.pixelsPerHour != pixelsPerHour ||
         oldDelegate.viewStart != viewStart ||
         oldDelegate.viewEnd != viewEnd ||

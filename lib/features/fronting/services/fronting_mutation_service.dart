@@ -40,7 +40,8 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Start fronting session',
       action: () async {
-        final activeSessions = await _repository.getActiveSessions();
+        final activeSessions = await _repository
+            .getAllActiveSessionsUnfiltered();
         final previousMemberIds = activeSessions
             .map((s) => s.memberId)
             .toList();
@@ -74,7 +75,8 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Start detailed fronting session',
       action: () async {
-        final activeSessions = await _repository.getActiveSessions();
+        final activeSessions = await _repository
+            .getAllActiveSessionsUnfiltered();
         final previousMemberIds = activeSessions
             .map((s) => s.memberId)
             .toList();
@@ -104,7 +106,8 @@ class FrontingMutationService {
     return _mutationRunner.run<List<String?>>(
       actionLabel: 'End fronting session',
       action: () async {
-        final activeSessions = await _repository.getActiveSessions();
+        final activeSessions = await _repository
+            .getAllActiveSessionsUnfiltered();
         final previousMemberIds = activeSessions
             .map((s) => s.memberId)
             .toList();
@@ -124,7 +127,8 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult>(
       actionLabel: 'Switch fronter',
       action: () async {
-        final activeSessions = await _repository.getActiveSessions();
+        final activeSessions = await _repository
+            .getAllActiveSessionsUnfiltered();
         final previousMemberIds = activeSessions
             .map((s) => s.memberId)
             .toList();
@@ -163,6 +167,79 @@ class FrontingMutationService {
               previousMemberIds: previousMemberIds,
             );
         }
+      },
+    );
+  }
+
+  Future<MutationResult<FrontingMutationResult>> startSleep({
+    String? notes,
+    DateTime? startTime,
+    SleepQuality? quality,
+  }) {
+    return _mutationRunner.run<FrontingMutationResult>(
+      actionLabel: 'Start sleep session',
+      action: () async {
+        final activeSessions = await _repository
+            .getAllActiveSessionsUnfiltered();
+        final previousMemberIds = activeSessions
+            .map((s) => s.memberId)
+            .toList();
+        final now = startTime ?? DateTime.now();
+        for (final session in activeSessions) {
+          await _repository.endSession(session.id, now);
+        }
+
+        final created = FrontingSession(
+          id: _uuid.v4(),
+          startTime: now,
+          memberId: null,
+          coFronterIds: const [],
+          notes: notes,
+          sessionType: SessionType.sleep,
+          quality: quality ?? SleepQuality.unknown,
+        );
+        await _repository.createSession(created);
+        return FrontingMutationResult(
+          session: created,
+          previousMemberIds: previousMemberIds,
+        );
+      },
+    );
+  }
+
+  Future<MutationResult<void>> endSleep(String id) {
+    return _mutationRunner.run<void>(
+      actionLabel: 'End sleep session',
+      action: () async {
+        await _repository.endSession(id, DateTime.now());
+      },
+    );
+  }
+
+  Future<MutationResult<FrontingSession>> updateSleepQuality(
+    String id,
+    SleepQuality quality,
+  ) {
+    return _mutationRunner.run<FrontingSession>(
+      actionLabel: 'Update sleep quality',
+      action: () async {
+        final session = await _requireSession(id);
+        final updated = session.copyWith(quality: quality);
+        await _repository.updateSession(updated);
+        return updated;
+      },
+    );
+  }
+
+  Future<MutationResult<void>> deleteSleep(String id) {
+    return _mutationRunner.run<void>(
+      actionLabel: 'Delete sleep session',
+      action: () async {
+        final session = await _requireSession(id);
+        if (!session.isSleep) {
+          throw AppFailure.notFound('Sleep session not found.');
+        }
+        await _repository.deleteSession(id);
       },
     );
   }
@@ -320,6 +397,10 @@ class FrontingMutationService {
           coFronterIds: session.coFronterIds,
           confidence: session.confidence,
           notes: session.notes,
+          pluralkitUuid: session.pluralkitUuid,
+          sessionType: session.sessionType,
+          quality: session.quality,
+          isHealthKitImport: session.isHealthKitImport,
         );
         await _repository.createSession(secondHalf);
         return secondHalf;

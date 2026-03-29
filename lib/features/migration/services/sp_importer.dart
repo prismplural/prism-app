@@ -158,7 +158,6 @@ class SpImporter {
         await db.customStatement('DELETE FROM conversation_categories');
         await db.customStatement('DELETE FROM conversations');
         await db.customStatement('DELETE FROM front_session_comments');
-        await db.customStatement('DELETE FROM sleep_sessions');
         await db.customStatement('DELETE FROM fronting_sessions');
         await db.customStatement('DELETE FROM custom_field_values');
         await db.customStatement('DELETE FROM custom_fields');

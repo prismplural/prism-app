@@ -155,8 +155,15 @@ class ResetDataNotifier extends Notifier<void> {
     final db = ref.read(databaseProvider);
     _log('Resetting fronting sessions');
     await db.transaction(() async {
-      await db.customStatement('DELETE FROM front_session_comments');
-      await db.customStatement('DELETE FROM fronting_sessions');
+      await db.customStatement('''
+        DELETE FROM front_session_comments
+        WHERE session_id IN (
+          SELECT id FROM fronting_sessions WHERE session_type = 0
+        )
+      ''');
+      await db.customStatement(
+        'DELETE FROM fronting_sessions WHERE session_type = 0',
+      );
     });
     _notifyTableChanges(['front_session_comments', 'fronting_sessions']);
   }
@@ -169,7 +176,11 @@ class ResetDataNotifier extends Notifier<void> {
       await db.customStatement('DELETE FROM conversation_categories');
       await db.customStatement('DELETE FROM conversations');
     });
-    _notifyTableChanges(['chat_messages', 'conversation_categories', 'conversations']);
+    _notifyTableChanges([
+      'chat_messages',
+      'conversation_categories',
+      'conversations',
+    ]);
   }
 
   Future<void> _resetPolls() async {
@@ -196,8 +207,23 @@ class ResetDataNotifier extends Notifier<void> {
   Future<void> _resetSleep() async {
     final db = ref.read(databaseProvider);
     _log('Resetting sleep sessions');
-    await db.customStatement('DELETE FROM sleep_sessions');
-    _notifyTableChanges(['sleep_sessions']);
+    await db.transaction(() async {
+      await db.customStatement('DELETE FROM sleep_sessions');
+      await db.customStatement('''
+        DELETE FROM front_session_comments
+        WHERE session_id IN (
+          SELECT id FROM fronting_sessions WHERE session_type = 1
+        )
+      ''');
+      await db.customStatement(
+        'DELETE FROM fronting_sessions WHERE session_type = 1',
+      );
+    });
+    _notifyTableChanges([
+      'sleep_sessions',
+      'front_session_comments',
+      'fronting_sessions',
+    ]);
   }
 
   Future<void> _resetSyncSystem() async {
@@ -304,8 +330,8 @@ class ResetDataNotifier extends Notifier<void> {
       await db.customStatement('DELETE FROM conversation_categories');
       await db.customStatement('DELETE FROM conversations');
       await db.customStatement('DELETE FROM front_session_comments');
-      await db.customStatement('DELETE FROM sleep_sessions');
       await db.customStatement('DELETE FROM fronting_sessions');
+      await db.customStatement('DELETE FROM sleep_sessions');
       await db.customStatement('DELETE FROM custom_field_values');
       await db.customStatement('DELETE FROM custom_fields');
       await db.customStatement('DELETE FROM member_group_entries');
@@ -358,8 +384,8 @@ class ResetDataNotifier extends Notifier<void> {
       'conversation_categories',
       'conversations',
       'front_session_comments',
-      'sleep_sessions',
       'fronting_sessions',
+      'sleep_sessions',
       'custom_field_values',
       'custom_fields',
       'member_group_entries',

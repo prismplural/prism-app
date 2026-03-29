@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_guard.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_session_change.dart';
@@ -22,6 +23,7 @@ void main() {
     String? memberId = 'member1',
     List<String> coFronterIds = const [],
     bool isDeleted = false,
+    SessionType sessionType = SessionType.normal,
   }) {
     return FrontingSessionSnapshot(
       id: id,
@@ -30,6 +32,7 @@ void main() {
       end: end,
       coFronterIds: coFronterIds,
       isDeleted: isDeleted,
+      sessionType: sessionType,
     );
   }
 
@@ -110,34 +113,37 @@ void main() {
       expect(result.duplicates, isEmpty);
     });
 
-    test('edit creates overlap → canSaveDirectly: false, overlappingSessions populated', () {
-      // s1: 00:00 → 01:00  (being edited)
-      // s2: 00:30 → 01:30  (neighbor)
-      // edit: extend s1 end to 01:30 → full overlap with s2
-      final s1 = makeSession(
-        id: 's1',
-        start: base,
-        end: base.add(const Duration(hours: 1)),
-      );
-      final s2 = makeSession(
-        id: 's2',
-        start: base.add(const Duration(minutes: 30)),
-        end: base.add(const Duration(minutes: 90)),
-        memberId: 'member2',
-      );
-      final patch = FrontingSessionPatch(
-        end: base.add(const Duration(minutes: 90)),
-      );
-      final result = guard.validateEdit(
-        original: s1,
-        patch: patch,
-        nearbySessions: [s1, s2],
-        timingMode: FrontingTimingMode.flexible,
-      );
-      expect(result.canSaveDirectly, isFalse);
-      expect(result.overlappingSessions, hasLength(1));
-      expect(result.overlappingSessions.first.id, 's2');
-    });
+    test(
+      'edit creates overlap → canSaveDirectly: false, overlappingSessions populated',
+      () {
+        // s1: 00:00 → 01:00  (being edited)
+        // s2: 00:30 → 01:30  (neighbor)
+        // edit: extend s1 end to 01:30 → full overlap with s2
+        final s1 = makeSession(
+          id: 's1',
+          start: base,
+          end: base.add(const Duration(hours: 1)),
+        );
+        final s2 = makeSession(
+          id: 's2',
+          start: base.add(const Duration(minutes: 30)),
+          end: base.add(const Duration(minutes: 90)),
+          memberId: 'member2',
+        );
+        final patch = FrontingSessionPatch(
+          end: base.add(const Duration(minutes: 90)),
+        );
+        final result = guard.validateEdit(
+          original: s1,
+          patch: patch,
+          nearbySessions: [s1, s2],
+          timingMode: FrontingTimingMode.flexible,
+        );
+        expect(result.canSaveDirectly, isFalse);
+        expect(result.overlappingSessions, hasLength(1));
+        expect(result.overlappingSessions.first.id, 's2');
+      },
+    );
 
     test('touching boundaries are NOT considered overlaps', () {
       // s1: 00:00 → 01:00  (being edited, kept as is)
@@ -165,35 +171,38 @@ void main() {
       expect(result.overlappingSessions, isEmpty);
     });
 
-    test('edit creates gap above flexible threshold → canSaveDirectly: false', () {
-      // prev: -02:00 → 00:00
-      // s1: 00:00 → 01:00  (being edited: move start to 00:30, creating 30-min gap)
-      // flexible threshold = 5 min → 30-min gap is above threshold
-      final prev = makeSession(
-        id: 'prev',
-        start: base.subtract(const Duration(hours: 2)),
-        end: base,
-        memberId: 'member2',
-      );
-      final s1 = makeSession(
-        id: 's1',
-        start: base,
-        end: base.add(const Duration(hours: 1)),
-      );
-      final patch = FrontingSessionPatch(
-        start: base.add(const Duration(minutes: 30)),
-      );
-      final result = guard.validateEdit(
-        original: s1,
-        patch: patch,
-        nearbySessions: [prev, s1],
-        timingMode: FrontingTimingMode.flexible,
-      );
-      expect(result.canSaveDirectly, isFalse);
-      expect(result.gapsCreated, hasLength(1));
-      final gap = result.gapsCreated.first;
-      expect(gap.duration, const Duration(minutes: 30));
-    });
+    test(
+      'edit creates gap above flexible threshold → canSaveDirectly: false',
+      () {
+        // prev: -02:00 → 00:00
+        // s1: 00:00 → 01:00  (being edited: move start to 00:30, creating 30-min gap)
+        // flexible threshold = 5 min → 30-min gap is above threshold
+        final prev = makeSession(
+          id: 'prev',
+          start: base.subtract(const Duration(hours: 2)),
+          end: base,
+          memberId: 'member2',
+        );
+        final s1 = makeSession(
+          id: 's1',
+          start: base,
+          end: base.add(const Duration(hours: 1)),
+        );
+        final patch = FrontingSessionPatch(
+          start: base.add(const Duration(minutes: 30)),
+        );
+        final result = guard.validateEdit(
+          original: s1,
+          patch: patch,
+          nearbySessions: [prev, s1],
+          timingMode: FrontingTimingMode.flexible,
+        );
+        expect(result.canSaveDirectly, isFalse);
+        expect(result.gapsCreated, hasLength(1));
+        final gap = result.gapsCreated.first;
+        expect(gap.duration, const Duration(minutes: 30));
+      },
+    );
 
     test('edit creates gap below flexible threshold → canSaveDirectly: true', () {
       // prev: -02:00 → 00:00
@@ -223,59 +232,90 @@ void main() {
       expect(result.gapsCreated, isEmpty);
     });
 
-    test('edit creates gap at end above strict threshold → canSaveDirectly: false', () {
-      // s1: 00:00 → 02:00  (being edited: shrink end to 01:00, creating 1-hour gap before s2)
-      // next: 02:00 → 03:00
-      // strict threshold = 0 → any gap triggers
-      final s1 = makeSession(
-        id: 's1',
-        start: base,
-        end: base.add(const Duration(hours: 2)),
-      );
-      final s2 = makeSession(
-        id: 's2',
-        start: base.add(const Duration(hours: 2)),
-        end: base.add(const Duration(hours: 3)),
-        memberId: 'member2',
-      );
-      final patch = FrontingSessionPatch(
-        end: base.add(const Duration(hours: 1)),
-      );
-      final result = guard.validateEdit(
-        original: s1,
-        patch: patch,
-        nearbySessions: [s1, s2],
-        timingMode: FrontingTimingMode.strict,
-      );
-      expect(result.canSaveDirectly, isFalse);
-      expect(result.gapsCreated, hasLength(1));
-    });
+    test(
+      'edit creates gap at end above strict threshold → canSaveDirectly: false',
+      () {
+        // s1: 00:00 → 02:00  (being edited: shrink end to 01:00, creating 1-hour gap before s2)
+        // next: 02:00 → 03:00
+        // strict threshold = 0 → any gap triggers
+        final s1 = makeSession(
+          id: 's1',
+          start: base,
+          end: base.add(const Duration(hours: 2)),
+        );
+        final s2 = makeSession(
+          id: 's2',
+          start: base.add(const Duration(hours: 2)),
+          end: base.add(const Duration(hours: 3)),
+          memberId: 'member2',
+        );
+        final patch = FrontingSessionPatch(
+          end: base.add(const Duration(hours: 1)),
+        );
+        final result = guard.validateEdit(
+          original: s1,
+          patch: patch,
+          nearbySessions: [s1, s2],
+          timingMode: FrontingTimingMode.strict,
+        );
+        expect(result.canSaveDirectly, isFalse);
+        expect(result.gapsCreated, hasLength(1));
+      },
+    );
 
-    test('edit creates duplicate → canSaveDirectly: false, duplicates populated', () {
-      // s1: 00:00 → 01:00  member1  (being edited to start 00:00:10)
-      // s2: 00:00 → 01:00  member1  (very similar → duplicate)
-      // duplicate tolerance = 60s by default
-      final s1 = makeSession(
-        id: 's1',
+    test(
+      'edit creates duplicate → canSaveDirectly: false, duplicates populated',
+      () {
+        // s1: 00:00 → 01:00  member1  (being edited to start 00:00:10)
+        // s2: 00:00 → 01:00  member1  (very similar → duplicate)
+        // duplicate tolerance = 60s by default
+        final s1 = makeSession(
+          id: 's1',
+          start: base,
+          end: base.add(const Duration(hours: 1)),
+        );
+        final s2 = makeSession(
+          id: 's2',
+          start: base.add(const Duration(seconds: 5)),
+          end: base.add(const Duration(hours: 1, seconds: 5)),
+        );
+        // patch: no time change — already overlaps
+        const patch = FrontingSessionPatch(); // keep as-is
+        final result = guard.validateEdit(
+          original: s1,
+          patch: patch,
+          nearbySessions: [s1, s2],
+          timingMode: FrontingTimingMode.flexible,
+        );
+        expect(result.canSaveDirectly, isFalse);
+        expect(result.duplicates, hasLength(1));
+        expect(result.duplicates.first.id, 's2');
+      },
+    );
+
+    test('overlapping sleep sessions are ignored for fronting edits', () {
+      final original = makeSession(
+        id: 'front',
         start: base,
         end: base.add(const Duration(hours: 1)),
       );
-      final s2 = makeSession(
-        id: 's2',
-        start: base.add(const Duration(seconds: 5)),
-        end: base.add(const Duration(hours: 1, seconds: 5)),
+      final sleepNeighbor = makeSession(
+        id: 'sleep',
+        start: base.add(const Duration(minutes: 30)),
+        end: base.add(const Duration(hours: 1, minutes: 30)),
+        memberId: null,
+        sessionType: SessionType.sleep,
       );
-      // patch: no time change — already overlaps
-      const patch = FrontingSessionPatch(); // keep as-is
+
       final result = guard.validateEdit(
-        original: s1,
-        patch: patch,
-        nearbySessions: [s1, s2],
+        original: original,
+        patch: const FrontingSessionPatch(),
+        nearbySessions: [original, sleepNeighbor],
         timingMode: FrontingTimingMode.flexible,
       );
-      expect(result.canSaveDirectly, isFalse);
-      expect(result.duplicates, hasLength(1));
-      expect(result.duplicates.first.id, 's2');
+
+      expect(result.overlappingSessions, isEmpty);
+      expect(result.canSaveDirectly, isTrue);
     });
   });
 
@@ -308,6 +348,36 @@ void main() {
       final ctx = guard.getDeleteContext(target, [prev, target, next]);
       expect(ctx.previous?.id, 'prev');
       expect(ctx.next?.id, 'next');
+    });
+
+    test('ignores sleep-only neighbors when building delete context', () {
+      final sleepPrev = makeSession(
+        id: 'sleep-prev',
+        start: base.subtract(const Duration(hours: 2)),
+        end: base.subtract(const Duration(hours: 1)),
+        memberId: null,
+        sessionType: SessionType.sleep,
+      );
+      final target = makeSession(
+        id: 'target',
+        start: base,
+        end: base.add(const Duration(hours: 1)),
+      );
+      final sleepNext = makeSession(
+        id: 'sleep-next',
+        start: base.add(const Duration(hours: 1)),
+        end: base.add(const Duration(hours: 2)),
+        memberId: null,
+        sessionType: SessionType.sleep,
+      );
+
+      final ctx = guard.getDeleteContext(target, [
+        sleepPrev,
+        target,
+        sleepNext,
+      ]);
+      expect(ctx.previous, isNull);
+      expect(ctx.next, isNull);
     });
 
     test('returns null neighbors when none exist', () {
@@ -370,10 +440,14 @@ void main() {
           end: base.add(const Duration(hours: 1)),
         );
         final ctx = guard.getDeleteContext(target, [prev, target]);
-        expect(ctx.availableStrategies,
-            contains(FrontingDeleteStrategy.extendPrevious));
-        expect(ctx.availableStrategies,
-            isNot(contains(FrontingDeleteStrategy.extendNext)));
+        expect(
+          ctx.availableStrategies,
+          contains(FrontingDeleteStrategy.extendPrevious),
+        );
+        expect(
+          ctx.availableStrategies,
+          isNot(contains(FrontingDeleteStrategy.extendNext)),
+        );
       });
 
       test('has next → includes extendNext', () {
@@ -389,85 +463,117 @@ void main() {
           memberId: 'member2',
         );
         final ctx = guard.getDeleteContext(target, [target, next]);
-        expect(ctx.availableStrategies,
-            contains(FrontingDeleteStrategy.extendNext));
-        expect(ctx.availableStrategies,
-            isNot(contains(FrontingDeleteStrategy.extendPrevious)));
+        expect(
+          ctx.availableStrategies,
+          contains(FrontingDeleteStrategy.extendNext),
+        );
+        expect(
+          ctx.availableStrategies,
+          isNot(contains(FrontingDeleteStrategy.extendPrevious)),
+        );
       });
 
-      test('both neighbors + closed target → includes splitBetweenNeighbors', () {
-        final prev = makeSession(
-          id: 'prev',
-          start: base.subtract(const Duration(hours: 1)),
-          end: base,
-          memberId: 'member2',
-        );
-        final target = makeSession(
-          id: 'target',
-          start: base,
-          end: base.add(const Duration(hours: 1)), // closed
-        );
-        final next = makeSession(
-          id: 'next',
-          start: base.add(const Duration(hours: 1)),
-          end: base.add(const Duration(hours: 2)),
-          memberId: 'member2',
-        );
-        final ctx = guard.getDeleteContext(target, [prev, target, next]);
-        expect(ctx.availableStrategies,
-            contains(FrontingDeleteStrategy.splitBetweenNeighbors));
-      });
+      test(
+        'both neighbors + closed target → includes splitBetweenNeighbors',
+        () {
+          final prev = makeSession(
+            id: 'prev',
+            start: base.subtract(const Duration(hours: 1)),
+            end: base,
+            memberId: 'member2',
+          );
+          final target = makeSession(
+            id: 'target',
+            start: base,
+            end: base.add(const Duration(hours: 1)), // closed
+          );
+          final next = makeSession(
+            id: 'next',
+            start: base.add(const Duration(hours: 1)),
+            end: base.add(const Duration(hours: 2)),
+            memberId: 'member2',
+          );
+          final ctx = guard.getDeleteContext(target, [prev, target, next]);
+          expect(
+            ctx.availableStrategies,
+            contains(FrontingDeleteStrategy.splitBetweenNeighbors),
+          );
+        },
+      );
 
-      test('both neighbors + active target (null end) → no splitBetweenNeighbors', () {
-        final prev = makeSession(
-          id: 'prev',
-          start: base.subtract(const Duration(hours: 1)),
-          end: base,
-          memberId: 'member2',
-        );
-        final target = makeSession(
-          id: 'target',
-          start: base,
-          end: null, // active — no end time
-        );
-        final next = makeSession(
-          id: 'next',
-          start: base.add(const Duration(hours: 1)),
-          end: base.add(const Duration(hours: 2)),
-          memberId: 'member2',
-        );
-        final ctx = guard.getDeleteContext(target, [prev, target, next]);
-        expect(ctx.availableStrategies,
-            isNot(contains(FrontingDeleteStrategy.splitBetweenNeighbors)));
-      });
+      test(
+        'both neighbors + active target (null end) → no splitBetweenNeighbors',
+        () {
+          final prev = makeSession(
+            id: 'prev',
+            start: base.subtract(const Duration(hours: 1)),
+            end: base,
+            memberId: 'member2',
+          );
+          final target = makeSession(
+            id: 'target',
+            start: base,
+            end: null, // active — no end time
+          );
+          final next = makeSession(
+            id: 'next',
+            start: base.add(const Duration(hours: 1)),
+            end: base.add(const Duration(hours: 2)),
+            memberId: 'member2',
+          );
+          final ctx = guard.getDeleteContext(target, [prev, target, next]);
+          expect(
+            ctx.availableStrategies,
+            isNot(contains(FrontingDeleteStrategy.splitBetweenNeighbors)),
+          );
+        },
+      );
 
-      test('all 5 strategies available when both neighbors + closed target', () {
-        final prev = makeSession(
-          id: 'prev',
-          start: base.subtract(const Duration(hours: 1)),
-          end: base,
-          memberId: 'member2',
-        );
-        final target = makeSession(
-          id: 'target',
+      test(
+        'all 5 strategies available when both neighbors + closed target',
+        () {
+          final prev = makeSession(
+            id: 'prev',
+            start: base.subtract(const Duration(hours: 1)),
+            end: base,
+            memberId: 'member2',
+          );
+          final target = makeSession(
+            id: 'target',
+            start: base,
+            end: base.add(const Duration(hours: 1)),
+          );
+          final next = makeSession(
+            id: 'next',
+            start: base.add(const Duration(hours: 1)),
+            end: base.add(const Duration(hours: 2)),
+            memberId: 'member2',
+          );
+          final ctx = guard.getDeleteContext(target, [prev, target, next]);
+          expect(ctx.availableStrategies, hasLength(5));
+          expect(
+            ctx.availableStrategies,
+            containsAll([
+              FrontingDeleteStrategy.extendPrevious,
+              FrontingDeleteStrategy.extendNext,
+              FrontingDeleteStrategy.splitBetweenNeighbors,
+              FrontingDeleteStrategy.convertToUnknown,
+              FrontingDeleteStrategy.leaveGap,
+            ]),
+          );
+        },
+      );
+
+      test('sleep delete only offers leave gap', () {
+        final sleep = makeSession(
+          id: 'sleep',
           start: base,
           end: base.add(const Duration(hours: 1)),
+          memberId: null,
+          sessionType: SessionType.sleep,
         );
-        final next = makeSession(
-          id: 'next',
-          start: base.add(const Duration(hours: 1)),
-          end: base.add(const Duration(hours: 2)),
-          memberId: 'member2',
-        );
-        final ctx = guard.getDeleteContext(target, [prev, target, next]);
-        expect(ctx.availableStrategies, hasLength(5));
-        expect(ctx.availableStrategies, containsAll([
-          FrontingDeleteStrategy.extendPrevious,
-          FrontingDeleteStrategy.extendNext,
-          FrontingDeleteStrategy.splitBetweenNeighbors,
-          FrontingDeleteStrategy.convertToUnknown,
-          FrontingDeleteStrategy.leaveGap,
-        ]));
+        final ctx = guard.getDeleteContext(sleep, [sleep]);
+        expect(ctx.availableStrategies, [FrontingDeleteStrategy.leaveGap]);
       });
     });
   });
@@ -479,10 +585,16 @@ void main() {
   group('FrontingDeleteStrategy labels/descriptions', () {
     test('all strategies have non-empty label and description', () {
       for (final strategy in FrontingDeleteStrategy.values) {
-        expect(strategy.label, isNotEmpty,
-            reason: '${strategy.name}.label should be non-empty');
-        expect(strategy.description, isNotEmpty,
-            reason: '${strategy.name}.description should be non-empty');
+        expect(
+          strategy.label,
+          isNotEmpty,
+          reason: '${strategy.name}.label should be non-empty',
+        );
+        expect(
+          strategy.description,
+          isNotEmpty,
+          reason: '${strategy.name}.description should be non-empty',
+        );
       }
     });
   });

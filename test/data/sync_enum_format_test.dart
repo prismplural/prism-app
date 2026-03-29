@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
-import 'package:prism_plurality/domain/models/sleep_session.dart';
 
 /// Verifies that enum `.index` produces the expected int values used in
 /// sync field maps. These values are written to the wire as integers and

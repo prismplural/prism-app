@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
@@ -73,7 +75,7 @@ class SleepHistoryList extends ConsumerWidget {
 class _SleepSessionTile extends ConsumerWidget {
   const _SleepSessionTile({required this.session});
 
-  final SleepSession session;
+  final FrontingSession session;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,6 +85,10 @@ class _SleepSessionTile extends ConsumerWidget {
     final endStr = session.endTime?.toTimeString();
     final subtitle =
         endStr != null ? '$startStr - $endStr' : '$startStr - now';
+    final qualityLabel =
+        session.quality == null || session.quality == SleepQuality.unknown
+            ? 'Unrated'
+            : session.quality!.label;
 
     return ListTile(
       leading: CircleAvatar(
@@ -95,21 +101,12 @@ class _SleepSessionTile extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(subtitle),
-          if (session.quality != SleepQuality.unknown)
-            Row(
-              children: List.generate(5, (i) {
-                return Icon(
-                  i < session.quality.index
-                      ? Icons.star_rounded
-                      : Icons.star_outline_rounded,
-                  size: 14,
-                  color: i < session.quality.index
-                      ? theme.colorScheme.tertiary
-                      : theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.3),
-                );
-              }),
+          Text(
+            qualityLabel,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
+          ),
           if (session.notes != null && session.notes!.isNotEmpty)
             Text(
               session.notes!,
@@ -139,8 +136,10 @@ class _SleepSessionTile extends ConsumerWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-      isThreeLine: session.quality != SleepQuality.unknown ||
-          (session.notes != null && session.notes!.isNotEmpty),
+      isThreeLine: session.notes != null && session.notes!.isNotEmpty,
+      onTap: () {
+        context.push(AppRoutePaths.session(session.id));
+      },
       onLongPress: () {
         _showDeleteDialog(context, ref);
       },
@@ -156,7 +155,7 @@ class _SleepSessionTile extends ConsumerWidget {
       destructive: true,
     );
     if (confirmed) {
-      ref.read(sleepNotifierProvider.notifier).deleteSleep(session.id);
+      await ref.read(sleepNotifierProvider.notifier).deleteSleep(session.id);
       ref.invalidate(recentSleepSessionsProvider);
     }
   }

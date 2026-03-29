@@ -1,16 +1,16 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
-    hide Habit, HabitCompletion;
+    hide FrontingSession, Habit, HabitCompletion;
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_habit_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
-import 'package:prism_plurality/data/repositories/drift_sleep_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
@@ -19,6 +19,7 @@ import 'package:prism_plurality/data/repositories/drift_front_session_comments_r
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -31,69 +32,87 @@ import 'package:prism_plurality/features/data_management/services/data_import_se
 AppDatabase _makeDb() => AppDatabase(NativeDatabase.memory());
 
 DataExportService _makeExport(AppDatabase db) => DataExportService(
-      memberRepository: DriftMemberRepository(db.membersDao, null),
-      frontingSessionRepository:
-          DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-      conversationRepository:
-          DriftConversationRepository(db.conversationsDao, null),
-      chatMessageRepository:
-          DriftChatMessageRepository(db.chatMessagesDao, null),
-      pollRepository: DriftPollRepository(
-          db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null),
-      sleepSessionRepository:
-          DriftSleepSessionRepository(db.sleepSessionsDao, null),
-      systemSettingsRepository:
-          DriftSystemSettingsRepository(db.systemSettingsDao, null),
-      habitRepository: DriftHabitRepository(db.habitsDao, null),
-      pluralKitSyncDao: db.pluralKitSyncDao,
-      memberGroupsRepository:
-          DriftMemberGroupsRepository(db.memberGroupsDao, null),
-      customFieldsRepository:
-          DriftCustomFieldsRepository(db.customFieldsDao, null),
-      notesRepository: DriftNotesRepository(db.notesDao, null),
-      frontSessionCommentsRepository:
-          DriftFrontSessionCommentsRepository(db.frontSessionCommentsDao, null),
-      conversationCategoriesRepository:
-          DriftConversationCategoriesRepository(
-              db.conversationCategoriesDao, null),
-      remindersRepository: DriftRemindersRepository(db.remindersDao, null),
-      friendsRepository: DriftFriendsRepository(db.friendsDao, null),
-    );
+  memberRepository: DriftMemberRepository(db.membersDao, null),
+  frontingSessionRepository: DriftFrontingSessionRepository(
+    db.frontingSessionsDao,
+    null,
+  ),
+  conversationRepository: DriftConversationRepository(
+    db.conversationsDao,
+    null,
+  ),
+  chatMessageRepository: DriftChatMessageRepository(db.chatMessagesDao, null),
+  pollRepository: DriftPollRepository(
+    db.pollsDao,
+    db.pollOptionsDao,
+    db.pollVotesDao,
+    null,
+  ),
+  systemSettingsRepository: DriftSystemSettingsRepository(
+    db.systemSettingsDao,
+    null,
+  ),
+  habitRepository: DriftHabitRepository(db.habitsDao, null),
+  pluralKitSyncDao: db.pluralKitSyncDao,
+  memberGroupsRepository: DriftMemberGroupsRepository(db.memberGroupsDao, null),
+  customFieldsRepository: DriftCustomFieldsRepository(db.customFieldsDao, null),
+  notesRepository: DriftNotesRepository(db.notesDao, null),
+  frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+    db.frontSessionCommentsDao,
+    null,
+  ),
+  conversationCategoriesRepository: DriftConversationCategoriesRepository(
+    db.conversationCategoriesDao,
+    null,
+  ),
+  remindersRepository: DriftRemindersRepository(db.remindersDao, null),
+  friendsRepository: DriftFriendsRepository(db.friendsDao, null),
+);
 
 DataImportService _makeImport(AppDatabase db) => DataImportService(
-      db: db,
-      memberRepository: DriftMemberRepository(db.membersDao, null),
-      frontingSessionRepository:
-          DriftFrontingSessionRepository(db.frontingSessionsDao, null),
-      conversationRepository:
-          DriftConversationRepository(db.conversationsDao, null),
-      chatMessageRepository:
-          DriftChatMessageRepository(db.chatMessagesDao, null),
-      pollRepository: DriftPollRepository(
-          db.pollsDao, db.pollOptionsDao, db.pollVotesDao, null),
-      sleepSessionRepository:
-          DriftSleepSessionRepository(db.sleepSessionsDao, null),
-      systemSettingsRepository:
-          DriftSystemSettingsRepository(db.systemSettingsDao, null),
-      habitRepository: DriftHabitRepository(db.habitsDao, null),
-      pluralKitSyncDao: db.pluralKitSyncDao,
-      memberGroupsRepository:
-          DriftMemberGroupsRepository(db.memberGroupsDao, null),
-      customFieldsRepository:
-          DriftCustomFieldsRepository(db.customFieldsDao, null),
-      notesRepository: DriftNotesRepository(db.notesDao, null),
-      frontSessionCommentsRepository:
-          DriftFrontSessionCommentsRepository(db.frontSessionCommentsDao, null),
-      conversationCategoriesRepository:
-          DriftConversationCategoriesRepository(
-              db.conversationCategoriesDao, null),
-      remindersRepository: DriftRemindersRepository(db.remindersDao, null),
-      friendsRepository: DriftFriendsRepository(db.friendsDao, null),
-    );
+  db: db,
+  memberRepository: DriftMemberRepository(db.membersDao, null),
+  frontingSessionRepository: DriftFrontingSessionRepository(
+    db.frontingSessionsDao,
+    null,
+  ),
+  conversationRepository: DriftConversationRepository(
+    db.conversationsDao,
+    null,
+  ),
+  chatMessageRepository: DriftChatMessageRepository(db.chatMessagesDao, null),
+  pollRepository: DriftPollRepository(
+    db.pollsDao,
+    db.pollOptionsDao,
+    db.pollVotesDao,
+    null,
+  ),
+  systemSettingsRepository: DriftSystemSettingsRepository(
+    db.systemSettingsDao,
+    null,
+  ),
+  habitRepository: DriftHabitRepository(db.habitsDao, null),
+  pluralKitSyncDao: db.pluralKitSyncDao,
+  memberGroupsRepository: DriftMemberGroupsRepository(db.memberGroupsDao, null),
+  customFieldsRepository: DriftCustomFieldsRepository(db.customFieldsDao, null),
+  notesRepository: DriftNotesRepository(db.notesDao, null),
+  frontSessionCommentsRepository: DriftFrontSessionCommentsRepository(
+    db.frontSessionCommentsDao,
+    null,
+  ),
+  conversationCategoriesRepository: DriftConversationCategoriesRepository(
+    db.conversationCategoriesDao,
+    null,
+  ),
+  remindersRepository: DriftRemindersRepository(db.remindersDao, null),
+  friendsRepository: DriftFriendsRepository(db.friendsDao, null),
+);
 
 /// Serialize a [V3Export] to JSON string and back through [DataImportService].
 Future<ImportResult> _roundtrip(
-    DataExportService exportSvc, DataImportService importSvc) async {
+  DataExportService exportSvc,
+  DataImportService importSvc,
+) async {
   final export = await exportSvc.buildExport();
   final jsonStr = const JsonEncoder().convert(export.toJson());
   return importSvc.importData(jsonStr);
@@ -101,6 +120,7 @@ Future<ImportResult> _roundtrip(
 
 void main() {
   group('V3 export/import roundtrip', () {
+    late bool previousMultipleDbWarningSetting;
     late AppDatabase sourceDb;
     late AppDatabase targetDb;
     late DataExportService exportService;
@@ -108,15 +128,29 @@ void main() {
     late HabitRepository sourceHabitRepo;
     late SystemSettingsRepository sourceSettingsRepo;
 
+    setUpAll(() {
+      previousMultipleDbWarningSetting =
+          drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases;
+      // These tests intentionally keep isolated source and target in-memory
+      // databases open at the same time to verify export/import roundtrips.
+      drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+    });
+
+    tearDownAll(() {
+      drift.driftRuntimeOptions.dontWarnAboutMultipleDatabases =
+          previousMultipleDbWarningSetting;
+    });
+
     setUp(() {
       sourceDb = _makeDb();
       targetDb = _makeDb();
       exportService = _makeExport(sourceDb);
       importService = _makeImport(targetDb);
-      sourceHabitRepo =
-          DriftHabitRepository(sourceDb.habitsDao, null);
-      sourceSettingsRepo =
-          DriftSystemSettingsRepository(sourceDb.systemSettingsDao, null);
+      sourceHabitRepo = DriftHabitRepository(sourceDb.habitsDao, null);
+      sourceSettingsRepo = DriftSystemSettingsRepository(
+        sourceDb.systemSettingsDao,
+        null,
+      );
     });
 
     tearDown(() async {
@@ -184,8 +218,7 @@ void main() {
       expect(result.habitCompletionsCreated, 2);
 
       // Assert: habit fields restored correctly
-      final targetHabitRepo =
-          DriftHabitRepository(targetDb.habitsDao, null);
+      final targetHabitRepo = DriftHabitRepository(targetDb.habitsDao, null);
       final importedHabits = await targetHabitRepo.getAllHabits();
       expect(importedHabits, hasLength(1));
       final importedHabit = importedHabits.single;
@@ -202,63 +235,70 @@ void main() {
       expect(importedHabit.notificationMessage, habit.notificationMessage);
       expect(importedHabit.assignedMemberId, habit.assignedMemberId);
       expect(
-          importedHabit.onlyNotifyWhenFronting, habit.onlyNotifyWhenFronting);
+        importedHabit.onlyNotifyWhenFronting,
+        habit.onlyNotifyWhenFronting,
+      );
       expect(importedHabit.isPrivate, habit.isPrivate);
       expect(importedHabit.currentStreak, habit.currentStreak);
       expect(importedHabit.bestStreak, habit.bestStreak);
       expect(importedHabit.totalCompletions, habit.totalCompletions);
 
       // Assert: completions restored
-      final importedCompletions =
-          await targetHabitRepo.getCompletionsForHabit('habit-1');
+      final importedCompletions = await targetHabitRepo.getCompletionsForHabit(
+        'habit-1',
+      );
       expect(importedCompletions, hasLength(2));
 
-      final c1 =
-          importedCompletions.firstWhere((c) => c.id == 'completion-1');
+      final c1 = importedCompletions.firstWhere((c) => c.id == 'completion-1');
       expect(c1.habitId, 'habit-1');
       expect(c1.completedByMemberId, 'member-1');
       expect(c1.notes, 'Felt great!');
       expect(c1.wasFronting, true);
       expect(c1.rating, 5);
 
-      final c2 =
-          importedCompletions.firstWhere((c) => c.id == 'completion-2');
+      final c2 = importedCompletions.firstWhere((c) => c.id == 'completion-2');
       expect(c2.completedByMemberId, isNull);
       expect(c2.notes, isNull);
       expect(c2.wasFronting, false);
       expect(c2.rating, isNull);
     });
 
-    test('all 5 previously-missing SystemSettings fields survive roundtrip',
-        () async {
-      // Arrange: update settings with non-default values for the 5 new fields
-      await sourceSettingsRepo.updateSettings(const SystemSettings(
-        systemName: 'Test System',
-        themeBrightness: ThemeBrightness.dark,
-        themeStyle: ThemeStyle.oled,
-        quickSwitchThresholdSeconds: 45,
-        chatLogsFront: true,
-        syncThemeEnabled: true,
-      ));
+    test(
+      'all 5 previously-missing SystemSettings fields survive roundtrip',
+      () async {
+        // Arrange: update settings with non-default values for the 5 new fields
+        await sourceSettingsRepo.updateSettings(
+          const SystemSettings(
+            systemName: 'Test System',
+            themeBrightness: ThemeBrightness.dark,
+            themeStyle: ThemeStyle.oled,
+            quickSwitchThresholdSeconds: 45,
+            chatLogsFront: true,
+            syncThemeEnabled: true,
+          ),
+        );
 
-      // Act
-      final result = await _roundtrip(exportService, importService);
+        // Act
+        final result = await _roundtrip(exportService, importService);
 
-      // Assert: import succeeded
+        // Assert: import succeeded
 
-      expect(result.settingsUpdated, true);
+        expect(result.settingsUpdated, true);
 
-      // Assert: all 5 fields restored
-      final targetSettingsRepo = DriftSystemSettingsRepository(
-          targetDb.systemSettingsDao, null);
-      final imported = await targetSettingsRepo.getSettings();
-      expect(imported.themeBrightness, ThemeBrightness.dark);
-      expect(imported.themeStyle, ThemeStyle.oled);
-      expect(imported.quickSwitchThresholdSeconds, 45);
-      expect(imported.chatLogsFront, true);
-      expect(imported.syncThemeEnabled, true);
-      expect(imported.systemName, 'Test System');
-    });
+        // Assert: all 5 fields restored
+        final targetSettingsRepo = DriftSystemSettingsRepository(
+          targetDb.systemSettingsDao,
+          null,
+        );
+        final imported = await targetSettingsRepo.getSettings();
+        expect(imported.themeBrightness, ThemeBrightness.dark);
+        expect(imported.themeStyle, ThemeStyle.oled);
+        expect(imported.quickSwitchThresholdSeconds, 45);
+        expect(imported.chatLogsFront, true);
+        expect(imported.syncThemeEnabled, true);
+        expect(imported.systemName, 'Test System');
+      },
+    );
 
     test('V3SystemSettings JSON serialization includes all new fields', () {
       // Verify toJson/fromJson symmetry for the 5 new fields
@@ -280,49 +320,90 @@ void main() {
       final roundtripped = V3SystemSettings.fromJson(json);
       expect(roundtripped.themeBrightness, original.themeBrightness);
       expect(roundtripped.themeStyle, original.themeStyle);
-      expect(roundtripped.quickSwitchThresholdSeconds,
-          original.quickSwitchThresholdSeconds);
+      expect(
+        roundtripped.quickSwitchThresholdSeconds,
+        original.quickSwitchThresholdSeconds,
+      );
       expect(roundtripped.chatLogsFront, original.chatLogsFront);
       expect(roundtripped.syncThemeEnabled, original.syncThemeEnabled);
     });
 
     test(
-        'V3SystemSettings fromJson defaults new fields to safe values for old exports',
-        () {
-      // Simulate an old export that lacks the 5 new fields
-      final oldJson = <String, dynamic>{
-        'showQuickFront': true,
-        'accentColorHex': '#7C3AED',
-        'perMemberAccentColors': true,
-        'terminology': 0,
-        'frontingRemindersEnabled': false,
-        'frontingReminderIntervalMinutes': 60,
-        'themeMode': 0,
-        'chatEnabled': true,
-        'pollsEnabled': true,
-        'habitsEnabled': true,
-        'sleepTrackingEnabled': true,
-        'hasCompletedOnboarding': false,
-      };
+      'V3SystemSettings fromJson defaults new fields to safe values for old exports',
+      () {
+        // Simulate an old export that lacks the 5 new fields
+        final oldJson = <String, dynamic>{
+          'showQuickFront': true,
+          'accentColorHex': '#7C3AED',
+          'perMemberAccentColors': true,
+          'terminology': 0,
+          'frontingRemindersEnabled': false,
+          'frontingReminderIntervalMinutes': 60,
+          'themeMode': 0,
+          'chatEnabled': true,
+          'pollsEnabled': true,
+          'habitsEnabled': true,
+          'sleepTrackingEnabled': true,
+          'hasCompletedOnboarding': false,
+        };
 
-      final parsed = V3SystemSettings.fromJson(oldJson);
-      expect(parsed.themeBrightness, 0); // system
-      expect(parsed.themeStyle, 0); // standard
-      expect(parsed.quickSwitchThresholdSeconds, 30);
-      expect(parsed.chatLogsFront, false);
-      expect(parsed.syncThemeEnabled, false);
-    });
+        final parsed = V3SystemSettings.fromJson(oldJson);
+        expect(parsed.themeBrightness, 0); // system
+        expect(parsed.themeStyle, 0); // standard
+        expect(parsed.quickSwitchThresholdSeconds, 30);
+        expect(parsed.chatLogsFront, false);
+        expect(parsed.syncThemeEnabled, false);
+      },
+    );
+
+    test(
+      'sleep sessions survive export → import as unified fronting rows',
+      () async {
+        final sleepRepo = DriftFrontingSessionRepository(
+          sourceDb.frontingSessionsDao,
+          null,
+        );
+        await sleepRepo.createSession(
+          FrontingSession(
+            id: 'sleep-1',
+            startTime: DateTime(2026, 1, 20, 22, 0, 0).toUtc(),
+            endTime: DateTime(2026, 1, 21, 6, 0, 0).toUtc(),
+            memberId: null,
+            sessionType: SessionType.sleep,
+            quality: SleepQuality.good,
+            notes: 'Slept well',
+            isHealthKitImport: true,
+          ),
+        );
+
+        final result = await _roundtrip(exportService, importService);
+        expect(result.sleepSessionsCreated, 1);
+
+        final targetSleepRepo = DriftFrontingSessionRepository(
+          targetDb.frontingSessionsDao,
+          null,
+        );
+        final imported = await targetSleepRepo.getAllSessions();
+        expect(imported, hasLength(1));
+        expect(imported.single.id, 'sleep-1');
+        expect(imported.single.sessionType, SessionType.sleep);
+        expect(imported.single.quality, SleepQuality.good);
+        expect(imported.single.isHealthKitImport, isTrue);
+      },
+    );
 
     test('idempotent import skips already-imported habits', () async {
       // Arrange: create one habit in source
       final now = DateTime(2026, 2, 1).toUtc();
-      await sourceHabitRepo.createHabit(Habit(
-        id: 'habit-idempotent',
-        name: 'Idempotent Habit',
-        createdAt: now,
-        modifiedAt: now,
-        frequency: HabitFrequency.daily,
-      ));
+      await sourceHabitRepo.createHabit(
+        Habit(
+          id: 'habit-idempotent',
+          name: 'Idempotent Habit',
+          createdAt: now,
+          modifiedAt: now,
+          frequency: HabitFrequency.daily,
+        ),
+      );
 
       // First import
       final result1 = await _roundtrip(exportService, importService);

@@ -60,7 +60,9 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Stream<List<Member>> watchActiveMembers() {
-    return Stream.value(List.unmodifiable(_members.where((member) => member.isActive)));
+    return Stream.value(
+      List.unmodifiable(_members.where((member) => member.isActive)),
+    );
   }
 
   @override
@@ -72,9 +74,9 @@ class FakeMemberRepository implements MemberRepository {
   Stream<Member?> watchMemberById(String id) {
     return Stream.value(
       _members.cast<Member?>().firstWhere(
-            (member) => member?.id == id,
-            orElse: () => null,
-          ),
+        (member) => member?.id == id,
+        orElse: () => null,
+      ),
     );
   }
 
@@ -169,8 +171,7 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
       updateSettings(settings.copyWith(timingMode: value));
   @override
   Future<void> updateFrontingReminderIntervalMinutes(int value) async =>
-      updateSettings(
-          settings.copyWith(frontingReminderIntervalMinutes: value));
+      updateSettings(settings.copyWith(frontingReminderIntervalMinutes: value));
   @override
   Future<void> updateQuickSwitchThresholdSeconds(int value) async =>
       updateSettings(settings.copyWith(quickSwitchThresholdSeconds: value));
@@ -179,35 +180,38 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
     required SystemTerminology terminology,
     String? customTerminology,
     String? customPluralTerminology,
-  }) async =>
-      updateSettings(settings.copyWith(
-        terminology: terminology,
-        customTerminology: customTerminology,
-        customPluralTerminology: customPluralTerminology,
-      ));
+  }) async => updateSettings(
+    settings.copyWith(
+      terminology: terminology,
+      customTerminology: customTerminology,
+      customPluralTerminology: customPluralTerminology,
+    ),
+  );
   @override
   Future<void> updateFrontingReminders({
     required bool enabled,
     required int intervalMinutes,
-  }) async =>
-      updateSettings(settings.copyWith(
-        frontingRemindersEnabled: enabled,
-        frontingReminderIntervalMinutes: intervalMinutes,
-      ));
+  }) async => updateSettings(
+    settings.copyWith(
+      frontingRemindersEnabled: enabled,
+      frontingReminderIntervalMinutes: intervalMinutes,
+    ),
+  );
   @override
   Future<void> updateFeatureToggles({
     bool? chatEnabled,
     bool? pollsEnabled,
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
-  }) async =>
-      updateSettings(settings.copyWith(
-        chatEnabled: chatEnabled ?? settings.chatEnabled,
-        pollsEnabled: pollsEnabled ?? settings.pollsEnabled,
-        habitsEnabled: habitsEnabled ?? settings.habitsEnabled,
-        sleepTrackingEnabled:
-            sleepTrackingEnabled ?? settings.sleepTrackingEnabled,
-      ));
+  }) async => updateSettings(
+    settings.copyWith(
+      chatEnabled: chatEnabled ?? settings.chatEnabled,
+      pollsEnabled: pollsEnabled ?? settings.pollsEnabled,
+      habitsEnabled: habitsEnabled ?? settings.habitsEnabled,
+      sleepTrackingEnabled:
+          sleepTrackingEnabled ?? settings.sleepTrackingEnabled,
+    ),
+  );
   @override
   Future<void> updateRemindersEnabled(bool value) async =>
       updateSettings(settings.copyWith(remindersEnabled: value));
@@ -287,7 +291,9 @@ class FakeConversationRepository implements ConversationRepository {
 
   @override
   Future<void> updateConversation(Conversation conversation) async {
-    final index = conversations.indexWhere((existing) => existing.id == conversation.id);
+    final index = conversations.indexWhere(
+      (existing) => existing.id == conversation.id,
+    );
     if (index >= 0) {
       conversations[index] = conversation;
     }
@@ -305,7 +311,10 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
-  Future<void> addParticipantIds(String conversationId, List<String> memberIds) async {
+  Future<void> addParticipantIds(
+    String conversationId,
+    List<String> memberIds,
+  ) async {
     if (memberIds.isEmpty) return;
     final index = conversations.indexWhere((c) => c.id == conversationId);
     if (index < 0) return;
@@ -319,18 +328,26 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
-  Future<void> removeParticipantId(String conversationId, String memberId) async {
+  Future<void> removeParticipantId(
+    String conversationId,
+    String memberId,
+  ) async {
     final index = conversations.indexWhere((c) => c.id == conversationId);
     if (index < 0) return;
     final conv = conversations[index];
     if (!conv.participantIds.contains(memberId)) return;
     conversations[index] = conv.copyWith(
-      participantIds: conv.participantIds.where((id) => id != memberId).toList(),
+      participantIds: conv.participantIds
+          .where((id) => id != memberId)
+          .toList(),
     );
   }
 
   @override
-  Future<void> setArchivedByMemberIds(String conversationId, List<String> memberIds) async {
+  Future<void> setArchivedByMemberIds(
+    String conversationId,
+    List<String> memberIds,
+  ) async {
     final index = conversations.indexWhere((c) => c.id == conversationId);
     if (index < 0) return;
     conversations[index] = conversations[index].copyWith(
@@ -339,7 +356,10 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
-  Future<void> setMutedByMemberIds(String conversationId, List<String> memberIds) async {
+  Future<void> setMutedByMemberIds(
+    String conversationId,
+    List<String> memberIds,
+  ) async {
     final index = conversations.indexWhere((c) => c.id == conversationId);
     if (index < 0) return;
     conversations[index] = conversations[index].copyWith(
@@ -348,7 +368,10 @@ class FakeConversationRepository implements ConversationRepository {
   }
 
   @override
-  Future<void> setLastReadTimestamps(String conversationId, Map<String, DateTime> timestamps) async {
+  Future<void> setLastReadTimestamps(
+    String conversationId,
+    Map<String, DateTime> timestamps,
+  ) async {
     final index = conversations.indexWhere((c) => c.id == conversationId);
     if (index < 0) return;
     conversations[index] = conversations[index].copyWith(
@@ -377,9 +400,9 @@ class FakeConversationRepository implements ConversationRepository {
   Stream<Conversation?> watchConversationById(String id) {
     return Stream.value(
       conversations.cast<Conversation?>().firstWhere(
-            (conversation) => conversation?.id == id,
-            orElse: () => null,
-          ),
+        (conversation) => conversation?.id == id,
+        orElse: () => null,
+      ),
     );
   }
 }
@@ -426,7 +449,23 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   }
 
   @override
-  Future<List<FrontingSession>> getAllSessions() async => List.unmodifiable(sessions);
+  Future<List<FrontingSession>> getAllSessions() async =>
+      List.unmodifiable(sessions);
+
+  @override
+  Future<List<FrontingSession>> getAllActiveSessionsUnfiltered() async {
+    return sessions.where((session) => session.isActive).toList();
+  }
+
+  @override
+  Future<List<FrontingSession>> getFrontingSessions() async {
+    return sessions.where((session) => !session.isSleep).toList();
+  }
+
+  @override
+  Future<int> getFrontingCount() async {
+    return sessions.where((session) => !session.isSleep).length;
+  }
 
   @override
   Future<FrontingSession?> getSessionById(String id) async {
@@ -443,16 +482,43 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   }
 
   @override
-  Future<List<FrontingSession>> getSessionsBetween(DateTime start, DateTime end) async {
+  Future<List<FrontingSession>> getRecentSleepSessions({int limit = 10}) async {
+    return sessions.where((session) => session.isSleep).take(limit).toList();
+  }
+
+  @override
+  Future<List<FrontingSession>> getSessionsBetween(
+    DateTime start,
+    DateTime end,
+  ) async {
     return sessions
-        .where((session) =>
-            !session.startTime.isBefore(start) && !session.startTime.isAfter(end))
+        .where(
+          (session) =>
+              !session.startTime.isBefore(start) &&
+              !session.startTime.isAfter(end),
+        )
         .toList();
   }
 
   @override
   Future<List<FrontingSession>> getSessionsForMember(String memberId) async {
     return sessions.where((session) => session.memberId == memberId).toList();
+  }
+
+  @override
+  Stream<FrontingSession?> watchActiveSleepSession() {
+    try {
+      return Stream.value(
+        sessions.firstWhere((session) => session.isSleep && session.isActive),
+      );
+    } catch (_) {
+      return Stream.value(null);
+    }
+  }
+
+  @override
+  Stream<List<FrontingSession>> watchAllSleepSessions() {
+    return Stream.value(sessions.where((session) => session.isSleep).toList());
   }
 
   @override

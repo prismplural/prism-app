@@ -8,6 +8,7 @@ class UpdateFrontingSessionPatch {
     this.memberId = const FieldPatch.absent(),
     this.coFronterIds = const FieldPatch.absent(),
     this.confidence = const FieldPatch.absent(),
+    this.quality = const FieldPatch.absent(),
     this.notes = const FieldPatch.absent(),
   });
 
@@ -16,6 +17,7 @@ class UpdateFrontingSessionPatch {
   final FieldPatch<String> memberId;
   final FieldPatch<List<String>> coFronterIds;
   final FieldPatch<FrontConfidence> confidence;
+  final FieldPatch<SleepQuality> quality;
   final FieldPatch<String> notes;
 
   bool get isEmpty =>
@@ -24,6 +26,7 @@ class UpdateFrontingSessionPatch {
       memberId.isAbsent &&
       coFronterIds.isAbsent &&
       confidence.isAbsent &&
+      quality.isAbsent &&
       notes.isAbsent;
 
   FrontingSession applyTo(FrontingSession session) {
@@ -34,6 +37,7 @@ class UpdateFrontingSessionPatch {
       coFronterIds:
           coFronterIds.applyTo(session.coFronterIds) ?? session.coFronterIds,
       confidence: confidence.applyTo(session.confidence),
+      quality: quality.applyTo(session.quality),
       notes: notes.applyTo(session.notes),
     );
   }

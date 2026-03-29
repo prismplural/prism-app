@@ -18,10 +18,10 @@ class FrontingSanitizerService {
     required FrontingSessionValidator validator,
     required FrontingFixPlanner planner,
     required FrontingChangeExecutor executor,
-  })  : _repository = repository,
-        _validator = validator,
-        _planner = planner,
-        _executor = executor;
+  }) : _repository = repository,
+       _validator = validator,
+       _planner = planner,
+       _executor = executor;
 
   /// Scan all sessions (or a subset) for issues.
   Future<List<FrontingValidationIssue>> scan({
@@ -29,14 +29,20 @@ class FrontingSanitizerService {
     DateTime? from,
     DateTime? to,
   }) async {
-    final sessions = await _loadSessions(memberId: memberId, from: from, to: to);
+    final sessions = await _loadSessions(
+      memberId: memberId,
+      from: from,
+      to: to,
+    );
     final snapshots = sessions.map(toSnapshot).toList();
     return _validator.validate(snapshots);
   }
 
   /// Get fix plans for a specific issue.
-  Future<List<FrontingFixPlan>> plansForIssue(FrontingValidationIssue issue) async {
-    final sessions = await _repository.getAllSessions();
+  Future<List<FrontingFixPlan>> plansForIssue(
+    FrontingValidationIssue issue,
+  ) async {
+    final sessions = await _repository.getFrontingSessions();
     final snapshots = sessions.map(toSnapshot).toList();
     return _planner.plansForIssue(issue, snapshots);
   }
@@ -62,7 +68,7 @@ class FrontingSanitizerService {
     if (from != null && to != null) {
       return _repository.getSessionsBetween(from, to);
     }
-    return _repository.getAllSessions();
+    return _repository.getFrontingSessions();
   }
 
   static FrontingSessionSnapshot toSnapshot(FrontingSession s) {
@@ -74,6 +80,9 @@ class FrontingSanitizerService {
       coFronterIds: s.coFronterIds,
       notes: s.notes,
       confidenceIndex: s.confidence?.index,
+      sessionType: s.sessionType,
+      quality: s.quality,
+      isHealthKitImport: s.isHealthKitImport,
     );
   }
 }

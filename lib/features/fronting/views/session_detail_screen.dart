@@ -8,8 +8,11 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
+import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -32,23 +35,31 @@ class SessionDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionAsync = ref.watch(sessionByIdProvider(sessionId));
+    final session = sessionAsync.value;
+    final isSleep = session?.isSleep ?? false;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Session Details',
+        title: isSleep ? 'Sleep Details' : 'Session Details',
         showBackButton: true,
-        actions: [
-          PrismTopBarAction(
-            icon: Icons.edit_outlined,
-            tooltip: 'Edit',
-            onPressed: () => context.go(AppRoutePaths.sessionEdit(sessionId)),
-          ),
-          PrismTopBarAction(
-            icon: Icons.delete_outline,
-            tooltip: 'Delete',
-            onPressed: () => _confirmDelete(context, ref),
-          ),
-        ],
+        actions: session == null
+            ? const []
+            : [
+                PrismTopBarAction(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit',
+                  onPressed: isSleep
+                      ? () => _editSleep(context, session)
+                      : () => context.go(AppRoutePaths.sessionEdit(sessionId)),
+                ),
+                PrismTopBarAction(
+                  icon: Icons.delete_outline,
+                  tooltip: 'Delete',
+                  onPressed: isSleep
+                      ? () => _confirmSleepDelete(context, ref, session)
+                      : () => _confirmDelete(context, ref),
+                ),
+              ],
       ),
       bodyPadding: EdgeInsets.zero,
       body: sessionAsync.when(
@@ -58,10 +69,17 @@ class SessionDetailScreen extends ConsumerWidget {
           if (session == null) {
             return const Center(child: Text('Session not found'));
           }
+          if (session.isSleep) {
+            return _SleepSessionBody(session: session);
+          }
           return _SessionDetailBody(session: session);
         },
       ),
     );
+  }
+
+  Future<void> _editSleep(BuildContext context, FrontingSession session) async {
+    await EditSleepSheet.show(context, session);
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
@@ -102,6 +120,134 @@ class SessionDetailScreen extends ConsumerWidget {
     if (context.mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  Future<void> _confirmSleepDelete(
+    BuildContext context,
+    WidgetRef ref,
+    FrontingSession session,
+  ) async {
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: 'Delete Sleep Session',
+      message: 'Are you sure you want to delete this sleep session?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (!confirmed || !context.mounted) return;
+
+    await ref.read(sleepNotifierProvider.notifier).deleteSleep(session.id);
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+}
+
+class _SleepSessionBody extends StatelessWidget {
+  const _SleepSessionBody({required this.session});
+
+  final FrontingSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final quality = session.quality ?? SleepQuality.unknown;
+    final navBarInset = NavBarInset.of(context);
+
+    return ListView(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + navBarInset),
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.bedtime_rounded,
+                      size: 28,
+                      color: theme.colorScheme.tertiary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        session.isActive ? 'Sleeping now' : 'Sleep session',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _InfoRow(
+                  label: 'Started',
+                  value: session.startTime.toDateTimeString(),
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  label: 'Ended',
+                  value: session.endTime?.toDateTimeString() ?? 'Active',
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 80,
+                      child: Text(
+                        'Duration',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    if (session.isActive)
+                      FrontingDurationText(
+                        startTime: session.startTime,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else
+                      Text(
+                        session.duration.toLongString(),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _InfoRow(
+                  label: 'Quality',
+                  value: quality == SleepQuality.unknown
+                      ? 'Unrated'
+                      : quality.label,
+                ),
+                if (session.notes != null && session.notes!.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Text(
+                    'Notes',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    session.notes!,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        SessionCommentsSection(sessionId: session.id),
+      ],
+    );
   }
 }
 

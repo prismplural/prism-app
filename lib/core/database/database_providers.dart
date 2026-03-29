@@ -8,7 +8,6 @@ import 'package:prism_plurality/core/database/daos/poll_options_dao.dart';
 import 'package:prism_plurality/core/database/daos/poll_votes_dao.dart';
 import 'package:prism_plurality/core/database/daos/polls_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
-import 'package:prism_plurality/core/database/daos/sleep_sessions_dao.dart';
 import 'package:prism_plurality/core/database/daos/system_settings_dao.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -17,14 +16,12 @@ import 'package:prism_plurality/data/repositories/drift_conversation_repository.
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_poll_repository.dart';
-import 'package:prism_plurality/data/repositories/drift_sleep_session_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/poll_repository.dart';
-import 'package:prism_plurality/domain/repositories/sleep_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/core/database/daos/habits_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_habit_repository.dart';
@@ -84,10 +81,6 @@ final pollVotesDaoProvider = Provider<PollVotesDao>(
   (ref) => ref.watch(databaseProvider).pollVotesDao,
 );
 
-final sleepSessionsDaoProvider = Provider<SleepSessionsDao>(
-  (ref) => ref.watch(databaseProvider).sleepSessionsDao,
-);
-
 final pluralKitSyncDaoProvider = Provider<PluralKitSyncDao>(
   (ref) => ref.watch(databaseProvider).pluralKitSyncDao,
 );
@@ -142,13 +135,6 @@ final pollRepositoryProvider = Provider<PollRepository>(
   ),
 );
 
-final sleepSessionRepositoryProvider = Provider<SleepSessionRepository>(
-  (ref) => DriftSleepSessionRepository(
-    ref.watch(sleepSessionsDaoProvider),
-    _resolveSyncHandle(ref),
-  ),
-);
-
 final habitsDaoProvider = Provider<HabitsDao>(
   (ref) => ref.watch(databaseProvider).habitsDao,
 );
@@ -199,11 +185,11 @@ final frontSessionCommentsDaoProvider = Provider<FrontSessionCommentsDao>(
 
 final frontSessionCommentsRepositoryProvider =
     Provider<FrontSessionCommentsRepository>(
-  (ref) => DriftFrontSessionCommentsRepository(
-    ref.watch(frontSessionCommentsDaoProvider),
-    _resolveSyncHandle(ref),
-  ),
-);
+      (ref) => DriftFrontSessionCommentsRepository(
+        ref.watch(frontSessionCommentsDaoProvider),
+        _resolveSyncHandle(ref),
+      ),
+    );
 
 final conversationCategoriesDaoProvider = Provider<ConversationCategoriesDao>(
   (ref) => ref.watch(databaseProvider).conversationCategoriesDao,
@@ -211,11 +197,11 @@ final conversationCategoriesDaoProvider = Provider<ConversationCategoriesDao>(
 
 final conversationCategoriesRepositoryProvider =
     Provider<ConversationCategoriesRepository>(
-  (ref) => DriftConversationCategoriesRepository(
-    ref.watch(conversationCategoriesDaoProvider),
-    _resolveSyncHandle(ref),
-  ),
-);
+      (ref) => DriftConversationCategoriesRepository(
+        ref.watch(conversationCategoriesDaoProvider),
+        _resolveSyncHandle(ref),
+      ),
+    );
 
 final remindersDaoProvider = Provider<RemindersDao>(
   (ref) => ref.watch(databaseProvider).remindersDao,

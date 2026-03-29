@@ -67,19 +67,20 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
       _pollsEntity(db, quarantine, pendingQuarantineWrites.add),
       _pollOptionsEntity(db, quarantine, pendingQuarantineWrites.add),
       _pollVotesEntity(db, quarantine, pendingQuarantineWrites.add),
-      _sleepSessionsEntity(db, quarantine, pendingQuarantineWrites.add),
       _habitsEntity(db, quarantine, pendingQuarantineWrites.add),
       _habitCompletionsEntity(db, quarantine, pendingQuarantineWrites.add),
       _conversationCategoriesEntity(
-          db, quarantine, pendingQuarantineWrites.add),
+        db,
+        quarantine,
+        pendingQuarantineWrites.add,
+      ),
       _remindersEntity(db, quarantine, pendingQuarantineWrites.add),
       _memberGroupsEntity(db, quarantine, pendingQuarantineWrites.add),
       _memberGroupEntriesEntity(db, quarantine, pendingQuarantineWrites.add),
       _customFieldsEntity(db, quarantine, pendingQuarantineWrites.add),
       _customFieldValuesEntity(db, quarantine, pendingQuarantineWrites.add),
       _notesEntity(db, quarantine, pendingQuarantineWrites.add),
-      _frontSessionCommentsEntity(
-          db, quarantine, pendingQuarantineWrites.add),
+      _frontSessionCommentsEntity(db, quarantine, pendingQuarantineWrites.add),
       _friendsEntity(db, quarantine, pendingQuarantineWrites.add),
     ],
   );
@@ -108,8 +109,6 @@ DateTime? _asDateTime(dynamic value) {
   if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
   return null;
 }
-
-
 
 /// Nullable blob from base64 string.
 Uint8List? _blob(dynamic v) {
@@ -388,6 +387,9 @@ DriftSyncEntity _frontingSessionsEntity(
         'co_fronter_ids': r.coFronterIds,
         'notes': r.notes,
         'confidence': r.confidence,
+        'session_type': r.sessionType,
+        'quality': r.quality,
+        'is_health_kit_import': r.isHealthKitImport,
         'pluralkit_uuid': r.pluralkitUuid,
         'is_deleted': r.isDeleted,
       };
@@ -408,6 +410,9 @@ DriftSyncEntity _frontingSessionsEntity(
         coFronterIds: f.stringField('co_fronter_ids'),
         notes: f.stringFieldNullable('notes'),
         confidence: f.intFieldNullable('confidence'),
+        sessionType: f.intField('session_type'),
+        quality: f.intFieldNullable('quality'),
+        isHealthKitImport: f.boolField('is_health_kit_import'),
         pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
         isDeleted: f.boolField('is_deleted'),
       );
@@ -430,6 +435,9 @@ DriftSyncEntity _frontingSessionsEntity(
         'co_fronter_ids': row.coFronterIds,
         'notes': row.notes,
         'confidence': row.confidence,
+        'session_type': row.sessionType,
+        'quality': row.quality,
+        'is_health_kit_import': row.isHealthKitImport,
         'pluralkit_uuid': row.pluralkitUuid,
         'is_deleted': row.isDeleted,
       };
@@ -968,73 +976,6 @@ DriftSyncEntity _pollVotesEntity(
 }
 
 // ---------------------------------------------------------------------------
-// sleep_sessions
-// ---------------------------------------------------------------------------
-
-DriftSyncEntity _sleepSessionsEntity(
-  AppDatabase db,
-  SyncQuarantineService? quarantine,
-  void Function(Future<void> write) trackQuarantineWrite,
-) {
-  return DriftSyncEntity(
-    tableName: 'sleep_sessions',
-    toSyncFields: (dynamic row) {
-      final r = row as SleepSession;
-      return {
-        'start_time': r.startTime.toIso8601String(),
-        'end_time': r.endTime?.toIso8601String(),
-        'quality': r.quality,
-        'notes': r.notes,
-        'is_health_kit_import': r.isHealthKitImport,
-        'is_deleted': r.isDeleted,
-      };
-    },
-    applyFields: (String id, Map<String, dynamic> fields) async {
-      final f = _FieldContext(
-        entityType: 'sleep_sessions',
-        entityId: id,
-        fields: fields,
-        quarantine: quarantine,
-        trackQuarantineWrite: trackQuarantineWrite,
-      );
-      final companion = SleepSessionsCompanion(
-        id: Value(id),
-        startTime: f.dateTimeField('start_time'),
-        endTime: f.dateTimeFieldNullable('end_time'),
-        quality: f.intField('quality'),
-        notes: f.stringFieldNullable('notes'),
-        isHealthKitImport: f.boolField('is_health_kit_import'),
-        isDeleted: f.boolField('is_deleted'),
-      );
-      await db.into(db.sleepSessions).insertOnConflictUpdate(companion);
-    },
-    hardDelete: (String id) async {
-      await (db.delete(db.sleepSessions)..where((t) => t.id.equals(id))).go();
-    },
-    readRow: (String id) async {
-      final row = await (db.select(
-        db.sleepSessions,
-      )..where((t) => t.id.equals(id))).getSingleOrNull();
-      if (row == null) return null;
-      return {
-        'start_time': row.startTime.toIso8601String(),
-        'end_time': row.endTime?.toIso8601String(),
-        'quality': row.quality,
-        'notes': row.notes,
-        'is_health_kit_import': row.isHealthKitImport,
-        'is_deleted': row.isDeleted,
-      };
-    },
-    isDeleted: (String id) async {
-      final row = await (db.select(
-        db.sleepSessions,
-      )..where((t) => t.id.equals(id))).getSingleOrNull();
-      return row?.isDeleted ?? true;
-    },
-  );
-}
-
-// ---------------------------------------------------------------------------
 // habits
 // ---------------------------------------------------------------------------
 
@@ -1263,14 +1204,14 @@ DriftSyncEntity _conversationCategoriesEntity(
           .insertOnConflictUpdate(companion);
     },
     hardDelete: (String id) async {
-      await (db.delete(db.conversationCategories)
-            ..where((t) => t.id.equals(id)))
-          .go();
+      await (db.delete(
+        db.conversationCategories,
+      )..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(db.conversationCategories)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.conversationCategories,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
         'name': row.name,
@@ -1281,9 +1222,9 @@ DriftSyncEntity _conversationCategoriesEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(db.conversationCategories)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.conversationCategories,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },
   );
@@ -1342,9 +1283,9 @@ DriftSyncEntity _remindersEntity(
       await (db.delete(db.reminders)..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(db.reminders)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.reminders,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
         'name': row.name,
@@ -1360,9 +1301,9 @@ DriftSyncEntity _remindersEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(db.reminders)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.reminders,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },
   );
@@ -1417,9 +1358,9 @@ DriftSyncEntity _memberGroupsEntity(
       await (db.delete(db.memberGroups)..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(db.memberGroups)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
         'name': row.name,
@@ -1433,9 +1374,9 @@ DriftSyncEntity _memberGroupsEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(db.memberGroups)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },
   );
@@ -1477,14 +1418,14 @@ DriftSyncEntity _memberGroupEntriesEntity(
       await db.into(db.memberGroupEntries).insertOnConflictUpdate(companion);
     },
     hardDelete: (String id) async {
-      await (db.delete(db.memberGroupEntries)
-            ..where((t) => t.id.equals(id)))
-          .go();
+      await (db.delete(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(db.memberGroupEntries)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
         'group_id': row.groupId,
@@ -1493,9 +1434,9 @@ DriftSyncEntity _memberGroupEntriesEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(db.memberGroupEntries)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },
   );
@@ -1546,9 +1487,9 @@ DriftSyncEntity _customFieldsEntity(
       await (db.delete(db.customFields)..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(db.customFields)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.customFields,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
         'name': row.name,
@@ -1560,9 +1501,9 @@ DriftSyncEntity _customFieldsEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(db.customFields)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.customFields,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },
   );
@@ -1606,14 +1547,14 @@ DriftSyncEntity _customFieldValuesEntity(
       await db.into(db.customFieldValues).insertOnConflictUpdate(companion);
     },
     hardDelete: (String id) async {
-      await (db.delete(db.customFieldValues)
-            ..where((t) => t.id.equals(id)))
-          .go();
+      await (db.delete(
+        db.customFieldValues,
+      )..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(db.customFieldValues)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.customFieldValues,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
         'custom_field_id': row.customFieldId,
@@ -1623,9 +1564,9 @@ DriftSyncEntity _customFieldValuesEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(db.customFieldValues)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.customFieldValues,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },
   );
@@ -1680,9 +1621,9 @@ DriftSyncEntity _notesEntity(
       await (db.delete(db.notes)..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(db.notes)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.notes,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
         'title': row.title,
@@ -1696,9 +1637,9 @@ DriftSyncEntity _notesEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(db.notes)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.notes,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },
   );
@@ -1744,14 +1685,14 @@ DriftSyncEntity _frontSessionCommentsEntity(
       await db.into(db.frontSessionComments).insertOnConflictUpdate(companion);
     },
     hardDelete: (String id) async {
-      await (db.delete(db.frontSessionComments)
-            ..where((t) => t.id.equals(id)))
-          .go();
+      await (db.delete(
+        db.frontSessionComments,
+      )..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(db.frontSessionComments)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.frontSessionComments,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
         'session_id': row.sessionId,
@@ -1762,9 +1703,9 @@ DriftSyncEntity _frontSessionCommentsEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(db.frontSessionComments)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.frontSessionComments,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },
   );
@@ -1819,9 +1760,9 @@ DriftSyncEntity _friendsEntity(
       await (db.delete(db.friends)..where((t) => t.id.equals(id))).go();
     },
     readRow: (String id) async {
-      final row = await (db.select(db.friends)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.friends,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       if (row == null) return null;
       return {
         'display_name': row.displayName,
@@ -1835,9 +1776,9 @@ DriftSyncEntity _friendsEntity(
       };
     },
     isDeleted: (String id) async {
-      final row = await (db.select(db.friends)
-            ..where((t) => t.id.equals(id)))
-          .getSingleOrNull();
+      final row = await (db.select(
+        db.friends,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },
   );

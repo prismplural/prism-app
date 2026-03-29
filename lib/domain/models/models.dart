@@ -6,7 +6,6 @@ export 'message_reaction.dart';
 export 'poll.dart';
 export 'poll_option.dart';
 export 'poll_vote.dart';
-export 'sleep_session.dart';
 export 'system_settings.dart';
 export 'habit.dart';
 export 'habit_completion.dart';

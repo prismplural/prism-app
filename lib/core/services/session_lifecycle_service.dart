@@ -150,6 +150,7 @@ class SessionLifecycleService {
 
     for (final other in allSessions) {
       if (other.id == session.id) continue;
+      if (other.sessionType != session.sessionType) continue;
       final otherStart = other.startTime;
       final otherEnd = other.endTime ?? DateTime.now();
       if (start.isBefore(otherEnd) && otherStart.isBefore(end)) {
@@ -170,14 +171,25 @@ class SessionLifecycleService {
     FrontingSession session,
     List<FrontingSession> allSessions,
   ) {
-    final sorted = List<FrontingSession>.from(allSessions)
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    final sorted =
+        allSessions.where((s) => s.sessionType == session.sessionType).toList()
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
 
     final idx = sorted.indexWhere((s) => s.id == session.id);
     final previous = idx > 0 ? sorted[idx - 1] : null;
     final next = idx >= 0 && idx < sorted.length - 1 ? sorted[idx + 1] : null;
 
     final options = <DeleteOption>[];
+
+    if (session.isSleep) {
+      options.add(DeleteOption.delete);
+      return DeleteContext(
+        session: session,
+        previous: previous,
+        next: next,
+        availableOptions: options,
+      );
+    }
 
     if (session.isActive && previous != null) {
       options.add(DeleteOption.makePreviousActive);
@@ -213,17 +225,13 @@ class SessionLifecycleService {
         return null;
 
       case DeleteOption.extendPrevious:
-        final updated = ctx.previous!.copyWith(
-          endTime: ctx.session.endTime,
-        );
+        final updated = ctx.previous!.copyWith(endTime: ctx.session.endTime);
         await repo.updateSession(updated);
         await repo.deleteSession(ctx.session.id);
         return null;
 
       case DeleteOption.extendNext:
-        final updated = ctx.next!.copyWith(
-          startTime: ctx.session.startTime,
-        );
+        final updated = ctx.next!.copyWith(startTime: ctx.session.startTime);
         await repo.updateSession(updated);
         await repo.deleteSession(ctx.session.id);
         return null;
@@ -235,6 +243,10 @@ class SessionLifecycleService {
             : ctx.session.endTime;
 
         await repo.deleteSession(ctx.session.id);
+
+        if (ctx.session.isSleep) {
+          return null;
+        }
 
         if (endTime != null &&
             endTime.difference(ctx.session.startTime).inSeconds > 0) {
@@ -259,6 +271,10 @@ class SessionLifecycleService {
     FrontingSession overlapping,
     FrontingSessionRepository repo,
   ) async {
+    if (edited.sessionType != overlapping.sessionType) {
+      return;
+    }
+
     final editedEnd = edited.endTime ?? DateTime.now();
     final overlapEnd = overlapping.endTime ?? DateTime.now();
 
@@ -288,6 +304,17 @@ class SessionLifecycleService {
     List<FrontingSession> toMerge,
     FrontingSessionRepository repo,
   ) async {
+    if (target.isSleep) {
+      return target;
+    }
+
+    final compatible = toMerge
+        .where((session) => session.sessionType == target.sessionType)
+        .toList();
+    if (compatible.isEmpty) {
+      return target;
+    }
+
     var earliest = target.startTime;
     DateTime? latest = target.endTime;
     final allNotes = <String>[];
@@ -295,7 +322,7 @@ class SessionLifecycleService {
       allNotes.add(target.notes!);
     }
 
-    for (final session in toMerge) {
+    for (final session in compatible) {
       if (session.startTime.isBefore(earliest)) {
         earliest = session.startTime;
       }

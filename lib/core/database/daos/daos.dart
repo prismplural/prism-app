@@ -6,7 +6,6 @@ export 'system_settings_dao.dart';
 export 'polls_dao.dart';
 export 'poll_options_dao.dart';
 export 'poll_votes_dao.dart';
-export 'sleep_sessions_dao.dart';
 export 'pluralkit_sync_dao.dart';
 export 'habits_dao.dart';
 export 'sync_quarantine_dao.dart';

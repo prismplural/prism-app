@@ -12,8 +12,8 @@ class FrontingChangeExecutor {
   FrontingChangeExecutor({
     required FrontingSessionRepository repository,
     required MutationRunner mutationRunner,
-  })  : _repository = repository,
-        _mutationRunner = mutationRunner;
+  }) : _repository = repository,
+       _mutationRunner = mutationRunner;
 
   final FrontingSessionRepository _repository;
   final MutationRunner _mutationRunner;
@@ -45,6 +45,9 @@ class FrontingChangeExecutor {
           memberId: session.memberId,
           coFronterIds: session.coFronterIds,
           notes: session.notes,
+          sessionType: session.sessionType,
+          quality: session.quality,
+          isHealthKitImport: session.isHealthKitImport,
           confidence: session.confidenceIndex != null
               ? FrontConfidence.values[session.confidenceIndex!]
               : null,
@@ -81,14 +84,18 @@ class FrontingChangeExecutor {
         id: session.id,
         startTime: patch.start ?? session.startTime,
         endTime: patch.clearEnd ? null : (patch.end ?? session.endTime),
-        memberId:
-            patch.clearMemberId ? null : (patch.memberId ?? session.memberId),
+        memberId: patch.clearMemberId
+            ? null
+            : (patch.memberId ?? session.memberId),
         coFronterIds: patch.coFronterIds ?? session.coFronterIds,
         notes: patch.notes ?? session.notes,
         confidence: patch.confidenceIndex != null
             ? FrontConfidence.values[patch.confidenceIndex!]
             : session.confidence,
         pluralkitUuid: session.pluralkitUuid,
+        sessionType: session.sessionType,
+        quality: session.quality,
+        isHealthKitImport: session.isHealthKitImport,
       );
     }
 
@@ -101,6 +108,9 @@ class FrontingChangeExecutor {
       confidence: patch.confidenceIndex != null
           ? FrontConfidence.values[patch.confidenceIndex!]
           : session.confidence,
+      sessionType: session.sessionType,
+      quality: session.quality,
+      isHealthKitImport: session.isHealthKitImport,
     );
   }
 
