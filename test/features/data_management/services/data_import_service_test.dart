@@ -114,6 +114,7 @@ String _malformedExportJson({
 String _validExportJson({
   required String memberId,
   required String memberName,
+  bool hasCompletedOnboarding = false,
 }) {
   final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc().toIso8601String();
   final export = {
@@ -139,7 +140,12 @@ String _validExportJson({
     'messages': [],
     'polls': [],
     'pollOptions': [],
-    'systemSettings': [],
+    'systemSettings': [
+      {
+        'systemName': 'Imported System',
+        'hasCompletedOnboarding': hasCompletedOnboarding,
+      },
+    ],
     'habits': [],
     'habitCompletions': [],
   };
@@ -151,11 +157,13 @@ void main() {
     late AppDatabase db;
     late DataImportService importService;
     late DriftMemberRepository memberRepo;
+    late DriftSystemSettingsRepository settingsRepo;
 
     setUp(() {
       db = _makeDb();
       importService = _makeImport(db);
       memberRepo = DriftMemberRepository(db.membersDao, null);
+      settingsRepo = DriftSystemSettingsRepository(db.systemSettingsDao, null);
     });
 
     tearDown(() async {
@@ -258,5 +266,25 @@ void main() {
       expect(members, hasLength(1));
       expect(members.single.id, 'good-member');
     });
+
+    test(
+      'can suppress imported onboarding completion for onboarding restore flow',
+      () async {
+        final validJson = _validExportJson(
+          memberId: 'good-member',
+          memberName: 'Good',
+          hasCompletedOnboarding: true,
+        );
+
+        await importService.importData(
+          validJson,
+          preserveImportedOnboardingState: false,
+        );
+
+        final settings = await settingsRepo.getSettings();
+        expect(settings.systemName, 'Imported System');
+        expect(settings.hasCompletedOnboarding, isFalse);
+      },
+    );
   });
 }
