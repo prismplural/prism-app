@@ -365,5 +365,104 @@ void main() {
       final overlaps = service.detectOverlaps(a, [a, b]);
       expect(overlaps, isEmpty);
     });
+
+    test('overlapping sleep and fronting sessions are NOT detected', () {
+      final fronting = _session(
+        id: 'fronting',
+        start: DateTime(2026, 1, 1, 10),
+        end: DateTime(2026, 1, 1, 14),
+        memberId: 'alice',
+      );
+      final sleep = _session(
+        id: 'sleep',
+        start: DateTime(2026, 1, 1, 12),
+        end: DateTime(2026, 1, 1, 16),
+        sessionType: SessionType.sleep,
+      );
+
+      final overlaps = service.detectOverlaps(fronting, [fronting, sleep]);
+      expect(overlaps, isEmpty,
+          reason: 'cross-type overlaps should be ignored');
+    });
+  });
+
+  group('trimOverlap', () {
+    test('does nothing when session types differ', () async {
+      final repo = FakeFrontingSessionRepository();
+      final fronting = _session(
+        id: 'fronting',
+        start: DateTime(2026, 1, 1, 10),
+        end: DateTime(2026, 1, 1, 14),
+        memberId: 'alice',
+      );
+      final sleep = _session(
+        id: 'sleep',
+        start: DateTime(2026, 1, 1, 12),
+        end: DateTime(2026, 1, 1, 16),
+        sessionType: SessionType.sleep,
+      );
+      await repo.createSession(fronting);
+      await repo.createSession(sleep);
+
+      await service.trimOverlap(fronting, sleep, repo);
+
+      final afterFronting = await repo.getSessionById('fronting');
+      final afterSleep = await repo.getSessionById('sleep');
+      expect(afterFronting!.endTime, DateTime(2026, 1, 1, 14));
+      expect(afterSleep!.startTime, DateTime(2026, 1, 1, 12));
+    });
+  });
+
+  group('mergeAdjacent', () {
+    test('sleep target returns unchanged without merging', () async {
+      final repo = FakeFrontingSessionRepository();
+      final sleep = _session(
+        id: 'sleep',
+        start: DateTime(2026, 1, 1, 22),
+        end: DateTime(2026, 1, 2, 6),
+        sessionType: SessionType.sleep,
+      );
+      final adjacent = _session(
+        id: 'adj',
+        start: DateTime(2026, 1, 2, 6),
+        end: DateTime(2026, 1, 2, 8),
+        sessionType: SessionType.sleep,
+      );
+      await repo.createSession(sleep);
+      await repo.createSession(adjacent);
+
+      final result = await service.mergeAdjacent(sleep, [adjacent], repo);
+
+      expect(result.id, 'sleep');
+      expect(result.startTime, sleep.startTime);
+      expect(result.endTime, sleep.endTime);
+      // Adjacent session should NOT be deleted
+      expect(repo.sessions, hasLength(2));
+    });
+
+    test('fronting target ignores sleep sessions in merge list', () async {
+      final repo = FakeFrontingSessionRepository();
+      final fronting = _session(
+        id: 'front',
+        start: DateTime(2026, 1, 1, 10),
+        end: DateTime(2026, 1, 1, 12),
+        memberId: 'alice',
+      );
+      final sleep = _session(
+        id: 'sleep',
+        start: DateTime(2026, 1, 1, 12),
+        end: DateTime(2026, 1, 1, 14),
+        sessionType: SessionType.sleep,
+      );
+      await repo.createSession(fronting);
+      await repo.createSession(sleep);
+
+      final result = await service.mergeAdjacent(fronting, [sleep], repo);
+
+      expect(result.id, 'front');
+      expect(result.endTime, fronting.endTime);
+      // Sleep session should NOT be deleted
+      expect(repo.sessions, hasLength(2));
+    });
   });
 }

@@ -188,6 +188,183 @@ void main() {
         expect(createdFronting.isSleep, isFalse);
       },
     );
+
+    test(
+      'startSleep ends a prior active sleep session',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final priorSleep = FrontingSession(
+          id: 'sleep-old',
+          startTime: DateTime(2026, 3, 11, 0),
+          memberId: null,
+          sessionType: SessionType.sleep,
+        );
+        await repo.createSession(priorSleep);
+
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
+
+        final result = await svc.startSleep(
+          startTime: DateTime(2026, 3, 11, 8),
+        );
+
+        expect(result.isSuccess, isTrue);
+        final endedPrior = repo.sessions
+            .where((s) => s.id == 'sleep-old')
+            .single;
+        expect(endedPrior.endTime, DateTime(2026, 3, 11, 8));
+        final newSleep = repo.sessions.where((s) => s.isSleep && s.isActive);
+        expect(newSleep, hasLength(1));
+      },
+    );
+
+    test('endSleep sets endTime on a sleep session', () async {
+      final repo = FakeFrontingSessionRepository();
+      final sleep = FrontingSession(
+        id: 'sleep-1',
+        startTime: DateTime(2026, 3, 11, 22),
+        memberId: null,
+        sessionType: SessionType.sleep,
+      );
+      await repo.createSession(sleep);
+
+      final svc = FrontingMutationService(
+        repository: repo,
+        mutationRunner: MutationRunner(
+          transactionRunner: _passthroughTransactionRunner,
+        ),
+      );
+
+      final result = await svc.endSleep('sleep-1');
+      expect(result.isSuccess, isTrue);
+
+      final ended = repo.sessions.single;
+      expect(ended.endTime, isNotNull);
+    });
+
+    test('endSleep rejects a fronting session', () async {
+      final repo = FakeFrontingSessionRepository();
+      final fronting = FrontingSession(
+        id: 'front-1',
+        startTime: DateTime(2026, 3, 11, 10),
+        memberId: 'alice',
+      );
+      await repo.createSession(fronting);
+
+      final svc = FrontingMutationService(
+        repository: repo,
+        mutationRunner: MutationRunner(
+          transactionRunner: _passthroughTransactionRunner,
+        ),
+      );
+
+      final result = await svc.endSleep('front-1');
+      expect(result.isFailure, isTrue);
+    });
+
+    test('updateSleepQuality updates quality on a sleep session', () async {
+      final repo = FakeFrontingSessionRepository();
+      final sleep = FrontingSession(
+        id: 'sleep-1',
+        startTime: DateTime(2026, 3, 11, 22),
+        endTime: DateTime(2026, 3, 12, 6),
+        memberId: null,
+        sessionType: SessionType.sleep,
+        quality: SleepQuality.unknown,
+      );
+      await repo.createSession(sleep);
+
+      final svc = FrontingMutationService(
+        repository: repo,
+        mutationRunner: MutationRunner(
+          transactionRunner: _passthroughTransactionRunner,
+        ),
+      );
+
+      final result = await svc.updateSleepQuality(
+        'sleep-1',
+        SleepQuality.excellent,
+      );
+      expect(result.isSuccess, isTrue);
+
+      final updated = repo.sessions.single;
+      expect(updated.quality, SleepQuality.excellent);
+    });
+
+    test('deleteSleep rejects a fronting session', () async {
+      final repo = FakeFrontingSessionRepository();
+      final fronting = FrontingSession(
+        id: 'front-1',
+        startTime: DateTime(2026, 3, 11, 10),
+        endTime: DateTime(2026, 3, 11, 12),
+        memberId: 'alice',
+      );
+      await repo.createSession(fronting);
+
+      final svc = FrontingMutationService(
+        repository: repo,
+        mutationRunner: MutationRunner(
+          transactionRunner: _passthroughTransactionRunner,
+        ),
+      );
+
+      final result = await svc.deleteSleep('front-1');
+      expect(result.isFailure, isTrue);
+      // Session should not be deleted
+      expect(repo.sessions, hasLength(1));
+    });
+
+    test(
+      'splitSession preserves sleep fields on both halves',
+      () async {
+        final repo = FakeFrontingSessionRepository();
+        final sleep = FrontingSession(
+          id: 'sleep-1',
+          startTime: DateTime(2026, 3, 11, 22),
+          endTime: DateTime(2026, 3, 12, 8),
+          memberId: null,
+          sessionType: SessionType.sleep,
+          quality: SleepQuality.good,
+          isHealthKitImport: true,
+        );
+        await repo.createSession(sleep);
+
+        final svc = FrontingMutationService(
+          repository: repo,
+          mutationRunner: MutationRunner(
+            transactionRunner: _passthroughTransactionRunner,
+          ),
+        );
+
+        final result = await svc.splitSession(
+          sessionId: 'sleep-1',
+          splitTime: DateTime(2026, 3, 12, 3),
+        );
+        expect(result.isSuccess, isTrue);
+
+        final sessions = repo.sessions
+          ..sort((a, b) => a.startTime.compareTo(b.startTime));
+        expect(sessions, hasLength(2));
+
+        final first = sessions[0];
+        final second = sessions[1];
+
+        expect(first.sessionType, SessionType.sleep);
+        expect(first.quality, SleepQuality.good);
+        expect(first.isHealthKitImport, isTrue);
+        expect(first.endTime, DateTime(2026, 3, 12, 3));
+
+        expect(second.sessionType, SessionType.sleep);
+        expect(second.quality, SleepQuality.good);
+        expect(second.isHealthKitImport, isTrue);
+        expect(second.startTime, DateTime(2026, 3, 12, 3));
+        expect(second.endTime, DateTime(2026, 3, 12, 8));
+      },
+    );
   });
 }
 
