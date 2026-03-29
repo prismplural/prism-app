@@ -2,6 +2,17 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.7] - 2026-03-28
+
+### Added
+- Prism export import during onboarding — pick a `.json` or encrypted `.prism` file, preview data counts, and restore directly into a fresh install
+- Shared `OnboardingDataReadyView` widget used by both device pairing and Prism export import flows
+- `completeImportedBootstrap()` fast-path that marks onboarding complete without re-running full setup
+- Error handling on import completion with toast feedback
+
+### Changed
+- Refactored `_WelcomeBackView` (sync device step) into reusable `OnboardingDataReadyView`
+
 ## [0.2.6] - 2026-03-28
 
 ### Fixed
