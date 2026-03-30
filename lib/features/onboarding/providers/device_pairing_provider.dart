@@ -29,6 +29,7 @@ class PairingState {
   final PairingStep step;
   final String? url;
   final String? errorMessage;
+  final String? errorCode;
   final SyncCounts? counts;
 
   /// When true, the initial data sync timed out and some data may still be
@@ -40,6 +41,7 @@ class PairingState {
     this.step = PairingStep.enterUrl,
     this.url,
     this.errorMessage,
+    this.errorCode,
     this.counts,
     this.syncIncomplete = false,
   });
@@ -48,6 +50,7 @@ class PairingState {
     PairingStep? step,
     Object? url = _sentinel,
     Object? errorMessage = _sentinel,
+    Object? errorCode = _sentinel,
     Object? counts = _sentinel,
     bool? syncIncomplete,
   }) {
@@ -57,6 +60,7 @@ class PairingState {
       errorMessage: errorMessage == _sentinel
           ? this.errorMessage
           : errorMessage as String?,
+      errorCode: errorCode == _sentinel ? this.errorCode : errorCode as String?,
       counts: counts == _sentinel ? this.counts : counts as SyncCounts?,
       syncIncomplete: syncIncomplete ?? this.syncIncomplete,
     );
@@ -94,7 +98,12 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   }
 
   void setUrl(String url) {
-    state = state.copyWith(url: url, step: PairingStep.enterPassword);
+    state = state.copyWith(
+      url: url,
+      step: PairingStep.enterPassword,
+      errorMessage: null,
+      errorCode: null,
+    );
   }
 
   void reset() {
@@ -117,6 +126,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       state = state.copyWith(
         step: PairingStep.error,
         errorMessage: 'No invite URL provided.',
+        errorCode: null,
       );
       return;
     }
@@ -126,13 +136,18 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       state = state.copyWith(
         step: PairingStep.error,
         errorMessage: 'Password cannot be empty.',
+        errorCode: null,
       );
       return;
     }
 
     _generation++;
     final myGeneration = _generation;
-    state = state.copyWith(step: PairingStep.connecting, errorMessage: null);
+    state = state.copyWith(
+      step: PairingStep.connecting,
+      errorMessage: null,
+      errorCode: null,
+    );
 
     try {
       await _connectWithTimeout(url, password, myGeneration);
@@ -143,13 +158,16 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         step: PairingStep.error,
         errorMessage:
             'Connection timed out. Check your internet connection and try again.',
+        errorCode: null,
       );
     } catch (e) {
+      final structuredError = PrismSyncStructuredError.tryParse(e);
       await _cleanupKeychainOnFailure();
       if (_generation != myGeneration) return;
       state = state.copyWith(
         step: PairingStep.error,
-        errorMessage: e.toString(),
+        errorMessage: structuredError?.userMessage ?? e.toString(),
+        errorCode: structuredError?.code,
       );
     }
   }
@@ -265,13 +283,17 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // to finish being applied to the Drift database. The batch was
       // started before the bootstrap, so it captures everything.
       var syncTimedOut = false;
-      await syncAdapter.syncBatchComplete
-          .timeout(const Duration(seconds: 10), onTimeout: () {
-        syncTimedOut = true;
-        if (kDebugMode) {
-          print('[PAIRING] syncBatchComplete timed out — continuing with incomplete data');
-        }
-      });
+      await syncAdapter.syncBatchComplete.timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          syncTimedOut = true;
+          if (kDebugMode) {
+            print(
+              '[PAIRING] syncBatchComplete timed out — continuing with incomplete data',
+            );
+          }
+        },
+      );
 
       if (_generation != myGeneration) return;
 

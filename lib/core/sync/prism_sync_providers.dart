@@ -23,6 +23,97 @@ import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 
+const _prismSyncStructuredErrorPrefix = 'PRISM_SYNC_ERROR_JSON:';
+
+class PrismSyncStructuredError {
+  const PrismSyncStructuredError({
+    required this.message,
+    this.operation,
+    this.errorType,
+    this.relayKind,
+    this.code,
+    this.status,
+    this.remoteWipe,
+  });
+
+  final String message;
+  final String? operation;
+  final String? errorType;
+  final String? relayKind;
+  final String? code;
+  final int? status;
+  final bool? remoteWipe;
+
+  bool get isDeviceIdentityMismatch => code == 'device_identity_mismatch';
+  bool get isDeviceRevoked => code == 'device_revoked';
+
+  String get userMessage {
+    if (isDeviceIdentityMismatch) {
+      return 'This installation no longer matches the registered device identity. Export local data if needed, then pair this installation as a new device.';
+    }
+    if (isDeviceRevoked) {
+      return remoteWipe == true
+          ? 'This device was removed from sync and requested to wipe synced data.'
+          : 'This device was removed from sync.';
+    }
+    return message;
+  }
+
+  factory PrismSyncStructuredError.fromJson(Map<String, dynamic> json) {
+    return PrismSyncStructuredError(
+      message: json['message'] as String? ?? 'Unknown sync error',
+      operation: json['operation'] as String?,
+      errorType: json['error_type'] as String?,
+      relayKind: json['relay_kind'] as String?,
+      code: json['code'] as String?,
+      status: (json['status'] as num?)?.toInt(),
+      remoteWipe: json['remote_wipe'] as bool?,
+    );
+  }
+
+  static PrismSyncStructuredError? tryParse(Object error) {
+    return tryParseMessage(error.toString());
+  }
+
+  static PrismSyncStructuredError? tryParseMessage(String rawMessage) {
+    final markerIndex = rawMessage.indexOf(_prismSyncStructuredErrorPrefix);
+    if (markerIndex == -1) {
+      return null;
+    }
+
+    final payload = rawMessage
+        .substring(markerIndex + _prismSyncStructuredErrorPrefix.length)
+        .trim();
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map<String, dynamic>) {
+        return PrismSyncStructuredError.fromJson(decoded);
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  static PrismSyncStructuredError? fromSyncEvent(SyncEvent event) {
+    if (!event.isError) {
+      return null;
+    }
+    final code = event.data['code'] as String?;
+    final remoteWipe = event.data['remote_wipe'] as bool?;
+    if (code == null && remoteWipe == null) {
+      return null;
+    }
+
+    return PrismSyncStructuredError(
+      message: event.data['message'] as String? ?? 'Unknown sync error',
+      relayKind: event.data['kind'] as String?,
+      code: code,
+      remoteWipe: remoteWipe,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Core handle
 // ---------------------------------------------------------------------------
@@ -758,21 +849,24 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           final rawResultError =
               (event.data['result'] as Map<String, dynamic>?)?['error']
                   as String?;
+          final structuredError = rawResultError == null
+              ? null
+              : PrismSyncStructuredError.tryParseMessage(rawResultError);
           final previous = state;
           // Re-query pending ops and quarantine state after sync completes.
           Future.wait([_queryPendingOps(), _queryQuarantine()]).then((results) {
             state = syncStatusAfterCompleted(
               previous: previous,
-              rawResultError: rawResultError,
+              rawResultError: structuredError?.userMessage ?? rawResultError,
               pendingOps: results[0] as int,
               hasQuarantinedItems: results[1] as bool,
               completedAt: DateTime.now(),
             );
           });
-          // If sync failed with an auth error, check if this device was
-          // revoked with a remote wipe request.
-          if (rawResultError != null && rawResultError.isNotEmpty) {
-            _checkWipeStatusOn401(rawResultError);
+          if (structuredError?.isDeviceRevoked ?? false) {
+            _handleDeviceRevokedFromAuthFailure(
+              structuredError?.remoteWipe ?? false,
+            );
           }
         } else if (event.isSyncStarted) {
           // Snapshot current pending ops count when sync begins so the UI
@@ -781,14 +875,22 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
             state = state.copyWith(isSyncing: true, pendingOps: count);
           });
         } else if (event.isError) {
+          final structuredError =
+              PrismSyncStructuredError.fromSyncEvent(event) ??
+              PrismSyncStructuredError.tryParseMessage(
+                event.data['message'] as String? ?? '',
+              );
           final errorMessage = event.data['message'] as String? ?? '';
           state = state.copyWith(
             isSyncing: false,
-            lastError: errorMessage.isNotEmpty ? errorMessage : null,
+            lastError: (structuredError?.userMessage ?? errorMessage).isNotEmpty
+                ? (structuredError?.userMessage ?? errorMessage)
+                : null,
           );
-          // Check if this is an auth error indicating revocation
-          if (errorMessage.isNotEmpty) {
-            _checkWipeStatusOn401(errorMessage);
+          if (structuredError?.isDeviceRevoked ?? false) {
+            _handleDeviceRevokedFromAuthFailure(
+              structuredError?.remoteWipe ?? false,
+            );
           }
         } else if (event.isDeviceRevoked) {
           _handleDeviceRevoked(event);
@@ -834,9 +936,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     // Read current device ID to check if this revocation targets us.
     String? currentDeviceId;
     try {
-      final raw = await _storage.read(
-        key: '${_secureStorePrefix}device_id',
-      );
+      final raw = await _storage.read(key: '${_secureStorePrefix}device_id');
       if (raw != null && raw.isNotEmpty) {
         try {
           currentDeviceId = utf8.decode(base64Decode(raw));
@@ -885,23 +985,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         .setState(SyncHealthState.disconnected);
   }
 
-  /// Check whether this device was revoked with a remote wipe flag.
-  ///
-  /// Called when sync fails with an error. The relay embeds wipe status
-  /// directly in the 401 response body as `device_revoked` with
-  /// `remote_wipe`, so we parse it from the error message.
-  Future<void> _checkWipeStatusOn401(String errorMessage) async {
-    // The relay returns: {"error":"device_revoked","remote_wipe":true/false}
-    // which surfaces in the error message as "device revoked (remote_wipe=true)"
-    if (!errorMessage.contains('device revoked') &&
-        !errorMessage.contains('device_revoked')) {
-      return;
-    }
-
-    final remoteWipe = errorMessage.contains('remote_wipe=true') ||
-        errorMessage.contains('"remote_wipe":true') ||
-        errorMessage.contains('"remote_wipe": true');
-
+  Future<void> _handleDeviceRevokedFromAuthFailure(bool remoteWipe) async {
     try {
       if (remoteWipe) {
         debugPrint('[SYNC] Device flagged for remote wipe — wiping sync data');

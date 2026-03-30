@@ -185,9 +185,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       );
 
       // Drain Rust SecureStore back to platform keychain
-      state = state.copyWith(
-        currentProgress: SyncSetupProgress.cachingKeys,
-      );
+      state = state.copyWith(currentProgress: SyncSetupProgress.cachingKeys);
       await drainRustStore(handle);
 
       // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
@@ -205,11 +203,12 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       state = state.copyWith(isProcessing: false, currentProgress: null);
       return true;
     } catch (e) {
+      final structuredError = PrismSyncStructuredError.tryParse(e);
       await _cleanupKeychainOnFailure();
       state = state.copyWith(
         isProcessing: false,
         currentProgress: null,
-        error: 'Setup failed: $e',
+        error: 'Setup failed: ${structuredError?.userMessage ?? e}',
       );
       return false;
     }
