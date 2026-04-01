@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/settings/providers/reset_data_provider.
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -61,7 +62,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
 
     final canSyncNow = isConfigured && hasActiveHandle && !syncStatus.isSyncing;
     VoidCallback? syncNowCallback;
-    if (canSyncNow && handle != null) { // ignore: unnecessary_null_comparison
+    if (canSyncNow) {
       final h = handle;
       syncNowCallback = () => _syncNow(ref, context, h);
     }
@@ -232,6 +233,16 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                 tone: PrismButtonTone.destructive,
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: PrismButton(
+                onPressed: () => _confirmRepair(context, ref),
+                enabled: isConfigured || hasActiveHandle,
+                icon: Icons.person_off_outlined,
+                label: 'Re-pair Device',
+                tone: PrismButtonTone.destructive,
+              ),
+            ),
             const Divider(height: 32, indent: 16, endIndent: 16),
 
             // -- Common Issues --
@@ -264,6 +275,13 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                   'Initial sync may take longer with large datasets. Subsequent '
                   'syncs are incremental and should be faster.',
             ),
+            const _TroubleshootingTile(
+              icon: Icons.person_off_outlined,
+              title: 'Device Identity Mismatch',
+              description:
+                  'If pairing failed mid-way, your device identity may be inconsistent. '
+                  'Use "Re-pair Device" to generate a fresh identity and pair again.',
+            ),
           ],
         ),
       ),
@@ -291,7 +309,8 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     PrismDialog.confirm(
       context: context,
       title: 'Reset sync system?',
-      message: 'This keeps your local app data, but wipes sync keys, relay '
+      message:
+          'This keeps your local app data, but wipes sync keys, relay '
           'configuration, device identity, and sync history from this device. '
           'You will need to set up sync again afterward.',
       confirmLabel: 'Reset',
@@ -303,6 +322,57 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
           .reset(ResetCategory.sync);
       if (!context.mounted) return;
       PrismToast.show(context, message: 'Sync system reset');
+    });
+  }
+
+  void _confirmRepair(BuildContext context, WidgetRef ref) {
+    showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
+          ),
+          backgroundColor: Theme.of(dialogContext).colorScheme.surface,
+          child: PrismDialog(
+            title: 'Re-pair Device?',
+            message:
+                'This will clear your sync credentials and require you to '
+                'pair again. Any local changes not yet synced will be lost.\n\n'
+                'We recommend exporting your data first as a safety net.',
+            actions: [
+              PrismButton(
+                label: 'Cancel',
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+              PrismButton(
+                label: 'Re-pair Now',
+                onPressed: () => Navigator.of(dialogContext).pop('repair'),
+                tone: PrismButtonTone.destructive,
+              ),
+              PrismButton(
+                label: 'Export Data First',
+                onPressed: () => Navigator.of(dialogContext).pop('export'),
+                tone: PrismButtonTone.filled,
+              ),
+            ],
+            child: const SizedBox.shrink(),
+          ),
+        );
+      },
+    ).then((result) async {
+      if (result == 'export') {
+        if (!context.mounted) return;
+        context.push(AppRoutePaths.settingsImportExport);
+        return;
+      }
+      if (result != 'repair') return;
+      await ref
+          .read(resetDataNotifierProvider.notifier)
+          .reset(ResetCategory.sync);
+      if (!context.mounted) return;
+      PrismToast.show(context, message: 'Sync credentials cleared');
+      context.go(AppRoutePaths.syncSetup);
     });
   }
 

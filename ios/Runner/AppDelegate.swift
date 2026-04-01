@@ -1,9 +1,15 @@
+import CryptoKit
+import DeviceCheck
 import Flutter
+import Security
 import UIKit
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var screenshotEventSink: FlutterEventSink?
+  private var firstDeviceAdmissionChannel: FlutterMethodChannel?
+  private let appAttestKeychainService = "com.prism.prism_plurality.app_attest"
+  private let appAttestKeychainAccount = "key_id"
 
   override func application(
     _ application: UIApplication,
@@ -25,10 +31,209 @@ import UIKit
       name: "com.prism.prism_plurality/screenshot_events",
       binaryMessenger: registrar.messenger()
     ).setStreamHandler(self)
+    firstDeviceAdmissionChannel = FlutterMethodChannel(
+      name: "com.prism.prism_plurality/first_device_admission",
+      binaryMessenger: registrar.messenger()
+    )
+    firstDeviceAdmissionChannel?.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "collectFirstDeviceAdmissionProof" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard let self else {
+        result(nil)
+        return
+      }
+      let arguments = call.arguments as? [String: Any] ?? [:]
+      guard
+        let syncId = arguments["sync_id"] as? String,
+        let deviceId = arguments["device_id"] as? String,
+        let nonce = arguments["nonce"] as? String,
+        !syncId.isEmpty,
+        !deviceId.isEmpty,
+        !nonce.isEmpty
+      else {
+        result(nil)
+        return
+      }
+
+      Task { @MainActor in
+        let proof = await self.collectFirstDeviceAdmissionProof(
+          syncId: syncId,
+          deviceId: deviceId,
+          nonce: nonce
+        )
+        result(proof)
+      }
+    }
   }
 
   @objc private func screenshotDetected() {
     screenshotEventSink?(nil)
+  }
+
+  @MainActor
+  private func collectFirstDeviceAdmissionProof(
+    syncId: String,
+    deviceId: String,
+    nonce: String
+  ) async -> [String: Any]? {
+    guard #available(iOS 14.0, *) else { return nil }
+    let service = DCAppAttestService.shared
+    guard service.isSupported else { return nil }
+
+    let clientDataHash = buildAppAttestClientDataHash(
+      syncId: syncId,
+      deviceId: deviceId,
+      nonce: nonce
+    )
+
+    for attempt in 0..<2 {
+      guard let keyId = await loadOrCreateAppAttestKeyID(recreate: attempt > 0) else {
+        return nil
+      }
+      do {
+        let attestationObject = try await attestAppAttestKey(
+          keyId: keyId,
+          clientDataHash: clientDataHash
+        )
+        return [
+          "kind": "apple_app_attest",
+          "key_id": keyId,
+          "attestation_object": attestationObject.base64EncodedString(),
+        ]
+      } catch {
+        if attempt == 0 {
+          clearAppAttestKeyID()
+          continue
+        }
+        return nil
+      }
+    }
+
+    return nil
+  }
+
+  private func loadOrCreateAppAttestKeyID(recreate: Bool = false) async -> String? {
+    if !recreate, let storedKeyID = readKeychainString() {
+      return storedKeyID
+    }
+
+    do {
+      let keyID = try await generateAppAttestKey()
+      guard storeKeychainString(keyID) else { return nil }
+      return keyID
+    } catch {
+      return nil
+    }
+  }
+
+  private func generateAppAttestKey() async throws -> String {
+    try await withCheckedThrowingContinuation { continuation in
+      DCAppAttestService.shared.generateKey { keyID, error in
+        if let keyID, !keyID.isEmpty {
+          continuation.resume(returning: keyID)
+          return
+        }
+        continuation.resume(
+          throwing: error ?? NSError(
+            domain: "com.prism.prism_plurality.app_attest",
+            code: -1,
+            userInfo: [
+              NSLocalizedDescriptionKey: "Failed to generate App Attest key",
+            ]
+          )
+        )
+      }
+    }
+  }
+
+  private func attestAppAttestKey(keyId: String, clientDataHash: Data) async throws -> Data {
+    try await withCheckedThrowingContinuation { continuation in
+      DCAppAttestService.shared.attestKey(keyId, clientDataHash: clientDataHash) {
+        attestationObject, error in
+        if let attestationObject {
+          continuation.resume(returning: attestationObject)
+          return
+        }
+        continuation.resume(
+          throwing: error ?? NSError(
+            domain: "com.prism.prism_plurality.app_attest",
+            code: -1,
+            userInfo: [
+              NSLocalizedDescriptionKey: "Failed to attest App Attest key",
+            ]
+          )
+        )
+      }
+    }
+  }
+
+  private func buildAppAttestClientDataHash(
+    syncId: String,
+    deviceId: String,
+    nonce: String
+  ) -> Data {
+    var input = Data("PRISM_SYNC_APPLE_APP_ATTEST_V1".utf8)
+    input.append(0)
+    input.append(Data(syncId.utf8))
+    input.append(0)
+    input.append(Data(deviceId.utf8))
+    input.append(0)
+    input.append(Data(nonce.utf8))
+    return Data(SHA256.hash(data: input))
+  }
+
+  private func readKeychainString() -> String? {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: appAttestKeychainService,
+      kSecAttrAccount as String: appAttestKeychainAccount,
+      kSecReturnData as String: true,
+      kSecMatchLimit as String: kSecMatchLimitOne,
+    ]
+
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    guard status == errSecSuccess, let data = item as? Data else { return nil }
+    return String(data: data, encoding: .utf8)
+  }
+
+  private func storeKeychainString(_ value: String) -> Bool {
+    let data = Data(value.utf8)
+    let baseQuery = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: appAttestKeychainService,
+      kSecAttrAccount as String: appAttestKeychainAccount,
+    ] as [String: Any]
+
+    let addQuery = baseQuery.merging([
+      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+      kSecValueData as String: data,
+    ]) { _, new in new }
+
+    let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+    if addStatus == errSecSuccess {
+      return true
+    }
+    if addStatus != errSecDuplicateItem {
+      return false
+    }
+
+    let updateStatus = SecItemUpdate(
+      baseQuery as CFDictionary,
+      [kSecValueData as String: data] as CFDictionary
+    )
+    return updateStatus == errSecSuccess
+  }
+
+  private func clearAppAttestKeyID() {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: appAttestKeychainService,
+      kSecAttrAccount as String: appAttestKeychainAccount,
+    ]
+    SecItemDelete(query as CFDictionary)
   }
 
   deinit {
