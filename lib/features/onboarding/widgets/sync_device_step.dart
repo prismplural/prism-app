@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
@@ -30,11 +33,20 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
     Widget child;
     switch (pairingState.step) {
       case PairingStep.enterUrl:
-        child = _EnterUrlView(
-          key: const ValueKey('enter-url'),
+        child = _JoinPromptView(
+          key: const ValueKey('join-prompt'),
           onBack: widget.onBack,
-          onUrlSubmitted: (url) =>
-              ref.read(devicePairingProvider.notifier).setUrl(url),
+          onRequestToJoin: () =>
+              ref.read(devicePairingProvider.notifier).generateRequest(),
+        );
+      case PairingStep.showingRequest:
+        child = _ShowingRequestView(
+          key: const ValueKey('showing-request'),
+          qrPayload: pairingState.requestQrPayload!,
+          onBack: () => ref.read(devicePairingProvider.notifier).reset(),
+          onApprovalScanned: (bytes) => ref
+              .read(devicePairingProvider.notifier)
+              .setApprovalQrBytes(bytes),
         );
       case PairingStep.enterPassword:
         child = _PasswordView(
@@ -113,44 +125,16 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
   }
 }
 
-class _EnterUrlView extends StatefulWidget {
-  const _EnterUrlView({
+/// Simple prompt to request joining a sync group.
+class _JoinPromptView extends StatelessWidget {
+  const _JoinPromptView({
     super.key,
     required this.onBack,
-    required this.onUrlSubmitted,
+    required this.onRequestToJoin,
   });
 
   final VoidCallback onBack;
-  final void Function(String) onUrlSubmitted;
-
-  @override
-  State<_EnterUrlView> createState() => _EnterUrlViewState();
-}
-
-class _EnterUrlViewState extends State<_EnterUrlView> {
-  bool _manualEntry = false;
-  final _urlController = TextEditingController();
-  bool _scanned = false;
-  MobileScannerController? _scannerController;
-
-  MobileScannerController _ensureScanner() {
-    return _scannerController ??= MobileScannerController();
-  }
-
-  @override
-  void dispose() {
-    _scannerController?.dispose();
-    _urlController.dispose();
-    super.dispose();
-  }
-
-  void _submitUrl(String url) {
-    if (url.trim().isEmpty) {
-      PrismToast.show(context, message: 'Please enter the invite URL.');
-      return;
-    }
-    widget.onUrlSubmitted(url.trim());
-  }
+  final VoidCallback onRequestToJoin;
 
   @override
   Widget build(BuildContext context) {
@@ -161,10 +145,10 @@ class _EnterUrlViewState extends State<_EnterUrlView> {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: _BackLink(label: 'Back', onTap: widget.onBack),
+            child: _BackLink(label: 'Back', onTap: onBack),
           ),
           const SizedBox(height: 20),
-          const Icon(Icons.qr_code_2, color: Colors.white, size: 48),
+          const Icon(Icons.devices, color: Colors.white, size: 48),
           const SizedBox(height: 16),
           const Text(
             'Join your sync group',
@@ -177,7 +161,179 @@ class _EnterUrlViewState extends State<_EnterUrlView> {
           ),
           const SizedBox(height: 8),
           Text(
-            'On your existing device, open "Set Up Another Device" and share the invite. Then scan or paste it here.',
+            'Create a pairing request on this device and have an existing device approve it.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          _ActionButton(
+            label: 'Request to Join',
+            color: Colors.purple,
+            onPressed: onRequestToJoin,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Show a QR code for your existing device to scan and approve.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+/// Displays the joiner's PairingRequest QR and provides a button to scan
+/// the approval response from the existing device.
+class _ShowingRequestView extends StatefulWidget {
+  const _ShowingRequestView({
+    super.key,
+    required this.qrPayload,
+    required this.onBack,
+    required this.onApprovalScanned,
+  });
+
+  final List<int> qrPayload;
+  final VoidCallback onBack;
+  final void Function(List<int> bytes) onApprovalScanned;
+
+  @override
+  State<_ShowingRequestView> createState() => _ShowingRequestViewState();
+}
+
+class _ShowingRequestViewState extends State<_ShowingRequestView> {
+  bool _scanning = false;
+  bool _scanned = false;
+  MobileScannerController? _scannerController;
+
+  MobileScannerController _ensureScanner() {
+    return _scannerController ??= MobileScannerController();
+  }
+
+  @override
+  void dispose() {
+    _scannerController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_scanning) {
+      return _buildApprovalScanner();
+    }
+
+    // Encode QR payload as base64 for the QR code display
+    final qrData = base64Encode(widget.qrPayload);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _BackLink(label: 'Back', onTap: widget.onBack),
+          ),
+          const SizedBox(height: 20),
+          const Icon(Icons.qr_code, color: Colors.white, size: 48),
+          const SizedBox(height: 16),
+          const Text(
+            'Show this to your existing device',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'On your existing device, open "Set Up Another Device" and choose "Scan Joiner\'s QR". Then scan this code.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: QrImageView(
+                data: qrData,
+                size: 220,
+                backgroundColor: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _ActionButton(
+            label: 'Scan Approval',
+            color: Colors.purple,
+            onPressed: () => setState(() => _scanning = true),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'After your existing device approves, it will show an approval QR. Tap above to scan it.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApprovalScanner() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _BackLink(
+              label: 'Back',
+              onTap: () {
+                _scannerController?.stop();
+                _scannerController?.dispose();
+                _scannerController = null;
+                setState(() {
+                  _scanning = false;
+                  _scanned = false;
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Icon(Icons.qr_code_scanner, color: Colors.white, size: 48),
+          const SizedBox(height: 16),
+          const Text(
+            'Scan approval QR',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Scan the approval QR code shown on your existing device.',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
               fontSize: 14,
@@ -185,80 +341,30 @@ class _EnterUrlViewState extends State<_EnterUrlView> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 28),
-          if (_manualEntry) ...[
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: _urlController,
-                maxLines: 4,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Paste invite URL here...',
-                  hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
-                  ),
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _ActionButton(
-              label: 'Join',
-              color: Colors.purple,
-              onPressed: () => _submitUrl(_urlController.text),
-            ),
-          ] else ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: SizedBox(
-                height: 280,
-                child: MobileScanner(
-                  controller: _ensureScanner(),
-                  onDetect: (capture) {
-                    if (_scanned) return;
-                    final barcode = capture.barcodes.firstOrNull;
-                    final raw = barcode?.rawValue;
-                    if (raw == null) return;
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              height: 280,
+              child: MobileScanner(
+                controller: _ensureScanner(),
+                onDetect: (capture) {
+                  if (_scanned) return;
+                  final barcode = capture.barcodes.firstOrNull;
+                  final raw = barcode?.rawValue;
+                  if (raw == null) return;
+                  // Decode the base64 approval QR back to bytes
+                  try {
+                    final bytes = base64Decode(raw);
                     setState(() => _scanned = true);
-                    _submitUrl(raw);
-                  },
-                ),
+                    widget.onApprovalScanned(bytes);
+                  } catch (_) {
+                    PrismToast.show(
+                      context,
+                      message: 'Invalid approval QR code.',
+                    );
+                  }
+                },
               ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: () {
-              if (!_manualEntry) {
-                _scannerController?.stop();
-              }
-              setState(() {
-                _manualEntry = !_manualEntry;
-                _scanned = false;
-                if (!_manualEntry) {
-                  // Dispose old controller and create fresh one when switching back
-                  _scannerController?.dispose();
-                  _scannerController = null;
-                }
-              });
-            },
-            child: Text(
-              _manualEntry ? 'Scan QR code instead' : 'Enter URL manually',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
-                decoration: TextDecoration.underline,
-                decorationColor: Colors.white.withValues(alpha: 0.7),
-              ),
-              textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 16),

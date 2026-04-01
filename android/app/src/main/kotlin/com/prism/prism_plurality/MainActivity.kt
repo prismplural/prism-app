@@ -8,19 +8,116 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.util.Base64
+import java.security.KeyPairGenerator
+import java.security.KeyStore
+import java.security.MessageDigest
+import java.security.cert.X509Certificate
+import java.security.spec.ECGenParameterSpec
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     companion object {
         private const val SCREENSHOT_CHANNEL = "com.prism.prism_plurality/screenshot_events"
+        private const val FIRST_DEVICE_ADMISSION_CHANNEL =
+            "com.prism.prism_plurality/first_device_admission"
+        private const val ANDROID_ATTESTATION_CONTEXT = "PRISM_SYNC_ANDROID_ATTEST_V1\u0000"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, SCREENSHOT_CHANNEL)
             .setStreamHandler(ScreenshotStreamHandler())
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            FIRST_DEVICE_ADMISSION_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            if (call.method != "collectFirstDeviceAdmissionProof") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+
+            val syncId = call.argument<String>("sync_id")
+            val deviceId = call.argument<String>("device_id")
+            val nonce = call.argument<String>("nonce")
+            if (syncId.isNullOrEmpty() || deviceId.isNullOrEmpty() || nonce.isNullOrEmpty()) {
+                result.error("bad_args", "sync_id, device_id, and nonce are required", null)
+                return@setMethodCallHandler
+            }
+
+            try {
+                result.success(collectFirstDeviceAdmissionProof(syncId, deviceId, nonce))
+            } catch (t: Throwable) {
+                result.error("attestation_failed", t.message, null)
+            }
+        }
+    }
+
+    private fun collectFirstDeviceAdmissionProof(
+        syncId: String,
+        deviceId: String,
+        nonce: String,
+    ): Map<String, Any>? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+            return null
+        }
+
+        val alias = "prism_sync_attestation_${System.nanoTime()}"
+        val challenge = buildAndroidAttestationChallenge(syncId, deviceId, nonce)
+        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+
+        return try {
+            val generator = KeyPairGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_EC,
+                "AndroidKeyStore",
+            )
+            val spec = KeyGenParameterSpec.Builder(
+                alias,
+                KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY,
+            )
+                .setAlgorithmParameterSpec(ECGenParameterSpec("secp256r1"))
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .setAttestationChallenge(challenge)
+                .setUserAuthenticationRequired(false)
+                .build()
+            generator.initialize(spec)
+            generator.generateKeyPair()
+
+            val certificates = keyStore.getCertificateChain(alias)
+                ?.mapNotNull { cert -> (cert as? X509Certificate)?.encoded }
+                ?.map { der -> Base64.encodeToString(der, Base64.NO_WRAP) }
+                .orEmpty()
+            if (certificates.isEmpty()) {
+                null
+            } else {
+                mapOf(
+                    "kind" to "android_key_attestation",
+                    "certificate_chain" to certificates,
+                )
+            }
+        } finally {
+            runCatching { keyStore.deleteEntry(alias) }
+        }
+    }
+
+    private fun buildAndroidAttestationChallenge(
+        syncId: String,
+        deviceId: String,
+        nonce: String,
+    ): ByteArray {
+        val digest = MessageDigest.getInstance("SHA-256")
+        digest.update(ANDROID_ATTESTATION_CONTEXT.toByteArray(Charsets.UTF_8))
+        digest.update(syncId.toByteArray(Charsets.UTF_8))
+        digest.update(byteArrayOf(0))
+        digest.update(deviceId.toByteArray(Charsets.UTF_8))
+        digest.update(byteArrayOf(0))
+        digest.update(nonce.toByteArray(Charsets.UTF_8))
+        return digest.digest()
     }
 
     inner class ScreenshotStreamHandler : EventChannel.StreamHandler {

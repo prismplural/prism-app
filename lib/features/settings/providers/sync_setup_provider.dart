@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/first_device_admission_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -143,6 +144,11 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       final handle = await handleNotifier.createHandle(
         relayUrl: state.relayUrl,
       );
+      final admissionService = FirstDeviceAdmissionService();
+      await admissionService.preparePendingRegistration(
+        handle: handle,
+        relayUrl: state.relayUrl,
+      );
 
       // createSyncGroup handles key hierarchy creation internally.
       // Pass the mnemonic so it uses the one shown to the user (which
@@ -208,7 +214,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       state = state.copyWith(
         isProcessing: false,
         currentProgress: null,
-        error: 'Setup failed: ${structuredError?.userMessage ?? e}',
+        error: 'Setup failed: ${_friendlySetupError(structuredError, e)}',
       );
       return false;
     }
@@ -241,6 +247,49 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
         // Best-effort cleanup — don't propagate errors
       }
     }
+  }
+
+  /// Map structured sync errors to user-friendly messages for the setup flow.
+  String _friendlySetupError(
+    PrismSyncStructuredError? structured,
+    Object rawError,
+  ) {
+    if (structured != null) {
+      final msg = structured.message.toLowerCase();
+
+      // Unsupported first-device admission challenge (e.g., PoW version mismatch)
+      if (msg.contains('unsupported') &&
+          msg.contains('first-device admission')) {
+        return "Your app version doesn't support this relay's security "
+            'requirements. Please update the app.';
+      }
+
+      // Rate limiting on registration
+      if (msg.contains('registration failed') &&
+          (msg.contains('rate limit') || structured.status == 429)) {
+        return 'Too many registration attempts. Please wait and try again.';
+      }
+
+      // Generic relay / network errors
+      if (structured.errorType == 'relay' || structured.relayKind != null) {
+        return 'Could not connect to relay server. Check your internet '
+            'connection and relay URL.';
+      }
+
+      // Fall back to the structured user message
+      return structured.userMessage;
+    }
+
+    // No structured error — check for common network patterns
+    final raw = rawError.toString().toLowerCase();
+    if (raw.contains('socketexception') ||
+        raw.contains('connection refused') ||
+        raw.contains('timed out')) {
+      return 'Could not connect to relay server. Check your internet '
+          'connection and relay URL.';
+    }
+
+    return rawError.toString();
   }
 
   /// Push all existing local data to the sync engine so it gets synced

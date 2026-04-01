@@ -13,8 +13,10 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 enum PairingStep {
-  // User enters a URL or invite string to join
+  // User enters a join URL or legacy invite string
   enterUrl,
+  // Joiner's PairingRequest QR is displayed, waiting for approval scan
+  showingRequest,
   // User enters the sync password
   enterPassword,
   // Connecting to the relay / performing the join
@@ -32,6 +34,12 @@ class PairingState {
   final String? errorCode;
   final SyncCounts? counts;
 
+  /// QR payload bytes for the joiner's PairingRequest (joiner-initiated flow).
+  final List<int>? requestQrPayload;
+
+  /// The joiner's device ID from generatePairingRequest.
+  final String? requestDeviceId;
+
   /// When true, the initial data sync timed out and some data may still be
   /// arriving in the background. The pairing itself succeeded, but the user
   /// should be informed that not all data may be visible yet.
@@ -43,6 +51,8 @@ class PairingState {
     this.errorMessage,
     this.errorCode,
     this.counts,
+    this.requestQrPayload,
+    this.requestDeviceId,
     this.syncIncomplete = false,
   });
 
@@ -52,6 +62,8 @@ class PairingState {
     Object? errorMessage = _sentinel,
     Object? errorCode = _sentinel,
     Object? counts = _sentinel,
+    Object? requestQrPayload = _sentinel,
+    Object? requestDeviceId = _sentinel,
     bool? syncIncomplete,
   }) {
     return PairingState(
@@ -62,6 +74,12 @@ class PairingState {
           : errorMessage as String?,
       errorCode: errorCode == _sentinel ? this.errorCode : errorCode as String?,
       counts: counts == _sentinel ? this.counts : counts as SyncCounts?,
+      requestQrPayload: requestQrPayload == _sentinel
+          ? this.requestQrPayload
+          : requestQrPayload as List<int>?,
+      requestDeviceId: requestDeviceId == _sentinel
+          ? this.requestDeviceId
+          : requestDeviceId as String?,
       syncIncomplete: syncIncomplete ?? this.syncIncomplete,
     );
   }
@@ -120,12 +138,137 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     }
   }
 
+  /// Generate a PairingRequest QR for the joiner-initiated flow.
+  /// The joiner displays this QR for an existing device to scan.
+  Future<void> generateRequest() async {
+    _generation++;
+    final myGeneration = _generation;
+
+    try {
+      final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
+      final relayUrl =
+          await ref.read(relayUrlProvider.future) ??
+          AppConstants.defaultRelayUrl;
+      final handle = await handleNotifier.createHandle(relayUrl: relayUrl);
+
+      if (_generation != myGeneration) return;
+
+      final jsonString = await ffi.generatePairingRequest(handle: handle);
+      final json = jsonDecode(jsonString) as Map<String, dynamic>;
+      final rawBytes = (json['qr_payload'] as List<dynamic>).cast<int>();
+      final deviceId = json['device_id'] as String;
+
+      if (_generation != myGeneration) return;
+
+      state = state.copyWith(
+        step: PairingStep.showingRequest,
+        requestQrPayload: rawBytes,
+        requestDeviceId: deviceId,
+        errorMessage: null,
+        errorCode: null,
+      );
+    } catch (e) {
+      final structuredError = PrismSyncStructuredError.tryParse(e);
+      if (_generation != myGeneration) return;
+      state = state.copyWith(
+        step: PairingStep.error,
+        errorMessage: structuredError?.userMessage ?? e.toString(),
+        errorCode: structuredError?.code,
+      );
+    }
+  }
+
+  /// Set the approval QR bytes scanned from the existing device's response.
+  /// Transitions to password entry for the joiner-initiated flow.
+  void setApprovalQrBytes(List<int> qrBytes) {
+    // Store the approval bytes in the url field as base64 so the existing
+    // password → connect flow can distinguish between URL-based and QR-based
+    // joins. We use a prefix to differentiate.
+    final encoded = base64Encode(qrBytes);
+    state = state.copyWith(
+      url: 'qr-approval:$encoded',
+      step: PairingStep.enterPassword,
+      errorMessage: null,
+      errorCode: null,
+    );
+  }
+
+  /// Join from an approval QR (joiner-initiated flow). Called after the user
+  /// enters their password on the joiner side.
+  Future<void> joinFromApprovalQr(List<int> qrBytes, String password) async {
+    if (password.trim().isEmpty) {
+      state = state.copyWith(
+        step: PairingStep.error,
+        errorMessage: 'Password cannot be empty.',
+        errorCode: null,
+      );
+      return;
+    }
+
+    _generation++;
+    final myGeneration = _generation;
+    state = state.copyWith(
+      step: PairingStep.connecting,
+      errorMessage: null,
+      errorCode: null,
+    );
+
+    try {
+      await _joinFromQrWithTimeout(qrBytes, password, myGeneration);
+    } on TimeoutException {
+      await _cleanupKeychainOnFailure();
+      if (_generation != myGeneration) return;
+      state = state.copyWith(
+        step: PairingStep.error,
+        errorMessage:
+            'Connection timed out. Check your internet connection and try again.',
+        errorCode: null,
+      );
+    } catch (e) {
+      final structuredError = PrismSyncStructuredError.tryParse(e);
+      await _cleanupKeychainOnFailure();
+      if (_generation != myGeneration) return;
+      state = state.copyWith(
+        step: PairingStep.error,
+        errorMessage: structuredError?.userMessage ?? e.toString(),
+        errorCode: structuredError?.code,
+      );
+    }
+  }
+
+  Future<void> _joinFromQrWithTimeout(
+    List<int> qrBytes,
+    String password,
+    int myGeneration,
+  ) async {
+    await Future(() async {
+      final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
+      final relayUrl =
+          await ref.read(relayUrlProvider.future) ??
+          AppConstants.defaultRelayUrl;
+      final handle = await handleNotifier.createHandle(relayUrl: relayUrl);
+
+      if (_generation != myGeneration) return;
+
+      await ffi.joinFromQr(
+        handle: handle,
+        qrBytes: qrBytes,
+        password: password,
+      );
+
+      if (_generation != myGeneration) return;
+
+      // Same bootstrap flow as the join flow.
+      await _bootstrapAfterJoin(handle, myGeneration);
+    }).timeout(const Duration(seconds: 60));
+  }
+
   Future<void> connect(String password) async {
     final url = state.url;
     if (url == null || url.isEmpty) {
       state = state.copyWith(
         step: PairingStep.error,
-        errorMessage: 'No invite URL provided.',
+        errorMessage: 'No join URL provided.',
         errorCode: null,
       );
       return;
@@ -138,6 +281,14 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         errorMessage: 'Password cannot be empty.',
         errorCode: null,
       );
+      return;
+    }
+
+    // Route joiner-initiated approval QR bytes to the QR-based join flow
+    if (url.startsWith('qr-approval:')) {
+      final encoded = url.substring('qr-approval:'.length);
+      final qrBytes = base64Decode(encoded);
+      await joinFromApprovalQr(qrBytes, password);
       return;
     }
 
@@ -180,7 +331,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // 60s timeout so the user isn't stuck on the spinner indefinitely.
     await Future(() async {
       // Get or create the FFI handle. Use the app's configured relay URL
-      // (or the default) since the real relay URL is embedded in the invite
+      // (or the default) since the real relay URL is embedded in the payload
       // and Rust extracts it internally during joinFromUrl.
       final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
       final relayUrl =
@@ -194,130 +345,142 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
       if (_generation != myGeneration) return;
 
-      await ffi.configureEngine(handle: handle);
-      await ffi.setAutoSync(
-        handle: handle,
-        enabled: true,
-        debounceMs: BigInt.from(300),
-        retryDelayMs: BigInt.from(30000),
-        maxRetries: 3,
+      await _bootstrapAfterJoin(handle, myGeneration);
+    }).timeout(const Duration(seconds: 60));
+  }
+
+  /// Shared bootstrap logic for both legacy invite and joiner-initiated flows.
+  /// Called after the join FFI call succeeds (joinFromUrl or joinFromQr).
+  Future<void> _bootstrapAfterJoin(
+    ffi.PrismSyncHandle handle,
+    int myGeneration,
+  ) async {
+    await ffi.configureEngine(handle: handle);
+    await ffi.setAutoSync(
+      handle: handle,
+      enabled: true,
+      debounceMs: BigInt.from(300),
+      retryDelayMs: BigInt.from(30000),
+      maxRetries: 3,
+    );
+
+    if (_generation != myGeneration) return;
+
+    final relayUrl =
+        await ref.read(relayUrlProvider.future) ?? AppConstants.defaultRelayUrl;
+
+    // Also ensure relay_url and sync_id are written under the keys
+    // that relayUrlProvider / syncIdProvider read from (drainRustStore
+    // already writes them with the matching prefix, but we verify).
+    const storage = secureStorage;
+    final syncId = await storage.read(key: kSyncIdKey);
+    final storedRelay = await storage.read(key: kSyncRelayUrlKey);
+    // If drainRustStore didn't populate them (edge case), write defaults.
+    // Must base64-encode to match what _seedRustStore and relayUrlProvider expect.
+    if (storedRelay == null || storedRelay.isEmpty) {
+      await storage.write(
+        key: kSyncRelayUrlKey,
+        value: base64Encode(utf8.encode(relayUrl)),
       );
+    }
+    if (syncId == null || syncId.isEmpty) {
+      // sync_id wasn't populated by drainRustStore — this shouldn't
+      // normally happen but is guarded against defensively.
+    }
 
-      if (_generation != myGeneration) return;
+    ref.invalidate(relayUrlProvider);
+    ref.invalidate(syncIdProvider);
 
-      // Also ensure relay_url and sync_id are written under the keys
-      // that relayUrlProvider / syncIdProvider read from (drainRustStore
-      // already writes them with the matching prefix, but we verify).
-      const storage = secureStorage;
-      final syncId = await storage.read(key: kSyncIdKey);
-      final storedRelay = await storage.read(key: kSyncRelayUrlKey);
-      // If drainRustStore didn't populate them (edge case), write defaults.
-      // Must base64-encode to match what _seedRustStore and relayUrlProvider expect.
-      if (storedRelay == null || storedRelay.isEmpty) {
-        await storage.write(
-          key: kSyncRelayUrlKey,
-          value: base64Encode(utf8.encode(relayUrl)),
-        );
-      }
-      if (syncId == null || syncId.isEmpty) {
-        // sync_id wasn't populated by drainRustStore — this shouldn't
-        // normally happen but is guarded against defensively.
-      }
-
-      ref.invalidate(relayUrlProvider);
-      ref.invalidate(syncIdProvider);
-
-      // Activate the sync event stream BEFORE bootstrap so RemoteChanges
-      // events from bootstrapFromSnapshot are consumed as they arrive.
-      // Without this, the bootstrap emits entities to Rust's broadcast
-      // channel but nothing on the Dart side processes them into Drift.
-      if (kDebugMode) {
-        print('[PAIRING] Activating syncEventStreamProvider...');
-      }
-      final syncAdapter = ref.read(driftSyncAdapterProvider);
-      syncAdapter.beginSyncBatch();
-      ref.listen(syncEventStreamProvider, (prev, next) {
-        if (kDebugMode) {
-          print(
-            '[PAIRING] syncEventStream event: prev=$prev, next=${next.value?.type ?? next.error}',
-          );
-        }
-      });
-
-      // Try to bootstrap from ephemeral snapshot (fast path for new device)
-      try {
-        final restored = await ffi.bootstrapFromSnapshot(handle: handle);
-        if (kDebugMode && restored > BigInt.zero) {
-          debugPrint('[PAIRING] Bootstrapped $restored entities from snapshot');
-        }
-      } catch (e, stackTrace) {
-        // Non-fatal — will sync incrementally
-        if (kDebugMode) {
-          debugPrint('[PAIRING] Snapshot bootstrap failed (non-fatal): $e');
-        }
-        ErrorReportingService.instance.report(
-          'Snapshot bootstrap failed (non-fatal): $e',
-          severity: ErrorSeverity.warning,
-          stackTrace: stackTrace,
-        );
-      }
-
-      // Pull any changes that arrived after the snapshot was created
-      try {
-        if (kDebugMode) {
-          print('[PAIRING] Calling syncNow...');
-        }
-        final syncResult = await ffi.syncNow(handle: handle);
-        if (kDebugMode) {
-          print('[PAIRING] syncNow result: $syncResult');
-        }
-      } catch (e, st) {
-        ErrorReportingService.instance.report(
-          'Pairing syncNow failed (non-fatal): $e',
-          severity: ErrorSeverity.warning,
-          stackTrace: st,
-        );
-      }
-
-      // Wait for ALL remote changes (from both bootstrap and syncNow)
-      // to finish being applied to the Drift database. The batch was
-      // started before the bootstrap, so it captures everything.
-      var syncTimedOut = false;
-      await syncAdapter.syncBatchComplete.timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          syncTimedOut = true;
-          if (kDebugMode) {
-            print(
-              '[PAIRING] syncBatchComplete timed out — continuing with incomplete data',
-            );
-          }
-        },
-      );
-
-      if (_generation != myGeneration) return;
-
-      // Drain Rust credentials to platform keychain so they persist
-      // across app restarts and the sync handle can auto-create.
-      // Deferred until after all validation and cancellation checks so
-      // partial credentials are never persisted on cancel.
-      await drainRustStore(handle);
-
-      // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
-      await cacheRuntimeKeys(handle);
-
-      final counts = await _countLocalData();
+    // Activate the sync event stream BEFORE bootstrap so RemoteChanges
+    // events from bootstrapFromSnapshot are consumed as they arrive.
+    // Without this, the bootstrap emits entities to Rust's broadcast
+    // channel but nothing on the Dart side processes them into Drift.
+    if (kDebugMode) {
+      print('[PAIRING] Activating syncEventStreamProvider...');
+    }
+    final syncAdapter = ref.read(driftSyncAdapterProvider);
+    syncAdapter.beginSyncBatch();
+    ref.listen(syncEventStreamProvider, (prev, next) {
       if (kDebugMode) {
         print(
-          '[PAIRING] Local data counts: members=${counts.members}, sessions=${counts.frontingSessions}, convos=${counts.conversations}, messages=${counts.messages}, habits=${counts.habits}',
+          '[PAIRING] syncEventStream event: prev=$prev, next=${next.value?.type ?? next.error}',
         );
       }
-      state = state.copyWith(
-        step: PairingStep.success,
-        counts: counts,
-        syncIncomplete: syncTimedOut,
+    });
+
+    // Try to bootstrap from ephemeral snapshot (fast path for new device)
+    try {
+      final restored = await ffi.bootstrapFromSnapshot(handle: handle);
+      if (kDebugMode && restored > BigInt.zero) {
+        debugPrint('[PAIRING] Bootstrapped $restored entities from snapshot');
+      }
+    } catch (e, stackTrace) {
+      // Non-fatal — will sync incrementally
+      if (kDebugMode) {
+        debugPrint('[PAIRING] Snapshot bootstrap failed (non-fatal): $e');
+      }
+      ErrorReportingService.instance.report(
+        'Snapshot bootstrap failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: stackTrace,
       );
-    }).timeout(const Duration(seconds: 60));
+    }
+
+    // Pull any changes that arrived after the snapshot was created
+    try {
+      if (kDebugMode) {
+        print('[PAIRING] Calling syncNow...');
+      }
+      final syncResult = await ffi.syncNow(handle: handle);
+      if (kDebugMode) {
+        print('[PAIRING] syncNow result: $syncResult');
+      }
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'Pairing syncNow failed (non-fatal): $e',
+        severity: ErrorSeverity.warning,
+        stackTrace: st,
+      );
+    }
+
+    // Wait for ALL remote changes (from both bootstrap and syncNow)
+    // to finish being applied to the Drift database. The batch was
+    // started before the bootstrap, so it captures everything.
+    var syncTimedOut = false;
+    await syncAdapter.syncBatchComplete.timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        syncTimedOut = true;
+        if (kDebugMode) {
+          print(
+            '[PAIRING] syncBatchComplete timed out — continuing with incomplete data',
+          );
+        }
+      },
+    );
+
+    if (_generation != myGeneration) return;
+
+    // Drain Rust credentials to platform keychain so they persist
+    // across app restarts and the sync handle can auto-create.
+    // Deferred until after all validation and cancellation checks so
+    // partial credentials are never persisted on cancel.
+    await drainRustStore(handle);
+
+    // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
+    await cacheRuntimeKeys(handle);
+
+    final counts = await _countLocalData();
+    if (kDebugMode) {
+      print(
+        '[PAIRING] Local data counts: members=${counts.members}, sessions=${counts.frontingSessions}, convos=${counts.conversations}, messages=${counts.messages}, habits=${counts.habits}',
+      );
+    }
+    state = state.copyWith(
+      step: PairingStep.success,
+      counts: counts,
+      syncIncomplete: syncTimedOut,
+    );
   }
 
   /// Remove any keychain keys that may have been written during a failed

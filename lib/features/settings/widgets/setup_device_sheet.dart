@@ -3,43 +3,15 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
-import 'package:prism_plurality/shared/utils/sensitive_clipboard.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
-
-/// Parsed result of a `createInvite` FFI call.
-class _SyncInvite {
-  const _SyncInvite({
-    required this.qrPayload,
-    required this.url,
-    required this.words,
-    required this.syncId,
-    required this.relayUrl,
-  });
-
-  final Uint8List qrPayload;
-  final String url;
-  final List<String> words;
-  final String syncId;
-  final String relayUrl;
-
-  factory _SyncInvite.fromJson(Map<String, dynamic> json) {
-    final rawBytes = (json['qr_payload'] as List<dynamic>).cast<int>();
-    return _SyncInvite(
-      qrPayload: Uint8List.fromList(rawBytes),
-      url: json['url'] as String,
-      words: (json['words'] as List<dynamic>).cast<String>(),
-      syncId: json['sync_id'] as String,
-      relayUrl: json['relay_url'] as String,
-    );
-  }
-}
 
 class SetupDeviceSheet {
   static Future<void> show(BuildContext context, WidgetRef ref) async {
@@ -84,81 +56,75 @@ class _SetupDeviceSheetContent extends ConsumerStatefulWidget {
 
 class _SetupDeviceSheetContentState
     extends ConsumerState<_SetupDeviceSheetContent> {
-  _SyncInvite? _invite;
-  String? _error;
-  bool _building = false;
-  bool _showDetails = false;
-  final _passwordController = TextEditingController();
-  bool _passwordVisible = false;
+  // State for the "Scan Joiner's QR" flow
+  bool _scanningJoinerQr = false;
+  bool _joinerScanned = false;
+  bool _approvingRequest = false;
+  String? _approvalQrData; // base64-encoded approval response QR
+  String? _joinerError;
+  MobileScannerController? _joinerScannerController;
+
+  MobileScannerController _ensureJoinerScanner() {
+    return _joinerScannerController ??= MobileScannerController();
+  }
 
   @override
   void dispose() {
-    _passwordController.dispose();
+    _joinerScannerController?.dispose();
     super.dispose();
   }
 
-  Future<void> _createInvite() async {
-    final password = _passwordController.text.trim();
-    if (password.isEmpty) {
-      setState(() => _error = 'Please enter a sync password');
-      return;
-    }
-    if (_building) return;
-
+  void _reset() {
+    _joinerScannerController?.dispose();
+    _joinerScannerController = null;
     setState(() {
-      _building = true;
-      _error = null;
+      _scanningJoinerQr = false;
+      _joinerScanned = false;
+      _approvingRequest = false;
+      _approvalQrData = null;
+      _joinerError = null;
+    });
+  }
+
+  Future<void> _approveJoinerRequest(Uint8List requestBytes) async {
+    setState(() {
+      _approvingRequest = true;
+      _joinerError = null;
     });
 
     try {
-      // Use createInvite (NOT createSyncGroup) — this generates an invite
-      // for the EXISTING sync group so the new device joins the same group.
-      final jsonString = await ffi.createInvite(
+      final jsonString = await ffi.approvePairingRequest(
         handle: widget.handle,
-        password: password,
+        requestBytes: requestBytes,
       );
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
-      final joinerDeviceId = json['joiner_device_id'] as String?;
-      final invite = _SyncInvite.fromJson(json);
+      final rawBytes = (json['qr_payload'] as List<dynamic>).cast<int>();
 
-      // createInvite may mutate Rust secure store state (e.g. epoch);
-      // drain back to platform keychain to avoid credential loss.
+      // Drain store after approval (may mutate epoch / credentials)
       await drainRustStore(widget.handle);
 
-      // Upload ephemeral snapshot for the new device to bootstrap from
+      // Upload ephemeral snapshot for the joiner device
       try {
         await ffi.uploadPairingSnapshot(
           handle: widget.handle,
-          ttlSecs: BigInt.from(86400), // 24 hours
-          forDeviceId: joinerDeviceId,
+          ttlSecs: BigInt.from(86400),
         );
       } catch (e) {
-        // Non-fatal — new device can still sync incrementally
         debugPrint('[PAIRING] Snapshot upload failed (non-fatal): $e');
       }
 
       if (!mounted) return;
       setState(() {
-        _invite = invite;
-        _building = false;
+        _approvalQrData = base64Encode(rawBytes);
+        _approvingRequest = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
-        _building = false;
+        _joinerError = e.toString();
+        _approvingRequest = false;
       });
     }
-  }
-
-  void _reset() {
-    setState(() {
-      _invite = null;
-      _error = null;
-      _building = false;
-      _showDetails = false;
-      _passwordController.clear();
-    });
   }
 
   @override
@@ -170,133 +136,196 @@ class _SetupDeviceSheetContentState
           child: SingleChildScrollView(
             controller: widget.scrollController,
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-            child: _invite == null
-                ? _PasswordPrompt(
-                    controller: _passwordController,
-                    passwordVisible: _passwordVisible,
-                    onToggleVisibility: () =>
-                        setState(() => _passwordVisible = !_passwordVisible),
-                    isLoading: _building,
-                    error: _error,
-                    onSubmit: _createInvite,
-                  )
-                : _SetupResponseView(
-                    invite: _invite!,
-                    showDetails: _showDetails,
-                    onToggleDetails: () =>
-                        setState(() => _showDetails = !_showDetails),
-                    onPairAnother: _reset,
-                  ),
+            child: _buildContent(),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContent() {
+    // If we have an approval QR result, show it (scan-joiner flow complete)
+    if (_approvalQrData != null) {
+      return _ApprovalResponseView(
+        qrData: _approvalQrData!,
+        onDone: _reset,
+      );
+    }
+
+    // If we're scanning a joiner's QR
+    if (_scanningJoinerQr) {
+      return _JoinerQrScannerView(
+        ensureScanner: _ensureJoinerScanner,
+        scanned: _joinerScanned,
+        approving: _approvingRequest,
+        error: _joinerError,
+        onBack: _reset,
+        onScanned: (bytes) {
+          setState(() => _joinerScanned = true);
+          _approveJoinerRequest(bytes);
+        },
+      );
+    }
+
+    // Default: show the scan joiner prompt
+    return _ScanJoinerPrompt(
+      onStartScan: () => setState(() => _scanningJoinerQr = true),
+    );
+  }
+}
+
+/// Prompt for the "Scan Joiner's QR" flow before the camera opens.
+class _ScanJoinerPrompt extends StatelessWidget {
+  const _ScanJoinerPrompt({required this.onStartScan});
+
+  final VoidCallback onStartScan;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'The new device can generate a pairing request QR code. '
+          'Scan it here to approve the device and share your sync credentials.',
+          style: theme.textTheme.bodyMedium,
+        ),
+        const SizedBox(height: 16),
+        PrismButton(
+          label: "Scan Joiner's QR",
+          icon: Icons.qr_code_scanner,
+          onPressed: onStartScan,
         ),
       ],
     );
   }
 }
 
-/// Simple password prompt — Device A enters the sync password,
-/// then we create the invite and show the QR code.
-class _PasswordPrompt extends StatelessWidget {
-  const _PasswordPrompt({
-    required this.controller,
-    required this.passwordVisible,
-    required this.onToggleVisibility,
-    required this.isLoading,
+/// Camera view for scanning the joiner's PairingRequest QR.
+class _JoinerQrScannerView extends StatelessWidget {
+  const _JoinerQrScannerView({
+    required this.ensureScanner,
+    required this.scanned,
+    required this.approving,
     required this.error,
-    required this.onSubmit,
+    required this.onBack,
+    required this.onScanned,
   });
 
-  final TextEditingController controller;
-  final bool passwordVisible;
-  final VoidCallback onToggleVisibility;
-  final bool isLoading;
+  final MobileScannerController Function() ensureScanner;
+  final bool scanned;
+  final bool approving;
   final String? error;
-  final VoidCallback onSubmit;
+  final VoidCallback onBack;
+  final void Function(Uint8List bytes) onScanned;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    if (approving) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(48),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Approving request...'),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back_ios_new, size: 14),
+            label: const Text('Back'),
+          ),
+        ),
+        const SizedBox(height: 8),
         Text(
-          'Enter a sync password for the new device. '
-          'The other device will need this same password to join.',
+          "Scan the joiner's pairing request QR code.",
           style: theme.textTheme.bodyMedium,
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: controller,
-          obscureText: !passwordVisible,
-          decoration: InputDecoration(
-            labelText: 'Sync password',
-            suffixIcon: IconButton(
-              icon: Icon(
-                passwordVisible ? Icons.visibility_off : Icons.visibility,
-              ),
-              onPressed: onToggleVisibility,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 280,
+            child: MobileScanner(
+              controller: ensureScanner(),
+              onDetect: (capture) {
+                if (scanned) return;
+                final barcode = capture.barcodes.firstOrNull;
+                final raw = barcode?.rawValue;
+                if (raw == null) return;
+                try {
+                  final bytes = Uint8List.fromList(base64Decode(raw));
+                  onScanned(bytes);
+                } catch (_) {
+                  if (context.mounted) {
+                    PrismToast.show(
+                      context,
+                      message: 'Invalid pairing request QR code.',
+                    );
+                  }
+                }
+              },
             ),
           ),
-          onSubmitted: (_) => onSubmit(),
         ),
         if (error != null) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             error!,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.error,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
-        const SizedBox(height: 16),
-        if (isLoading)
-          const Center(child: CircularProgressIndicator())
-        else
-          PrismButton(
-            label: 'Generate QR Code',
-            icon: Icons.qr_code,
-            onPressed: onSubmit,
-          ),
       ],
     );
   }
 }
 
-class _SetupResponseView extends StatelessWidget {
-  const _SetupResponseView({
-    required this.invite,
-    required this.showDetails,
-    required this.onToggleDetails,
-    required this.onPairAnother,
-  });
+/// Shows the approval response QR for the joiner to scan.
+class _ApprovalResponseView extends StatelessWidget {
+  const _ApprovalResponseView({required this.qrData, required this.onDone});
 
-  final _SyncInvite invite;
-  final bool showDetails;
-  final VoidCallback onToggleDetails;
-  final VoidCallback onPairAnother;
+  final String qrData;
+  final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.orange.withValues(alpha: 0.1),
+            color: Colors.green.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
-              const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+              const Icon(Icons.check_circle, color: Colors.green, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Anyone with this invite QR and your password can join the sync group.',
+                  'Request approved. Show this QR to the joining device.',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.orange,
+                    color: Colors.green,
                   ),
                 ),
               ),
@@ -311,14 +340,14 @@ class _SetupResponseView extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           child: QrImageView(
-            data: invite.url,
+            data: qrData,
             size: 220,
             backgroundColor: Colors.white,
           ),
         ),
         const SizedBox(height: 16),
         Text(
-          'Scan this invite on the new device to finish pairing.',
+          'The joining device should scan this approval QR, then enter the sync password to finish pairing.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
@@ -333,12 +362,16 @@ class _SetupResponseView extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: theme.colorScheme.primary, size: 20),
+              Icon(
+                Icons.info_outline,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'An encrypted snapshot will be temporarily uploaded and '
-                  'automatically deleted after your new device connects '
+                  'automatically deleted after the new device connects '
                   '(or after 24 hours).',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.primary,
@@ -348,175 +381,8 @@ class _SetupResponseView extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        PrismButton(
-          label: 'Copy Invite Link',
-          icon: Icons.copy,
-          onPressed: () async {
-            await SensitiveClipboard.copy(invite.url);
-            if (!context.mounted) return;
-            PrismToast.show(
-              context,
-              message: 'Copied — clipboard will be cleared in 15 seconds',
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        PrismButton(
-          label: showDetails ? 'Hide Details' : 'Show Details',
-          icon: showDetails ? Icons.visibility_off : Icons.visibility,
-          onPressed: onToggleDetails,
-        ),
-        const SizedBox(height: 12),
-        PrismButton(
-          label: 'Pair Another Device',
-          icon: Icons.qr_code_scanner,
-          onPressed: onPairAnother,
-        ),
-        if (showDetails) ...[
-          const SizedBox(height: 16),
-          _CopiableField(label: 'Invite link', value: invite.url),
-          const SizedBox(height: 12),
-          _WordListField(words: invite.words),
-          const SizedBox(height: 12),
-          _CopiableField(label: 'Sync ID', value: invite.syncId),
-        ],
-      ],
-    );
-  }
-}
-
-class _WordListField extends StatelessWidget {
-  const _WordListField({required this.words});
-
-  final List<String> words;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final wordString = words.join(' ');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Recovery words',
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (int i = 0; i < words.length; i++)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${i + 1}. ${words[i]}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () async {
-            await SensitiveClipboard.copy(wordString);
-            if (!context.mounted) return;
-            PrismToast.show(
-              context,
-              message: 'Copied — clipboard will be cleared in 15 seconds',
-            );
-          },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.copy,
-                size: 14,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                'Copy all words',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CopiableField extends StatelessWidget {
-  const _CopiableField({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-          ),
-        ),
-        const SizedBox(height: 4),
-        GestureDetector(
-          onTap: () async {
-            await SensitiveClipboard.copy(value);
-            if (!context.mounted) return;
-            PrismToast.show(
-              context,
-              message: 'Copied — clipboard will be cleared in 15 seconds',
-            );
-          },
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(
-                alpha: 0.5,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    value,
-                    maxLines: 6,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.copy,
-                  size: 16,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                ),
-              ],
-            ),
-          ),
-        ),
+        const SizedBox(height: 24),
+        PrismButton(label: 'Done', icon: Icons.check, onPressed: onDone),
       ],
     );
   }
