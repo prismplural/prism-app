@@ -529,7 +529,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final chatUnreadCount = ref.watch(unreadConversationCountProvider);
     final terms = ref.watch(terminologyProvider);
 
-    final isOled = Theme.of(context).scaffoldBackgroundColor == AppColors.warmBlack;
+    final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (!_needsOverflow) {
@@ -735,7 +735,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required bool isDark,
     required String terminologyPlural,
   }) {
-    final isOled = Theme.of(context).scaffoldBackgroundColor == AppColors.warmBlack;
+    final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     return Semantics(
       container: true,
       label: 'Navigation bar',
@@ -959,7 +959,7 @@ class _FloatingSidebar extends ConsumerWidget {
     final terms = ref.watch(terminologyProvider);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isOled = Theme.of(context).scaffoldBackgroundColor == AppColors.warmBlack;
+    final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
 
     return Semantics(
       container: true,

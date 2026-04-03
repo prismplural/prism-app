@@ -117,6 +117,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     step.title,
                     style: const TextStyle(
                       fontSize: 28,
+                      fontFamily: 'Unbounded',
                       fontWeight: FontWeight.bold,
                       color: AppColors.warmWhite,
                     ),

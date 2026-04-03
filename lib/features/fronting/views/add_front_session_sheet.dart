@@ -192,11 +192,11 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
                             color: _coFrontMode
-                                ? AppColors.fronting.withValues(alpha: 0.15)
+                                ? AppColors.fronting(theme.brightness).withValues(alpha: 0.15)
                                 : Colors.transparent,
                             border: Border.all(
                               color: _coFrontMode
-                                  ? AppColors.fronting
+                                  ? AppColors.fronting(theme.brightness)
                                   : theme.colorScheme.outline
                                       .withValues(alpha: 0.4),
                             ),
@@ -209,7 +209,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                                 AppIcons.group,
                                 size: 14,
                                 color: _coFrontMode
-                                    ? AppColors.fronting
+                                    ? AppColors.fronting(theme.brightness)
                                     : theme.colorScheme.onSurfaceVariant,
                               ),
                               const SizedBox(width: 4),
@@ -217,7 +217,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                                 'Co-front',
                                 style: theme.textTheme.labelSmall?.copyWith(
                                   color: _coFrontMode
-                                      ? AppColors.fronting
+                                      ? AppColors.fronting(theme.brightness)
                                       : theme.colorScheme.onSurfaceVariant,
                                   fontWeight: _coFrontMode
                                       ? FontWeight.w600
@@ -452,7 +452,7 @@ class _MemberGridState extends State<_MemberGrid> {
                 customColorEnabled: member.customColorEnabled,
                 customColorHex: member.customColorHex,
                 size: 72,
-                tintOverride: isFronting ? AppColors.fronting : null,
+                tintOverride: isFronting ? AppColors.fronting(theme.brightness) : null,
               ),
             ),
             const SizedBox(height: 6),
@@ -471,18 +471,18 @@ class _MemberGridState extends State<_MemberGrid> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.fronting.withValues(alpha: 0.15),
+                  color: AppColors.fronting(theme.brightness).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(AppIcons.flashOn, size: 10, color: AppColors.fronting),
+                    Icon(AppIcons.flashOn, size: 10, color: AppColors.fronting(theme.brightness)),
                     const SizedBox(width: 2),
                     Text(
                       'Fronting',
                       style: theme.textTheme.labelSmall?.copyWith(
-                        color: AppColors.fronting,
+                        color: AppColors.fronting(theme.brightness),
                         fontWeight: FontWeight.w600,
                         fontSize: 10,
                       ),
@@ -612,7 +612,7 @@ class _MemberGridState extends State<_MemberGrid> {
               customColorEnabled: member.customColorEnabled,
               customColorHex: member.customColorHex,
               size: 40,
-              tintOverride: isFronting ? AppColors.fronting : null,
+              tintOverride: isFronting ? AppColors.fronting(theme.brightness) : null,
             ),
             name: member.name,
             isSelected: isSelected,
@@ -675,18 +675,18 @@ class _MemberGridState extends State<_MemberGrid> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.fronting.withValues(alpha: 0.15),
+                    color: AppColors.fronting(theme.brightness).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(AppIcons.flashOn, size: 10, color: AppColors.fronting),
+                      Icon(AppIcons.flashOn, size: 10, color: AppColors.fronting(theme.brightness)),
                       const SizedBox(width: 2),
                       Text(
                         'Fronting',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.fronting,
+                          color: AppColors.fronting(theme.brightness),
                           fontWeight: FontWeight.w600,
                           fontSize: 10,
                         ),

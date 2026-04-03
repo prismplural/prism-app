@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class SyncSetupScreen extends ConsumerStatefulWidget {
   const SyncSetupScreen({super.key});
@@ -173,7 +174,7 @@ class _IntroStep extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 32),
-          Icon(AppIcons.duotoneSync, size: 64, color: theme.colorScheme.primary),
+          PhosphorIcon(AppIcons.duotoneSync, size: 64, color: theme.colorScheme.primary),
           const SizedBox(height: 24),
           Text(
             'Keep your data in sync across all your devices.',

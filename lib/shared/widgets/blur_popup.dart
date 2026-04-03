@@ -268,7 +268,7 @@ class _BlurPopupContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOled =
-        Theme.of(context).scaffoldBackgroundColor == AppColors.warmBlack;
+        Theme.of(context).scaffoldBackgroundColor == Colors.black;
 
     const gap = 8.0;
 

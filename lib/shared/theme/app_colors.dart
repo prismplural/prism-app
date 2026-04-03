@@ -60,10 +60,13 @@ class AppColors {
   static const Color error = Color(0xFFEF4444);
   static const Color info = Color(0xFF3B82F6);
 
-  // Categories (muted accent spectrum)
-  static const Color fronting = Color(0xFFB498C2); // purple
-  static const Color coFronting = Color(0xFFC98E8E); // rose
-  static const Color nearby = Color(0xFF8DA399); // sage
+  // Categories (muted accent spectrum — brightness-aware)
+  static Color fronting(Brightness brightness) =>
+      brightness == Brightness.dark ? accentPurpleDark : accentPurpleLight;
+  static Color coFronting(Brightness brightness) =>
+      brightness == Brightness.dark ? accentRoseDark : accentRoseLight;
+  static Color nearby(Brightness brightness) =>
+      brightness == Brightness.dark ? accentSageDark : accentSageLight;
   static const Color dormant = Color(0xFF94A3B8);
 
   /// Generate a distinct color for a member at [index] in a list.
