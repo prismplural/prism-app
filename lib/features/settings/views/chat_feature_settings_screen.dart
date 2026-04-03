@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings subview for the Chat feature.
 class ChatFeatureSettingsScreen extends ConsumerWidget {
@@ -39,7 +40,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
-                icon: Icons.chat_outlined,
+                icon: AppIcons.chatOutlined,
                 iconColor: Colors.blue,
                 title: 'Enable Chat',
                 subtitle: 'In-system messaging between members',
@@ -56,7 +57,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: PrismSwitchRow(
-                  icon: Icons.swap_horiz_rounded,
+                  icon: AppIcons.swapHorizRounded,
                   iconColor: Colors.blue,
                   title: 'Log Front on Switch',
                   subtitle:

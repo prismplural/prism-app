@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Reminder interval options in minutes.
 const _reminderIntervals = <int, String>{
@@ -182,14 +183,14 @@ class _NotificationPermissionTile extends ConsumerWidget {
         ),
       ),
       error: (_, _) => PrismListRow(
-        leading: Icon(Icons.error_outline,
+        leading: Icon(AppIcons.errorOutline,
             color: Theme.of(context).colorScheme.error),
         title: const Text('Could not check permissions'),
       ),
       data: (granted) {
         if (granted) {
           return PrismListRow(
-            leading: Icon(Icons.check_circle,
+            leading: Icon(AppIcons.checkCircle,
                 color: Theme.of(context).colorScheme.primary),
             title: const Text('Notifications enabled'),
             subtitle: const Text('Permission granted'),
@@ -197,7 +198,7 @@ class _NotificationPermissionTile extends ConsumerWidget {
         }
 
         return PrismListRow(
-          leading: Icon(Icons.warning_amber_rounded,
+          leading: Icon(AppIcons.warningAmberRounded,
               color: Theme.of(context).colorScheme.error),
           title: const Text('Notifications not enabled'),
           subtitle: const Text('Permission required for reminders'),

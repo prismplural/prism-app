@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Advanced diagnostics screen for inspecting database state.
 class DatabaseDiagnosticsScreen extends ConsumerWidget {
@@ -139,7 +140,7 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
           // ── Integrity Check ────────────────────────
           Center(
             child: FilledButton.icon(
-              icon: const Icon(Icons.verified_outlined),
+              icon: const Icon(AppIcons.verifiedOutlined),
               label: const Text('Check Integrity'),
               onPressed: () {
                 ref.invalidate(healthReportProvider);
@@ -223,8 +224,8 @@ class _HealthReportDialogContent extends ConsumerWidget {
                 children: [
                   Icon(
                     report.isHealthy
-                        ? Icons.check_circle
-                        : Icons.warning_amber,
+                        ? AppIcons.checkCircle
+                        : AppIcons.warningAmber,
                     color: report.isHealthy ? Colors.green : Colors.orange,
                   ),
                   const SizedBox(width: 8),
@@ -250,7 +251,7 @@ class _HealthReportDialogContent extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(
-                          Icons.error_outline,
+                          AppIcons.errorOutline,
                           size: 16,
                           color: Colors.orange,
                         ),
@@ -334,7 +335,7 @@ class _InfoRow extends StatelessWidget {
               ),
               if (copyable)
                 IconButton(
-                  icon: const Icon(Icons.copy, size: 18),
+                  icon: const Icon(AppIcons.copy, size: 18),
                   tooltip: 'Copy',
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: value));

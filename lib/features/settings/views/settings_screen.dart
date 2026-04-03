@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Main settings screen. Clean navigation list matching SwiftUI's layout:
 /// sections with icon-labeled links to sub-screens.
@@ -52,33 +53,33 @@ class SettingsScreen extends ConsumerWidget {
                   title: 'System',
                   rows: [
                     _SettingsLink(
-                      icon: Icons.info_outline,
+                      icon: AppIcons.infoOutline,
                       iconColor: Colors.purple,
                       title: 'System Information',
                       onTap: () =>
                           context.push(AppRoutePaths.settingsSystemInfo),
                     ),
                     _SettingsLink(
-                      icon: Icons.people_outline,
+                      icon: AppIcons.peopleOutline,
                       iconColor: Colors.blue,
                       title: terms.plural,
                       onTap: () => context.push(AppRoutePaths.settingsMembers),
                     ),
                     _SettingsLink(
-                      icon: Icons.workspaces_outlined,
+                      icon: AppIcons.workspacesOutlined,
                       iconColor: Colors.cyan,
                       title: 'Groups',
                       onTap: () => context.push(AppRoutePaths.settingsGroups),
                     ),
                     _SettingsLink(
-                      icon: Icons.tune_outlined,
+                      icon: AppIcons.tuneOutlined,
                       iconColor: Colors.deepPurple,
                       title: 'Custom Fields',
                       onTap: () =>
                           context.push(AppRoutePaths.settingsCustomFields),
                     ),
                     _SettingsLink(
-                      icon: Icons.bar_chart_outlined,
+                      icon: AppIcons.barChartOutlined,
                       iconColor: Colors.green,
                       title: 'Statistics',
                       onTap: () =>
@@ -90,34 +91,34 @@ class SettingsScreen extends ConsumerWidget {
                   title: 'App',
                   rows: [
                     _SettingsLink(
-                      icon: Icons.palette_outlined,
+                      icon: AppIcons.paletteOutlined,
                       iconColor: Colors.pink,
                       title: 'Appearance',
                       onTap: () =>
                           context.push(AppRoutePaths.settingsAppearance),
                     ),
                     _SettingsLink(
-                      icon: Icons.tab_outlined,
+                      icon: AppIcons.tabOutlined,
                       iconColor: Colors.teal,
                       title: 'Navigation',
                       onTap: () =>
                           context.push(AppRoutePaths.settingsNavigation),
                     ),
                     _SettingsLink(
-                      icon: Icons.toggle_on_outlined,
+                      icon: AppIcons.toggleOnOutlined,
                       iconColor: Colors.deepOrange,
                       title: 'Features',
                       onTap: () => context.push(AppRoutePaths.settingsFeatures),
                     ),
                     _SettingsLink(
-                      icon: Icons.lock_outline,
+                      icon: AppIcons.lockOutline,
                       iconColor: Colors.indigo,
                       title: 'Privacy & Security',
                       onTap: () =>
                           context.push(AppRoutePaths.settingsPinLock),
                     ),
                     _SettingsLink(
-                      icon: Icons.notifications_outlined,
+                      icon: AppIcons.notificationsOutlined,
                       iconColor: Colors.orange,
                       title: 'Notifications',
                       onTap: () =>
@@ -129,7 +130,7 @@ class SettingsScreen extends ConsumerWidget {
                   title: 'Data',
                   rows: [
                     _SettingsLink(
-                      icon: Icons.sync,
+                      icon: AppIcons.sync,
                       iconColor: Colors.teal,
                       title: 'Sync',
                       statusDot: syncStatus.lastError != null
@@ -144,21 +145,21 @@ class SettingsScreen extends ConsumerWidget {
                     // Sharing is gated until friend state is persisted to the database.
                     if (kDebugMode)
                       _SettingsLink(
-                        icon: Icons.share_outlined,
+                        icon: AppIcons.shareOutlined,
                         iconColor: Colors.cyan,
                         title: 'Sharing',
                         onTap: () =>
                             context.push(AppRoutePaths.settingsSharing),
                       ),
                     _SettingsLink(
-                      icon: Icons.import_export,
+                      icon: AppIcons.importExport,
                       iconColor: Colors.amber,
                       title: 'Import & Export',
                       onTap: () =>
                           context.push(AppRoutePaths.settingsImportExport),
                     ),
                     _SettingsLink(
-                      icon: Icons.restart_alt,
+                      icon: AppIcons.restartAlt,
                       iconColor: Colors.red,
                       title: 'Reset Data',
                       onTap: () => context.push(AppRoutePaths.settingsReset),
@@ -169,20 +170,20 @@ class SettingsScreen extends ConsumerWidget {
                   title: 'About',
                   rows: [
                     _SettingsLink(
-                      icon: Icons.info_outline,
+                      icon: AppIcons.infoOutline,
                       iconColor: Colors.purple,
                       title: 'About',
                       onTap: () => context.push(AppRoutePaths.settingsAbout),
                     ),
                     _SettingsLink(
-                      icon: Icons.enhanced_encryption_outlined,
+                      icon: AppIcons.enhancedEncryptionOutlined,
                       iconColor: Colors.blueGrey,
                       title: 'Encryption & Privacy',
                       onTap: () =>
                           context.push(AppRoutePaths.settingsEncryptionInfo),
                     ),
                     _SettingsLink(
-                      icon: Icons.bug_report_outlined,
+                      icon: AppIcons.bugReportOutlined,
                       iconColor: Colors.orange,
                       title: 'Debug',
                       onTap: () => context.push(AppRoutePaths.settingsDebug),
@@ -272,7 +273,7 @@ class SettingsScreen extends ConsumerWidget {
                                 backgroundColor:
                                     theme.colorScheme.surfaceContainerHighest,
                                 child: Icon(
-                                  Icons.group,
+                                  AppIcons.group,
                                   size: 28,
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -362,7 +363,7 @@ class _SettingsLink extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Icon(
-                  Icons.chevron_right_rounded,
+                  AppIcons.chevronRightRounded,
                   color: theme.colorScheme.onSurfaceVariant.withValues(
                     alpha: 0.7,
                   ),

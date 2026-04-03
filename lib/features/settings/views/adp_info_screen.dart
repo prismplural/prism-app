@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Educational screen explaining how data is protected in Prism.
 ///
@@ -24,7 +25,7 @@ class AdpInfoScreen extends StatelessWidget {
           const _SectionTitle(title: 'How Your Data is Protected'),
           const SizedBox(height: 8),
           const _InfoCard(
-            icon: Icons.lock_outline,
+            icon: AppIcons.lockOutline,
             title: 'Encryption',
             body:
                 'Your local database is always encrypted at rest using '
@@ -35,7 +36,7 @@ class AdpInfoScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _InfoCard(
-            icon: Icons.account_tree_outlined,
+            icon: AppIcons.accountTreeOutlined,
             title: 'Key Hierarchy',
             body: null,
             child: Column(
@@ -86,7 +87,7 @@ class AdpInfoScreen extends StatelessWidget {
           const _SectionTitle(title: 'Zero-Knowledge Sync'),
           const SizedBox(height: 8),
           const _InfoCard(
-            icon: Icons.cloud_off_outlined,
+            icon: AppIcons.cloudOffOutlined,
             title: 'Server Never Sees Your Data',
             body:
                 'When sync is enabled, all data is encrypted on your '
@@ -95,7 +96,7 @@ class AdpInfoScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const _InfoCard(
-            icon: Icons.vpn_key_outlined,
+            icon: AppIcons.vpnKeyOutlined,
             title: 'Only You Hold the Keys',
             body:
                 'Encryption and decryption happen entirely on your '
@@ -108,7 +109,7 @@ class AdpInfoScreen extends StatelessWidget {
           const _SectionTitle(title: 'What This Means'),
           const SizedBox(height: 8),
           const _InfoCard(
-            icon: Icons.shield_outlined,
+            icon: AppIcons.shieldOutlined,
             title: 'Server Compromise Protection',
             body:
                 'Even if the server is compromised, your data remains '
@@ -116,7 +117,7 @@ class AdpInfoScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const _InfoCard(
-            icon: Icons.no_encryption_outlined,
+            icon: AppIcons.noEncryptionOutlined,
             title: 'Password Never Transmitted',
             body:
                 'Your password is used locally to derive encryption '
@@ -124,7 +125,7 @@ class AdpInfoScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const _InfoCard(
-            icon: Icons.devices_outlined,
+            icon: AppIcons.devicesOutlined,
             title: 'Per-Device Identity',
             body:
                 'Each device generates its own identity key pair. '
@@ -138,7 +139,7 @@ class AdpInfoScreen extends StatelessWidget {
           const _SectionTitle(title: 'Best Practices'),
           const SizedBox(height: 8),
           const _InfoCard(
-            icon: Icons.password_outlined,
+            icon: AppIcons.passwordOutlined,
             title: 'Use a Strong Password',
             body:
                 'Choose a unique, strong password that you do not '
@@ -147,7 +148,7 @@ class AdpInfoScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const _InfoCard(
-            icon: Icons.phonelink_lock_outlined,
+            icon: AppIcons.phonelinkLockOutlined,
             title: 'Enable Device Lock Screen',
             body:
                 'A device passcode or biometric lock adds an extra '
@@ -155,7 +156,7 @@ class AdpInfoScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const _InfoCard(
-            icon: Icons.system_update_outlined,
+            icon: AppIcons.systemUpdateOutlined,
             title: 'Keep the App Updated',
             body:
                 'Updates include the latest security patches and '

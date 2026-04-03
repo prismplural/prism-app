@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Raw data inspector for browsing database records.
 ///
@@ -33,7 +34,7 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
         showBackButton: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(AppIcons.refresh),
             tooltip: 'Reload data',
             onPressed: () => setState(() => _refreshKey++),
           ),
@@ -50,27 +51,27 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
                 ButtonSegment(
                   value: _DataTable.members,
                   label: Text('Members'),
-                  icon: Icon(Icons.people_outline),
+                  icon: Icon(AppIcons.peopleOutline),
                 ),
                 ButtonSegment(
                   value: _DataTable.sessions,
                   label: Text('Sessions'),
-                  icon: Icon(Icons.history),
+                  icon: Icon(AppIcons.history),
                 ),
                 ButtonSegment(
                   value: _DataTable.conversations,
                   label: Text('Chats'),
-                  icon: Icon(Icons.chat_bubble_outline),
+                  icon: Icon(AppIcons.chatBubbleOutline),
                 ),
                 ButtonSegment(
                   value: _DataTable.messages,
                   label: Text('Msgs'),
-                  icon: Icon(Icons.message_outlined),
+                  icon: Icon(AppIcons.messageOutlined),
                 ),
                 ButtonSegment(
                   value: _DataTable.polls,
                   label: Text('Polls'),
-                  icon: Icon(Icons.poll_outlined),
+                  icon: Icon(AppIcons.pollOutlined),
                 ),
               ],
               selected: {_selectedTable},
@@ -536,7 +537,7 @@ class _ExpandableRecord extends StatelessWidget {
             theme.colorScheme.surfaceContainerHighest,
         radius: 16,
         child: Icon(
-          Icons.data_object,
+          AppIcons.dataObject,
           size: 16,
           color: theme.colorScheme.onSurfaceVariant,
         ),

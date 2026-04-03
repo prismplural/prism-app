@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class NavigationSettingsScreen extends ConsumerWidget {
   const NavigationSettingsScreen({super.key});
@@ -384,7 +385,7 @@ class _NavItem extends StatelessWidget {
         children: [
           if (isLocked)
             Icon(
-              Icons.lock_outline,
+              AppIcons.lockOutline,
               size: 18,
               color:
                   theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
@@ -393,7 +394,7 @@ class _NavItem extends StatelessWidget {
             if (onMoveToPrimary != null)
               IconButton(
                 icon: Icon(
-                  Icons.arrow_upward,
+                  AppIcons.arrowUpward,
                   size: 18,
                   color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 ),
@@ -404,7 +405,7 @@ class _NavItem extends StatelessWidget {
             if (onMoveToOverflow != null)
               IconButton(
                 icon: Icon(
-                  Icons.arrow_downward,
+                  AppIcons.arrowDownward,
                   size: 18,
                   color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 ),
@@ -415,7 +416,7 @@ class _NavItem extends StatelessWidget {
             if (onRemove != null)
               IconButton(
                 icon: Icon(
-                  Icons.remove_circle_outline,
+                  AppIcons.removeCircleOutline,
                   color: theme.colorScheme.error.withValues(alpha: 0.7),
                 ),
                 onPressed: onRemove,
@@ -426,7 +427,7 @@ class _NavItem extends StatelessWidget {
             ReorderableDragStartListener(
               index: reorderIndex,
               child: Icon(
-                Icons.drag_handle,
+                AppIcons.dragHandle,
                 color: theme.colorScheme.onSurfaceVariant
                     .withValues(alpha: 0.4),
               ),
@@ -463,7 +464,7 @@ class _AvailableItem extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(
-              Icons.add_circle_outline,
+              AppIcons.addCircleOutline,
               color: theme.colorScheme.primary,
             ),
             tooltip: 'Add to nav bar',
@@ -472,7 +473,7 @@ class _AvailableItem extends StatelessWidget {
           ),
           IconButton(
             icon: Icon(
-              Icons.more_vert,
+              AppIcons.moreVert,
               size: 20,
               color: theme.colorScheme.primary.withValues(alpha: 0.7),
             ),

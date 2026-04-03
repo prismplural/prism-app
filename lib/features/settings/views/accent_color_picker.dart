@@ -6,6 +6,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Preset colors available for accent color selection.
 class _PresetColor {
@@ -215,12 +216,12 @@ class _ColorCircle extends StatelessWidget {
         ),
         child: isCustom && !isSelected
             ? Icon(
-                Icons.colorize,
+                AppIcons.colorize,
                 size: 20,
                 color: theme.colorScheme.onSurfaceVariant,
               )
             : isSelected
-                ? const Icon(Icons.check, size: 20, color: AppColors.warmWhite)
+                ? const Icon(AppIcons.check, size: 20, color: AppColors.warmWhite)
                 : null,
       ),
     );

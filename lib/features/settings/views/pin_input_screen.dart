@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// The mode of the PIN input screen.
 enum PinInputMode {
@@ -265,7 +266,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     return [
       if (showBiometric)
         _NumpadButton(
-          icon: Icons.fingerprint,
+          icon: AppIcons.fingerprint,
           onTap: _onBiometric,
         )
       else
@@ -275,7 +276,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
         onTap: () => _onDigit('0'),
       ),
       _NumpadButton(
-        icon: Icons.backspace_outlined,
+        icon: AppIcons.backspaceOutlined,
         onTap: _onBackspace,
       ),
     ];

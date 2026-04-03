@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// About info widget for the settings screen.
 ///
@@ -69,21 +70,21 @@ class AboutSection extends StatelessWidget {
           spacing: 8,
           children: [
             ActionChip(
-              avatar: const Icon(Icons.code, size: 18),
+              avatar: const Icon(AppIcons.code, size: 18),
               label: const Text('GitHub'),
               onPressed: () {
                 PrismToast.show(context, message: 'GitHub link coming soon');
               },
             ),
             ActionChip(
-              avatar: const Icon(Icons.privacy_tip_outlined, size: 18),
+              avatar: const Icon(AppIcons.privacyTipOutlined, size: 18),
               label: const Text('Privacy'),
               onPressed: () {
                 PrismToast.show(context, message: 'Privacy policy coming soon');
               },
             ),
             ActionChip(
-              avatar: const Icon(Icons.feedback_outlined, size: 18),
+              avatar: const Icon(AppIcons.feedbackOutlined, size: 18),
               label: const Text('Feedback'),
               onPressed: () {
                 PrismToast.show(context, message: 'Feedback form coming soon');

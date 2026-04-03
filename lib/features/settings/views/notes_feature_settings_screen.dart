@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings subview for the Notes feature.
 class NotesFeatureSettingsScreen extends ConsumerWidget {
@@ -38,7 +39,7 @@ class NotesFeatureSettingsScreen extends ConsumerWidget {
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
-                icon: Icons.sticky_note_2_outlined,
+                icon: AppIcons.stickyNote2Outlined,
                 iconColor: Colors.teal,
                 title: 'Enable Notes',
                 subtitle: 'Write notes and journal entries',

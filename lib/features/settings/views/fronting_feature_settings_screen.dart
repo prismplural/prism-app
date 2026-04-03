@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings subview for the Fronting feature.
 class FrontingFeatureSettingsScreen extends ConsumerWidget {
@@ -88,7 +89,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSettingsRow(
-                icon: Icons.speed,
+                icon: AppIcons.speed,
                 iconColor: Colors.purple,
                 title: 'Quick Switch',
                 subtitle: _quickSwitchLabel(

@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings screen for managing custom field definitions.
 class CustomFieldsScreen extends ConsumerWidget {
@@ -29,7 +30,7 @@ class CustomFieldsScreen extends ConsumerWidget {
         showBackButton: true,
         actions: [
           PrismTopBarAction(
-            icon: Icons.add,
+            icon: AppIcons.add,
             tooltip: 'Add field',
             onPressed: () => _openCreateSheet(context),
           ),
@@ -42,7 +43,7 @@ class CustomFieldsScreen extends ConsumerWidget {
         data: (fields) {
           if (fields.isEmpty) {
             return EmptyState(
-              icon: Icons.tune_outlined,
+              icon: Icon(AppIcons.tuneOutlined, size: 48),
               title: 'No custom fields',
               subtitle:
                   'Add fields to track custom attributes for each member',
@@ -73,9 +74,9 @@ class _FieldsList extends ConsumerWidget {
   final List<CustomField> fields;
 
   IconData _iconForType(CustomFieldType type) => switch (type) {
-        CustomFieldType.text => Icons.text_fields,
-        CustomFieldType.color => Icons.palette,
-        CustomFieldType.date => Icons.calendar_today,
+        CustomFieldType.text => AppIcons.textFields,
+        CustomFieldType.color => AppIcons.palette,
+        CustomFieldType.date => AppIcons.calendarToday,
       };
 
   String _subtitleForField(CustomField field) {
@@ -154,7 +155,7 @@ class _FieldsList extends ConsumerWidget {
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 24),
             color: theme.colorScheme.error,
-            child: Icon(Icons.delete, color: theme.colorScheme.onError),
+            child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
           ),
           confirmDismiss: (_) async {
             await _confirmDelete(context, ref, field);
@@ -176,7 +177,7 @@ class _FieldsList extends ConsumerWidget {
             trailing: ReorderableDragStartListener(
               index: index,
               child: Icon(
-                Icons.drag_handle,
+                AppIcons.dragHandle,
                 color:
                     theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
               ),

@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/settings/providers/device_management_pr
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class DeviceManagementScreen extends ConsumerWidget {
   const DeviceManagementScreen({super.key});
@@ -26,7 +27,7 @@ class DeviceManagementScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.error_outline,
+                Icon(AppIcons.errorOutline,
                     size: 48, color: Theme.of(context).colorScheme.error),
                 const SizedBox(height: 16),
                 Text(
@@ -81,7 +82,7 @@ class DeviceManagementScreen extends ConsumerWidget {
                   const Padding(
                     padding: EdgeInsets.only(top: 32),
                     child: EmptyState(
-                      icon: Icons.devices,
+                      icon: Icon(AppIcons.devices, size: 48),
                       title: 'No other devices',
                       subtitle:
                           'Only this device is registered in the sync group.',
@@ -308,7 +309,7 @@ class _DeviceTile extends StatelessWidget {
           trailing: isCurrent
               ? null
               : IconButton(
-                  icon: const Icon(Icons.remove_circle_outline),
+                  icon: const Icon(AppIcons.removeCircleOutline),
                   tooltip: 'Revoke device',
                   color: theme.colorScheme.error,
                   onPressed: onRevoke,

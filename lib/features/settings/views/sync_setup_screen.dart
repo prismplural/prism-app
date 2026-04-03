@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class SyncSetupScreen extends ConsumerStatefulWidget {
   const SyncSetupScreen({super.key});
@@ -172,7 +173,7 @@ class _IntroStep extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 32),
-          Icon(Icons.sync_rounded, size: 64, color: theme.colorScheme.primary),
+          Icon(AppIcons.duotoneSync, size: 64, color: theme.colorScheme.primary),
           const SizedBox(height: 24),
           Text(
             'Keep your data in sync across all your devices.',
@@ -196,7 +197,7 @@ class _IntroStep extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  showRelayField ? Icons.expand_less : Icons.expand_more,
+                  showRelayField ? AppIcons.expandLess : AppIcons.expandMore,
                   size: 18,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -231,7 +232,7 @@ class _IntroStep extends StatelessWidget {
           const SizedBox(height: 32),
           PrismButton(
             label: 'Set up sync',
-            icon: Icons.arrow_forward,
+            icon: AppIcons.arrowForward,
             tone: PrismButtonTone.filled,
             onPressed: onContinue,
           ),
@@ -293,7 +294,7 @@ class _PasswordStep extends StatelessWidget {
             suffix: IconButton(
               onPressed: onTogglePasswordVisibility,
               icon: Icon(
-                obscurePassword ? Icons.visibility_off : Icons.visibility,
+                obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
               ),
             ),
           ),
@@ -308,8 +309,8 @@ class _PasswordStep extends StatelessWidget {
               onPressed: onToggleConfirmPasswordVisibility,
               icon: Icon(
                 obscureConfirmPassword
-                    ? Icons.visibility_off
-                    : Icons.visibility,
+                    ? AppIcons.visibilityOff
+                    : AppIcons.visibility,
               ),
             ),
             onSubmitted: (_) => onContinue(),
@@ -326,7 +327,7 @@ class _PasswordStep extends StatelessWidget {
           const SizedBox(height: 32),
           PrismButton(
             label: 'Continue',
-            icon: Icons.arrow_forward,
+            icon: AppIcons.arrowForward,
             tone: PrismButtonTone.filled,
             onPressed: onContinue,
           ),
@@ -390,7 +391,7 @@ class _SecretKeyStep extends StatelessWidget {
           const SizedBox(height: 16),
           PrismButton(
             label: 'Complete setup',
-            icon: Icons.check,
+            icon: AppIcons.check,
             tone: PrismButtonTone.filled,
             enabled: hasSaved,
             isLoading: isProcessing,

@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Displays the in-memory error history with severity-coded entries.
 class ErrorHistoryScreen extends ConsumerWidget {
@@ -25,7 +26,7 @@ class ErrorHistoryScreen extends ConsumerWidget {
         showBackButton: true,
         trailing: errors.isNotEmpty
             ? PrismTopBarAction(
-                icon: Icons.delete_outline,
+                icon: AppIcons.deleteOutline,
                 tooltip: 'Clear History',
                 onPressed: () {
                   ref.read(errorHistoryProvider.notifier).clear();
@@ -59,7 +60,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.check_circle_outline,
+            AppIcons.duotoneCheckCircle,
             size: 64,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -119,13 +120,13 @@ class _ErrorTileState extends State<_ErrorTile> {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.copy, size: 18),
+                icon: const Icon(AppIcons.copy, size: 18),
                 tooltip: 'Copy error details',
                 onPressed: () => _copyError(context),
               ),
               if (widget.error.stackTrace != null)
                 Icon(
-                  _expanded ? Icons.expand_less : Icons.expand_more,
+                  _expanded ? AppIcons.expandLess : AppIcons.expandMore,
                   size: 20,
                 ),
             ],
@@ -176,13 +177,13 @@ class _ErrorTileState extends State<_ErrorTile> {
   Widget _severityIcon(ErrorSeverity severity, ThemeData theme) {
     switch (severity) {
       case ErrorSeverity.info:
-        return const Icon(Icons.info_outline, color: Colors.blue);
+        return const Icon(AppIcons.infoOutline, color: Colors.blue);
       case ErrorSeverity.warning:
-        return const Icon(Icons.warning_amber_rounded, color: Colors.orange);
+        return const Icon(AppIcons.warningAmberRounded, color: Colors.orange);
       case ErrorSeverity.error:
-        return const Icon(Icons.error_outline, color: Colors.red);
+        return const Icon(AppIcons.errorOutline, color: Colors.red);
       case ErrorSeverity.fatal:
-        return const Icon(Icons.dangerous_outlined, color: Colors.purple);
+        return const Icon(AppIcons.dangerousOutlined, color: Colors.purple);
     }
   }
 }

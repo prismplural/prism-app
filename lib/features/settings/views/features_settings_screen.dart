@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Screen for enabling/disabling app features.
 /// Each feature navigates to its own subview with toggle and settings.
@@ -34,7 +35,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                 children: [
                   _featureRow(
                     context,
-                    icon: Icons.chat_outlined,
+                    icon: AppIcons.chatOutlined,
                     iconColor: Colors.blue,
                     title: 'Chat',
                     enabled: flags.chat,
@@ -42,7 +43,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
-                    icon: Icons.front_hand_outlined,
+                    icon: AppIcons.frontHandOutlined,
                     iconColor: Colors.purple,
                     title: 'Fronting',
                     onTap: () => context.go('/settings/features/fronting'),
@@ -50,7 +51,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
                     context,
-                    icon: Icons.check_circle_outline,
+                    icon: AppIcons.checkCircleOutline,
                     iconColor: Colors.green,
                     title: 'Habits',
                     enabled: flags.habits,
@@ -59,7 +60,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
                     context,
-                    icon: Icons.bedtime_outlined,
+                    icon: AppIcons.bedtimeOutlined,
                     iconColor: Colors.indigo,
                     title: 'Sleep',
                     enabled: flags.sleep,
@@ -68,7 +69,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
                     context,
-                    icon: Icons.poll_outlined,
+                    icon: AppIcons.pollOutlined,
                     iconColor: Colors.purple,
                     title: 'Polls',
                     enabled: flags.polls,
@@ -77,7 +78,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
                     context,
-                    icon: Icons.sticky_note_2_outlined,
+                    icon: AppIcons.stickyNote2Outlined,
                     iconColor: Colors.teal,
                     title: 'Notes',
                     enabled: flags.notes,
@@ -86,7 +87,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   _featureRow(
                     context,
-                    icon: Icons.alarm,
+                    icon: AppIcons.alarm,
                     iconColor: Colors.amber,
                     title: 'Reminders',
                     enabled: flags.reminders,
@@ -144,7 +145,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
               const SizedBox(width: 12),
             ],
             Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.chevronRightRounded,
               color: chevronColor,
             ),
           ],
