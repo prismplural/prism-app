@@ -7,7 +7,6 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
-import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -65,9 +64,14 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final settingsAsync = ref.watch(systemSettingsProvider);
+    final isPinEnabled = ref.watch(pinLockEnabledProvider);
+    final biometricLockEnabled = ref.watch(biometricLockEnabledProvider);
+    final autoLockDelay = ref.watch(autoLockDelaySecondsProvider);
     final isPinSetAsync = ref.watch(isPinSetProvider);
     final biometricAvailableAsync = ref.watch(isBiometricAvailableProvider);
+
+    final pinSet = isPinSetAsync.value ?? false;
+    final biometricAvailable = biometricAvailableAsync.value ?? false;
 
     return PrismPageScaffold(
       topBar: const PrismTopBar(
@@ -75,167 +79,155 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
-      body: settingsAsync.when(
-        loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (settings) {
-          final isPinEnabled = settings.pinLockEnabled;
-          final pinSet = isPinSetAsync.value ?? false;
-          final biometricAvailable =
-              biometricAvailableAsync.value ?? false;
+      body: ListView(
+        padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+        children: [
+          // PIN toggle
+          PrismSection(
+            title: 'PIN Lock',
+            child: PrismSectionCard(
+              child: Column(
+                children: [
+                  PrismSwitchRow(
+                    icon: Icons.lock_outline,
+                    iconColor: Colors.indigo,
+                    title: 'Enable PIN Lock',
+                    subtitle: 'Require a PIN to open the app',
+                    value: isPinEnabled && pinSet,
+                    onChanged: (value) {
+                      if (value) {
+                        _showSetPinFlow();
+                      } else {
+                        _removePin();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
 
-          return ListView(
-            padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-            children: [
-              // PIN toggle
-              PrismSection(
-                title: 'PIN Lock',
+          // Biometric (shown when available, disabled when PIN is not set)
+          if (biometricAvailable)
+            Opacity(
+              opacity: isPinEnabled && pinSet ? 1.0 : 0.5,
+              child: PrismSection(
+                title: 'Biometric',
                 child: PrismSectionCard(
+                  child: PrismSwitchRow(
+                    icon: Icons.fingerprint,
+                    iconColor: Colors.teal,
+                    title: 'Biometric Unlock',
+                    subtitle: isPinEnabled && pinSet
+                        ? 'Use Face ID or fingerprint to unlock'
+                        : 'Enable PIN Lock to use biometric unlock',
+                    value: biometricLockEnabled,
+                    enabled: isPinEnabled && pinSet,
+                    onChanged: (value) {
+                      ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateBiometricLockEnabled(value);
+                    },
+                  ),
+                ),
+              ),
+            ),
+
+          // Auto-lock delay
+          if (isPinEnabled && pinSet)
+            PrismSection(
+              title: 'Auto-Lock',
+              child: PrismSectionCard(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      PrismSwitchRow(
-                        icon: Icons.lock_outline,
-                        iconColor: Colors.indigo,
-                        title: 'Enable PIN Lock',
-                        subtitle: 'Require a PIN to open the app',
-                        value: isPinEnabled && pinSet,
-                        onChanged: (value) {
-                          if (value) {
-                            _showSetPinFlow();
-                          } else {
-                            _removePin();
-                          }
-                        },
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: 6,
+                          bottom: 8,
+                        ),
+                        child: Text(
+                          'Lock after leaving the app',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final entry in const {
+                            0: 'Instant',
+                            15: '15s',
+                            60: '1m',
+                            300: '5m',
+                            900: '15m',
+                          }.entries)
+                            ChoiceChip(
+                              label: Text(entry.value),
+                              selected:
+                                  autoLockDelay == entry.key,
+                              onSelected: (selected) {
+                                if (selected) {
+                                  ref
+                                      .read(settingsNotifierProvider
+                                          .notifier)
+                                      .updateAutoLockDelaySeconds(
+                                          entry.key);
+                                }
+                              },
+                            ),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
+            ),
 
-              // Biometric (shown when available, disabled when PIN is not set)
-              if (biometricAvailable)
-                Opacity(
-                  opacity: isPinEnabled && pinSet ? 1.0 : 0.5,
-                  child: PrismSection(
-                    title: 'Biometric',
-                    child: PrismSectionCard(
-                      child: PrismSwitchRow(
-                        icon: Icons.fingerprint,
-                        iconColor: Colors.teal,
-                        title: 'Biometric Unlock',
-                        subtitle: isPinEnabled && pinSet
-                            ? 'Use Face ID or fingerprint to unlock'
-                            : 'Enable PIN Lock to use biometric unlock',
-                        value: settings.biometricLockEnabled,
-                        enabled: isPinEnabled && pinSet,
-                        onChanged: (value) {
-                          ref
-                              .read(settingsNotifierProvider.notifier)
-                              .updateBiometricLockEnabled(value);
-                        },
+          // Change PIN / Remove PIN buttons
+          if (isPinEnabled && pinSet)
+            PrismSection(
+              title: 'Manage',
+              child: PrismSectionCard(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.pin_outlined),
+                      title: const Text('Change PIN'),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
                       ),
+                      onTap: _changePinFlow,
                     ),
-                  ),
-                ),
-
-              // Auto-lock delay
-              if (isPinEnabled && pinSet)
-                PrismSection(
-                  title: 'Auto-Lock',
-                  child: PrismSectionCard(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
+                    const Divider(height: 1, indent: 56, endIndent: 12),
+                    ListTile(
+                      leading: Icon(
+                        Icons.delete_outline,
+                        color: Theme.of(context).colorScheme.error,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              left: 6,
-                              bottom: 8,
-                            ),
-                            child: Text(
-                              'Lock after leaving the app',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                            ),
-                          ),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final entry in const {
-                                0: 'Instant',
-                                15: '15s',
-                                60: '1m',
-                                300: '5m',
-                                900: '15m',
-                              }.entries)
-                                ChoiceChip(
-                                  label: Text(entry.value),
-                                  selected:
-                                      settings.autoLockDelaySeconds ==
-                                          entry.key,
-                                  onSelected: (selected) {
-                                    if (selected) {
-                                      ref
-                                          .read(settingsNotifierProvider
-                                              .notifier)
-                                          .updateAutoLockDelaySeconds(
-                                              entry.key);
-                                    }
-                                  },
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-              // Change PIN / Remove PIN buttons
-              if (isPinEnabled && pinSet)
-                PrismSection(
-                  title: 'Manage',
-                  child: PrismSectionCard(
-                    child: Column(
-                      children: [
-                        ListTile(
-                          leading: const Icon(Icons.pin_outlined),
-                          title: const Text('Change PIN'),
-                          trailing: const Icon(
-                            Icons.chevron_right_rounded,
-                            size: 20,
-                          ),
-                          onTap: _changePinFlow,
+                      title: Text(
+                        'Remove PIN',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
                         ),
-                        const Divider(height: 1, indent: 56, endIndent: 12),
-                        ListTile(
-                          leading: Icon(
-                            Icons.delete_outline,
-                            color: Theme.of(context).colorScheme.error,
-                          ),
-                          title: Text(
-                            'Remove PIN',
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                          onTap: _removePin,
-                        ),
-                      ],
+                      ),
+                      onTap: _removePin,
                     ),
-                  ),
+                  ],
                 ),
-            ],
-          );
-        },
+              ),
+            ),
+        ],
       ),
     );
   }

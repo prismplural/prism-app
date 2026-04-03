@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:prism_plurality/domain/models/system_settings.dart';
 
 abstract final class AppRoutePaths {
   // Tabs
@@ -119,16 +118,18 @@ class AppShellTab {
     return label;
   }
 
-  bool isEnabled(SystemSettings? settings) {
+  bool isEnabled(
+    ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders}) flags,
+  ) {
     return switch (id) {
       AppShellTabId.home => true,
-      AppShellTabId.chat => settings?.chatEnabled ?? true,
-      AppShellTabId.habits => settings?.habitsEnabled ?? true,
-      AppShellTabId.polls => settings?.pollsEnabled ?? true,
+      AppShellTabId.chat => flags.chat,
+      AppShellTabId.habits => flags.habits,
+      AppShellTabId.polls => flags.polls,
       AppShellTabId.settings => true,
       AppShellTabId.members => true,
-      AppShellTabId.reminders => settings?.remindersEnabled ?? true,
-      AppShellTabId.notes => settings?.notesEnabled ?? true,
+      AppShellTabId.reminders => flags.reminders,
+      AppShellTabId.notes => flags.notes,
       AppShellTabId.statistics => true,
     };
   }

@@ -18,7 +18,8 @@ class NavigationSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final primaryTabs = ref.watch(activeNavBarTabsProvider);
     final overflowTabs = ref.watch(navBarOverflowTabsProvider);
-    final settings = ref.watch(systemSettingsProvider).value;
+    final flags = ref.watch(featureFlagsProvider);
+    final syncNavigationEnabled = ref.watch(syncNavigationEnabledProvider);
     final terms = ref.watch(terminologyProvider);
     final theme = Theme.of(context);
 
@@ -31,13 +32,13 @@ class NavigationSettingsScreen extends ConsumerWidget {
     // Enabled tabs not placed anywhere
     final availableTabs = [
       for (final tab in appShellTabs)
-        if (!placedIds.contains(tab.id) && tab.isEnabled(settings)) tab,
+        if (!placedIds.contains(tab.id) && tab.isEnabled(flags)) tab,
     ];
 
     // Disabled tabs (feature is off)
     final disabledTabs = [
       for (final tab in appShellTabs)
-        if (!tab.isLocked && !tab.isEnabled(settings)) tab,
+        if (!tab.isLocked && !tab.isEnabled(flags)) tab,
     ];
 
     // Build the unified flat list: primary header + primary items + overflow header + overflow items
@@ -72,7 +73,7 @@ class NavigationSettingsScreen extends ConsumerWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                value: settings?.syncNavigationEnabled ?? true,
+                value: syncNavigationEnabled,
                 onChanged: (v) => ref
                     .read(settingsNotifierProvider.notifier)
                     .updateSyncNavigationEnabled(v),

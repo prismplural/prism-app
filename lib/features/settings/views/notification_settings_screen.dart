@@ -8,7 +8,6 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
-import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -31,99 +30,94 @@ class NotificationSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settingsAsync = ref.watch(systemSettingsProvider);
+    final frontingRemindersEnabled = ref.watch(frontingRemindersEnabledProvider);
+    final frontingReminderInterval = ref.watch(frontingReminderIntervalProvider);
     final permissionAsync = ref.watch(notificationPermissionProvider);
     final theme = Theme.of(context);
+
+    final hasPermission = permissionAsync.value ?? false;
 
     return PrismPageScaffold(
       topBar: const PrismTopBar(title: 'Notifications', showBackButton: true),
       bodyPadding: EdgeInsets.zero,
-      body: settingsAsync.when(
-        loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (settings) {
-          final hasPermission = permissionAsync.value ?? false;
+      body: ListView(
+        padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+        children: [
+          // ── Permission Status (top) ──────────────────
+          const _NotificationPermissionTile(),
+          const Divider(height: 1, indent: 16, endIndent: 16),
 
-          return ListView(
-            padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-            children: [
-              // ── Permission Status (top) ──────────────────
-              const _NotificationPermissionTile(),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-
-              // ── Fronting Reminders (grayed out without permission) ──
-              IgnorePointer(
-                ignoring: !hasPermission,
-                child: Opacity(
-                  opacity: hasPermission ? 1.0 : 0.4,
-                  child: Column(
-                    children: [
-                      PrismSwitchRow(
-                        title: 'Fronting reminders',
-                        subtitle: 'Get reminded to log fronting changes',
-                        value: settings.frontingRemindersEnabled,
+          // ── Fronting Reminders (grayed out without permission) ──
+          IgnorePointer(
+            ignoring: !hasPermission,
+            child: Opacity(
+              opacity: hasPermission ? 1.0 : 0.4,
+              child: Column(
+                children: [
+                  PrismSwitchRow(
+                    title: 'Fronting reminders',
+                    subtitle: 'Get reminded to log fronting changes',
+                    value: frontingRemindersEnabled,
+                    onChanged: (value) {
+                      ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateFrontingReminders(enabled: value);
+                    },
+                  ),
+                  if (frontingRemindersEnabled) ...[
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                    PrismListRow(
+                      title: const Text('Reminder interval'),
+                      subtitle:
+                          const Text('How often to send reminders'),
+                      trailing: DropdownButton<int>(
+                        value: _reminderIntervals.containsKey(
+                                frontingReminderInterval)
+                            ? frontingReminderInterval
+                            : 60,
+                        underline: const SizedBox.shrink(),
+                        items: _reminderIntervals.entries
+                            .map((e) => DropdownMenuItem(
+                                  value: e.key,
+                                  child: Text(e.value),
+                                ))
+                            .toList(),
                         onChanged: (value) {
-                          ref
-                              .read(settingsNotifierProvider.notifier)
-                              .updateFrontingReminders(enabled: value);
+                          if (value != null) {
+                            ref
+                                .read(settingsNotifierProvider.notifier)
+                                .updateFrontingReminders(
+                                  enabled: true,
+                                  intervalMinutes: value,
+                                );
+                          }
                         },
                       ),
-                      if (settings.frontingRemindersEnabled) ...[
-                        const Divider(height: 1, indent: 16, endIndent: 16),
-                        PrismListRow(
-                          title: const Text('Reminder interval'),
-                          subtitle:
-                              const Text('How often to send reminders'),
-                          trailing: DropdownButton<int>(
-                            value: _reminderIntervals.containsKey(
-                                    settings.frontingReminderIntervalMinutes)
-                                ? settings.frontingReminderIntervalMinutes
-                                : 60,
-                            underline: const SizedBox.shrink(),
-                            items: _reminderIntervals.entries
-                                .map((e) => DropdownMenuItem(
-                                      value: e.key,
-                                      child: Text(e.value),
-                                    ))
-                                .toList(),
-                            onChanged: (value) {
-                              if (value != null) {
-                                ref
-                                    .read(settingsNotifierProvider.notifier)
-                                    .updateFrontingReminders(
-                                      enabled: true,
-                                      intervalMinutes: value,
-                                    );
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
+                    ),
+                  ],
+                ],
               ),
+            ),
+          ),
 
-              // ── Chat Notifications (always enabled) ────
-              const _ChatBadgeSection(),
+          // ── Chat Notifications (always enabled) ────
+          const _ChatBadgeSection(),
 
-              // ── About (reduced visual weight) ──────────
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Text(
-                  'Fronting reminders send periodic notifications to help you '
-                  'stay aware of who is fronting. This can be useful for '
-                  'logging switches and maintaining awareness throughout '
-                  'the day.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+          // ── About (reduced visual weight) ──────────
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Text(
+              'Fronting reminders send periodic notifications to help you '
+              'stay aware of who is fronting. This can be useful for '
+              'logging switches and maintaining awareness throughout '
+              'the day.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-            ],
-          );
-        },
+            ),
+          ),
+        ],
       ),
     );
   }
