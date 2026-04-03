@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// Direction the popup opens relative to the anchor.
@@ -311,7 +312,7 @@ class _BlurPopupContent extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isDark
                         ? (isOled
-                            ? const Color(0xFF1A1A1A)
+                            ? AppColors.oledSurface1
                                 .withValues(alpha: 0.85)
                             : Colors.white.withValues(alpha: 0.1))
                         : Colors.white.withValues(alpha: 0.75),
