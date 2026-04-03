@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -121,7 +122,7 @@ class PrismEmojiPicker extends StatelessWidget {
         child: hasEmoji
             ? MemberAvatar.centeredEmoji(emoji!, fontSize: size * 0.5)
             : Icon(
-                Icons.add,
+                AppIcons.add,
                 size: size * 0.45,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

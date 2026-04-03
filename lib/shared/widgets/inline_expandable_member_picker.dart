@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -126,7 +127,7 @@ class _InlineExpandableMemberPickerState
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.expand_more),
+                    child: Icon(AppIcons.expandMore),
                   ),
                 ],
               ),
@@ -243,7 +244,7 @@ class _InlineExpandableMultiMemberPickerState
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.expand_more),
+                    child: Icon(AppIcons.expandMore),
                   ),
                 ],
               ),
@@ -411,15 +412,15 @@ class _MemberRow extends StatelessWidget {
             if (useCheckbox)
               Icon(
                 isSelected
-                    ? Icons.check_circle
-                    : Icons.radio_button_unchecked,
+                    ? AppIcons.checkCircle
+                    : AppIcons.radioButtonUnchecked,
                 color: isSelected
                     ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,
               )
             else if (isSelected)
               Icon(
-                Icons.check,
+                AppIcons.check,
                 color: theme.colorScheme.primary,
               ),
           ],

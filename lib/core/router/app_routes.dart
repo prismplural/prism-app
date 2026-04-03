@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 abstract final class AppRoutePaths {
   // Tabs
@@ -135,76 +136,76 @@ class AppShellTab {
   }
 }
 
-const appShellTabs = [
+final appShellTabs = [
   AppShellTab(
     id: AppShellTabId.home,
     label: 'Home',
-    icon: Icons.home_outlined,
-    activeIcon: Icons.home,
+    icon: AppIcons.navHome,
+    activeIcon: AppIcons.navHomeActive,
     branchIndex: 0,
     rootLocation: AppRoutePaths.home,
   ),
   AppShellTab(
     id: AppShellTabId.chat,
     label: 'Chat',
-    icon: Icons.chat_bubble_outline,
-    activeIcon: Icons.chat_bubble,
+    icon: AppIcons.navChat,
+    activeIcon: AppIcons.navChatActive,
     branchIndex: 1,
     rootLocation: AppRoutePaths.chat,
   ),
   AppShellTab(
     id: AppShellTabId.habits,
     label: 'Habits',
-    icon: Icons.check_circle_outline,
-    activeIcon: Icons.check_circle,
+    icon: AppIcons.navHabits,
+    activeIcon: AppIcons.navHabitsActive,
     branchIndex: 2,
     rootLocation: AppRoutePaths.habits,
   ),
   AppShellTab(
     id: AppShellTabId.polls,
     label: 'Polls',
-    icon: Icons.poll_outlined,
-    activeIcon: Icons.poll,
+    icon: AppIcons.navPolls,
+    activeIcon: AppIcons.navPollsActive,
     branchIndex: 3,
     rootLocation: AppRoutePaths.polls,
   ),
   AppShellTab(
     id: AppShellTabId.settings,
     label: 'Settings',
-    icon: Icons.settings_outlined,
-    activeIcon: Icons.settings,
+    icon: AppIcons.navSettings,
+    activeIcon: AppIcons.navSettingsActive,
     branchIndex: 4,
     rootLocation: AppRoutePaths.settings,
   ),
   AppShellTab(
     id: AppShellTabId.members,
     label: 'Members',
-    icon: Icons.people_outline,
-    activeIcon: Icons.people,
+    icon: AppIcons.navMembers,
+    activeIcon: AppIcons.navMembersActive,
     branchIndex: 5,
     rootLocation: AppRoutePaths.members,
   ),
   AppShellTab(
     id: AppShellTabId.reminders,
     label: 'Reminders',
-    icon: Icons.alarm_outlined,
-    activeIcon: Icons.alarm,
+    icon: AppIcons.navReminders,
+    activeIcon: AppIcons.navRemindersActive,
     branchIndex: 6,
     rootLocation: AppRoutePaths.reminders,
   ),
   AppShellTab(
     id: AppShellTabId.notes,
     label: 'Notes',
-    icon: Icons.note_outlined,
-    activeIcon: Icons.note,
+    icon: AppIcons.navNotes,
+    activeIcon: AppIcons.navNotesActive,
     branchIndex: 7,
     rootLocation: AppRoutePaths.notes,
   ),
   AppShellTab(
     id: AppShellTabId.statistics,
     label: 'Statistics',
-    icon: Icons.bar_chart_outlined,
-    activeIcon: Icons.bar_chart,
+    icon: AppIcons.navStatistics,
+    activeIcon: AppIcons.navStatisticsActive,
     branchIndex: 8,
     rootLocation: AppRoutePaths.statistics,
   ),

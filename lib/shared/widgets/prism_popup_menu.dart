@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// A styled popup menu with consistent item layout.
 ///
 /// Items are rendered as [ListTile] rows with icon, label, and optional
 /// destructive styling. Wraps [PopupMenuButton].
 class PrismPopupMenu<T> extends StatelessWidget {
-  const PrismPopupMenu({
+  PrismPopupMenu({
     super.key,
     required this.items,
     this.onSelected,
-    this.icon = Icons.more_vert,
+    IconData? icon,
     this.tooltip,
     this.iconSize = 20.0,
-  });
+  }) : icon = icon ?? AppIcons.moreVert;
 
   final List<PrismMenuItem<T>> items;
   final ValueChanged<T>? onSelected;

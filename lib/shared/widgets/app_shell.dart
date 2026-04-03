@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/settings/widgets/sync_password_sheet.da
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/desktop_breakpoint.dart';
@@ -814,7 +815,7 @@ class _MoreTrigger extends StatelessWidget {
           child: Center(
             child: Transform.rotate(
               angle: animationValue * 0.785, // 45 degrees
-              child: Icon(Icons.more_vert, size: 22, color: iconColor),
+              child: Icon(AppIcons.moreVert, size: 22, color: iconColor),
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
@@ -234,7 +235,7 @@ class PrismSheetTopBar extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: PrismGlassIconButton(
-              icon: Icons.close,
+              icon: AppIcons.close,
               size: PrismTokens.topBarActionSize,
               onPressed: () => Navigator.of(context).pop(),
             ),
