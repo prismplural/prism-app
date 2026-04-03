@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// A cheap faux-glass surface that achieves a glassy appearance through
@@ -63,8 +64,8 @@ class TintedGlassSurface extends ConsumerWidget {
         : PrismTokens.tintedFillAlphaLight + (isAccessible ? 0.15 : 0.0);
 
     final Color baseColor = isDark
-        ? Colors.white.withValues(alpha: baseFillAlpha)
-        : Colors.white.withValues(alpha: baseFillAlpha);
+        ? AppColors.warmWhite.withValues(alpha: baseFillAlpha)
+        : AppColors.warmWhite.withValues(alpha: baseFillAlpha);
 
     final Color fillColor = tint != null
         ? Color.alphaBlend(tint!.withValues(alpha: 0.15), baseColor)
@@ -76,8 +77,8 @@ class TintedGlassSurface extends ConsumerWidget {
         : PrismTokens.tintedBorderAlphaLight + (isAccessible ? 0.10 : 0.0);
 
     final Color borderColor = isDark
-        ? Colors.white.withValues(alpha: borderAlpha)
-        : Colors.black.withValues(alpha: borderAlpha);
+        ? AppColors.warmWhite.withValues(alpha: borderAlpha)
+        : AppColors.warmBlack.withValues(alpha: borderAlpha);
 
     // --- Shadow ---
     final double shadowAlpha = isDark
@@ -86,7 +87,7 @@ class TintedGlassSurface extends ConsumerWidget {
 
     final List<BoxShadow> shadow = [
       BoxShadow(
-        color: Colors.black.withValues(alpha: shadowAlpha),
+        color: AppColors.warmBlack.withValues(alpha: shadowAlpha),
         blurRadius: PrismTokens.tintedShadowBlur,
         offset: const Offset(0, 2),
       ),
@@ -107,7 +108,7 @@ class TintedGlassSurface extends ConsumerWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withValues(alpha: PrismTokens.tintedHighlightAlpha),
+                AppColors.warmWhite.withValues(alpha: PrismTokens.tintedHighlightAlpha),
                 Colors.transparent,
               ],
             ),

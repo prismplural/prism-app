@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 
@@ -231,7 +232,7 @@ class _ToastOverlayState extends State<_ToastOverlay>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isOled = theme.scaffoldBackgroundColor == Colors.black;
+    final isOled = theme.scaffoldBackgroundColor == AppColors.warmBlack;
     final accentColor = theme.colorScheme.primary;
     final textColor = theme.colorScheme.onSurface;
     final messageStyle = theme.textTheme.bodyMedium?.copyWith(
@@ -277,21 +278,21 @@ class _ToastOverlayState extends State<_ToastOverlay>
                                       ? const Color(
                                           0xFF1A1A1A,
                                         ).withValues(alpha: 0.85)
-                                      : Colors.white.withValues(alpha: 0.08))
-                                : Colors.white.withValues(alpha: 0.78),
+                                      : AppColors.warmWhite.withValues(alpha: 0.08))
+                                : AppColors.warmWhite.withValues(alpha: 0.78),
                           ),
                           borderRadius: BorderRadius.circular(
                             PrismTokens.radiusPill,
                           ),
                           border: Border.all(
                             color: isDark
-                                ? Colors.white.withValues(alpha: 0.1)
-                                : Colors.black.withValues(alpha: 0.08),
+                                ? AppColors.warmWhite.withValues(alpha: 0.1)
+                                : AppColors.warmBlack.withValues(alpha: 0.08),
                             width: PrismTokens.hairlineBorderWidth,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(
+                              color: AppColors.warmBlack.withValues(
                                 alpha: isDark ? 0.3 : 0.08,
                               ),
                               blurRadius: 16,

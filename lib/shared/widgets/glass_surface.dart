@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -92,21 +93,21 @@ class GlassSurface extends ConsumerWidget {
         ? BorderRadius.circular((width ?? 40) / 2)
         : (borderRadius ?? BorderRadius.circular(PrismTokens.radiusMedium));
 
-    final darkBase = Colors.white.withValues(alpha: 0.08);
+    final darkBase = AppColors.warmWhite.withValues(alpha: 0.08);
     final fillColor = tint != null
         ? Color.alphaBlend(
             tint!.withValues(alpha: 0.15),
-            isDark ? darkBase : Colors.white.withValues(alpha: 0.65),
+            isDark ? darkBase : AppColors.warmWhite.withValues(alpha: 0.65),
           )
         : isDark
         ? darkBase
-        : Colors.white.withValues(alpha: 0.65);
+        : AppColors.warmWhite.withValues(alpha: 0.65);
     final effectiveFillColor = backgroundColor ?? fillColor;
     final effectiveBorderColor =
         borderColor ??
         (isDark
-            ? Colors.white.withValues(alpha: 0.1)
-            : Colors.black.withValues(alpha: 0.06));
+            ? AppColors.warmWhite.withValues(alpha: 0.1)
+            : AppColors.warmBlack.withValues(alpha: 0.06));
 
     return ClipRRect(
       borderRadius: effectiveBorderRadius,
