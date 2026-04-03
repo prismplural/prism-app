@@ -2,6 +2,25 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.9] - 2026-04-02
+
+### Changed
+- Consolidated animation timing constants into `Anim` with t-shirt sizing (`xs`/`sm`/`md`/`lg`), removed duplicates from `PrismTokens`
+- Migrated 11 settings screens from full `systemSettingsProvider` watch to narrow providers, reducing unnecessary widget rebuilds
+- Narrowed nav bar tab providers to only watch feature flags and nav item lists
+- Refactored `AppShellTab.isEnabled` to accept a feature flags record instead of full `SystemSettings`
+
+### Fixed
+- Poll export no longer includes options/votes from soft-deleted polls (was creating orphaned rows on restore)
+- PIN lock settings screen shows loading state until settings resolve, preventing false-off toggle on cold start
+- SharedPreferences flag ordering preserved so one-time enum migration retries on transient failure
+
+### Added
+- 16 narrow Riverpod settings providers for granular rebuild control
+- `featureFlagsProvider` grouped record for feature toggle screens and nav bar filtering
+- Batch `getAllVotes()` and `getAllVotesGroupedByOption()` poll repository methods
+- `getAllOptionsGroupedByPoll()` poll repository method for efficient export
+
 ## [0.2.7] - 2026-03-28
 
 ### Added
