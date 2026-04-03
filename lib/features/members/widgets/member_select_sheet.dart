@@ -6,6 +6,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// A compact bottom sheet for selecting a member (headmate).
 ///
@@ -54,11 +55,11 @@ class MemberSelectSheet extends ConsumerWidget {
               leading: const SizedBox(
                 width: 36,
                 height: 36,
-                child: Icon(Icons.close),
+                child: Icon(AppIcons.close),
               ),
               title: const Text('None'),
               trailing: currentMemberId == null || currentMemberId!.isEmpty
-                  ? const Icon(Icons.check)
+                  ? const Icon(AppIcons.check)
                   : null,
               onTap: () => Navigator.of(context).pop(''),
             );
@@ -78,7 +79,7 @@ class MemberSelectSheet extends ConsumerWidget {
             title: Text(member.name),
             subtitle:
                 member.pronouns != null ? Text(member.pronouns!) : null,
-            trailing: isSelected ? const Icon(Icons.check) : null,
+            trailing: isSelected ? const Icon(AppIcons.check) : null,
             onTap: () => Navigator.of(context).pop(member.id),
           );
         },

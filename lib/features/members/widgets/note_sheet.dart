@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Create or edit a note. Shown as a full-screen PrismSheet.
 ///
@@ -164,7 +165,7 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
             PrismSheetTopBar(
               title: 'Note',
               trailing: PrismGlassIconButton(
-                icon: Icons.check,
+                icon: AppIcons.check,
                 onPressed: _isValid ? _save : null,
                 enabled: _isValid,
                 tooltip: 'Save note',
@@ -278,7 +279,7 @@ class _BottomToolbar extends ConsumerWidget {
         children: [
           // Date chip.
           _ToolbarChip(
-            icon: Icons.calendar_today_outlined,
+            icon: AppIcons.calendarTodayOutlined,
             label: _dateFormat.format(date),
             color: mutedColor,
             onTap: onPickDate,
@@ -305,7 +306,7 @@ class _BottomToolbar extends ConsumerWidget {
             )
           else
             _ToolbarChip(
-              icon: Icons.person_outline,
+              icon: AppIcons.personOutline,
               label: 'Add headmate',
               color: mutedColor.withValues(alpha: 0.6),
               onTap: onPickMember,

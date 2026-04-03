@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 const _uuid = Uuid();
 
@@ -150,7 +151,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                     ),
                   )
                 : PrismGlassIconButton(
-                    icon: Icons.check,
+                    icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,
                     tint: canSave ? theme.colorScheme.primary : null,
                     accentIcon: canSave,

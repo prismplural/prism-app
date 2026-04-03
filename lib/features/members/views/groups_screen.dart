@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Screen listing all member groups with reordering support.
 class GroupsScreen extends ConsumerStatefulWidget {
@@ -66,7 +67,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         showBackButton: true,
         actions: [
           PrismTopBarAction(
-            icon: Icons.add,
+            icon: AppIcons.add,
             tooltip: 'New group',
             onPressed: _openCreateSheet,
           ),
@@ -87,7 +88,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         data: (groups) {
           if (groups.isEmpty) {
             return EmptyState(
-              icon: Icons.folder_outlined,
+              icon: AppIcons.folderOutlined,
               title: 'No groups yet',
               subtitle: 'Create groups to organize your system members',
               actionLabel: 'New group',
@@ -165,7 +166,7 @@ class _GroupTile extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
         color: theme.colorScheme.error,
-        child: Icon(Icons.delete, color: theme.colorScheme.onError),
+        child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
       ),
       confirmDismiss: (_) async {
         onDelete();
@@ -220,7 +221,7 @@ class _GroupTile extends StatelessWidget {
                                 theme.colorScheme.primaryContainer,
                           ),
                           child: Icon(
-                            Icons.folder_outlined,
+                            AppIcons.folderOutlined,
                             size: 16,
                             color: accentColor != null
                                 ? AppColors.warmWhite
@@ -259,7 +260,7 @@ class _GroupTile extends StatelessWidget {
                       ReorderableDragStartListener(
                         index: reorderIndex,
                         child: Icon(
-                          Icons.drag_handle,
+                          AppIcons.dragHandle,
                           color: theme.colorScheme.onSurfaceVariant
                               .withValues(alpha: 0.4),
                         ),

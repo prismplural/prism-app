@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -24,6 +25,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Main member list screen.
 class MembersScreen extends ConsumerStatefulWidget {
@@ -64,12 +66,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(_showInactive
-                  ? Icons.visibility
-                  : Icons.visibility_outlined),
+                  ? AppIcons.visibility
+                  : AppIcons.visibilityOutlined),
               title: Text(
                   _showInactive ? 'Hide inactive' : 'Show inactive'),
               trailing: _showInactive
-                  ? Icon(Icons.check,
+                  ? Icon(AppIcons.check,
                       size: 18, color: theme.colorScheme.primary)
                   : null,
               onTap: () {
@@ -259,7 +261,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         showBackButton: widget.showBackButton,
         actions: [
           PrismTopBarAction(
-            icon: Icons.search,
+            icon: AppIcons.search,
             tooltip: terms.searchHint,
             onPressed: () {
               final members = membersAsync.value;
@@ -267,12 +269,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             },
           ),
           PrismTopBarAction(
-            icon: Icons.add,
+            icon: AppIcons.add,
             tooltip: terms.addButtonText,
             onPressed: _openAddSheet,
           ),
           PrismTopBarAction(
-            icon: Icons.more_vert,
+            icon: AppIcons.moreVert,
             tooltip: 'Options',
             onPressed: () => _showOptionsMenu(membersAsync.value, terms),
           ),
@@ -297,7 +299,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         data: (members) {
           if (members.isEmpty) {
             return EmptyState(
-              icon: Icons.people_outline,
+              icon: AppIcons.peopleOutline,
               title: _showInactive
                   ? terms.emptyTitle
                   : terms.emptyActiveTitle,
@@ -355,7 +357,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         padding: const EdgeInsets.only(left: 24),
         color: member.isActive ? Colors.orange : Colors.green,
         child: Icon(
-          member.isActive ? Icons.archive_outlined : Icons.unarchive_outlined,
+          member.isActive ? AppIcons.archiveOutlined : AppIcons.unarchiveOutlined,
           color: AppColors.warmWhite,
         ),
       ),
@@ -363,7 +365,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
         color: theme.colorScheme.error,
-        child: Icon(Icons.delete, color: theme.colorScheme.onError),
+        child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
       ),
       confirmDismiss: (direction) {
         if (direction == DismissDirection.endToStart) {
@@ -381,7 +383,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             if (isFronting) ...[
               const PrismPill(
                 label: 'Fronting',
-                icon: Icons.flash_on,
+                icon: AppIcons.flashOn,
                 color: AppColors.fronting,
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
@@ -391,7 +393,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               ReorderableDragStartListener(
                 index: reorderIndex,
                 child: Icon(
-                  Icons.drag_handle,
+                  AppIcons.dragHandle,
                   color: theme.colorScheme.onSurfaceVariant
                       .withValues(alpha: 0.4),
                 ),

@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/members/providers/notes_providers.dart'
 import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Notes section shown on member detail screen.
 class NotesSection extends ConsumerWidget {
@@ -35,7 +36,7 @@ class NotesSection extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.sticky_note_2_outlined,
+                  Icon(AppIcons.stickyNote2Outlined,
                       size: 18, color: theme.colorScheme.primary),
                   const SizedBox(width: 8),
                   Text(
@@ -47,7 +48,7 @@ class NotesSection extends ConsumerWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    icon: Icon(Icons.add,
+                    icon: Icon(AppIcons.add,
                         size: 20, color: theme.colorScheme.primary),
                     onPressed: () => _openCreateSheet(context),
                     visualDensity: VisualDensity.compact,
@@ -171,7 +172,7 @@ class _NoteTile extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Icon(
-              Icons.chevron_right,
+              AppIcons.chevronRight,
               size: 18,
               color: theme.colorScheme.onSurfaceVariant,
             ),

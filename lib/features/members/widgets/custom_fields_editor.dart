@@ -7,6 +7,7 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Inline editor for custom field values on the member edit sheet.
 ///
@@ -57,7 +58,7 @@ class CustomFieldsEditor extends ConsumerWidget {
         const SizedBox(height: 16),
         Row(
           children: [
-            Icon(Icons.tune_outlined, size: 18, color: theme.colorScheme.primary),
+            Icon(AppIcons.tuneOutlined, size: 18, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
             Text(
               'Custom Fields',
@@ -233,7 +234,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
               if (currentValue.isNotEmpty)
                 IconButton(
                   icon: Icon(
-                    Icons.clear,
+                    AppIcons.clear,
                     size: 18,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -248,7 +249,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
                   },
                 ),
               Icon(
-                Icons.calendar_today,
+                AppIcons.calendarToday,
                 size: 18,
                 color: theme.colorScheme.onSurfaceVariant,
               ),

@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Provider to watch a single note by ID.
 final noteByIdProvider =
@@ -70,12 +71,12 @@ class _NoteDetailBody extends ConsumerWidget {
         showBackButton: true,
         actions: [
           PrismTopBarAction(
-            icon: Icons.edit_outlined,
+            icon: AppIcons.editOutlined,
             tooltip: 'Edit',
             onPressed: () => _openEditSheet(context),
           ),
           PrismTopBarAction(
-            icon: Icons.delete_outline,
+            icon: AppIcons.deleteOutline,
             tooltip: 'Delete',
             onPressed: () => _confirmDelete(context, ref),
           ),

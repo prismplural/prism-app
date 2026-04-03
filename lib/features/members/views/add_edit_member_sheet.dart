@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -213,7 +214,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                     ),
                   )
                 : PrismGlassIconButton(
-                    icon: Icons.check,
+                    icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,
                     tint: canSave ? theme.colorScheme.primary : null,
                     accentIcon: canSave,
@@ -261,7 +262,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      Icons.camera_alt,
+                                      AppIcons.cameraAlt,
                                       size: 18,
                                       color: theme
                                           .colorScheme.onPrimaryContainer,
