@@ -50,7 +50,7 @@ class EmptyState extends StatelessWidget {
     this.suggestions,
   });
 
-  final IconData icon;
+  final Widget icon;
   final String title;
   final String subtitle;
   final String? actionLabel;
@@ -79,7 +79,10 @@ class EmptyState extends StatelessWidget {
                 color: color.withValues(alpha: 0.15),
               ),
               alignment: Alignment.center,
-              child: Icon(icon, size: 48, color: color),
+              child: IconTheme(
+                data: IconThemeData(size: 48, color: color),
+                child: icon,
+              ),
             ),
             const SizedBox(height: 24),
 
