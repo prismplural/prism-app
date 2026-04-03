@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 // ---------------------------------------------------------------------------
 // Sync entity counts provider
@@ -126,7 +127,7 @@ class SyncSettingsScreen extends ConsumerWidget {
       return PrismPageScaffold(
         topBar: const PrismTopBar(title: 'Sync', showBackButton: true),
         body: _StateMessageView(
-          icon: Icons.sync_disabled,
+          icon: AppIcons.syncDisabled,
           title: 'Sync was disconnected',
           message: 'Set up sync again to reconnect your devices.',
           actionLabel: 'Set Up Sync',
@@ -154,7 +155,7 @@ class SyncSettingsScreen extends ConsumerWidget {
       return PrismPageScaffold(
         topBar: const PrismTopBar(title: 'Sync', showBackButton: true),
         body: _StateMessageView(
-          icon: Icons.sync_problem,
+          icon: AppIcons.syncProblem,
           title: 'Unable to load sync settings',
           message: '$loadError',
           actionLabel: 'Try again',
@@ -192,7 +193,7 @@ class _SetupView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.sync_rounded,
+              AppIcons.duotoneSync,
               size: 64,
               color: theme.colorScheme.primary.withValues(alpha: 0.6),
             ),
@@ -214,7 +215,7 @@ class _SetupView extends StatelessWidget {
             const SizedBox(height: 32),
             PrismButton(
               label: 'Set Up Sync',
-              icon: Icons.lock_outline,
+              icon: AppIcons.lockOutline,
               tone: PrismButtonTone.filled,
               onPressed: () => context.push(AppRoutePaths.syncSetup),
             ),
@@ -272,7 +273,7 @@ class _StateMessageView extends StatelessWidget {
             const SizedBox(height: 24),
             PrismButton(
               label: actionLabel,
-              icon: Icons.refresh,
+              icon: AppIcons.refresh,
               tone: PrismButtonTone.filled,
               onPressed: onAction,
             ),
@@ -321,7 +322,7 @@ class _ConfiguredView extends ConsumerWidget {
             child: Column(
               children: [
                 PrismSettingsRow(
-                  icon: Icons.sync,
+                  icon: AppIcons.sync,
                   title: 'Sync now',
                   subtitle: isSyncActive
                       ? 'Syncing…'
@@ -342,14 +343,14 @@ class _ConfiguredView extends ConsumerWidget {
                 if (handle != null) ...[
                   const Divider(height: 1),
                   PrismSettingsRow(
-                    icon: Icons.devices,
+                    icon: AppIcons.devices,
                     title: 'Set up another device',
                     subtitle: 'Generate a pairing QR code',
                     onTap: () => SetupDeviceSheet.show(context, ref),
                   ),
                   const Divider(height: 1),
                   PrismSettingsRow(
-                    icon: Icons.devices_other,
+                    icon: AppIcons.devicesOther,
                     title: 'Manage Devices',
                     subtitle: 'View and revoke linked devices',
                     onTap: () =>
@@ -359,7 +360,7 @@ class _ConfiguredView extends ConsumerWidget {
                 if (syncHealth == SyncHealthState.healthy) ...[
                   const Divider(height: 1),
                   PrismSettingsRow(
-                    icon: Icons.key,
+                    icon: AppIcons.key,
                     title: 'View Secret Key',
                     subtitle: 'Show your 12-word recovery phrase',
                     onTap: () => _showSecretKey(context),
@@ -448,7 +449,7 @@ class _ConfiguredView extends ConsumerWidget {
                   ListTile(
                     dense: true,
                     leading: Icon(
-                      Icons.error_outline,
+                      AppIcons.errorOutline,
                       size: 20,
                       color: theme.colorScheme.error,
                     ),
@@ -462,7 +463,7 @@ class _ConfiguredView extends ConsumerWidget {
                 ],
                 const Divider(height: 1),
                 PrismSettingsRow(
-                  icon: Icons.build_circle_outlined,
+                  icon: AppIcons.buildCircleOutlined,
                   title: 'Troubleshooting',
                   onTap: () =>
                       context.push(AppRoutePaths.settingsSyncTroubleshooting),
@@ -676,7 +677,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscure ? Icons.visibility_off : Icons.visibility,
+                                _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
                               ),
                               onPressed: () => setState(() => _obscure = !_obscure),
                             ),
@@ -705,7 +706,7 @@ class _SyncThemeToggle extends ConsumerWidget {
     final value = ref.watch(syncThemeEnabledProvider);
 
     return PrismSwitchRow(
-      icon: Icons.palette_outlined,
+      icon: AppIcons.paletteOutlined,
       iconColor: Colors.deepPurple,
       title: 'Sync theme across devices',
       subtitle: 'Share brightness, style, and accent color via sync',
@@ -723,7 +724,7 @@ class _SyncNavigationToggle extends ConsumerWidget {
     final value = ref.watch(syncNavigationEnabledProvider);
 
     return PrismSwitchRow(
-      icon: Icons.tab_outlined,
+      icon: AppIcons.tabOutlined,
       iconColor: Colors.teal,
       title: 'Sync navigation layout',
       subtitle: 'Share tab arrangement across devices',
@@ -748,7 +749,7 @@ class _QuarantineItemTile extends StatelessWidget {
     return ListTile(
       dense: true,
       leading: Icon(
-        Icons.warning_amber_rounded,
+        AppIcons.warningAmberRounded,
         size: 20,
         color: Colors.amber.shade700,
       ),
@@ -844,33 +845,33 @@ class _StatusCard extends StatelessWidget {
 
     if (syncStatus.lastError != null) {
       statusColor = theme.colorScheme.error;
-      statusIcon = Icons.sync_problem;
+      statusIcon = AppIcons.syncProblem;
       statusText = 'Sync error';
       statusDetail = syncStatus.lastError!;
     } else if (syncStatus.isSyncing) {
       statusColor = theme.colorScheme.primary;
-      statusIcon = Icons.sync;
+      statusIcon = AppIcons.sync;
       statusText = 'Syncing';
       statusDetail = 'Sync in progress…';
     } else if (syncStatus.lastSyncAt != null &&
         syncStatus.hasQuarantinedItems) {
       statusColor = Colors.amber.shade700;
-      statusIcon = Icons.cloud_done;
+      statusIcon = AppIcons.cloudDone;
       statusText = 'Synced with issues';
       statusDetail = _formatTime(syncStatus.lastSyncAt!);
     } else if (syncStatus.lastSyncAt != null) {
       statusColor = Colors.green;
-      statusIcon = Icons.cloud_done;
+      statusIcon = AppIcons.cloudDone;
       statusText = 'Last synced';
       statusDetail = _formatTime(syncStatus.lastSyncAt!);
     } else if (hasActiveHandle) {
       statusColor = theme.colorScheme.primary;
-      statusIcon = Icons.cloud_queue;
+      statusIcon = AppIcons.cloudQueue;
       statusText = 'Ready to sync';
       statusDetail = 'Waiting for changes.';
     } else {
       statusColor = theme.colorScheme.outline;
-      statusIcon = Icons.cloud_off;
+      statusIcon = AppIcons.cloudOff;
       statusText = 'Needs reconnect';
       statusDetail = 'Tap Sync Now to reconnect.';
     }
@@ -918,8 +919,8 @@ class _StatusCard extends StatelessWidget {
                       children: [
                         Icon(
                           wsConnected
-                              ? Icons.cell_tower
-                              : Icons.signal_wifi_off,
+                              ? AppIcons.cellTower
+                              : AppIcons.signalWifiOff,
                           size: 13,
                           color: wsConnected
                               ? Colors.green

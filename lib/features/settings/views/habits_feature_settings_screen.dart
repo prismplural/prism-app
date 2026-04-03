@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings subview for the Habits feature.
 class HabitsFeatureSettingsScreen extends ConsumerWidget {
@@ -39,7 +40,7 @@ class HabitsFeatureSettingsScreen extends ConsumerWidget {
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
-                icon: Icons.check_circle_outline,
+                icon: AppIcons.checkCircleOutline,
                 iconColor: Colors.green,
                 title: 'Enable Habits',
                 subtitle: 'Track daily routines and goals',
@@ -56,7 +57,7 @@ class HabitsFeatureSettingsScreen extends ConsumerWidget {
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: PrismSwitchRow(
-                  icon: Icons.pin_outlined,
+                  icon: AppIcons.pinOutlined,
                   iconColor: Colors.green,
                   title: 'Due Habits Badge',
                   subtitle: 'Show count of due habits on the tab icon',

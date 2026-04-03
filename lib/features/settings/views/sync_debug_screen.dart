@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class SyncDebugScreen extends ConsumerWidget {
   const SyncDebugScreen({super.key});
@@ -34,12 +35,12 @@ class SyncDebugScreen extends ConsumerWidget {
         showBackButton: true,
         actions: [
           PrismTopBarAction(
-            icon: Icons.copy_all,
+            icon: AppIcons.copyAll,
             tooltip: 'Copy log',
             onPressed: events.isEmpty ? null : copyLog,
           ),
           PrismTopBarAction(
-            icon: Icons.delete_outline,
+            icon: AppIcons.deleteOutline,
             tooltip: 'Clear log',
             onPressed: events.isEmpty
                 ? null
@@ -76,7 +77,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.receipt_long_outlined,
+              AppIcons.duotoneReceipt,
               size: 64,
               color: theme.colorScheme.onSurfaceVariant,
             ),

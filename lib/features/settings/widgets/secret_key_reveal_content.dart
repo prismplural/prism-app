@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/utils/sensitive_clipboard.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class SecretKeyRevealContent extends StatefulWidget {
   const SecretKeyRevealContent({
@@ -49,7 +50,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
           child: Row(
             children: [
               Icon(
-                Icons.warning_rounded,
+                AppIcons.warningRounded,
                 color: theme.colorScheme.onErrorContainer,
               ),
               const SizedBox(width: 12),
@@ -104,7 +105,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             Expanded(
               child: PrismButton(
                 onPressed: _copyToClipboard,
-                icon: Icons.copy,
+                icon: AppIcons.copy,
                 label: 'Copy',
                 tone: PrismButtonTone.outlined,
               ),
@@ -113,7 +114,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             Expanded(
               child: PrismButton(
                 onPressed: _shareBackup,
-                icon: Icons.share,
+                icon: AppIcons.share,
                 label: 'Save Backup',
                 tone: PrismButtonTone.outlined,
               ),
@@ -123,7 +124,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
         const SizedBox(height: 12),
         PrismButton(
           onPressed: () => setState(() => _showQr = !_showQr),
-          icon: _showQr ? Icons.visibility_off : Icons.qr_code,
+          icon: _showQr ? AppIcons.visibilityOff : AppIcons.qrCode,
           label: _showQr ? 'Hide QR Code' : 'Show QR Code',
           tone: PrismButtonTone.outlined,
         ),

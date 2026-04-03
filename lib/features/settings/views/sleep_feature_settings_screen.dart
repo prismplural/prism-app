@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings subview for the Sleep feature.
 class SleepFeatureSettingsScreen extends ConsumerStatefulWidget {
@@ -83,7 +84,7 @@ class _SleepFeatureSettingsScreenState
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
-                icon: Icons.bedtime_outlined,
+                icon: AppIcons.bedtimeOutlined,
                 iconColor: Colors.indigo,
                 title: 'Enable Sleep',
                 subtitle: 'Log and monitor sleep sessions',
@@ -100,7 +101,7 @@ class _SleepFeatureSettingsScreenState
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: PrismSettingsRow(
-                  icon: Icons.star_outline,
+                  icon: AppIcons.starOutline,
                   iconColor: Colors.indigo,
                   title: 'Default Quality',
                   subtitle: _defaultQuality.label,

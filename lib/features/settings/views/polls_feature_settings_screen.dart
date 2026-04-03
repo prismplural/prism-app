@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings subview for the Polls feature.
 class PollsFeatureSettingsScreen extends ConsumerWidget {
@@ -38,7 +39,7 @@ class PollsFeatureSettingsScreen extends ConsumerWidget {
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
-                icon: Icons.poll_outlined,
+                icon: AppIcons.pollOutlined,
                 iconColor: Colors.purple,
                 title: 'Enable Polls',
                 subtitle: 'Create polls for system decisions',

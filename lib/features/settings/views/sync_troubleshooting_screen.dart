@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Full screen for sync debugging and troubleshooting.
 ///
@@ -45,10 +46,10 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
         ? Colors.green
         : theme.colorScheme.primary;
     final connectionIcon = !isConfigured
-        ? Icons.cloud_off_outlined
+        ? AppIcons.cloudOffOutlined
         : hasActiveHandle
-        ? Icons.cloud_done_outlined
-        : Icons.cloud_sync_outlined;
+        ? AppIcons.cloudDoneOutlined
+        : AppIcons.cloudSyncOutlined;
     final connectionTitle = !isConfigured
         ? 'Not configured'
         : hasActiveHandle
@@ -118,7 +119,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             // -- Last Sync Time --
             const _SectionHeader(title: 'Last Sync'),
             ListTile(
-              leading: const Icon(Icons.schedule),
+              leading: const Icon(AppIcons.schedule),
               title: const Text('Last successful sync'),
               subtitle: Text(
                 syncStatus.lastSyncAt != null
@@ -131,7 +132,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             if (syncStatus.lastError != null) ...[
               ListTile(
                 leading: Icon(
-                  Icons.error_outline,
+                  AppIcons.errorOutline,
                   color: theme.colorScheme.error,
                 ),
                 title: const Text('Last sync error'),
@@ -146,7 +147,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.warning_amber_rounded,
+                          AppIcons.warningAmberRounded,
                           color: theme.colorScheme.onErrorContainer,
                         ),
                         const SizedBox(width: 12),
@@ -167,19 +168,19 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
 
             // -- Current State --
             ListTile(
-              leading: const Icon(Icons.info_outline),
+              leading: const Icon(AppIcons.infoOutline),
               title: const Text('Current sync state'),
               subtitle: Text(syncStatus.isSyncing ? 'Syncing…' : 'Idle'),
             ),
             if (syncStatus.pendingOps > 0)
               ListTile(
-                leading: const Icon(Icons.pending_outlined),
+                leading: const Icon(AppIcons.pendingOutlined),
                 title: const Text('Pending operations'),
                 subtitle: Text('${syncStatus.pendingOps} ops waiting to sync'),
               ),
             if (syncId != null && syncId.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.tag),
+                leading: const Icon(AppIcons.tag),
                 title: const Text('Sync ID'),
                 subtitle: Text(
                   syncId,
@@ -190,7 +191,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               ),
             if (relayUrl != null && relayUrl.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.link),
+                leading: const Icon(AppIcons.link),
                 title: const Text('Relay URL'),
                 subtitle: Text(
                   relayUrl,
@@ -209,7 +210,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               child: PrismButton(
                 onPressed: syncNowCallback ?? () {},
                 enabled: syncNowCallback != null,
-                icon: Icons.sync,
+                icon: AppIcons.sync,
                 label: 'Force Sync',
                 tone: PrismButtonTone.filled,
               ),
@@ -218,7 +219,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: PrismButton(
                 onPressed: () => context.push(AppRoutePaths.settingsSyncDebug),
-                icon: Icons.receipt_long_outlined,
+                icon: AppIcons.receiptLongOutlined,
                 label: 'Open Sync Event Log',
                 tone: PrismButtonTone.outlined,
               ),
@@ -228,7 +229,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               child: PrismButton(
                 onPressed: () => _confirmReset(context, ref),
                 enabled: isConfigured || hasActiveHandle,
-                icon: Icons.restart_alt,
+                icon: AppIcons.restartAlt,
                 label: 'Reset Sync System',
                 tone: PrismButtonTone.destructive,
               ),
@@ -238,7 +239,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               child: PrismButton(
                 onPressed: () => _confirmRepair(context, ref),
                 enabled: isConfigured || hasActiveHandle,
-                icon: Icons.person_off_outlined,
+                icon: AppIcons.personOffOutlined,
                 label: 'Re-pair Device',
                 tone: PrismButtonTone.destructive,
               ),
@@ -248,35 +249,35 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             // -- Common Issues --
             const _SectionHeader(title: 'Common Issues'),
             const _TroubleshootingTile(
-              icon: Icons.sync_problem,
+              icon: AppIcons.syncProblem,
               title: 'Sync not working?',
               description:
                   'Check that your relay URL and sync ID are correctly configured '
                   'in Sync settings. Both devices must use the same sync ID.',
             ),
             const _TroubleshootingTile(
-              icon: Icons.copy_all,
+              icon: AppIcons.copyAll,
               title: 'Duplicate data?',
               description:
                   'Try resetting the sync system using the button above. This '
                   'wipes local sync setup and lets you pair again cleanly.',
             ),
             const _TroubleshootingTile(
-              icon: Icons.wifi_off,
+              icon: AppIcons.wifiOff,
               title: 'Connection errors?',
               description:
                   'Verify that your device has network access and that the relay '
                   'server is online. Check the relay URL for typos.',
             ),
             const _TroubleshootingTile(
-              icon: Icons.speed,
+              icon: AppIcons.speed,
               title: 'Sync is slow?',
               description:
                   'Initial sync may take longer with large datasets. Subsequent '
                   'syncs are incremental and should be faster.',
             ),
             const _TroubleshootingTile(
-              icon: Icons.person_off_outlined,
+              icon: AppIcons.personOffOutlined,
               title: 'Device Identity Mismatch',
               description:
                   'If pairing failed mid-way, your device identity may be inconsistent. '

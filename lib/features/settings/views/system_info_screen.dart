@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class SystemInfoScreen extends ConsumerStatefulWidget {
   const SystemInfoScreen({super.key});
@@ -130,7 +131,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ListTile(
-                                  leading: const Icon(Icons.photo_library),
+                                  leading: const Icon(AppIcons.photoLibrary),
                                   title: const Text('Change avatar'),
                                   onTap: () {
                                     Navigator.of(ctx).pop();
@@ -139,7 +140,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                                 ),
                                 ListTile(
                                   leading: Icon(
-                                    Icons.delete_outline,
+                                    AppIcons.deleteOutline,
                                     color: theme.colorScheme.error,
                                   ),
                                   title: Text(
@@ -170,7 +171,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                               backgroundColor:
                                   theme.colorScheme.surfaceContainerHighest,
                               child: Icon(
-                                Icons.add_a_photo_outlined,
+                                AppIcons.addAPhotoOutlined,
                                 size: 32,
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
@@ -197,13 +198,13 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            icon: const Icon(Icons.check, size: 20),
+                            icon: const Icon(AppIcons.check, size: 20),
                             onPressed: _saveSystemName,
                             visualDensity: VisualDensity.compact,
                           ),
                           IconButton(
                             icon: Icon(
-                              Icons.close,
+                              AppIcons.close,
                               size: 20,
                               color: theme.colorScheme.onSurface
                                   .withValues(alpha: 0.5),
@@ -243,7 +244,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                               ),
                             ),
                             Icon(
-                              Icons.edit_outlined,
+                              AppIcons.editOutlined,
                               size: 18,
                               color: theme.colorScheme.primary
                                   .withValues(alpha: 0.6),
@@ -277,13 +278,13 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            icon: const Icon(Icons.check, size: 20),
+                            icon: const Icon(AppIcons.check, size: 20),
                             onPressed: _saveDescription,
                             visualDensity: VisualDensity.compact,
                           ),
                           IconButton(
                             icon: Icon(
-                              Icons.close,
+                              AppIcons.close,
                               size: 20,
                               color: theme.colorScheme.onSurface
                                   .withValues(alpha: 0.5),
@@ -331,7 +332,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                               ),
                             ),
                             Icon(
-                              Icons.edit_outlined,
+                              AppIcons.editOutlined,
                               size: 18,
                               color: theme.colorScheme.primary
                                   .withValues(alpha: 0.6),

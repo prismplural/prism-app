@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings screen for PIN lock, biometric unlock, and auto-lock delay.
 class PinLockSettingsScreen extends ConsumerStatefulWidget {
@@ -105,7 +106,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
               child: Column(
                 children: [
                   PrismSwitchRow(
-                    icon: Icons.lock_outline,
+                    icon: AppIcons.lockOutline,
                     iconColor: Colors.indigo,
                     title: 'Enable PIN Lock',
                     subtitle: 'Require a PIN to open the app',
@@ -131,7 +132,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                 title: 'Biometric',
                 child: PrismSectionCard(
                   child: PrismSwitchRow(
-                    icon: Icons.fingerprint,
+                    icon: AppIcons.fingerprint,
                     iconColor: Colors.teal,
                     title: 'Biometric Unlock',
                     subtitle: isPinEnabled && pinSet
@@ -217,10 +218,10 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                 child: Column(
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.pin_outlined),
+                      leading: const Icon(AppIcons.pinOutlined),
                       title: const Text('Change PIN'),
                       trailing: const Icon(
-                        Icons.chevron_right_rounded,
+                        AppIcons.chevronRightRounded,
                         size: 20,
                       ),
                       onTap: _changePinFlow,
@@ -228,7 +229,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                     const Divider(height: 1, indent: 56, endIndent: 12),
                     ListTile(
                       leading: Icon(
-                        Icons.delete_outline,
+                        AppIcons.deleteOutline,
                         color: Theme.of(context).colorScheme.error,
                       ),
                       title: Text(
@@ -411,7 +412,7 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, top: 8),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(AppIcons.arrowBack),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -498,7 +499,7 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
         onTap: () => _onDigit('0'),
       ),
       _NumpadKey(
-        icon: Icons.backspace_outlined,
+        icon: AppIcons.backspaceOutlined,
         onTap: _onBackspace,
       ),
     ];

@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class SetupDeviceSheet {
   static Future<void> show(BuildContext context, WidgetRef ref) async {
@@ -195,7 +196,7 @@ class _ScanJoinerPrompt extends StatelessWidget {
         const SizedBox(height: 16),
         PrismButton(
           label: "Scan Joiner's QR",
-          icon: Icons.qr_code_scanner,
+          icon: AppIcons.qrCodeScanner,
           onPressed: onStartScan,
         ),
       ],
@@ -248,7 +249,7 @@ class _JoinerQrScannerView extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: onBack,
-            icon: const Icon(Icons.arrow_back_ios_new, size: 14),
+            icon: const Icon(AppIcons.arrowBackIosNew, size: 14),
             label: const Text('Back'),
           ),
         ),
@@ -320,7 +321,7 @@ class _ApprovalResponseView extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 20),
+              const Icon(AppIcons.checkCircle, color: Colors.green, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -364,7 +365,7 @@ class _ApprovalResponseView extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.info_outline,
+                AppIcons.infoOutline,
                 color: theme.colorScheme.primary,
                 size: 20,
               ),
@@ -383,7 +384,7 @@ class _ApprovalResponseView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        PrismButton(label: 'Done', icon: Icons.check, onPressed: onDone),
+        PrismButton(label: 'Done', icon: AppIcons.check, onPressed: onDone),
       ],
     );
   }

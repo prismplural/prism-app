@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Placeholder — pending changes count (sync now managed by Rust layer).
 final _pendingChangesCountProvider = FutureProvider<int>((ref) async {
@@ -56,7 +57,7 @@ class DebugScreen extends ConsumerWidget {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       icon: Icon(
-                        Icons.delete_forever,
+                        AppIcons.deleteForever,
                         color: theme.colorScheme.error,
                       ),
                       label: Text(
@@ -73,7 +74,7 @@ class DebugScreen extends ConsumerWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.file_upload_outlined),
+                      icon: const Icon(AppIcons.fileUploadOutlined),
                       label: const Text('Export Data'),
                       onPressed: () {
                         PrismToast.show(context, message: 'Coming soon');
@@ -120,7 +121,7 @@ class DebugScreen extends ConsumerWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.receipt_long_outlined),
+                      icon: const Icon(AppIcons.receiptLongOutlined),
                       label: const Text('Open Sync Debug Log'),
                       onPressed: () =>
                           context.push(AppRoutePaths.settingsSyncDebug),
@@ -172,10 +173,10 @@ class DebugScreen extends ConsumerWidget {
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.healing),
+                  leading: const Icon(AppIcons.healing),
                   title: const Text('Timeline Sanitization'),
                   subtitle: const Text('Scan for and fix timeline issues'),
-                  trailing: const Icon(Icons.chevron_right),
+                  trailing: const Icon(AppIcons.chevronRight),
                   onTap: () => context.push(
                     AppRoutePaths.settingsTimelineSanitization,
                   ),
@@ -230,7 +231,7 @@ class DebugScreen extends ConsumerWidget {
                           ),
                           if (nodeId != null)
                             IconButton(
-                              icon: const Icon(Icons.copy, size: 18),
+                              icon: const Icon(AppIcons.copy, size: 18),
                               tooltip: 'Copy Node ID',
                               onPressed: () {
                                 Clipboard.setData(

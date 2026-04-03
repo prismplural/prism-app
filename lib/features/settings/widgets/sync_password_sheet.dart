@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Modal sheet that prompts for the sync password when the cached DEK is
 /// missing but other credentials exist (e.g. after an app update that
@@ -75,7 +76,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Icon(
-            Icons.lock_outline,
+            AppIcons.lockOutline,
             size: 40,
             color: theme.colorScheme.primary,
           ),
@@ -111,7 +112,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
               ),
               suffixIcon: IconButton(
                 icon: Icon(
-                  _obscure ? Icons.visibility_off : Icons.visibility,
+                  _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
                 ),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),

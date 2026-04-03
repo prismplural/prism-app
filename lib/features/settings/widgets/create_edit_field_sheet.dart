@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Modal sheet for creating or editing a custom field definition.
 ///
@@ -122,7 +123,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                     ),
                   )
                 : PrismGlassIconButton(
-                    icon: Icons.check,
+                    icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,
                     onPressed: canSave ? _save : null,
                   ),
@@ -237,8 +238,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
   }
 
   IconData _iconForType(CustomFieldType type) => switch (type) {
-        CustomFieldType.text => Icons.text_fields,
-        CustomFieldType.color => Icons.palette,
-        CustomFieldType.date => Icons.calendar_today,
+        CustomFieldType.text => AppIcons.textFields,
+        CustomFieldType.color => AppIcons.palette,
+        CustomFieldType.date => AppIcons.calendarToday,
       };
 }

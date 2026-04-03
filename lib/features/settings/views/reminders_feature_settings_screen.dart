@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings subview for the Reminders feature.
 class RemindersFeatureSettingsScreen extends ConsumerWidget {
@@ -40,7 +41,7 @@ class RemindersFeatureSettingsScreen extends ConsumerWidget {
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
-                icon: Icons.alarm,
+                icon: AppIcons.alarm,
                 iconColor: Colors.amber,
                 title: 'Enable Reminders',
                 subtitle: 'Scheduled and front-change reminders',
@@ -57,7 +58,7 @@ class RemindersFeatureSettingsScreen extends ConsumerWidget {
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: PrismSettingsRow(
-                  icon: Icons.edit_notifications_outlined,
+                  icon: AppIcons.editNotificationsOutlined,
                   iconColor: Colors.amber,
                   title: 'Manage Reminders',
                   subtitle: 'Create and edit your reminders',

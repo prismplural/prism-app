@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class ResetDataScreen extends ConsumerWidget {
   const ResetDataScreen({super.key});
@@ -55,7 +56,7 @@ class ResetDataScreen extends ConsumerWidget {
                   _buildResetRow(
                     context,
                     ref,
-                    icon: Icons.sync_disabled,
+                    icon: AppIcons.syncDisabled,
                     iconColor: Colors.deepOrange,
                     category: ResetCategory.sync,
                     destructive: true,
@@ -64,7 +65,7 @@ class ResetDataScreen extends ConsumerWidget {
                   _buildResetRow(
                     context,
                     ref,
-                    icon: Icons.delete_forever,
+                    icon: AppIcons.deleteForever,
                     iconColor: Colors.red,
                     category: ResetCategory.all,
                     destructive: true,
@@ -143,14 +144,14 @@ class _CategoryEntry {
 }
 
 const _granularCategories = [
-  _CategoryEntry(ResetCategory.members, Icons.people_outline, Colors.blue),
-  _CategoryEntry(ResetCategory.fronting, Icons.swap_horiz, Colors.purple),
-  _CategoryEntry(ResetCategory.chat, Icons.chat_bubble_outline, Colors.teal),
-  _CategoryEntry(ResetCategory.polls, Icons.poll_outlined, Colors.orange),
+  _CategoryEntry(ResetCategory.members, AppIcons.peopleOutline, Colors.blue),
+  _CategoryEntry(ResetCategory.fronting, AppIcons.swapHoriz, Colors.purple),
+  _CategoryEntry(ResetCategory.chat, AppIcons.chatBubbleOutline, Colors.teal),
+  _CategoryEntry(ResetCategory.polls, AppIcons.pollOutlined, Colors.orange),
   _CategoryEntry(
     ResetCategory.habits,
-    Icons.check_circle_outline,
+    AppIcons.checkCircleOutline,
     Colors.green,
   ),
-  _CategoryEntry(ResetCategory.sleep, Icons.bedtime_outlined, Colors.indigo),
+  _CategoryEntry(ResetCategory.sleep, AppIcons.bedtimeOutlined, Colors.indigo),
 ];

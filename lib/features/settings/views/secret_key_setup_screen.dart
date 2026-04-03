@@ -6,6 +6,7 @@ import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_cont
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class SecretKeySetupScreen extends ConsumerStatefulWidget {
   final String? mnemonic;
@@ -41,7 +42,7 @@ class _SecretKeySetupScreenState extends ConsumerState<SecretKeySetupScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Icon(
-                  Icons.key_off_rounded,
+                  AppIcons.duotoneKey,
                   size: 56,
                   color: theme.colorScheme.error,
                 ),
