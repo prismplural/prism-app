@@ -6,6 +6,7 @@ import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Card shown on the fronting screen when a sleep session is active.
 class SleepModeCard extends ConsumerWidget {
@@ -51,7 +52,7 @@ class _ActiveSleepCard extends ConsumerWidget {
         child: Column(
           children: [
             Icon(
-              Icons.bedtime_rounded,
+              AppIcons.bedtimeRounded,
               size: 48,
               color: sleepColor,
             ),
@@ -103,7 +104,7 @@ class _ActiveSleepCard extends ConsumerWidget {
             const SizedBox(height: 16),
             PrismButton(
               label: 'Wake Up',
-              icon: Icons.wb_sunny_rounded,
+              icon: AppIcons.wbSunnyRounded,
               onPressed: () {
                 ref
                     .read(sleepNotifierProvider.notifier)
@@ -161,7 +162,7 @@ class _QualityRating extends StatelessWidget {
               child: IconButton(
                 onPressed: () => onChanged(q),
                 icon: Icon(
-                  isSelected ? Icons.star_rounded : Icons.star_outline_rounded,
+                  isSelected ? AppIcons.starRounded : AppIcons.starOutlineRounded,
                   color: isSelected
                       ? Colors.amber
                       : theme.colorScheme.onSurface.withValues(alpha: 0.2),

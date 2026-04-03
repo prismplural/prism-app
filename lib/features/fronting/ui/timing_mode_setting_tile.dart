@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// A settings tile with a [SegmentedButton] for choosing the fronting timing
 /// mode (Flexible / Strict).
@@ -40,12 +41,12 @@ class TimingModeSettingTile extends ConsumerWidget {
                 ButtonSegment(
                   value: FrontingTimingMode.flexible,
                   label: Text('Flexible'),
-                  icon: Icon(Icons.tune, size: 18),
+                  icon: Icon(AppIcons.tune, size: 18),
                 ),
                 ButtonSegment(
                   value: FrontingTimingMode.strict,
                   label: Text('Strict'),
-                  icon: Icon(Icons.lock_clock, size: 18),
+                  icon: Icon(AppIcons.lockClock, size: 18),
                 ),
               ],
               selected: {timingMode},

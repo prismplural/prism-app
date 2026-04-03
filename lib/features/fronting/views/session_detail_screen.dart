@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_comments_section.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Full-screen view showing all details of a single fronting session.
 class SessionDetailScreen extends ConsumerWidget {
@@ -46,14 +47,14 @@ class SessionDetailScreen extends ConsumerWidget {
             ? const []
             : [
                 PrismTopBarAction(
-                  icon: Icons.edit_outlined,
+                  icon: AppIcons.editOutlined,
                   tooltip: 'Edit',
                   onPressed: isSleep
                       ? () => _editSleep(context, session)
                       : () => context.go(AppRoutePaths.sessionEdit(sessionId)),
                 ),
                 PrismTopBarAction(
-                  icon: Icons.delete_outline,
+                  icon: AppIcons.deleteOutline,
                   tooltip: 'Delete',
                   onPressed: isSleep
                       ? () => _confirmSleepDelete(context, ref, session)
@@ -166,7 +167,7 @@ class _SleepSessionBody extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.bedtime_rounded,
+                      AppIcons.bedtimeRounded,
                       size: 28,
                       color: theme.colorScheme.tertiary,
                     ),
@@ -407,7 +408,7 @@ class _FronterSection extends ConsumerWidget {
           child: Column(
             children: [
               Icon(
-                Icons.help_outline,
+                AppIcons.helpOutline,
                 size: 64,
                 color: theme.colorScheme.onSurfaceVariant.withValues(
                   alpha: 0.5,
@@ -577,7 +578,7 @@ class _ConfidenceDisplay extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(right: 4),
             child: Icon(
-              filled ? Icons.circle : Icons.circle_outlined,
+              filled ? AppIcons.circle : AppIcons.circleOutlined,
               size: 16,
               color: filled
                   ? theme.colorScheme.primary

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Shows a dialog with available delete strategies.
 ///
@@ -22,12 +23,12 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
             final isRecommended =
                 strategy == FrontingDeleteStrategy.convertToUnknown;
             final icon = switch (strategy) {
-              FrontingDeleteStrategy.extendPrevious => Icons.arrow_back,
-              FrontingDeleteStrategy.extendNext => Icons.arrow_forward,
+              FrontingDeleteStrategy.extendPrevious => AppIcons.arrowBack,
+              FrontingDeleteStrategy.extendNext => AppIcons.arrowForward,
               FrontingDeleteStrategy.splitBetweenNeighbors =>
-                Icons.swap_horiz,
-              FrontingDeleteStrategy.convertToUnknown => Icons.help_outline,
-              FrontingDeleteStrategy.leaveGap => Icons.delete_outline,
+                AppIcons.swapHoriz,
+              FrontingDeleteStrategy.convertToUnknown => AppIcons.helpOutline,
+              FrontingDeleteStrategy.leaveGap => AppIcons.deleteOutline,
             };
             final theme = Theme.of(ctx);
             final color = strategy == FrontingDeleteStrategy.leaveGap

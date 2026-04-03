@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Bottom sheet to start a new sleep session.
 class StartSleepSheet extends ConsumerStatefulWidget {
@@ -98,7 +99,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.bedtime_rounded,
+                    AppIcons.bedtimeRounded,
                     color: theme.colorScheme.tertiary,
                     size: 20,
                   ),
@@ -130,10 +131,10 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 PrismListRow(
-                  leading: const Icon(Icons.schedule),
+                  leading: Icon(AppIcons.schedule),
                   title: const Text('Start Time'),
                   subtitle: Text(_formatDateTime(_startTime)),
-                  trailing: const Icon(Icons.edit),
+                  trailing: Icon(AppIcons.edit),
                   onTap: _pickStartTime,
                   padding: EdgeInsets.zero,
                 ),

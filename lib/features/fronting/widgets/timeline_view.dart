@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart'
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// The timeline visualization of fronting history.
 ///
@@ -113,8 +114,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
               final rows = data.memberRows;
               final sleepSessions = data.sleepSessions;
               if (rows.isEmpty && sleepSessions.isEmpty) {
-                return const EmptyState(
-                  icon: Icons.timeline_rounded,
+                return EmptyState(
+                  icon: AppIcons.timelineRounded,
                   title: 'No fronting history',
                   subtitle:
                       'Start a fronting session to see it appear on the timeline.',

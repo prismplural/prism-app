@@ -22,6 +22,7 @@ import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 
 /// A day-grouped list of fronting sessions. Active sessions appear naturally
@@ -60,7 +61,7 @@ class SessionHistoryList extends ConsumerWidget {
                 child: Column(
                   children: [
                     Icon(
-                      Icons.history_outlined,
+                      AppIcons.historyOutlined,
                       size: 48,
                       color: Theme.of(
                         context,
@@ -280,7 +281,7 @@ class _SessionTile extends ConsumerWidget {
           color: theme.colorScheme.surfaceContainerHighest,
         ),
         child: Icon(
-          Icons.help_outline,
+          AppIcons.helpOutline,
           size: 20,
           color: theme.colorScheme.onSurfaceVariant,
         ),
@@ -389,7 +390,7 @@ class _SessionTile extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               Icon(
-                Icons.chevron_right_rounded,
+                AppIcons.chevronRightRounded,
                 size: 20,
                 color: theme.colorScheme.onSurfaceVariant.withValues(
                   alpha: isUnknown ? 0.4 * dimAlpha : 0.4,
@@ -414,7 +415,7 @@ class _SessionTile extends ConsumerWidget {
         decoration: BoxDecoration(
           color: AppColors.error.withValues(alpha: 0.2),
         ),
-        child: const Icon(Icons.delete, color: AppColors.error),
+        child: Icon(AppIcons.delete, color: AppColors.error),
       ),
       confirmDismiss: (_) => _confirmDelete(context, ref),
       child: showLiveTimer

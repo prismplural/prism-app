@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/fronting/providers/front_comments_provi
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Create or edit a front session comment.
 class AddCommentSheet extends ConsumerStatefulWidget {
@@ -110,10 +111,10 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
               const SizedBox(height: 16),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.access_time),
+                leading: Icon(AppIcons.accessTime),
                 title: Text(
                     DateFormat.yMMMd().add_jm().format(_timestamp)),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: Icon(AppIcons.chevronRight),
                 onTap: _pickDateTime,
               ),
               const SizedBox(height: 24),

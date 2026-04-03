@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Full-screen editor for an existing sleep session.
 class EditSleepSheet extends ConsumerStatefulWidget {
@@ -164,7 +165,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
         PrismSheetTopBar(
           title: 'Edit Sleep',
           trailing: PrismGlassIconButton(
-            icon: Icons.check,
+            icon: AppIcons.check,
             onPressed: _saving ? null : _save,
           ),
         ),
@@ -188,7 +189,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                       Row(
                         children: [
                           Icon(
-                            Icons.bedtime_rounded,
+                            AppIcons.bedtimeRounded,
                             color: theme.colorScheme.tertiary,
                           ),
                           const SizedBox(width: 8),
@@ -219,24 +220,24 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                       const Divider(height: 24),
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.play_arrow_rounded),
+                        leading: Icon(AppIcons.playArrowRounded),
                         title: const Text('Start Time'),
                         subtitle: Text(_formatDateTime(_startTime)),
-                        trailing: const Icon(Icons.edit),
+                        trailing: Icon(AppIcons.edit),
                         onTap: _pickStartTime,
                       ),
                       if (!_isActive) ...[
                         const SizedBox(height: 8),
                         ListTile(
                           contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.stop_rounded),
+                          leading: Icon(AppIcons.stopRounded),
                           title: const Text('End Time'),
                           subtitle: Text(
                             _endTime != null
                                 ? _formatDateTime(_endTime!)
                                 : 'Tap to set',
                           ),
-                          trailing: const Icon(Icons.edit),
+                          trailing: Icon(AppIcons.edit),
                           onTap: _pickEndTime,
                         ),
                       ],
