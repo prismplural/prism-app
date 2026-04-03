@@ -37,10 +37,6 @@ class PrismTokens {
   static const double tintedNoiseOpacityLight = 0.03;
   static const double tintedNoiseOpacityDark = 0.06;
 
-  static const Duration pressDuration = Duration(milliseconds: 100);
-  static const Duration shortAnimationDuration = Duration(milliseconds: 150);
-  static const Duration mediumAnimationDuration = Duration(milliseconds: 200);
-
   static const EdgeInsets pagePadding = EdgeInsets.symmetric(
     horizontal: pageHorizontalPadding,
   );

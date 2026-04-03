@@ -419,7 +419,7 @@ class _SessionTile extends ConsumerWidget {
       confirmDismiss: (_) => _confirmDelete(context, ref),
       child: showLiveTimer
           ? AnimatedSwitcher(
-              duration: Anim.slow,
+              duration: Anim.lg,
               switchInCurve: Anim.enter,
               switchOutCurve: Anim.exit,
               child: KeyedSubtree(

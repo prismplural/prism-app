@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/animations.dart';
 
 enum PrismSurfaceTone { subtle, strong, accent }
 
@@ -78,7 +79,7 @@ class _PrismSurfaceState extends State<PrismSurface> {
       borderRadius: borderRadius,
       clipBehavior: Clip.antiAlias,
       child: AnimatedContainer(
-        duration: PrismTokens.shortAnimationDuration,
+        duration: Anim.sm,
         padding: widget.padding,
         decoration: BoxDecoration(
           color: backgroundColor,
@@ -97,7 +98,7 @@ class _PrismSurfaceState extends State<PrismSurface> {
         label: widget.semanticLabel,
         child: AnimatedScale(
           scale: _pressed ? 0.985 : 1,
-          duration: PrismTokens.pressDuration,
+          duration: Anim.xs,
           child: canPress
               ? Material(
                   color: Colors.transparent,
