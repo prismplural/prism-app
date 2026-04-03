@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Settings / debug screen for scanning the fronting timeline for validation
 /// issues and applying automated fixes.
@@ -80,7 +81,7 @@ class _FrontingSanitizationScreenState
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.health_and_safety_outlined,
+              AppIcons.healthAndSafetyOutlined,
               size: 72,
               color: theme.colorScheme.primary,
             ),
@@ -104,7 +105,7 @@ class _FrontingSanitizationScreenState
             ),
             const SizedBox(height: 32),
             PrismButton(
-              icon: Icons.search,
+              icon: AppIcons.search,
               label: 'Scan Timeline',
               onPressed: _scan,
               tone: PrismButtonTone.filled,
@@ -123,12 +124,12 @@ class _FrontingSanitizationScreenState
         if (_fixedCount > 0) _buildFixedBanner(theme),
         Expanded(
           child: EmptyState(
-            icon: Icons.check_circle_outline,
+            icon: AppIcons.checkCircleOutline,
             iconColor: Colors.green,
             title: 'Timeline looks clean!',
             subtitle: 'No overlaps, duplicates, or invalid sessions found.',
             actionLabel: 'Scan Again',
-            actionIcon: Icons.refresh,
+            actionIcon: AppIcons.refresh,
             onAction: _scan,
           ),
         ),
@@ -184,7 +185,7 @@ class _FrontingSanitizationScreenState
               NavBarInset.of(context) + 16,
             ),
             child: PrismButton(
-              icon: Icons.refresh,
+              icon: AppIcons.refresh,
               label: 'Scan Again',
               onPressed: _scan,
               tone: PrismButtonTone.outlined,
@@ -205,7 +206,7 @@ class _FrontingSanitizationScreenState
       ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber, color: theme.colorScheme.error),
+          Icon(AppIcons.warningAmber, color: theme.colorScheme.error),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -232,7 +233,7 @@ class _FrontingSanitizationScreenState
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle, color: Colors.green),
+          Icon(AppIcons.checkCircle, color: Colors.green),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

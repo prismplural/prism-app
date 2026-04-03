@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// A list of recent sleep sessions with date, duration, quality, and notes.
 class SleepHistoryList extends ConsumerWidget {
@@ -40,7 +41,7 @@ class SleepHistoryList extends ConsumerWidget {
                 child: Column(
                   children: [
                     Icon(
-                      Icons.bedtime_outlined,
+                      AppIcons.bedtimeOutlined,
                       size: 48,
                       color: Theme.of(context)
                           .colorScheme
@@ -94,7 +95,7 @@ class _SleepSessionTile extends ConsumerWidget {
       leading: CircleAvatar(
         backgroundColor:
             theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
-        child: const Icon(Icons.bedtime_rounded, size: 20),
+        child: Icon(AppIcons.bedtimeRounded, size: 20),
       ),
       title: Text(session.startTime.toDateString()),
       subtitle: Column(

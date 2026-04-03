@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Modal for creating a new fronting session with full details.
 ///
@@ -146,7 +147,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
         PrismSheetTopBar(
           title: _coFrontMode ? 'Add Co-Fronter' : 'New Session',
           trailing: PrismGlassIconButton(
-            icon: Icons.check,
+            icon: AppIcons.check,
             onPressed: (_saving || _selectedId == null)
                 ? null
                 : _coFrontMode
@@ -205,7 +206,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.group,
+                                AppIcons.group,
                                 size: 14,
                                 color: _coFrontMode
                                     ? AppColors.fronting
@@ -476,7 +477,7 @@ class _MemberGridState extends State<_MemberGrid> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.flash_on, size: 10, color: AppColors.fronting),
+                    Icon(AppIcons.flashOn, size: 10, color: AppColors.fronting),
                     const SizedBox(width: 2),
                     Text(
                       'Fronting',
@@ -525,7 +526,7 @@ class _MemberGridState extends State<_MemberGrid> {
                 color: theme.colorScheme.surfaceContainerHighest,
               ),
               child: Icon(
-                Icons.question_mark_rounded,
+                AppIcons.questionMarkRounded,
                 size: 32,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -565,7 +566,7 @@ class _MemberGridState extends State<_MemberGrid> {
         // Search field
         PrismTextField(
           hintText: 'Search members...',
-          prefixIcon: const Icon(Icons.search, size: 20),
+          prefixIcon: Icon(AppIcons.search, size: 20),
           onChanged: (v) => setState(() => _search = v),
         ),
         const SizedBox(height: 12),
@@ -582,7 +583,7 @@ class _MemberGridState extends State<_MemberGrid> {
                 color: theme.colorScheme.surfaceContainerHighest,
               ),
               child: Icon(
-                Icons.question_mark_rounded,
+                AppIcons.questionMarkRounded,
                 size: 20,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -680,7 +681,7 @@ class _MemberGridState extends State<_MemberGrid> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.flash_on, size: 10, color: AppColors.fronting),
+                      Icon(AppIcons.flashOn, size: 10, color: AppColors.fronting),
                       const SizedBox(width: 2),
                       Text(
                         'Fronting',
@@ -695,7 +696,7 @@ class _MemberGridState extends State<_MemberGrid> {
                 ),
               if (isSelected)
                 Icon(
-                  Icons.check_circle,
+                  AppIcons.checkCircle,
                   size: 22,
                   color: theme.colorScheme.primary,
                 ),

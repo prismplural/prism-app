@@ -5,6 +5,7 @@ import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dar
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Shown on the fronting screen when no system members exist yet.
 class EmptySystemView extends ConsumerWidget {
@@ -22,7 +23,7 @@ class EmptySystemView extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.people_outline,
+              AppIcons.peopleOutline,
               size: 80,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
             ),
@@ -44,7 +45,7 @@ class EmptySystemView extends ConsumerWidget {
             const SizedBox(height: 32),
             PrismButton(
               onPressed: () => _openAddMemberSheet(context),
-              icon: Icons.add,
+              icon: AppIcons.add,
               label: terms.addButtonText,
               tone: PrismButtonTone.filled,
             ),

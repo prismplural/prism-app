@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Control bar for the timeline with zoom and navigation buttons.
 class TimelineControls extends ConsumerWidget {
@@ -25,7 +26,7 @@ class TimelineControls extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.calendar_today_rounded,
+                  AppIcons.calendarTodayRounded,
                   size: 16,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -44,7 +45,7 @@ class TimelineControls extends ConsumerWidget {
 
           // Today button
           PrismIconButton(
-            icon: Icons.today_rounded,
+            icon: AppIcons.todayRounded,
             tooltip: 'Jump to now',
             onPressed: () {
               ref.read(timelineJumpTargetProvider.notifier).jumpTo(
@@ -58,7 +59,7 @@ class TimelineControls extends ConsumerWidget {
 
           // Zoom out
           PrismIconButton(
-            icon: Icons.remove_rounded,
+            icon: AppIcons.removeRounded,
             tooltip: 'Zoom out',
             onPressed: notifier.zoomOut,
             size: 36,
@@ -69,7 +70,7 @@ class TimelineControls extends ConsumerWidget {
 
           // Zoom in
           PrismIconButton(
-            icon: Icons.add_rounded,
+            icon: AppIcons.addRounded,
             tooltip: 'Zoom in',
             onPressed: notifier.zoomIn,
             size: 36,

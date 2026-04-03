@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Displays a single [FrontingValidationIssue] as a tappable list tile.
 ///
@@ -80,7 +81,7 @@ class ValidationIssueTile extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Icon(
-                    Icons.chevron_right,
+                    AppIcons.chevronRight,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),

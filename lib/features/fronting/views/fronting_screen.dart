@@ -29,6 +29,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class FrontingScreen extends ConsumerStatefulWidget {
   const FrontingScreen({super.key});
@@ -95,8 +96,8 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     return [
       PrismTopBarAction(
         icon: isTimelineView
-            ? Icons.view_list_rounded
-            : Icons.timeline_rounded,
+            ? AppIcons.viewListRounded
+            : AppIcons.timelineRounded,
         tooltip: isTimelineView ? 'List view' : 'Timeline view',
         onPressed: () => ref
             .read(timelineViewActiveProvider.notifier)
@@ -212,7 +213,7 @@ class _TimelineIssueBanner extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: InfoBanner(
-        icon: Icons.warning_amber_rounded,
+        icon: AppIcons.warningAmberRounded,
         iconColor: theme.colorScheme.error,
         title: 'Timeline issues found',
         message:
@@ -252,7 +253,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     if (isSleeping && sleepSession != null) {
       menuItems.add(
         _MenuItem(
-          icon: Icons.wb_sunny_rounded,
+          icon: AppIcons.wbSunnyRounded,
           label: 'Wake Up As...',
           onTap: (close) {
             close();
@@ -264,7 +265,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
 
     menuItems.addAll([
       _MenuItem(
-        icon: Icons.person_outline,
+        icon: AppIcons.personOutline,
         label: 'Log Front',
         onTap: (close) {
           close();
@@ -272,7 +273,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
         },
       ),
       _MenuItem(
-        icon: Icons.person_add_outlined,
+        icon: AppIcons.personAddOutlined,
         label: terms.addButtonText,
         onTap: (close) {
           close();
@@ -285,7 +286,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
         },
       ),
       _MenuItem(
-        icon: Icons.poll_outlined,
+        icon: AppIcons.pollOutlined,
         label: 'New Poll',
         onTap: (close) {
           close();
@@ -298,7 +299,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
         },
       ),
       _MenuItem(
-        icon: Icons.bedtime_rounded,
+        icon: AppIcons.bedtimeRounded,
         label: 'Start Sleep',
         enabled: !isSleeping,
         onTap: (close) {
@@ -345,7 +346,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
         );
       },
       child: PrismTopBarAction(
-        icon: Icons.add,
+        icon: AppIcons.add,
         tooltip: 'Add fronting entry',
         onPressed: () => _openAddSessionSheet(context),
         onLongPress: () => _popupKey.currentState?.show(),

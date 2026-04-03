@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Full-screen editor for an existing fronting session.
 class EditFrontSessionScreen extends ConsumerStatefulWidget {
@@ -342,10 +343,10 @@ class _EditFrontSessionScreenState
             children: [
               // Start time
               ListTile(
-                leading: const Icon(Icons.play_arrow_rounded),
+                leading: Icon(AppIcons.playArrowRounded),
                 title: const Text('Start Time'),
                 subtitle: Text(_formatDateTime(_startTime)),
-                trailing: const Icon(Icons.edit),
+                trailing: Icon(AppIcons.edit),
                 onTap: _pickStartTime,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -362,14 +363,14 @@ class _EditFrontSessionScreenState
               ),
               if (!_isActive) ...[
                 ListTile(
-                  leading: const Icon(Icons.stop_rounded),
+                  leading: Icon(AppIcons.stopRounded),
                   title: const Text('End Time'),
                   subtitle: Text(
                     _endTime != null
                         ? _formatDateTime(_endTime!)
                         : 'Tap to set',
                   ),
-                  trailing: const Icon(Icons.edit),
+                  trailing: Icon(AppIcons.edit),
                   onTap: _pickEndTime,
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -518,7 +519,7 @@ class _MemberSelector extends StatelessWidget {
           onSelected: (v) {
             if (v) onSelect(null);
           },
-          avatar: const Icon(Icons.help_outline, size: 18),
+          avatar: Icon(AppIcons.helpOutline, size: 18),
         ),
         ...members.map((m) {
           final isSelected = m.id == selectedId;

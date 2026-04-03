@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/fronting/widgets/add_comment_sheet.dart
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Comments section shown on session detail screen.
 class SessionCommentsSection extends ConsumerWidget {
@@ -40,7 +41,7 @@ class SessionCommentsSection extends ConsumerWidget {
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: Icon(Icons.add_comment_outlined,
+                      icon: Icon(AppIcons.addCommentOutlined,
                           size: 20, color: theme.colorScheme.primary),
                       onPressed: () => _openAddSheet(context),
                       visualDensity: VisualDensity.compact,
@@ -103,7 +104,7 @@ class _CommentTile extends ConsumerWidget {
       itemBuilder: (context, index, close) {
         if (index == 0) {
           return ListTile(
-            leading: const Icon(Icons.edit_outlined),
+            leading: Icon(AppIcons.editOutlined),
             title: const Text('Edit'),
             onTap: () {
               close();
@@ -112,7 +113,7 @@ class _CommentTile extends ConsumerWidget {
           );
         }
         return ListTile(
-          leading: Icon(Icons.delete_outline,
+          leading: Icon(AppIcons.deleteOutline,
               color: theme.colorScheme.error),
           title: Text('Delete',
               style: TextStyle(color: theme.colorScheme.error)),
