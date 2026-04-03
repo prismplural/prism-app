@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Card displaying the results of the last PluralKit sync.
 class PkSyncSummaryCard extends StatelessWidget {
@@ -35,31 +36,31 @@ class PkSyncSummaryCard extends StatelessWidget {
             else ...[
               if (summary.membersPulled > 0)
                 _SummaryRow(
-                  icon: Icons.download,
+                  icon: AppIcons.download,
                   label: '${summary.membersPulled} member${summary.membersPulled == 1 ? '' : 's'} pulled',
                   color: theme.colorScheme.primary,
                 ),
               if (summary.membersPushed > 0)
                 _SummaryRow(
-                  icon: Icons.upload,
+                  icon: AppIcons.upload,
                   label: '${summary.membersPushed} member${summary.membersPushed == 1 ? '' : 's'} pushed',
                   color: theme.colorScheme.tertiary,
                 ),
               if (summary.switchesPulled > 0)
                 _SummaryRow(
-                  icon: Icons.download,
+                  icon: AppIcons.download,
                   label: '${summary.switchesPulled} switch${summary.switchesPulled == 1 ? '' : 'es'} pulled',
                   color: theme.colorScheme.primary,
                 ),
               if (summary.switchesPushed > 0)
                 _SummaryRow(
-                  icon: Icons.upload,
+                  icon: AppIcons.upload,
                   label: '${summary.switchesPushed} switch${summary.switchesPushed == 1 ? '' : 'es'} pushed',
                   color: theme.colorScheme.tertiary,
                 ),
               if (summary.membersSkipped > 0)
                 _SummaryRow(
-                  icon: Icons.skip_next,
+                  icon: AppIcons.skipNext,
                   label: '${summary.membersSkipped} member${summary.membersSkipped == 1 ? '' : 's'} unchanged',
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

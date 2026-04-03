@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class FeaturesStep extends ConsumerWidget {
   const FeaturesStep({super.key});
@@ -17,7 +18,7 @@ class FeaturesStep extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _FeatureToggle(
-            icon: Icons.forum,
+            icon: AppIcons.forum,
             iconColor: Colors.orange,
             title: 'Chat',
             description: 'Internal messaging between system members',
@@ -26,7 +27,7 @@ class FeaturesStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _FeatureToggle(
-            icon: Icons.poll,
+            icon: AppIcons.poll,
             iconColor: Colors.indigo,
             title: 'Polls',
             description: 'Create polls for system decisions',
@@ -35,7 +36,7 @@ class FeaturesStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _FeatureToggle(
-            icon: Icons.check_circle_outline,
+            icon: AppIcons.checkCircleOutline,
             iconColor: Colors.green,
             title: 'Habits',
             description: 'Track daily habits and routines',
@@ -44,7 +45,7 @@ class FeaturesStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _FeatureToggle(
-            icon: Icons.bedtime,
+            icon: AppIcons.bedtime,
             iconColor: Colors.blue,
             title: 'Sleep Tracking',
             description: 'Monitor sleep patterns and quality',

@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 class SetupDeviceSheet {
   static Future<void> show(BuildContext context, WidgetRef ref) async {
@@ -131,17 +132,19 @@ class _SetupDeviceSheetContentState
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        const PrismSheetTopBar(title: 'Set Up Another Device'),
-        Expanded(
-          child: SingleChildScrollView(
-            controller: widget.scrollController,
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-            child: _buildContent(),
+    return SecureScope(
+      child: Column(
+        children: [
+          const PrismSheetTopBar(title: 'Set Up Another Device'),
+          Expanded(
+            child: SingleChildScrollView(
+              controller: widget.scrollController,
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+              child: _buildContent(),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

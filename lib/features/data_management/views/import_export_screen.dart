@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'data_export_sheet.dart';
 import 'data_import_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Main import/export screen with list of options.
 class ImportExportScreen extends ConsumerWidget {
@@ -30,7 +31,7 @@ class ImportExportScreen extends ConsumerWidget {
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSettingsRow(
-                icon: Icons.upload_outlined,
+                icon: AppIcons.uploadOutlined,
                 iconColor: Colors.blue,
                 title: 'Export Data',
                 subtitle: 'Create a password-protected backup',
@@ -43,7 +44,7 @@ class ImportExportScreen extends ConsumerWidget {
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSettingsRow(
-                icon: Icons.download_outlined,
+                icon: AppIcons.downloadOutlined,
                 iconColor: Colors.green,
                 title: 'Import Data',
                 subtitle:
@@ -59,7 +60,7 @@ class ImportExportScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   PrismSettingsRow(
-                    icon: Icons.cloud_sync,
+                    icon: AppIcons.cloudSync,
                     iconColor: Colors.deepPurple,
                     title: 'PluralKit',
                     subtitle: 'Import members & fronting via API token',
@@ -67,7 +68,7 @@ class ImportExportScreen extends ConsumerWidget {
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
-                    icon: Icons.swap_horiz,
+                    icon: AppIcons.swapHoriz,
                     iconColor: Colors.purple,
                     title: 'Simply Plural',
                     subtitle: 'Import from a Simply Plural export file',

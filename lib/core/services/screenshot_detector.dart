@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Detects screenshots on sensitive screens and shows a warning dialog.
 ///
@@ -59,7 +60,7 @@ class ScreenshotDetector {
       message: 'The screenshot you just took may contain sensitive key material. '
           'Anyone you share it with could access your system data.',
       builder: (ctx) => Icon(
-        Icons.warning_amber_rounded,
+        AppIcons.warningAmberRounded,
         color: Theme.of(ctx).colorScheme.error,
         size: 32,
       ),

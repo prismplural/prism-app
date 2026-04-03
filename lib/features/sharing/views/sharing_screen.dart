@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/sharing/views/create_invite_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Main sharing screen showing the friends list and invite controls.
 class SharingScreen extends ConsumerWidget {
@@ -28,7 +29,7 @@ class SharingScreen extends ConsumerWidget {
         title: 'Sharing',
         showBackButton: true,
         trailing: PrismTopBarAction(
-          icon: Icons.person_add,
+          icon: AppIcons.personAdd,
           tooltip: 'Create invite',
           onPressed: () => _showCreateInvite(context),
         ),
@@ -105,7 +106,7 @@ class _FriendTile extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
         color: Colors.red.withValues(alpha: 0.2),
-        child: Icon(Icons.delete, color: Colors.red.withValues(alpha: 0.8)),
+        child: Icon(AppIcons.delete, color: Colors.red.withValues(alpha: 0.8)),
       ),
       child: PrismListRow(
         leading: CircleAvatar(
@@ -123,7 +124,7 @@ class _FriendTile extends StatelessWidget {
             if (friend.isVerified) ...[
               const SizedBox(width: 6),
               Icon(
-                Icons.verified,
+                AppIcons.verified,
                 size: 16,
                 color: theme.colorScheme.primary,
               ),
@@ -172,7 +173,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.share_outlined,
+              AppIcons.shareOutlined,
               size: 64,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
             ),
@@ -195,7 +196,7 @@ class _EmptyState extends StatelessWidget {
             const SizedBox(height: 24),
             PrismButton(
               label: 'Create Invite',
-              icon: Icons.person_add,
+              icon: AppIcons.personAdd,
               onPressed: onCreateInvite,
               tone: PrismButtonTone.filled,
             ),
