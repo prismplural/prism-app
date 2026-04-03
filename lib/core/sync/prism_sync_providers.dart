@@ -445,7 +445,6 @@ Future<void> _reemitSettingsEnumFieldsOnce(
     final row = await (db.select(db.systemSettingsTable)).getSingleOrNull();
     if (row == null) return;
 
-    await prefs.setBool(flagKey, true);
     await ffi.recordUpdate(
       handle: handle,
       table: 'system_settings',
@@ -458,6 +457,10 @@ Future<void> _reemitSettingsEnumFieldsOnce(
         'timing_mode': row.timingMode,
       }),
     );
+    // Set flag AFTER recordUpdate succeeds — if recordUpdate throws, the
+    // catch block lets it retry on next launch. Duplicate ops from a crash
+    // between these two lines are harmless (LWW idempotency).
+    await prefs.setBool(flagKey, true);
     debugPrint('[SYNC_MIGRATE] enum fields re-emitted as ints');
   } catch (e) {
     // Non-fatal — will retry on next launch until it succeeds.
