@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/settings/widgets/sync_password_sheet.da
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/desktop_breakpoint.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 
@@ -1095,7 +1096,7 @@ class _SidebarItemState extends State<_SidebarItem> {
           behavior: HitTestBehavior.opaque,
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: PrismTokens.shortAnimationDuration,
+            duration: Anim.sm,
             height: _kSidebarItemHeight,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
