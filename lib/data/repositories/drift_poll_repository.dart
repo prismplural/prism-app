@@ -129,6 +129,16 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
   }
 
   @override
+  Future<Map<String, List<domain.PollOption>>> getAllOptionsGroupedByPoll() async {
+    final rows = await _optionsDao.getAllOptions();
+    final grouped = <String, List<domain.PollOption>>{};
+    for (final row in rows) {
+      (grouped[row.pollId] ??= []).add(PollOptionMapper.toDomain(row));
+    }
+    return grouped;
+  }
+
+  @override
   Future<List<domain.PollOption>> getOptionsForPoll(String pollId) async {
     final rows = await _optionsDao.getOptionsForPoll(pollId);
     return rows.map(PollOptionMapper.toDomain).toList();
@@ -160,6 +170,16 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
   Future<List<domain.PollVote>> getAllVotes() async {
     final rows = await _votesDao.getAllVotes();
     return rows.map(PollVoteMapper.toDomain).toList();
+  }
+
+  @override
+  Future<Map<String, List<domain.PollVote>>> getAllVotesGroupedByOption() async {
+    final rows = await _votesDao.getAllVotes();
+    final grouped = <String, List<domain.PollVote>>{};
+    for (final row in rows) {
+      (grouped[row.pollOptionId] ??= []).add(PollVoteMapper.toDomain(row));
+    }
+    return grouped;
   }
 
   @override
