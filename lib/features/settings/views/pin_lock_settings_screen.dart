@@ -64,6 +64,12 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Guard: wait for settings to load before showing interactive controls.
+    // Without this, pinLockEnabled defaults to false on cold start, which
+    // would briefly show the toggle as off for users who have PIN enabled.
+    final settingsLoaded = ref.watch(
+      systemSettingsProvider.select((s) => s.hasValue),
+    );
     final isPinEnabled = ref.watch(pinLockEnabledProvider);
     final biometricLockEnabled = ref.watch(biometricLockEnabledProvider);
     final autoLockDelay = ref.watch(autoLockDelaySecondsProvider);
@@ -72,6 +78,16 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
 
     final pinSet = isPinSetAsync.value ?? false;
     final biometricAvailable = biometricAvailableAsync.value ?? false;
+
+    if (!settingsLoaded) {
+      return PrismPageScaffold(
+        topBar: const PrismTopBar(
+          title: 'Privacy & Security',
+          showBackButton: true,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return PrismPageScaffold(
       topBar: const PrismTopBar(

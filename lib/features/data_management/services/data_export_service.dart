@@ -78,12 +78,15 @@ class DataExportService {
     // Fetch all messages in a single query
     final allMessages = await chatMessageRepository.getAllMessages();
 
-    // Batch-fetch all options and votes, then group in memory for O(1) lookup
+    // Batch-fetch all options and votes, then group in memory for O(1) lookup.
+    // Only include options belonging to exported (non-deleted) polls.
     final optionsByPoll = await pollRepository.getAllOptionsGroupedByPoll();
     final votesByOption = await pollRepository.getAllVotesGroupedByOption();
+    final exportedPollIds = polls.map((p) => p.id).toSet();
 
     final allOptions = <V3PollOption>[];
     for (final MapEntry(key: pollId, value: options) in optionsByPoll.entries) {
+      if (!exportedPollIds.contains(pollId)) continue;
       for (final option in options) {
         final votes = votesByOption[option.id] ?? [];
         allOptions.add(_mapPollOption(option, pollId, votes));
