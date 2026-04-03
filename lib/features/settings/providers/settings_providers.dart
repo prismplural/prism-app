@@ -388,3 +388,144 @@ final syncNavigationEnabledProvider = Provider<bool>((ref) {
           ) ??
       true;
 });
+
+/// Narrow provider for `chatEnabled` flag.
+final chatEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.chatEnabled,
+          ) ??
+      true;
+});
+
+/// Narrow provider for `pollsEnabled` flag.
+final pollsEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.pollsEnabled,
+          ) ??
+      true;
+});
+
+/// Narrow provider for `habitsEnabled` flag.
+final habitsEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.habitsEnabled,
+          ) ??
+      true;
+});
+
+/// Narrow provider for `sleepTrackingEnabled` flag.
+final sleepTrackingEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.sleepTrackingEnabled,
+          ) ??
+      true;
+});
+
+/// Narrow provider for `remindersEnabled` flag.
+final remindersEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.remindersEnabled,
+          ) ??
+      true;
+});
+
+/// Narrow provider for `frontingRemindersEnabled` flag.
+final frontingRemindersEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.frontingRemindersEnabled,
+          ) ??
+      false;
+});
+
+/// Narrow provider for `frontingReminderIntervalMinutes`.
+final frontingReminderIntervalProvider = Provider<int>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.frontingReminderIntervalMinutes,
+          ) ??
+      60;
+});
+
+/// Narrow provider for `chatLogsFront` flag.
+final chatLogsFrontProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.chatLogsFront,
+          ) ??
+      false;
+});
+
+/// Narrow provider for `quickSwitchThresholdSeconds`.
+final quickSwitchThresholdProvider = Provider<int>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.quickSwitchThresholdSeconds,
+          ) ??
+      30;
+});
+
+/// Narrow provider for `pinLockEnabled` flag.
+final pinLockEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.pinLockEnabled,
+          ) ??
+      false;
+});
+
+/// Narrow provider for `biometricLockEnabled` flag.
+final biometricLockEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.biometricLockEnabled,
+          ) ??
+      false;
+});
+
+/// Narrow provider for `autoLockDelaySeconds`.
+final autoLockDelaySecondsProvider = Provider<int>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.autoLockDelaySeconds,
+          ) ??
+      0;
+});
+
+/// Narrow provider for `perMemberAccentColors` flag.
+final perMemberAccentColorsProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.perMemberAccentColors,
+          ) ??
+      true;
+});
+
+/// Grouped provider for all feature flags.
+final featureFlagsProvider = Provider<
+    ({
+      bool chat,
+      bool polls,
+      bool habits,
+      bool sleep,
+      bool notes,
+      bool reminders,
+    })>((ref) {
+  final s = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
+  return (
+    chat: s?.chatEnabled ?? true,
+    polls: s?.pollsEnabled ?? true,
+    habits: s?.habitsEnabled ?? true,
+    sleep: s?.sleepTrackingEnabled ?? true,
+    notes: s?.notesEnabled ?? true,
+    reminders: s?.remindersEnabled ?? true,
+  );
+});
+
+/// Narrow provider for nav bar items.
+final navBarItemsProvider = Provider<List<String>>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.navBarItems,
+          ) ??
+      const [];
+});
+
+/// Narrow provider for nav bar overflow items.
+final navBarOverflowItemsProvider = Provider<List<String>>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.navBarOverflowItems,
+          ) ??
+      const [];
+});
