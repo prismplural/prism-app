@@ -251,7 +251,7 @@ class _GroupInfoHeader extends StatelessWidget {
               Icons.folder_outlined,
               size: 28,
               color: accentColor != null
-                  ? Colors.white
+                  ? AppColors.warmWhite
                   : theme.colorScheme.onPrimaryContainer,
             ),
           ),

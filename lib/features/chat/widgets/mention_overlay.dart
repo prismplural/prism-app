@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
@@ -146,17 +147,17 @@ class MentionOverlayState extends State<MentionOverlay>
                   constraints: const BoxConstraints(maxHeight: 240, maxWidth: 280),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? Colors.black.withValues(alpha: 0.65)
-                        : Colors.white.withValues(alpha: 0.8),
+                        ? AppColors.warmBlack.withValues(alpha: 0.65)
+                        : AppColors.warmWhite.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.12)
-                          : Colors.black.withValues(alpha: 0.08),
+                          ? AppColors.warmWhite.withValues(alpha: 0.12)
+                          : AppColors.warmBlack.withValues(alpha: 0.08),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
+                        color: AppColors.warmBlack.withValues(alpha: isDark ? 0.4 : 0.12),
                         blurRadius: 20,
                         offset: const Offset(0, 4),
                       ),

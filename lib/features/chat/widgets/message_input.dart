@@ -363,17 +363,17 @@ class _GlassTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isOled = theme.scaffoldBackgroundColor == Colors.black;
+    final isOled = theme.scaffoldBackgroundColor == AppColors.warmBlack;
 
     final fillColor = isDark
         ? (isOled
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.white.withValues(alpha: 0.08))
-        : Colors.white.withValues(alpha: 0.65);
+            ? AppColors.warmWhite.withValues(alpha: 0.08)
+            : AppColors.warmWhite.withValues(alpha: 0.08))
+        : AppColors.warmWhite.withValues(alpha: 0.65);
 
     final borderColor = isDark
-        ? Colors.white.withValues(alpha: 0.1)
-        : Colors.black.withValues(alpha: 0.06);
+        ? AppColors.warmWhite.withValues(alpha: 0.1)
+        : AppColors.warmBlack.withValues(alpha: 0.06);
 
     final roundedBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(minHeight / 2),
@@ -580,8 +580,8 @@ class _ReplyBanner extends StatelessWidget {
             : theme.colorScheme.primary;
 
     final fillColor = isDark
-        ? Colors.white.withValues(alpha: 0.08)
-        : Colors.white.withValues(alpha: 0.65);
+        ? AppColors.warmWhite.withValues(alpha: 0.08)
+        : AppColors.warmWhite.withValues(alpha: 0.65);
 
     return Container(
       constraints: const BoxConstraints(minHeight: 48),

@@ -3,6 +3,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 
@@ -219,7 +220,7 @@ class _ColorCircle extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               )
             : isSelected
-                ? const Icon(Icons.check, size: 20, color: Colors.white)
+                ? const Icon(Icons.check, size: 20, color: AppColors.warmWhite)
                 : null,
       ),
     );

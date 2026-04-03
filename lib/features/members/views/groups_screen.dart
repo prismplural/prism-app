@@ -223,7 +223,7 @@ class _GroupTile extends StatelessWidget {
                             Icons.folder_outlined,
                             size: 16,
                             color: accentColor != null
-                                ? Colors.white
+                                ? AppColors.warmWhite
                                 : theme.colorScheme.onPrimaryContainer,
                           ),
                         ),
