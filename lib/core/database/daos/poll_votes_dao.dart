@@ -9,6 +9,9 @@ class PollVotesDao extends DatabaseAccessor<AppDatabase>
     with _$PollVotesDaoMixin {
   PollVotesDao(super.db);
 
+  Future<List<PollVote>> getAllVotes() =>
+      (select(pollVotes)..where((v) => v.isDeleted.equals(false))).get();
+
   Future<List<PollVote>> getVotesForOption(String optionId) =>
       (select(pollVotes)
             ..where(
