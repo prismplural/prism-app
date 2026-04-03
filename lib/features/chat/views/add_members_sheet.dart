@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -103,7 +104,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                     ),
                   )
                 : PrismGlassIconButton(
-                    icon: Icons.check,
+                    icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,
                     tint: _canAdd ? theme.colorScheme.primary : null,
                     accentIcon: _canAdd,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
@@ -109,7 +110,7 @@ class ConversationTile extends ConsumerWidget {
               ),
               const SizedBox(width: 4),
               Icon(
-                Icons.chevron_right_rounded,
+                AppIcons.chevronRightRounded,
                 size: 20,
                 color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
@@ -156,7 +157,7 @@ class ConversationTile extends ConsumerWidget {
         return memberAsync.when(
           data: (member) {
             if (member == null) {
-              return _fallbackAvatar(context, Icons.person);
+              return _fallbackAvatar(context, AppIcons.person);
             }
             return MemberAvatar(
               avatarImageData: member.avatarImageData,
@@ -166,13 +167,13 @@ class ConversationTile extends ConsumerWidget {
               size: 40,
             );
           },
-          loading: () => _fallbackAvatar(context, Icons.person),
-          error: (_, _) => _fallbackAvatar(context, Icons.person),
+          loading: () => _fallbackAvatar(context, AppIcons.person),
+          error: (_, _) => _fallbackAvatar(context, AppIcons.person),
         );
       }
     }
 
-    return _fallbackAvatar(context, Icons.group);
+    return _fallbackAvatar(context, AppIcons.group);
   }
 
   Widget _fallbackAvatar(BuildContext context, IconData icon) {

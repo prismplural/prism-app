@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/chat/providers/category_providers.dart'
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/category_management_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/conversation_tile.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -76,7 +77,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           0 => ListTile(
               dense: true,
               leading: const Icon(
-                Icons.mark_email_read_outlined,
+                AppIcons.markEmailReadOutlined,
                 size: 20,
               ),
               title: const Text(
@@ -96,8 +97,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               dense: true,
               leading: Icon(
                 isMuted
-                    ? Icons.notifications_outlined
-                    : Icons.notifications_off_outlined,
+                    ? AppIcons.notificationsOutlined
+                    : AppIcons.notificationsOffOutlined,
                 size: 20,
               ),
               title: Text(
@@ -116,7 +117,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           _ => ListTile(
               dense: true,
               leading: Icon(
-                Icons.delete_outline,
+                AppIcons.deleteOutline,
                 size: 20,
                 color: popupTheme.colorScheme.error,
               ),
@@ -195,7 +196,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   padding: const EdgeInsets.only(right: 24),
                   color: theme.colorScheme.error,
                   child: Icon(
-                    Icons.delete,
+                    AppIcons.delete,
                     color: theme.colorScheme.onError,
                   ),
                 ),
@@ -242,7 +243,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: PrismTopBar(
                 title: 'Chat',
                 leading: PrismTopBarAction(
-                  icon: Icons.folder_outlined,
+                  icon: AppIcons.folderOutlined,
                   tooltip: 'Manage categories',
                   onPressed: () =>
                       CategoryManagementSheet.show(context),
@@ -251,8 +252,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   if (speakingAs != null)
                     PrismTopBarAction(
                       icon: isMentionsOnly
-                          ? Icons.alternate_email
-                          : Icons.mark_chat_unread_outlined,
+                          ? AppIcons.alternateEmail
+                          : AppIcons.markChatUnreadOutlined,
                       tooltip: isMentionsOnly
                           ? 'Badge: mentions only'
                           : 'Badge: all messages',
@@ -269,21 +270,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       },
                     ),
                   PrismTopBarAction(
-                    icon: Icons.search,
+                    icon: AppIcons.search,
                     tooltip: 'Search messages',
                     onPressed: () => context.go('${AppRoutePaths.chat}/search'),
                   ),
                   if (hasArchived || showArchived)
                     PrismTopBarAction(
                       icon: showArchived
-                          ? Icons.inventory_2_rounded
-                          : Icons.inventory_2_outlined,
+                          ? AppIcons.inventoryRounded
+                          : AppIcons.inventoryOutlined,
                       tooltip: showArchived ? 'Hide archived' : 'Show archived',
                       onPressed: () =>
                           ref.read(showArchivedProvider.notifier).toggle(),
                     ),
                   PrismTopBarAction(
-                    icon: Icons.add,
+                    icon: AppIcons.add,
                     tooltip: 'New conversation',
                     onPressed: () => _showCreateSheet(context),
                   ),
@@ -301,7 +302,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     SliverFillRemaining(
                       hasScrollBody: false,
                       child: EmptyState(
-                        icon: Icons.chat_bubble_outline,
+                        icon: AppIcons.chatBubbleOutline,
                         title: 'No conversations',
                         subtitle: 'Start chatting with your system',
                         actionLabel: 'New Conversation',
@@ -379,7 +380,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.error_outline,
+                          AppIcons.errorOutline,
                           size: 48,
                           color: theme.colorScheme.error,
                         ),

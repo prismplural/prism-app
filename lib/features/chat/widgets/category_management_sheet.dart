@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/conversation_category.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -161,7 +162,7 @@ class _CategoryManagementSheetState
                               contentPadding: EdgeInsets.zero,
                               leading: ReorderableDragStartListener(
                                 index: index,
-                                child: const Icon(Icons.drag_handle),
+                                child: Icon(AppIcons.dragHandle),
                               ),
                               title: isEditing
                                   ? PrismTextField(
@@ -179,12 +180,12 @@ class _CategoryManagementSheetState
                                     ),
                               trailing: isEditing
                                   ? IconButton(
-                                      icon: const Icon(Icons.check, size: 20),
+                                      icon: Icon(AppIcons.check, size: 20),
                                       onPressed: () => _saveEdit(category),
                                     )
                                   : IconButton(
                                       icon: Icon(
-                                        Icons.delete_outline,
+                                        AppIcons.deleteOutline,
                                         size: 20,
                                         color: theme.colorScheme.error,
                                       ),
@@ -210,7 +211,7 @@ class _CategoryManagementSheetState
                         const SizedBox(width: 8),
                         IconButton(
                           icon: Icon(
-                            Icons.add_circle,
+                            AppIcons.addCircle,
                             color: theme.colorScheme.primary,
                           ),
                           onPressed: _createCategory,

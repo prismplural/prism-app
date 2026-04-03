@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/reaction_bar.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
@@ -91,7 +92,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
     if (!widget.message.isSystemMessage) {
       actions.add(_ContextAction(
-        icon: Icons.reply_rounded,
+        icon: AppIcons.replyRounded,
         label: 'Reply',
         onTap: (close) {
           close();
@@ -101,7 +102,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     }
 
     actions.add(_ContextAction(
-      icon: Icons.copy_outlined,
+      icon: AppIcons.copyOutlined,
       label: 'Copy Text',
       onTap: (close) {
         Clipboard.setData(ClipboardData(text: widget.message.content));
@@ -115,7 +116,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     if (perms != null) {
       if (perms.canEditMessage(widget.message.authorId)) {
         actions.add(_ContextAction(
-          icon: Icons.edit_outlined,
+          icon: AppIcons.editOutlined,
           label: 'Edit Message',
           onTap: (close) {
             close();
@@ -125,7 +126,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       }
       if (perms.canDeleteMessage(widget.message.authorId)) {
         actions.add(_ContextAction(
-          icon: Icons.delete_outline,
+          icon: AppIcons.deleteOutline,
           label: 'Delete',
           isDestructive: true,
           onTap: (close) {
@@ -138,7 +139,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       // Fallback: old behavior for backwards compatibility.
       if (isOwn) {
         actions.add(_ContextAction(
-          icon: Icons.edit_outlined,
+          icon: AppIcons.editOutlined,
           label: 'Edit Message',
           onTap: (close) {
             close();
@@ -146,7 +147,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
           },
         ));
         actions.add(_ContextAction(
-          icon: Icons.delete_outline,
+          icon: AppIcons.deleteOutline,
           label: 'Delete',
           isDestructive: true,
           onTap: (close) {
@@ -185,9 +186,9 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                 _toggleReaction(emoji);
               }
             },
-            child: const TintedGlassSurface.circle(
+            child: TintedGlassSurface.circle(
               size: 36,
-              child: Icon(Icons.add, size: 20),
+              child: Icon(AppIcons.add, size: 20),
             ),
           ),
         ],

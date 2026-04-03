@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/chat/views/add_members_sheet.dart';
 import 'package:prism_plurality/features/chat/views/creator_transfer_picker.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
@@ -289,7 +290,7 @@ class _ConversationInfoSheetState
                         child: Row(
                           children: [
                             Icon(
-                              Icons.info_outline,
+                              AppIcons.infoOutline,
                               size: 18,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -386,7 +387,7 @@ class _ConversationInfoSheetState
                 if (permissions.canEditTitleEmoji) ...[
                   const SizedBox(width: 6),
                   Icon(
-                    Icons.edit,
+                    AppIcons.edit,
                     size: 16,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -434,7 +435,7 @@ class _ConversationInfoSheetState
             const Spacer(),
             if (permissions.canAddMembers)
               IconButton(
-                icon: const Icon(Icons.person_add, size: 20),
+                icon: Icon(AppIcons.personAdd, size: 20),
                 tooltip: 'Add members',
                 onPressed: () => AddMembersSheet.show(context, conversation),
               ),
@@ -547,7 +548,7 @@ class _ConversationInfoSheetState
       children: [
         // Archive
         ListTile(
-          leading: const Icon(Icons.archive_outlined),
+          leading: Icon(AppIcons.archiveOutlined),
           title: const Text('Archive conversation'),
           contentPadding: EdgeInsets.zero,
           onTap: () => _archive(conversation.id, speakingAsMemberId),
@@ -556,7 +557,7 @@ class _ConversationInfoSheetState
         // Leave
         if (permissions.canLeave)
           ListTile(
-            leading: const Icon(Icons.exit_to_app),
+            leading: Icon(AppIcons.exitToApp),
             title: const Text('Leave conversation'),
             contentPadding: EdgeInsets.zero,
             onTap: () async {
@@ -581,7 +582,7 @@ class _ConversationInfoSheetState
         // Delete
         if (permissions.canDeleteConversation)
           ListTile(
-            leading: Icon(Icons.delete_outline,
+            leading: Icon(AppIcons.deleteOutline,
                 color: theme.colorScheme.error),
             title: Text('Delete conversation',
                 style: TextStyle(color: theme.colorScheme.error)),
@@ -670,7 +671,7 @@ class _ParticipantTile extends ConsumerWidget {
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.only(left: 24),
             color: theme.colorScheme.error.withValues(alpha: 0.2),
-            child: Icon(Icons.person_remove,
+            child: Icon(AppIcons.personRemove,
                 color: theme.colorScheme.error),
           ),
           confirmDismiss: (_) async {
@@ -750,7 +751,7 @@ class _CategoryPicker extends ConsumerWidget {
         child: PrismListRow(
           title: const Text('Category'),
           subtitle: Text(currentName),
-          trailing: const Icon(Icons.chevron_right_rounded),
+          trailing: Icon(AppIcons.chevronRightRounded),
           onTap: () => _showCategorySheet(context, ref, categories, currentName),
         ),
       ),
@@ -771,7 +772,7 @@ class _CategoryPicker extends ConsumerWidget {
           PrismListRow(
             title: const Text('None'),
             trailing: currentCategoryId == null
-                ? const Icon(Icons.check_rounded)
+                ? Icon(AppIcons.checkRounded)
                 : null,
             onTap: () {
               ref.read(chatNotifierProvider.notifier).updateConversation(
@@ -785,7 +786,7 @@ class _CategoryPicker extends ConsumerWidget {
             PrismListRow(
               title: Text(cat.name),
               trailing: cat.id == currentCategoryId
-                  ? const Icon(Icons.check_rounded)
+                  ? Icon(AppIcons.checkRounded)
                   : null,
               onTap: () {
                 ref.read(chatNotifierProvider.notifier).updateConversation(
