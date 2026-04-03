@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
@@ -14,7 +15,7 @@ class WhosFrontingStep extends ConsumerWidget {
 
     return membersAsync.when(
       loading: () => const Center(
-        child: CircularProgressIndicator(color: Colors.white),
+        child: CircularProgressIndicator(color: AppColors.warmWhite),
       ),
       error: (e, _) => Center(
         child: Text(
@@ -28,7 +29,7 @@ class WhosFrontingStep extends ConsumerWidget {
             child: Text(
               'No members added yet.\nGo back to add members first.',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AppColors.warmWhite.withValues(alpha: 0.6),
                 fontSize: 15,
               ),
               textAlign: TextAlign.center,
@@ -43,7 +44,7 @@ class WhosFrontingStep extends ConsumerWidget {
               Text(
                 'Tap to select who is currently fronting',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: AppColors.warmWhite.withValues(alpha: 0.6),
                   fontSize: 14,
                 ),
               ),
@@ -70,7 +71,7 @@ class WhosFrontingStep extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? Colors.cyan.withValues(alpha: 0.2)
-                              : Colors.white.withValues(alpha: 0.1),
+                              : AppColors.warmWhite.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
@@ -82,7 +83,7 @@ class WhosFrontingStep extends ConsumerWidget {
                               height: 52,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: Colors.white.withValues(alpha: 0.15),
+                                color: AppColors.warmWhite.withValues(alpha: 0.15),
                               ),
                               child: member.avatarImageData != null
                                   ? ClipOval(
@@ -111,7 +112,7 @@ class WhosFrontingStep extends ConsumerWidget {
                                 style: TextStyle(
                                   color: isSelected
                                       ? Colors.cyan
-                                      : Colors.white,
+                                      : AppColors.warmWhite,
                                   fontWeight: isSelected
                                       ? FontWeight.w600
                                       : FontWeight.w500,

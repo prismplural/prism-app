@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 class CompleteStep extends StatelessWidget {
   const CompleteStep({super.key});
@@ -21,7 +22,7 @@ class CompleteStep extends StatelessWidget {
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: AppColors.warmWhite,
             ),
           ),
           const SizedBox(height: 6),
@@ -29,7 +30,7 @@ class CompleteStep extends StatelessWidget {
             'Your system is ready to use',
             style: TextStyle(
               fontSize: 15,
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AppColors.warmWhite.withValues(alpha: 0.7),
             ),
           ),
           const SizedBox(height: 32),
@@ -95,7 +96,7 @@ class _NextStepRow extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.warmWhite,
                   fontWeight: FontWeight.w600,
                   fontSize: 16,
                 ),
@@ -103,7 +104,7 @@ class _NextStepRow extends StatelessWidget {
               Text(
                 description,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
+                  color: AppColors.warmWhite.withValues(alpha: 0.6),
                   fontSize: 13,
                 ),
               ),

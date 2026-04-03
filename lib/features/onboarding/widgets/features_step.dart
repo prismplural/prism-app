@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 
@@ -79,7 +80,7 @@ class _FeatureToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: AppColors.warmWhite.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -101,7 +102,7 @@ class _FeatureToggle extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.warmWhite,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
@@ -109,7 +110,7 @@ class _FeatureToggle extends StatelessWidget {
                 Text(
                   description,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: AppColors.warmWhite.withValues(alpha: 0.6),
                     fontSize: 13,
                   ),
                 ),
@@ -119,15 +120,15 @@ class _FeatureToggle extends StatelessWidget {
           Switch.adaptive(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: Colors.white.withValues(alpha: 0.3),
-            activeThumbColor: Colors.white,
-            inactiveTrackColor: Colors.white.withValues(alpha: 0.08),
-            inactiveThumbColor: Colors.white.withValues(alpha: 0.4),
+            activeTrackColor: AppColors.warmWhite.withValues(alpha: 0.3),
+            activeThumbColor: AppColors.warmWhite,
+            inactiveTrackColor: AppColors.warmWhite.withValues(alpha: 0.08),
+            inactiveThumbColor: AppColors.warmWhite.withValues(alpha: 0.4),
             trackOutlineColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return Colors.white.withValues(alpha: 0.15);
+                return AppColors.warmWhite.withValues(alpha: 0.15);
               }
-              return Colors.white.withValues(alpha: 0.1);
+              return AppColors.warmWhite.withValues(alpha: 0.1);
             }),
           ),
         ],

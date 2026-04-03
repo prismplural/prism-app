@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 
@@ -40,7 +41,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
           Text(
             'Suggested Channels',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.warmWhite.withValues(alpha: 0.8),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -64,8 +65,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Colors.white.withValues(alpha: 0.15)
-                        : Colors.white.withValues(alpha: 0.07),
+                        ? AppColors.warmWhite.withValues(alpha: 0.15)
+                        : AppColors.warmWhite.withValues(alpha: 0.07),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -76,7 +77,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                         child: Text(
                           entry.key,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.warmWhite,
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
@@ -86,7 +87,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                         Icon(
                           Icons.lock,
                           size: 16,
-                          color: Colors.white.withValues(alpha: 0.4),
+                          color: AppColors.warmWhite.withValues(alpha: 0.4),
                         )
                       else
                         Icon(
@@ -95,7 +96,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                               : Icons.circle_outlined,
                           color: isSelected
                               ? Colors.cyan
-                              : Colors.white.withValues(alpha: 0.3),
+                              : AppColors.warmWhite.withValues(alpha: 0.3),
                           size: 22,
                         ),
                     ],
@@ -111,7 +112,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
           Text(
             'Custom Channel',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.warmWhite.withValues(alpha: 0.8),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -122,16 +123,16 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: AppColors.warmWhite.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: TextField(
                     controller: _customChannelController,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppColors.warmWhite),
                     decoration: InputDecoration(
                       hintText: 'Channel name',
                       hintStyle: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.35),
+                        color: AppColors.warmWhite.withValues(alpha: 0.35),
                       ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
@@ -158,7 +159,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                     color: Colors.cyan.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 22),
+                  child: const Icon(Icons.add, color: AppColors.warmWhite, size: 22),
                 ),
               ),
             ],
@@ -177,7 +178,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
+                          color: AppColors.warmWhite.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -189,7 +190,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                               child: Text(
                                 entry.key,
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.warmWhite,
                                   fontSize: 15,
                                 ),
                               ),
@@ -200,7 +201,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                               child: Icon(
                                 Icons.close,
                                 size: 18,
-                                color: Colors.white.withValues(alpha: 0.5),
+                                color: AppColors.warmWhite.withValues(alpha: 0.5),
                               ),
                             ),
                           ],

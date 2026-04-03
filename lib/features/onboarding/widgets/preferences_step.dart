@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
@@ -44,7 +45,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           Text(
             'Terminology',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.warmWhite.withValues(alpha: 0.8),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -67,7 +68,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? Colors.pink.withValues(alpha: 0.3)
-                        : Colors.white.withValues(alpha: 0.1),
+                        : AppColors.warmWhite.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
@@ -78,7 +79,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                       style: TextStyle(
                         color: isSelected
                             ? Colors.pink.shade200
-                            : Colors.white.withValues(alpha: 0.8),
+                            : AppColors.warmWhite.withValues(alpha: 0.8),
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.normal,
                         fontSize: 15,
@@ -120,7 +121,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           Text(
             'Accent Color',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.warmWhite.withValues(alpha: 0.8),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -168,7 +169,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AppColors.warmWhite.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -180,7 +181,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                       const Text(
                         'Per-Member Colors',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.warmWhite,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                         ),
@@ -188,7 +189,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                       Text(
                         'Let each member have their own accent color',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: AppColors.warmWhite.withValues(alpha: 0.6),
                           fontSize: 13,
                         ),
                       ),
@@ -215,16 +216,16 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: AppColors.warmWhite.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: TextField(
         controller: controller,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: const TextStyle(color: AppColors.warmWhite, fontSize: 14),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.35),
+            color: AppColors.warmWhite.withValues(alpha: 0.35),
             fontSize: 14,
           ),
           border: InputBorder.none,

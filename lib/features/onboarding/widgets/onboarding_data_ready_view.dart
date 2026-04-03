@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -36,7 +37,7 @@ class OnboardingDataReadyView extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              color: Colors.white,
+              color: AppColors.warmWhite,
               fontSize: 26,
               fontWeight: FontWeight.w700,
             ),
@@ -46,7 +47,7 @@ class OnboardingDataReadyView extends StatelessWidget {
           Text(
             description,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AppColors.warmWhite.withValues(alpha: 0.7),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -57,7 +58,7 @@ class OnboardingDataReadyView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
+                color: AppColors.warmWhite.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -66,7 +67,7 @@ class OnboardingDataReadyView extends StatelessWidget {
                   Text(
                     summaryLabel,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
+                      color: AppColors.warmWhite.withValues(alpha: 0.6),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.8,
@@ -122,7 +123,7 @@ class _CountRow extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
+                color: AppColors.warmWhite.withValues(alpha: 0.72),
                 fontSize: 14,
               ),
             ),
@@ -130,7 +131,7 @@ class _CountRow extends StatelessWidget {
           Text(
             '$count',
             style: const TextStyle(
-              color: Colors.white,
+              color: AppColors.warmWhite,
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
@@ -60,7 +61,7 @@ class AddMembersStep extends ConsumerWidget {
                     child: Text(
                       'No members yet.\nTap "Add Member" or use the defaults.',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: AppColors.warmWhite.withValues(alpha: 0.5),
                         fontSize: 15,
                       ),
                       textAlign: TextAlign.center,
@@ -78,7 +79,7 @@ class AddMembersStep extends ConsumerWidget {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
+                            color: AppColors.warmWhite.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -90,7 +91,7 @@ class AddMembersStep extends ConsumerWidget {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color:
-                                      Colors.white.withValues(alpha: 0.15),
+                                      AppColors.warmWhite.withValues(alpha: 0.15),
                                 ),
                                 child: member.avatarImageData != null
                                     ? ClipOval(
@@ -119,7 +120,7 @@ class AddMembersStep extends ConsumerWidget {
                                     Text(
                                       member.name,
                                       style: const TextStyle(
-                                        color: Colors.white,
+                                        color: AppColors.warmWhite,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 16,
                                       ),
@@ -129,7 +130,7 @@ class AddMembersStep extends ConsumerWidget {
                                       Text(
                                         member.pronouns!,
                                         style: TextStyle(
-                                          color: Colors.white
+                                          color: AppColors.warmWhite
                                               .withValues(alpha: 0.6),
                                           fontSize: 13,
                                         ),
@@ -142,7 +143,7 @@ class AddMembersStep extends ConsumerWidget {
                                 icon: Icon(
                                   Icons.close,
                                   color:
-                                      Colors.white.withValues(alpha: 0.5),
+                                      AppColors.warmWhite.withValues(alpha: 0.5),
                                   size: 20,
                                 ),
                                 onPressed: () {
@@ -166,21 +167,21 @@ class AddMembersStep extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
+                color: AppColors.warmWhite.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: AppColors.warmWhite.withValues(alpha: 0.2),
                 ),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add, color: Colors.white, size: 20),
+                  Icon(Icons.add, color: AppColors.warmWhite, size: 20),
                   SizedBox(width: 8),
                   Text(
                     'Add Member',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.warmWhite,
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
                     ),
@@ -302,7 +303,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                       child: Text(
                         'Add',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppColors.warmWhite,
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
                         ),
@@ -328,7 +329,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: AppColors.warmWhite.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
       ),
       child: TextField(
@@ -337,10 +338,10 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
         keyboardType: keyboardType,
         maxLines: maxLines,
         textAlign: textAlign,
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: AppColors.warmWhite),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35)),
+          hintStyle: TextStyle(color: AppColors.warmWhite.withValues(alpha: 0.35)),
           border: InputBorder.none,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -393,13 +394,13 @@ class _PronounChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected
               ? Colors.cyan.withValues(alpha: 0.3)
-              : Colors.white.withValues(alpha: 0.1),
+              : AppColors.warmWhite.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.cyan : Colors.white.withValues(alpha: 0.7),
+            color: selected ? Colors.cyan : AppColors.warmWhite.withValues(alpha: 0.7),
             fontSize: 13,
             fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
           ),
