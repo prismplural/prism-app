@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Card displaying a summary of what will be imported.
 class ImportPreviewCard extends StatelessWidget {
@@ -40,42 +41,42 @@ class ImportPreviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             _CountRow(
-              icon: Icons.person,
+              icon: AppIcons.person,
               label: 'Members',
               count: data.members.length,
             ),
             if (data.customFronts.isNotEmpty)
               _CountRow(
-                icon: Icons.label_outlined,
+                icon: AppIcons.labelOutlined,
                 label: 'Custom fronts',
                 count: data.customFronts.length,
               ),
             _CountRow(
-              icon: Icons.flash_on,
+              icon: AppIcons.flashOn,
               label: 'Front history entries',
               count: data.frontHistory.length,
             ),
             if (data.groups.isNotEmpty)
               _CountRow(
-                icon: Icons.group,
+                icon: AppIcons.group,
                 label: 'Groups',
                 count: data.groups.length,
               ),
             if (data.channels.isNotEmpty)
               _CountRow(
-                icon: Icons.chat_bubble_outline,
+                icon: AppIcons.chatBubbleOutline,
                 label: 'Chat channels',
                 count: data.channels.length,
               ),
             if (data.messages.isNotEmpty)
               _CountRow(
-                icon: Icons.message_outlined,
+                icon: AppIcons.messageOutlined,
                 label: 'Messages',
                 count: data.messages.length,
               ),
             if (data.polls.isNotEmpty)
               _CountRow(
-                icon: Icons.poll_outlined,
+                icon: AppIcons.pollOutlined,
                 label: 'Polls',
                 count: data.polls.length,
               ),
@@ -83,7 +84,7 @@ class ImportPreviewCard extends StatelessWidget {
             Divider(color: theme.colorScheme.outlineVariant),
             const SizedBox(height: 4),
             _CountRow(
-              icon: Icons.summarize_outlined,
+              icon: AppIcons.summarizeOutlined,
               label: 'Total entities',
               count: data.totalEntities,
               bold: true,
@@ -104,7 +105,7 @@ class ImportPreviewCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
-                          Icons.warning_amber_rounded,
+                          AppIcons.warningAmberRounded,
                           size: 16,
                           color: theme.colorScheme.error,
                         ),

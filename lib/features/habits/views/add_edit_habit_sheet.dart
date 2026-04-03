@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class AddEditHabitSheet extends ConsumerStatefulWidget {
   const AddEditHabitSheet({
@@ -92,7 +93,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
           PrismSheetTopBar(
             title: _isEditing ? 'Edit Habit' : 'New Habit',
             trailing: PrismGlassIconButton(
-              icon: Icons.check,
+              icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
               tint: canSave ? theme.colorScheme.primary : null,
               accentIcon: canSave,
@@ -182,7 +183,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                     children: [
                       const Text('Every '),
                       PrismIconButton(
-                        icon: Icons.remove,
+                        icon: AppIcons.remove,
                         onPressed: () => setState(() => _intervalDays--),
                         enabled: _intervalDays > 1,
                         tooltip: 'Decrease interval',
@@ -190,7 +191,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                       Text('$_intervalDays',
                           style: Theme.of(context).textTheme.titleMedium),
                       PrismIconButton(
-                        icon: Icons.add,
+                        icon: AppIcons.add,
                         onPressed: () =>
                             setState(() => _intervalDays++),
                         tooltip: 'Increase interval',

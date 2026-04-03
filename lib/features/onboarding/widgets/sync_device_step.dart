@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_read
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 class SyncDeviceStep extends ConsumerStatefulWidget {
   const SyncDeviceStep({
@@ -120,9 +121,11 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
         );
     }
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: child,
+    return SecureScope(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: child,
+      ),
     );
   }
 }

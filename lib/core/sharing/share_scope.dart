@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Permission scopes for friend sharing, ordered from least to most access.
 ///
@@ -28,10 +29,10 @@ extension ShareScopeX on ShareScope {
       };
 
   IconData get icon => switch (this) {
-        ShareScope.frontStatusOnly => Icons.person_outline,
-        ShareScope.memberProfiles => Icons.people_outline,
-        ShareScope.frontHistory => Icons.history,
-        ShareScope.fullAccess => Icons.lock_open,
+        ShareScope.frontStatusOnly => AppIcons.personOutline,
+        ShareScope.memberProfiles => AppIcons.peopleOutline,
+        ShareScope.frontHistory => AppIcons.history,
+        ShareScope.fullAccess => AppIcons.lockOpen,
       };
 
   /// Whether this scope includes another scope.

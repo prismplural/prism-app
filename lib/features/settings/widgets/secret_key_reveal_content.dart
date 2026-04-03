@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 class SecretKeyRevealContent extends StatefulWidget {
   const SecretKeyRevealContent({
@@ -38,7 +39,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
     final theme = Theme.of(context);
     final words = widget.mnemonic.split(' ');
 
-    return Column(
+    return SecureScope(child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
@@ -162,7 +163,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
           ),
         ],
       ],
-    );
+    ));
   }
 
   Future<void> _copyToClipboard() async {

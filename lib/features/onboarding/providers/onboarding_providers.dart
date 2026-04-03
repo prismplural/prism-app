@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 enum OnboardingStep {
   welcome,
@@ -49,17 +50,17 @@ enum OnboardingStep {
   };
 
   IconData get icon => switch (this) {
-    welcome => Icons.auto_awesome,
-    syncDevice => Icons.sync,
-    importedDataReady => Icons.check_circle,
-    importData => Icons.download,
-    systemName => Icons.label,
-    addMembers => Icons.group,
-    features => Icons.grid_view,
-    chatSetup => Icons.forum,
-    preferences => Icons.brush,
-    whosFronting => Icons.person_pin,
-    complete => Icons.check_circle,
+    welcome => AppIcons.autoAwesome,
+    syncDevice => AppIcons.sync,
+    importedDataReady => AppIcons.checkCircle,
+    importData => AppIcons.download,
+    systemName => AppIcons.label,
+    addMembers => AppIcons.group,
+    features => AppIcons.gridView,
+    chatSetup => AppIcons.forum,
+    preferences => AppIcons.brush,
+    whosFronting => AppIcons.personPin,
+    complete => AppIcons.checkCircle,
   };
 
   Color get iconColor => switch (this) {
