@@ -14,7 +14,7 @@ class _PresetColor {
 }
 
 const _presetColors = [
-  _PresetColor('Prism Purple', '#AF8EE9'),
+  _PresetColor('Prism Purple', '#B498C2'),
   _PresetColor('Blue', '#2563EB'),
   _PresetColor('Green', '#16A34A'),
   _PresetColor('Red', '#DC2626'),
