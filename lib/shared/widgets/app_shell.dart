@@ -400,8 +400,8 @@ class _AppShellState extends ConsumerState<AppShell>
           Positioned.fill(
             child: ColoredBox(
               color: MediaQuery.platformBrightnessOf(context) == Brightness.dark
-                  ? Colors.black
-                  : Colors.white,
+                  ? AppColors.warmBlack
+                  : AppColors.warmWhite,
             ),
           ),
         ],
@@ -639,8 +639,8 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                             height: 0.5,
                             margin: const EdgeInsets.symmetric(horizontal: 20),
                             color: isDark
-                                ? Colors.white.withValues(alpha: 0.08)
-                                : Colors.black.withValues(alpha: 0.06),
+                                ? AppColors.warmWhite.withValues(alpha: 0.08)
+                                : AppColors.warmBlack.withValues(alpha: 0.06),
                           ),
                         ),
                       ),
@@ -707,18 +707,18 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         isDark
             ? (isOled
                   ? AppColors.oledSurface1.withValues(alpha: 0.85)
-                  : Colors.white.withValues(alpha: 0.08))
-            : Colors.white.withValues(alpha: 0.7),
+                  : AppColors.warmWhite.withValues(alpha: 0.08))
+            : AppColors.warmWhite.withValues(alpha: 0.7),
       ),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.1)
-            : Colors.black.withValues(alpha: 0.08),
+            ? AppColors.warmWhite.withValues(alpha: 0.1)
+            : AppColors.warmBlack.withValues(alpha: 0.08),
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
+          color: AppColors.warmBlack.withValues(alpha: isDark ? 0.4 : 0.1),
           blurRadius: 20,
           offset: const Offset(0, 4),
         ),
@@ -799,8 +799,8 @@ class _MoreTrigger extends StatelessWidget {
     final iconColor = expanded
         ? accentColor
         : (isDark
-              ? Colors.white.withValues(alpha: 0.5)
-              : Colors.black.withValues(alpha: 0.4));
+              ? AppColors.warmWhite.withValues(alpha: 0.5)
+              : AppColors.warmBlack.withValues(alpha: 0.4));
 
     return Semantics(
       button: true,
@@ -867,8 +867,8 @@ class _NavBarItem extends StatelessWidget {
       color: isSelected
           ? accentColor
           : (isDark
-                ? Colors.white.withValues(alpha: 0.5)
-                : Colors.black.withValues(alpha: 0.4)),
+                ? AppColors.warmWhite.withValues(alpha: 0.5)
+                : AppColors.warmBlack.withValues(alpha: 0.4)),
     );
 
     if (tab != null) {
@@ -906,8 +906,8 @@ class _NavBarItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isSelected
                     ? (isDark
-                          ? Colors.white.withValues(alpha: 0.15)
-                          : Colors.black.withValues(alpha: 0.08))
+                          ? AppColors.warmWhite.withValues(alpha: 0.15)
+                          : AppColors.warmBlack.withValues(alpha: 0.08))
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -920,10 +920,10 @@ class _NavBarItem extends StatelessWidget {
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected
-                    ? (isDark ? Colors.white : Colors.black)
+                    ? (isDark ? AppColors.warmWhite : AppColors.warmBlack)
                     : (isDark
-                          ? Colors.white.withValues(alpha: 0.5)
-                          : Colors.black.withValues(alpha: 0.4)),
+                          ? AppColors.warmWhite.withValues(alpha: 0.5)
+                          : AppColors.warmBlack.withValues(alpha: 0.4)),
               ),
             ),
           ],
@@ -979,18 +979,18 @@ class _FloatingSidebar extends ConsumerWidget {
                   isDark
                       ? (isOled
                             ? AppColors.oledSurface1.withValues(alpha: 0.50)
-                            : Colors.white.withValues(alpha: 0.06))
-                      : Colors.white.withValues(alpha: 0.55),
+                            : AppColors.warmWhite.withValues(alpha: 0.06))
+                      : AppColors.warmWhite.withValues(alpha: 0.55),
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: isDark
-                      ? Colors.white.withValues(alpha: 0.1)
-                      : Colors.black.withValues(alpha: 0.08),
+                      ? AppColors.warmWhite.withValues(alpha: 0.1)
+                      : AppColors.warmBlack.withValues(alpha: 0.08),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                    color: AppColors.warmBlack.withValues(alpha: isDark ? 0.3 : 0.08),
                     blurRadius: 12,
                     offset: const Offset(2, 2),
                   ),
@@ -1063,25 +1063,25 @@ class _SidebarItemState extends State<_SidebarItem> {
   Widget build(BuildContext context) {
     final fillColor = widget.isSelected
         ? (widget.isDark
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.black.withValues(alpha: 0.06))
+              ? AppColors.warmWhite.withValues(alpha: 0.12)
+              : AppColors.warmBlack.withValues(alpha: 0.06))
         : _hovering
         ? (widget.isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.black.withValues(alpha: 0.03))
+              ? AppColors.warmWhite.withValues(alpha: 0.06)
+              : AppColors.warmBlack.withValues(alpha: 0.03))
         : Colors.transparent;
 
     final iconColor = widget.isSelected
         ? widget.accentColor
         : (widget.isDark
-              ? Colors.white.withValues(alpha: 0.5)
-              : Colors.black.withValues(alpha: 0.4));
+              ? AppColors.warmWhite.withValues(alpha: 0.5)
+              : AppColors.warmBlack.withValues(alpha: 0.4));
 
     final labelColor = widget.isSelected
-        ? (widget.isDark ? Colors.white : Colors.black)
+        ? (widget.isDark ? AppColors.warmWhite : AppColors.warmBlack)
         : (widget.isDark
-              ? Colors.white.withValues(alpha: 0.6)
-              : Colors.black.withValues(alpha: 0.5));
+              ? AppColors.warmWhite.withValues(alpha: 0.6)
+              : AppColors.warmBlack.withValues(alpha: 0.5));
 
     return Semantics(
       selected: widget.isSelected,
