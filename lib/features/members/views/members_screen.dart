@@ -384,7 +384,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               PrismPill(
                 label: 'Fronting',
                 icon: AppIcons.flashOn,
-                color: AppColors.fronting,
+                color: AppColors.fronting(theme.brightness),
                 padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               ),
               const SizedBox(width: 4),

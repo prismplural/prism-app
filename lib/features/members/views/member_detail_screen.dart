@@ -172,8 +172,8 @@ class _MemberDetailBody extends ConsumerWidget {
                               icon: AppIcons.flashOn,
                               label: 'Fronting',
                               backgroundColor:
-                                  AppColors.fronting.withValues(alpha: 0.15),
-                              foregroundColor: AppColors.fronting,
+                                  AppColors.fronting(theme.brightness).withValues(alpha: 0.15),
+                              foregroundColor: AppColors.fronting(theme.brightness),
                             ),
                           if (member.isAdmin)
                             _Chip(
@@ -426,7 +426,7 @@ class _SessionTile extends StatelessWidget {
               session.isActive ? AppIcons.flashOn : AppIcons.schedule,
               size: 18,
               color: session.isActive
-                  ? AppColors.fronting
+                  ? AppColors.fronting(theme.brightness)
                   : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 12),
@@ -440,7 +440,7 @@ class _SessionTile extends StatelessWidget {
               session.isActive ? 'Active' : duration,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: session.isActive
-                    ? AppColors.fronting
+                    ? AppColors.fronting(theme.brightness)
                     : theme.colorScheme.onSurfaceVariant,
                 fontWeight:
                     session.isActive ? FontWeight.w600 : FontWeight.normal,

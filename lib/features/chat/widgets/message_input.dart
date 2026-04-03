@@ -364,7 +364,7 @@ class _GlassTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isOled = theme.scaffoldBackgroundColor == AppColors.warmBlack;
+    final isOled = theme.scaffoldBackgroundColor == Colors.black;
 
     final fillColor = isDark
         ? (isOled

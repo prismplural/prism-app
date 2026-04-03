@@ -233,7 +233,7 @@ class _ToastOverlayState extends State<_ToastOverlay>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final isOled = theme.scaffoldBackgroundColor == AppColors.warmBlack;
+    final isOled = theme.scaffoldBackgroundColor == Colors.black;
     final accentColor = theme.colorScheme.primary;
     final textColor = theme.colorScheme.onSurface;
     final messageStyle = theme.textTheme.bodyMedium?.copyWith(

@@ -34,6 +34,7 @@ class PrismSection extends StatelessWidget {
               title,
               style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                fontFamily: 'Unbounded',
                 fontWeight: FontWeight.w700,
               ),
             ),
