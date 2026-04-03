@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
@@ -145,7 +146,7 @@ class _HabitRowState extends State<HabitRow> {
                       child: const Icon(
                         Icons.check,
                         size: 12,
-                        color: Colors.white,
+                        color: AppColors.warmWhite,
                       ),
                     ),
                   ),

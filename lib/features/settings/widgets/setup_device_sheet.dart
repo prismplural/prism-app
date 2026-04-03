@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -336,13 +337,13 @@ class _ApprovalResponseView extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.warmWhite,
             borderRadius: BorderRadius.circular(16),
           ),
           child: QrImageView(
             data: qrData,
             size: 220,
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.warmWhite,
           ),
         ),
         const SizedBox(height: 16),

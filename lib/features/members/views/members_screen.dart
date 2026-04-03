@@ -356,7 +356,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         color: member.isActive ? Colors.orange : Colors.green,
         child: Icon(
           member.isActive ? Icons.archive_outlined : Icons.unarchive_outlined,
-          color: Colors.white,
+          color: AppColors.warmWhite,
         ),
       ),
       secondaryBackground: Container(
