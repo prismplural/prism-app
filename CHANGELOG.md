@@ -2,6 +2,29 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.10] - 2026-04-03
+
+### Changed
+- Warm parchment/charcoal color palette replacing cool neutral grays across all theme variants (standard light, dark, OLED, Material You unchanged)
+- Brand accent shifted from saturated purple (#AF8EE9) to warm desaturated mauve (#B498C2 dark, #A384B0 light)
+- Fronting status colors now brightness-aware using muted accent spectrum (purple, rose, sage)
+- All ~660 Material Icons replaced with Phosphor Icons via centralized AppIcons mapping
+- EmptyState, PrismSection, and onboarding headers now use Unbounded display font
+- EmptyState widget accepts Widget icon parameter (was IconData) for duotone icon support
+
+### Added
+- Unbounded display font (weights 700, 800) bundled as app assets
+- phosphor_flutter package with duotone variant support for feature/display icons
+- AppIcons centralized icon mapping with three tiers: navigation (regular), action (regular), feature (duotone)
+- Full feature accent spectrum constants (purple, rose, sage, blue, amber, lavender) with dark/light variants
+- Semantic warm color constants (warmWhite, warmBlack, warmOffWhite, parchment, charcoal families)
+- OLED warm-tinted surface constants (oledSurface1-4)
+- Named muted text color constants matching design guide alpha values
+
+### Removed
+- cupertino_icons dependency (zero references found)
+- All Material Icons references
+
 ## [0.2.9] - 2026-04-02
 
 ### Changed
