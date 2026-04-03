@@ -18,8 +18,8 @@ abstract final class AppIcons {
   static final navChatActive = PhosphorIcons.chatCircle(PhosphorIconsStyle.fill);
   static final navHabits = PhosphorIcons.checkCircle();
   static final navHabitsActive = PhosphorIcons.checkCircle(PhosphorIconsStyle.fill);
-  static final navPolls = PhosphorIcons.chartBar();
-  static final navPollsActive = PhosphorIcons.chartBar(PhosphorIconsStyle.fill);
+  static final navPolls = PhosphorIcons.chartBarHorizontal();
+  static final navPollsActive = PhosphorIcons.chartBarHorizontal(PhosphorIconsStyle.fill);
   static final navSettings = PhosphorIcons.gear();
   static final navSettingsActive = PhosphorIcons.gear(PhosphorIconsStyle.fill);
   static final navMembers = PhosphorIcons.usersThree();
@@ -299,11 +299,13 @@ abstract final class AppIcons {
   static final accountTreeOutlined = PhosphorIcons.treeStructure();
   static final circleOutlined = PhosphorIcons.circle();
   static final circle = PhosphorIcons.circle(PhosphorIconsStyle.fill);
+  static final book = PhosphorIcons.book();
+  static final desktop = PhosphorIcons.desktop();
 
   // ── Polls (regular) ───────────────────────────────────────────────────
 
-  static final poll = PhosphorIcons.chartBar(PhosphorIconsStyle.fill);
-  static final pollOutlined = PhosphorIcons.chartBar();
+  static final poll = PhosphorIcons.chartBarHorizontal(PhosphorIconsStyle.fill);
+  static final pollOutlined = PhosphorIcons.chartBarHorizontal();
   static final howToVote = PhosphorIcons.checkSquareOffset(PhosphorIconsStyle.fill);
   static final howToVoteOutlined = PhosphorIcons.checkSquareOffset();
   static final barChart = PhosphorIcons.chartBar(PhosphorIconsStyle.fill);
@@ -318,7 +320,7 @@ abstract final class AppIcons {
   static final duotoneHabits = PhosphorIcons.checkCircle(PhosphorIconsStyle.duotone);
   static final duotoneMembers = PhosphorIcons.usersThree(PhosphorIconsStyle.duotone);
   static final duotoneNotes = PhosphorIcons.notepad(PhosphorIconsStyle.duotone);
-  static final duotonePolls = PhosphorIcons.chartBar(PhosphorIconsStyle.duotone);
+  static final duotonePolls = PhosphorIcons.chartBarHorizontal(PhosphorIconsStyle.duotone);
   static final duotoneReminders = PhosphorIcons.alarm(PhosphorIconsStyle.duotone);
   static final duotoneGroups = PhosphorIcons.circlesThree(PhosphorIconsStyle.duotone);
   static final duotoneCustomFields = PhosphorIcons.notePencil(PhosphorIconsStyle.duotone);
