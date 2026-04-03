@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/chat/providers/chat_search_providers.dart';
 import 'package:prism_plurality/features/chat/widgets/search_result_tile.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -68,7 +69,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                 child: Row(
                   children: [
                     PrismGlassIconButton(
-                      icon: Icons.arrow_back_ios_new_rounded,
+                      icon: AppIcons.arrowBackIosNewRounded,
                       iconSize: 18,
                       onPressed: () => context.pop(),
                       tooltip: 'Back',
@@ -81,7 +82,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.search,
+                              AppIcons.search,
                               size: 20,
                               color: colorScheme.onSurfaceVariant
                                   .withValues(alpha: 0.5),
@@ -116,7 +117,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                                       .set('');
                                 },
                                 child: Icon(
-                                  Icons.close,
+                                  AppIcons.close,
                                   size: 18,
                                   color: colorScheme.onSurfaceVariant,
                                 ),
@@ -140,7 +141,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.search,
+                      AppIcons.search,
                       size: 64,
                       color: colorScheme.onSurfaceVariant
                           .withValues(alpha: 0.3),
@@ -179,7 +180,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.search_off,
+                            AppIcons.searchOff,
                             size: 64,
                             color: colorScheme.onSurfaceVariant
                                 .withValues(alpha: 0.3),

@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/mention_overlay.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -240,7 +241,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                       ),
                       trailing: isSelected
                           ? Icon(
-                              Icons.check,
+                              AppIcons.check,
                               size: 18,
                               color: theme.colorScheme.primary,
                             )
@@ -264,7 +265,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                       : TintedGlassSurface.circle(
                           size: inputHeight,
                           child: Icon(
-                            Icons.person,
+                            AppIcons.person,
                             size: 20,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -524,7 +525,7 @@ class _SendButtonState extends State<_SendButton> {
           firstChild: TintedGlassSurface.circle(
             size: widget.size,
             child: Icon(
-              Icons.arrow_upward_rounded,
+              AppIcons.arrowUpwardRounded,
               size: 19,
               color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
             ),
@@ -547,7 +548,7 @@ class _SendButtonState extends State<_SendButton> {
                   size: widget.size,
                   tint: primary,
                   child: Icon(
-                    Icons.arrow_upward_rounded,
+                    AppIcons.arrowUpwardRounded,
                     size: 19,
                     color: primary,
                   ),
@@ -621,7 +622,7 @@ class _ReplyBanner extends StatelessWidget {
             ),
           ),
           PrismIconButton(
-            icon: Icons.close,
+            icon: AppIcons.close,
             iconSize: 18,
             tooltip: 'Cancel reply',
             onPressed: onDismiss,

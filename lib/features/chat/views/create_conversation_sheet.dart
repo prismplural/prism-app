@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -146,7 +147,7 @@ class _CreateConversationSheetState
                         ),
                       )
                     : PrismGlassIconButton(
-                        icon: Icons.check,
+                        icon: AppIcons.check,
                         size: PrismTokens.topBarActionSize,
                         tint: _canCreate
                             ? theme.colorScheme.primary
@@ -170,16 +171,16 @@ class _CreateConversationSheetState
                   children: [
                     // DM / Group toggle
                     SegmentedButton<bool>(
-                      segments: const [
+                      segments: [
                         ButtonSegment(
                           value: true,
                           label: Text('Group'),
-                          icon: Icon(Icons.group),
+                          icon: Icon(AppIcons.group),
                         ),
                         ButtonSegment(
                           value: false,
                           label: Text('Direct Message'),
-                          icon: Icon(Icons.person),
+                          icon: Icon(AppIcons.person),
                         ),
                       ],
                       selected: {_isGroupChat},
@@ -241,7 +242,7 @@ class _CreateConversationSheetState
                             child: PrismListRow(
                               title: const Text('Category'),
                               subtitle: Text(currentName),
-                              trailing: const Icon(Icons.chevron_right_rounded),
+                              trailing: Icon(AppIcons.chevronRightRounded),
                               onTap: () {
                                 PrismSheet.show(
                                   context: context,
@@ -251,7 +252,7 @@ class _CreateConversationSheetState
                                       PrismListRow(
                                         title: const Text('None'),
                                         trailing: _selectedCategoryId == null
-                                            ? const Icon(Icons.check_rounded)
+                                            ? Icon(AppIcons.checkRounded)
                                             : null,
                                         onTap: () {
                                           setState(() => _selectedCategoryId = null);
@@ -262,7 +263,7 @@ class _CreateConversationSheetState
                                         PrismListRow(
                                           title: Text(cat.name),
                                           trailing: cat.id == _selectedCategoryId
-                                              ? const Icon(Icons.check_rounded)
+                                              ? Icon(AppIcons.checkRounded)
                                               : null,
                                           onTap: () {
                                             setState(() => _selectedCategoryId = cat.id);
@@ -438,7 +439,7 @@ class _CreateConversationSheetState
                         child: Row(
                           children: [
                             Icon(
-                              Icons.info_outline,
+                              AppIcons.infoOutline,
                               size: 18,
                               color: theme.colorScheme.error,
                             ),

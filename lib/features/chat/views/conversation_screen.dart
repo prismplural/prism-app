@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/chat/widgets/message_input.dart';
 import 'package:prism_plurality/features/chat/widgets/prism_message_group.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_app_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -138,13 +139,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           appBar: PrismGlassAppBar(
             title: _conversationTitle(ref, conversation),
             leading: PrismGlassIconButton(
-              icon: Icons.arrow_back_ios_new_rounded,
+              icon: AppIcons.arrowBackIosNewRounded,
               iconSize: 18,
               tooltip: 'Back',
               onPressed: () => context.pop(),
             ),
             trailing: PrismGlassIconButton(
-              icon: Icons.info_outline_rounded,
+              icon: AppIcons.infoOutlineRounded,
               iconSize: 20,
               tooltip: 'Conversation info',
               onPressed: () =>
@@ -166,7 +167,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.chat_bubble_outline,
+                              AppIcons.chatBubbleOutline,
                               size: 64,
                               color: Theme.of(context)
                                   .colorScheme
@@ -282,7 +283,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.error_outline,
+                          AppIcons.errorOutline,
                           size: 48,
                           color: Theme.of(context).colorScheme.error,
                         ),
