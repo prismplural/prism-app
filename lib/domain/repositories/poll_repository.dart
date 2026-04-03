@@ -17,6 +17,7 @@ abstract class PollRepository {
 
   // Options
   Future<List<domain.PollOption>> getAllOptions();
+  Future<Map<String, List<domain.PollOption>>> getAllOptionsGroupedByPoll();
   Future<List<domain.PollOption>> getOptionsForPoll(String pollId);
   Stream<List<domain.PollOption>> watchOptionsForPoll(String pollId);
   Future<void> createOption(domain.PollOption option, String pollId);
@@ -24,6 +25,7 @@ abstract class PollRepository {
 
   // Votes
   Future<List<domain.PollVote>> getAllVotes();
+  Future<Map<String, List<domain.PollVote>>> getAllVotesGroupedByOption();
   Future<List<domain.PollVote>> getVotesForOption(String optionId);
   Stream<List<domain.PollVote>> watchVotesForOption(String optionId);
   Future<void> castVote(domain.PollVote vote, String optionId);
