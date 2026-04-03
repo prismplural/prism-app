@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -91,19 +92,19 @@ class _MemberDetailBody extends ConsumerWidget {
         showBackButton: true,
         actions: [
           PrismTopBarAction(
-            icon: Icons.edit_outlined,
+            icon: AppIcons.editOutlined,
             tooltip: 'Edit',
             onPressed: () => _openEditSheet(context),
           ),
           PrismPopupMenu<_MenuAction>(
               items: [
-                const PrismMenuItem(value: _MenuAction.setFronter, label: 'Set as fronter', icon: Icons.flash_on),
+                PrismMenuItem(value: _MenuAction.setFronter, label: 'Set as fronter', icon: AppIcons.flashOn),
                 PrismMenuItem(
                   value: _MenuAction.toggleActive,
                   label: member.isActive ? 'Deactivate' : 'Activate',
-                  icon: member.isActive ? Icons.visibility_off : Icons.visibility,
+                  icon: member.isActive ? AppIcons.visibilityOff : AppIcons.visibility,
                 ),
-                const PrismMenuItem(value: _MenuAction.delete, label: 'Delete', icon: Icons.delete_outline, destructive: true),
+                PrismMenuItem(value: _MenuAction.delete, label: 'Delete', icon: AppIcons.deleteOutline, destructive: true),
               ],
               onSelected: (action) =>
                   _handleMenuAction(context, ref, action),
@@ -168,7 +169,7 @@ class _MemberDetailBody extends ConsumerWidget {
                         children: [
                           if (isFronting)
                             _Chip(
-                              icon: Icons.flash_on,
+                              icon: AppIcons.flashOn,
                               label: 'Fronting',
                               backgroundColor:
                                   AppColors.fronting.withValues(alpha: 0.15),
@@ -176,7 +177,7 @@ class _MemberDetailBody extends ConsumerWidget {
                             ),
                           if (member.isAdmin)
                             _Chip(
-                              icon: Icons.shield_outlined,
+                              icon: AppIcons.shieldOutlined,
                               label: 'Admin',
                               backgroundColor:
                                   theme.colorScheme.tertiaryContainer,
@@ -185,7 +186,7 @@ class _MemberDetailBody extends ConsumerWidget {
                             ),
                           if (!member.isActive)
                             _Chip(
-                              icon: Icons.visibility_off_outlined,
+                              icon: AppIcons.visibilityOffOutlined,
                               label: 'Inactive',
                               backgroundColor:
                                   theme.colorScheme.surfaceContainerHighest,
@@ -208,7 +209,7 @@ class _MemberDetailBody extends ConsumerWidget {
             // Bio
             if (member.bio != null && member.bio!.isNotEmpty)
               _DetailSection(
-                icon: Icons.notes_outlined,
+                icon: AppIcons.notesOutlined,
                 title: 'Notes',
                 child: MarkdownText(
                   data: member.bio!,
@@ -312,7 +313,7 @@ class _FrontingStatsSection extends ConsumerWidget {
         }
 
         return _SectionCard(
-          icon: Icons.bar_chart_outlined,
+          icon: AppIcons.barChartOutlined,
           title: 'Fronting Stats',
           theme: theme,
           child: Column(
@@ -386,7 +387,7 @@ class _RecentSessionsSection extends ConsumerWidget {
         if (sessions.isEmpty) return const SizedBox.shrink();
 
         return _SectionCard(
-          icon: Icons.history_outlined,
+          icon: AppIcons.historyOutlined,
           title: 'Recent Sessions',
           theme: theme,
           child: Column(
@@ -422,7 +423,7 @@ class _SessionTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              session.isActive ? Icons.flash_on : Icons.schedule,
+              session.isActive ? AppIcons.flashOn : AppIcons.schedule,
               size: 18,
               color: session.isActive
                   ? AppColors.fronting
@@ -447,7 +448,7 @@ class _SessionTile extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             Icon(
-              Icons.chevron_right,
+              AppIcons.chevronRight,
               size: 18,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -497,7 +498,7 @@ class _ConversationsSection extends ConsumerWidget {
         if (conversations.isEmpty) return const SizedBox.shrink();
 
         return _SectionCard(
-          icon: Icons.chat_outlined,
+          icon: AppIcons.chatOutlined,
           title: 'Conversations',
           theme: theme,
           child: Column(
@@ -541,7 +542,7 @@ class _ConversationTile extends ConsumerWidget {
               const SizedBox(width: 12),
             ] else ...[
               Icon(
-                Icons.chat_bubble_outline,
+                AppIcons.chatBubbleOutline,
                 size: 20,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -563,7 +564,7 @@ class _ConversationTile extends ConsumerWidget {
             ),
             const SizedBox(width: 4),
             Icon(
-              Icons.chevron_right,
+              AppIcons.chevronRight,
               size: 18,
               color: theme.colorScheme.onSurfaceVariant,
             ),

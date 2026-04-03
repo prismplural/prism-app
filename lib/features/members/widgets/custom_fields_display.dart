@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Displays custom field values on a member detail screen.
 ///
@@ -59,7 +60,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.tune_outlined, size: 18, color: theme.colorScheme.primary),
+              Icon(AppIcons.tuneOutlined, size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Text(
                 'Custom Fields',

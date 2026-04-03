@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -98,7 +99,7 @@ class _SystemManagementScreenState
         actions: [
           if (_selectionMode)
             IconButton(
-              icon: const Icon(Icons.close),
+              icon: Icon(AppIcons.close),
               tooltip: 'Cancel selection',
               onPressed: _clearSelection,
             ),
@@ -170,8 +171,8 @@ class _SystemManagementScreenState
                       TextButton.icon(
                         icon: Icon(
                           _showInactive
-                              ? Icons.visibility
-                              : Icons.visibility_off,
+                              ? AppIcons.visibility
+                              : AppIcons.visibilityOff,
                           size: 18,
                         ),
                         label: Text(
@@ -184,7 +185,7 @@ class _SystemManagementScreenState
                       ),
                       const SizedBox(width: 8),
                       TextButton.icon(
-                        icon: const Icon(Icons.delete, size: 18),
+                        icon: Icon(AppIcons.delete, size: 18),
                         label: const Text('Delete'),
                         style: TextButton.styleFrom(
                           foregroundColor: theme.colorScheme.error,
@@ -235,7 +236,7 @@ class _SystemManagementScreenState
                                 : null,
                             trailing: ReorderableDragStartListener(
                               index: index,
-                              child: const Icon(Icons.drag_handle),
+                              child: Icon(AppIcons.dragHandle),
                             ),
                             onTap: _selectionMode
                                 ? () => _toggleSelection(member.id)

@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/members/providers/member_groups_provide
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/headmate_picker.dart';
@@ -72,12 +73,12 @@ class _GroupDetailBody extends ConsumerWidget {
         showBackButton: true,
         actions: [
           PrismTopBarAction(
-            icon: Icons.edit_outlined,
+            icon: AppIcons.editOutlined,
             tooltip: 'Edit',
             onPressed: () => _openEditSheet(context),
           ),
           PrismTopBarAction(
-            icon: Icons.delete_outline,
+            icon: AppIcons.deleteOutline,
             tooltip: 'Delete',
             onPressed: () => _confirmDelete(context, ref),
           ),
@@ -99,7 +100,7 @@ class _GroupDetailBody extends ConsumerWidget {
             // Members section
             Row(
               children: [
-                Icon(Icons.people_outline,
+                Icon(AppIcons.peopleOutline,
                     size: 18, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
@@ -121,7 +122,7 @@ class _GroupDetailBody extends ConsumerWidget {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
                     child: EmptyState(
-                      icon: Icons.person_add_outlined,
+                      icon: AppIcons.personAddOutlined,
                       title: 'No members',
                       subtitle: 'Add members to this group',
                     ),
@@ -146,7 +147,7 @@ class _GroupDetailBody extends ConsumerWidget {
             Center(
               child: TextButton.icon(
                 onPressed: () => _addMember(context, ref),
-                icon: const Icon(Icons.person_add_outlined),
+                icon: Icon(AppIcons.personAddOutlined),
                 label: const Text('Add member'),
               ),
             ),
@@ -248,7 +249,7 @@ class _GroupInfoHeader extends StatelessWidget {
               color: accentColor ?? theme.colorScheme.primaryContainer,
             ),
             child: Icon(
-              Icons.folder_outlined,
+              AppIcons.folderOutlined,
               size: 28,
               color: accentColor != null
                   ? AppColors.warmWhite
@@ -326,7 +327,7 @@ class _GroupMemberTile extends ConsumerWidget {
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 24),
             color: theme.colorScheme.error,
-            child: Icon(Icons.remove_circle_outline,
+            child: Icon(AppIcons.removeCircleOutline,
                 color: theme.colorScheme.onError),
           ),
           confirmDismiss: (_) => _confirmRemove(context, ref, member),
