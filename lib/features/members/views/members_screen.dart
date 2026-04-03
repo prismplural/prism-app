@@ -280,7 +280,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       ),
       bodyPadding: EdgeInsets.zero,
       body: AnimatedSwitcher(
-        duration: Anim.normal,
+        duration: Anim.md,
         child: KeyedSubtree(
         key: ValueKey(_showInactive),
         child: membersAsync.when(
