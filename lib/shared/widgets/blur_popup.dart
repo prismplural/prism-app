@@ -165,7 +165,7 @@ class _BlurPopupRoute extends PopupRoute<void> {
   CurvedAnimation? _cachedCurved;
 
   @override
-  Color? get barrierColor => Colors.black.withValues(alpha: 0.15);
+  Color? get barrierColor => AppColors.warmBlack.withValues(alpha: 0.15);
 
   @override
   bool get barrierDismissible => true;
@@ -268,7 +268,7 @@ class _BlurPopupContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOled =
-        Theme.of(context).scaffoldBackgroundColor == Colors.black;
+        Theme.of(context).scaffoldBackgroundColor == AppColors.warmBlack;
 
     const gap = 8.0;
 
@@ -314,17 +314,17 @@ class _BlurPopupContent extends StatelessWidget {
                         ? (isOled
                             ? AppColors.oledSurface1
                                 .withValues(alpha: 0.85)
-                            : Colors.white.withValues(alpha: 0.1))
-                        : Colors.white.withValues(alpha: 0.75),
+                            : AppColors.warmWhite.withValues(alpha: 0.1))
+                        : AppColors.warmWhite.withValues(alpha: 0.75),
                     borderRadius: BorderRadius.circular(borderRadius),
                     border: Border.all(
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.1)
-                          : Colors.black.withValues(alpha: 0.08),
+                          ? AppColors.warmWhite.withValues(alpha: 0.1)
+                          : AppColors.warmBlack.withValues(alpha: 0.08),
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black
+                        color: AppColors.warmBlack
                             .withValues(alpha: isDark ? 0.4 : 0.12),
                         blurRadius: 20,
                         offset: const Offset(0, 4),

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 class MarkdownEditingController extends TextEditingController {
   static final _boldRegex = RegExp(r'\*\*(.+?)\*\*');
   static final _underlineRegex = RegExp(r'__(.+?)__');
   static final _italicRegex = RegExp(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)');
 
-  Color _onSurface = Colors.black;
+  Color _onSurface = AppColors.warmBlack;
   Color _markerColor = Colors.grey;
   TextStyle _baseStyle = const TextStyle();
   bool _themeReady = false;

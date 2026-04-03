@@ -4,6 +4,7 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -84,8 +85,8 @@ class PrismEmojiPicker extends StatelessWidget {
         iconColorSelected: theme.colorScheme.primary,
         backspaceColor: theme.colorScheme.onSurfaceVariant,
         dividerColor: isDark
-            ? Colors.white.withValues(alpha: 0.06)
-            : Colors.black.withValues(alpha: 0.06),
+            ? AppColors.warmWhite.withValues(alpha: 0.06)
+            : AppColors.warmBlack.withValues(alpha: 0.06),
       ),
       bottomActionBarConfig: const BottomActionBarConfig(
         enabled: false,
