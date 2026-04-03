@@ -63,10 +63,10 @@ class AppTheme {
     if (!_isDesktopPlatform) {
       // Mobile: only strip letter spacing, keep M3 default sizes.
       return TextTheme(
-        displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0),
-        displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0),
-        displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0),
-        headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0),
+        displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+        displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+        displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+        headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
         headlineMedium: textTheme.headlineMedium?.copyWith(letterSpacing: 0),
         headlineSmall: textTheme.headlineSmall?.copyWith(letterSpacing: 0),
         titleLarge: textTheme.titleLarge?.copyWith(letterSpacing: 0),
@@ -83,10 +83,10 @@ class AppTheme {
 
     // Desktop: strip letter spacing and tighten font sizes.
     return TextTheme(
-      displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0, fontSize: 48),
-      displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0, fontSize: 38),
-      displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0, fontSize: 30),
-      headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0, fontSize: 26),
+      displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0, fontSize: 48, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+      displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0, fontSize: 38, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+      displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0, fontSize: 30, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+      headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0, fontSize: 26, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
       headlineMedium: textTheme.headlineMedium?.copyWith(letterSpacing: 0, fontSize: 22),
       headlineSmall: textTheme.headlineSmall?.copyWith(letterSpacing: 0, fontSize: 19),
       titleLarge: textTheme.titleLarge?.copyWith(letterSpacing: 0, fontSize: 18),
@@ -103,30 +103,25 @@ class AppTheme {
 
   /// Minimal switch theme shared across all variants.
   static SwitchThemeData _switchTheme({required bool isDark}) {
+    final onSurface = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     return SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return Colors.white;
+          return AppColors.warmWhite;
         }
-        return isDark
-            ? Colors.white.withValues(alpha: 0.6)
-            : Colors.black.withValues(alpha: 0.3);
+        return onSurface.withValues(alpha: isDark ? 0.6 : 0.3);
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return Colors.white.withValues(alpha: 0.3);
+          return AppColors.warmWhite.withValues(alpha: 0.3);
         }
-        return isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.black.withValues(alpha: 0.08);
+        return onSurface.withValues(alpha: 0.08);
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return Colors.white.withValues(alpha: 0.15);
+          return AppColors.warmWhite.withValues(alpha: 0.15);
         }
-        return isDark
-            ? Colors.white.withValues(alpha: 0.1)
-            : Colors.black.withValues(alpha: 0.1);
+        return onSurface.withValues(alpha: 0.1);
       }),
     );
   }
@@ -158,7 +153,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         centerTitle: true,
         backgroundColor: Colors.transparent,
-        foregroundColor: colors.isDark ? Colors.white : null,
+        foregroundColor: colors.isDark ? AppColors.warmWhite : null,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -180,12 +175,12 @@ class AppTheme {
       ),
       listTileTheme: colors.isDark
           ? ListTileThemeData(
-              iconColor: Colors.white.withValues(alpha: 0.7),
-              textColor: Colors.white,
+              iconColor: AppColors.warmWhite.withValues(alpha: 0.7),
+              textColor: AppColors.warmWhite,
             )
           : null,
       iconTheme: colors.isDark
-          ? IconThemeData(color: Colors.white.withValues(alpha: 0.7))
+          ? IconThemeData(color: AppColors.warmWhite.withValues(alpha: 0.7))
           : null,
       dividerTheme: DividerThemeData(color: colors.dividerColor),
       bottomSheetTheme: BottomSheetThemeData(
@@ -215,7 +210,7 @@ class AppTheme {
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: accent,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.warmWhite,
         elevation: 0,
         shape: const CircleBorder(),
       ),
@@ -242,7 +237,7 @@ class AppTheme {
       progressIndicatorTheme: ProgressIndicatorThemeData(color: accent),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.snackBarBg,
-        contentTextStyle: const TextStyle(color: Colors.white),
+        contentTextStyle: const TextStyle(color: AppColors.warmWhite),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
         ),
@@ -252,12 +247,12 @@ class AppTheme {
         waitDuration: const Duration(milliseconds: 800),
         decoration: BoxDecoration(
           color: colors.isDark
-              ? Colors.white.withValues(alpha: 0.9)
-              : const Color(0xFF2A2A2A),
+              ? AppColors.warmWhite.withValues(alpha: 0.9)
+              : AppColors.charcoal,
           borderRadius: BorderRadius.circular(PrismTokens.radiusSmall / 2),
         ),
         textStyle: TextStyle(
-          color: colors.isDark ? Colors.black : Colors.white,
+          color: colors.isDark ? AppColors.warmBlack : AppColors.warmWhite,
           fontSize: 12,
         ),
       ),
@@ -272,31 +267,32 @@ class AppTheme {
           brightness: Brightness.light,
         ).copyWith(
           primary: accent,
-          // Neutral surfaces — no tint from seed color.
-          surfaceContainerLowest: const Color(0xFFFFFFFF),
-          surfaceContainerLow: const Color(0xFFF8F8FA),
-          surfaceContainer: const Color(0xFFF2F2F4),
-          surfaceContainerHigh: const Color(0xFFECECEE),
-          surfaceContainerHighest: const Color(0xFFE6E6E8),
+          // Warm parchment surfaces.
+          surfaceContainerLowest: AppColors.warmOffWhite,
+          surfaceContainerLow: AppColors.parchment,
+          surfaceContainer: AppColors.parchmentElevated,
+          surfaceContainerHigh: AppColors.parchmentStrong,
+          surfaceContainerHighest: const Color(0xFFD9CEC0),
+          onSurface: AppColors.warmBlack,
         );
 
     final colors = _ThemeColors(
-      scaffold: const Color(0xFFF5F5F7),
-      cardColor: Colors.white,
-      fillColor: Colors.black.withValues(alpha: 0.04),
-      borderColor: Colors.black.withValues(alpha: 0.1),
+      scaffold: AppColors.parchment,
+      cardColor: AppColors.warmOffWhite,
+      fillColor: AppColors.warmBlack.withValues(alpha: 0.04),
+      borderColor: AppColors.warmBlack.withValues(alpha: 0.1),
       focusBorderColor: accent.withValues(alpha: 0.6),
-      dividerColor: Colors.black.withValues(alpha: 0.06),
-      sheetBg: const Color(0xFFF5F5F7),
-      dialogBg: Colors.white,
-      popupBg: Colors.white,
-      snackBarBg: const Color(0xFF2A2A2A),
-      dragHandleColor: Colors.black.withValues(alpha: 0.2),
-      filledButtonBg: Colors.black.withValues(alpha: 0.06),
-      filledButtonFg: Colors.black.withValues(alpha: 0.8),
-      iconButtonBg: Colors.black.withValues(alpha: 0.06),
-      iconButtonFg: Colors.black.withValues(alpha: 0.8),
-      textButtonFg: colorScheme.onSurface.withValues(alpha: 0.8),
+      dividerColor: AppColors.warmBlack.withValues(alpha: 0.06),
+      sheetBg: AppColors.parchment,
+      dialogBg: AppColors.warmOffWhite,
+      popupBg: AppColors.warmOffWhite,
+      snackBarBg: AppColors.charcoal,
+      dragHandleColor: AppColors.warmBlack.withValues(alpha: 0.2),
+      filledButtonBg: AppColors.warmBlack.withValues(alpha: 0.06),
+      filledButtonFg: AppColors.warmBlack.withValues(alpha: 0.8),
+      iconButtonBg: AppColors.warmBlack.withValues(alpha: 0.06),
+      iconButtonFg: AppColors.warmBlack.withValues(alpha: 0.8),
+      textButtonFg: AppColors.warmBlack.withValues(alpha: 0.8),
       isDark: false,
     );
 
@@ -311,32 +307,32 @@ class AppTheme {
           brightness: Brightness.dark,
         ).copyWith(
           primary: accent,
-          surface: const Color(0xFF0D0D12),
-          onSurface: Colors.white,
-          surfaceContainerLowest: const Color(0xFF080810),
-          surfaceContainerLow: const Color(0xFF111118),
-          surfaceContainer: const Color(0xFF18181F),
-          surfaceContainerHigh: const Color(0xFF1F1F26),
-          surfaceContainerHighest: const Color(0xFF28282F),
+          surface: AppColors.charcoal,
+          onSurface: AppColors.warmWhite,
+          surfaceContainerLowest: const Color(0xFF2B2723),
+          surfaceContainerLow: AppColors.charcoal,
+          surfaceContainer: AppColors.charcoalElevated,
+          surfaceContainerHigh: AppColors.charcoalSurface,
+          surfaceContainerHighest: AppColors.charcoalStrong,
         );
 
     final colors = _ThemeColors(
-      scaffold: const Color(0xFF080810),
-      cardColor: Colors.white.withValues(alpha: 0.06),
-      fillColor: Colors.white.withValues(alpha: 0.06),
-      borderColor: Colors.white.withValues(alpha: 0.1),
+      scaffold: AppColors.charcoal,
+      cardColor: AppColors.warmWhite.withValues(alpha: 0.06),
+      fillColor: AppColors.warmWhite.withValues(alpha: 0.06),
+      borderColor: AppColors.warmWhite.withValues(alpha: 0.1),
       focusBorderColor: accent.withValues(alpha: 0.7),
-      dividerColor: Colors.white.withValues(alpha: 0.06),
-      sheetBg: const Color(0xFF18181F),
-      dialogBg: const Color(0xFF18181F),
-      popupBg: const Color(0xFF18181F),
-      snackBarBg: const Color(0xFF28282F),
-      dragHandleColor: Colors.white.withValues(alpha: 0.3),
-      filledButtonBg: Colors.white.withValues(alpha: 0.1),
-      filledButtonFg: Colors.white,
-      iconButtonBg: Colors.white.withValues(alpha: 0.1),
-      iconButtonFg: Colors.white,
-      textButtonFg: Colors.white.withValues(alpha: 0.8),
+      dividerColor: AppColors.warmWhite.withValues(alpha: 0.06),
+      sheetBg: AppColors.charcoalElevated,
+      dialogBg: AppColors.charcoalElevated,
+      popupBg: AppColors.charcoalElevated,
+      snackBarBg: AppColors.charcoalStrong,
+      dragHandleColor: AppColors.warmWhite.withValues(alpha: 0.3),
+      filledButtonBg: AppColors.warmWhite.withValues(alpha: 0.1),
+      filledButtonFg: AppColors.warmWhite,
+      iconButtonBg: AppColors.warmWhite.withValues(alpha: 0.1),
+      iconButtonFg: AppColors.warmWhite,
+      textButtonFg: AppColors.warmWhite.withValues(alpha: 0.8),
       isDark: true,
     );
 
@@ -353,31 +349,31 @@ class AppTheme {
         ).copyWith(
           primary: accent,
           surface: Colors.black,
-          onSurface: Colors.white,
+          onSurface: AppColors.warmWhite,
           surfaceContainerLowest: Colors.black,
-          surfaceContainerLow: const Color(0xFF0A0A0A),
-          surfaceContainer: const Color(0xFF121212),
-          surfaceContainerHigh: const Color(0xFF1A1A1A),
-          surfaceContainerHighest: const Color(0xFF222222),
+          surfaceContainerLow: AppColors.oledSurface1,
+          surfaceContainer: AppColors.oledSurface2,
+          surfaceContainerHigh: AppColors.oledSurface3,
+          surfaceContainerHighest: AppColors.oledSurface4,
         );
 
     final colors = _ThemeColors(
       scaffold: Colors.black,
-      cardColor: Colors.white.withValues(alpha: 0.05),
-      fillColor: Colors.white.withValues(alpha: 0.05),
-      borderColor: Colors.white.withValues(alpha: 0.08),
+      cardColor: AppColors.warmWhite.withValues(alpha: 0.05),
+      fillColor: AppColors.warmWhite.withValues(alpha: 0.05),
+      borderColor: AppColors.warmWhite.withValues(alpha: 0.08),
       focusBorderColor: accent.withValues(alpha: 0.7),
-      dividerColor: Colors.white.withValues(alpha: 0.05),
-      sheetBg: const Color(0xFF0A0A0A),
-      dialogBg: const Color(0xFF0A0A0A),
-      popupBg: const Color(0xFF0A0A0A),
-      snackBarBg: const Color(0xFF1A1A1A),
-      dragHandleColor: Colors.white.withValues(alpha: 0.3),
-      filledButtonBg: Colors.white.withValues(alpha: 0.08),
-      filledButtonFg: Colors.white,
-      iconButtonBg: Colors.white.withValues(alpha: 0.08),
-      iconButtonFg: Colors.white,
-      textButtonFg: Colors.white.withValues(alpha: 0.8),
+      dividerColor: AppColors.warmWhite.withValues(alpha: 0.05),
+      sheetBg: AppColors.oledSurface1,
+      dialogBg: AppColors.oledSurface1,
+      popupBg: AppColors.oledSurface1,
+      snackBarBg: AppColors.oledSurface2,
+      dragHandleColor: AppColors.warmWhite.withValues(alpha: 0.3),
+      filledButtonBg: AppColors.warmWhite.withValues(alpha: 0.08),
+      filledButtonFg: AppColors.warmWhite,
+      iconButtonBg: AppColors.warmWhite.withValues(alpha: 0.08),
+      iconButtonFg: AppColors.warmWhite,
+      textButtonFg: AppColors.warmWhite.withValues(alpha: 0.8),
       isDark: true,
     );
 
