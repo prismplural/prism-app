@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
@@ -83,7 +84,7 @@ class _SourcePicker extends StatelessWidget {
           Text(
             'You can import your existing data or skip this step to start fresh.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AppColors.warmWhite.withValues(alpha: 0.7),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -127,7 +128,7 @@ class _SourcePicker extends StatelessWidget {
           Text(
             'You can always import data later from Settings.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: AppColors.warmWhite.withValues(alpha: 0.5),
               fontSize: 13,
             ),
             textAlign: TextAlign.center,
@@ -177,13 +178,13 @@ class _SourceCardState extends State<_SourceCard> {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: _pressed
-                ? Colors.white.withValues(alpha: 0.25)
-                : Colors.white.withValues(alpha: 0.12),
+                ? AppColors.warmWhite.withValues(alpha: 0.25)
+                : AppColors.warmWhite.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: _pressed
                   ? widget.color.withValues(alpha: 0.5)
-                  : Colors.white.withValues(alpha: 0.1),
+                  : AppColors.warmWhite.withValues(alpha: 0.1),
             ),
           ),
           child: Row(
@@ -205,7 +206,7 @@ class _SourceCardState extends State<_SourceCard> {
                     Text(
                       widget.title,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.warmWhite,
                         fontSize: 17,
                         fontWeight: FontWeight.w600,
                       ),
@@ -214,7 +215,7 @@ class _SourceCardState extends State<_SourceCard> {
                     Text(
                       widget.description,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: AppColors.warmWhite.withValues(alpha: 0.6),
                         fontSize: 13,
                       ),
                     ),
@@ -223,7 +224,7 @@ class _SourceCardState extends State<_SourceCard> {
               ),
               Icon(
                 Icons.chevron_right,
-                color: Colors.white.withValues(alpha: 0.4),
+                color: AppColors.warmWhite.withValues(alpha: 0.4),
               ),
             ],
           ),
@@ -279,7 +280,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AppColors.warmWhite.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -288,7 +289,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                 Text(
                   'How to get your token:',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.9),
+                    color: AppColors.warmWhite.withValues(alpha: 0.9),
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
                   ),
@@ -311,17 +312,17 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           // Token field
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AppColors.warmWhite.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: TextField(
               controller: _tokenController,
               obscureText: _obscureToken,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AppColors.warmWhite),
               decoration: InputDecoration(
                 hintText: 'Paste your PluralKit token',
                 hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: AppColors.warmWhite.withValues(alpha: 0.4),
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
@@ -331,7 +332,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscureToken ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: AppColors.warmWhite.withValues(alpha: 0.5),
                   ),
                   onPressed: () =>
                       setState(() => _obscureToken = !_obscureToken),
@@ -357,7 +358,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                     child: Text(
                       'Imported $_importedCount members from PluralKit!',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.warmWhite,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -639,7 +640,7 @@ class _PrismExportImportFlowState
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AppColors.warmWhite.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Column(
@@ -648,7 +649,7 @@ class _PrismExportImportFlowState
               Text(
                 'How to export from Prism:',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.warmWhite,
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),
@@ -683,12 +684,12 @@ class _PrismExportImportFlowState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.lock_outline, color: Colors.white, size: 48),
+        const Icon(Icons.lock_outline, color: AppColors.warmWhite, size: 48),
         const SizedBox(height: 16),
         const Text(
           'Encrypted Export',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.warmWhite,
             fontSize: 22,
             fontWeight: FontWeight.w700,
           ),
@@ -698,7 +699,7 @@ class _PrismExportImportFlowState
         Text(
           'Enter the export password to unlock this Prism backup.',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
+            color: AppColors.warmWhite.withValues(alpha: 0.7),
             fontSize: 14,
           ),
           textAlign: TextAlign.center,
@@ -706,18 +707,18 @@ class _PrismExportImportFlowState
         const SizedBox(height: 24),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AppColors.warmWhite.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: TextField(
             controller: _passwordController,
             obscureText: _obscurePassword,
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: AppColors.warmWhite),
             autofocus: true,
             onSubmitted: (_) => _unlockFile(),
             decoration: InputDecoration(
               hintText: 'Export password',
-              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+              hintStyle: TextStyle(color: AppColors.warmWhite.withValues(alpha: 0.4)),
               errorText: _passwordError,
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
@@ -727,7 +728,7 @@ class _PrismExportImportFlowState
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: AppColors.warmWhite.withValues(alpha: 0.5),
                 ),
                 onPressed: () =>
                     setState(() => _obscurePassword = !_obscurePassword),
@@ -753,7 +754,7 @@ class _PrismExportImportFlowState
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
+            color: AppColors.warmWhite.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -762,7 +763,7 @@ class _PrismExportImportFlowState
               Text(
                 'Ready to import',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: AppColors.warmWhite.withValues(alpha: 0.9),
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),
@@ -771,7 +772,7 @@ class _PrismExportImportFlowState
               Text(
                 'This will restore your exported Prism system and finish setup on this device.',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: AppColors.warmWhite.withValues(alpha: 0.7),
                   fontSize: 13,
                 ),
               ),
@@ -806,11 +807,11 @@ class _PrismExportImportFlowState
         padding: EdgeInsets.all(32),
         child: Column(
           children: [
-            CircularProgressIndicator(color: Colors.white),
+            CircularProgressIndicator(color: AppColors.warmWhite),
             SizedBox(height: 16),
             Text(
               'Importing your Prism export...',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: AppColors.warmWhite),
               textAlign: TextAlign.center,
             ),
           ],
@@ -836,7 +837,7 @@ class _PrismExportImportFlowState
               Expanded(
                 child: Text(
                   _errorMessage ?? 'Import failed.',
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AppColors.warmWhite),
                 ),
               ),
             ],
@@ -891,7 +892,7 @@ class _SimplyPluralImportFlowState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
+                color: AppColors.warmWhite.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -900,7 +901,7 @@ class _SimplyPluralImportFlowState
                   Text(
                     'How to export from Simply Plural:',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: AppColors.warmWhite.withValues(alpha: 0.9),
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
                     ),
@@ -938,11 +939,11 @@ class _SimplyPluralImportFlowState
                 padding: EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    CircularProgressIndicator(color: Colors.white),
+                    CircularProgressIndicator(color: AppColors.warmWhite),
                     SizedBox(height: 16),
                     Text(
                       'Reading file...',
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(color: AppColors.warmWhite),
                     ),
                   ],
                 ),
@@ -955,7 +956,7 @@ class _SimplyPluralImportFlowState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
+                color: AppColors.warmWhite.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -964,7 +965,7 @@ class _SimplyPluralImportFlowState
                   Text(
                     'Found data:',
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
+                      color: AppColors.warmWhite.withValues(alpha: 0.9),
                       fontWeight: FontWeight.w600,
                       fontSize: 15,
                     ),
@@ -1009,13 +1010,13 @@ class _SimplyPluralImportFlowState
                 padding: const EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    const CircularProgressIndicator(color: Colors.white),
+                    const CircularProgressIndicator(color: AppColors.warmWhite),
                     const SizedBox(height: 16),
                     Text(
                       migration.progressLabel.isNotEmpty
                           ? migration.progressLabel
                           : 'Importing... ${(migration.progress * 100).toStringAsFixed(0)}%',
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: AppColors.warmWhite),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -1040,7 +1041,7 @@ class _SimplyPluralImportFlowState
                     child: Text(
                       'Import complete! Your data is ready.',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.warmWhite,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1065,7 +1066,7 @@ class _SimplyPluralImportFlowState
                   Expanded(
                     child: Text(
                       migration.error ?? 'Import failed.',
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: AppColors.warmWhite),
                     ),
                   ),
                 ],
@@ -1105,13 +1106,13 @@ class _BackLink extends StatelessWidget {
           Icon(
             Icons.arrow_back_ios,
             size: 14,
-            color: Colors.white.withValues(alpha: 0.7),
+            color: AppColors.warmWhite.withValues(alpha: 0.7),
           ),
           const SizedBox(width: 4),
           Text(
             'Other import options',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AppColors.warmWhite.withValues(alpha: 0.7),
               fontSize: 14,
             ),
           ),
@@ -1173,13 +1174,13 @@ class _ActionButtonState extends State<_ActionButton> {
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: AppColors.warmWhite,
                     ),
                   )
                 : Text(
                     widget.label,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.warmWhite,
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
                     ),
@@ -1226,7 +1227,7 @@ class _InstructionRow extends StatelessWidget {
             child: Text(
               text,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: AppColors.warmWhite.withValues(alpha: 0.8),
                 fontSize: 14,
               ),
             ),
@@ -1253,14 +1254,14 @@ class _PreviewRow extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.warmWhite.withValues(alpha: 0.8),
               fontSize: 14,
             ),
           ),
           Text(
             '$count',
             style: const TextStyle(
-              color: Colors.white,
+              color: AppColors.warmWhite,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -148,12 +149,12 @@ class _JoinPromptView extends StatelessWidget {
             child: _BackLink(label: 'Back', onTap: onBack),
           ),
           const SizedBox(height: 20),
-          const Icon(Icons.devices, color: Colors.white, size: 48),
+          const Icon(Icons.devices, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           const Text(
             'Join your sync group',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.warmWhite,
               fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
@@ -163,7 +164,7 @@ class _JoinPromptView extends StatelessWidget {
           Text(
             'Create a pairing request on this device and have an existing device approve it.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AppColors.warmWhite.withValues(alpha: 0.7),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -178,7 +179,7 @@ class _JoinPromptView extends StatelessWidget {
           Text(
             'Show a QR code for your existing device to scan and approve.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: AppColors.warmWhite.withValues(alpha: 0.5),
               fontSize: 12,
             ),
             textAlign: TextAlign.center,
@@ -242,12 +243,12 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
             child: _BackLink(label: 'Back', onTap: widget.onBack),
           ),
           const SizedBox(height: 20),
-          const Icon(Icons.qr_code, color: Colors.white, size: 48),
+          const Icon(Icons.qr_code, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           const Text(
             'Show this to your existing device',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.warmWhite,
               fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
@@ -257,7 +258,7 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
           Text(
             'On your existing device, open "Set Up Another Device" and choose "Scan Joiner\'s QR". Then scan this code.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AppColors.warmWhite.withValues(alpha: 0.7),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -267,13 +268,13 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.warmWhite,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: QrImageView(
                 data: qrData,
                 size: 220,
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.warmWhite,
               ),
             ),
           ),
@@ -287,7 +288,7 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
           Text(
             'After your existing device approves, it will show an approval QR. Tap above to scan it.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: AppColors.warmWhite.withValues(alpha: 0.5),
               fontSize: 12,
             ),
             textAlign: TextAlign.center,
@@ -320,12 +321,12 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
             ),
           ),
           const SizedBox(height: 20),
-          const Icon(Icons.qr_code_scanner, color: Colors.white, size: 48),
+          const Icon(Icons.qr_code_scanner, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           const Text(
             'Scan approval QR',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.warmWhite,
               fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
@@ -335,7 +336,7 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
           Text(
             'Scan the approval QR code shown on your existing device.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AppColors.warmWhite.withValues(alpha: 0.7),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -405,12 +406,12 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
             child: _BackLink(label: 'Back', onTap: widget.onBack),
           ),
           const SizedBox(height: 24),
-          const Icon(Icons.lock_outline, color: Colors.white, size: 48),
+          const Icon(Icons.lock_outline, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           const Text(
             'Enter your password',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.warmWhite,
               fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
@@ -420,7 +421,7 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
           Text(
             'Enter your sync password to finish enrolling this device.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AppColors.warmWhite.withValues(alpha: 0.7),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -428,19 +429,19 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
           const SizedBox(height: 32),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AppColors.warmWhite.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: TextField(
               controller: _passwordController,
               obscureText: _obscure,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AppColors.warmWhite),
               autofocus: true,
               onSubmitted: (_) => _connect(),
               decoration: InputDecoration(
                 hintText: 'Password',
                 hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
+                  color: AppColors.warmWhite.withValues(alpha: 0.4),
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
@@ -450,7 +451,7 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscure ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: AppColors.warmWhite.withValues(alpha: 0.5),
                   ),
                   onPressed: () => setState(() => _obscure = !_obscure),
                 ),
@@ -490,12 +491,12 @@ class _ConnectingView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: Colors.white),
+            CircularProgressIndicator(color: AppColors.warmWhite),
             SizedBox(height: 24),
             Text(
               'Pairing and syncing...',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.warmWhite,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
@@ -537,7 +538,7 @@ class _ErrorView extends StatelessWidget {
           const Text(
             'Pairing failed',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.warmWhite,
               fontSize: 26,
               fontWeight: FontWeight.w700,
             ),
@@ -547,7 +548,7 @@ class _ErrorView extends StatelessWidget {
           Text(
             message,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.75),
+              color: AppColors.warmWhite.withValues(alpha: 0.75),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -611,13 +612,13 @@ class _BackLink extends StatelessWidget {
             Icon(
               Icons.arrow_back_ios_new,
               size: 14,
-              color: Colors.white.withValues(alpha: 0.8),
+              color: AppColors.warmWhite.withValues(alpha: 0.8),
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: AppColors.warmWhite.withValues(alpha: 0.8),
                 fontSize: 14,
               ),
             ),

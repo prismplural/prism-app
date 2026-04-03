@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 
@@ -37,14 +38,14 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: AppColors.warmWhite.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: TextField(
               controller: _controller,
               autofocus: autoFocus,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppColors.warmWhite,
                 fontSize: 20,
                 fontWeight: FontWeight.w500,
               ),
@@ -52,7 +53,7 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
               decoration: InputDecoration(
                 hintText: 'Enter system name',
                 hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.35),
+                  color: AppColors.warmWhite.withValues(alpha: 0.35),
                   fontSize: 20,
                 ),
                 border: InputBorder.none,
@@ -70,7 +71,7 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
           Text(
             'This is how your system will be identified in the app.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: AppColors.warmWhite.withValues(alpha: 0.6),
               fontSize: 14,
             ),
             textAlign: TextAlign.center,

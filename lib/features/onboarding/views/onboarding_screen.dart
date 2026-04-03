@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
@@ -70,7 +71,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Colors.black, ...step.gradientColors, Colors.black],
+              colors: [AppColors.warmBlack, ...step.gradientColors, AppColors.warmBlack],
             ),
           ),
           child: SafeArea(
@@ -116,7 +117,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.warmWhite,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -124,7 +125,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     step.subtitle,
                     style: TextStyle(
                       fontSize: 15,
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: AppColors.warmWhite.withValues(alpha: 0.7),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -281,10 +282,10 @@ class _ProgressIndicator extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(2),
             color: isCurrent
-                ? Colors.white
+                ? AppColors.warmWhite
                 : isPast
-                ? Colors.white.withValues(alpha: 0.5)
-                : Colors.white.withValues(alpha: 0.2),
+                ? AppColors.warmWhite.withValues(alpha: 0.5)
+                : AppColors.warmWhite.withValues(alpha: 0.2),
           ),
         );
       }),
@@ -325,10 +326,10 @@ class _CircleButtonState extends State<_CircleButton> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: _pressed
-                ? Colors.white.withValues(alpha: 0.3)
-                : Colors.white.withValues(alpha: 0.15),
+                ? AppColors.warmWhite.withValues(alpha: 0.3)
+                : AppColors.warmWhite.withValues(alpha: 0.15),
           ),
-          child: Icon(widget.icon, color: Colors.white, size: 22),
+          child: Icon(widget.icon, color: AppColors.warmWhite, size: 22),
         ),
       ),
     );
@@ -378,14 +379,14 @@ class _PillButtonState extends State<_PillButton> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             color: _pressed
-                ? Colors.white.withValues(alpha: 0.35)
+                ? AppColors.warmWhite.withValues(alpha: 0.35)
                 : canPress
-                ? Colors.white.withValues(alpha: 0.2)
-                : Colors.white.withValues(alpha: 0.08),
+                ? AppColors.warmWhite.withValues(alpha: 0.2)
+                : AppColors.warmWhite.withValues(alpha: 0.08),
             border: Border.all(
               color: canPress
-                  ? Colors.white.withValues(alpha: _pressed ? 0.5 : 0.3)
-                  : Colors.white.withValues(alpha: 0.1),
+                  ? AppColors.warmWhite.withValues(alpha: _pressed ? 0.5 : 0.3)
+                  : AppColors.warmWhite.withValues(alpha: 0.1),
             ),
           ),
           child: widget.isLoading
@@ -394,15 +395,15 @@ class _PillButtonState extends State<_PillButton> {
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: AppColors.warmWhite,
                   ),
                 )
               : Text(
                   widget.label,
                   style: TextStyle(
                     color: canPress
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.4),
+                        ? AppColors.warmWhite
+                        : AppColors.warmWhite.withValues(alpha: 0.4),
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 class WelcomeStep extends StatelessWidget {
   const WelcomeStep({super.key});
@@ -73,7 +74,7 @@ class _FeatureRow extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.warmWhite,
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
                 ),
@@ -82,7 +83,7 @@ class _FeatureRow extends StatelessWidget {
               Text(
                 description,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: AppColors.warmWhite.withValues(alpha: 0.7),
                   fontSize: 14,
                 ),
               ),
