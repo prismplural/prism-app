@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
@@ -25,13 +26,13 @@ void main() {
           home: Scaffold(
             appBar: PrismTopBar(
               title: 'Settings',
-              trailing: PrismTopBarAction(icon: Icons.add, onPressed: () {}),
+              trailing: PrismTopBarAction(icon: AppIcons.add, onPressed: () {}),
             ),
           ),
         ),
       ),
     );
 
-    expect(find.byIcon(Icons.add), findsOneWidget);
+    expect(find.byIcon(AppIcons.add), findsOneWidget);
   });
 }

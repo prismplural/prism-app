@@ -60,7 +60,6 @@ dependencies:
   url_launcher: ^6.3.1
 
   # UI
-  cupertino_icons: ^1.0.8
   flutter_animate: ^4.5.2
   dynamic_color: ^1.8.1
   flutter_colorpicker: ^1.1.0

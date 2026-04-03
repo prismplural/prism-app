@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 import 'package:prism_plurality/domain/models/note.dart';
 import 'package:prism_plurality/features/members/providers/notes_providers.dart';
@@ -101,7 +102,7 @@ void main() {
       await tester.pumpWidget(buildSubject(notes: []));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(find.byIcon(AppIcons.add), findsOneWidget);
     });
   });
 }

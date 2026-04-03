@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -54,7 +55,7 @@ void main() {
 
       // Home and Settings are locked — they should show lock icons.
       // There are exactly 2 locked tabs in the default set.
-      expect(find.byIcon(Icons.lock_outline), findsNWidgets(2));
+      expect(find.byIcon(AppIcons.lockOutline), findsNWidgets(2));
     });
 
     testWidgets('non-locked tabs show remove button', (tester) async {
@@ -62,7 +63,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Chat, Habits, Polls are not locked — each gets a remove button.
-      expect(find.byIcon(Icons.remove_circle_outline), findsNWidgets(3));
+      expect(find.byIcon(AppIcons.removeCircleOutline), findsNWidgets(3));
     });
 
     testWidgets('available tabs section shows tabs not in current nav',
@@ -91,7 +92,7 @@ void main() {
       expect(find.text('Statistics'), findsOneWidget);
 
       // Each available tab gets an add button.
-      expect(find.byIcon(Icons.add_circle_outline), findsNWidgets(7));
+      expect(find.byIcon(AppIcons.addCircleOutline), findsNWidgets(7));
     });
 
     testWidgets('disabled features appear in Disabled Features section',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 import '../../helpers/widget_test_helpers.dart';
@@ -17,10 +18,10 @@ void main() {
 
     testWidgets('renders icon when provided', (tester) async {
       await tester.pumpWidget(testApp(
-        PrismButton(label: 'Add', icon: Icons.add, onPressed: () {}),
+        PrismButton(label: 'Add', icon: AppIcons.add, onPressed: () {}),
       ));
 
-      expect(find.byIcon(Icons.add), findsOneWidget);
+      expect(find.byIcon(AppIcons.add), findsOneWidget);
       expect(find.text('Add'), findsOneWidget);
     });
 
@@ -159,16 +160,16 @@ void main() {
   group('PrismIconButton', () {
     testWidgets('renders icon', (tester) async {
       await tester.pumpWidget(testApp(
-        PrismIconButton(icon: Icons.settings, onPressed: () {}),
+        PrismIconButton(icon: AppIcons.navSettings, onPressed: () {}),
       ));
 
-      expect(find.byIcon(Icons.settings), findsOneWidget);
+      expect(find.byIcon(AppIcons.navSettings), findsOneWidget);
     });
 
     testWidgets('fires onPressed when tapped', (tester) async {
       var tapped = false;
       await tester.pumpWidget(testApp(
-        PrismIconButton(icon: Icons.add, onPressed: () => tapped = true),
+        PrismIconButton(icon: AppIcons.add, onPressed: () => tapped = true),
       ));
 
       await tester.tap(find.byType(PrismIconButton));
@@ -179,7 +180,7 @@ void main() {
       var tapped = false;
       await tester.pumpWidget(testApp(
         PrismIconButton(
-          icon: Icons.add,
+          icon: AppIcons.add,
           onPressed: () => tapped = true,
           enabled: false,
         ),
@@ -192,7 +193,7 @@ void main() {
     testWidgets('shows tooltip when provided', (tester) async {
       await tester.pumpWidget(testApp(
         PrismIconButton(
-          icon: Icons.add,
+          icon: AppIcons.add,
           onPressed: () {},
           tooltip: 'Add item',
         ),
@@ -205,7 +206,7 @@ void main() {
       var longPressed = false;
       await tester.pumpWidget(testApp(
         PrismIconButton(
-          icon: Icons.add,
+          icon: AppIcons.add,
           onPressed: () {},
           onLongPress: () => longPressed = true,
         ),
