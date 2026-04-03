@@ -23,6 +23,7 @@ abstract class PollRepository {
   Future<void> deleteOption(String id);
 
   // Votes
+  Future<List<domain.PollVote>> getAllVotes();
   Future<List<domain.PollVote>> getVotesForOption(String optionId);
   Stream<List<domain.PollVote>> watchVotesForOption(String optionId);
   Future<void> castVote(domain.PollVote vote, String optionId);

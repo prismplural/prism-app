@@ -157,6 +157,12 @@ class DriftPollRepository with SyncRecordMixin implements PollRepository {
   // Votes
 
   @override
+  Future<List<domain.PollVote>> getAllVotes() async {
+    final rows = await _votesDao.getAllVotes();
+    return rows.map(PollVoteMapper.toDomain).toList();
+  }
+
+  @override
   Future<List<domain.PollVote>> getVotesForOption(String optionId) async {
     final rows = await _votesDao.getVotesForOption(optionId);
     return rows.map(PollVoteMapper.toDomain).toList();
