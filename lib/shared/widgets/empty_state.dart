@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 /// Extract the leading emoji from a string, if any.
@@ -178,7 +179,7 @@ class _SuggestionRow extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.add_circle_outline,
+                AppIcons.addCircleOutline,
                 size: 18,
                 color: theme.colorScheme.primary,
               ),

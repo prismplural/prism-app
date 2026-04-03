@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -56,7 +57,7 @@ class PrismToast {
     show(
       context,
       message: message,
-      icon: Icons.error_outline_rounded,
+      icon: AppIcons.errorOutlineRounded,
       iconColor: Theme.of(context).colorScheme.error,
       duration: const Duration(seconds: 4),
     );
@@ -64,7 +65,7 @@ class PrismToast {
 
   /// Shows a success-styled toast.
   static void success(BuildContext context, {required String message}) {
-    show(context, message: message, icon: Icons.check_circle_outline_rounded);
+    show(context, message: message, icon: AppIcons.checkCircleOutlineRounded);
   }
 
   /// Dismisses the current toast immediately.
@@ -335,7 +336,7 @@ class _ToastOverlayState extends State<_ToastOverlay>
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      Icons.close_rounded,
+                                      AppIcons.closeRounded,
                                       size: 16,
                                       color: textColor.withValues(alpha: 0.6),
                                     ),

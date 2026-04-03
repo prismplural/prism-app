@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// Reusable row primitive for navigation, metadata, and grouped list content.
@@ -92,7 +93,7 @@ class PrismListRow extends StatelessWidget {
           ] else if (showChevron) ...[
             const SizedBox(width: 12),
             Icon(
-              Icons.chevron_right_rounded,
+              AppIcons.chevronRightRounded,
               color: subtitleColor.withValues(alpha: 0.7),
             ),
           ],

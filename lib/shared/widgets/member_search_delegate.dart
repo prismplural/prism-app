@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
 /// Search delegate for finding system members by name or pronouns.
@@ -27,7 +28,7 @@ class MemberSearchDelegate extends SearchDelegate<String?> {
     return [
       if (query.isNotEmpty)
         IconButton(
-          icon: const Icon(Icons.clear),
+          icon: Icon(AppIcons.clear),
           onPressed: () => query = '',
         ),
     ];
@@ -36,7 +37,7 @@ class MemberSearchDelegate extends SearchDelegate<String?> {
   @override
   Widget? buildLeading(BuildContext context) {
     return IconButton(
-      icon: const Icon(Icons.arrow_back),
+      icon: Icon(AppIcons.arrowBack),
       onPressed: () => close(context, null),
     );
   }
@@ -67,7 +68,7 @@ class MemberSearchDelegate extends SearchDelegate<String?> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.search_off,
+              AppIcons.searchOff,
               size: 48,
               color: Theme.of(context)
                   .colorScheme
