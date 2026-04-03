@@ -407,7 +407,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
     final slideWidget = TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: _appeared ? 1.0 : 0.0, end: 1.0),
-      duration: disableAnimations ? Duration.zero : Anim.normal,
+      duration: disableAnimations ? Duration.zero : Anim.md,
       curve: Anim.enter,
       onEnd: () {
         if (!_appeared) _appeared = true;

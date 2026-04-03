@@ -89,7 +89,7 @@ class _AnimatedQuickFrontRow extends StatelessWidget {
               for (int i = 0; i < members.length; i++)
                 AnimatedPositioned(
                   key: ValueKey(members[i].id),
-                  duration: Anim.normal,
+                  duration: Anim.md,
                   curve: Anim.standard,
                   left: i * slotWidth + (slotWidth - _kRingSize) / 2,
                   top: 0,
