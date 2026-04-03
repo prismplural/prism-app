@@ -260,7 +260,7 @@ class AppTheme {
   }
 
   static ThemeData light({Color? accentColor}) {
-    final accent = accentColor ?? AppColors.prismPurple;
+    final accent = accentColor ?? AppColors.prismPurpleLight;
     final colorScheme =
         ColorScheme.fromSeed(
           seedColor: accent,

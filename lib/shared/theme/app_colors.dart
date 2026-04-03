@@ -12,6 +12,10 @@ class AppColors {
   static const Color warmBlack = Color(0xFF4A4540);
   static const Color warmOffWhite = Color(0xFFFDFBF6);
 
+  // Muted text (guide-specified alpha values)
+  static Color mutedTextDark = warmWhite.withValues(alpha: 0.68);
+  static Color mutedTextLight = warmBlack.withValues(alpha: 0.74);
+
   // Warm surfaces — light mode (parchment)
   static const Color parchment = Color(0xFFF5F0E6);
   static const Color parchmentElevated = Color(0xFFEDE8DC);
@@ -29,12 +33,17 @@ class AppColors {
   static const Color oledSurface3 = Color(0xFF292420);
   static const Color oledSurface4 = Color(0xFF312B25);
 
-  // Feature accent spectrum — dark mode
+  // Feature accent spectrum — dark mode (primary / lighter variant)
   static const Color accentPurpleDark = Color(0xFFB498C2);
+  static const Color accentPurpleDarkLight = Color(0xFFC9ADDA);
   static const Color accentRoseDark = Color(0xFFC98E8E);
+  static const Color accentRoseDarkLight = Color(0xFFD4A3A3);
   static const Color accentSageDark = Color(0xFF8DA399);
+  static const Color accentSageDarkLight = Color(0xFF9DC4AD);
   static const Color accentBlueDark = Color(0xFF7A9BA8);
+  static const Color accentBlueDarkLight = Color(0xFF8FBDD0);
   static const Color accentAmberDark = Color(0xFFB58D67);
+  static const Color accentAmberDarkLight = Color(0xFFC9A67A);
   static const Color accentLavenderDark = Color(0xFF9B8EAD);
 
   // Feature accent spectrum — light mode
