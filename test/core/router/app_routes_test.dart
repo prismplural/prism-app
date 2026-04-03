@@ -1,6 +1,35 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/domain/models/system_settings.dart';
+
+/// Helper to create a feature flags record with all features enabled.
+({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders})
+    _allEnabled() => (
+          chat: true,
+          polls: true,
+          habits: true,
+          sleep: true,
+          notes: true,
+          reminders: true,
+        );
+
+/// Helper to create a feature flags record with one feature disabled.
+({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders})
+    _withDisabled({
+  bool chat = true,
+  bool polls = true,
+  bool habits = true,
+  bool sleep = true,
+  bool notes = true,
+  bool reminders = true,
+}) =>
+        (
+          chat: chat,
+          polls: polls,
+          habits: habits,
+          sleep: sleep,
+          notes: notes,
+          reminders: reminders,
+        );
 
 void main() {
   group('AppShellTabId', () {
@@ -47,29 +76,25 @@ void main() {
   });
 
   group('AppShellTab.isEnabled', () {
-    // Default SystemSettings has all features enabled.
-    const allEnabled = SystemSettings();
+    final allEnabled = _allEnabled();
 
     test('home is always enabled', () {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.home);
       expect(tab.isEnabled(allEnabled), isTrue);
-      expect(tab.isEnabled(null), isTrue);
     });
 
     test('settings is always enabled', () {
       final tab =
           appShellTabs.firstWhere((t) => t.id == AppShellTabId.settings);
       expect(tab.isEnabled(allEnabled), isTrue);
-      expect(tab.isEnabled(null), isTrue);
     });
 
     test('members is always enabled', () {
       final tab =
           appShellTabs.firstWhere((t) => t.id == AppShellTabId.members);
       expect(tab.isEnabled(allEnabled), isTrue);
-      expect(tab.isEnabled(null), isTrue);
       expect(
-        tab.isEnabled(const SystemSettings(chatEnabled: false)),
+        tab.isEnabled(_withDisabled(chat: false)),
         isTrue,
       );
     });
@@ -78,7 +103,7 @@ void main() {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.chat);
       expect(tab.isEnabled(allEnabled), isTrue);
       expect(
-        tab.isEnabled(const SystemSettings(chatEnabled: false)),
+        tab.isEnabled(_withDisabled(chat: false)),
         isFalse,
       );
     });
@@ -87,7 +112,7 @@ void main() {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.habits);
       expect(tab.isEnabled(allEnabled), isTrue);
       expect(
-        tab.isEnabled(const SystemSettings(habitsEnabled: false)),
+        tab.isEnabled(_withDisabled(habits: false)),
         isFalse,
       );
     });
@@ -96,7 +121,7 @@ void main() {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.polls);
       expect(tab.isEnabled(allEnabled), isTrue);
       expect(
-        tab.isEnabled(const SystemSettings(pollsEnabled: false)),
+        tab.isEnabled(_withDisabled(polls: false)),
         isFalse,
       );
     });
@@ -106,7 +131,7 @@ void main() {
           appShellTabs.firstWhere((t) => t.id == AppShellTabId.reminders);
       expect(tab.isEnabled(allEnabled), isTrue);
       expect(
-        tab.isEnabled(const SystemSettings(remindersEnabled: false)),
+        tab.isEnabled(_withDisabled(reminders: false)),
         isFalse,
       );
     });
@@ -115,7 +140,7 @@ void main() {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.notes);
       expect(tab.isEnabled(allEnabled), isTrue);
       expect(
-        tab.isEnabled(const SystemSettings(notesEnabled: false)),
+        tab.isEnabled(_withDisabled(notes: false)),
         isFalse,
       );
     });
@@ -124,10 +149,9 @@ void main() {
       final tab =
           appShellTabs.firstWhere((t) => t.id == AppShellTabId.statistics);
       expect(tab.isEnabled(allEnabled), isTrue);
-      expect(tab.isEnabled(null), isTrue);
     });
 
-    test('all feature-gated tabs default to enabled when settings is null', () {
+    test('all feature-gated tabs are enabled with all-enabled flags', () {
       const gatedIds = [
         AppShellTabId.chat,
         AppShellTabId.habits,
@@ -137,8 +161,8 @@ void main() {
       ];
       for (final id in gatedIds) {
         final tab = appShellTabs.firstWhere((t) => t.id == id);
-        expect(tab.isEnabled(null), isTrue,
-            reason: '${id.name} should default to enabled when settings is null');
+        expect(tab.isEnabled(allEnabled), isTrue,
+            reason: '${id.name} should be enabled with all-enabled flags');
       }
     });
   });

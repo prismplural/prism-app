@@ -254,7 +254,7 @@ final themeStyleProvider = Provider<ThemeStyle>((ref) {
 /// enabled state and deduplicating.
 List<AppShellTab> _resolveTabIds(
   List<String> ids,
-  SystemSettings? settings,
+  ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders}) flags,
   Map<String, AppShellTab> tabById,
   Set<String> seen,
 ) {
@@ -262,7 +262,7 @@ List<AppShellTab> _resolveTabIds(
   for (final id in ids) {
     if (!seen.add(id)) continue;
     final tab = tabById[id];
-    if (tab != null && tab.isEnabled(settings)) {
+    if (tab != null && tab.isEnabled(flags)) {
       result.add(tab);
     }
   }
@@ -271,15 +271,15 @@ List<AppShellTab> _resolveTabIds(
 
 /// Computes the primary nav bar tabs (shown directly in the bar).
 final activeNavBarTabsProvider = Provider<List<AppShellTab>>((ref) {
-  final settings = ref.watch(systemSettingsProvider).value;
-  final configuredIds = settings?.navBarItems ?? const [];
+  final configuredIds = ref.watch(navBarItemsProvider);
+  final flags = ref.watch(featureFlagsProvider);
 
   // If empty, use legacy default
   final tabIds = configuredIds.isEmpty ? defaultNavBarTabIds : configuredIds;
 
   final tabById = {for (final t in appShellTabs) t.id.name: t};
   final seen = <String>{};
-  final result = _resolveTabIds(tabIds, settings, tabById, seen);
+  final result = _resolveTabIds(tabIds, flags, tabById, seen);
 
   // Ensure Home is first and Settings is last
   result.removeWhere(
@@ -288,22 +288,22 @@ final activeNavBarTabsProvider = Provider<List<AppShellTab>>((ref) {
   final settingsTab =
       appShellTabs.firstWhere((t) => t.id == AppShellTabId.settings);
   result.insert(0, homeTab);
-  if (settingsTab.isEnabled(settings)) result.add(settingsTab);
+  if (settingsTab.isEnabled(flags)) result.add(settingsTab);
 
   return result;
 });
 
 /// Computes the overflow menu tabs (shown when the More trigger is expanded).
 final navBarOverflowTabsProvider = Provider<List<AppShellTab>>((ref) {
-  final settings = ref.watch(systemSettingsProvider).value;
-  final overflowIds = settings?.navBarOverflowItems ?? const [];
+  final overflowIds = ref.watch(navBarOverflowItemsProvider);
+  final flags = ref.watch(featureFlagsProvider);
   if (overflowIds.isEmpty) return const [];
 
   final tabById = {for (final t in appShellTabs) t.id.name: t};
   // Don't deduplicate against primary here — the nav bar widget handles
   // combining them. Just resolve the overflow list independently.
   final seen = <String>{};
-  return _resolveTabIds(overflowIds, settings, tabById, seen);
+  return _resolveTabIds(overflowIds, flags, tabById, seen);
 });
 
 /// Narrow provider for accent color — only rebuilds dependents when accent color changes.

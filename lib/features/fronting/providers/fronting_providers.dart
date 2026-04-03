@@ -132,10 +132,7 @@ class FrontingNotifier extends Notifier<void> {
   }
 
   Future<void> switchFronter(String newMemberId) async {
-    final settingsAsync = ref.read(systemSettingsProvider);
-    final threshold =
-        settingsAsync.whenOrNull(data: (s) => s.quickSwitchThresholdSeconds) ??
-        30;
+    final threshold = ref.read(quickSwitchThresholdProvider);
 
     final result = await _unwrapMutation(
       ref

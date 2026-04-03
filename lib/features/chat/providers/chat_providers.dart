@@ -102,10 +102,7 @@ class SpeakingAsNotifier extends Notifier<String?> {
 
     // Optionally log a front when switching the speaking member.
     if (memberId != null) {
-      final chatLogsFront = ref
-              .read(systemSettingsProvider)
-              .whenOrNull(data: (s) => s.chatLogsFront) ??
-          false;
+      final chatLogsFront = ref.read(chatLogsFrontProvider);
       if (chatLogsFront) {
         ref.read(frontingNotifierProvider.notifier).switchFronter(memberId);
       }
