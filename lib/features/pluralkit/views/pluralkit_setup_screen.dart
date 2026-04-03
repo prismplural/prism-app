@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// PluralKit integration setup and sync management screen.
 class PluralKitSetupScreen extends ConsumerStatefulWidget {
@@ -123,7 +124,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline,
+                    Icon(AppIcons.errorOutline,
                         color: theme.colorScheme.onErrorContainer),
                     const SizedBox(width: 8),
                     Expanded(
@@ -168,32 +169,32 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           const SizedBox(height: 24),
           const _SectionHeader(title: 'How It Works'),
           const SizedBox(height: 8),
-          const Card(
+          Card(
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _InfoRow(
-                    icon: Icons.sync,
+                    icon: AppIcons.sync,
                     text: 'Supports pull, push, or bidirectional sync. '
                         'Choose your preferred direction above.',
                   ),
                   SizedBox(height: 12),
                   _InfoRow(
-                    icon: Icons.lock_outline,
+                    icon: AppIcons.lockOutline,
                     text: 'Your token is stored securely in the device '
                         'keychain and never leaves your device.',
                   ),
                   SizedBox(height: 12),
                   _InfoRow(
-                    icon: Icons.people,
+                    icon: AppIcons.people,
                     text: 'Members are matched by PluralKit UUID. '
                         'Existing members are updated, new ones are created.',
                   ),
                   SizedBox(height: 12),
                   _InfoRow(
-                    icon: Icons.swap_vert,
+                    icon: AppIcons.swapVert,
                     text: 'Switches are imported as fronting sessions. '
                         'Duplicate switches are automatically skipped.',
                   ),
@@ -216,7 +217,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.green.shade600),
+                Icon(AppIcons.checkCircle, color: Colors.green.shade600),
                 const SizedBox(width: 8),
                 Text(
                   'Connected',
@@ -244,7 +245,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             const SizedBox(height: 12),
             PrismButton(
               onPressed: _disconnect,
-              icon: Icons.link_off,
+              icon: AppIcons.linkOff,
               label: 'Disconnect',
               tone: PrismButtonTone.destructive,
               expanded: true,
@@ -273,7 +274,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             const SizedBox(height: 12),
             PrismButton(
               onPressed: _connect,
-              icon: Icons.link,
+              icon: AppIcons.link,
               label: 'Connect',
               tone: PrismButtonTone.filled,
               expanded: true,
@@ -329,7 +330,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       children: [
         PrismButton(
           onPressed: _importFromPK,
-          icon: Icons.cloud_download,
+          icon: AppIcons.cloudDownload,
           label: 'Import from PluralKit',
           tone: PrismButtonTone.filled,
           expanded: true,
@@ -338,7 +339,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
         const SizedBox(height: 8),
         PrismButton(
           onPressed: _syncRecent,
-          icon: Icons.sync,
+          icon: AppIcons.sync,
           label: _cooldownSeconds > 0
               ? 'Sync Recent Changes ($_cooldownSeconds s)'
               : 'Sync Recent Changes',

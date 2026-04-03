@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/onboarding/providers/device_pairing_pro
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class SyncDeviceStep extends ConsumerStatefulWidget {
   const SyncDeviceStep({
@@ -87,7 +88,7 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.sync,
+                        AppIcons.sync,
                         size: 18,
                         color: Colors.amber.withValues(alpha: 0.9),
                       ),
@@ -149,7 +150,7 @@ class _JoinPromptView extends StatelessWidget {
             child: _BackLink(label: 'Back', onTap: onBack),
           ),
           const SizedBox(height: 20),
-          const Icon(Icons.devices, color: AppColors.warmWhite, size: 48),
+          Icon(AppIcons.devices, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           const Text(
             'Join your sync group',
@@ -243,7 +244,7 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
             child: _BackLink(label: 'Back', onTap: widget.onBack),
           ),
           const SizedBox(height: 20),
-          const Icon(Icons.qr_code, color: AppColors.warmWhite, size: 48),
+          Icon(AppIcons.qrCode, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           const Text(
             'Show this to your existing device',
@@ -321,7 +322,7 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
             ),
           ),
           const SizedBox(height: 20),
-          const Icon(Icons.qr_code_scanner, color: AppColors.warmWhite, size: 48),
+          Icon(AppIcons.qrCodeScanner, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           const Text(
             'Scan approval QR',
@@ -406,7 +407,7 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
             child: _BackLink(label: 'Back', onTap: widget.onBack),
           ),
           const SizedBox(height: 24),
-          const Icon(Icons.lock_outline, color: AppColors.warmWhite, size: 48),
+          Icon(AppIcons.lockOutline, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           const Text(
             'Enter your password',
@@ -450,7 +451,7 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
                 ),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscure ? Icons.visibility_off : Icons.visibility,
+                    _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
                     color: AppColors.warmWhite.withValues(alpha: 0.5),
                   ),
                   onPressed: () => setState(() => _obscure = !_obscure),
@@ -533,7 +534,7 @@ class _ErrorView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 8),
-          const Icon(Icons.error_outline, color: Colors.redAccent, size: 56),
+          Icon(AppIcons.errorOutline, color: Colors.redAccent, size: 56),
           const SizedBox(height: 16),
           const Text(
             'Pairing failed',
@@ -610,7 +611,7 @@ class _BackLink extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.arrow_back_ios_new,
+              AppIcons.arrowBackIosNew,
               size: 14,
               color: AppColors.warmWhite.withValues(alpha: 0.8),
             ),

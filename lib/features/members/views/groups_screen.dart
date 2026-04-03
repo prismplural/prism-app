@@ -88,7 +88,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         data: (groups) {
           if (groups.isEmpty) {
             return EmptyState(
-              icon: AppIcons.folderOutlined,
+              icon: Icon(AppIcons.folderOutlined),
               title: 'No groups yet',
               subtitle: 'Create groups to organize your system members',
               actionLabel: 'New group',

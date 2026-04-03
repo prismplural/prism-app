@@ -299,7 +299,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         data: (members) {
           if (members.isEmpty) {
             return EmptyState(
-              icon: AppIcons.peopleOutline,
+              icon: Icon(AppIcons.peopleOutline),
               title: _showInactive
                   ? terms.emptyTitle
                   : terms.emptyActiveTitle,
@@ -381,7 +381,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isFronting) ...[
-              const PrismPill(
+              PrismPill(
                 label: 'Fronting',
                 icon: AppIcons.flashOn,
                 color: AppColors.fronting,

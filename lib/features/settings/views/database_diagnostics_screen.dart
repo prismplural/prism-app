@@ -140,7 +140,7 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
           // ── Integrity Check ────────────────────────
           Center(
             child: FilledButton.icon(
-              icon: const Icon(AppIcons.verifiedOutlined),
+              icon: Icon(AppIcons.verifiedOutlined),
               label: const Text('Check Integrity'),
               onPressed: () {
                 ref.invalidate(healthReportProvider);
@@ -250,7 +250,7 @@ class _HealthReportDialogContent extends ConsumerWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
+                        Icon(
                           AppIcons.errorOutline,
                           size: 16,
                           color: Colors.orange,
@@ -335,7 +335,7 @@ class _InfoRow extends StatelessWidget {
               ),
               if (copyable)
                 IconButton(
-                  icon: const Icon(AppIcons.copy, size: 18),
+                  icon: Icon(AppIcons.copy, size: 18),
                   tooltip: 'Copy',
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: value));

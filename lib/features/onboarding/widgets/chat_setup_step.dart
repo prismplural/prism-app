@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class ChatSetupStep extends ConsumerStatefulWidget {
   const ChatSetupStep({super.key});
@@ -85,15 +86,15 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                       ),
                       if (isAllMembers)
                         Icon(
-                          Icons.lock,
+                          AppIcons.lock,
                           size: 16,
                           color: AppColors.warmWhite.withValues(alpha: 0.4),
                         )
                       else
                         Icon(
                           isSelected
-                              ? Icons.check_circle
-                              : Icons.circle_outlined,
+                              ? AppIcons.checkCircle
+                              : AppIcons.circleOutlined,
                           color: isSelected
                               ? Colors.cyan
                               : AppColors.warmWhite.withValues(alpha: 0.3),
@@ -159,7 +160,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                     color: Colors.cyan.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.add, color: AppColors.warmWhite, size: 22),
+                  child: Icon(AppIcons.add, color: AppColors.warmWhite, size: 22),
                 ),
               ),
             ],
@@ -199,7 +200,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                               onTap: () => notifier.toggleChannel(
                                   entry.key, entry.value),
                               child: Icon(
-                                Icons.close,
+                                AppIcons.close,
                                 size: 18,
                                 color: AppColors.warmWhite.withValues(alpha: 0.5),
                               ),

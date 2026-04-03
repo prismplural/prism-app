@@ -124,7 +124,7 @@ class _FrontingSanitizationScreenState
         if (_fixedCount > 0) _buildFixedBanner(theme),
         Expanded(
           child: EmptyState(
-            icon: AppIcons.checkCircleOutline,
+            icon: Icon(AppIcons.checkCircleOutline),
             iconColor: Colors.green,
             title: 'Timeline looks clean!',
             subtitle: 'No overlaps, duplicates, or invalid sessions found.',

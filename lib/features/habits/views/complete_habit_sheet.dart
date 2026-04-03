@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class CompleteHabitSheet extends ConsumerStatefulWidget {
   const CompleteHabitSheet({super.key, required this.habit, this.scrollController});
@@ -56,7 +57,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
         PrismSheetTopBar(
           title: 'Complete Habit',
           trailing: PrismGlassIconButton(
-            icon: Icons.check,
+            icon: AppIcons.check,
             size: PrismTokens.topBarActionSize,
             tint: theme.colorScheme.primary,
             accentIcon: true,
@@ -70,7 +71,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
             children: [
               // ── Date/Time ──────────────────────────────────
               PrismListRow(
-                leading: const Icon(Icons.access_time),
+                leading: Icon(AppIcons.accessTime),
                 title: const Text('Completed At'),
                 subtitle: Text(_formatDateTime(_completedAt)),
                 showChevron: true,
@@ -127,8 +128,8 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
                     label: 'Rate ${i + 1} out of 5 stars',
                     child: PrismIconButton(
                       icon: _rating != null && starValue <= _rating!
-                          ? Icons.star
-                          : Icons.star_border,
+                          ? AppIcons.star
+                          : AppIcons.starBorder,
                       color: Colors.amber,
                       tooltip: 'Rate ${i + 1} stars',
                       onPressed: () {

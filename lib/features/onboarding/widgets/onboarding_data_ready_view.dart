@@ -3,6 +3,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class OnboardingDataReadyView extends StatelessWidget {
   const OnboardingDataReadyView({
@@ -32,7 +33,7 @@ class OnboardingDataReadyView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 8),
-          const Icon(Icons.check_circle_outline, color: Colors.green, size: 56),
+          Icon(AppIcons.checkCircleOutline, color: Colors.green, size: 56),
           const SizedBox(height: 16),
           Text(
             title,

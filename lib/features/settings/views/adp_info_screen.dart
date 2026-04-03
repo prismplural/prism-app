@@ -24,7 +24,7 @@ class AdpInfoScreen extends StatelessWidget {
           // ── How Your Data is Protected ──────────────
           const _SectionTitle(title: 'How Your Data is Protected'),
           const SizedBox(height: 8),
-          const _InfoCard(
+          _InfoCard(
             icon: AppIcons.lockOutline,
             title: 'Encryption',
             body:
@@ -86,7 +86,7 @@ class AdpInfoScreen extends StatelessWidget {
           // ── Zero-Knowledge Sync ─────────────────────
           const _SectionTitle(title: 'Zero-Knowledge Sync'),
           const SizedBox(height: 8),
-          const _InfoCard(
+          _InfoCard(
             icon: AppIcons.cloudOffOutlined,
             title: 'Server Never Sees Your Data',
             body:
@@ -95,7 +95,7 @@ class AdpInfoScreen extends StatelessWidget {
                 'encrypted blobs it cannot read.',
           ),
           const SizedBox(height: 12),
-          const _InfoCard(
+          _InfoCard(
             icon: AppIcons.vpnKeyOutlined,
             title: 'Only You Hold the Keys',
             body:
@@ -108,7 +108,7 @@ class AdpInfoScreen extends StatelessWidget {
           // ── What This Means ─────────────────────────
           const _SectionTitle(title: 'What This Means'),
           const SizedBox(height: 8),
-          const _InfoCard(
+          _InfoCard(
             icon: AppIcons.shieldOutlined,
             title: 'Server Compromise Protection',
             body:
@@ -116,7 +116,7 @@ class AdpInfoScreen extends StatelessWidget {
                 'safe because only encrypted data is stored remotely.',
           ),
           const SizedBox(height: 12),
-          const _InfoCard(
+          _InfoCard(
             icon: AppIcons.noEncryptionOutlined,
             title: 'Password Never Transmitted',
             body:
@@ -124,7 +124,7 @@ class AdpInfoScreen extends StatelessWidget {
                 'keys and is never sent to any server.',
           ),
           const SizedBox(height: 12),
-          const _InfoCard(
+          _InfoCard(
             icon: AppIcons.devicesOutlined,
             title: 'Per-Device Identity',
             body:
@@ -138,7 +138,7 @@ class AdpInfoScreen extends StatelessWidget {
           // ── Best Practices ──────────────────────────
           const _SectionTitle(title: 'Best Practices'),
           const SizedBox(height: 8),
-          const _InfoCard(
+          _InfoCard(
             icon: AppIcons.passwordOutlined,
             title: 'Use a Strong Password',
             body:
@@ -147,7 +147,7 @@ class AdpInfoScreen extends StatelessWidget {
                 'hierarchy.',
           ),
           const SizedBox(height: 12),
-          const _InfoCard(
+          _InfoCard(
             icon: AppIcons.phonelinkLockOutlined,
             title: 'Enable Device Lock Screen',
             body:
@@ -155,7 +155,7 @@ class AdpInfoScreen extends StatelessWidget {
                 'layer of protection against physical access.',
           ),
           const SizedBox(height: 12),
-          const _InfoCard(
+          _InfoCard(
             icon: AppIcons.systemUpdateOutlined,
             title: 'Keep the App Updated',
             body:

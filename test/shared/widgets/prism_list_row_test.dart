@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 
@@ -29,11 +30,11 @@ void main() {
 
   testWidgets('PrismSettingsRow renders icon and chevron', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
+      ProviderScope(
         child: MaterialApp(
           home: Material(
             child: PrismSettingsRow(
-              icon: Icons.settings,
+              icon: AppIcons.navSettings,
               title: 'Settings',
               subtitle: 'Manage app behavior',
             ),
@@ -44,7 +45,7 @@ void main() {
 
     expect(find.text('Settings'), findsOneWidget);
     expect(find.text('Manage app behavior'), findsOneWidget);
-    expect(find.byIcon(Icons.settings), findsOneWidget);
-    expect(find.byIcon(Icons.chevron_right_rounded), findsOneWidget);
+    expect(find.byIcon(AppIcons.navSettings), findsOneWidget);
+    expect(find.byIcon(AppIcons.chevronRightRounded), findsOneWidget);
   });
 }

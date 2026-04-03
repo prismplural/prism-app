@@ -77,7 +77,7 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              AppIcons.duotoneReceipt,
+              AppIcons.duotoneData,
               size: 64,
               color: theme.colorScheme.onSurfaceVariant,
             ),

@@ -21,6 +21,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Detail screen for a single poll with voting and results.
 class PollDetailScreen extends ConsumerWidget {
@@ -235,13 +236,13 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
         actions: [
           if (!_isClosed)
             PrismTopBarAction(
-              icon: Icons.lock_outline,
+              icon: AppIcons.lockOutline,
               tooltip: 'Close poll',
               onPressed: _confirmClose,
             ),
           PrismPopupMenu<String>(
             items: [
-              const PrismMenuItem(value: 'delete', label: 'Delete', icon: Icons.delete_outline, destructive: true),
+              PrismMenuItem(value: 'delete', label: 'Delete', icon: AppIcons.deleteOutline, destructive: true),
             ],
             onSelected: (action) {
               if (action == 'delete') _confirmDelete();
@@ -286,29 +287,29 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
               runSpacing: 4,
               children: [
                 _MetadataChip(
-                  icon: Icons.calendar_today,
+                  icon: AppIcons.calendarToday,
                   label: _formatDate(widget.poll.createdAt),
                 ),
                 if (widget.poll.expiresAt != null)
                   _MetadataChip(
-                    icon: Icons.schedule,
+                    icon: AppIcons.schedule,
                     label: _isClosed
                         ? 'Expired'
                         : 'Expires ${_formatDate(widget.poll.expiresAt!)}',
                   ),
                 if (widget.poll.isAnonymous)
-                  const _MetadataChip(
-                    icon: Icons.visibility_off_outlined,
+                  _MetadataChip(
+                    icon: AppIcons.visibilityOffOutlined,
                     label: 'Anonymous',
                   ),
                 if (widget.poll.allowsMultipleVotes)
-                  const _MetadataChip(
-                    icon: Icons.check_box_outlined,
+                  _MetadataChip(
+                    icon: AppIcons.checkBoxOutlined,
                     label: 'Multi-vote',
                   ),
                 if (_isClosed)
-                  const _MetadataChip(
-                    icon: Icons.lock_outline,
+                  _MetadataChip(
+                    icon: AppIcons.lockOutline,
                     label: 'Closed',
                   ),
               ],
@@ -493,8 +494,8 @@ class _OptionTile extends ConsumerWidget {
                             )
                           : Icon(
                               isSelected
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_unchecked,
+                                  ? AppIcons.radioButtonChecked
+                                  : AppIcons.radioButtonUnchecked,
                               color: isSelected
                                   ? Theme.of(context).colorScheme.primary
                                   : Theme.of(context).colorScheme.outline,

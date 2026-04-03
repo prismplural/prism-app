@@ -119,7 +119,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             // -- Last Sync Time --
             const _SectionHeader(title: 'Last Sync'),
             ListTile(
-              leading: const Icon(AppIcons.schedule),
+              leading: Icon(AppIcons.schedule),
               title: const Text('Last successful sync'),
               subtitle: Text(
                 syncStatus.lastSyncAt != null
@@ -168,19 +168,19 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
 
             // -- Current State --
             ListTile(
-              leading: const Icon(AppIcons.infoOutline),
+              leading: Icon(AppIcons.infoOutline),
               title: const Text('Current sync state'),
               subtitle: Text(syncStatus.isSyncing ? 'Syncing…' : 'Idle'),
             ),
             if (syncStatus.pendingOps > 0)
               ListTile(
-                leading: const Icon(AppIcons.pendingOutlined),
+                leading: Icon(AppIcons.pendingOutlined),
                 title: const Text('Pending operations'),
                 subtitle: Text('${syncStatus.pendingOps} ops waiting to sync'),
               ),
             if (syncId != null && syncId.isNotEmpty)
               ListTile(
-                leading: const Icon(AppIcons.tag),
+                leading: Icon(AppIcons.tag),
                 title: const Text('Sync ID'),
                 subtitle: Text(
                   syncId,
@@ -191,7 +191,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               ),
             if (relayUrl != null && relayUrl.isNotEmpty)
               ListTile(
-                leading: const Icon(AppIcons.link),
+                leading: Icon(AppIcons.link),
                 title: const Text('Relay URL'),
                 subtitle: Text(
                   relayUrl,
@@ -248,35 +248,35 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
 
             // -- Common Issues --
             const _SectionHeader(title: 'Common Issues'),
-            const _TroubleshootingTile(
+            _TroubleshootingTile(
               icon: AppIcons.syncProblem,
               title: 'Sync not working?',
               description:
                   'Check that your relay URL and sync ID are correctly configured '
                   'in Sync settings. Both devices must use the same sync ID.',
             ),
-            const _TroubleshootingTile(
+            _TroubleshootingTile(
               icon: AppIcons.copyAll,
               title: 'Duplicate data?',
               description:
                   'Try resetting the sync system using the button above. This '
                   'wipes local sync setup and lets you pair again cleanly.',
             ),
-            const _TroubleshootingTile(
+            _TroubleshootingTile(
               icon: AppIcons.wifiOff,
               title: 'Connection errors?',
               description:
                   'Verify that your device has network access and that the relay '
                   'server is online. Check the relay URL for typos.',
             ),
-            const _TroubleshootingTile(
+            _TroubleshootingTile(
               icon: AppIcons.speed,
               title: 'Sync is slow?',
               description:
                   'Initial sync may take longer with large datasets. Subsequent '
                   'syncs are incremental and should be faster.',
             ),
-            const _TroubleshootingTile(
+            _TroubleshootingTile(
               icon: AppIcons.personOffOutlined,
               title: 'Device Identity Mismatch',
               description:

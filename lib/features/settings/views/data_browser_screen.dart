@@ -34,7 +34,7 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
         showBackButton: true,
         actions: [
           IconButton(
-            icon: const Icon(AppIcons.refresh),
+            icon: Icon(AppIcons.refresh),
             tooltip: 'Reload data',
             onPressed: () => setState(() => _refreshKey++),
           ),
@@ -47,7 +47,7 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: SegmentedButton<_DataTable>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: _DataTable.members,
                   label: Text('Members'),

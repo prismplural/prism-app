@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 
 /// A single habit row with completion circle, name, frequency, streak,
@@ -124,7 +125,7 @@ class _HabitRowState extends State<HabitRow> {
                               style: const TextStyle(fontSize: 20),
                             ),
                           )
-                        : Icon(Icons.circle_outlined,
+                        : Icon(AppIcons.circleOutlined,
                             size: 20, color: color.withValues(alpha: 0.4)),
                   ),
                 ),
@@ -143,8 +144,8 @@ class _HabitRowState extends State<HabitRow> {
                           width: 2,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.check,
+                      child: Icon(
+                        AppIcons.check,
                         size: 12,
                         color: AppColors.warmWhite,
                       ),
@@ -160,7 +161,7 @@ class _HabitRowState extends State<HabitRow> {
         mainAxisSize: MainAxisSize.min,
         children: [
           PrismPill(
-            icon: Icons.calendar_today,
+            icon: AppIcons.calendarToday,
             label: widget.habit.frequency == HabitFrequency.interval &&
                     widget.habit.intervalDays != null
                 ? 'Every ${widget.habit.intervalDays} days'
@@ -170,8 +171,8 @@ class _HabitRowState extends State<HabitRow> {
           ),
           if (completed) ...[
             const SizedBox(width: 8),
-            const PrismPill(
-              icon: Icons.check_circle,
+            PrismPill(
+              icon: AppIcons.checkCircle,
               label: 'Complete',
               color: Colors.green,
               padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -183,7 +184,7 @@ class _HabitRowState extends State<HabitRow> {
               label:
                   '${weeklyProgress.$1} of ${weeklyProgress.$2} days completed this week',
               child: PrismPill(
-                icon: Icons.check,
+                icon: AppIcons.check,
                 label: '${weeklyProgress.$1}/${weeklyProgress.$2}',
                 color: color,
                 padding:
@@ -194,7 +195,7 @@ class _HabitRowState extends State<HabitRow> {
           if (widget.habit.currentStreak > 0) ...[
             const SizedBox(width: 8),
             PrismPill(
-              icon: Icons.local_fire_department,
+              icon: AppIcons.localFireDepartment,
               label: '${widget.habit.currentStreak}',
               color: Colors.orange.shade700,
               padding:
@@ -204,7 +205,7 @@ class _HabitRowState extends State<HabitRow> {
         ],
       ),
       trailing: Icon(
-        Icons.chevron_right_rounded,
+        AppIcons.chevronRightRounded,
         color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
       ),
     );
@@ -235,7 +236,7 @@ class _HabitRowState extends State<HabitRow> {
                   tone: PrismButtonTone.filled,
                   density: PrismControlDensity.compact,
                   label: 'Complete',
-                  icon: Icons.check,
+                  icon: AppIcons.check,
                   isLoading: _isCompleting,
                   semanticLabel: 'Complete ${widget.habit.name}',
                   onPressed: _handleQuickComplete,

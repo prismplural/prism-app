@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// A segmented button widget for picking the PluralKit sync direction.
 class PkSyncDirectionPicker extends StatelessWidget {
@@ -16,21 +17,21 @@ class PkSyncDirectionPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SegmentedButton<PkSyncDirection>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: PkSyncDirection.pullOnly,
           label: Text('Pull'),
-          icon: Icon(Icons.download, size: 18),
+          icon: Icon(AppIcons.download, size: 18),
         ),
         ButtonSegment(
           value: PkSyncDirection.bidirectional,
           label: Text('Both'),
-          icon: Icon(Icons.sync, size: 18),
+          icon: Icon(AppIcons.sync, size: 18),
         ),
         ButtonSegment(
           value: PkSyncDirection.pushOnly,
           label: Text('Push'),
-          icon: Icon(Icons.upload, size: 18),
+          icon: Icon(AppIcons.upload, size: 18),
         ),
       ],
       selected: {selected},

@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/data_management/services/data_import_se
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 enum _ImportState { idle, password, preview, importing, complete, error }
 
@@ -179,7 +180,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             shape: BoxShape.circle,
             color: Colors.green.withValues(alpha: 0.15),
           ),
-          child: const Icon(Icons.download_outlined,
+          child: Icon(AppIcons.downloadOutlined,
               size: 40, color: Colors.green),
         ),
         const SizedBox(height: 16),
@@ -199,7 +200,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         const SizedBox(height: 24),
         PrismButton(
           onPressed: _pickFile,
-          icon: Icons.folder_open,
+          icon: AppIcons.folderOpen,
           label: 'Select File',
           tone: PrismButtonTone.filled,
           expanded: true,
@@ -220,7 +221,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             color: theme.colorScheme.primary.withValues(alpha: 0.15),
           ),
           child: Icon(
-            Icons.lock_outline,
+            AppIcons.lockOutline,
             size: 40,
             color: theme.colorScheme.primary,
           ),
@@ -251,7 +252,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             errorText: _passwordError,
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
               ),
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
@@ -278,7 +279,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             Expanded(
               child: PrismButton(
                 onPressed: _onPasswordSubmit,
-                icon: Icons.lock_open,
+                icon: AppIcons.lockOpen,
                 label: 'Decrypt',
                 tone: PrismButtonTone.filled,
               ),
@@ -347,7 +348,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             Expanded(
               child: PrismButton(
                 onPressed: _startImport,
-                icon: Icons.download,
+                icon: AppIcons.download,
                 label: 'Import',
                 tone: PrismButtonTone.filled,
               ),
@@ -406,8 +407,8 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(
-          Icons.check_circle_outline,
+        Icon(
+          AppIcons.checkCircleOutline,
           size: 48,
           color: Colors.green,
         ),
@@ -458,7 +459,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+        Icon(AppIcons.errorOutline, size: 48, color: Colors.red),
         const SizedBox(height: 16),
         Text(
           'Import Failed',

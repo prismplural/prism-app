@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart'
     as sp_importer;
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Import Data step — lets user choose between PluralKit, Simply Plural,
 /// or skipping entirely (default: no import selected).
@@ -91,7 +92,7 @@ class _SourcePicker extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           _SourceCard(
-            icon: Icons.devices,
+            icon: AppIcons.devices,
             color: Colors.teal,
             title: 'Sync with Existing Device',
             description:
@@ -100,7 +101,7 @@ class _SourcePicker extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _SourceCard(
-            icon: Icons.sync,
+            icon: AppIcons.sync,
             color: Colors.cyan,
             title: 'PluralKit',
             description:
@@ -109,7 +110,7 @@ class _SourcePicker extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _SourceCard(
-            icon: Icons.inventory_2_outlined,
+            icon: AppIcons.inventoryOutlined,
             color: Colors.green,
             title: 'Prism Export',
             description:
@@ -118,7 +119,7 @@ class _SourcePicker extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _SourceCard(
-            icon: Icons.file_upload_outlined,
+            icon: AppIcons.fileUploadOutlined,
             color: Colors.deepPurple,
             title: 'Simply Plural',
             description: 'Import from a Simply Plural JSON export file',
@@ -223,7 +224,7 @@ class _SourceCardState extends State<_SourceCard> {
                 ),
               ),
               Icon(
-                Icons.chevron_right,
+                AppIcons.chevronRight,
                 color: AppColors.warmWhite.withValues(alpha: 0.4),
               ),
             ],
@@ -331,7 +332,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                 ),
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscureToken ? Icons.visibility_off : Icons.visibility,
+                    _obscureToken ? AppIcons.visibilityOff : AppIcons.visibility,
                     color: AppColors.warmWhite.withValues(alpha: 0.5),
                   ),
                   onPressed: () =>
@@ -352,7 +353,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.green),
+                  Icon(AppIcons.checkCircle, color: Colors.green),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -684,7 +685,7 @@ class _PrismExportImportFlowState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.lock_outline, color: AppColors.warmWhite, size: 48),
+        Icon(AppIcons.lockOutline, color: AppColors.warmWhite, size: 48),
         const SizedBox(height: 16),
         const Text(
           'Encrypted Export',
@@ -727,7 +728,7 @@ class _PrismExportImportFlowState
               ),
               suffixIcon: IconButton(
                 icon: Icon(
-                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
                   color: AppColors.warmWhite.withValues(alpha: 0.5),
                 ),
                 onPressed: () =>
@@ -832,7 +833,7 @@ class _PrismExportImportFlowState
           ),
           child: Row(
             children: [
-              const Icon(Icons.error_outline, color: Colors.red),
+              Icon(AppIcons.errorOutline, color: Colors.red),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -1033,9 +1034,9 @@ class _SimplyPluralImportFlowState
                 color: Colors.green.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green),
+                  Icon(AppIcons.checkCircle, color: Colors.green),
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -1061,7 +1062,7 @@ class _SimplyPluralImportFlowState
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.red),
+                  Icon(AppIcons.errorOutline, color: Colors.red),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -1104,7 +1105,7 @@ class _BackLink extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.arrow_back_ios,
+            AppIcons.arrowBackIos,
             size: 14,
             color: AppColors.warmWhite.withValues(alpha: 0.7),
           ),

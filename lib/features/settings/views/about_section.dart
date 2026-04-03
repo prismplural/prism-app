@@ -70,21 +70,21 @@ class AboutSection extends StatelessWidget {
           spacing: 8,
           children: [
             ActionChip(
-              avatar: const Icon(AppIcons.code, size: 18),
+              avatar: Icon(AppIcons.code, size: 18),
               label: const Text('GitHub'),
               onPressed: () {
                 PrismToast.show(context, message: 'GitHub link coming soon');
               },
             ),
             ActionChip(
-              avatar: const Icon(AppIcons.privacyTipOutlined, size: 18),
+              avatar: Icon(AppIcons.privacyTipOutlined, size: 18),
               label: const Text('Privacy'),
               onPressed: () {
                 PrismToast.show(context, message: 'Privacy policy coming soon');
               },
             ),
             ActionChip(
-              avatar: const Icon(AppIcons.feedbackOutlined, size: 18),
+              avatar: Icon(AppIcons.feedbackOutlined, size: 18),
               label: const Text('Feedback'),
               onPressed: () {
                 PrismToast.show(context, message: 'Feedback form coming soon');

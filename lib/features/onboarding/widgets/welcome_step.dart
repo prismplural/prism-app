@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class WelcomeStep extends StatelessWidget {
   const WelcomeStep({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _FeatureRow(
-            icon: Icons.shield_outlined,
+            icon: AppIcons.shieldOutlined,
             color: Colors.blue,
             title: 'Privacy First',
             description:
@@ -20,7 +21,7 @@ class WelcomeStep extends StatelessWidget {
           ),
           SizedBox(height: 20),
           _FeatureRow(
-            icon: Icons.cloud_outlined,
+            icon: AppIcons.cloudOutlined,
             color: Colors.cyan,
             title: 'Cloud Sync',
             description:
@@ -28,7 +29,7 @@ class WelcomeStep extends StatelessWidget {
           ),
           SizedBox(height: 20),
           _FeatureRow(
-            icon: Icons.palette_outlined,
+            icon: AppIcons.paletteOutlined,
             color: Colors.purple,
             title: 'Customizable',
             description:

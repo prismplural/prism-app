@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class RemindersScreen extends ConsumerWidget {
   const RemindersScreen({super.key, this.showBackButton = true});
@@ -28,7 +29,7 @@ class RemindersScreen extends ConsumerWidget {
         showBackButton: showBackButton,
         actions: [
           PrismTopBarAction(
-            icon: Icons.add,
+            icon: AppIcons.add,
             onPressed: () => _showCreateSheet(context),
           ),
         ],
@@ -40,7 +41,7 @@ class RemindersScreen extends ConsumerWidget {
         data: (reminders) {
           if (reminders.isEmpty) {
             return EmptyState(
-              icon: Icons.notifications_none_rounded,
+              icon: Icon(AppIcons.notificationsNoneRounded),
               title: 'No reminders',
               subtitle: 'Create reminders for fronting changes or scheduled times',
               actionLabel: 'Add Reminder',
@@ -91,7 +92,7 @@ class _ReminderTile extends ConsumerWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         color: theme.colorScheme.error,
-        child: Icon(Icons.delete, color: theme.colorScheme.onError),
+        child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
       ),
       onDismissed: (_) {
         notifier.deleteReminder(reminder.id);
@@ -121,8 +122,8 @@ class _ReminderTile extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
             leading: Icon(
               reminder.trigger == ReminderTrigger.scheduled
-                  ? Icons.schedule
-                  : Icons.swap_horiz_rounded,
+                  ? AppIcons.schedule
+                  : AppIcons.swapHorizRounded,
               color: reminder.isActive
                   ? theme.colorScheme.primary
                   : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),

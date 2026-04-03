@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class AddMembersStep extends ConsumerWidget {
   const AddMembersStep({super.key});
@@ -38,7 +39,7 @@ class AddMembersStep extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.auto_awesome,
+                      Icon(AppIcons.autoAwesome,
                           color: Colors.purple.shade200, size: 18),
                       const SizedBox(width: 8),
                       Text(
@@ -141,7 +142,7 @@ class AddMembersStep extends ConsumerWidget {
                               // Delete
                               IconButton(
                                 icon: Icon(
-                                  Icons.close,
+                                  AppIcons.close,
                                   color:
                                       AppColors.warmWhite.withValues(alpha: 0.5),
                                   size: 20,
@@ -173,10 +174,10 @@ class AddMembersStep extends ConsumerWidget {
                   color: AppColors.warmWhite.withValues(alpha: 0.2),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.add, color: AppColors.warmWhite, size: 20),
+                  Icon(AppIcons.add, color: AppColors.warmWhite, size: 20),
                   SizedBox(width: 8),
                   Text(
                     'Add Member',

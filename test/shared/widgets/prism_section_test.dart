@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -29,14 +30,14 @@ void main() {
 
   testWidgets('PrismPill renders icon and label', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
+      MaterialApp(
         home: Material(
-          child: PrismPill(label: '3 active', icon: Icons.people),
+          child: PrismPill(label: '3 active', icon: AppIcons.people),
         ),
       ),
     );
 
     expect(find.text('3 active'), findsOneWidget);
-    expect(find.byIcon(Icons.people), findsOneWidget);
+    expect(find.byIcon(AppIcons.people), findsOneWidget);
   });
 }

@@ -74,7 +74,7 @@ class DebugScreen extends ConsumerWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      icon: const Icon(AppIcons.fileUploadOutlined),
+                      icon: Icon(AppIcons.fileUploadOutlined),
                       label: const Text('Export Data'),
                       onPressed: () {
                         PrismToast.show(context, message: 'Coming soon');
@@ -121,7 +121,7 @@ class DebugScreen extends ConsumerWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      icon: const Icon(AppIcons.receiptLongOutlined),
+                      icon: Icon(AppIcons.receiptLongOutlined),
                       label: const Text('Open Sync Debug Log'),
                       onPressed: () =>
                           context.push(AppRoutePaths.settingsSyncDebug),
@@ -173,10 +173,10 @@ class DebugScreen extends ConsumerWidget {
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(AppIcons.healing),
+                  leading: Icon(AppIcons.healing),
                   title: const Text('Timeline Sanitization'),
                   subtitle: const Text('Scan for and fix timeline issues'),
-                  trailing: const Icon(AppIcons.chevronRight),
+                  trailing: Icon(AppIcons.chevronRight),
                   onTap: () => context.push(
                     AppRoutePaths.settingsTimelineSanitization,
                   ),
@@ -231,7 +231,7 @@ class DebugScreen extends ConsumerWidget {
                           ),
                           if (nodeId != null)
                             IconButton(
-                              icon: const Icon(AppIcons.copy, size: 18),
+                              icon: Icon(AppIcons.copy, size: 18),
                               tooltip: 'Copy Node ID',
                               onPressed: () {
                                 Clipboard.setData(

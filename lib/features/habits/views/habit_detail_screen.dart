@@ -23,6 +23,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class HabitDetailScreen extends ConsumerStatefulWidget {
   const HabitDetailScreen({super.key, required this.habitId});
@@ -62,21 +63,21 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
         trailing: habitAsync.value != null
             ? PrismPopupMenu<String>(
                 items: [
-                  const PrismMenuItem(
-                      value: 'edit', label: 'Edit', icon: Icons.edit),
+                  PrismMenuItem(
+                      value: 'edit', label: 'Edit', icon: AppIcons.edit),
                   PrismMenuItem(
                     value: 'toggle',
                     label: habitAsync.value!.isActive
                         ? 'Deactivate'
                         : 'Activate',
                     icon: habitAsync.value!.isActive
-                        ? Icons.visibility_off
-                        : Icons.visibility,
+                        ? AppIcons.visibilityOff
+                        : AppIcons.visibility,
                   ),
-                  const PrismMenuItem(
+                  PrismMenuItem(
                       value: 'delete',
                       label: 'Delete',
-                      icon: Icons.delete_outline,
+                      icon: AppIcons.deleteOutline,
                       destructive: true),
                 ],
                 onSelected: (value) async {
@@ -105,7 +106,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                 child: PrismButton(
                   tone: PrismButtonTone.filled,
                   label: 'Complete',
-                  icon: Icons.check,
+                  icon: AppIcons.check,
                   semanticLabel: 'Complete habit',
                   onPressed: () =>
                       _showCompleteSheet(context, habitAsync.value!),
@@ -175,8 +176,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                 ),
                 data: (completions) {
                   if (completions.isEmpty) {
-                    return const EmptyState(
-                      icon: Icons.check_circle_outline,
+                    return EmptyState(
+                      icon: Icon(AppIcons.checkCircleOutline),
                       title: 'No completions yet',
                       subtitle:
                           'Complete this habit to start tracking progress.',
@@ -268,7 +269,7 @@ class _HabitHeader extends StatelessWidget {
           if (habit.icon != null)
             Text(habit.icon!, style: const TextStyle(fontSize: 40))
           else
-            Icon(Icons.check_circle_outline,
+            Icon(AppIcons.checkCircleOutline,
                 size: 40, color: theme.colorScheme.primary),
           const SizedBox(width: 16),
           Expanded(
@@ -313,24 +314,24 @@ class _StatsRow extends StatelessWidget {
         runSpacing: 8,
         children: [
           PrismPill(
-            icon: Icons.check_circle,
+            icon: AppIcons.checkCircle,
             label: '${stats.totalCompletions} done',
             color: habitColor,
           ),
           PrismPill(
-            icon: Icons.percent,
+            icon: AppIcons.percent,
             label: '${stats.completionRate.toStringAsFixed(0)}%',
             color: habitColor,
           ),
           if (stats.currentStreak > 0)
             PrismPill(
-              icon: Icons.local_fire_department,
+              icon: AppIcons.localFireDepartment,
               label: '${stats.currentStreak} streak',
               color: Colors.orange.shade700,
             ),
           if (stats.bestStreak > stats.currentStreak)
             PrismPill(
-              icon: Icons.emoji_events,
+              icon: AppIcons.emojiEvents,
               label: '${stats.bestStreak} best',
               color: Colors.amber.shade700,
             ),
@@ -375,7 +376,7 @@ class _CompletionTile extends StatelessWidget {
         color: Colors.red,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
-        child: const Icon(Icons.delete, color: AppColors.warmWhite),
+        child: Icon(AppIcons.delete, color: AppColors.warmWhite),
       ),
       onDismissed: (_) => onDismissed(),
       child: PrismListRow(
@@ -387,7 +388,7 @@ class _CompletionTile extends StatelessWidget {
                 avatarImageData: member.avatarImageData,
                 size: 36,
               )
-            : const Icon(Icons.check_circle, color: Colors.green),
+            : Icon(AppIcons.checkCircle, color: Colors.green),
         title: Text(_formatDate(completion.completedAt)),
         subtitle: Text(
           [
@@ -406,8 +407,8 @@ class _CompletionTile extends StatelessWidget {
                     5,
                     (i) => Icon(
                       i < completion.rating!
-                          ? Icons.star
-                          : Icons.star_border,
+                          ? AppIcons.star
+                          : AppIcons.starBorder,
                       size: 14,
                       color: Colors.amber,
                     ),

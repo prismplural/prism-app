@@ -249,7 +249,7 @@ class _JoinerQrScannerView extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
             onPressed: onBack,
-            icon: const Icon(AppIcons.arrowBackIosNew, size: 14),
+            icon: Icon(AppIcons.arrowBackIosNew, size: 14),
             label: const Text('Back'),
           ),
         ),
@@ -321,7 +321,7 @@ class _ApprovalResponseView extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(AppIcons.checkCircle, color: Colors.green, size: 20),
+              Icon(AppIcons.checkCircle, color: Colors.green, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
