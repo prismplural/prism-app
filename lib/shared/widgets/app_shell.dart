@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_password_sheet.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/desktop_breakpoint.dart';
@@ -705,7 +706,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         widget.accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
         isDark
             ? (isOled
-                  ? const Color(0xFF1A1A1A).withValues(alpha: 0.85)
+                  ? AppColors.oledSurface1.withValues(alpha: 0.85)
                   : Colors.white.withValues(alpha: 0.08))
             : Colors.white.withValues(alpha: 0.7),
       ),
@@ -977,7 +978,7 @@ class _FloatingSidebar extends ConsumerWidget {
                   accentColor.withValues(alpha: isDark ? 0.04 : 0.03),
                   isDark
                       ? (isOled
-                            ? const Color(0xFF1A1A1A).withValues(alpha: 0.50)
+                            ? AppColors.oledSurface1.withValues(alpha: 0.50)
                             : Colors.white.withValues(alpha: 0.06))
                       : Colors.white.withValues(alpha: 0.55),
                 ),
