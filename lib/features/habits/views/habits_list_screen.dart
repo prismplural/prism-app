@@ -19,6 +19,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class HabitsListScreen extends ConsumerWidget {
   const HabitsListScreen({super.key});
@@ -67,7 +68,7 @@ class HabitsListScreen extends ConsumerWidget {
                 child: PrismTopBar(
                   title: 'Habits',
                   trailing: PrismTopBarAction(
-                    icon: Icons.add,
+                    icon: AppIcons.add,
                     tooltip: 'Create habit',
                     onPressed: () => _showAddHabit(context),
                   ),
@@ -77,12 +78,12 @@ class HabitsListScreen extends ConsumerWidget {
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: EmptyState(
-                    icon: Icons.check_circle_outline,
+                    icon: Icon(AppIcons.checkCircleOutline),
                     title: 'No habits yet',
                     subtitle:
                         'Create habits to track daily routines, self-care, or anything your system wants to keep up with.',
                     actionLabel: 'Create Habit',
-                    actionIcon: Icons.add,
+                    actionIcon: AppIcons.add,
                     onAction: () => _showAddHabit(context),
                   ),
                 )

@@ -218,9 +218,9 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                 child: Column(
                   children: [
                     ListTile(
-                      leading: const Icon(AppIcons.pinOutlined),
+                      leading: Icon(AppIcons.pinOutlined),
                       title: const Text('Change PIN'),
-                      trailing: const Icon(
+                      trailing: Icon(
                         AppIcons.chevronRightRounded,
                         size: 20,
                       ),
@@ -412,7 +412,7 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, top: 8),
                 child: IconButton(
-                  icon: const Icon(AppIcons.arrowBack),
+                  icon: Icon(AppIcons.arrowBack),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class NotesListScreen extends ConsumerWidget {
   const NotesListScreen({super.key, this.showBackButton = true});
@@ -33,7 +34,7 @@ class NotesListScreen extends ConsumerWidget {
         showBackButton: showBackButton,
         actions: [
           PrismTopBarAction(
-            icon: Icons.add,
+            icon: AppIcons.add,
             tooltip: 'New note',
             onPressed: () => _showCreateSheet(context),
           ),
@@ -46,7 +47,7 @@ class NotesListScreen extends ConsumerWidget {
         data: (notes) {
           if (notes.isEmpty) {
             return EmptyState(
-              icon: Icons.note_outlined,
+              icon: Icon(AppIcons.noteOutlined),
               title: 'No notes yet',
               subtitle: 'Create notes to keep track of thoughts and observations',
               actionLabel: 'New Note',

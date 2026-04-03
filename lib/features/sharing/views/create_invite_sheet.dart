@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Bottom sheet for creating and sharing an invite.
 class CreateInviteSheet extends ConsumerStatefulWidget {
@@ -63,7 +64,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                         ),
                       )
                     : PrismGlassIconButton(
-                        icon: Icons.check,
+                        icon: AppIcons.check,
                         size: PrismTokens.topBarActionSize,
                         tint: canGenerate ? theme.colorScheme.primary : null,
                         accentIcon: canGenerate,
@@ -145,7 +146,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.link, size: 20),
+                              Icon(AppIcons.link, size: 20),
                               const SizedBox(width: 8),
                               Text(
                                 'Invite Code',
@@ -186,7 +187,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                       Expanded(
                         child: PrismButton(
                           label: 'Copy',
-                          icon: Icons.copy,
+                          icon: AppIcons.copy,
                           onPressed: _copyToClipboard,
                           tone: PrismButtonTone.subtle,
                         ),

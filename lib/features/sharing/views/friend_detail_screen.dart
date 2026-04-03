@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Detail screen for a single friend — scope management, verification,
 /// and revocation.
@@ -97,7 +98,7 @@ class FriendDetailScreen extends ConsumerWidget {
 
           // ── Public key ─────────────────────────────────
           ListTile(
-            leading: const Icon(Icons.key),
+            leading: Icon(AppIcons.key),
             title: const Text('Public Key'),
             subtitle: Text(
               _truncateKey(friend.publicKeyHex),
@@ -106,7 +107,7 @@ class FriendDetailScreen extends ConsumerWidget {
               ),
             ),
             trailing: IconButton(
-              icon: const Icon(Icons.copy, size: 20),
+              icon: Icon(AppIcons.copy, size: 20),
               tooltip: 'Copy public key',
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: friend.publicKeyHex));
@@ -118,7 +119,7 @@ class FriendDetailScreen extends ConsumerWidget {
           // ── Last sync ──────────────────────────────────
           if (friend.lastSyncAt != null)
             ListTile(
-              leading: const Icon(Icons.sync),
+              leading: Icon(AppIcons.sync),
               title: const Text('Last synced'),
               subtitle: Text(
                 friend.lastSyncAt!.toLocal().toString().split('.').first,
@@ -132,7 +133,7 @@ class FriendDetailScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: PrismButton(
               onPressed: () => _confirmRevoke(context, ref, friend),
-              icon: Icons.block,
+              icon: AppIcons.block,
               label: 'Revoke Access',
               tone: PrismButtonTone.destructive,
             ),
@@ -201,7 +202,7 @@ class _FriendHeader extends StatelessWidget {
                     if (friend.isVerified) ...[
                       const SizedBox(width: 8),
                       Icon(
-                        Icons.verified,
+                        AppIcons.verified,
                         color: theme.colorScheme.primary,
                         size: 20,
                       ),
@@ -251,7 +252,7 @@ class _VerifyCard extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.warning_amber, color: theme.colorScheme.error),
+                Icon(AppIcons.warningAmber, color: theme.colorScheme.error),
                 const SizedBox(width: 8),
                 Text(
                   'Verification Required',

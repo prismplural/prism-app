@@ -6,6 +6,7 @@ import 'package:prism_plurality/features/migration/providers/migration_providers
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/widgets/import_preview_card.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -77,7 +78,7 @@ class _IdleView extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Icon(
-          Icons.swap_horiz,
+          AppIcons.swapHoriz,
           size: 48,
           color: theme.colorScheme.primary,
         ),
@@ -102,7 +103,7 @@ class _IdleView extends StatelessWidget {
 
         // Option 1: API import
         _ImportMethodCard(
-          icon: Icons.cloud_download_outlined,
+          icon: AppIcons.cloudDownloadOutlined,
           title: 'Connect with API',
           subtitle: 'No file export needed — imports directly from your account',
           recommended: true,
@@ -118,7 +119,7 @@ class _IdleView extends StatelessWidget {
 
         // Option 2: File import
         _ImportMethodCard(
-          icon: Icons.file_upload_outlined,
+          icon: AppIcons.fileUploadOutlined,
           title: 'Import from file',
           subtitle: 'Use a JSON export file from Simply Plural',
           recommended: false,
@@ -142,33 +143,33 @@ class _IdleView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const _SupportedItem(icon: Icons.person, label: 'Members'),
-                const _SupportedItem(
-                    icon: Icons.label_outlined, label: 'Custom fronts'),
-                const _SupportedItem(
-                    icon: Icons.flash_on, label: 'Fronting history'),
-                const _SupportedItem(
-                    icon: Icons.chat_bubble_outline,
+                _SupportedItem(icon: AppIcons.person, label: 'Members'),
+                _SupportedItem(
+                    icon: AppIcons.labelOutlined, label: 'Custom fronts'),
+                _SupportedItem(
+                    icon: AppIcons.flashOn, label: 'Fronting history'),
+                _SupportedItem(
+                    icon: AppIcons.chatBubbleOutline,
                     label: 'Chat channels & messages'),
-                const _SupportedItem(
-                    icon: Icons.poll_outlined, label: 'Polls'),
-                const _SupportedItem(
-                    icon: Icons.color_lens, label: 'Member colors'),
-                const _SupportedItem(
-                    icon: Icons.notes, label: 'Member descriptions'),
-                const _SupportedItem(
-                    icon: Icons.image_outlined, label: 'Avatar images'),
-                const _SupportedItem(
-                    icon: Icons.note_outlined, label: 'Notes'),
-                const _SupportedItem(
-                    icon: Icons.text_fields, label: 'Custom fields'),
-                const _SupportedItem(
-                    icon: Icons.group_outlined, label: 'Groups'),
-                const _SupportedItem(
-                    icon: Icons.comment_outlined,
+                _SupportedItem(
+                    icon: AppIcons.pollOutlined, label: 'Polls'),
+                _SupportedItem(
+                    icon: AppIcons.colorLens, label: 'Member colors'),
+                _SupportedItem(
+                    icon: AppIcons.notes, label: 'Member descriptions'),
+                _SupportedItem(
+                    icon: AppIcons.imageOutlined, label: 'Avatar images'),
+                _SupportedItem(
+                    icon: AppIcons.noteOutlined, label: 'Notes'),
+                _SupportedItem(
+                    icon: AppIcons.textFields, label: 'Custom fields'),
+                _SupportedItem(
+                    icon: AppIcons.groupOutlined, label: 'Groups'),
+                _SupportedItem(
+                    icon: AppIcons.commentOutlined,
                     label: 'Comments on front sessions'),
-                const _SupportedItem(
-                    icon: Icons.alarm, label: 'Reminders'),
+                _SupportedItem(
+                    icon: AppIcons.alarm, label: 'Reminders'),
               ],
             ),
           ),
@@ -259,7 +260,7 @@ class _ImportMethodCard extends StatelessWidget {
                 ),
               ),
               Icon(
-                Icons.chevron_right,
+                AppIcons.chevronRight,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
@@ -333,7 +334,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Icon(
-            Icons.cloud_download_outlined,
+            AppIcons.cloudDownloadOutlined,
             size: 48,
             color: theme.colorScheme.primary,
           ),
@@ -370,7 +371,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
                 children: [
                   IconButton(
                     icon: Icon(
-                      _obscured ? Icons.visibility_off : Icons.visibility,
+                      _obscured ? AppIcons.visibilityOff : AppIcons.visibility,
                     ),
                     onPressed: () {
                       setState(() => _obscured = !_obscured);
@@ -378,7 +379,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
                     tooltip: _obscured ? 'Show token' : 'Hide token',
                   ),
                   IconButton(
-                    icon: const Icon(Icons.paste),
+                    icon: Icon(AppIcons.paste),
                     onPressed: () async {
                       final data = await Clipboard.getData('text/plain');
                       if (data?.text != null) {
@@ -401,7 +402,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
             child: Row(
               children: [
                 Icon(
-                  _showHelp ? Icons.expand_less : Icons.expand_more,
+                  _showHelp ? AppIcons.expandLess : AppIcons.expandMore,
                   size: 20,
                   color: theme.colorScheme.primary,
                 ),
@@ -443,7 +444,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
                   .read(importerProvider.notifier)
                   .verifyToken(_tokenController.text);
             },
-            icon: Icons.verified_outlined,
+            icon: AppIcons.verifiedOutlined,
             label: 'Verify Token',
             tone: PrismButtonTone.filled,
             expanded: true,
@@ -490,7 +491,7 @@ class _ConnectedView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.check_circle,
+              AppIcons.checkCircle,
               size: 64,
               color: Colors.green.shade600,
             ),
@@ -513,7 +514,7 @@ class _ConnectedView extends StatelessWidget {
               onPressed: () {
                 ref.read(importerProvider.notifier).fetchFromApi();
               },
-              icon: Icons.download,
+              icon: AppIcons.download,
               label: 'Continue',
               tone: PrismButtonTone.filled,
               expanded: true,
@@ -626,7 +627,7 @@ class _PreviewView extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Icon(
-          Icons.preview,
+          AppIcons.preview,
           size: 48,
           color: theme.colorScheme.primary,
         ),
@@ -660,7 +661,7 @@ class _PreviewView extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.info_outline,
+                  AppIcons.infoOutline,
                   size: 20,
                   color: theme.colorScheme.primary,
                 ),
@@ -693,7 +694,7 @@ class _PreviewView extends StatelessWidget {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline,
+                      AppIcons.infoOutline,
                       size: 20,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -725,7 +726,7 @@ class _PreviewView extends StatelessWidget {
                     onPressed: () {
                       ref.read(importerProvider.notifier).executeImport();
                     },
-                    icon: Icons.download,
+                    icon: AppIcons.download,
                     label: 'Import All (add to existing)',
                     tone: PrismButtonTone.filled,
                     expanded: true,
@@ -735,7 +736,7 @@ class _PreviewView extends StatelessWidget {
                     onPressed: () {
                       _showStartFreshDialog(context);
                     },
-                    icon: Icons.refresh,
+                    icon: AppIcons.refresh,
                     label: 'Start Fresh (replace all data)',
                     tone: PrismButtonTone.outlined,
                     expanded: true,
@@ -747,7 +748,7 @@ class _PreviewView extends StatelessWidget {
               onPressed: () {
                 ref.read(importerProvider.notifier).executeImport();
               },
-              icon: Icons.download,
+              icon: AppIcons.download,
               label: 'Import All',
               tone: PrismButtonTone.filled,
               expanded: true,
@@ -757,7 +758,7 @@ class _PreviewView extends StatelessWidget {
             onPressed: () {
               ref.read(importerProvider.notifier).executeImport();
             },
-            icon: Icons.download,
+            icon: AppIcons.download,
             label: 'Import All',
             tone: PrismButtonTone.filled,
             expanded: true,
@@ -766,7 +767,7 @@ class _PreviewView extends StatelessWidget {
             onPressed: () {
               ref.read(importerProvider.notifier).executeImport();
             },
-            icon: Icons.download,
+            icon: AppIcons.download,
             label: 'Import All',
             tone: PrismButtonTone.filled,
             expanded: true,
@@ -889,7 +890,7 @@ class _CompleteView extends StatelessWidget {
       children: [
         const SizedBox(height: 16),
         Icon(
-          Icons.check_circle,
+          AppIcons.checkCircle,
           size: 64,
           color: theme.colorScheme.primary,
         ),
@@ -1060,7 +1061,7 @@ class _ErrorView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.error_outline,
+              AppIcons.errorOutline,
               size: 64,
               color: theme.colorScheme.error,
             ),
@@ -1100,7 +1101,7 @@ class _ErrorView extends StatelessWidget {
                         .selectAndParseFile();
                   });
                 },
-                icon: Icons.file_upload_outlined,
+                icon: AppIcons.fileUploadOutlined,
                 label: 'Try file import instead',
                 tone: PrismButtonTone.outlined,
               ),

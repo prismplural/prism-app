@@ -37,7 +37,7 @@ class TimingModeSettingTile extends ConsumerWidget {
           SizedBox(
             width: double.infinity,
             child: SegmentedButton<FrontingTimingMode>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: FrontingTimingMode.flexible,
                   label: Text('Flexible'),

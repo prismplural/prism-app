@@ -19,6 +19,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 enum _PollFilter { active, closed, all }
 
@@ -83,14 +84,14 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                         final filterTheme = Theme.of(context);
                         final (icon, label) = switch (filter) {
                           _PollFilter.active => (
-                            Icons.how_to_vote_outlined,
+                            AppIcons.howToVoteOutlined,
                             'Active',
                           ),
                           _PollFilter.closed => (
-                            Icons.check_circle_outline,
+                            AppIcons.checkCircleOutline,
                             'Closed',
                           ),
-                          _PollFilter.all => (Icons.poll_outlined, 'All'),
+                          _PollFilter.all => (AppIcons.pollOutlined, 'All'),
                         };
                         return ListTile(
                           dense: true,
@@ -115,7 +116,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                           ),
                           trailing: isSelected
                               ? Icon(
-                                  Icons.check,
+                                  AppIcons.check,
                                   size: 18,
                                   color: filterTheme.colorScheme.primary,
                                 )
@@ -127,7 +128,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                         );
                       },
                       child: PrismGlassIconButton(
-                        icon: Icons.filter_list,
+                        icon: AppIcons.filterList,
                         onPressed: null,
                         enabled: true,
                         size: PrismTokens.topBarActionSize,
@@ -137,7 +138,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                       ),
                     ),
                   PrismTopBarAction(
-                    icon: Icons.add,
+                    icon: AppIcons.add,
                     tooltip: 'Create poll',
                     onPressed: () => _showCreateSheet(context),
                   ),
@@ -151,17 +152,17 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                 if (polls.isEmpty) {
                   final (icon, title, subtitle) = switch (_filter) {
                     _PollFilter.active => (
-                      Icons.how_to_vote_outlined,
+                      Icon(AppIcons.howToVoteOutlined),
                       'No active polls',
                       'Create a poll to get your system voting',
                     ),
                     _PollFilter.closed => (
-                      Icons.check_circle_outline,
+                      Icon(AppIcons.checkCircleOutline),
                       'No closed polls',
                       'Closed and expired polls will appear here',
                     ),
                     _PollFilter.all => (
-                      Icons.poll_outlined,
+                      Icon(AppIcons.pollOutlined),
                       'No polls yet',
                       'Create your first poll to get started',
                     ),
@@ -200,7 +201,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        Icons.error_outline,
+                        AppIcons.errorOutline,
                         size: 48,
                         color: theme.colorScheme.error,
                       ),
@@ -288,7 +289,7 @@ class _PollCard extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    Icons.how_to_vote_outlined,
+                    AppIcons.howToVoteOutlined,
                     size: 16,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -301,7 +302,7 @@ class _PollCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                   Icon(
-                    Icons.list,
+                    AppIcons.listView,
                     size: 16,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -315,7 +316,7 @@ class _PollCard extends StatelessWidget {
                   if (poll.expiresAt != null && !isClosed) ...[
                     const Spacer(),
                     Icon(
-                      Icons.schedule,
+                      AppIcons.schedule,
                       size: 16,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -337,13 +338,13 @@ class _PollCard extends StatelessWidget {
                   spacing: 8,
                   children: [
                     if (poll.isAnonymous)
-                      const _InfoChip(
-                        icon: Icons.visibility_off_outlined,
+                      _InfoChip(
+                        icon: AppIcons.visibilityOffOutlined,
                         label: 'Anonymous',
                       ),
                     if (poll.allowsMultipleVotes)
-                      const _InfoChip(
-                        icon: Icons.check_box_outlined,
+                      _InfoChip(
+                        icon: AppIcons.checkBoxOutlined,
                         label: 'Multi-vote',
                       ),
                   ],

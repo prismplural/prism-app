@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/data_management/providers/data_manageme
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 enum _ExportState { idle, password, exporting, error, complete }
 
@@ -166,8 +167,8 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             shape: BoxShape.circle,
             color: Colors.blue.withValues(alpha: 0.15),
           ),
-          child: const Icon(
-            Icons.upload_outlined,
+          child: Icon(
+            AppIcons.uploadOutlined,
             size: 40,
             color: Colors.blue,
           ),
@@ -190,7 +191,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         const SizedBox(height: 24),
         PrismButton(
           onPressed: _onExportPressed,
-          icon: Icons.download,
+          icon: AppIcons.download,
           label: 'Export Data',
           tone: PrismButtonTone.filled,
           expanded: true,
@@ -211,7 +212,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             color: theme.colorScheme.primary.withValues(alpha: 0.15),
           ),
           child: Icon(
-            Icons.lock_outline,
+            AppIcons.lockOutline,
             size: 40,
             color: theme.colorScheme.primary,
           ),
@@ -243,7 +244,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                Icons.warning_rounded,
+                AppIcons.warningRounded,
                 size: 20,
                 color: theme.colorScheme.onErrorContainer,
               ),
@@ -270,7 +271,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             border: const OutlineInputBorder(),
             suffixIcon: IconButton(
               icon: Icon(
-                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
               ),
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
@@ -292,7 +293,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             errorText: _passwordError,
             suffixIcon: IconButton(
               icon: Icon(
-                _obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                _obscureConfirm ? AppIcons.visibilityOff : AppIcons.visibility,
               ),
               onPressed: () =>
                   setState(() => _obscureConfirm = !_obscureConfirm),
@@ -314,7 +315,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             Expanded(
               child: PrismButton(
                 onPressed: _onPasswordSubmit,
-                icon: Icons.lock,
+                icon: AppIcons.lock,
                 label: 'Encrypt',
                 tone: PrismButtonTone.filled,
               ),
@@ -349,7 +350,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.error_outline, size: 48, color: Colors.red),
+        Icon(AppIcons.errorOutline, size: 48, color: Colors.red),
         const SizedBox(height: 16),
         Text(
           'Export Failed',
@@ -396,7 +397,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
+        Icon(AppIcons.checkCircleOutline, size: 48, color: Colors.green),
         const SizedBox(height: 16),
         Text(
           'Export Complete',

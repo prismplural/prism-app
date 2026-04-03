@@ -18,6 +18,7 @@ import 'package:prism_plurality/features/onboarding/widgets/sync_device_step.dar
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -89,8 +90,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         if (hasExistingData)
                           IconButton(
                             onPressed: () => context.go(AppRoutePaths.home),
-                            icon: const Icon(
-                              Icons.close,
+                            icon: Icon(
+                              AppIcons.close,
                               color: Colors.white70,
                             ),
                           )
@@ -151,7 +152,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       children: [
                         if (!isFirstStep)
                           _CircleButton(
-                            icon: Icons.arrow_back,
+                            icon: AppIcons.arrowBack,
                             onPressed: notifier.back,
                           ),
                         const Spacer(),

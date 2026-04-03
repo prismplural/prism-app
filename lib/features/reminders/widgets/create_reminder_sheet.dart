@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class CreateReminderSheet extends ConsumerStatefulWidget {
   const CreateReminderSheet({
@@ -74,7 +75,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
           PrismSheetTopBar(
             title: _isEditing ? 'Edit Reminder' : 'New Reminder',
             trailing: PrismGlassIconButton(
-              icon: Icons.check,
+              icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
               tint: canSave ? theme.colorScheme.primary : null,
               accentIcon: canSave,
@@ -110,16 +111,16 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                 Text('Trigger', style: theme.textTheme.labelLarge),
                 const SizedBox(height: 8),
                 SegmentedButton<ReminderTrigger>(
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: ReminderTrigger.scheduled,
                       label: Text('Scheduled'),
-                      icon: Icon(Icons.schedule),
+                      icon: Icon(AppIcons.schedule),
                     ),
                     ButtonSegment(
                       value: ReminderTrigger.onFrontChange,
                       label: Text('Front Change'),
-                      icon: Icon(Icons.swap_horiz_rounded),
+                      icon: Icon(AppIcons.swapHorizRounded),
                     ),
                   ],
                   selected: {_trigger},

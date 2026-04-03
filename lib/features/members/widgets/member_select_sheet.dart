@@ -52,14 +52,14 @@ class MemberSelectSheet extends ConsumerWidget {
           // "None" option at the top.
           if (index == 0) {
             return ListTile(
-              leading: const SizedBox(
+              leading: SizedBox(
                 width: 36,
                 height: 36,
                 child: Icon(AppIcons.close),
               ),
               title: const Text('None'),
               trailing: currentMemberId == null || currentMemberId!.isEmpty
-                  ? const Icon(AppIcons.check)
+                  ? Icon(AppIcons.check)
                   : null,
               onTap: () => Navigator.of(context).pop(''),
             );
@@ -79,7 +79,7 @@ class MemberSelectSheet extends ConsumerWidget {
             title: Text(member.name),
             subtitle:
                 member.pronouns != null ? Text(member.pronouns!) : null,
-            trailing: isSelected ? const Icon(AppIcons.check) : null,
+            trailing: isSelected ? Icon(AppIcons.check) : null,
             onTap: () => Navigator.of(context).pop(member.id),
           );
         },

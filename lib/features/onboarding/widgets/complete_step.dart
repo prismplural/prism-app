@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class CompleteStep extends StatelessWidget {
   const CompleteStep({super.key});
@@ -11,8 +12,8 @@ class CompleteStep extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.check_circle,
+          Icon(
+            AppIcons.checkCircle,
             size: 64,
             color: Colors.green,
           ),
@@ -36,22 +37,22 @@ class CompleteStep extends StatelessWidget {
           const SizedBox(height: 32),
 
           // Next steps
-          const _NextStepRow(
-            icon: Icons.swap_horiz,
+          _NextStepRow(
+            icon: AppIcons.swapHoriz,
             color: Colors.cyan,
             title: 'Track fronting sessions',
             description: 'Log who is currently fronting and view history',
           ),
           const SizedBox(height: 16),
-          const _NextStepRow(
-            icon: Icons.chat_bubble_outline,
+          _NextStepRow(
+            icon: AppIcons.chatBubbleOutline,
             color: Colors.orange,
             title: 'Start chatting',
             description: 'Send messages between system members',
           ),
           const SizedBox(height: 16),
-          const _NextStepRow(
-            icon: Icons.poll_outlined,
+          _NextStepRow(
+            icon: AppIcons.pollOutlined,
             color: Colors.indigo,
             title: 'Create polls',
             description: 'Make decisions together as a system',

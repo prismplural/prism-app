@@ -76,7 +76,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         return switch (index) {
           0 => ListTile(
               dense: true,
-              leading: const Icon(
+              leading: Icon(
                 AppIcons.markEmailReadOutlined,
                 size: 20,
               ),
@@ -302,7 +302,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     SliverFillRemaining(
                       hasScrollBody: false,
                       child: EmptyState(
-                        icon: AppIcons.chatBubbleOutline,
+                        icon: Icon(AppIcons.chatBubbleOutline),
                         title: 'No conversations',
                         subtitle: 'Start chatting with your system',
                         actionLabel: 'New Conversation',

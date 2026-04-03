@@ -60,7 +60,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            AppIcons.duotoneCheckCircle,
+            AppIcons.duotoneSuccess,
             size: 64,
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
@@ -120,7 +120,7 @@ class _ErrorTileState extends State<_ErrorTile> {
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(AppIcons.copy, size: 18),
+                icon: Icon(AppIcons.copy, size: 18),
                 tooltip: 'Copy error details',
                 onPressed: () => _copyError(context),
               ),
@@ -177,13 +177,13 @@ class _ErrorTileState extends State<_ErrorTile> {
   Widget _severityIcon(ErrorSeverity severity, ThemeData theme) {
     switch (severity) {
       case ErrorSeverity.info:
-        return const Icon(AppIcons.infoOutline, color: Colors.blue);
+        return Icon(AppIcons.infoOutline, color: Colors.blue);
       case ErrorSeverity.warning:
-        return const Icon(AppIcons.warningAmberRounded, color: Colors.orange);
+        return Icon(AppIcons.warningAmberRounded, color: Colors.orange);
       case ErrorSeverity.error:
-        return const Icon(AppIcons.errorOutline, color: Colors.red);
+        return Icon(AppIcons.errorOutline, color: Colors.red);
       case ErrorSeverity.fatal:
-        return const Icon(AppIcons.dangerousOutlined, color: Colors.purple);
+        return Icon(AppIcons.dangerousOutlined, color: Colors.purple);
     }
   }
 }

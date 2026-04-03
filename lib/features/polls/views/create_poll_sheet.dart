@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Full-screen sheet for creating a new poll.
 ///
@@ -171,7 +172,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                     ),
                   )
                 : PrismGlassIconButton(
-                    icon: Icons.check,
+                    icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,
                     tint: _canCreate ? theme.colorScheme.primary : null,
                     accentIcon: _canCreate,
@@ -242,7 +243,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                       ),
                       if (_optionControllers.length > 2)
                         IconButton(
-                          icon: const Icon(Icons.remove_circle_outline),
+                          icon: Icon(AppIcons.removeCircleOutline),
                           color: theme.colorScheme.error,
                           onPressed: () => _removeOption(i),
                           tooltip: 'Remove option',
@@ -256,7 +257,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: _addOption,
-                  icon: const Icon(Icons.add),
+                  icon: Icon(AppIcons.add),
                   label: const Text('Add option'),
                 ),
               ),
@@ -301,7 +302,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
                     onPressed: _pickExpiration,
-                    icon: const Icon(Icons.schedule),
+                    icon: Icon(AppIcons.schedule),
                     label: Text(
                       _expiresAt != null
                           ? 'Change: ${_formatDateTime(_expiresAt!)}'
@@ -399,7 +400,7 @@ class _OptionColorDot extends StatelessWidget {
                     ),
                     child: hex == null
                         ? Icon(
-                            Icons.block,
+                            AppIcons.block,
                             size: 16,
                             color: theme.colorScheme.onSurfaceVariant,
                           )
@@ -420,7 +421,7 @@ class _OptionColorDot extends StatelessWidget {
         ),
         child: colorHex == null
             ? Icon(
-                Icons.palette_outlined,
+                AppIcons.paletteOutlined,
                 size: 14,
                 color: theme.colorScheme.onSurfaceVariant,
               )

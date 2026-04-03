@@ -131,7 +131,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 ListTile(
-                                  leading: const Icon(AppIcons.photoLibrary),
+                                  leading: Icon(AppIcons.photoLibrary),
                                   title: const Text('Change avatar'),
                                   onTap: () {
                                     Navigator.of(ctx).pop();
@@ -198,7 +198,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            icon: const Icon(AppIcons.check, size: 20),
+                            icon: Icon(AppIcons.check, size: 20),
                             onPressed: _saveSystemName,
                             visualDensity: VisualDensity.compact,
                           ),
@@ -278,7 +278,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           ),
                           const SizedBox(width: 4),
                           IconButton(
-                            icon: const Icon(AppIcons.check, size: 20),
+                            icon: Icon(AppIcons.check, size: 20),
                             onPressed: _saveDescription,
                             visualDensity: VisualDensity.compact,
                           ),

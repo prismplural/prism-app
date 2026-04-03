@@ -79,7 +79,7 @@ class DeviceManagementScreen extends ConsumerWidget {
                   ),
                 ),
                 if (otherDevices.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 32),
                     child: EmptyState(
                       icon: Icon(AppIcons.devices, size: 48),
@@ -309,7 +309,7 @@ class _DeviceTile extends StatelessWidget {
           trailing: isCurrent
               ? null
               : IconButton(
-                  icon: const Icon(AppIcons.removeCircleOutline),
+                  icon: Icon(AppIcons.removeCircleOutline),
                   tooltip: 'Revoke device',
                   color: theme.colorScheme.error,
                   onPressed: onRevoke,

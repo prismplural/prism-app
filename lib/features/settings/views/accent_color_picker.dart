@@ -221,7 +221,7 @@ class _ColorCircle extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               )
             : isSelected
-                ? const Icon(AppIcons.check, size: 20, color: AppColors.warmWhite)
+                ? Icon(AppIcons.check, size: 20, color: AppColors.warmWhite)
                 : null,
       ),
     );

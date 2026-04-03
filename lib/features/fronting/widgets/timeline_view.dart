@@ -115,7 +115,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
               final sleepSessions = data.sleepSessions;
               if (rows.isEmpty && sleepSessions.isEmpty) {
                 return EmptyState(
-                  icon: AppIcons.timelineRounded,
+                  icon: Icon(AppIcons.timelineRounded),
                   title: 'No fronting history',
                   subtitle:
                       'Start a fronting session to see it appear on the timeline.',

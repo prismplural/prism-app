@@ -143,7 +143,7 @@ class _CategoryEntry {
   final Color color;
 }
 
-const _granularCategories = [
+final _granularCategories = [
   _CategoryEntry(ResetCategory.members, AppIcons.peopleOutline, Colors.blue),
   _CategoryEntry(ResetCategory.fronting, AppIcons.swapHoriz, Colors.purple),
   _CategoryEntry(ResetCategory.chat, AppIcons.chatBubbleOutline, Colors.teal),
