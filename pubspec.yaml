@@ -84,6 +84,7 @@ dependencies:
   crypto: ^3.0.6
   hashlib: ^1.19.2
   local_auth: ^3.0.0
+  phosphor_flutter: ^2.1.0
 
 dev_dependencies:
   flutter_test:
@@ -110,6 +111,12 @@ flutter:
   assets:
     - assets/textures/
   fonts:
+    - family: Unbounded
+      fonts:
+        - asset: assets/fonts/Unbounded-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Unbounded-ExtraBold.ttf
+          weight: 800
     - family: OpenDyslexic
       fonts:
         - asset: assets/fonts/OpenDyslexic-Regular.otf
