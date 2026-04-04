@@ -17,9 +17,10 @@ class AnalyticsDateRangePicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = ref.watch(analyticsRangeProvider);
+    final analyticsRange = ref.watch(analyticsRangeProvider);
     final now = DateTime.now();
-    final selectedDays = range.end.difference(range.start).inDays;
+    final selectedDays =
+        analyticsRange.range.end.difference(analyticsRange.range.start).inDays;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -31,11 +32,14 @@ class AnalyticsDateRangePicker extends ConsumerWidget {
               label: Text(label),
               selected: (selectedDays - days).abs() <= 1,
               onSelected: (_) {
-                ref.read(analyticsRangeProvider.notifier).setRange(
-                    DateTimeRange(
+                final range = DateTimeRange(
                   start: now.subtract(Duration(days: days)),
                   end: now,
-                ));
+                );
+                ref.read(analyticsRangeProvider.notifier).setRange(
+                      range,
+                      isAllTime: days == 3650,
+                    );
               },
             ),
             const SizedBox(width: 8),
@@ -56,7 +60,7 @@ class AnalyticsDateRangePicker extends ConsumerWidget {
       context: context,
       firstDate: DateTime(2020),
       lastDate: now,
-      initialDateRange: ref.read(analyticsRangeProvider),
+      initialDateRange: ref.read(analyticsRangeProvider).range,
     );
     if (picked != null) {
       ref.read(analyticsRangeProvider.notifier).setRange(picked);
