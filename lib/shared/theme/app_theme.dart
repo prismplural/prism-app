@@ -249,6 +249,18 @@ class AppTheme {
         ),
         behavior: SnackBarBehavior.floating,
       ),
+      chipTheme: ChipThemeData(
+        backgroundColor: colors.cardColor,
+        selectedColor: accent.withValues(alpha: 0.15),
+        surfaceTintColor: Colors.transparent,
+        side: BorderSide(color: colors.borderColor, width: 0.5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
+        ),
+        labelStyle: TextStyle(
+          color: colors.isDark ? AppColors.warmWhite : AppColors.warmBlack,
+        ),
+      ),
       tooltipTheme: TooltipThemeData(
         waitDuration: const Duration(milliseconds: 800),
         decoration: BoxDecoration(
