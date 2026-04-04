@@ -55,6 +55,7 @@ _SystemSettings _$SystemSettingsFromJson(
   pinLockEnabled: json['pinLockEnabled'] as bool? ?? false,
   biometricLockEnabled: json['biometricLockEnabled'] as bool? ?? false,
   autoLockDelaySeconds: (json['autoLockDelaySeconds'] as num?)?.toInt() ?? 0,
+  displayFontInAppBar: json['displayFontInAppBar'] as bool? ?? true,
   navBarItems:
       (json['navBarItems'] as List<dynamic>?)
           ?.map((e) => e as String)
@@ -108,6 +109,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'pinLockEnabled': instance.pinLockEnabled,
   'biometricLockEnabled': instance.biometricLockEnabled,
   'autoLockDelaySeconds': instance.autoLockDelaySeconds,
+  'displayFontInAppBar': instance.displayFontInAppBar,
   'navBarItems': instance.navBarItems,
   'navBarOverflowItems': instance.navBarOverflowItems,
   'syncNavigationEnabled': instance.syncNavigationEnabled,

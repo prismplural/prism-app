@@ -39,10 +39,12 @@ usage() {
     echo -e "  ${GREEN}--all${RESET}       All three targets (parallel)"
     echo ""
     echo -e "${BOLD}Options:${RESET}"
+    echo -e "  ${GREEN}--live${RESET}      Live debug mode (hot reload: r, hot restart: R, quit: q)"
     echo -e "  ${GREEN}--release${RESET}   Release mode (default: debug)"
     echo -e "  ${GREEN}--profile${RESET}   Profile mode"
     echo ""
     echo -e "${BOLD}Examples:${RESET}"
+    echo -e "  ${DIM}./build.sh run --mac --live${RESET}"
     echo -e "  ${DIM}./build.sh run --mac${RESET}"
     echo -e "  ${DIM}./build.sh run --android --release${RESET}"
     echo -e "  ${DIM}./build.sh run --all${RESET}"
@@ -146,6 +148,7 @@ cmd_devices() {
 cmd_run() {
     local targets=()
     local mode="debug"
+    local live=false
 
     for arg in "$@"; do
         case "$arg" in
@@ -153,6 +156,7 @@ cmd_run() {
             --android)  targets+=("$ANDROID_DEVICE") ;;
             --iphone)   targets+=("$IPHONE_DEVICE") ;;
             --all)      targets+=("$MACOS_DEVICE" "$ANDROID_DEVICE" "$IPHONE_DEVICE") ;;
+            --live)     live=true; mode="debug" ;;
             --release)  mode="release" ;;
             --profile)  mode="profile" ;;
             *)          echo "Unknown option: $arg"; usage; exit 1 ;;
@@ -177,6 +181,10 @@ cmd_run() {
             "$IPHONE_DEVICE")   name="iPhone" ;;
         esac
         step "Running on $name ($mode)"
+        if $live; then
+            echo -e "  ${DIM}r${RESET} hot reload  ${DIM}R${RESET} hot restart  ${DIM}q${RESET} quit"
+            echo ""
+        fi
         exec flutter run -d "${targets[0]}" $mode_flag
     fi
 

@@ -228,6 +228,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateFontFamily(FontFamily value) async =>
       updateSettings(settings.copyWith(fontFamily: value));
   @override
+  Future<void> updateDisplayFontInAppBar(bool value) async =>
+      updateSettings(settings.copyWith(displayFontInAppBar: value));
+  @override
   Future<void> updatePinLockEnabled(bool value) async =>
       updateSettings(settings.copyWith(pinLockEnabled: value));
   @override

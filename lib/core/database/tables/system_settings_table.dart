@@ -67,6 +67,9 @@ class SystemSettingsTable extends Table {
       boolean().withDefault(const Constant(false))();
   IntColumn get autoLockDelaySeconds =>
       integer().withDefault(const Constant(0))();
+  // Display font in home app bar (device-local)
+  BoolColumn get displayFontInAppBar =>
+      boolean().withDefault(const Constant(true))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   // Stores the user's accent color before switching to Material You
   TextColumn get previousAccentColorHex => text().withDefault(const Constant(''))();

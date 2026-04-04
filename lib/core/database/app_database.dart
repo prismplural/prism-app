@@ -71,7 +71,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 31;
+  int get schemaVersion => 32;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -87,6 +87,12 @@ class AppDatabase extends _$AppDatabase {
         await customStatement('DROP INDEX IF EXISTS idx_sleep_end');
         await _createCurrentIndexes();
         await _createChatMessagesFtsArtifacts();
+      }
+
+      if (from < 32) {
+        await customStatement(
+          'ALTER TABLE system_settings ADD COLUMN display_font_in_app_bar INTEGER NOT NULL DEFAULT 1',
+        );
       }
     },
     onCreate: (migrator) async {

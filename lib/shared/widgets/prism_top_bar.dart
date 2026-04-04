@@ -16,6 +16,7 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.leading,
     this.trailing,
     this.actions,
+    this.titleStyle,
     this.height = PrismTokens.topBarHeight,
     this.horizontalPadding = PrismTokens.topBarPadding,
     this.centerTitle = true,
@@ -34,6 +35,9 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   /// Multiple trailing action widgets, automatically spaced 8px apart.
   final List<Widget>? actions;
+
+  /// Optional override for the title text style.
+  final TextStyle? titleStyle;
 
   final double height;
   final EdgeInsets horizontalPadding;
@@ -63,6 +67,7 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
       title: title,
       subtitle: subtitle,
       centerTitle: centerTitle,
+      titleStyle: titleStyle,
     );
 
     return SafeArea(
@@ -81,7 +86,10 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        _slot(effectiveLeading),
+                        if (effectiveLeading != null)
+                          effectiveLeading
+                        else
+                          _slot(null),
                         const Spacer(),
                         if (effectiveTrailing != null)
                           effectiveTrailing
@@ -141,11 +149,13 @@ class _TitleBlock extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.centerTitle,
+    this.titleStyle,
   });
 
   final String title;
   final String? subtitle;
   final bool centerTitle;
+  final TextStyle? titleStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -160,15 +170,17 @@ class _TitleBlock extends StatelessWidget {
           ? CrossAxisAlignment.center
           : CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: alignment,
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontSize: isDesktop ? 18 : 22,
-            fontWeight: FontWeight.w700,
-            height: 1,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: alignment,
+            style: titleStyle ?? theme.textTheme.headlineLarge?.copyWith(
+              fontSize: isDesktop ? 18 : 22,
+              height: 1,
+            ),
           ),
         ),
         if (subtitle != null) ...[

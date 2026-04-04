@@ -160,6 +160,8 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(false) bool pinLockEnabled,
     @Default(false) bool biometricLockEnabled,
     @Default(0) int autoLockDelaySeconds,
+    // Display font in home app bar (device-local)
+    @Default(true) bool displayFontInAppBar,
     // Nav bar configuration (optionally synced)
     @Default(<String>[]) List<String> navBarItems,
     @Default(<String>[]) List<String> navBarOverflowItems,

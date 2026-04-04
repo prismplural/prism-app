@@ -288,7 +288,9 @@ class SettingsScreen extends ConsumerWidget {
                         Text(
                           settings.systemName ?? 'My System',
                           style: theme.textTheme.headlineMedium?.copyWith(
+                            fontFamily: theme.textTheme.headlineLarge?.fontFamily,
                             fontWeight: FontWeight.bold,
+                            letterSpacing: theme.textTheme.headlineLarge?.letterSpacing ?? 0,
                           ),
                         ),
                         const SizedBox(height: 2),

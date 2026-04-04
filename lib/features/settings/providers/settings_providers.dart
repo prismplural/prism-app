@@ -169,6 +169,11 @@ class SettingsNotifier extends Notifier<void> {
     await repo.updateFontFamily(value);
   }
 
+  Future<void> updateDisplayFontInAppBar(bool value) async {
+    final repo = ref.read(systemSettingsRepositoryProvider);
+    await repo.updateDisplayFontInAppBar(value);
+  }
+
   Future<void> updatePinLockEnabled(bool value) async {
     final repo = ref.read(systemSettingsRepositoryProvider);
     await repo.updatePinLockEnabled(value);
@@ -371,6 +376,14 @@ final systemNameProvider = Provider<String?>((ref) {
   return ref.watch(systemSettingsProvider).whenOrNull(
         data: (s) => s.systemName,
       );
+});
+
+/// Narrow provider for display font in home app bar.
+final displayFontInAppBarProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.displayFontInAppBar,
+          ) ??
+      true;
 });
 
 /// Narrow provider for `syncThemeEnabled` flag.
