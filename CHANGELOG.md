@@ -2,6 +2,22 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.11] - 2026-04-03
+
+### Changed
+- Snapshot encryption now uses AAD binding (sync_id, device_id, epoch, server_seq_at) and Ed25519 signatures, preventing metadata forgery on bootstrap
+- Sync database (prism_sync.db) encrypted at rest via SQLCipher with automatic plaintext-to-encrypted migration
+- Push, snapshot upload, and ack relay routes now require Ed25519 signed requests (previously bearer token only)
+- SignedBatchEnvelope byte fields serialize as base64 strings instead of integer arrays (3x size reduction for snapshots)
+- Device ID validation rejects pipe characters to prevent AAD field confusion
+
+### Added
+- Secure display protection (FLAG_SECURE on Android, secure text field on iOS) for mnemonic, pairing QR, and approval QR screens
+- ScreenSecurityService with ref-counted enable/disable for platform secure display
+- SecureScope widget combining secure display + post-capture screenshot warnings
+- Snapshot bootstrap verifies sender signature and checks relay-reported epoch matches signed epoch
+- Migration backup safety: plaintext DB preserved as .bak until encrypted copy verified
+
 ## [0.2.10] - 2026-04-03
 
 ### Changed
