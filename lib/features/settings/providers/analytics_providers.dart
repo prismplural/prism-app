@@ -51,6 +51,25 @@ final frontingAnalyticsProvider =
   return computeAnalyticsFromRows(sessions, range);
 });
 
+/// Analytics for the period immediately preceding the selected range.
+/// Returns null for "All time" — no meaningful prior period exists.
+final previousPeriodAnalyticsProvider =
+    FutureProvider<FrontingAnalytics?>((ref) async {
+  final dateRange = ref.watch(analyticsRangeProvider);
+  if (dateRange.isAllTime) return null;
+
+  final range = dateRange.range;
+  final duration = range.end.difference(range.start);
+  final prevStart = range.start.subtract(duration);
+  final prevEnd = range.start;
+  final prevRange = DateTimeRange(start: prevStart, end: prevEnd);
+
+  final dao = ref.watch(frontingSessionsDaoProvider);
+  // Use getSessionsInRange (overlap query), NOT getSessionsBetween (start-time only)
+  final sessions = await dao.getSessionsInRange(prevStart, prevEnd);
+  return computeAnalyticsFromRows(sessions, prevRange);
+});
+
 @visibleForTesting
 FrontingAnalytics computeAnalyticsFromRows(
   List<dynamic> rows,
