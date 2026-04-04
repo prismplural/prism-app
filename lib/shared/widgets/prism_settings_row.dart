@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -49,8 +50,8 @@ class PrismSettingsRow extends StatelessWidget {
           icon,
           size: 20,
           color: enabled
-              ? resolvedIconColor
-              : theme.disabledColor.withValues(alpha: 0.9),
+              ? AppColors.warmWhite.withValues(alpha: 0.85)
+              : theme.disabledColor.withValues(alpha: 0.5),
         ),
       ),
     );

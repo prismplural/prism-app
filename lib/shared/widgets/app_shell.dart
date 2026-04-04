@@ -1,6 +1,8 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
@@ -64,7 +66,7 @@ class NavBarInset extends InheritedWidget {
 
 /// Nav bar dimensions.
 const kFloatingNavBarHeight = 64.0;
-const kFloatingNavBarSideMargin = 20.0;
+const kFloatingNavBarSideMargin = 16.0;
 const kFloatingNavBarBottomMargin = 2.0; // Sits close to the iOS home indicator
 
 /// Sidebar dimensions.
@@ -301,7 +303,14 @@ class _AppShellState extends ConsumerState<AppShell>
       final keyboardOpen = mediaQuery.viewInsets.bottom > 0;
       final hideNavBar = keyboardOpen || !isRootTab;
       final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
-      final navBarBottom = kFloatingNavBarBottomMargin + bottomSafeArea;
+
+      // On iOS the full safe area (~34pt) pushes the floating pill too high.
+      // Use a fixed 21pt bottom to sit comfortably above the home indicator.
+      final isApple = defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS;
+      final navBarBottom = isApple && bottomSafeArea > 0
+          ? 21.0
+          : kFloatingNavBarBottomMargin + bottomSafeArea;
       final totalInset = kFloatingNavBarHeight + navBarBottom + 8;
 
       shell = NavBarInset(
@@ -458,10 +467,18 @@ class _FloatingNavBar extends StatefulWidget {
 }
 
 class _FloatingNavBarState extends State<_FloatingNavBar>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _expandController;
   late Animation<double> _expandAnimation;
   bool _expanded = false;
+
+  // Sliding pill indicator for the selected tab.
+  late AnimationController _pillController;
+  static final _pillSpring = SpringDescription.withDampingRatio(
+    mass: 0.8,
+    stiffness: 250.0,
+    ratio: 0.68,
+  );
 
   bool get _needsOverflow => widget.overflowTabs.isNotEmpty;
 
@@ -481,11 +498,33 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
       curve: Curves.easeOutCubic,
       reverseCurve: Curves.easeInCubic,
     );
+    _pillController = AnimationController.unbounded(
+      vsync: this,
+      value: _primaryTabIndex >= 0 ? _primaryTabIndex.toDouble() : 0,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _FloatingNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final idx = _primaryTabIndex;
+    if (idx >= 0 && oldWidget.currentIndex != widget.currentIndex) {
+      final reduceMotion = MediaQuery.of(context).disableAnimations;
+      if (reduceMotion) {
+        _pillController.value = idx.toDouble();
+      } else {
+        final distance = idx.toDouble() - _pillController.value;
+        _pillController.animateWith(
+          SpringSimulation(_pillSpring, _pillController.value, idx.toDouble(), distance * 8),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
     _expandController.dispose();
+    _pillController.dispose();
     super.dispose();
   }
 
@@ -615,6 +654,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                           showSyncBadge: showSyncBadge,
                                           habitsDueCount: dueCount,
                                           chatUnreadCount: chatUnreadCount,
+                                          showItemPill: true,
                                           onTap: () => _handleTap(
                                             widget.primaryTabs.length + i,
                                           ),
@@ -649,34 +689,78 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.only(left: 12, right: 4),
-                        child: Row(
-                          children: [
-                            // 5 primary tab icons
-                            ...List.generate(widget.primaryTabs.length, (i) {
-                              final tab = widget.primaryTabs[i];
-                              final isSelected = i == _primaryTabIndex;
-                              return Expanded(
-                                child: _NavBarItem(
-                                  tab: tab,
-                                  isSelected: isSelected,
-                                  accentColor: widget.accentColor,
-                                  isDark: isDark,
-                                  showSyncBadge: showSyncBadge,
-                                  habitsDueCount: dueCount,
-                                  chatUnreadCount: chatUnreadCount,
-                                  onTap: () => _handleTap(i),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final availableForTabs =
+                                constraints.maxWidth - _kMoreButtonWidth;
+                            final segWidth =
+                                availableForTabs / widget.primaryTabs.length;
+                            final pillColor = isDark
+                                ? AppColors.warmWhite.withValues(alpha: 0.15)
+                                : AppColors.warmBlack.withValues(alpha: 0.08);
+
+                            final pillWidth = segWidth - 16;
+                            return Stack(
+                              children: [
+                                // Sliding pill (hidden when overflow tab selected)
+                                if (_primaryTabIndex >= 0)
+                                  AnimatedBuilder(
+                                    animation: _pillController,
+                                    builder: (context, child) {
+                                      return Transform.translate(
+                                        offset: Offset(
+                                          _pillController.value * segWidth + 8,
+                                          0,
+                                        ),
+                                        child: child,
+                                      );
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: pillColor,
+                                          borderRadius:
+                                              BorderRadius.circular(16),
+                                        ),
+                                        child: SizedBox(
+                                            width: pillWidth, height: 32),
+                                      ),
+                                    ),
+                                  ),
+                                Row(
+                                  children: [
+                                    // 5 primary tab icons
+                                    ...List.generate(
+                                        widget.primaryTabs.length, (i) {
+                                      final tab = widget.primaryTabs[i];
+                                      final isSelected = i == _primaryTabIndex;
+                                      return Expanded(
+                                        child: _NavBarItem(
+                                          tab: tab,
+                                          isSelected: isSelected,
+                                          accentColor: widget.accentColor,
+                                          isDark: isDark,
+                                          showSyncBadge: showSyncBadge,
+                                          habitsDueCount: dueCount,
+                                          chatUnreadCount: chatUnreadCount,
+                                          onTap: () => _handleTap(i),
+                                        ),
+                                      );
+                                    }),
+                                    // Compact More/close trigger on trailing edge
+                                    _MoreTrigger(
+                                      expanded: _expanded || overflowSelected,
+                                      animationValue: t,
+                                      accentColor: widget.accentColor,
+                                      isDark: isDark,
+                                      onTap: _toggleExpand,
+                                    ),
+                                  ],
                                 ),
-                              );
-                            }),
-                            // Compact More/close trigger on trailing edge
-                            _MoreTrigger(
-                              expanded: _expanded || overflowSelected,
-                              animationValue: t,
-                              accentColor: widget.accentColor,
-                              isDark: isDark,
-                              onTap: _toggleExpand,
-                            ),
-                          ],
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -736,6 +820,13 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     required String terminologyPlural,
   }) {
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
+    final tabCount = widget.primaryTabs.length;
+
+    // Pill colors
+    final pillColor = isDark
+        ? AppColors.warmWhite.withValues(alpha: 0.15)
+        : AppColors.warmBlack.withValues(alpha: 0.08);
+
     return Semantics(
       container: true,
       label: 'Navigation bar',
@@ -751,25 +842,60 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
             decoration: _barDecoration(isDark, isOled, _collapsedRadius),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(widget.primaryTabs.length, (index) {
-                  final tab = widget.primaryTabs[index];
-                  final isSelected = index == widget.currentIndex;
-                  return Expanded(
-                    child: _NavBarItem(
-                      tab: tab,
-                      terminologyPlural: terminologyPlural,
-                      isSelected: isSelected,
-                      accentColor: widget.accentColor,
-                      isDark: isDark,
-                      showSyncBadge: showSyncBadge,
-                      habitsDueCount: dueCount,
-                      chatUnreadCount: chatUnreadCount,
-                      onTap: () => widget.onTap(index),
-                    ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final segmentWidth = constraints.maxWidth / tabCount;
+                  final pillWidth = segmentWidth - 16;
+                  return Stack(
+                    children: [
+                      // Sliding pill — uses Transform.translate (paint-only,
+                      // no layout pass) for smooth 60fps on low-end devices.
+                      AnimatedBuilder(
+                        animation: _pillController,
+                        builder: (context, child) {
+                          return Transform.translate(
+                            offset: Offset(
+                              _pillController.value * segmentWidth + 8,
+                              0,
+                            ),
+                            child: child,
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: pillColor,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: SizedBox(width: pillWidth, height: 32),
+                          ),
+                        ),
+                      ),
+                      // Tab items
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(tabCount, (index) {
+                          final tab = widget.primaryTabs[index];
+                          final isSelected = index == widget.currentIndex;
+                          return Expanded(
+                            child: _NavBarItem(
+                              tab: tab,
+                              terminologyPlural: terminologyPlural,
+                              isSelected: isSelected,
+                              accentColor: widget.accentColor,
+                              isDark: isDark,
+                              showSyncBadge: showSyncBadge,
+                              habitsDueCount: dueCount,
+                              chatUnreadCount: chatUnreadCount,
+                              onTap: () => widget.onTap(index),
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
                   );
-                }),
+                },
               ),
             ),
           ),
@@ -839,6 +965,7 @@ class _NavBarItem extends StatelessWidget {
     required this.habitsDueCount,
     required this.chatUnreadCount,
     required this.onTap,
+    this.showItemPill = false,
   });
 
   final AppShellTab? tab;
@@ -853,6 +980,9 @@ class _NavBarItem extends StatelessWidget {
   final int habitsDueCount;
   final int chatUnreadCount;
   final VoidCallback onTap;
+
+  /// When true, render a per-item pill behind the icon (for overflow row).
+  final bool showItemPill;
 
   @override
   Widget build(BuildContext context) {
@@ -897,28 +1027,30 @@ class _NavBarItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              padding: EdgeInsets.symmetric(
-                horizontal: isSelected ? 14 : 8,
-                vertical: 4,
+            SizedBox(
+              height: 32,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                width: showItemPill && isSelected ? 56 : 40,
+                alignment: Alignment.center,
+                decoration: showItemPill
+                    ? BoxDecoration(
+                        color: isSelected
+                            ? (isDark
+                                  ? AppColors.warmWhite.withValues(alpha: 0.15)
+                                  : AppColors.warmBlack.withValues(alpha: 0.08))
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                      )
+                    : null,
+                child: iconWidget,
               ),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? (isDark
-                          ? AppColors.warmWhite.withValues(alpha: 0.15)
-                          : AppColors.warmBlack.withValues(alpha: 0.08))
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: iconWidget,
             ),
-            const SizedBox(height: 2),
             Text(
               itemLabel,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected
                     ? (isDark ? AppColors.warmWhite : AppColors.warmBlack)

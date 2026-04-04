@@ -41,74 +41,64 @@ class AppearanceSettingsScreen extends ConsumerWidget {
           children: [
             PrismSection(
               title: 'Brightness',
-              child: PrismSectionCard(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: PrismSegmentedControl<ThemeBrightness>(
-                    segments: ThemeBrightness.values
-                        .map(
-                          (b) => PrismSegment(
-                            value: b,
-                            label: b.displayName,
-                          ),
-                        )
-                        .toList(),
-                    selected: settings.themeBrightness,
-                    onChanged: (value) {
-                      ref
-                          .read(settingsNotifierProvider.notifier)
-                          .updateThemeBrightness(value);
-                    },
-                  ),
-                ),
+              child: PrismSegmentedControl<ThemeBrightness>(
+                segments: ThemeBrightness.values
+                    .map(
+                      (b) => PrismSegment(
+                        value: b,
+                        label: b.displayName,
+                      ),
+                    )
+                    .toList(),
+                selected: settings.themeBrightness,
+                onChanged: (value) {
+                  ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateThemeBrightness(value);
+                },
               ),
             ),
             PrismSection(
               title: 'Style',
-              child: PrismSectionCard(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      PrismSegmentedControl<ThemeStyle>(
-                        segments: ThemeStyle.values
-                            .where((s) {
-                              if (s == ThemeStyle.materialYou) {
-                                return defaultTargetPlatform ==
-                                    TargetPlatform.android;
-                              }
-                              return true;
-                            })
-                            .map(
-                              (s) => PrismSegment(
-                                value: s,
-                                label: s.displayName,
-                              ),
-                            )
-                            .toList(),
-                        selected: settings.themeStyle,
-                        onChanged: (value) {
-                          ref
-                              .read(settingsNotifierProvider.notifier)
-                              .handleThemeStyleChange(value);
-                        },
-                      ),
-                      if (settings.themeStyle == ThemeStyle.materialYou) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          'Uses your system color palette',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.5),
-                              ),
-                        ),
-                      ],
-                    ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  PrismSegmentedControl<ThemeStyle>(
+                    segments: ThemeStyle.values
+                        .where((s) {
+                          if (s == ThemeStyle.materialYou) {
+                            return defaultTargetPlatform ==
+                                TargetPlatform.android;
+                          }
+                          return true;
+                        })
+                        .map(
+                          (s) => PrismSegment(
+                            value: s,
+                            label: s.displayName,
+                          ),
+                        )
+                        .toList(),
+                    selected: settings.themeStyle,
+                    onChanged: (value) {
+                      ref
+                          .read(settingsNotifierProvider.notifier)
+                          .handleThemeStyleChange(value);
+                    },
                   ),
-                ),
+                  if (settings.themeStyle == ThemeStyle.materialYou) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Uses your system color palette',
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onSurface.withValues(alpha: 0.5),
+                          ),
+                    ),
+                  ],
+                ],
               ),
             ),
             PrismSection(
