@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -288,3 +287,141 @@ void _addTimeBuckets(
     cursor = chunkEnd;
   }
 }
+
+/// Generates insight cards from current and (optionally) prior period analytics.
+/// Exported for testing.
+@visibleForTesting
+List<AnalyticsInsight> computeInsights(
+  FrontingAnalytics current,
+  FrontingAnalytics? previous,
+) {
+  final insights = <AnalyticsInsight>[];
+
+  // 1. Gap Alert — single window, no prior period needed
+  final totalRangeMinutes =
+      current.rangeEnd.difference(current.rangeStart).inMinutes;
+  if (totalRangeMinutes > 0) {
+    final gapPct = current.totalGapTime.inMinutes / totalRangeMinutes;
+    if (gapPct > 0.25) {
+      insights.add(AnalyticsInsight(
+        type: AnalyticsInsightType.gapAlert,
+        iconType: AnalyticsInsightIconType.clockCountdown,
+        headline: '${_fmtDuration(current.totalGapTime)} untracked this period',
+        body:
+            '${(gapPct * 100).round()}% of the time wasn\'t logged.',
+        signalStrength: 80,
+      ));
+    }
+  }
+
+  // Co-Fronting Highlight — single window (pair data lives in current)
+  if (current.topCoFrontingPairs.isNotEmpty) {
+    final top = current.topCoFrontingPairs.first;
+    insights.add(AnalyticsInsight(
+      type: AnalyticsInsightType.coFrontingHighlight,
+      iconType: AnalyticsInsightIconType.usersThree,
+      headline: 'Two members co-fronted a lot this period',
+      body: '${_fmtDuration(top.totalTime)} together.',
+      signalStrength: 30,
+    ));
+  }
+
+  if (previous != null) {
+    // 2. Quiet Member — appeared in previous but absent in current
+    final currentIds =
+        current.memberStats.map((m) => m.memberId).toSet();
+    final quietMembers = previous.memberStats
+        .where((m) => !currentIds.contains(m.memberId))
+        .toList();
+    if (quietMembers.isNotEmpty) {
+      insights.add(const AnalyticsInsight(
+        type: AnalyticsInsightType.quietMember,
+        iconType: AnalyticsInsightIconType.moonStars,
+        headline: 'One member hasn\'t fronted this period',
+        body: 'They were active in the last one.',
+        signalStrength: 70,
+      ));
+    }
+
+    // 3. Session Drift — avg duration changed ≥25%, prior period must have ≥2 sessions
+    for (final curr in current.memberStats) {
+      final prev = previous.memberStats
+          .where((m) => m.memberId == curr.memberId)
+          .firstOrNull;
+      if (prev == null || prev.sessionCount < 2) continue;
+      final prevAvgMin = prev.averageDuration.inMinutes;
+      if (prevAvgMin == 0) continue;
+      final change =
+          (curr.averageDuration.inMinutes - prevAvgMin) / prevAvgMin;
+      if (change.abs() >= 0.25) {
+        final longer = change > 0;
+        insights.add(AnalyticsInsight(
+          type: AnalyticsInsightType.sessionDrift,
+          iconType: AnalyticsInsightIconType.arrowsHorizontal,
+          headline:
+              'Session lengths are ${longer ? "longer" : "shorter"} for a member',
+          body:
+              '${_fmtDuration(curr.averageDuration)} avg, ${longer ? "up" : "down"} from ${_fmtDuration(prev.averageDuration)}.',
+          signalStrength: 60,
+        ));
+        break; // surface at most one drift insight
+      }
+    }
+
+    // 5. Time-of-Day Shift — modal bucket changed vs prior period
+    for (final curr in current.memberStats) {
+      final prev = previous.memberStats
+          .where((m) => m.memberId == curr.memberId)
+          .firstOrNull;
+      if (prev == null) continue;
+      final currModal = _modalBucket(curr.timeOfDayBreakdown);
+      final prevModal = _modalBucket(prev.timeOfDayBreakdown);
+      if (currModal != null && prevModal != null && currModal != prevModal) {
+        final isNightward = currModal == 'evening' || currModal == 'night';
+        insights.add(AnalyticsInsight(
+          type: AnalyticsInsightType.timeOfDayShift,
+          iconType: isNightward
+              ? AnalyticsInsightIconType.moon
+              : AnalyticsInsightIconType.sun,
+          headline: 'A member\'s fronting time of day shifted',
+          body:
+              'Mostly ${_bucketLabel(currModal)} lately — ${_bucketLabel(prevModal)} is more typical.',
+          signalStrength: 40,
+        ));
+        break; // surface at most one shift insight
+      }
+    }
+  }
+
+  insights.sort((a, b) => b.signalStrength.compareTo(a.signalStrength));
+  return insights.take(3).toList();
+}
+
+String _fmtDuration(Duration d) {
+  if (d.inDays > 0) return '${d.inDays}d ${d.inHours % 24}h';
+  if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
+  return '${d.inMinutes}m';
+}
+
+String? _modalBucket(Map<String, int> breakdown) {
+  if (breakdown.isEmpty) return null;
+  return breakdown.entries
+      .reduce((a, b) => a.value >= b.value ? a : b)
+      .key;
+}
+
+String _bucketLabel(String bucket) => switch (bucket) {
+      'morning' => 'mornings',
+      'afternoon' => 'afternoons',
+      'evening' => 'evenings',
+      'night' => 'nights',
+      _ => bucket,
+    };
+
+/// Auto-generated insight cards for the analytics screen.
+final analyticsInsightsProvider =
+    FutureProvider<List<AnalyticsInsight>>((ref) async {
+  final current = await ref.watch(frontingAnalyticsProvider.future);
+  final previous = await ref.watch(previousPeriodAnalyticsProvider.future);
+  return computeInsights(current, previous);
+});
