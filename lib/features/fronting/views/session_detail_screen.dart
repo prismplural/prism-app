@@ -42,7 +42,7 @@ class SessionDetailScreen extends ConsumerWidget {
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: isSleep ? 'Sleep Details' : 'Session Details',
+        title: '',
         showBackButton: true,
         actions: session == null
             ? const []
