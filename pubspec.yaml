@@ -66,6 +66,7 @@ dependencies:
   dynamic_color: ^1.8.1
   flutter_colorpicker: ^1.1.0
   emoji_picker_flutter: ^4.4.0
+  fl_chart: ^0.68.0
 
   # Rust sync library
   prism_sync:
