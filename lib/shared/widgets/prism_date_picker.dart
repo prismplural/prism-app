@@ -14,6 +14,7 @@ Future<DateTime?> showPrismDatePicker({
   required DateTime initialDate,
   DateTime? firstDate,
   DateTime? lastDate,
+  DatePickerMode initialDatePickerMode = DatePickerMode.day,
 }) {
   final isApple = defaultTargetPlatform == TargetPlatform.iOS ||
       defaultTargetPlatform == TargetPlatform.macOS;
@@ -32,6 +33,7 @@ Future<DateTime?> showPrismDatePicker({
     initialDate: initialDate,
     firstDate: firstDate ?? DateTime(1900),
     lastDate: lastDate ?? DateTime(2100),
+    initialDatePickerMode: initialDatePickerMode,
   );
 }
 

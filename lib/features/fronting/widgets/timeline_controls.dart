@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 
 /// Control bar for the timeline with zoom and navigation buttons.
 class TimelineControls extends ConsumerWidget {
@@ -83,7 +84,7 @@ class TimelineControls extends ConsumerWidget {
   }
 
   Future<void> _pickDate(BuildContext context, WidgetRef ref) async {
-    final picked = await showDatePicker(
+    final picked = await showPrismDatePicker(
       context: context,
       initialDate: DateTime.now(),
       firstDate: DateTime(2020),

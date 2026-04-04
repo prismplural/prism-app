@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 class CreateReminderSheet extends ConsumerStatefulWidget {
   const CreateReminderSheet({
@@ -152,7 +153,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                     label: 'Time',
                     child: TextButton(
                       onPressed: () async {
-                        final picked = await showTimePicker(
+                        final picked = await showPrismTimePicker(
                           context: context,
                           initialTime: _timeOfDay ?? const TimeOfDay(hour: 9, minute: 0),
                         );

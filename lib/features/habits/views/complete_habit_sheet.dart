@@ -13,6 +13,8 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 class CompleteHabitSheet extends ConsumerStatefulWidget {
   const CompleteHabitSheet({super.key, required this.habit, this.scrollController});
@@ -150,7 +152,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
   }
 
   Future<void> _pickDateTime() async {
-    final date = await showDatePicker(
+    final date = await showPrismDatePicker(
       context: context,
       initialDate: _completedAt,
       firstDate: DateTime(2020),
@@ -158,7 +160,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
     );
     if (date == null || !mounted) return;
 
-    final time = await showTimePicker(
+    final time = await showPrismTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_completedAt),
     );

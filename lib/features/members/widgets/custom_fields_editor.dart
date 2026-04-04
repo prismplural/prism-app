@@ -8,6 +8,8 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 /// Inline editor for custom field values on the member edit sheet.
 ///
@@ -283,7 +285,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       case DatePrecision.full:
       case DatePrecision.monthYear:
       case DatePrecision.year:
-        final picked = await showDatePicker(
+        final picked = await showPrismDatePicker(
           context: context,
           initialDate: initial,
           firstDate: DateTime(1900),
@@ -300,7 +302,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
         }
 
       case DatePrecision.monthDay:
-        final picked = await showDatePicker(
+        final picked = await showPrismDatePicker(
           context: context,
           initialDate: initial,
           firstDate: DateTime(2000, 1, 1),
@@ -314,7 +316,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
         }
 
       case DatePrecision.month:
-        final picked = await showDatePicker(
+        final picked = await showPrismDatePicker(
           context: context,
           initialDate: initial,
           firstDate: DateTime(2000, 1, 1),
@@ -328,14 +330,14 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
         }
 
       case DatePrecision.timestamp:
-        final pickedDate = await showDatePicker(
+        final pickedDate = await showPrismDatePicker(
           context: context,
           initialDate: initial,
           firstDate: DateTime(1900),
           lastDate: DateTime(2100),
         );
         if (pickedDate != null && mounted) {
-          final pickedTime = await showTimePicker(
+          final pickedTime = await showPrismTimePicker(
             context: context,
             initialTime: TimeOfDay.fromDateTime(initial),
           );
