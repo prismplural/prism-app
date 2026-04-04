@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// A toggle row with consistent Prism styling.
 ///
-/// Wraps [SwitchListTile] with optional icon container treatment matching
-/// the settings screen pattern.
+/// Uses [PrismListRow] with [Switch.adaptive] for platform-correct toggle
+/// appearance (CupertinoSwitch on iOS, Material Switch on Android).
 class PrismSwitchRow extends StatelessWidget {
   const PrismSwitchRow({
     super.key,
@@ -32,12 +33,16 @@ class PrismSwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SwitchListTile(
+    return PrismListRow(
       title: Text(title),
       subtitle: subtitle != null ? Text(subtitle!) : null,
-      value: value,
-      onChanged: enabled ? onChanged : null,
-      secondary: icon != null ? _IconCircle(icon: icon!, color: iconColor) : null,
+      leading: icon != null ? _IconCircle(icon: icon!, color: iconColor) : null,
+      trailing: Switch.adaptive(
+        value: value,
+        onChanged: enabled ? onChanged : null,
+      ),
+      onTap: enabled ? () => onChanged(!value) : null,
+      enabled: enabled,
     );
   }
 }
