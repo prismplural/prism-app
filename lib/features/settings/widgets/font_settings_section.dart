@@ -6,6 +6,8 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 
 /// Font family and scale controls for the appearance settings screen.
 class FontSettingsSection extends ConsumerWidget {
@@ -36,18 +38,17 @@ class FontSettingsSection extends ConsumerWidget {
             children: [
               const SizedBox(height: 6),
               // Font family selector
-              SegmentedButton<FontFamily>(
+              PrismSegmentedControl<FontFamily>(
                 segments: FontFamily.values
                     .map(
-                      (f) => ButtonSegment<FontFamily>(
+                      (f) => PrismSegment(
                         value: f,
-                        label: Text(f.displayName),
+                        label: f.displayName,
                       ),
                     )
                     .toList(),
-                selected: {fontFamily},
-                onSelectionChanged: (selected) {
-                  final newFamily = selected.first;
+                selected: fontFamily,
+                onChanged: (newFamily) {
                   ref
                       .read(settingsNotifierProvider.notifier)
                       .updateFontFamily(newFamily);
@@ -134,6 +135,16 @@ class FontSettingsSection extends ConsumerWidget {
                 ),
               ],
               const SizedBox(height: 6),
+              PrismSwitchRow(
+                title: 'Use display font',
+                subtitle: 'Use Unbounded for titles and headings',
+                value: settings.displayFontInAppBar,
+                onChanged: (value) {
+                  ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateDisplayFontInAppBar(value);
+                },
+              ),
             ],
           ),
         ),

@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -162,16 +163,15 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                   padding: EdgeInsets.only(top: 8, bottom: 8),
                 ),
                 const SizedBox(height: 8),
-                SegmentedButton<HabitFrequency>(
+                PrismSegmentedControl<HabitFrequency>(
                   segments: HabitFrequency.values
-                      .map((f) => ButtonSegment(
+                      .map((f) => PrismSegment(
                           value: f,
-                          label: Text(f.label),
-                          tooltip: '${f.label} frequency'))
+                          label: f.label))
                       .toList(),
-                  selected: {_frequency},
-                  onSelectionChanged: (v) =>
-                      setState(() => _frequency = v.first),
+                  selected: _frequency,
+                  onChanged: (value) =>
+                      setState(() => _frequency = value),
                 ),
                 const SizedBox(height: 12),
                 if (_frequency == HabitFrequency.weekly)

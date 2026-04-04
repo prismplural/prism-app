@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitize
 import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/ui/gap_resolution_dialog.dart';
 import 'package:prism_plurality/features/fronting/ui/overlap_resolution_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -565,23 +566,15 @@ class _ConfidenceEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SegmentedButton<FrontConfidence>(
+    return PrismSegmentedControl<FrontConfidence>(
       segments: FrontConfidence.values.map((c) {
-        return ButtonSegment<FrontConfidence>(
+        return PrismSegment(
           value: c,
-          label: Text(_labels[c]!),
+          label: _labels[c]!,
         );
       }).toList(),
-      selected: selected != null ? {selected!} : {},
-      emptySelectionAllowed: true,
-      onSelectionChanged: (values) {
-        onSelect(values.isEmpty ? null : values.first);
-      },
-      showSelectedIcon: false,
-      style: const ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+      selected: selected ?? FrontConfidence.unsure,
+      onChanged: onSelect,
     );
   }
 }

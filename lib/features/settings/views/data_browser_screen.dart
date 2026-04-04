@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 
 /// Raw data inspector for browsing database records.
 ///
@@ -46,45 +47,18 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
           // Table selector
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SegmentedButton<_DataTable>(
+            child: PrismSegmentedControl<_DataTable>(
               segments: [
-                ButtonSegment(
-                  value: _DataTable.members,
-                  label: Text('Members'),
-                  icon: Icon(AppIcons.peopleOutline),
-                ),
-                ButtonSegment(
-                  value: _DataTable.sessions,
-                  label: Text('Sessions'),
-                  icon: Icon(AppIcons.history),
-                ),
-                ButtonSegment(
-                  value: _DataTable.conversations,
-                  label: Text('Chats'),
-                  icon: Icon(AppIcons.chatBubbleOutline),
-                ),
-                ButtonSegment(
-                  value: _DataTable.messages,
-                  label: Text('Msgs'),
-                  icon: Icon(AppIcons.messageOutlined),
-                ),
-                ButtonSegment(
-                  value: _DataTable.polls,
-                  label: Text('Polls'),
-                  icon: Icon(AppIcons.pollOutlined),
-                ),
+                const PrismSegment(value: _DataTable.members, label: 'Members'),
+                const PrismSegment(value: _DataTable.sessions, label: 'Sessions'),
+                const PrismSegment(value: _DataTable.conversations, label: 'Chats'),
+                const PrismSegment(value: _DataTable.messages, label: 'Msgs'),
+                const PrismSegment(value: _DataTable.polls, label: 'Polls'),
               ],
-              selected: {_selectedTable},
-              onSelectionChanged: (selected) {
-                setState(() => _selectedTable = selected.first);
+              selected: _selectedTable,
+              onChanged: (value) {
+                setState(() => _selectedTable = value);
               },
-              showSelectedIcon: false,
-              style: ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                textStyle: WidgetStatePropertyAll(
-                  Theme.of(context).textTheme.labelSmall,
-                ),
-              ),
             ),
           ),
 

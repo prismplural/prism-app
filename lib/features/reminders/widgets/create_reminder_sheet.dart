@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 class CreateReminderSheet extends ConsumerStatefulWidget {
@@ -111,21 +112,19 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                 // Trigger type
                 Text('Trigger', style: theme.textTheme.labelLarge),
                 const SizedBox(height: 8),
-                SegmentedButton<ReminderTrigger>(
+                PrismSegmentedControl<ReminderTrigger>(
                   segments: [
-                    ButtonSegment(
+                    const PrismSegment(
                       value: ReminderTrigger.scheduled,
-                      label: Text('Scheduled'),
-                      icon: Icon(AppIcons.schedule),
+                      label: 'Scheduled',
                     ),
-                    ButtonSegment(
+                    const PrismSegment(
                       value: ReminderTrigger.onFrontChange,
-                      label: Text('Front Change'),
-                      icon: Icon(AppIcons.swapHorizRounded),
+                      label: 'Front Change',
                     ),
                   ],
-                  selected: {_trigger},
-                  onSelectionChanged: (s) => setState(() => _trigger = s.first),
+                  selected: _trigger,
+                  onChanged: (value) => setState(() => _trigger = value),
                 ),
                 const SizedBox(height: 16),
 

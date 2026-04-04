@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 
 /// A segmented button widget for picking the PluralKit sync direction.
 class PkSyncDirectionPicker extends StatelessWidget {
@@ -16,31 +16,14 @@ class PkSyncDirectionPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SegmentedButton<PkSyncDirection>(
+    return PrismSegmentedControl<PkSyncDirection>(
       segments: [
-        ButtonSegment(
-          value: PkSyncDirection.pullOnly,
-          label: Text('Pull'),
-          icon: Icon(AppIcons.download, size: 18),
-        ),
-        ButtonSegment(
-          value: PkSyncDirection.bidirectional,
-          label: Text('Both'),
-          icon: Icon(AppIcons.sync, size: 18),
-        ),
-        ButtonSegment(
-          value: PkSyncDirection.pushOnly,
-          label: Text('Push'),
-          icon: Icon(AppIcons.upload, size: 18),
-        ),
+        const PrismSegment(value: PkSyncDirection.pullOnly, label: 'Pull'),
+        const PrismSegment(value: PkSyncDirection.bidirectional, label: 'Both'),
+        const PrismSegment(value: PkSyncDirection.pushOnly, label: 'Push'),
       ],
-      selected: {selected},
-      onSelectionChanged: (selection) {
-        if (selection.isNotEmpty) {
-          onChanged(selection.first);
-        }
-      },
-      showSelectedIcon: false,
+      selected: selected,
+      onChanged: onChanged,
     );
   }
 }

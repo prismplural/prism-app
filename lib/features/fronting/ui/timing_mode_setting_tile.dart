@@ -3,10 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 
-/// A settings tile with a [SegmentedButton] for choosing the fronting timing
-/// mode (Flexible / Strict).
+/// A settings tile for choosing the fronting timing mode (Flexible / Strict).
 class TimingModeSettingTile extends ConsumerWidget {
   const TimingModeSettingTile({super.key});
 
@@ -36,30 +35,23 @@ class TimingModeSettingTile extends ConsumerWidget {
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: SegmentedButton<FrontingTimingMode>(
+            child: PrismSegmentedControl<FrontingTimingMode>(
               segments: [
-                ButtonSegment(
+                const PrismSegment(
                   value: FrontingTimingMode.flexible,
-                  label: Text('Flexible'),
-                  icon: Icon(AppIcons.tune, size: 18),
+                  label: 'Flexible',
                 ),
-                ButtonSegment(
+                const PrismSegment(
                   value: FrontingTimingMode.strict,
-                  label: Text('Strict'),
-                  icon: Icon(AppIcons.lockClock, size: 18),
+                  label: 'Strict',
                 ),
               ],
-              selected: {timingMode},
-              onSelectionChanged: (values) {
+              selected: timingMode,
+              onChanged: (value) {
                 ref
                     .read(settingsNotifierProvider.notifier)
-                    .updateTimingMode(values.first);
+                    .updateTimingMode(value);
               },
-              showSelectedIcon: false,
-              style: const ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
             ),
           ),
           const SizedBox(height: 8),
