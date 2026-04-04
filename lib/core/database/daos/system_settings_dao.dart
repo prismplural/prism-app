@@ -136,6 +136,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateFontFamily(int value) =>
       _updateField(SystemSettingsTableCompanion(fontFamily: Value(value)));
 
+  Future<void> updateDisplayFontInAppBar(bool value) =>
+      _updateField(
+          SystemSettingsTableCompanion(displayFontInAppBar: Value(value)));
+
   Future<void> updatePinLockEnabled(bool value) =>
       _updateField(
           SystemSettingsTableCompanion(pinLockEnabled: Value(value)));

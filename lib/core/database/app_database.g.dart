@@ -3825,6 +3825,20 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _displayFontInAppBarMeta =
+      const VerificationMeta('displayFontInAppBar');
+  @override
+  late final GeneratedColumn<bool> displayFontInAppBar = GeneratedColumn<bool>(
+    'display_font_in_app_bar',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("display_font_in_app_bar" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -3937,6 +3951,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     pinLockEnabled,
     biometricLockEnabled,
     autoLockDelaySeconds,
+    displayFontInAppBar,
     isDeleted,
     previousAccentColorHex,
     navBarItems,
@@ -4220,6 +4235,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('display_font_in_app_bar')) {
+      context.handle(
+        _displayFontInAppBarMeta,
+        displayFontInAppBar.isAcceptableOrUnknown(
+          data['display_font_in_app_bar']!,
+          _displayFontInAppBarMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -4408,6 +4432,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}auto_lock_delay_seconds'],
       )!,
+      displayFontInAppBar: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}display_font_in_app_bar'],
+      )!,
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -4475,6 +4503,7 @@ class SystemSettingsData extends DataClass
   final bool pinLockEnabled;
   final bool biometricLockEnabled;
   final int autoLockDelaySeconds;
+  final bool displayFontInAppBar;
   final bool isDeleted;
   final String previousAccentColorHex;
   final String navBarItems;
@@ -4514,6 +4543,7 @@ class SystemSettingsData extends DataClass
     required this.pinLockEnabled,
     required this.biometricLockEnabled,
     required this.autoLockDelaySeconds,
+    required this.displayFontInAppBar,
     required this.isDeleted,
     required this.previousAccentColorHex,
     required this.navBarItems,
@@ -4574,6 +4604,7 @@ class SystemSettingsData extends DataClass
     map['pin_lock_enabled'] = Variable<bool>(pinLockEnabled);
     map['biometric_lock_enabled'] = Variable<bool>(biometricLockEnabled);
     map['auto_lock_delay_seconds'] = Variable<int>(autoLockDelaySeconds);
+    map['display_font_in_app_bar'] = Variable<bool>(displayFontInAppBar);
     map['is_deleted'] = Variable<bool>(isDeleted);
     map['previous_accent_color_hex'] = Variable<String>(previousAccentColorHex);
     map['nav_bar_items'] = Variable<String>(navBarItems);
@@ -4627,6 +4658,7 @@ class SystemSettingsData extends DataClass
       pinLockEnabled: Value(pinLockEnabled),
       biometricLockEnabled: Value(biometricLockEnabled),
       autoLockDelaySeconds: Value(autoLockDelaySeconds),
+      displayFontInAppBar: Value(displayFontInAppBar),
       isDeleted: Value(isDeleted),
       previousAccentColorHex: Value(previousAccentColorHex),
       navBarItems: Value(navBarItems),
@@ -4698,6 +4730,9 @@ class SystemSettingsData extends DataClass
       autoLockDelaySeconds: serializer.fromJson<int>(
         json['autoLockDelaySeconds'],
       ),
+      displayFontInAppBar: serializer.fromJson<bool>(
+        json['displayFontInAppBar'],
+      ),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       previousAccentColorHex: serializer.fromJson<String>(
         json['previousAccentColorHex'],
@@ -4758,6 +4793,7 @@ class SystemSettingsData extends DataClass
       'pinLockEnabled': serializer.toJson<bool>(pinLockEnabled),
       'biometricLockEnabled': serializer.toJson<bool>(biometricLockEnabled),
       'autoLockDelaySeconds': serializer.toJson<int>(autoLockDelaySeconds),
+      'displayFontInAppBar': serializer.toJson<bool>(displayFontInAppBar),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'previousAccentColorHex': serializer.toJson<String>(
         previousAccentColorHex,
@@ -4802,6 +4838,7 @@ class SystemSettingsData extends DataClass
     bool? pinLockEnabled,
     bool? biometricLockEnabled,
     int? autoLockDelaySeconds,
+    bool? displayFontInAppBar,
     bool? isDeleted,
     String? previousAccentColorHex,
     String? navBarItems,
@@ -4853,6 +4890,7 @@ class SystemSettingsData extends DataClass
     pinLockEnabled: pinLockEnabled ?? this.pinLockEnabled,
     biometricLockEnabled: biometricLockEnabled ?? this.biometricLockEnabled,
     autoLockDelaySeconds: autoLockDelaySeconds ?? this.autoLockDelaySeconds,
+    displayFontInAppBar: displayFontInAppBar ?? this.displayFontInAppBar,
     isDeleted: isDeleted ?? this.isDeleted,
     previousAccentColorHex:
         previousAccentColorHex ?? this.previousAccentColorHex,
@@ -4954,6 +4992,9 @@ class SystemSettingsData extends DataClass
       autoLockDelaySeconds: data.autoLockDelaySeconds.present
           ? data.autoLockDelaySeconds.value
           : this.autoLockDelaySeconds,
+      displayFontInAppBar: data.displayFontInAppBar.present
+          ? data.displayFontInAppBar.value
+          : this.displayFontInAppBar,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       previousAccentColorHex: data.previousAccentColorHex.present
           ? data.previousAccentColorHex.value
@@ -5010,6 +5051,7 @@ class SystemSettingsData extends DataClass
           ..write('pinLockEnabled: $pinLockEnabled, ')
           ..write('biometricLockEnabled: $biometricLockEnabled, ')
           ..write('autoLockDelaySeconds: $autoLockDelaySeconds, ')
+          ..write('displayFontInAppBar: $displayFontInAppBar, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('previousAccentColorHex: $previousAccentColorHex, ')
           ..write('navBarItems: $navBarItems, ')
@@ -5054,6 +5096,7 @@ class SystemSettingsData extends DataClass
     pinLockEnabled,
     biometricLockEnabled,
     autoLockDelaySeconds,
+    displayFontInAppBar,
     isDeleted,
     previousAccentColorHex,
     navBarItems,
@@ -5102,6 +5145,7 @@ class SystemSettingsData extends DataClass
           other.pinLockEnabled == this.pinLockEnabled &&
           other.biometricLockEnabled == this.biometricLockEnabled &&
           other.autoLockDelaySeconds == this.autoLockDelaySeconds &&
+          other.displayFontInAppBar == this.displayFontInAppBar &&
           other.isDeleted == this.isDeleted &&
           other.previousAccentColorHex == this.previousAccentColorHex &&
           other.navBarItems == this.navBarItems &&
@@ -5143,6 +5187,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> pinLockEnabled;
   final Value<bool> biometricLockEnabled;
   final Value<int> autoLockDelaySeconds;
+  final Value<bool> displayFontInAppBar;
   final Value<bool> isDeleted;
   final Value<String> previousAccentColorHex;
   final Value<String> navBarItems;
@@ -5183,6 +5228,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.pinLockEnabled = const Value.absent(),
     this.biometricLockEnabled = const Value.absent(),
     this.autoLockDelaySeconds = const Value.absent(),
+    this.displayFontInAppBar = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.previousAccentColorHex = const Value.absent(),
     this.navBarItems = const Value.absent(),
@@ -5224,6 +5270,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.pinLockEnabled = const Value.absent(),
     this.biometricLockEnabled = const Value.absent(),
     this.autoLockDelaySeconds = const Value.absent(),
+    this.displayFontInAppBar = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.previousAccentColorHex = const Value.absent(),
     this.navBarItems = const Value.absent(),
@@ -5265,6 +5312,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? pinLockEnabled,
     Expression<bool>? biometricLockEnabled,
     Expression<int>? autoLockDelaySeconds,
+    Expression<bool>? displayFontInAppBar,
     Expression<bool>? isDeleted,
     Expression<String>? previousAccentColorHex,
     Expression<String>? navBarItems,
@@ -5316,6 +5364,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'biometric_lock_enabled': biometricLockEnabled,
       if (autoLockDelaySeconds != null)
         'auto_lock_delay_seconds': autoLockDelaySeconds,
+      if (displayFontInAppBar != null)
+        'display_font_in_app_bar': displayFontInAppBar,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (previousAccentColorHex != null)
         'previous_accent_color_hex': previousAccentColorHex,
@@ -5363,6 +5413,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? pinLockEnabled,
     Value<bool>? biometricLockEnabled,
     Value<int>? autoLockDelaySeconds,
+    Value<bool>? displayFontInAppBar,
     Value<bool>? isDeleted,
     Value<String>? previousAccentColorHex,
     Value<String>? navBarItems,
@@ -5411,6 +5462,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       pinLockEnabled: pinLockEnabled ?? this.pinLockEnabled,
       biometricLockEnabled: biometricLockEnabled ?? this.biometricLockEnabled,
       autoLockDelaySeconds: autoLockDelaySeconds ?? this.autoLockDelaySeconds,
+      displayFontInAppBar: displayFontInAppBar ?? this.displayFontInAppBar,
       isDeleted: isDeleted ?? this.isDeleted,
       previousAccentColorHex:
           previousAccentColorHex ?? this.previousAccentColorHex,
@@ -5540,6 +5592,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         autoLockDelaySeconds.value,
       );
     }
+    if (displayFontInAppBar.present) {
+      map['display_font_in_app_bar'] = Variable<bool>(
+        displayFontInAppBar.value,
+      );
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
@@ -5609,6 +5666,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('pinLockEnabled: $pinLockEnabled, ')
           ..write('biometricLockEnabled: $biometricLockEnabled, ')
           ..write('autoLockDelaySeconds: $autoLockDelaySeconds, ')
+          ..write('displayFontInAppBar: $displayFontInAppBar, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('previousAccentColorHex: $previousAccentColorHex, ')
           ..write('navBarItems: $navBarItems, ')
@@ -16665,6 +16723,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> pinLockEnabled,
       Value<bool> biometricLockEnabled,
       Value<int> autoLockDelaySeconds,
+      Value<bool> displayFontInAppBar,
       Value<bool> isDeleted,
       Value<String> previousAccentColorHex,
       Value<String> navBarItems,
@@ -16707,6 +16766,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> pinLockEnabled,
       Value<bool> biometricLockEnabled,
       Value<int> autoLockDelaySeconds,
+      Value<bool> displayFontInAppBar,
       Value<bool> isDeleted,
       Value<String> previousAccentColorHex,
       Value<String> navBarItems,
@@ -16882,6 +16942,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<int> get autoLockDelaySeconds => $composableBuilder(
     column: $table.autoLockDelaySeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get displayFontInAppBar => $composableBuilder(
+    column: $table.displayFontInAppBar,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17086,6 +17151,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get displayFontInAppBar => $composableBuilder(
+    column: $table.displayFontInAppBar,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -17281,6 +17351,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get displayFontInAppBar => $composableBuilder(
+    column: $table.displayFontInAppBar,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 
@@ -17386,6 +17461,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> pinLockEnabled = const Value.absent(),
                 Value<bool> biometricLockEnabled = const Value.absent(),
                 Value<int> autoLockDelaySeconds = const Value.absent(),
+                Value<bool> displayFontInAppBar = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<String> previousAccentColorHex = const Value.absent(),
                 Value<String> navBarItems = const Value.absent(),
@@ -17427,6 +17503,7 @@ class $$SystemSettingsTableTableTableManager
                 pinLockEnabled: pinLockEnabled,
                 biometricLockEnabled: biometricLockEnabled,
                 autoLockDelaySeconds: autoLockDelaySeconds,
+                displayFontInAppBar: displayFontInAppBar,
                 isDeleted: isDeleted,
                 previousAccentColorHex: previousAccentColorHex,
                 navBarItems: navBarItems,
@@ -17470,6 +17547,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> pinLockEnabled = const Value.absent(),
                 Value<bool> biometricLockEnabled = const Value.absent(),
                 Value<int> autoLockDelaySeconds = const Value.absent(),
+                Value<bool> displayFontInAppBar = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<String> previousAccentColorHex = const Value.absent(),
                 Value<String> navBarItems = const Value.absent(),
@@ -17511,6 +17589,7 @@ class $$SystemSettingsTableTableTableManager
                 pinLockEnabled: pinLockEnabled,
                 biometricLockEnabled: biometricLockEnabled,
                 autoLockDelaySeconds: autoLockDelaySeconds,
+                displayFontInAppBar: displayFontInAppBar,
                 isDeleted: isDeleted,
                 previousAccentColorHex: previousAccentColorHex,
                 navBarItems: navBarItems,

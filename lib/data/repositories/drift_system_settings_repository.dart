@@ -291,6 +291,11 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateDisplayFontInAppBar(bool value) async {
+    await _dao.updateDisplayFontInAppBar(value);
+  }
+
+  @override
   Future<void> updatePinLockEnabled(bool value) async {
     await _dao.updatePinLockEnabled(value);
   }

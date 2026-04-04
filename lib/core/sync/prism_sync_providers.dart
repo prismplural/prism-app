@@ -177,11 +177,14 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   Future<ffi.PrismSyncHandle> createHandle({required String relayUrl}) async {
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
+    final databaseKeyHex = await ensureLocalDatabaseKey();
+    final databaseKey = await ffi.hexDecode(hexStr: databaseKeyHex);
     final handle = await ffi.createPrismSync(
       relayUrl: relayUrl,
       dbPath: dbPath,
       allowInsecure: false,
       schemaJson: prismSyncSchema,
+      databaseKey: databaseKey,
     );
 
     // Seed Rust's in-memory SecureStore from platform keychain

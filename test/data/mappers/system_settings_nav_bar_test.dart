@@ -45,6 +45,7 @@ void main() {
         pinLockEnabled: false,
         biometricLockEnabled: false,
         autoLockDelaySeconds: 0,
+        displayFontInAppBar: true,
         isDeleted: false,
         navBarItems: navBarItems,
         navBarOverflowItems: '',

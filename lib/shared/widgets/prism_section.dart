@@ -32,10 +32,11 @@ class PrismSection extends StatelessWidget {
           if (title.isNotEmpty)
             Text(
               title,
-              style: theme.textTheme.labelMedium?.copyWith(
+              style: theme.textTheme.labelLarge?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                fontFamily: 'Unbounded',
+                fontFamily: theme.textTheme.headlineLarge?.fontFamily,
                 fontWeight: FontWeight.w700,
+                letterSpacing: theme.textTheme.headlineLarge?.letterSpacing ?? 0,
               ),
             ),
           if (description != null) ...[

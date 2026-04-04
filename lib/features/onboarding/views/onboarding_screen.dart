@@ -119,6 +119,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       fontSize: 28,
                       fontFamily: 'Unbounded',
                       fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
                       color: AppColors.warmWhite,
                     ),
                   ),

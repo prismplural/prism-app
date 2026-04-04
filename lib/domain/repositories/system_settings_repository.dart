@@ -66,6 +66,7 @@ abstract class SystemSettingsRepository {
   // Phase 3: Device-local settings
   Future<void> updateFontScale(double value);
   Future<void> updateFontFamily(domain.FontFamily value);
+  Future<void> updateDisplayFontInAppBar(bool value);
   Future<void> updatePinLockEnabled(bool value);
   Future<void> updateBiometricLockEnabled(bool value);
   Future<void> updateAutoLockDelaySeconds(int value);
