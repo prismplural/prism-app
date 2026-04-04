@@ -11,9 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
-import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 
 /// Full-screen editor for an existing sleep session.
 class EditSleepSheet extends ConsumerStatefulWidget {
@@ -65,48 +63,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
     _notesController.text = session.notes ?? '';
   }
 
-  Future<void> _pickStartTime() async {
-    final date = await showPrismDatePicker(
-      context: context,
-      initialDate: _startTime,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (date == null || !mounted) return;
-
-    final time = await showPrismTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_startTime),
-    );
-    if (time == null || !mounted) return;
-
-    setState(() {
-      _startTime =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    });
-  }
-
-  Future<void> _pickEndTime() async {
-    final initial = _endTime ?? DateTime.now();
-    final date = await showPrismDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: _startTime,
-      lastDate: DateTime.now(),
-    );
-    if (date == null || !mounted) return;
-
-    final time = await showPrismTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (time == null || !mounted) return;
-
-    setState(() {
-      _endTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-      _isActive = false;
-    });
-  }
+  // Date/time editing is handled inline by PrismDateTimePills.
 
   Future<void> _save() async {
     final notes = _notesController.text.trim();
@@ -221,27 +178,26 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                         },
                       ),
                       const Divider(height: 24),
-                      PrismListRow(
-                        padding: EdgeInsets.zero,
-                        leading: Icon(AppIcons.playArrowRounded),
-                        title: const Text('Start Time'),
-                        subtitle: Text(_formatDateTime(_startTime)),
-                        trailing: Icon(AppIcons.edit),
-                        onTap: _pickStartTime,
+                      PrismDateTimePills(
+                        label: 'Start',
+                        dateTime: _startTime,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                        onChanged: (dt) =>
+                            setState(() => _startTime = dt),
                       ),
                       if (!_isActive) ...[
-                        const SizedBox(height: 8),
-                        PrismListRow(
-                          padding: EdgeInsets.zero,
-                          leading: Icon(AppIcons.stopRounded),
-                          title: const Text('End Time'),
-                          subtitle: Text(
-                            _endTime != null
-                                ? _formatDateTime(_endTime!)
-                                : 'Tap to set',
-                          ),
-                          trailing: Icon(AppIcons.edit),
-                          onTap: _pickEndTime,
+                        const SizedBox(height: 16),
+                        PrismDateTimePills(
+                          label: 'End',
+                          dateTime: _endTime,
+                          firstDate: _startTime,
+                          lastDate: DateTime.now(),
+                          placeholder: 'Tap to set',
+                          onChanged: (dt) => setState(() {
+                            _endTime = dt;
+                            _isActive = false;
+                          }),
                         ),
                       ],
                     ],
@@ -309,25 +265,4 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
     );
   }
 
-  String _formatDateTime(DateTime dt) {
-    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final month = months[dt.month - 1];
-    return '$month ${dt.day}, $hour:$minute $period';
-  }
 }

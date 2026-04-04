@@ -26,8 +26,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
-import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Full-screen editor for an existing fronting session.
@@ -72,59 +71,7 @@ class _EditFrontSessionScreenState
     _notesController.text = session.notes ?? '';
   }
 
-  Future<void> _pickStartTime() async {
-    final date = await showPrismDatePicker(
-      context: context,
-      initialDate: _startTime,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (date == null || !mounted) return;
-
-    final time = await showPrismTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_startTime),
-    );
-    if (time == null || !mounted) return;
-
-    setState(() {
-      _startTime = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-    });
-  }
-
-  Future<void> _pickEndTime() async {
-    final initial = _endTime ?? DateTime.now();
-    final date = await showPrismDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: _startTime,
-      lastDate: DateTime.now(),
-    );
-    if (date == null || !mounted) return;
-
-    final time = await showPrismTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (time == null || !mounted) return;
-
-    setState(() {
-      _endTime = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        time.hour,
-        time.minute,
-      );
-      _isActive = false;
-    });
-  }
+  // Date/time editing is handled inline by PrismDateTimePills.
 
   Future<void> _save() async {
     final editGuard = ref.read(frontingEditGuardProvider);
@@ -346,15 +293,14 @@ class _EditFrontSessionScreenState
             padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + navBarInset),
             children: [
               // Start time
-              PrismListRow(
-                leading: Icon(AppIcons.playArrowRounded),
-                title: const Text('Start Time'),
-                subtitle: Text(_formatDateTime(_startTime)),
-                trailing: Icon(AppIcons.edit),
-                onTap: _pickStartTime,
-                padding: EdgeInsets.zero,
+              PrismDateTimePills(
+                label: 'Start',
+                dateTime: _startTime,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+                onChanged: (dt) => setState(() => _startTime = dt),
               ),
-              const Divider(),
+              const SizedBox(height: 16),
 
               // End time / Still active toggle
               PrismSwitchRow(
@@ -366,19 +312,20 @@ class _EditFrontSessionScreenState
                 }),
               ),
               if (!_isActive) ...[
-                PrismListRow(
-                  leading: Icon(AppIcons.stopRounded),
-                  title: const Text('End Time'),
-                  subtitle: Text(
-                    _endTime != null
-                        ? _formatDateTime(_endTime!)
-                        : 'Tap to set',
-                  ),
-                  trailing: Icon(AppIcons.edit),
-                  onTap: _pickEndTime,
-                  padding: EdgeInsets.zero,
+                const SizedBox(height: 8),
+                PrismDateTimePills(
+                  label: 'End',
+                  dateTime: _endTime,
+                  firstDate: _startTime,
+                  lastDate: DateTime.now(),
+                  placeholder: 'Tap to set',
+                  onChanged: (dt) => setState(() {
+                    _endTime = dt;
+                    _isActive = false;
+                  }),
                 ),
               ],
+              const SizedBox(height: 16),
               const Divider(),
 
               // Member picker
@@ -488,26 +435,6 @@ class _EditFrontSessionScreenState
     );
   }
 
-  String _formatDateTime(DateTime dt) {
-    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[dt.month - 1]} ${dt.day}, $hour:$minute $period';
-  }
 }
 
 class _MemberSelector extends StatelessWidget {
