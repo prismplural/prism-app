@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # State management
   flutter_riverpod: ^3.3.0
@@ -84,6 +86,7 @@ dependencies:
   hashlib: ^1.19.2
   local_auth: ^3.0.0
   phosphor_flutter: ^2.1.0
+  cupertino_calendar_picker: ^2.2.6
 
 dev_dependencies:
   flutter_test:

@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
-import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 /// Bottom sheet to start a new sleep session.
 class StartSleepSheet extends ConsumerStatefulWidget {
@@ -37,26 +35,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
     super.dispose();
   }
 
-  Future<void> _pickStartTime() async {
-    final date = await showPrismDatePicker(
-      context: context,
-      initialDate: _startTime,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (date == null || !mounted) return;
-
-    final time = await showPrismTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_startTime),
-    );
-    if (time == null || !mounted) return;
-
-    setState(() {
-      _startTime =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    });
-  }
+  // Date/time editing is handled inline by PrismDateTimePills.
 
   Future<void> _startSleep() async {
     setState(() => _saving = true);
@@ -132,13 +111,12 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                PrismListRow(
-                  leading: Icon(AppIcons.schedule),
-                  title: const Text('Start Time'),
-                  subtitle: Text(_formatDateTime(_startTime)),
-                  trailing: Icon(AppIcons.edit),
-                  onTap: _pickStartTime,
-                  padding: EdgeInsets.zero,
+                PrismDateTimePills(
+                  label: 'Start',
+                  dateTime: _startTime,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                  onChanged: (dt) => setState(() => _startTime = dt),
                 ),
                 const SizedBox(height: 16),
                 PrismTextField(
@@ -159,15 +137,4 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
     );
   }
 
-  String _formatDateTime(DateTime dt) {
-    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    final month = months[dt.month - 1];
-    return '$month ${dt.day}, $hour:$minute $period';
-  }
 }
