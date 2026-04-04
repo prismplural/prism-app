@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Shows a dialog when editing creates gaps above the timing mode threshold.
@@ -49,8 +50,8 @@ Future<GapResolution?> showGapResolutionDialog(
                   ),
                 )),
           const SizedBox(height: 8),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
+          PrismListRow(
+            padding: EdgeInsets.zero,
             leading: Icon(AppIcons.autoFixHigh),
             title: const Text('Fill with unknown fronter'),
             subtitle: const Text(
@@ -59,8 +60,8 @@ Future<GapResolution?> showGapResolutionDialog(
             onTap: () =>
                 Navigator.of(ctx).pop(GapResolution.fillWithUnknown),
           ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
+          PrismListRow(
+            padding: EdgeInsets.zero,
             leading: Icon(AppIcons.check),
             title: const Text('Leave gaps'),
             subtitle: const Text(

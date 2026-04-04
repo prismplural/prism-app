@@ -147,6 +147,11 @@ class _PrismListRowState extends State<PrismListRow> {
       );
     }
 
-    return row;
+    return Semantics(
+      button: true,
+      enabled: widget.enabled,
+      hint: widget.destructive ? 'Destructive action' : null,
+      child: row,
+    );
   }
 }

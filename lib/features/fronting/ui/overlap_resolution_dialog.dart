@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Shows a dialog with options for resolving overlapping sessions.
@@ -20,8 +21,8 @@ Future<OverlapResolution?> showOverlapResolutionDialog(
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
+          PrismListRow(
+            padding: EdgeInsets.zero,
             leading: Icon(AppIcons.contentCut),
             title: const Text('Trim overlapping sessions'),
             subtitle: const Text(
@@ -29,8 +30,8 @@ Future<OverlapResolution?> showOverlapResolutionDialog(
             ),
             onTap: () => Navigator.of(ctx).pop(OverlapResolution.trim),
           ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
+          PrismListRow(
+            padding: EdgeInsets.zero,
             leading: Icon(AppIcons.group),
             title: const Text('Create co-fronting session'),
             subtitle: const Text(
