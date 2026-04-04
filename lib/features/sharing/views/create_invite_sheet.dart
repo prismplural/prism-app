@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/sensitive_clipboard.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -116,21 +117,31 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                   ),
                   const SizedBox(height: 8),
                   ...ShareScope.values.map(
-                    (scope) => CheckboxListTile(
+                    (scope) => PrismListRow(
                       dense: true,
-                      secondary: Icon(scope.icon, size: 20),
+                      leading: Icon(scope.icon, size: 20),
                       title: Text(scope.displayName),
                       subtitle: Text(
                         scope.description,
-                        style: theme.textTheme.bodySmall,
                       ),
-                      value: _selectedScopes.contains(scope),
-                      onChanged: (checked) {
+                      trailing: Checkbox(
+                        value: _selectedScopes.contains(scope),
+                        onChanged: (checked) {
+                          setState(() {
+                            if (checked == true) {
+                              _selectedScopes.add(scope);
+                            } else {
+                              _selectedScopes.remove(scope);
+                            }
+                          });
+                        },
+                      ),
+                      onTap: () {
                         setState(() {
-                          if (checked == true) {
-                            _selectedScopes.add(scope);
-                          } else {
+                          if (_selectedScopes.contains(scope)) {
                             _selectedScopes.remove(scope);
+                          } else {
+                            _selectedScopes.add(scope);
                           }
                         });
                       },

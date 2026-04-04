@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Comments section shown on session detail screen.
 class SessionCommentsSection extends ConsumerWidget {
@@ -103,7 +104,7 @@ class _CommentTile extends ConsumerWidget {
       itemCount: 2,
       itemBuilder: (context, index, close) {
         if (index == 0) {
-          return ListTile(
+          return PrismListRow(
             leading: Icon(AppIcons.editOutlined),
             title: const Text('Edit'),
             onTap: () {
@@ -112,7 +113,7 @@ class _CommentTile extends ConsumerWidget {
             },
           );
         }
-        return ListTile(
+        return PrismListRow(
           leading: Icon(AppIcons.deleteOutline,
               color: theme.colorScheme.error),
           title: Text('Delete',

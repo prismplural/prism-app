@@ -5,6 +5,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -143,28 +144,39 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                   itemCount: available.length,
                   itemBuilder: (context, index) {
                     final member = available[index];
-                    return CheckboxListTile(
-                      value: _selectedIds.contains(member.id),
-                      onChanged: (v) {
-                        setState(() {
-                          if (v == true) {
-                            _selectedIds.add(member.id);
-                          } else {
-                            _selectedIds.remove(member.id);
-                          }
-                        });
-                      },
-                      title: Text(member.name),
-                      subtitle: member.pronouns != null
-                          ? Text(member.pronouns!)
-                          : null,
-                      secondary: MemberAvatar(
+                    return PrismListRow(
+                      leading: MemberAvatar(
                         avatarImageData: member.avatarImageData,
                         emoji: member.emoji,
                         customColorEnabled: member.customColorEnabled,
                         customColorHex: member.customColorHex,
                         size: 40,
                       ),
+                      title: Text(member.name),
+                      subtitle: member.pronouns != null
+                          ? Text(member.pronouns!)
+                          : null,
+                      trailing: Checkbox(
+                        value: _selectedIds.contains(member.id),
+                        onChanged: (v) {
+                          setState(() {
+                            if (v == true) {
+                              _selectedIds.add(member.id);
+                            } else {
+                              _selectedIds.remove(member.id);
+                            }
+                          });
+                        },
+                      ),
+                      onTap: () {
+                        setState(() {
+                          if (_selectedIds.contains(member.id)) {
+                            _selectedIds.remove(member.id);
+                          } else {
+                            _selectedIds.add(member.id);
+                          }
+                        });
+                      },
                     );
                   },
                 ),

@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// A compact bottom sheet for selecting a member (headmate).
 ///
@@ -51,7 +52,7 @@ class MemberSelectSheet extends ConsumerWidget {
         itemBuilder: (context, index) {
           // "None" option at the top.
           if (index == 0) {
-            return ListTile(
+            return PrismListRow(
               leading: SizedBox(
                 width: 36,
                 height: 36,
@@ -68,7 +69,7 @@ class MemberSelectSheet extends ConsumerWidget {
           final member = members[index - 1];
           final isSelected = member.id == currentMemberId;
 
-          return ListTile(
+          return PrismListRow(
             leading: MemberAvatar(
               avatarImageData: member.avatarImageData,
               emoji: member.emoji,

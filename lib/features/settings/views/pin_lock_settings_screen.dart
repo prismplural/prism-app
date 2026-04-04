@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Settings screen for PIN lock, biometric unlock, and auto-lock delay.
 class PinLockSettingsScreen extends ConsumerStatefulWidget {
@@ -217,7 +218,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
               child: PrismSectionCard(
                 child: Column(
                   children: [
-                    ListTile(
+                    PrismListRow(
                       leading: Icon(AppIcons.pinOutlined),
                       title: const Text('Change PIN'),
                       trailing: Icon(
@@ -227,7 +228,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                       onTap: _changePinFlow,
                     ),
                     const Divider(height: 1, indent: 56, endIndent: 12),
-                    ListTile(
+                    PrismListRow(
                       leading: Icon(
                         AppIcons.deleteOutline,
                         color: Theme.of(context).colorScheme.error,

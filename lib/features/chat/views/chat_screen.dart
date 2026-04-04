@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Main conversation list screen.
 class ChatScreen extends ConsumerStatefulWidget {
@@ -74,7 +75,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             conversation.mutedByMemberIds.contains(speakingAs);
         final popupTheme = Theme.of(ctx);
         return switch (index) {
-          0 => ListTile(
+          0 => PrismListRow(
               dense: true,
               leading: Icon(
                 AppIcons.markEmailReadOutlined,
@@ -93,7 +94,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 }
               },
             ),
-          1 => ListTile(
+          1 => PrismListRow(
               dense: true,
               leading: Icon(
                 isMuted
@@ -114,7 +115,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 }
               },
             ),
-          _ => ListTile(
+          _ => PrismListRow(
               dense: true,
               leading: Icon(
                 AppIcons.deleteOutline,
@@ -242,11 +243,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             SliverPinnedTopBar(
               child: PrismTopBar(
                 title: 'Chat',
-                leading: PrismTopBarAction(
-                  icon: AppIcons.folderOutlined,
-                  tooltip: 'Manage categories',
-                  onPressed: () =>
-                      CategoryManagementSheet.show(context),
+                leading: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    PrismTopBarAction(
+                      icon: AppIcons.folderOutlined,
+                      tooltip: 'Manage categories',
+                      onPressed: () =>
+                          CategoryManagementSheet.show(context),
+                    ),
+                    const SizedBox(width: 8),
+                    PrismTopBarAction(
+                      icon: AppIcons.search,
+                      tooltip: 'Search messages',
+                      onPressed: () => context.go('${AppRoutePaths.chat}/search'),
+                    ),
+                  ],
                 ),
                 actions: [
                   if (speakingAs != null)
@@ -269,11 +281,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             .updateChatBadgePreferences(newPrefs);
                       },
                     ),
-                  PrismTopBarAction(
-                    icon: AppIcons.search,
-                    tooltip: 'Search messages',
-                    onPressed: () => context.go('${AppRoutePaths.chat}/search'),
-                  ),
                   if (hasArchived || showArchived)
                     PrismTopBarAction(
                       icon: showArchived
@@ -291,6 +298,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ],
               ),
             ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
             // Conversation list
             ...conversationsAsync.when(

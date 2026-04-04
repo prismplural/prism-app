@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -216,7 +217,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                       setState(() => _notificationsEnabled = v),
                 ),
                 if (_notificationsEnabled) ...[
-                  ListTile(
+                  PrismListRow(
                     title: const Text('Reminder Time'),
                     trailing: Text(_reminderTime ?? 'Not set'),
                     onTap: _pickTime,

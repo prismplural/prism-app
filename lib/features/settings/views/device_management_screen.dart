@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 class DeviceManagementScreen extends ConsumerWidget {
   const DeviceManagementScreen({super.key});
@@ -255,7 +256,7 @@ class _DeviceTile extends StatelessWidget {
           'Device ${device.shortId}, ${_statusLabel()}${isCurrent ? ', this device' : ''}',
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 4),
-        child: ListTile(
+        child: PrismListRow(
           leading: Container(
             width: 12,
             height: 12,

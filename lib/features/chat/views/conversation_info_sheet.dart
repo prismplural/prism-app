@@ -547,19 +547,19 @@ class _ConversationInfoSheetState
     return Column(
       children: [
         // Archive
-        ListTile(
+        PrismListRow(
           leading: Icon(AppIcons.archiveOutlined),
           title: const Text('Archive conversation'),
-          contentPadding: EdgeInsets.zero,
+          padding: EdgeInsets.zero,
           onTap: () => _archive(conversation.id, speakingAsMemberId),
         ),
 
         // Leave
         if (permissions.canLeave)
-          ListTile(
+          PrismListRow(
             leading: Icon(AppIcons.exitToApp),
             title: const Text('Leave conversation'),
-            contentPadding: EdgeInsets.zero,
+            padding: EdgeInsets.zero,
             onTap: () async {
               if (speakingAsMemberId == null) return;
 
@@ -581,12 +581,12 @@ class _ConversationInfoSheetState
 
         // Delete
         if (permissions.canDeleteConversation)
-          ListTile(
+          PrismListRow(
             leading: Icon(AppIcons.deleteOutline,
                 color: theme.colorScheme.error),
             title: Text('Delete conversation',
                 style: TextStyle(color: theme.colorScheme.error)),
-            contentPadding: EdgeInsets.zero,
+            padding: EdgeInsets.zero,
             onTap: () => _confirmDelete(conversation.id),
           ),
       ],
@@ -620,8 +620,8 @@ class _ParticipantTile extends ConsumerWidget {
     return memberAsync.when(
       data: (member) {
         if (member == null) {
-          return const ListTile(
-            contentPadding: EdgeInsets.zero,
+          return const PrismListRow(
+            padding: EdgeInsets.zero,
             leading: MemberAvatar(
               emoji: '?',
               customColorEnabled: false,
@@ -636,8 +636,8 @@ class _ParticipantTile extends ConsumerWidget {
                 ? conversation.participantIds.first
                 : null));
 
-        final tile = ListTile(
-          contentPadding: EdgeInsets.zero,
+        final tile = PrismListRow(
+          padding: EdgeInsets.zero,
           leading: MemberAvatar(
             avatarImageData: member.avatarImageData,
             emoji: member.emoji,
@@ -681,12 +681,12 @@ class _ParticipantTile extends ConsumerWidget {
           child: tile,
         );
       },
-      loading: () => const ListTile(
-        contentPadding: EdgeInsets.zero,
+      loading: () => const PrismListRow(
+        padding: EdgeInsets.zero,
         title: Text('Loading...'),
       ),
-      error: (_, _) => const ListTile(
-        contentPadding: EdgeInsets.zero,
+      error: (_, _) => const PrismListRow(
+        padding: EdgeInsets.zero,
         title: Text('Error loading member'),
       ),
     );

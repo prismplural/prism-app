@@ -25,7 +25,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Main member list screen.
 class MembersScreen extends ConsumerStatefulWidget {
@@ -63,8 +63,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
+            PrismListRow(
+              padding: EdgeInsets.zero,
               leading: Icon(_showInactive
                   ? AppIcons.visibility
                   : AppIcons.visibilityOutlined),
@@ -91,8 +91,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   ),
                 ),
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
+              PrismListRow(
+                padding: EdgeInsets.zero,
                 dense: true,
                 title: const Text('Name A–Z'),
                 onTap: () {
@@ -102,8 +102,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       .compareTo(b.name.toLowerCase()));
                 },
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
+              PrismListRow(
+                padding: EdgeInsets.zero,
                 dense: true,
                 title: const Text('Name Z–A'),
                 onTap: () {
@@ -113,8 +113,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       .compareTo(a.name.toLowerCase()));
                 },
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
+              PrismListRow(
+                padding: EdgeInsets.zero,
                 dense: true,
                 title: const Text('Recently created'),
                 onTap: () {
@@ -123,8 +123,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       members, (a, b) => b.createdAt.compareTo(a.createdAt));
                 },
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
+              PrismListRow(
+                padding: EdgeInsets.zero,
                 dense: true,
                 title: const Text('Most fronting'),
                 onTap: () {
@@ -132,8 +132,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   _reorderByFronting(members, descending: true);
                 },
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
+              PrismListRow(
+                padding: EdgeInsets.zero,
                 dense: true,
                 title: const Text('Least fronting'),
                 onTap: () {

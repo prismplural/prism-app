@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Settings screen for managing custom field definitions.
 class CustomFieldsScreen extends ConsumerWidget {
@@ -161,7 +162,7 @@ class _FieldsList extends ConsumerWidget {
             await _confirmDelete(context, ref, field);
             return false;
           },
-          child: ListTile(
+          child: PrismListRow(
             key: ValueKey(field.id),
             leading: Icon(
               _iconForType(field.fieldType),

@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Screen for bulk member operations: activate/deactivate, delete, and reorder.
 class SystemManagementScreen extends ConsumerStatefulWidget {
@@ -219,7 +220,7 @@ class _SystemManagementScreenState
                           final isSelected =
                               _selectedIds.contains(member.id);
 
-                          return ListTile(
+                          return PrismListRow(
                             key: ValueKey(member.id),
                             leading: _selectionMode
                                 ? Checkbox(

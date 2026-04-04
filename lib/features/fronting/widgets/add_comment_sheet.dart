@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
@@ -111,8 +112,8 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
+              PrismListRow(
+                padding: EdgeInsets.zero,
                 leading: Icon(AppIcons.accessTime),
                 title: Text(
                     DateFormat.yMMMd().add_jm().format(_timestamp)),

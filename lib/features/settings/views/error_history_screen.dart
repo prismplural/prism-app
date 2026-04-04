@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Displays the in-memory error history with severity-coded entries.
 class ErrorHistoryScreen extends ConsumerWidget {
@@ -103,7 +104,7 @@ class _ErrorTileState extends State<_ErrorTile> {
 
     return Column(
       children: [
-        ListTile(
+        PrismListRow(
           leading: _severityIcon(widget.error.severity, theme),
           title: Text(
             widget.error.message,

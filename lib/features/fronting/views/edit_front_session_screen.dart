@@ -27,6 +27,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Full-screen editor for an existing fronting session.
 class EditFrontSessionScreen extends ConsumerStatefulWidget {
@@ -344,13 +345,13 @@ class _EditFrontSessionScreenState
             padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + navBarInset),
             children: [
               // Start time
-              ListTile(
+              PrismListRow(
                 leading: Icon(AppIcons.playArrowRounded),
                 title: const Text('Start Time'),
                 subtitle: Text(_formatDateTime(_startTime)),
                 trailing: Icon(AppIcons.edit),
                 onTap: _pickStartTime,
-                contentPadding: EdgeInsets.zero,
+                padding: EdgeInsets.zero,
               ),
               const Divider(),
 
@@ -364,7 +365,7 @@ class _EditFrontSessionScreenState
                 }),
               ),
               if (!_isActive) ...[
-                ListTile(
+                PrismListRow(
                   leading: Icon(AppIcons.stopRounded),
                   title: const Text('End Time'),
                   subtitle: Text(
@@ -374,7 +375,7 @@ class _EditFrontSessionScreenState
                   ),
                   trailing: Icon(AppIcons.edit),
                   onTap: _pickEndTime,
-                  contentPadding: EdgeInsets.zero,
+                  padding: EdgeInsets.zero,
                 ),
               ],
               const Divider(),
@@ -415,26 +416,37 @@ class _EditFrontSessionScreenState
                       .toList();
                   return Column(
                     children: available.map((m) {
-                      return CheckboxListTile(
-                        value: _coFronterIds.contains(m.id),
-                        onChanged: (v) {
-                          setState(() {
-                            if (v == true) {
-                              _coFronterIds.add(m.id);
-                            } else {
-                              _coFronterIds.remove(m.id);
-                            }
-                          });
-                        },
-                        title: Text(m.name),
-                        secondary: MemberAvatar(
+                      return PrismListRow(
+                        leading: MemberAvatar(
                           avatarImageData: m.avatarImageData,
                           emoji: m.emoji,
                           customColorEnabled: m.customColorEnabled,
                           customColorHex: m.customColorHex,
                           size: 36,
                         ),
-                        contentPadding: EdgeInsets.zero,
+                        title: Text(m.name),
+                        trailing: Checkbox(
+                          value: _coFronterIds.contains(m.id),
+                          onChanged: (v) {
+                            setState(() {
+                              if (v == true) {
+                                _coFronterIds.add(m.id);
+                              } else {
+                                _coFronterIds.remove(m.id);
+                              }
+                            });
+                          },
+                        ),
+                        onTap: () {
+                          setState(() {
+                            if (_coFronterIds.contains(m.id)) {
+                              _coFronterIds.remove(m.id);
+                            } else {
+                              _coFronterIds.add(m.id);
+                            }
+                          });
+                        },
+                        padding: EdgeInsets.zero,
                         dense: true,
                       );
                     }).toList(),

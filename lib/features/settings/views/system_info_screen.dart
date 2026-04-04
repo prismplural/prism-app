@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 class SystemInfoScreen extends ConsumerStatefulWidget {
   const SystemInfoScreen({super.key});
@@ -130,7 +131,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             builder: (ctx) => Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                ListTile(
+                                PrismListRow(
                                   leading: Icon(AppIcons.photoLibrary),
                                   title: const Text('Change avatar'),
                                   onTap: () {
@@ -138,7 +139,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                                     _pickAvatar();
                                   },
                                 ),
-                                ListTile(
+                                PrismListRow(
                                   leading: Icon(
                                     AppIcons.deleteOutline,
                                     color: theme.colorScheme.error,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Shows a dialog to select a new conversation owner.
 ///
@@ -25,8 +26,8 @@ Future<String?> showCreatorTransferPicker(
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: remainingMembers
-            .map((member) => ListTile(
-                  contentPadding: EdgeInsets.zero,
+            .map((member) => PrismListRow(
+                  padding: EdgeInsets.zero,
                   leading: MemberAvatar(
                     avatarImageData: member.avatarImageData,
                     emoji: member.emoji,
