@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -97,27 +98,20 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
-          TextField(
+          PrismTextField(
             controller: _controller,
             obscureText: _obscure,
             autofocus: true,
             enabled: !_isLoading,
             onSubmitted: (_) => _unlock(),
-            decoration: InputDecoration(
-              hintText: 'Password',
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+            hintText: 'Password',
+            suffix: IconButton(
+              icon: Icon(
+                _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
               ),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-                ),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              ),
-              errorText: _error,
+              onPressed: () => setState(() => _obscure = !_obscure),
             ),
+            errorText: _error,
           ),
           const SizedBox(height: 16),
           PrismButton(

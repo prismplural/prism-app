@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
@@ -261,21 +262,18 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           ),
         ),
         const SizedBox(height: 20),
-        TextField(
+        PrismTextField(
           controller: _passwordController,
           obscureText: _obscurePassword,
           autofocus: true,
-          decoration: InputDecoration(
-            labelText: 'Password',
-            hintText: 'Use a passphrase of 15+ words for best protection',
-            border: const OutlineInputBorder(),
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
-              ),
-              onPressed: () =>
-                  setState(() => _obscurePassword = !_obscurePassword),
+          labelText: 'Password',
+          hintText: 'Use a passphrase of 15+ words for best protection',
+          suffix: IconButton(
+            icon: Icon(
+              _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
             ),
+            onPressed: () =>
+                setState(() => _obscurePassword = !_obscurePassword),
           ),
           onChanged: (_) {
             if (_passwordError != null) {
@@ -284,20 +282,17 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           },
         ),
         const SizedBox(height: 12),
-        TextField(
+        PrismTextField(
           controller: _confirmController,
           obscureText: _obscureConfirm,
-          decoration: InputDecoration(
-            labelText: 'Confirm Password',
-            border: const OutlineInputBorder(),
-            errorText: _passwordError,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscureConfirm ? AppIcons.visibilityOff : AppIcons.visibility,
-              ),
-              onPressed: () =>
-                  setState(() => _obscureConfirm = !_obscureConfirm),
+          labelText: 'Confirm Password',
+          errorText: _passwordError,
+          suffix: IconButton(
+            icon: Icon(
+              _obscureConfirm ? AppIcons.visibilityOff : AppIcons.visibility,
             ),
+            onPressed: () =>
+                setState(() => _obscureConfirm = !_obscureConfirm),
           ),
           onSubmitted: (_) => _onPasswordSubmit(),
         ),

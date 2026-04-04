@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
@@ -333,20 +334,18 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
         color: AppColors.warmWhite.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: TextField(
+      child: PrismTextField(
         controller: controller,
         autofocus: autofocus,
         keyboardType: keyboardType,
         maxLines: maxLines,
         textAlign: textAlign,
         style: const TextStyle(color: AppColors.warmWhite),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: AppColors.warmWhite.withValues(alpha: 0.35)),
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
+        hintText: hint,
+        hintStyle: TextStyle(color: AppColors.warmWhite.withValues(alpha: 0.35)),
+        fieldStyle: PrismTextFieldStyle.borderless,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         onChanged: (_) => setState(() {}),
       ),
     );

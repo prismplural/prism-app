@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
@@ -242,21 +243,18 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           ),
         ),
         const SizedBox(height: 20),
-        TextField(
+        PrismTextField(
           controller: _passwordController,
           obscureText: _obscurePassword,
           autofocus: true,
-          decoration: InputDecoration(
-            labelText: 'Password',
-            border: const OutlineInputBorder(),
-            errorText: _passwordError,
-            suffixIcon: IconButton(
-              icon: Icon(
-                _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
-              ),
-              onPressed: () =>
-                  setState(() => _obscurePassword = !_obscurePassword),
+          labelText: 'Password',
+          errorText: _passwordError,
+          suffix: IconButton(
+            icon: Icon(
+              _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
             ),
+            onPressed: () =>
+                setState(() => _obscurePassword = !_obscurePassword),
           ),
           onChanged: (_) {
             if (_passwordError != null) {

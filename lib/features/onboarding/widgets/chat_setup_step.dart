@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -127,19 +128,17 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                     color: AppColors.warmWhite.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: TextField(
+                  child: PrismTextField(
                     controller: _customChannelController,
                     style: const TextStyle(color: AppColors.warmWhite),
-                    decoration: InputDecoration(
-                      hintText: 'Channel name',
-                      hintStyle: TextStyle(
-                        color: AppColors.warmWhite.withValues(alpha: 0.35),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
+                    hintText: 'Channel name',
+                    hintStyle: TextStyle(
+                      color: AppColors.warmWhite.withValues(alpha: 0.35),
+                    ),
+                    fieldStyle: PrismTextFieldStyle.borderless,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
                     ),
                   ),
                 ),
