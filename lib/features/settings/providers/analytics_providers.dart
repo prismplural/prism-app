@@ -1,10 +1,12 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/features/settings/models/analytics_insight.dart';
 
 class _DayBucket {
   int minutes;
@@ -12,28 +14,36 @@ class _DayBucket {
   _DayBucket(this.minutes, this.sessions);
 }
 
-/// The selected date range for analytics.
-class AnalyticsRangeNotifier extends Notifier<DateTimeRange> {
-  @override
-  DateTimeRange build() {
-    final now = DateTime.now();
-    return DateTimeRange(
-      start: now.subtract(const Duration(days: 30)),
-      end: now,
-    );
-  }
+/// Wraps a DateTimeRange with an isAllTime flag so providers can
+/// suppress prior-period comparisons when "All" is selected.
+class AnalyticsDateRange {
+  const AnalyticsDateRange({required this.range, this.isAllTime = false});
+  final DateTimeRange range;
+  final bool isAllTime;
+}
 
-  void setRange(DateTimeRange range) => state = range;
+/// The selected date range for analytics.
+class AnalyticsRangeNotifier extends Notifier<AnalyticsDateRange> {
+  @override
+  AnalyticsDateRange build() => AnalyticsDateRange(
+        range: DateTimeRange(
+          start: DateTime.now().subtract(const Duration(days: 30)),
+          end: DateTime.now(),
+        ),
+      );
+
+  void setRange(DateTimeRange range, {bool isAllTime = false}) =>
+      state = AnalyticsDateRange(range: range, isAllTime: isAllTime);
 }
 
 final analyticsRangeProvider =
-    NotifierProvider<AnalyticsRangeNotifier, DateTimeRange>(
+    NotifierProvider<AnalyticsRangeNotifier, AnalyticsDateRange>(
         AnalyticsRangeNotifier.new);
 
 /// Computes fronting analytics for the selected date range.
 final frontingAnalyticsProvider =
     FutureProvider<FrontingAnalytics>((ref) async {
-  final range = ref.watch(analyticsRangeProvider);
+  final range = ref.watch(analyticsRangeProvider).range;
   final dao = ref.watch(frontingSessionsDaoProvider);
 
   final sessions = await dao.getSessionsInRange(range.start, range.end);
