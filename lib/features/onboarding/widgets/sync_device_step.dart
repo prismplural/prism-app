@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -436,29 +437,27 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
               color: AppColors.warmWhite.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: TextField(
+            child: PrismTextField(
               controller: _passwordController,
               obscureText: _obscure,
               style: const TextStyle(color: AppColors.warmWhite),
               autofocus: true,
               onSubmitted: (_) => _connect(),
-              decoration: InputDecoration(
-                hintText: 'Password',
-                hintStyle: TextStyle(
-                  color: AppColors.warmWhite.withValues(alpha: 0.4),
+              hintText: 'Password',
+              hintStyle: TextStyle(
+                color: AppColors.warmWhite.withValues(alpha: 0.4),
+              ),
+              fieldStyle: PrismTextFieldStyle.borderless,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              suffix: IconButton(
+                icon: Icon(
+                  _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
+                  color: AppColors.warmWhite.withValues(alpha: 0.5),
                 ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-                    color: AppColors.warmWhite.withValues(alpha: 0.5),
-                  ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                ),
+                onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
           ),

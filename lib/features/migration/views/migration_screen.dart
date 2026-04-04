@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
@@ -357,39 +358,34 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
           const SizedBox(height: 24),
 
           // Token input
-          TextField(
+          PrismTextField(
             controller: _tokenController,
             obscureText: _obscured,
-            autocorrect: false,
-            enableSuggestions: false,
-            decoration: InputDecoration(
-              labelText: 'API Token',
-              hintText: 'Paste your token here',
-              border: const OutlineInputBorder(),
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _obscured ? AppIcons.visibilityOff : AppIcons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() => _obscured = !_obscured);
-                    },
-                    tooltip: _obscured ? 'Show token' : 'Hide token',
+            labelText: 'API Token',
+            hintText: 'Paste your token here',
+            suffix: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    _obscured ? AppIcons.visibilityOff : AppIcons.visibility,
                   ),
-                  IconButton(
-                    icon: Icon(AppIcons.paste),
-                    onPressed: () async {
-                      final data = await Clipboard.getData('text/plain');
-                      if (data?.text != null) {
-                        _tokenController.text = data!.text!;
-                      }
-                    },
-                    tooltip: 'Paste from clipboard',
-                  ),
-                ],
-              ),
+                  onPressed: () {
+                    setState(() => _obscured = !_obscured);
+                  },
+                  tooltip: _obscured ? 'Show token' : 'Hide token',
+                ),
+                IconButton(
+                  icon: Icon(AppIcons.paste),
+                  onPressed: () async {
+                    final data = await Clipboard.getData('text/plain');
+                    if (data?.text != null) {
+                      _tokenController.text = data!.text!;
+                    }
+                  },
+                  tooltip: 'Paste from clipboard',
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),

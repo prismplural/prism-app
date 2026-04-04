@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 
@@ -41,7 +42,7 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
               color: AppColors.warmWhite.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: TextField(
+            child: PrismTextField(
               controller: _controller,
               autofocus: autoFocus,
               style: const TextStyle(
@@ -50,17 +51,15 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
-              decoration: InputDecoration(
-                hintText: 'Enter system name',
-                hintStyle: TextStyle(
-                  color: AppColors.warmWhite.withValues(alpha: 0.35),
-                  fontSize: 20,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 18,
-                ),
+              hintText: 'Enter system name',
+              hintStyle: TextStyle(
+                color: AppColors.warmWhite.withValues(alpha: 0.35),
+                fontSize: 20,
+              ),
+              fieldStyle: PrismTextFieldStyle.borderless,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 18,
               ),
               onChanged: (value) {
                 ref.read(onboardingProvider.notifier).setSystemName(value);

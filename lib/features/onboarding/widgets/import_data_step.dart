@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
@@ -316,28 +317,26 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               color: AppColors.warmWhite.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: TextField(
+            child: PrismTextField(
               controller: _tokenController,
               obscureText: _obscureToken,
               style: const TextStyle(color: AppColors.warmWhite),
-              decoration: InputDecoration(
-                hintText: 'Paste your PluralKit token',
-                hintStyle: TextStyle(
-                  color: AppColors.warmWhite.withValues(alpha: 0.4),
+              hintText: 'Paste your PluralKit token',
+              hintStyle: TextStyle(
+                color: AppColors.warmWhite.withValues(alpha: 0.4),
+              ),
+              fieldStyle: PrismTextFieldStyle.borderless,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              suffix: IconButton(
+                icon: Icon(
+                  _obscureToken ? AppIcons.visibilityOff : AppIcons.visibility,
+                  color: AppColors.warmWhite.withValues(alpha: 0.5),
                 ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscureToken ? AppIcons.visibilityOff : AppIcons.visibility,
-                    color: AppColors.warmWhite.withValues(alpha: 0.5),
-                  ),
-                  onPressed: () =>
-                      setState(() => _obscureToken = !_obscureToken),
-                ),
+                onPressed: () =>
+                    setState(() => _obscureToken = !_obscureToken),
               ),
             ),
           ),
@@ -711,29 +710,27 @@ class _PrismExportImportFlowState
             color: AppColors.warmWhite.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: TextField(
+          child: PrismTextField(
             controller: _passwordController,
             obscureText: _obscurePassword,
             style: const TextStyle(color: AppColors.warmWhite),
             autofocus: true,
             onSubmitted: (_) => _unlockFile(),
-            decoration: InputDecoration(
-              hintText: 'Export password',
-              hintStyle: TextStyle(color: AppColors.warmWhite.withValues(alpha: 0.4)),
-              errorText: _passwordError,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
+            hintText: 'Export password',
+            hintStyle: TextStyle(color: AppColors.warmWhite.withValues(alpha: 0.4)),
+            errorText: _passwordError,
+            fieldStyle: PrismTextFieldStyle.borderless,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            suffix: IconButton(
+              icon: Icon(
+                _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
+                color: AppColors.warmWhite.withValues(alpha: 0.5),
               ),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
-                  color: AppColors.warmWhite.withValues(alpha: 0.5),
-                ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
-              ),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
           ),
         ),

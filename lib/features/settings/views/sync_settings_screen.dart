@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -662,27 +663,20 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 20),
-                        TextField(
+                        PrismTextField(
                           controller: _passwordController,
                           obscureText: _obscure,
                           autofocus: true,
                           enabled: !_isLoading,
                           onSubmitted: (_) => _verifyAndReveal(),
-                          decoration: InputDecoration(
-                            hintText: 'Sync password',
-                            filled: true,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
+                          hintText: 'Sync password',
+                          suffix: IconButton(
+                            icon: Icon(
+                              _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
                             ),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-                              ),
-                              onPressed: () => setState(() => _obscure = !_obscure),
-                            ),
-                            errorText: _error,
+                            onPressed: () => setState(() => _obscure = !_obscure),
                           ),
+                          errorText: _error,
                         ),
                         const SizedBox(height: 16),
                         PrismButton(

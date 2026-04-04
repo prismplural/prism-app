@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
@@ -219,19 +220,17 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
         color: AppColors.warmWhite.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: TextField(
+      child: PrismTextField(
         controller: controller,
         style: const TextStyle(color: AppColors.warmWhite, fontSize: 14),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(
-            color: AppColors.warmWhite.withValues(alpha: 0.35),
-            fontSize: 14,
-          ),
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: AppColors.warmWhite.withValues(alpha: 0.35),
+          fontSize: 14,
         ),
+        fieldStyle: PrismTextFieldStyle.borderless,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         onChanged: onChanged,
       ),
     );

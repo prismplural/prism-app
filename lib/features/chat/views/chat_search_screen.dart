@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
@@ -89,20 +90,18 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: TextField(
+                              child: PrismTextField(
                                 controller: _controller,
                                 autofocus: true,
-                                decoration: InputDecoration(
-                                  hintText: 'Search messages...',
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding:
-                                      const EdgeInsets.symmetric(vertical: 10),
-                                  hintStyle:
-                                      theme.textTheme.bodyLarge?.copyWith(
-                                    color: colorScheme.onSurfaceVariant
-                                        .withValues(alpha: 0.5),
-                                  ),
+                                hintText: 'Search messages...',
+                                fieldStyle: PrismTextFieldStyle.borderless,
+                                isDense: true,
+                                contentPadding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                                hintStyle:
+                                    theme.textTheme.bodyLarge?.copyWith(
+                                  color: colorScheme.onSurfaceVariant
+                                      .withValues(alpha: 0.5),
                                 ),
                                 style: theme.textTheme.bodyLarge,
                                 onChanged: _onQueryChanged,
