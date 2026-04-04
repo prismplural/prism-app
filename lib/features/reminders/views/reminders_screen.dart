@@ -96,6 +96,8 @@ class _ReminderTile extends ConsumerWidget {
       ),
       onDismissed: (_) {
         notifier.deleteReminder(reminder.id);
+        // Uses SnackBar instead of PrismToast because the undo action
+        // requires a tap-able button, which PrismToast does not support.
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Deleted "${reminder.name}"'),
