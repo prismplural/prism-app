@@ -8,6 +8,8 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 /// Create or edit a front session comment.
 class AddCommentSheet extends ConsumerStatefulWidget {
@@ -69,14 +71,14 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
   }
 
   Future<void> _pickDateTime() async {
-    final date = await showDatePicker(
+    final date = await showPrismDatePicker(
       context: context,
       initialDate: _timestamp,
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (date == null || !mounted) return;
-    final time = await showTimePicker(
+    final time = await showPrismTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_timestamp),
     );

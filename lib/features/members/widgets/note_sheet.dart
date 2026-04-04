@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 
 /// Create or edit a note. Shown as a full-screen PrismSheet.
 ///
@@ -111,7 +112,7 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await showPrismDatePicker(
       context: context,
       initialDate: _date,
       firstDate: DateTime(2000),

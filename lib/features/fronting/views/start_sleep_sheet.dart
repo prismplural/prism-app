@@ -7,6 +7,8 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 /// Bottom sheet to start a new sleep session.
 class StartSleepSheet extends ConsumerStatefulWidget {
@@ -36,7 +38,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
   }
 
   Future<void> _pickStartTime() async {
-    final date = await showDatePicker(
+    final date = await showPrismDatePicker(
       context: context,
       initialDate: _startTime,
       firstDate: DateTime(2020),
@@ -44,7 +46,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
     );
     if (date == null || !mounted) return;
 
-    final time = await showTimePicker(
+    final time = await showPrismTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_startTime),
     );

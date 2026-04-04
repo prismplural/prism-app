@@ -12,6 +12,8 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 /// Full-screen sheet for creating a new poll.
 ///
@@ -78,7 +80,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
 
   Future<void> _pickExpiration() async {
     final now = DateTime.now();
-    final date = await showDatePicker(
+    final date = await showPrismDatePicker(
       context: context,
       initialDate: _expiresAt ?? now.add(const Duration(days: 1)),
       firstDate: now,
@@ -86,7 +88,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
     );
     if (date == null || !mounted) return;
 
-    final time = await showTimePicker(
+    final time = await showPrismTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(
         _expiresAt ?? now.add(const Duration(hours: 1)),

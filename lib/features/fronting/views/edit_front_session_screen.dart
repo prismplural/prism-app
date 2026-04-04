@@ -25,6 +25,8 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 /// Full-screen editor for an existing fronting session.
 class EditFrontSessionScreen extends ConsumerStatefulWidget {
@@ -69,7 +71,7 @@ class _EditFrontSessionScreenState
   }
 
   Future<void> _pickStartTime() async {
-    final date = await showDatePicker(
+    final date = await showPrismDatePicker(
       context: context,
       initialDate: _startTime,
       firstDate: DateTime(2020),
@@ -77,7 +79,7 @@ class _EditFrontSessionScreenState
     );
     if (date == null || !mounted) return;
 
-    final time = await showTimePicker(
+    final time = await showPrismTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_startTime),
     );
@@ -96,7 +98,7 @@ class _EditFrontSessionScreenState
 
   Future<void> _pickEndTime() async {
     final initial = _endTime ?? DateTime.now();
-    final date = await showDatePicker(
+    final date = await showPrismDatePicker(
       context: context,
       initialDate: initial,
       firstDate: _startTime,
@@ -104,7 +106,7 @@ class _EditFrontSessionScreenState
     );
     if (date == null || !mounted) return;
 
-    final time = await showTimePicker(
+    final time = await showPrismTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
     );

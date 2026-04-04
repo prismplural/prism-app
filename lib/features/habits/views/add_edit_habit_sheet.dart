@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 class AddEditHabitSheet extends ConsumerStatefulWidget {
   const AddEditHabitSheet({
@@ -288,7 +289,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
 
   Future<void> _pickTime() async {
     final initial = _parseTime(_reminderTime) ?? const TimeOfDay(hour: 9, minute: 0);
-    final picked = await showTimePicker(
+    final picked = await showPrismTimePicker(
       context: context,
       initialTime: initial,
     );
