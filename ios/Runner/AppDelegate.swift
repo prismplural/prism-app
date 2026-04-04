@@ -8,6 +8,8 @@ import UIKit
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var screenshotEventSink: FlutterEventSink?
   private var firstDeviceAdmissionChannel: FlutterMethodChannel?
+  private var secureDisplayChannel: FlutterMethodChannel?
+  private var secureTextField: UITextField?
   private let appAttestKeychainService = "com.prism.prism_plurality.app_attest"
   private let appAttestKeychainAccount = "key_id"
 
@@ -31,6 +33,22 @@ import UIKit
       name: "com.prism.prism_plurality/screenshot_events",
       binaryMessenger: registrar.messenger()
     ).setStreamHandler(self)
+    secureDisplayChannel = FlutterMethodChannel(
+      name: "com.prism.prism_plurality/secure_display",
+      binaryMessenger: registrar.messenger()
+    )
+    secureDisplayChannel?.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "setSecureDisplay" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let arguments = call.arguments as? [String: Any] ?? [:]
+      let enabled = arguments["enabled"] as? Bool ?? false
+      DispatchQueue.main.async {
+        self?.setSecureDisplay(enabled: enabled)
+        result(nil)
+      }
+    }
     firstDeviceAdmissionChannel = FlutterMethodChannel(
       name: "com.prism.prism_plurality/first_device_admission",
       binaryMessenger: registrar.messenger()
@@ -65,6 +83,35 @@ import UIKit
         )
         result(proof)
       }
+    }
+  }
+
+  /// Toggle secure display using the iOS secure text field trick.
+  ///
+  /// iOS has no public FLAG_SECURE equivalent, but a UITextField with
+  /// `isSecureTextEntry = true` causes the system to hide its superview's
+  /// content from screen recording and the app-switcher snapshot.
+  private func setSecureDisplay(enabled: Bool) {
+    guard let window = UIApplication.shared.connectedScenes
+      .compactMap({ $0 as? UIWindowScene })
+      .flatMap({ $0.windows })
+      .first
+    else { return }
+
+    if enabled {
+      if secureTextField == nil {
+        let field = UITextField()
+        field.isSecureTextEntry = true
+        field.isUserInteractionEnabled = false
+        window.addSubview(field)
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.widthAnchor.constraint(equalToConstant: 0).isActive = true
+        field.heightAnchor.constraint(equalToConstant: 0).isActive = true
+        secureTextField = field
+      }
+    } else {
+      secureTextField?.removeFromSuperview()
+      secureTextField = nil
     }
   }
 
