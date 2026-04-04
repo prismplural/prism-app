@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 class DeviceManagementScreen extends ConsumerWidget {
   const DeviceManagementScreen({super.key});
@@ -177,18 +178,12 @@ class DeviceManagementScreen extends ConsumerWidget {
           .read(deviceListProvider.notifier)
           .revoke(device.deviceId, remoteWipe: result.wipe);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Device ${device.shortId} revoked')),
-        );
+        PrismToast.success(context,
+            message: 'Device ${device.shortId} revoked');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to revoke: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
+        PrismToast.error(context, message: 'Failed to revoke: $e');
       }
     }
   }
@@ -316,9 +311,7 @@ class _DeviceTile extends StatelessWidget {
                 ),
           onLongPress: () {
             Clipboard.setData(ClipboardData(text: device.deviceId));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Device ID copied')),
-            );
+            PrismToast.show(context, message: 'Device ID copied');
           },
         ),
       ),
