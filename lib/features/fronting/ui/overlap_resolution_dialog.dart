@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -42,10 +43,11 @@ Future<OverlapResolution?> showOverlapResolutionDialog(
           ),
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(
+            child: PrismButton(
+              label: 'Cancel',
+              tone: PrismButtonTone.subtle,
               onPressed: () =>
                   Navigator.of(ctx).pop(OverlapResolution.cancel),
-              child: const Text('Cancel'),
             ),
           ),
         ],

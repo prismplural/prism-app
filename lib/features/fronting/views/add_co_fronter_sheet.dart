@@ -88,10 +88,11 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                TextButton(
-                  onPressed:
-                      _saving ? null : () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                PrismButton(
+                  label: 'Cancel',
+                  tone: PrismButtonTone.subtle,
+                  onPressed: () => Navigator.of(context).pop(),
+                  enabled: !_saving,
                 ),
                 Text(
                   'Add Co-Fronters',

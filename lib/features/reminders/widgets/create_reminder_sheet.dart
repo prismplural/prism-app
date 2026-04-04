@@ -150,7 +150,9 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                   // Time picker
                   _LabeledRow(
                     label: 'Time',
-                    child: TextButton(
+                    child: PrismButton(
+                      label: _timeOfDay?.format(context) ?? '9:00 AM',
+                      tone: PrismButtonTone.subtle,
                       onPressed: () async {
                         final picked = await showPrismTimePicker(
                           context: context,
@@ -160,7 +162,6 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                           setState(() => _timeOfDay = picked);
                         }
                       },
-                      child: Text(_timeOfDay?.format(context) ?? '9:00 AM'),
                     ),
                   ),
                 ] else ...[

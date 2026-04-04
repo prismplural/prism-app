@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Placeholder — pending changes count (sync now managed by Rust layer).
@@ -56,27 +57,22 @@ class DebugScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      icon: Icon(
-                        AppIcons.deleteForever,
-                        color: theme.colorScheme.error,
-                      ),
-                      label: Text(
-                        'Reset Database',
-                        style: TextStyle(color: theme.colorScheme.error),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: theme.colorScheme.error),
-                      ),
+                    child: PrismButton(
+                      label: 'Reset Database',
+                      icon: AppIcons.deleteForever,
+                      tone: PrismButtonTone.destructive,
+                      expanded: true,
                       onPressed: () => _confirmReset(context, ref),
                     ),
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      icon: Icon(AppIcons.fileUploadOutlined),
-                      label: const Text('Export Data'),
+                    child: PrismButton(
+                      label: 'Export Data',
+                      icon: AppIcons.fileUploadOutlined,
+                      tone: PrismButtonTone.outlined,
+                      expanded: true,
                       onPressed: () {
                         PrismToast.show(context, message: 'Coming soon');
                       },
@@ -121,9 +117,11 @@ class DebugScreen extends ConsumerWidget {
                   const Divider(height: 16),
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
-                      icon: Icon(AppIcons.receiptLongOutlined),
-                      label: const Text('Open Sync Debug Log'),
+                    child: PrismButton(
+                      label: 'Open Sync Debug Log',
+                      icon: AppIcons.receiptLongOutlined,
+                      tone: PrismButtonTone.outlined,
+                      expanded: true,
                       onPressed: () =>
                           context.push(AppRoutePaths.settingsSyncDebug),
                     ),

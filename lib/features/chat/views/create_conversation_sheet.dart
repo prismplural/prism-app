@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// Bottom sheet for creating a new conversation (DM or group).
@@ -291,7 +292,11 @@ class _CreateConversationSheetState
                               final allSelected = members.every(
                                 (m) => _selectedMemberIds.contains(m.id),
                               );
-                              return TextButton(
+                              return PrismButton(
+                                label: allSelected
+                                    ? 'Deselect All'
+                                    : 'Select All',
+                                tone: PrismButtonTone.subtle,
                                 onPressed: () {
                                   setState(() {
                                     if (allSelected) {
@@ -303,11 +308,6 @@ class _CreateConversationSheetState
                                     }
                                   });
                                 },
-                                child: Text(
-                                  allSelected
-                                      ? 'Deselect All'
-                                      : 'Select All',
-                                ),
                               );
                             },
                           ) ?? const SizedBox.shrink(),
