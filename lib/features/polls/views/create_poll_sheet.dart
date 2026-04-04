@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 
 /// Full-screen sheet for creating a new poll.
 ///
@@ -366,51 +367,49 @@ class _OptionColorDot extends StatelessWidget {
         ? _parseColor(colorHex!)
         : theme.colorScheme.outlineVariant;
 
-    return PopupMenuButton<String?>(
-      tooltip: 'Pick color',
-      offset: const Offset(0, 36),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      itemBuilder: (_) => [
-        PopupMenuItem<String?>(
-          enabled: false,
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final hex in _palette)
-                GestureDetector(
-                  onTap: () {
-                    onColorSelected(hex);
-                    Navigator.of(context).pop();
-                  },
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: hex != null
-                          ? _parseColor(hex)
-                          : theme.colorScheme.surfaceContainerHighest,
-                      border: hex == colorHex
-                          ? Border.all(
-                              color: theme.colorScheme.primary,
-                              width: 2.5,
-                            )
-                          : null,
-                    ),
-                    child: hex == null
-                        ? Icon(
-                            AppIcons.block,
-                            size: 16,
-                            color: theme.colorScheme.onSurfaceVariant,
+    return BlurPopupAnchor(
+      itemCount: 1,
+      width: 200,
+      maxHeight: 120,
+      itemBuilder: (context, index, close) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final hex in _palette)
+              GestureDetector(
+                onTap: () {
+                  onColorSelected(hex);
+                  close();
+                },
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: hex != null
+                        ? _parseColor(hex)
+                        : theme.colorScheme.surfaceContainerHighest,
+                    border: hex == colorHex
+                        ? Border.all(
+                            color: theme.colorScheme.primary,
+                            width: 2.5,
                           )
                         : null,
                   ),
+                  child: hex == null
+                      ? Icon(
+                          AppIcons.block,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        )
+                      : null,
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
-      ],
+      ),
       child: Container(
         width: 28,
         height: 28,
