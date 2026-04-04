@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Modal for creating a new fronting session with full details.
@@ -737,26 +738,15 @@ class _ConfidencePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SegmentedButton<FrontConfidence>(
+    return PrismSegmentedControl<FrontConfidence>(
       segments: FrontConfidence.values.map((c) {
-        return ButtonSegment<FrontConfidence>(
+        return PrismSegment(
           value: c,
-          label: Text(
-            _labels[c]!,
-            style: const TextStyle(fontSize: 12),
-          ),
+          label: _labels[c]!,
         );
       }).toList(),
-      selected: selected != null ? {selected!} : {},
-      emptySelectionAllowed: true,
-      onSelectionChanged: (values) {
-        onSelect(values.isEmpty ? null : values.first);
-      },
-      showSelectedIcon: false,
-      style: const ButtonStyle(
-        visualDensity: VisualDensity.compact,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+      selected: selected ?? FrontConfidence.unsure,
+      onChanged: onSelect,
     );
   }
 }

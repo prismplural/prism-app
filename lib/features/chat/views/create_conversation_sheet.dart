@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -170,23 +171,15 @@ class _CreateConversationSheetState
                   ),
                   children: [
                     // DM / Group toggle
-                    SegmentedButton<bool>(
+                    PrismSegmentedControl<bool>(
                       segments: [
-                        ButtonSegment(
-                          value: true,
-                          label: Text('Group'),
-                          icon: Icon(AppIcons.group),
-                        ),
-                        ButtonSegment(
-                          value: false,
-                          label: Text('Direct Message'),
-                          icon: Icon(AppIcons.person),
-                        ),
+                        const PrismSegment(value: true, label: 'Group'),
+                        const PrismSegment(value: false, label: 'Direct Message'),
                       ],
-                      selected: {_isGroupChat},
-                      onSelectionChanged: (selected) {
+                      selected: _isGroupChat,
+                      onChanged: (value) {
                         setState(() {
-                          _isGroupChat = selected.first;
+                          _isGroupChat = value;
                         });
                       },
                     ),

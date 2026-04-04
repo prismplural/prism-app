@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -135,16 +136,16 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
               Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: SegmentedButton<StatisticsTimeframe>(
+                child: PrismSegmentedControl<StatisticsTimeframe>(
                   segments: StatisticsTimeframe.values
-                      .map((t) => ButtonSegment(
+                      .map((t) => PrismSegment(
                             value: t,
-                            label: Text(t.label),
+                            label: t.label,
                           ))
                       .toList(),
-                  selected: {_timeframe},
-                  onSelectionChanged: (v) =>
-                      setState(() => _timeframe = v.first),
+                  selected: _timeframe,
+                  onChanged: (value) =>
+                      setState(() => _timeframe = value),
                 ),
               ),
 

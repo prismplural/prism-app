@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/settings/widgets/font_settings_section.
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
@@ -43,20 +44,20 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               child: PrismSectionCard(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: SegmentedButton<ThemeBrightness>(
+                  child: PrismSegmentedControl<ThemeBrightness>(
                     segments: ThemeBrightness.values
                         .map(
-                          (b) => ButtonSegment<ThemeBrightness>(
+                          (b) => PrismSegment(
                             value: b,
-                            label: Text(b.displayName),
+                            label: b.displayName,
                           ),
                         )
                         .toList(),
-                    selected: {settings.themeBrightness},
-                    onSelectionChanged: (selected) {
+                    selected: settings.themeBrightness,
+                    onChanged: (value) {
                       ref
                           .read(settingsNotifierProvider.notifier)
-                          .updateThemeBrightness(selected.first);
+                          .updateThemeBrightness(value);
                     },
                   ),
                 ),
@@ -70,7 +71,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SegmentedButton<ThemeStyle>(
+                      PrismSegmentedControl<ThemeStyle>(
                         segments: ThemeStyle.values
                             .where((s) {
                               if (s == ThemeStyle.materialYou) {
@@ -80,17 +81,17 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                               return true;
                             })
                             .map(
-                              (s) => ButtonSegment<ThemeStyle>(
+                              (s) => PrismSegment(
                                 value: s,
-                                label: Text(s.displayName),
+                                label: s.displayName,
                               ),
                             )
                             .toList(),
-                        selected: {settings.themeStyle},
-                        onSelectionChanged: (selected) {
+                        selected: settings.themeStyle,
+                        onChanged: (value) {
                           ref
                               .read(settingsNotifierProvider.notifier)
-                              .handleThemeStyleChange(selected.first);
+                              .handleThemeStyleChange(value);
                         },
                       ),
                       if (settings.themeStyle == ThemeStyle.materialYou) ...[
