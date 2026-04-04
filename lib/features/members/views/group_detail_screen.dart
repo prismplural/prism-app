@@ -69,7 +69,7 @@ class _GroupDetailBody extends ConsumerWidget {
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: group.name,
+        title: '',
         showBackButton: true,
         actions: [
           PrismTopBarAction(
