@@ -59,7 +59,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: habitAsync.value?.name ?? 'Habit',
+        title: '',
         showBackButton: true,
         trailing: habitAsync.value != null
             ? PrismPopupMenu<String>(

@@ -36,19 +36,19 @@ class PollDetailScreen extends ConsumerWidget {
 
     return pollAsync.when(
       loading: () => const PrismPageScaffold(
-        topBar: PrismTopBar(title: 'Poll', showBackButton: true),
+        topBar: PrismTopBar(title: '', showBackButton: true),
         bodyPadding: EdgeInsets.zero,
         body: PrismLoadingState(),
       ),
       error: (e, _) => PrismPageScaffold(
-        topBar: const PrismTopBar(title: 'Poll', showBackButton: true),
+        topBar: const PrismTopBar(title: '', showBackButton: true),
         bodyPadding: EdgeInsets.zero,
         body: Center(child: Text('Error loading poll: $e')),
       ),
       data: (poll) {
         if (poll == null) {
           return const PrismPageScaffold(
-            topBar: PrismTopBar(title: 'Poll', showBackButton: true),
+            topBar: PrismTopBar(title: '', showBackButton: true),
             bodyPadding: EdgeInsets.zero,
             body: Center(child: Text('Poll not found')),
           );
@@ -231,7 +231,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Poll',
+        title: '',
         showBackButton: true,
         actions: [
           if (!_isClosed)
