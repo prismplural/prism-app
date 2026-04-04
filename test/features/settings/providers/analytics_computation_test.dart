@@ -5,6 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
 
 /// Simulates a Drift FrontingSession row for testing.
+///
+/// [coFronterIds] accepts either a JSON-encoded String (e.g. `'[]'` or
+/// `jsonEncode(['id1'])`) or a `List<String>` which will be JSON-encoded
+/// automatically. Defaults to `'[]'`.
 class FakeSession {
   final DateTime startTime;
   final DateTime? endTime;
@@ -15,8 +19,10 @@ class FakeSession {
     required this.startTime,
     this.endTime,
     this.memberId,
-    this.coFronterIds = '[]',
-  });
+    Object coFronterIds = '[]',
+  }) : coFronterIds = coFronterIds is List
+            ? jsonEncode(coFronterIds)
+            : coFronterIds as String;
 }
 
 void main() {
@@ -321,6 +327,172 @@ void main() {
 
       expect(buckets['night'], 60); // 5:00-6:00
       expect(buckets['morning'], 60); // 6:00-7:00
+    });
+  });
+
+  group('dailyActivity', () {
+    test('single session bucketed into correct day', () {
+      final sessions = [
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 10, 0),
+          endTime: DateTime.utc(2026, 3, 1, 12, 0),
+          memberId: 'a',
+        ),
+      ];
+      final range = DateTimeRange(
+          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.dailyActivity, hasLength(1));
+      expect(result.dailyActivity.first.date, DateTime.utc(2026, 3, 1));
+      expect(result.dailyActivity.first.totalMinutes, 120);
+      expect(result.dailyActivity.first.sessionCount, 1);
+    });
+
+    test('session spanning midnight splits across two days', () {
+      final sessions = [
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 23, 0),
+          endTime: DateTime.utc(2026, 3, 2, 1, 0),
+          memberId: 'a',
+        ),
+      ];
+      final range = DateTimeRange(
+          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 3));
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.dailyActivity, hasLength(2));
+      final march1 = result.dailyActivity
+          .firstWhere((d) => d.date == DateTime.utc(2026, 3, 1));
+      final march2 = result.dailyActivity
+          .firstWhere((d) => d.date == DateTime.utc(2026, 3, 2));
+      expect(march1.totalMinutes, 60);
+      expect(march2.totalMinutes, 60);
+    });
+
+    test('active session (null endTime) clamped to range.end', () {
+      final rangeEnd = DateTime.utc(2026, 3, 1, 11, 0);
+      final sessions = [
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 10, 0),
+          endTime: null, // active session
+          memberId: 'a',
+        ),
+      ];
+      final range =
+          DateTimeRange(start: DateTime.utc(2026, 3, 1), end: rangeEnd);
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.dailyActivity, hasLength(1));
+      expect(result.dailyActivity.first.totalMinutes, 60);
+    });
+
+    test('results sorted by date ascending', () {
+      final sessions = [
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 3, 10),
+          endTime: DateTime.utc(2026, 3, 3, 11),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 10),
+          endTime: DateTime.utc(2026, 3, 1, 11),
+          memberId: 'a',
+        ),
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 2, 10),
+          endTime: DateTime.utc(2026, 3, 2, 11),
+          memberId: 'a',
+        ),
+      ];
+      final range = DateTimeRange(
+          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 4));
+      final result = computeAnalyticsFromRows(sessions, range);
+      final dates = result.dailyActivity.map((d) => d.date).toList();
+      expect(dates, [
+        DateTime.utc(2026, 3, 1),
+        DateTime.utc(2026, 3, 2),
+        DateTime.utc(2026, 3, 3),
+      ]);
+    });
+  });
+
+  group('topCoFrontingPairs', () {
+    test('pair counted once regardless of who is primary', () {
+      final sessions = [
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 10),
+          endTime: DateTime.utc(2026, 3, 1, 12),
+          memberId: 'member-a',
+          coFronterIds: ['member-b'],
+        ),
+      ];
+      final range = DateTimeRange(
+          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.topCoFrontingPairs, hasLength(1));
+      expect(result.topCoFrontingPairs.first.totalTime.inMinutes, 120);
+    });
+
+    test('alphabetical key ordering consistent regardless of primary', () {
+      // Session A primary + B co, then B primary + A co — should accumulate to same pair
+      final sessions = [
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 8),
+          endTime: DateTime.utc(2026, 3, 1, 9),
+          memberId: 'member-a',
+          coFronterIds: ['member-b'],
+        ),
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 10),
+          endTime: DateTime.utc(2026, 3, 1, 11),
+          memberId: 'member-b',
+          coFronterIds: ['member-a'],
+        ),
+      ];
+      final range = DateTimeRange(
+          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.topCoFrontingPairs, hasLength(1));
+      expect(result.topCoFrontingPairs.first.totalTime.inMinutes, 120);
+    });
+
+    test('sorted by totalTime descending', () {
+      final sessions = [
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 8),
+          endTime: DateTime.utc(2026, 3, 1, 9),
+          memberId: 'a',
+          coFronterIds: ['b'], // 1h A+B
+        ),
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 10),
+          endTime: DateTime.utc(2026, 3, 1, 13),
+          memberId: 'a',
+          coFronterIds: ['c'], // 3h A+C
+        ),
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 14),
+          endTime: DateTime.utc(2026, 3, 1, 16),
+          memberId: 'b',
+          coFronterIds: ['c'], // 2h B+C
+        ),
+      ];
+      final range = DateTimeRange(
+          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.topCoFrontingPairs.first.totalTime.inHours, 3); // A+C is top
+    });
+
+    test('no co-fronters returns empty list', () {
+      final sessions = [
+        FakeSession(
+          startTime: DateTime.utc(2026, 3, 1, 10),
+          endTime: DateTime.utc(2026, 3, 1, 11),
+          memberId: 'a',
+        ),
+      ];
+      final range = DateTimeRange(
+          start: DateTime.utc(2026, 3, 1), end: DateTime.utc(2026, 3, 2));
+      final result = computeAnalyticsFromRows(sessions, range);
+      expect(result.topCoFrontingPairs, isEmpty);
     });
   });
 }
