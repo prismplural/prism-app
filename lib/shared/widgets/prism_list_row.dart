@@ -1,9 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// Reusable row primitive for navigation, metadata, and grouped list content.
-class PrismListRow extends StatelessWidget {
+class PrismListRow extends StatefulWidget {
   const PrismListRow({
     super.key,
     required this.title,
@@ -32,27 +33,38 @@ class PrismListRow extends StatelessWidget {
   final bool showChevron;
 
   @override
+  State<PrismListRow> createState() => _PrismListRowState();
+}
+
+class _PrismListRowState extends State<PrismListRow> {
+  bool _pressed = false;
+
+  static bool get _isApple =>
+      defaultTargetPlatform == TargetPlatform.iOS ||
+      defaultTargetPlatform == TargetPlatform.macOS;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canPress = enabled && onTap != null;
-    final baseColor = destructive
+    final canPress = widget.enabled && widget.onTap != null;
+    final baseColor = widget.destructive
         ? theme.colorScheme.error
         : theme.colorScheme.onSurface;
-    final foregroundColor = enabled
+    final foregroundColor = widget.enabled
         ? baseColor.withValues(alpha: 0.9)
         : theme.disabledColor;
-    final subtitleColor = enabled
+    final subtitleColor = widget.enabled
         ? theme.colorScheme.onSurfaceVariant
         : theme.disabledColor;
 
     final child = Padding(
-      padding: padding,
+      padding: widget.padding,
       child: Row(
         children: [
-          if (leading != null) ...[
+          if (widget.leading != null) ...[
             SizedBox(
-              width: dense ? 36 : 40,
-              child: Center(child: leading),
+              width: widget.dense ? 36 : 40,
+              child: Center(child: widget.leading),
             ),
             const SizedBox(width: 12),
           ],
@@ -69,11 +81,11 @@ class PrismListRow extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ) ??
                         TextStyle(color: foregroundColor),
-                    child: title,
+                    child: widget.title,
                   ),
                 ),
-                if (subtitle != null) ...[
-                  SizedBox(height: dense ? 2 : 4),
+                if (widget.subtitle != null) ...[
+                  SizedBox(height: widget.dense ? 2 : 4),
                   DefaultTextStyle(
                     style:
                         theme.textTheme.bodySmall?.copyWith(
@@ -81,16 +93,16 @@ class PrismListRow extends StatelessWidget {
                           height: 1.25,
                         ) ??
                         TextStyle(color: subtitleColor),
-                    child: subtitle!,
+                    child: widget.subtitle!,
                   ),
                 ],
               ],
             ),
           ),
-          if (trailing != null) ...[
+          if (widget.trailing != null) ...[
             const SizedBox(width: 12),
-            trailing!,
-          ] else if (showChevron) ...[
+            widget.trailing!,
+          ] else if (widget.showChevron) ...[
             const SizedBox(width: 12),
             Icon(
               AppIcons.chevronRightRounded,
@@ -101,18 +113,40 @@ class PrismListRow extends StatelessWidget {
       ),
     );
 
-    if (!canPress && onLongPress == null) {
+    if (!canPress && widget.onLongPress == null) {
       return child;
     }
 
-    return Material(
+    final useOpacity = _isApple;
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+
+    Widget row = Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: canPress ? onTap : null,
-        onLongPress: onLongPress,
+        onTap: canPress ? widget.onTap : null,
+        onLongPress: widget.onLongPress,
+        onHighlightChanged: useOpacity
+            ? (value) {
+                if (_pressed != value) {
+                  setState(() => _pressed = value);
+                }
+              }
+            : null,
         borderRadius: BorderRadius.circular(PrismTokens.radiusMedium),
         child: child,
       ),
     );
+
+    if (useOpacity) {
+      row = AnimatedOpacity(
+        opacity: _pressed ? 0.85 : 1.0,
+        duration: reduceMotion
+            ? Duration.zero
+            : Duration(milliseconds: _pressed ? 0 : 150),
+        child: row,
+      );
+    }
+
+    return row;
   }
 }
