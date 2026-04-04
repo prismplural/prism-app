@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Shows a dialog with available delete strategies.
@@ -35,8 +36,8 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
                 ? theme.colorScheme.error
                 : null;
 
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
+            return PrismListRow(
+              padding: EdgeInsets.zero,
               leading: Icon(icon, color: color),
               title: Row(
                 children: [

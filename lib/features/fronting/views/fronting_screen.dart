@@ -24,6 +24,7 @@ import 'package:prism_plurality/features/fronting/widgets/sleep_mode_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/info_banner.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
@@ -91,23 +92,17 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     );
   }
 
-  List<Widget> _buildActions(bool isSleeping, FrontingSession? sleepSession) {
+  Widget _buildViewToggle() {
     final isTimelineView = ref.watch(timelineViewActiveProvider);
-    return [
-      PrismTopBarAction(
-        icon: isTimelineView
-            ? AppIcons.viewListRounded
-            : AppIcons.timelineRounded,
-        tooltip: isTimelineView ? 'List view' : 'Timeline view',
-        onPressed: () => ref
-            .read(timelineViewActiveProvider.notifier)
-            .toggle(),
-      ),
-      _AddButton(
-        isSleeping: isSleeping,
-        sleepSession: sleepSession,
-      ),
-    ];
+    return PrismTopBarAction(
+      icon: isTimelineView
+          ? AppIcons.viewListRounded
+          : AppIcons.timelineRounded,
+      tooltip: isTimelineView ? 'List view' : 'Timeline view',
+      onPressed: () => ref
+          .read(timelineViewActiveProvider.notifier)
+          .toggle(),
+    );
   }
 
   Widget _buildListView(
@@ -122,7 +117,11 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
         SliverPinnedTopBar(
           child: PrismTopBar(
             title: systemName,
-            actions: _buildActions(isSleeping, sleepSession),
+            leading: _buildViewToggle(),
+            trailing: _AddButton(
+              isSleeping: isSleeping,
+              sleepSession: sleepSession,
+            ),
           ),
         ),
 
@@ -173,7 +172,11 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       children: [
         PrismTopBar(
           title: systemName,
-          actions: _buildActions(isSleeping, sleepSession),
+          leading: _buildViewToggle(),
+          trailing: _AddButton(
+            isSleeping: isSleeping,
+            sleepSession: sleepSession,
+          ),
         ),
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -323,8 +326,9 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       itemBuilder: (context, index, close) {
         final item = menuItems[index];
         final theme = Theme.of(context);
-        return ListTile(
+        return PrismListRow(
           dense: true,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           leading: Icon(
             item.icon,
             size: 20,
@@ -369,8 +373,8 @@ class _AddButtonState extends ConsumerState<_AddButton> {
           mainAxisSize: MainAxisSize.min,
           children: members
               .map(
-                (member) => ListTile(
-                  contentPadding: EdgeInsets.zero,
+                (member) => PrismListRow(
+                  padding: EdgeInsets.zero,
                   leading: Text(
                     member.emoji,
                     style: const TextStyle(fontSize: 24),
