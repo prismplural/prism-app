@@ -5,7 +5,9 @@ import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/analytics_date_range_picker.dart';
+import 'package:prism_plurality/features/settings/widgets/analytics_insight_card.dart';
 import 'package:prism_plurality/features/settings/widgets/duration_stats_card.dart';
+import 'package:prism_plurality/features/settings/widgets/fronting_activity_chart.dart';
 import 'package:prism_plurality/features/settings/widgets/member_comparison_chart.dart';
 import 'package:prism_plurality/features/settings/widgets/time_of_day_chart.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -63,19 +65,35 @@ class AnalyticsScreen extends ConsumerWidget {
   }
 }
 
-class _AnalyticsBody extends StatelessWidget {
+class _AnalyticsBody extends ConsumerWidget {
   const _AnalyticsBody({required this.analytics});
 
   final FrontingAnalytics analytics;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+
+    // Previous period and insights load independently — degrade gracefully.
+    final previousPeriod =
+        ref.watch(previousPeriodAnalyticsProvider).whenOrNull(
+              data: (p) => p,
+            );
+    final insights =
+        ref.watch(analyticsInsightsProvider).whenOrNull(
+              data: (list) => list,
+            ) ??
+            const [];
 
     return ListView(
       padding: EdgeInsets.fromLTRB(24, 0, 24, NavBarInset.of(context)),
       children: [
-        // System overview
+        // Activity timeline chart — shown only when ≥5 days have data
+        if (analytics.dailyActivity.isNotEmpty)
+          FrontingActivityChart(dailyActivity: analytics.dailyActivity),
+        if (analytics.dailyActivity.isNotEmpty) const SizedBox(height: 16),
+
+        // System overview with optional prior-period comparison
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -94,11 +112,17 @@ class _AnalyticsBody extends StatelessWidget {
                     _OverviewStat(
                       label: 'Total Time',
                       value: _fmt(analytics.totalTrackedTime),
+                      priorLabel: previousPeriod != null
+                          ? '${_fmt(previousPeriod.totalTrackedTime)} last period'
+                          : null,
                       theme: theme,
                     ),
                     _OverviewStat(
                       label: 'Gap Time',
                       value: _fmt(analytics.totalGapTime),
+                      priorLabel: previousPeriod != null
+                          ? '${_fmt(previousPeriod.totalGapTime)} last period'
+                          : null,
                       theme: theme,
                     ),
                   ],
@@ -108,13 +132,18 @@ class _AnalyticsBody extends StatelessWidget {
                   children: [
                     _OverviewStat(
                       label: 'Switches/Day',
-                      value:
-                          analytics.switchesPerDay.toStringAsFixed(1),
+                      value: analytics.switchesPerDay.toStringAsFixed(1),
+                      priorLabel: previousPeriod != null
+                          ? '${previousPeriod.switchesPerDay.toStringAsFixed(1)} last period'
+                          : null,
                       theme: theme,
                     ),
                     _OverviewStat(
                       label: 'Unique Fronters',
                       value: '${analytics.uniqueFronters}',
+                      priorLabel: previousPeriod != null
+                          ? '${previousPeriod.uniqueFronters} last period'
+                          : null,
                       theme: theme,
                     ),
                   ],
@@ -124,6 +153,13 @@ class _AnalyticsBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+
+        // Insight cards — shown between overview and member comparison
+        for (final insight in insights) ...[
+          AnalyticsInsightCard(insight: insight),
+          const SizedBox(height: 8),
+        ],
+        if (insights.isNotEmpty) const SizedBox(height: 8),
 
         // Member comparison chart
         MemberComparisonChart(memberStats: analytics.memberStats),
@@ -150,31 +186,47 @@ class _OverviewStat extends StatelessWidget {
     required this.label,
     required this.value,
     required this.theme,
+    this.priorLabel,
   });
 
   final String label;
   final String value;
   final ThemeData theme;
+  /// Muted prior-period text, e.g. "47h last period". Omitted when null.
+  final String? priorLabel;
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+      child: Semantics(
+        label: priorLabel != null
+            ? '$label: $value; prior period: $priorLabel'
+            : '$label: $value',
+        excludeSemantics: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
+            Text(
+              value,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-        ],
+            if (priorLabel != null)
+              Text(
+                priorLabel!,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
