@@ -6,6 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 
+class _DayBucket {
+  int minutes;
+  int sessions;
+  _DayBucket(this.minutes, this.sessions);
+}
+
 /// The selected date range for analytics.
 class AnalyticsRangeNotifier extends Notifier<DateTimeRange> {
   @override
@@ -50,6 +56,8 @@ FrontingAnalytics computeAnalyticsFromRows(
       uniqueFronters: 0,
       switchesPerDay: 0,
       memberStats: [],
+      dailyActivity: [],
+      topCoFrontingPairs: [],
     );
   }
 
@@ -132,6 +140,92 @@ FrontingAnalytics computeAnalyticsFromRows(
 
   memberStats.sort((a, b) => b.totalTime.compareTo(a.totalTime));
 
+  // --- Daily activity bucketing ---
+  final Map<DateTime, _DayBucket> dailyMap = {};
+  for (final session in rows) {
+    final startTime = session.startTime as DateTime;
+    final endTime = (session.endTime as DateTime?) ?? DateTime.now();
+
+    final effectiveStart =
+        startTime.isBefore(range.start) ? range.start : startTime;
+    final effectiveEnd = endTime.isAfter(range.end) ? range.end : endTime;
+    if (effectiveStart.isAfter(effectiveEnd)) continue;
+
+    var cursor = effectiveStart;
+    while (cursor.isBefore(effectiveEnd)) {
+      final dayStart =
+          DateTime.utc(cursor.year, cursor.month, cursor.day);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+      final sliceEnd =
+          effectiveEnd.isBefore(dayEnd) ? effectiveEnd : dayEnd;
+      final sliceMinutes = sliceEnd.difference(cursor).inMinutes;
+      if (sliceMinutes > 0) {
+        dailyMap.update(
+          dayStart,
+          (b) => _DayBucket(b.minutes + sliceMinutes, b.sessions + 1),
+          ifAbsent: () => _DayBucket(sliceMinutes, 1),
+        );
+      }
+      cursor = dayEnd;
+    }
+  }
+
+  final dailyActivity = dailyMap.entries
+      .map((e) => DailyActivity(
+            date: e.key,
+            totalMinutes: e.value.minutes,
+            sessionCount: e.value.sessions,
+          ))
+      .toList()
+    ..sort((a, b) => a.date.compareTo(b.date));
+
+  // --- Co-fronting pairs ---
+  final Map<String, Duration> pairAccum = {};
+  for (final session in rows) {
+    final primaryId = session.memberId as String?;
+    if (primaryId == null) continue;
+
+    final coFronterIdsRaw = session.coFronterIds as String;
+    List<String> coIds = [];
+    if (coFronterIdsRaw.isNotEmpty && coFronterIdsRaw != '[]') {
+      try {
+        final decoded = jsonDecode(coFronterIdsRaw);
+        coIds = decoded is List
+            ? decoded
+                .map((e) => e.toString())
+                .where((s) => s.isNotEmpty)
+                .toList()
+            : [];
+      } catch (_) {}
+    }
+    if (coIds.isEmpty) continue;
+
+    final startTime = session.startTime as DateTime;
+    final endTime = (session.endTime as DateTime?) ?? DateTime.now();
+    final effectiveStart =
+        startTime.isBefore(range.start) ? range.start : startTime;
+    final effectiveEnd = endTime.isAfter(range.end) ? range.end : endTime;
+    final duration = effectiveEnd.difference(effectiveStart);
+    if (duration <= Duration.zero) continue;
+
+    for (final coId in coIds) {
+      if (coId == primaryId) continue;
+      final ids = [primaryId, coId]..sort();
+      final key = '${ids[0]}|${ids[1]}';
+      pairAccum[key] = (pairAccum[key] ?? Duration.zero) + duration;
+    }
+  }
+
+  final sortedPairs = pairAccum.entries
+      .map((e) {
+        final ids = e.key.split('|');
+        return CoFrontingPair(
+            memberIdA: ids[0], memberIdB: ids[1], totalTime: e.value);
+      })
+      .toList()
+    ..sort((a, b) => b.totalTime.compareTo(a.totalTime));
+  final topCoFrontingPairs = sortedPairs.take(3).toList();
+
   return FrontingAnalytics(
     rangeStart: range.start,
     rangeEnd: range.end,
@@ -141,6 +235,8 @@ FrontingAnalytics computeAnalyticsFromRows(
     uniqueFronters: memberDurations.keys.length,
     switchesPerDay: switchesPerDay,
     memberStats: memberStats,
+    dailyActivity: dailyActivity,
+    topCoFrontingPairs: topCoFrontingPairs,
   );
 }
 
