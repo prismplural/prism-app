@@ -63,10 +63,10 @@ class AppTheme {
     if (!_isDesktopPlatform) {
       // Mobile: only strip letter spacing, keep M3 default sizes.
       return TextTheme(
-        displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-        displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-        displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-        headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+        displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0.5, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+        displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0.5, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+        displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0.5, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+        headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0.5, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
         headlineMedium: textTheme.headlineMedium?.copyWith(letterSpacing: 0),
         headlineSmall: textTheme.headlineSmall?.copyWith(letterSpacing: 0),
         titleLarge: textTheme.titleLarge?.copyWith(letterSpacing: 0),
@@ -83,10 +83,10 @@ class AppTheme {
 
     // Desktop: strip letter spacing and tighten font sizes.
     return TextTheme(
-      displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0, fontSize: 48, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-      displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0, fontSize: 38, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-      displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0, fontSize: 30, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-      headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0, fontSize: 26, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+      displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0.5, fontSize: 48, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+      displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0.5, fontSize: 38, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+      displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0.5, fontSize: 30, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+      headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0.5, fontSize: 26, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
       headlineMedium: textTheme.headlineMedium?.copyWith(letterSpacing: 0, fontSize: 22),
       headlineSmall: textTheme.headlineSmall?.copyWith(letterSpacing: 0, fontSize: 19),
       titleLarge: textTheme.titleLarge?.copyWith(letterSpacing: 0, fontSize: 18),
@@ -134,6 +134,9 @@ class AppTheme {
     Color accent,
     _ThemeColors colors,
   ) {
+    final isApple = defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+
     final base = ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
@@ -141,6 +144,9 @@ class AppTheme {
     );
 
     return base.copyWith(
+      splashFactory: isApple ? NoSplash.splashFactory : null,
+      splashColor: isApple ? Colors.transparent : null,
+      highlightColor: isApple ? Colors.transparent : null,
       textTheme: _adjustTextTheme(base.textTheme),
       scaffoldBackgroundColor: colors.scaffold,
       cardTheme: CardThemeData(

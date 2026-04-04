@@ -104,8 +104,10 @@ class _PrismButtonState extends State<PrismButton> {
       enabled: canPress,
       label: widget.semanticLabel ?? widget.label,
       child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 100),
+        scale: _pressed ? 0.95 : 1.0,
+        duration: MediaQuery.of(context).disableAnimations
+            ? Duration.zero
+            : const Duration(milliseconds: 100),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
