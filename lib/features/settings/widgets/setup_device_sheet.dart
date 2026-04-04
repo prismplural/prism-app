@@ -250,10 +250,11 @@ class _JoinerQrScannerView extends StatelessWidget {
       children: [
         Align(
           alignment: Alignment.centerLeft,
-          child: TextButton.icon(
+          child: PrismButton(
+            label: 'Back',
             onPressed: onBack,
-            icon: Icon(AppIcons.arrowBackIosNew, size: 14),
-            label: const Text('Back'),
+            icon: AppIcons.arrowBackIosNew,
+            tone: PrismButtonTone.subtle,
           ),
         ),
         const SizedBox(height: 8),

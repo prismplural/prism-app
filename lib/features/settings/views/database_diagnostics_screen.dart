@@ -139,9 +139,10 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
 
           // ── Integrity Check ────────────────────────
           Center(
-            child: FilledButton.icon(
-              icon: Icon(AppIcons.verifiedOutlined),
-              label: const Text('Check Integrity'),
+            child: PrismButton(
+              label: 'Check Integrity',
+              icon: AppIcons.verifiedOutlined,
+              tone: PrismButtonTone.filled,
               onPressed: () {
                 ref.invalidate(healthReportProvider);
                 PrismDialog.show(

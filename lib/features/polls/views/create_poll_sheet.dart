@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
@@ -258,10 +259,11 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
               // Add option button
               Align(
                 alignment: Alignment.centerLeft,
-                child: TextButton.icon(
+                child: PrismButton(
+                  label: 'Add option',
                   onPressed: _addOption,
-                  icon: Icon(AppIcons.add),
-                  label: const Text('Add option'),
+                  icon: AppIcons.add,
+                  tone: PrismButtonTone.subtle,
                 ),
               ),
               const SizedBox(height: 8),
@@ -303,14 +305,13 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
               if (_hasExpiration)
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
+                  child: PrismButton(
+                    label: _expiresAt != null
+                        ? 'Change: ${_formatDateTime(_expiresAt!)}'
+                        : 'Pick date & time',
                     onPressed: _pickExpiration,
-                    icon: Icon(AppIcons.schedule),
-                    label: Text(
-                      _expiresAt != null
-                          ? 'Change: ${_formatDateTime(_expiresAt!)}'
-                          : 'Pick date & time',
-                    ),
+                    icon: AppIcons.schedule,
+                    tone: PrismButtonTone.subtle,
                   ),
                 ),
 

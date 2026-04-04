@@ -19,6 +19,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -145,10 +146,11 @@ class _GroupDetailBody extends ConsumerWidget {
 
             // Add member button
             Center(
-              child: TextButton.icon(
+              child: PrismButton(
+                label: 'Add member',
                 onPressed: () => _addMember(context, ref),
-                icon: Icon(AppIcons.personAddOutlined),
-                label: const Text('Add member'),
+                icon: AppIcons.personAddOutlined,
+                tone: PrismButtonTone.subtle,
               ),
             ),
 

@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Screen for bulk member operations: activate/deactivate, delete, and reorder.
@@ -169,28 +170,22 @@ class _SystemManagementScreenState
                         ),
                       ),
                       const Spacer(),
-                      TextButton.icon(
-                        icon: Icon(
-                          _showInactive
-                              ? AppIcons.visibility
-                              : AppIcons.visibilityOff,
-                          size: 18,
-                        ),
-                        label: Text(
-                          _showInactive
-                              ? 'Activate'
-                              : 'Deactivate',
-                        ),
+                      PrismButton(
+                        label: _showInactive
+                            ? 'Activate'
+                            : 'Deactivate',
+                        icon: _showInactive
+                            ? AppIcons.visibility
+                            : AppIcons.visibilityOff,
+                        tone: PrismButtonTone.subtle,
                         onPressed: () =>
                             _bulkToggleActive(displayedMembers),
                       ),
                       const SizedBox(width: 8),
-                      TextButton.icon(
-                        icon: Icon(AppIcons.delete, size: 18),
-                        label: const Text('Delete'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: theme.colorScheme.error,
-                        ),
+                      PrismButton(
+                        label: 'Delete',
+                        icon: AppIcons.delete,
+                        tone: PrismButtonTone.destructive,
                         onPressed: () => _bulkDelete(displayedMembers),
                       ),
                     ],
