@@ -30,38 +30,40 @@ class FontSettingsSection extends ConsumerWidget {
 
     return PrismSection(
       title: 'Font',
-      child: PrismSectionCard(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 6),
-              // Font family selector
-              PrismSegmentedControl<FontFamily>(
-                segments: FontFamily.values
-                    .map(
-                      (f) => PrismSegment(
-                        value: f,
-                        label: f.displayName,
-                      ),
-                    )
-                    .toList(),
-                selected: fontFamily,
-                onChanged: (newFamily) {
-                  ref
-                      .read(settingsNotifierProvider.notifier)
-                      .updateFontFamily(newFamily);
-                  // Clamp scale to 1.0 when switching to Open Dyslexic
-                  if (newFamily == FontFamily.openDyslexic &&
-                      rawFontScale < 1.0) {
-                    ref
-                        .read(settingsNotifierProvider.notifier)
-                        .updateFontScale(1.0);
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Font family selector
+          PrismSegmentedControl<FontFamily>(
+            segments: FontFamily.values
+                .map(
+                  (f) => PrismSegment(
+                    value: f,
+                    label: f.displayName,
+                  ),
+                )
+                .toList(),
+            selected: fontFamily,
+            onChanged: (newFamily) {
+              ref
+                  .read(settingsNotifierProvider.notifier)
+                  .updateFontFamily(newFamily);
+              // Clamp scale to 1.0 when switching to Open Dyslexic
+              if (newFamily == FontFamily.openDyslexic &&
+                  rawFontScale < 1.0) {
+                ref
+                    .read(settingsNotifierProvider.notifier)
+                    .updateFontScale(1.0);
+              }
+            },
+          ),
+          const SizedBox(height: 12),
+          PrismSectionCard(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               // Font scale slider
               Row(
                 children: [
@@ -145,9 +147,11 @@ class FontSettingsSection extends ConsumerWidget {
                       .updateDisplayFontInAppBar(value);
                 },
               ),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

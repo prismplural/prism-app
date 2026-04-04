@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -23,10 +24,10 @@ class PrismSwitchRow extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  /// Optional icon shown in a tinted circle on the leading edge.
+  /// Optional icon shown in a tinted glass circle on the leading edge.
   final IconData? icon;
 
-  /// Color for the icon circle. Defaults to [ColorScheme.primary].
+  /// Tint color for the icon circle. Defaults to [ColorScheme.primary].
   final Color? iconColor;
 
   final bool enabled;
@@ -36,7 +37,7 @@ class PrismSwitchRow extends StatelessWidget {
     return PrismListRow(
       title: Text(title),
       subtitle: subtitle != null ? Text(subtitle!) : null,
-      leading: icon != null ? _IconCircle(icon: icon!, color: iconColor) : null,
+      leading: icon != null ? _IconCircle(icon: icon!, color: iconColor, enabled: enabled) : null,
       trailing: Switch.adaptive(
         value: value,
         onChanged: enabled ? onChanged : null,
@@ -48,10 +49,11 @@ class PrismSwitchRow extends StatelessWidget {
 }
 
 class _IconCircle extends StatelessWidget {
-  const _IconCircle({required this.icon, this.color});
+  const _IconCircle({required this.icon, this.color, this.enabled = true});
 
   final IconData icon;
   final Color? color;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +61,13 @@ class _IconCircle extends StatelessWidget {
     return TintedGlassSurface.circle(
       size: 40,
       tint: resolvedColor,
-      child: Icon(icon, size: 20, color: resolvedColor),
+      child: Icon(
+        icon,
+        size: 20,
+        color: enabled
+            ? AppColors.warmWhite.withValues(alpha: 0.85)
+            : Theme.of(context).disabledColor.withValues(alpha: 0.5),
+      ),
     );
   }
 }

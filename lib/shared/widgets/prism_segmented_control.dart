@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
@@ -35,8 +36,14 @@ class _PrismSegmentedControlState<T>
     extends State<PrismSegmentedControl<T>>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _animation;
   int _previousIndex = 0;
+
+  // Apple-like spring: fast start, smooth settle, subtle overshoot.
+  static final _spring = SpringDescription.withDampingRatio(
+    mass: 1.0,
+    stiffness: 180.0,
+    ratio: 0.75,
+  );
 
   int get _selectedIndex {
     for (int i = 0; i < widget.segments.length; i++) {
@@ -49,17 +56,10 @@ class _PrismSegmentedControlState<T>
   void initState() {
     super.initState();
     _previousIndex = _selectedIndex;
-    _controller = AnimationController(
+    _controller = AnimationController.unbounded(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      value: _previousIndex.toDouble(),
     );
-    _animation = Tween<double>(
-      begin: _previousIndex.toDouble(),
-      end: _previousIndex.toDouble(),
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
   }
 
   @override
@@ -68,17 +68,18 @@ class _PrismSegmentedControlState<T>
     final newIndex = _selectedIndex;
     if (newIndex != _previousIndex) {
       final reduceMotion = MediaQuery.of(context).disableAnimations;
-      _animation = Tween<double>(
-        begin: _animation.value,
-        end: newIndex.toDouble(),
-      ).animate(CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ));
-      _controller.duration = reduceMotion
-          ? Duration.zero
-          : const Duration(milliseconds: 200);
-      _controller.forward(from: 0);
+      if (reduceMotion) {
+        _controller.value = newIndex.toDouble();
+      } else {
+        _controller.animateWith(
+          SpringSimulation(
+            _spring,
+            _controller.value,
+            newIndex.toDouble(),
+            0, // initial velocity
+          ),
+        );
+      }
       _previousIndex = newIndex;
     }
   }
@@ -132,7 +133,7 @@ class _PrismSegmentedControlState<T>
         height: 44,
         decoration: BoxDecoration(
           color: trackColor,
-          borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: trackBorderColor, width: 0.5),
         ),
         child: LayoutBuilder(
@@ -143,9 +144,9 @@ class _PrismSegmentedControlState<T>
               children: [
                 // Sliding pill indicator
                 AnimatedBuilder(
-                  animation: _animation,
+                  animation: _controller,
                   builder: (context, child) {
-                    final left = _animation.value * segmentWidth;
+                    final left = _controller.value * segmentWidth;
                     return Positioned(
                       left: left + 2,
                       top: 2,
@@ -154,9 +155,7 @@ class _PrismSegmentedControlState<T>
                       child: Container(
                         decoration: BoxDecoration(
                           color: pillColor,
-                          borderRadius: BorderRadius.circular(
-                            PrismTokens.radiusSmall - 2,
-                          ),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: pillBorderColor,
                             width: 0.5,
