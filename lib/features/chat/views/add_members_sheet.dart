@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Modal bottom sheet for adding members to an existing conversation.
 ///
@@ -146,19 +147,9 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                     final member = available[index];
                     final isSelected = _selectedIds.contains(member.id);
 
-                    return CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: isSelected,
-                      onChanged: (selected) {
-                        setState(() {
-                          if (selected == true) {
-                            _selectedIds.add(member.id);
-                          } else {
-                            _selectedIds.remove(member.id);
-                          }
-                        });
-                      },
-                      secondary: MemberAvatar(
+                    return PrismListRow(
+                      padding: EdgeInsets.zero,
+                      leading: MemberAvatar(
                         avatarImageData: member.avatarImageData,
                         emoji: member.emoji,
                         customColorEnabled: member.customColorEnabled,
@@ -169,6 +160,27 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                       subtitle: member.pronouns != null
                           ? Text(member.pronouns!)
                           : null,
+                      trailing: Checkbox(
+                        value: isSelected,
+                        onChanged: (selected) {
+                          setState(() {
+                            if (selected == true) {
+                              _selectedIds.add(member.id);
+                            } else {
+                              _selectedIds.remove(member.id);
+                            }
+                          });
+                        },
+                      ),
+                      onTap: () {
+                        setState(() {
+                          if (isSelected) {
+                            _selectedIds.remove(member.id);
+                          } else {
+                            _selectedIds.add(member.id);
+                          }
+                        });
+                      },
                     );
                   },
                 );

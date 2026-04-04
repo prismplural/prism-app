@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Full screen for sync debugging and troubleshooting.
 ///
@@ -118,7 +119,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
 
             // -- Last Sync Time --
             const _SectionHeader(title: 'Last Sync'),
-            ListTile(
+            PrismListRow(
               leading: Icon(AppIcons.schedule),
               title: const Text('Last successful sync'),
               subtitle: Text(
@@ -130,7 +131,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
 
             // -- Last Error --
             if (syncStatus.lastError != null) ...[
-              ListTile(
+              PrismListRow(
                 leading: Icon(
                   AppIcons.errorOutline,
                   color: theme.colorScheme.error,
@@ -167,19 +168,19 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             ],
 
             // -- Current State --
-            ListTile(
+            PrismListRow(
               leading: Icon(AppIcons.infoOutline),
               title: const Text('Current sync state'),
               subtitle: Text(syncStatus.isSyncing ? 'Syncing…' : 'Idle'),
             ),
             if (syncStatus.pendingOps > 0)
-              ListTile(
+              PrismListRow(
                 leading: Icon(AppIcons.pendingOutlined),
                 title: const Text('Pending operations'),
                 subtitle: Text('${syncStatus.pendingOps} ops waiting to sync'),
               ),
             if (syncId != null && syncId.isNotEmpty)
-              ListTile(
+              PrismListRow(
                 leading: Icon(AppIcons.tag),
                 title: const Text('Sync ID'),
                 subtitle: Text(
@@ -190,7 +191,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                 ),
               ),
             if (relayUrl != null && relayUrl.isNotEmpty)
-              ListTile(
+              PrismListRow(
                 leading: Icon(AppIcons.link),
                 title: const Text('Relay URL'),
                 subtitle: Text(

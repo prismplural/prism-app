@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Full-screen editor for an existing sleep session.
 class EditSleepSheet extends ConsumerStatefulWidget {
@@ -220,8 +221,8 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                         },
                       ),
                       const Divider(height: 24),
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
+                      PrismListRow(
+                        padding: EdgeInsets.zero,
                         leading: Icon(AppIcons.playArrowRounded),
                         title: const Text('Start Time'),
                         subtitle: Text(_formatDateTime(_startTime)),
@@ -230,8 +231,8 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                       ),
                       if (!_isActive) ...[
                         const SizedBox(height: 8),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
+                        PrismListRow(
+                          padding: EdgeInsets.zero,
                           leading: Icon(AppIcons.stopRounded),
                           title: const Text('End Time'),
                           subtitle: Text(

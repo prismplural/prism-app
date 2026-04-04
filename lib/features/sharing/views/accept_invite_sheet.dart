@@ -205,17 +205,28 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
         ),
         const SizedBox(height: 8),
         ...ShareScope.values.map(
-          (scope) => CheckboxListTile(
-            secondary: Icon(scope.icon),
+          (scope) => PrismListRow(
+            leading: Icon(scope.icon),
             title: Text(scope.displayName),
             subtitle: Text(scope.description),
-            value: _selectedScopes.contains(scope),
-            onChanged: (checked) {
+            trailing: Checkbox(
+              value: _selectedScopes.contains(scope),
+              onChanged: (checked) {
+                setState(() {
+                  if (checked == true) {
+                    _selectedScopes.add(scope);
+                  } else {
+                    _selectedScopes.remove(scope);
+                  }
+                });
+              },
+            ),
+            onTap: () {
               setState(() {
-                if (checked == true) {
-                  _selectedScopes.add(scope);
-                } else {
+                if (_selectedScopes.contains(scope)) {
                   _selectedScopes.remove(scope);
+                } else {
+                  _selectedScopes.add(scope);
                 }
               });
             },

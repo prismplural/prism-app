@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Placeholder — pending changes count (sync now managed by Rust layer).
 final _pendingChangesCountProvider = FutureProvider<int>((ref) async {
@@ -172,7 +173,7 @@ class DebugScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                ListTile(
+                PrismListRow(
                   leading: Icon(AppIcons.healing),
                   title: const Text('Timeline Sanitization'),
                   subtitle: const Text('Scan for and fix timeline issues'),

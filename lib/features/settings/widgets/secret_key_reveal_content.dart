@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/sensitive_clipboard.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -154,12 +155,14 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
         ],
         if (widget.showSaveConfirmation) ...[
           const SizedBox(height: 32),
-          CheckboxListTile(
-            value: widget.hasSaved,
-            onChanged: (v) => widget.onHasSavedChanged(v ?? false),
+          PrismListRow(
+            leading: Checkbox(
+              value: widget.hasSaved,
+              onChanged: (v) => widget.onHasSavedChanged(v ?? false),
+            ),
             title: const Text('I have saved my Secret Key'),
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
+            padding: EdgeInsets.zero,
+            onTap: () => widget.onHasSavedChanged(!widget.hasSaved),
           ),
         ],
       ],

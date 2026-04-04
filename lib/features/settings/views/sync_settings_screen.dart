@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
@@ -409,11 +410,11 @@ class _ConfiguredView extends ConsumerWidget {
                   if (quarantinedAsync.hasValue &&
                       quarantinedAsync.value!.isNotEmpty)
                     const Divider(height: 1),
-                  ListTile(
+                  PrismListRow(
                     title: Text(
                       'Clear all',
-                      style: TextStyle(color: theme.colorScheme.error),
                     ),
+                    destructive: true,
                     onTap: () async {
                       await ref
                           .read(syncQuarantineServiceProvider)
@@ -447,7 +448,7 @@ class _ConfiguredView extends ConsumerWidget {
                 ),
                 if (syncStatus.lastError != null) ...[
                   const Divider(height: 1),
-                  ListTile(
+                  PrismListRow(
                     dense: true,
                     leading: Icon(
                       AppIcons.errorOutline,
@@ -456,10 +457,8 @@ class _ConfiguredView extends ConsumerWidget {
                     ),
                     title: Text(
                       syncStatus.lastError!,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.error,
-                      ),
                     ),
+                    destructive: true,
                   ),
                 ],
                 const Divider(height: 1),
@@ -738,9 +737,8 @@ class _QuarantineItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final field = item.fieldName ?? 'unknown field';
-    return ListTile(
+    return PrismListRow(
       dense: true,
       leading: Icon(
         AppIcons.warningAmberRounded,
@@ -749,14 +747,10 @@ class _QuarantineItemTile extends StatelessWidget {
       ),
       title: Text(
         '${item.entityType} · $field',
-        style: theme.textTheme.bodyMedium,
       ),
       subtitle: Text(
         item.errorMessage ??
             'Expected ${item.expectedType}, got ${item.receivedType}',
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
       ),
     );
   }
@@ -803,15 +797,11 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListTile(
+    return PrismListRow(
       dense: true,
-      title: Text(label, style: theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-      )),
+      title: Text(label),
       subtitle: Text(
         value,
-        style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
       ),
     );
   }

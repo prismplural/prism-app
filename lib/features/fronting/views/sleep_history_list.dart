@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// A list of recent sleep sessions with date, duration, quality, and notes.
 class SleepHistoryList extends ConsumerWidget {
@@ -91,7 +92,7 @@ class _SleepSessionTile extends ConsumerWidget {
             ? 'Unrated'
             : session.quality!.label;
 
-    return ListTile(
+    return PrismListRow(
       leading: CircleAvatar(
         backgroundColor:
             theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
@@ -137,7 +138,6 @@ class _SleepSessionTile extends ConsumerWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-      isThreeLine: session.notes != null && session.notes!.isNotEmpty,
       onTap: () {
         context.push(AppRoutePaths.session(session.id));
       },

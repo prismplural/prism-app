@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Message composition widget with inline "speaking as" avatar and text input.
 class MessageInput extends ConsumerStatefulWidget {
@@ -219,9 +220,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                   itemBuilder: (context, index, close) {
                     final member = members[index];
                     final isSelected = member.id == speakingAs;
-                    return ListTile(
+                    return PrismListRow(
                       dense: true,
-                      visualDensity: VisualDensity.compact,
                       leading: MemberAvatar(
                         avatarImageData: member.avatarImageData,
                         emoji: member.emoji,

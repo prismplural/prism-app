@@ -21,6 +21,7 @@ import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Individual message widget with author info, bubble, reactions.
 class MessageBubble extends ConsumerStatefulWidget {
@@ -212,7 +213,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     ThemeData theme,
   ) {
     final color = action.isDestructive ? theme.colorScheme.error : null;
-    return ListTile(
+    return PrismListRow(
       leading: Icon(action.icon, color: color),
       title: Text(
         action.label,

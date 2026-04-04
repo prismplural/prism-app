@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Displays reactions on a message and allows toggling them.
 class ReactionBar extends ConsumerWidget {
@@ -124,9 +125,9 @@ class ReactionBar extends ConsumerWidget {
                 children: reactionList
                     .map((reaction) {
                       final member = memberMap[reaction.memberId];
-                      return ListTile(
+                      return PrismListRow(
                         dense: true,
-                        contentPadding: EdgeInsets.zero,
+                        padding: EdgeInsets.zero,
                         leading: MemberAvatar.centeredEmoji(
                           member?.emoji ?? '?',
                           fontSize: 24,

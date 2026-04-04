@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 class NavigationSettingsScreen extends ConsumerWidget {
   const NavigationSettingsScreen({super.key});
@@ -376,8 +377,8 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+    return PrismListRow(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Icon(tab.icon, color: theme.colorScheme.primary),
       title: Text(tab.displayLabel(terminologyPlural: terminologyPlural)),
       trailing: Row(
@@ -454,8 +455,8 @@ class _AvailableItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+    return PrismListRow(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       leading:
           Icon(tab.icon, color: theme.colorScheme.onSurfaceVariant),
       title: Text(tab.displayLabel(terminologyPlural: terminologyPlural)),
@@ -501,8 +502,8 @@ class _DisabledItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+    return PrismListRow(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Icon(
         tab.icon,
         color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),

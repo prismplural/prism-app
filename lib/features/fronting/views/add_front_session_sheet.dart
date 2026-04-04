@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Modal for creating a new fronting session with full details.
 ///
@@ -278,26 +279,37 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                     }
                     return Column(
                       children: available.map((m) {
-                        return CheckboxListTile(
-                          value: _coFronterIds.contains(m.id),
-                          onChanged: (v) {
-                            setState(() {
-                              if (v == true) {
-                                _coFronterIds.add(m.id);
-                              } else {
-                                _coFronterIds.remove(m.id);
-                              }
-                            });
-                          },
-                          title: Text(m.name),
-                          secondary: MemberAvatar(
+                        return PrismListRow(
+                          leading: MemberAvatar(
                             avatarImageData: m.avatarImageData,
                             emoji: m.emoji,
                             customColorEnabled: m.customColorEnabled,
                             customColorHex: m.customColorHex,
                             size: 36,
                           ),
-                          contentPadding: EdgeInsets.zero,
+                          title: Text(m.name),
+                          trailing: Checkbox(
+                            value: _coFronterIds.contains(m.id),
+                            onChanged: (v) {
+                              setState(() {
+                                if (v == true) {
+                                  _coFronterIds.add(m.id);
+                                } else {
+                                  _coFronterIds.remove(m.id);
+                                }
+                              });
+                            },
+                          ),
+                          onTap: () {
+                            setState(() {
+                              if (_coFronterIds.contains(m.id)) {
+                                _coFronterIds.remove(m.id);
+                              } else {
+                                _coFronterIds.add(m.id);
+                              }
+                            });
+                          },
+                          padding: EdgeInsets.zero,
                           dense: true,
                         );
                       }).toList(),

@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Detail screen for a single friend — scope management, verification,
 /// and revocation.
@@ -97,7 +98,7 @@ class FriendDetailScreen extends ConsumerWidget {
           const SizedBox(height: 8),
 
           // ── Public key ─────────────────────────────────
-          ListTile(
+          PrismListRow(
             leading: Icon(AppIcons.key),
             title: const Text('Public Key'),
             subtitle: Text(
@@ -118,7 +119,7 @@ class FriendDetailScreen extends ConsumerWidget {
 
           // ── Last sync ──────────────────────────────────
           if (friend.lastSyncAt != null)
-            ListTile(
+            PrismListRow(
               leading: Icon(AppIcons.sync),
               title: const Text('Last synced'),
               subtitle: Text(

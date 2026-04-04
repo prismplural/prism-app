@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/members/providers/member_stats_provider
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -21,12 +22,13 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
-import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_chips.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
 import 'package:prism_plurality/features/members/widgets/notes_section.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Detail screen for a single system member, pushed via go_router.
 ///
@@ -96,20 +98,10 @@ class _MemberDetailBody extends ConsumerWidget {
             tooltip: 'Edit',
             onPressed: () => _openEditSheet(context),
           ),
-          PrismPopupMenu<_MenuAction>(
-              items: [
-                PrismMenuItem(value: _MenuAction.setFronter, label: 'Set as fronter', icon: AppIcons.flashOn),
-                PrismMenuItem(
-                  value: _MenuAction.toggleActive,
-                  label: member.isActive ? 'Deactivate' : 'Activate',
-                  icon: member.isActive ? AppIcons.visibilityOff : AppIcons.visibility,
-                ),
-                PrismMenuItem(value: _MenuAction.delete, label: 'Delete', icon: AppIcons.deleteOutline, destructive: true),
-              ],
-              onSelected: (action) =>
-                  _handleMenuAction(context, ref, action),
-              tooltip: 'More options',
-            ),
+          _MoreMenuButton(
+            member: member,
+            onAction: (action) => _handleMenuAction(context, ref, action),
+          ),
         ],
       ),
       bodyPadding: EdgeInsets.zero,
@@ -758,6 +750,60 @@ class _DetailSection extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _MoreMenuButton extends StatelessWidget {
+  const _MoreMenuButton({
+    required this.member,
+    required this.onAction,
+  });
+
+  final Member member;
+  final ValueChanged<_MenuAction> onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      (action: _MenuAction.setFronter, label: 'Set as fronter', icon: AppIcons.flashOn, destructive: false),
+      (
+        action: _MenuAction.toggleActive,
+        label: member.isActive ? 'Deactivate' : 'Activate',
+        icon: member.isActive ? AppIcons.visibilityOff : AppIcons.visibility,
+        destructive: false,
+      ),
+      (action: _MenuAction.delete, label: 'Delete', icon: AppIcons.deleteOutline, destructive: true),
+    ];
+
+    return BlurPopupAnchor(
+      trigger: BlurPopupTrigger.tap,
+      preferredDirection: BlurPopupDirection.down,
+      width: 200,
+      maxHeight: 240,
+      itemCount: items.length,
+      itemBuilder: (context, index, close) {
+        final item = items[index];
+        final theme = Theme.of(context);
+        final color = item.destructive ? theme.colorScheme.error : theme.colorScheme.onSurface;
+        return PrismListRow(
+          dense: true,
+          leading: Icon(item.icon, size: 20, color: color),
+          title: Text(
+            item.label,
+            style: TextStyle(fontSize: 14, color: color),
+          ),
+          onTap: () {
+            close();
+            onAction(item.action);
+          },
+        );
+      },
+      child: PrismTopBarAction(
+        icon: AppIcons.moreVert,
+        tooltip: 'More options',
+        onPressed: null,
       ),
     );
   }

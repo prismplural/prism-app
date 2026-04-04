@@ -348,25 +348,9 @@ class _CreateConversationSheetState
                         return Column(
                           children: [
                             for (final member in displayMembers)
-                              CheckboxListTile(
-                                contentPadding: EdgeInsets.zero,
-                                value: _selectedMemberIds
-                                    .contains(member.id),
-                                onChanged: (selected) {
-                                  setState(() {
-                                    if (selected == true) {
-                                      if (!_isGroupChat) {
-                                        // DM: single select
-                                        _selectedMemberIds.clear();
-                                      }
-                                      _selectedMemberIds.add(member.id);
-                                    } else {
-                                      _selectedMemberIds
-                                          .remove(member.id);
-                                    }
-                                  });
-                                },
-                                secondary: MemberAvatar(
+                              PrismListRow(
+                                padding: EdgeInsets.zero,
+                                leading: MemberAvatar(
                                   avatarImageData: member.avatarImageData,
                                   emoji: member.emoji,
                                   customColorEnabled:
@@ -378,10 +362,6 @@ class _CreateConversationSheetState
                                   children: [
                                     Text(
                                       member.name,
-                                      style: theme.textTheme.bodyLarge
-                                          ?.copyWith(
-                                        fontWeight: FontWeight.w500,
-                                      ),
                                     ),
                                     if (member.id == speakingAs) ...[
                                       const SizedBox(width: 8),
@@ -412,6 +392,35 @@ class _CreateConversationSheetState
                                     ],
                                   ],
                                 ),
+                                trailing: Checkbox(
+                                  value: _selectedMemberIds
+                                      .contains(member.id),
+                                  onChanged: (selected) {
+                                    setState(() {
+                                      if (selected == true) {
+                                        if (!_isGroupChat) {
+                                          _selectedMemberIds.clear();
+                                        }
+                                        _selectedMemberIds.add(member.id);
+                                      } else {
+                                        _selectedMemberIds
+                                            .remove(member.id);
+                                      }
+                                    });
+                                  },
+                                ),
+                                onTap: () {
+                                  setState(() {
+                                    if (_selectedMemberIds.contains(member.id)) {
+                                      _selectedMemberIds.remove(member.id);
+                                    } else {
+                                      if (!_isGroupChat) {
+                                        _selectedMemberIds.clear();
+                                      }
+                                      _selectedMemberIds.add(member.id);
+                                    }
+                                  });
+                                },
                               ),
                           ],
                         );

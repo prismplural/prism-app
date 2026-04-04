@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 enum _PollFilter { active, closed, all }
 
@@ -93,7 +94,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                           ),
                           _PollFilter.all => (AppIcons.pollOutlined, 'All'),
                         };
-                        return ListTile(
+                        return PrismListRow(
                           dense: true,
                           leading: Icon(
                             icon,

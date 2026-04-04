@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 class RemindersScreen extends ConsumerWidget {
   const RemindersScreen({super.key, this.showBackButton = true});
@@ -120,8 +121,8 @@ class _ReminderTile extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         child: PrismSectionCard(
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
+          child: PrismListRow(
+            padding: EdgeInsets.zero,
             leading: Icon(
               reminder.trigger == ReminderTrigger.scheduled
                   ? AppIcons.schedule

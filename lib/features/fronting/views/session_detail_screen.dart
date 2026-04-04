@@ -26,6 +26,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_comments_section.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Full-screen view showing all details of a single fronting session.
 class SessionDetailScreen extends ConsumerWidget {
@@ -497,7 +498,7 @@ class _CoFronterTile extends ConsumerWidget {
     final memberAsync = ref.watch(memberByIdProvider(memberId));
 
     return memberAsync.when(
-      loading: () => const ListTile(
+      loading: () => const PrismListRow(
         leading: SizedBox(width: 40, height: 40),
         title: Text('Loading...'),
       ),
@@ -505,7 +506,7 @@ class _CoFronterTile extends ConsumerWidget {
       data: (member) {
         if (member == null) return const SizedBox.shrink();
 
-        return ListTile(
+        return PrismListRow(
           leading: MemberAvatar(
             avatarImageData: member.avatarImageData,
             emoji: member.emoji,
@@ -516,7 +517,7 @@ class _CoFronterTile extends ConsumerWidget {
           title: Text(member.name),
           subtitle: member.pronouns != null ? Text(member.pronouns!) : null,
           onTap: () => context.go(AppRoutePaths.settingsMember(member.id)),
-          contentPadding: EdgeInsets.zero,
+          padding: EdgeInsets.zero,
         );
       },
     );

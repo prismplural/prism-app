@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// A sheet for managing conversation categories (create, rename, reorder, delete).
 ///
@@ -157,9 +158,9 @@ class _CategoryManagementSheetState
                             final category = categories[index];
                             final isEditing = _editingId == category.id;
 
-                            return ListTile(
+                            return PrismListRow(
                               key: ValueKey(category.id),
-                              contentPadding: EdgeInsets.zero,
+                              padding: EdgeInsets.zero,
                               leading: ReorderableDragStartListener(
                                 index: index,
                                 child: Icon(AppIcons.dragHandle),
