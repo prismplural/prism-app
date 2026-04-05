@@ -6,11 +6,12 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/analytics_date_range_picker.dart';
 import 'package:prism_plurality/features/settings/widgets/analytics_insight_card.dart';
-import 'package:prism_plurality/features/settings/widgets/duration_stats_card.dart';
 import 'package:prism_plurality/features/settings/widgets/fronting_activity_chart.dart';
 import 'package:prism_plurality/features/settings/widgets/member_comparison_chart.dart';
 import 'package:prism_plurality/features/settings/widgets/time_of_day_chart.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -232,44 +233,262 @@ class _OverviewStat extends StatelessWidget {
   }
 }
 
-class _ExpandableMemberDetail extends ConsumerWidget {
+class _ExpandableMemberDetail extends ConsumerStatefulWidget {
   const _ExpandableMemberDetail({required this.stat});
 
   final MemberAnalytics stat;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final memberAsync = ref.watch(memberByIdProvider(stat.memberId));
-    final name = memberAsync.whenOrNull(data: (m) => m?.name) ?? '...';
+  ConsumerState<_ExpandableMemberDetail> createState() =>
+      _ExpandableMemberDetailState();
+}
 
-    return ExpansionTile(
-      title: Text(name),
-      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-      childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-      children: [
-        DurationStatsCard(stat: stat),
-        const SizedBox(height: 8),
-        if (stat.timeOfDayBreakdown.isNotEmpty)
-          Card(
+class _ExpandableMemberDetailState
+    extends ConsumerState<_ExpandableMemberDetail>
+    with SingleTickerProviderStateMixin {
+  bool _expanded = false;
+  late final AnimationController _chevronController;
+  late final Animation<double> _chevronTurns;
+
+  @override
+  void initState() {
+    super.initState();
+    _chevronController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _chevronTurns = Tween<double>(begin: 0.0, end: 0.5).animate(
+      CurvedAnimation(parent: _chevronController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _chevronController.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    if (_expanded) {
+      _chevronController.forward();
+    } else {
+      _chevronController.reverse();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, ) {
+    final theme = Theme.of(context);
+    final memberAsync = ref.watch(memberByIdProvider(widget.stat.memberId));
+    final member = memberAsync.whenOrNull(data: (m) => m);
+    final name = member?.name ?? '...';
+    final accent = member?.customColorEnabled == true &&
+            member?.customColorHex != null
+        ? AppColors.fromHex(member!.customColorHex!)
+        : theme.colorScheme.primary;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // ── Collapsed header ───────────────────────────────────────────
+          InkWell(
+            onTap: _toggle,
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+              child: Row(
                 children: [
-                  Text(
-                    'Time of Day',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  MemberAvatar(
+                    avatarImageData: member?.avatarImageData,
+                    emoji: member?.emoji ?? '',
+                    customColorEnabled: member?.customColorEnabled ?? false,
+                    customColorHex: member?.customColorHex,
+                    size: 36,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${widget.stat.sessionCount} sessions · '
+                          '${_fmt(widget.stat.totalTime)} total · '
+                          'avg ${_fmt(widget.stat.averageDuration)}',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        // Share-of-total bar
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value:
+                                (widget.stat.percentageOfTotal / 100)
+                                    .clamp(0.0, 1.0),
+                            backgroundColor: theme
+                                .colorScheme.surfaceContainerHighest,
+                            valueColor:
+                                AlwaysStoppedAnimation(accent.withValues(alpha: 0.7)),
+                            minHeight: 4,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  TimeOfDayChart(breakdown: stat.timeOfDayBreakdown),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${widget.stat.percentageOfTotal.toStringAsFixed(1)}%',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: accent,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      RotationTransition(
+                        turns: _chevronTurns,
+                        child: Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ),
+
+          // ── Expanded detail ────────────────────────────────────────────
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 200),
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox.shrink(),
+            secondChild: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Divider(
+                  height: 1,
+                  color: theme.colorScheme.outlineVariant,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                  child: _StatsGrid(stat: widget.stat, accent: accent),
+                ),
+                if (widget.stat.timeOfDayBreakdown.isNotEmpty) ...[
+                  Padding(
+                    padding:
+                        const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Text(
+                      'Time of Day',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding:
+                        const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: TimeOfDayChart(
+                      breakdown: widget.stat.timeOfDayBreakdown,
+                      accentColor: accent,
+                    ),
+                  ),
+                ] else
+                  const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _fmt(Duration d) {
+    if (d.inDays > 0) return '${d.inDays}d ${d.inHours % 24}h';
+    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
+    return '${d.inMinutes}m';
+  }
+}
+
+class _StatsGrid extends StatelessWidget {
+  const _StatsGrid({required this.stat, required this.accent});
+
+  final MemberAnalytics stat;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Table(
+      children: [
+        _row(theme, [
+          ('Sessions', '${stat.sessionCount}'),
+          ('Total', _fmt(stat.totalTime)),
+        ]),
+        _row(theme, [
+          ('Average', _fmt(stat.averageDuration)),
+          ('Median', _fmt(stat.medianDuration)),
+        ], topPadding: 10),
+        _row(theme, [
+          ('Shortest', _fmt(stat.shortestSession)),
+          ('Longest', _fmt(stat.longestSession)),
+        ], topPadding: 10),
       ],
     );
+  }
+
+  TableRow _row(
+    ThemeData theme,
+    List<(String, String)> cells, {
+    double topPadding = 0,
+  }) {
+    return TableRow(
+      children: cells.map((cell) {
+        return Padding(
+          padding: EdgeInsets.only(top: topPadding, bottom: 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                cell.$1,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                cell.$2,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  String _fmt(Duration d) {
+    if (d.inDays > 0) return '${d.inDays}d ${d.inHours % 24}h';
+    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
+    return '${d.inMinutes}m';
   }
 }
