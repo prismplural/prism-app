@@ -17,6 +17,8 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_app_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
 /// Full chat view for a single conversation.
 class ConversationScreen extends ConsumerStatefulWidget {
@@ -118,9 +120,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     return conversationAsync.when(
       data: (conversation) {
         if (conversation == null) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Chat')),
-            body: const Center(child: Text('Conversation not found')),
+          return const PrismPageScaffold(
+            topBar: PrismTopBar(title: 'Chat', showBackButton: true),
+            body: Center(child: Text('Conversation not found')),
           );
         }
 
@@ -302,12 +304,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ),
         );
       },
-      loading: () => Scaffold(
-        appBar: AppBar(title: const Text('Loading...')),
-        body: const PrismLoadingState(),
+      loading: () => const PrismPageScaffold(
+        topBar: PrismTopBar(title: 'Chat', showBackButton: true),
+        body: PrismLoadingState(),
       ),
-      error: (error, _) => Scaffold(
-        appBar: AppBar(title: const Text('Error')),
+      error: (error, _) => PrismPageScaffold(
+        topBar: const PrismTopBar(title: 'Chat', showBackButton: true),
         body: Center(child: Text('Error: $error')),
       ),
     );
