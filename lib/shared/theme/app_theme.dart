@@ -102,7 +102,7 @@ class AppTheme {
   }
 
   /// Minimal switch theme shared across all variants.
-  static SwitchThemeData _switchTheme({required bool isDark}) {
+  static SwitchThemeData _switchTheme({required bool isDark, required Color accent}) {
     final onSurface = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     return SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
@@ -113,13 +113,13 @@ class AppTheme {
       }),
       trackColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return AppColors.warmWhite.withValues(alpha: 0.3);
+          return accent;
         }
         return onSurface.withValues(alpha: 0.08);
       }),
       trackOutlineColor: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return AppColors.warmWhite.withValues(alpha: 0.15);
+          return Colors.transparent;
         }
         return onSurface.withValues(alpha: 0.1);
       }),
@@ -239,7 +239,7 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(foregroundColor: colors.textButtonFg),
       ),
-      switchTheme: _switchTheme(isDark: colors.isDark),
+      switchTheme: _switchTheme(isDark: colors.isDark, accent: accent),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: accent),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.snackBarBg,
