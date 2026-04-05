@@ -35,6 +35,8 @@ abstract class FrontingAnalytics with _$FrontingAnalytics {
     required int uniqueFronters,
     required double switchesPerDay,
     required List<MemberAnalytics> memberStats,
+    @Default([]) List<DailyActivity> dailyActivity,
+    @Default([]) List<CoFrontingPair> topCoFrontingPairs,
   }) = _FrontingAnalytics;
 
   factory FrontingAnalytics.fromJson(Map<String, dynamic> json) =>
@@ -57,4 +59,32 @@ abstract class MemberAnalytics with _$MemberAnalytics {
 
   factory MemberAnalytics.fromJson(Map<String, dynamic> json) =>
       _$MemberAnalyticsFromJson(json);
+}
+
+/// Daily fronting activity summary for the activity timeline chart.
+@freezed
+abstract class DailyActivity with _$DailyActivity {
+  const factory DailyActivity({
+    /// Date normalized to midnight UTC.
+    required DateTime date,
+    required int totalMinutes,
+    required int sessionCount,
+  }) = _DailyActivity;
+
+  factory DailyActivity.fromJson(Map<String, dynamic> json) =>
+      _$DailyActivityFromJson(json);
+}
+
+/// A pair of members who co-fronted, with their total shared time.
+@freezed
+abstract class CoFrontingPair with _$CoFrontingPair {
+  const factory CoFrontingPair({
+    /// Member ID that comes first alphabetically.
+    required String memberIdA,
+    required String memberIdB,
+    required Duration totalTime,
+  }) = _CoFrontingPair;
+
+  factory CoFrontingPair.fromJson(Map<String, dynamic> json) =>
+      _$CoFrontingPairFromJson(json);
 }
