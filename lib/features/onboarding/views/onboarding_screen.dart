@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -45,6 +46,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
     final step = onboarding.currentStep;
@@ -65,121 +68,175 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         }
       },
       child: Scaffold(
-        body: AnimatedContainer(
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.warmBlack, ...step.gradientColors, AppColors.warmBlack],
+        body: Stack(
+          children: [
+            // Background color
+            Container(
+              color: isDark ? AppColors.charcoal : AppColors.parchment,
             ),
-          ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                // Top bar with close button and progress
-                if (!isFullScreenStep)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        if (hasExistingData)
-                          IconButton(
-                            onPressed: () => context.go(AppRoutePaths.home),
-                            icon: Icon(
-                              AppIcons.close,
-                              color: Colors.white70,
-                            ),
-                          )
-                        else
-                          const SizedBox(width: 48),
-                        Expanded(
-                          child: _ProgressIndicator(
-                            steps: _progressSteps,
-                            currentStep: step,
-                          ),
-                        ),
-                        const SizedBox(width: 48),
-                      ],
-                    ),
-                  ),
-
-                // Step header
-                if (!isCompleteStep && !isFullScreenStep) ...[
-                  const SizedBox(height: 8),
-                  Icon(step.icon, size: 40, color: step.iconColor),
-                  const SizedBox(height: 12),
-                  Text(
-                    step.title,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontFamily: 'Unbounded',
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                      color: AppColors.warmWhite,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    step.subtitle,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: AppColors.warmWhite.withValues(alpha: 0.7),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                // Step content
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: _buildStepContent(onboarding),
+            // Ambient glow
+            Positioned(
+              top: -100,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 500,
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment.topCenter,
+                    radius: 1.2,
+                    colors: [
+                      AppColors.prismPurple.withValues(alpha: 0.08),
+                      Colors.transparent,
+                    ],
                   ),
                 ),
-
-                // Navigation buttons (hidden during sync device flow)
-                if (!isFullScreenStep)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    child: Row(
-                      children: [
-                        if (!isFirstStep)
-                          _CircleButton(
-                            icon: AppIcons.arrowBack,
-                            onPressed: notifier.back,
-                          ),
-                        const Spacer(),
-                        _PillButton(
-                          label: isCompleteStep
-                              ? 'Get Started'
-                              : isFirstStep
-                              ? 'Get Started'
-                              : 'Continue',
-                          enabled: notifier.canProceed && !_isCompleting,
-                          isLoading: _isCompleting,
-                          onPressed: () {
-                            if (isCompleteStep) {
-                              _completeOnboarding();
-                            } else {
-                              notifier.next();
-                            }
-                          },
-                        ),
-                      ],
+              ),
+            ),
+            // Noise texture overlay
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: const AssetImage('assets/textures/noise_64x64.png'),
+                      repeat: ImageRepeat.repeat,
+                      opacity: isDark ? 0.06 : 0.03,
                     ),
                   ),
-              ],
+                ),
+              ),
             ),
-          ),
+            // Content
+            SafeArea(
+              child: Column(
+                children: [
+                  // Top bar with close button and progress
+                  if (!isFullScreenStep)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          if (hasExistingData)
+                            IconButton(
+                              onPressed: () => context.go(AppRoutePaths.home),
+                              icon: Icon(
+                                AppIcons.close,
+                                color: isDark
+                                    ? AppColors.warmWhite.withValues(alpha: 0.7)
+                                    : AppColors.warmBlack.withValues(alpha: 0.7),
+                              ),
+                            )
+                          else
+                            const SizedBox(width: 48),
+                          Expanded(
+                            child: _ProgressIndicator(
+                              steps: _progressSteps,
+                              currentStep: step,
+                              isDark: isDark,
+                              primary: primary,
+                            ),
+                          ),
+                          const SizedBox(width: 48),
+                        ],
+                      ),
+                    ),
+
+                  // Step header
+                  if (!isCompleteStep && !isFullScreenStep) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: primary.withValues(alpha: 0.15),
+                      ),
+                      child: Center(
+                        child: PhosphorIcon(
+                          step.icon as PhosphorIconData,
+                          size: 28,
+                          color: primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      step.title,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontFamily: 'Unbounded',
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      step.subtitle,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: isDark
+                            ? AppColors.mutedTextDark
+                            : AppColors.mutedTextLight,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // Step content
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: _buildStepContent(onboarding),
+                    ),
+                  ),
+
+                  // Navigation buttons (hidden during sync device flow)
+                  if (!isFullScreenStep)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                      child: Row(
+                        children: [
+                          if (!isFirstStep)
+                            _CircleButton(
+                              icon: AppIcons.arrowBack,
+                              onPressed: notifier.back,
+                              isDark: isDark,
+                            ),
+                          const Spacer(),
+                          _PillButton(
+                            label: isCompleteStep
+                                ? 'Get Started'
+                                : isFirstStep
+                                ? 'Get Started'
+                                : 'Continue',
+                            enabled: notifier.canProceed && !_isCompleting,
+                            isLoading: _isCompleting,
+                            isDark: isDark,
+                            primary: primary,
+                            onPressed: () {
+                              if (isCompleteStep) {
+                                _completeOnboarding();
+                              } else {
+                                notifier.next();
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -262,46 +319,61 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
 /// Progress capsule indicators.
 class _ProgressIndicator extends StatelessWidget {
-  const _ProgressIndicator({required this.steps, required this.currentStep});
+  const _ProgressIndicator({
+    required this.steps,
+    required this.currentStep,
+    required this.isDark,
+    required this.primary,
+  });
 
   final List<OnboardingStep> steps;
   final OnboardingStep currentStep;
+  final bool isDark;
+  final Color primary;
 
   @override
   Widget build(BuildContext context) {
     final currentIndex = steps.indexOf(currentStep);
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(steps.length, (index) {
-        final isCurrent = index == currentIndex;
-        final isPast = index < currentIndex;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          height: 4,
-          width: isCurrent ? 24 : 12,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(2),
-            color: isCurrent
-                ? AppColors.warmWhite
-                : isPast
-                ? AppColors.warmWhite.withValues(alpha: 0.5)
-                : AppColors.warmWhite.withValues(alpha: 0.2),
-          ),
-        );
-      }),
+    return Semantics(
+      label: 'Step ${currentIndex + 1} of ${steps.length}',
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: List.generate(steps.length, (index) {
+          final isCurrent = index == currentIndex;
+          final isPast = index < currentIndex;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            margin: const EdgeInsets.symmetric(horizontal: 2),
+            height: 4,
+            width: isCurrent ? 24 : 12,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(2),
+              color: isCurrent
+                  ? primary
+                  : isPast
+                  ? primary.withValues(alpha: 0.5)
+                  : primary.withValues(alpha: 0.2),
+            ),
+          );
+        }),
+      ),
     );
   }
 }
 
 /// Circle back button with press feedback.
 class _CircleButton extends StatefulWidget {
-  const _CircleButton({required this.icon, required this.onPressed});
+  const _CircleButton({
+    required this.icon,
+    required this.onPressed,
+    required this.isDark,
+  });
 
   final IconData icon;
   final VoidCallback onPressed;
+  final bool isDark;
 
   @override
   State<_CircleButton> createState() => _CircleButtonState();
@@ -312,6 +384,14 @@ class _CircleButtonState extends State<_CircleButton> {
 
   @override
   Widget build(BuildContext context) {
+    final normalBg = widget.isDark
+        ? AppColors.warmWhite.withValues(alpha: 0.15)
+        : AppColors.warmBlack.withValues(alpha: 0.08);
+    final pressedBg = widget.isDark
+        ? AppColors.warmWhite.withValues(alpha: 0.3)
+        : AppColors.warmBlack.withValues(alpha: 0.23);
+    final iconColor = widget.isDark ? AppColors.warmWhite : AppColors.warmBlack;
+
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
@@ -328,11 +408,9 @@ class _CircleButtonState extends State<_CircleButton> {
           height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _pressed
-                ? AppColors.warmWhite.withValues(alpha: 0.3)
-                : AppColors.warmWhite.withValues(alpha: 0.15),
+            color: _pressed ? pressedBg : normalBg,
           ),
-          child: Icon(widget.icon, color: AppColors.warmWhite, size: 22),
+          child: Icon(widget.icon, color: iconColor, size: 22),
         ),
       ),
     );
@@ -345,12 +423,16 @@ class _PillButton extends StatefulWidget {
     required this.label,
     required this.enabled,
     required this.onPressed,
+    required this.isDark,
+    required this.primary,
     this.isLoading = false,
   });
 
   final String label;
   final bool enabled;
   final bool isLoading;
+  final bool isDark;
+  final Color primary;
   final VoidCallback onPressed;
 
   @override
@@ -382,14 +464,12 @@ class _PillButtonState extends State<_PillButton> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             color: _pressed
-                ? AppColors.warmWhite.withValues(alpha: 0.35)
+                ? widget.primary.withValues(alpha: 0.8)
                 : canPress
-                ? AppColors.warmWhite.withValues(alpha: 0.2)
-                : AppColors.warmWhite.withValues(alpha: 0.08),
+                ? widget.primary
+                : widget.primary.withValues(alpha: 0.3),
             border: Border.all(
-              color: canPress
-                  ? AppColors.warmWhite.withValues(alpha: _pressed ? 0.5 : 0.3)
-                  : AppColors.warmWhite.withValues(alpha: 0.1),
+              color: widget.primary.withValues(alpha: canPress ? 0.5 : 0.2),
             ),
           ),
           child: widget.isLoading
@@ -398,15 +478,15 @@ class _PillButtonState extends State<_PillButton> {
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppColors.warmWhite,
+                    color: AppColors.warmBlack,
                   ),
                 )
               : Text(
                   widget.label,
                   style: TextStyle(
                     color: canPress
-                        ? AppColors.warmWhite
-                        : AppColors.warmWhite.withValues(alpha: 0.4),
+                        ? AppColors.warmBlack
+                        : AppColors.warmBlack.withValues(alpha: 0.4),
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
