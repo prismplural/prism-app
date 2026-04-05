@@ -13,6 +13,8 @@ class AddMembersStep extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
     final membersAsync = ref.watch(allMembersProvider);
     final members = membersAsync.value ?? [];
 
@@ -32,22 +34,22 @@ class AddMembersStep extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.purple.withValues(alpha: 0.3),
+                    color: primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Colors.purple.withValues(alpha: 0.4),
+                      color: primary.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(AppIcons.autoAwesome,
-                          color: Colors.purple.shade200, size: 18),
+                          color: primary, size: 18),
                       const SizedBox(width: 8),
                       Text(
                         "Skylar's Defaults",
                         style: TextStyle(
-                          color: Colors.purple.shade200,
+                          color: primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -64,7 +66,7 @@ class AddMembersStep extends ConsumerWidget {
                     child: Text(
                       'No members yet.\nTap "Add Member" or use the defaults.',
                       style: TextStyle(
-                        color: AppColors.warmWhite.withValues(alpha: 0.5),
+                        color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
                         fontSize: 15,
                       ),
                       textAlign: TextAlign.center,
@@ -82,7 +84,7 @@ class AddMembersStep extends ConsumerWidget {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.warmWhite.withValues(alpha: 0.1),
+                            color: isDark ? AppColors.warmWhite.withValues(alpha: 0.1) : AppColors.parchmentElevated,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -93,8 +95,9 @@ class AddMembersStep extends ConsumerWidget {
                                 height: 40,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color:
-                                      AppColors.warmWhite.withValues(alpha: 0.15),
+                                  color: isDark
+                                      ? AppColors.warmWhite.withValues(alpha: 0.15)
+                                      : AppColors.warmBlack.withValues(alpha: 0.08),
                                 ),
                                 child: member.avatarImageData != null
                                     ? ClipOval(
@@ -122,8 +125,8 @@ class AddMembersStep extends ConsumerWidget {
                                   children: [
                                     Text(
                                       member.name,
-                                      style: const TextStyle(
-                                        color: AppColors.warmWhite,
+                                      style: TextStyle(
+                                        color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 16,
                                       ),
@@ -133,8 +136,7 @@ class AddMembersStep extends ConsumerWidget {
                                       Text(
                                         member.pronouns!,
                                         style: TextStyle(
-                                          color: AppColors.warmWhite
-                                              .withValues(alpha: 0.6),
+                                          color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
                                           fontSize: 13,
                                         ),
                                       ),
@@ -145,8 +147,9 @@ class AddMembersStep extends ConsumerWidget {
                               IconButton(
                                 icon: Icon(
                                   AppIcons.close,
-                                  color:
-                                      AppColors.warmWhite.withValues(alpha: 0.5),
+                                  color: isDark
+                                      ? AppColors.warmWhite.withValues(alpha: 0.5)
+                                      : AppColors.warmBlack.withValues(alpha: 0.5),
                                   size: 20,
                                 ),
                                 onPressed: () {
@@ -170,21 +173,21 @@ class AddMembersStep extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: AppColors.warmWhite.withValues(alpha: 0.15),
+                color: isDark ? AppColors.warmWhite.withValues(alpha: 0.15) : AppColors.warmBlack.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppColors.warmWhite.withValues(alpha: 0.2),
+                  color: isDark ? AppColors.warmWhite.withValues(alpha: 0.2) : AppColors.warmBlack.withValues(alpha: 0.12),
                 ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(AppIcons.add, color: AppColors.warmWhite, size: 20),
+                  Icon(AppIcons.add, color: isDark ? AppColors.warmWhite : AppColors.warmBlack, size: 20),
                   SizedBox(width: 8),
                   Text(
                     'Add Member',
                     style: TextStyle(
-                      color: AppColors.warmWhite,
+                      color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
                     ),
@@ -235,6 +238,8 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
     return Column(
       children: [
         const PrismSheetTopBar(title: 'Add Member'),
@@ -292,14 +297,14 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.5),
+                      color: primary.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Text(
                         'Add',
                         style: TextStyle(
-                          color: AppColors.warmWhite,
+                          color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
                         ),
@@ -323,9 +328,10 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     int maxLines = 1,
     TextAlign textAlign = TextAlign.start,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.warmWhite.withValues(alpha: 0.1),
+        color: isDark ? AppColors.warmWhite.withValues(alpha: 0.1) : AppColors.parchmentElevated,
         borderRadius: BorderRadius.circular(10),
       ),
       child: PrismTextField(
@@ -334,9 +340,9 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
         keyboardType: keyboardType,
         maxLines: maxLines,
         textAlign: textAlign,
-        style: const TextStyle(color: AppColors.warmWhite),
+        style: TextStyle(color: isDark ? AppColors.warmWhite : AppColors.warmBlack),
         hintText: hint,
-        hintStyle: TextStyle(color: AppColors.warmWhite.withValues(alpha: 0.35)),
+        hintStyle: TextStyle(color: isDark ? AppColors.warmWhite.withValues(alpha: 0.35) : AppColors.warmBlack.withValues(alpha: 0.35)),
         fieldStyle: PrismTextFieldStyle.borderless,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
