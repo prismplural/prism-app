@@ -1,11 +1,14 @@
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
+import 'package:prism_plurality/features/settings/services/stress_data_generator.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -23,11 +26,19 @@ final _pendingChangesCountProvider = FutureProvider<int>((ref) async {
 
 /// Developer-oriented debug screen with database reset, sync info, and
 /// build details.
-class DebugScreen extends ConsumerWidget {
+class DebugScreen extends ConsumerStatefulWidget {
   const DebugScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DebugScreen> createState() => _DebugScreenState();
+}
+
+class _DebugScreenState extends ConsumerState<DebugScreen> {
+  StressProgress? _progress;
+  bool _isGenerating = false;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final nodeIdAsync = ref.watch(nodeIdProvider);
     final pendingAsync = ref.watch(_pendingChangesCountProvider);
@@ -62,7 +73,7 @@ class DebugScreen extends ConsumerWidget {
                       icon: AppIcons.deleteForever,
                       tone: PrismButtonTone.destructive,
                       expanded: true,
-                      onPressed: () => _confirmReset(context, ref),
+                      onPressed: () => _confirmReset(context),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -76,6 +87,67 @@ class DebugScreen extends ConsumerWidget {
                       onPressed: () {
                         PrismToast.show(context, message: 'Coming soon');
                       },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Stress Testing ─────────────────────────
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Stress Testing',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Generate large datasets for performance testing',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_isGenerating && _progress != null) ...[
+                    LinearProgressIndicator(value: _progress!.fraction),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_progress!.phase}... ${_progress!.current}/${_progress!.total}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: PrismButton(
+                      label: 'Generate Stress Data',
+                      icon: AppIcons.speed,
+                      tone: PrismButtonTone.outlined,
+                      expanded: true,
+                      isLoading: _isGenerating,
+                      enabled: !_isGenerating,
+                      onPressed: () => _showPresetPicker(context),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: PrismButton(
+                      label: 'Clear Stress Data',
+                      icon: AppIcons.deleteForever,
+                      tone: PrismButtonTone.destructive,
+                      expanded: true,
+                      enabled: !_isGenerating,
+                      onPressed: () => _confirmClearStressData(context),
                     ),
                   ),
                 ],
@@ -262,7 +334,7 @@ class DebugScreen extends ConsumerWidget {
         '${dt.minute.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _confirmReset(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmReset(BuildContext context) async {
     // First confirmation.
     final first = await PrismDialog.confirm(
       context: context,
@@ -298,6 +370,128 @@ class DebugScreen extends ConsumerWidget {
     } catch (e) {
       if (!context.mounted) return;
       PrismToast.error(context, message: 'Failed to reset: $e');
+    }
+  }
+
+  List<StressPreset> get _availablePresets {
+    if (kIsWeb) return [StressPreset.medium];
+    final isDesktop = defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux;
+    if (isDesktop) {
+      return [StressPreset.medium, StressPreset.large, StressPreset.extreme];
+    }
+    return [StressPreset.medium, StressPreset.large];
+  }
+
+  Future<void> _showPresetPicker(BuildContext context) async {
+    final presets = _availablePresets;
+    final preset = await showModalBottomSheet<StressPreset>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Select Preset',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              ),
+            ),
+            for (final p in presets)
+              ListTile(
+                title: Text(p.label),
+                subtitle: Text(
+                  '${p.members} members, ${p.sessions} sessions '
+                  '\u2022 ~${p.estimatedSizeMb}MB, ~${p.estimatedSeconds}s',
+                ),
+                onTap: () => Navigator.pop(context, p),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (preset == null || !mounted) return;
+
+    final db = ref.read(databaseProvider);
+    final generator = StressDataGenerator(db);
+    final hasExisting = await generator.hasExistingData();
+
+    if (hasExisting && mounted) {
+      final confirmed = await PrismDialog.confirm(
+        context: context,
+        title: 'Database Not Empty',
+        message:
+            'Your database already has data. Stress data will be '
+            'added alongside it. Continue?',
+      );
+      if (!confirmed || !mounted) return;
+    }
+
+    _runGeneration(preset);
+  }
+
+  Future<void> _runGeneration(StressPreset preset) async {
+    setState(() {
+      _isGenerating = true;
+      _progress = null;
+    });
+
+    try {
+      final db = ref.read(databaseProvider);
+      final generator = StressDataGenerator(db);
+
+      await for (final progress in generator.generate(preset)) {
+        if (mounted) {
+          setState(() => _progress = progress);
+        }
+      }
+
+      if (mounted) {
+        PrismToast.show(context, message: '${preset.label} stress data generated');
+      }
+    } catch (e) {
+      if (mounted) {
+        PrismToast.show(context, message: 'Generation failed: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+          _progress = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmClearStressData(BuildContext context) async {
+    final db = ref.read(databaseProvider);
+    final generator = StressDataGenerator(db);
+    final hasStress = await generator.hasStressData();
+
+    if (!hasStress) {
+      if (mounted) PrismToast.show(context, message: 'No stress data to clear');
+      return;
+    }
+
+    if (!mounted) return;
+
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: 'Clear Stress Data',
+      message:
+          'This will delete all generated stress test data. '
+          'Your real data will not be affected.',
+    );
+
+    if (!confirmed || !mounted) return;
+
+    await generator.clearStressData();
+    if (mounted) {
+      PrismToast.show(context, message: 'Stress data cleared');
     }
   }
 }
