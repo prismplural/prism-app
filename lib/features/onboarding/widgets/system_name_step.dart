@@ -31,6 +31,7 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
   Widget build(BuildContext context) {
     final onboarding = ref.watch(onboardingProvider);
     final autoFocus = !onboarding.wasImportedFromPluralKit;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -39,21 +40,25 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: AppColors.warmWhite.withValues(alpha: 0.1),
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.1)
+                  : AppColors.parchmentElevated,
               borderRadius: BorderRadius.circular(12),
             ),
             child: PrismTextField(
               controller: _controller,
               autofocus: autoFocus,
-              style: const TextStyle(
-                color: AppColors.warmWhite,
+              style: TextStyle(
+                color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                 fontSize: 20,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
               hintText: 'Enter system name',
               hintStyle: TextStyle(
-                color: AppColors.warmWhite.withValues(alpha: 0.35),
+                color: isDark
+                    ? AppColors.warmWhite.withValues(alpha: 0.35)
+                    : AppColors.warmBlack.withValues(alpha: 0.35),
                 fontSize: 20,
               ),
               fieldStyle: PrismTextFieldStyle.borderless,
@@ -70,7 +75,9 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
           Text(
             'This is how your system will be identified in the app.',
             style: TextStyle(
-              color: AppColors.warmWhite.withValues(alpha: 0.6),
+              color: isDark
+                  ? AppColors.mutedTextDark
+                  : AppColors.mutedTextLight,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
