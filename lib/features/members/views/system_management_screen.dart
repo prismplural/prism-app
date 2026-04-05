@@ -10,6 +10,9 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
 /// Screen for bulk member operations: activate/deactivate, delete, and reorder.
 class SystemManagementScreen extends ConsumerStatefulWidget {
@@ -95,18 +98,19 @@ class _SystemManagementScreenState
     final theme = Theme.of(context);
     final membersAsync = ref.watch(allMembersProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(ref.watch(terminologyProvider).manageText),
-        actions: [
-          if (_selectionMode)
-            IconButton(
-              icon: Icon(AppIcons.close),
-              tooltip: 'Cancel selection',
-              onPressed: _clearSelection,
-            ),
-        ],
+    return PrismPageScaffold(
+      topBar: PrismTopBar(
+        title: ref.watch(terminologyProvider).manageText,
+        showBackButton: true,
+        trailing: _selectionMode
+            ? PrismTopBarAction(
+                icon: AppIcons.close,
+                tooltip: 'Cancel selection',
+                onPressed: _clearSelection,
+              )
+            : null,
       ),
+      bodyPadding: EdgeInsets.zero,
       body: membersAsync.when(
         loading: () => const PrismLoadingState(),
         error: (e, _) => Center(child: Text('Error: $e')),

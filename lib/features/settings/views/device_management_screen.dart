@@ -10,6 +10,8 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
 class DeviceManagementScreen extends ConsumerWidget {
   const DeviceManagementScreen({super.key});
@@ -19,8 +21,9 @@ class DeviceManagementScreen extends ConsumerWidget {
     final devicesAsync = ref.watch(deviceListProvider);
     final currentDeviceId = ref.watch(nodeIdProvider).value;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Manage Devices')),
+    return PrismPageScaffold(
+      topBar: const PrismTopBar(title: 'Manage Devices', showBackButton: true),
+      bodyPadding: EdgeInsets.zero,
       body: devicesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(
