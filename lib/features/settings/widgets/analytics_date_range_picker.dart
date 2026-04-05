@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 /// Chip row for selecting analytics date range presets.
 class AnalyticsDateRangePicker extends ConsumerWidget {
@@ -28,10 +29,10 @@ class AnalyticsDateRangePicker extends ConsumerWidget {
       child: Row(
         children: [
           for (final (label, days) in _presets) ...[
-            FilterChip(
-              label: Text(label),
+            PrismChip(
+              label: label,
               selected: (selectedDays - days).abs() <= 1,
-              onSelected: (_) {
+              onTap: () {
                 final range = DateTimeRange(
                   start: now.subtract(Duration(days: days)),
                   end: now,
@@ -44,10 +45,10 @@ class AnalyticsDateRangePicker extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
           ],
-          FilterChip(
-            label: const Text('Custom'),
+          PrismChip(
+            label: 'Custom',
             selected: !_presets.any((p) => (selectedDays - p.$2).abs() <= 1),
-            onSelected: (_) => _showCustomPicker(context, ref),
+            onTap: () => _showCustomPicker(context, ref),
           ),
         ],
       ),

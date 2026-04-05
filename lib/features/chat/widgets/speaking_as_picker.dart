@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 /// Horizontal scrollable row of member avatars for selecting who is "speaking."
 class SpeakingAsPicker extends ConsumerWidget {
@@ -51,15 +52,22 @@ class SpeakingAsPicker extends ConsumerWidget {
             separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final member = members[index];
-              final isSelected = member.id == speakingAs;
-              return _MemberChip(
-                member: member,
-                isSelected: isSelected,
-                onTap: () {
-                  ref
-                      .read(speakingAsProvider.notifier)
-                      .setMember(member.id);
-                },
+              return PrismChip(
+                label: member.name,
+                selected: member.id == speakingAs,
+                onTap: () =>
+                    ref.read(speakingAsProvider.notifier).setMember(member.id),
+                avatar: MemberAvatar(
+                  avatarImageData: member.avatarImageData,
+                  emoji: member.emoji,
+                  customColorEnabled: member.customColorEnabled,
+                  customColorHex: member.customColorHex,
+                  size: 24,
+                ),
+                selectedColor: member.customColorEnabled &&
+                        member.customColorHex != null
+                    ? AppColors.fromHex(member.customColorHex!)
+                    : null,
               );
             },
           ),
@@ -88,62 +96,3 @@ class SpeakingAsPicker extends ConsumerWidget {
   }
 }
 
-class _MemberChip extends StatelessWidget {
-  const _MemberChip({
-    required this.member,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final Member member;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: isSelected
-              ? theme.colorScheme.primaryContainer
-              : theme.colorScheme.surfaceContainerHighest,
-          border: isSelected
-              ? Border.all(
-                  color: theme.colorScheme.primary,
-                  width: 2,
-                )
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MemberAvatar(
-              avatarImageData: member.avatarImageData,
-              emoji: member.emoji,
-              customColorEnabled: member.customColorEnabled,
-              customColorHex: member.customColorHex,
-              size: 28,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              member.name,
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight:
-                    isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

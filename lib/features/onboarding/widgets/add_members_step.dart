@@ -6,6 +6,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 class AddMembersStep extends ConsumerWidget {
   const AddMembersStep({super.key});
@@ -257,26 +258,19 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                 // Pronouns quick-select
                 Row(
                   children: [
-                    _PronounChip(
-                      label: 'She/Her',
-                      onTap: () => setState(
-                          () => _pronounsController.text = 'she/her'),
-                      selected: _pronounsController.text == 'she/her',
-                    ),
-                    const SizedBox(width: 8),
-                    _PronounChip(
-                      label: 'He/Him',
-                      onTap: () => setState(
-                          () => _pronounsController.text = 'he/him'),
-                      selected: _pronounsController.text == 'he/him',
-                    ),
-                    const SizedBox(width: 8),
-                    _PronounChip(
-                      label: 'They/Them',
-                      onTap: () => setState(
-                          () => _pronounsController.text = 'they/them'),
-                      selected: _pronounsController.text == 'they/them',
-                    ),
+                    for (final (label, value) in const [
+                      ('She/Her', 'she/her'),
+                      ('He/Him', 'he/him'),
+                      ('They/Them', 'they/them'),
+                    ]) ...[
+                      PrismChip(
+                        label: label,
+                        selected: _pronounsController.text == value,
+                        onTap: () =>
+                            setState(() => _pronounsController.text = value),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -374,38 +368,3 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
   }
 }
 
-class _PronounChip extends StatelessWidget {
-  const _PronounChip({
-    required this.label,
-    required this.onTap,
-    required this.selected,
-  });
-
-  final String label;
-  final VoidCallback onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? Colors.cyan.withValues(alpha: 0.3)
-              : AppColors.warmWhite.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.cyan : AppColors.warmWhite.withValues(alpha: 0.7),
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-}

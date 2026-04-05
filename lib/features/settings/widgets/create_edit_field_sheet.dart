@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 /// Modal sheet for creating or editing a custom field definition.
 ///
@@ -155,19 +156,17 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                 ),
                 const SizedBox(height: 8),
                 if (widget.isEditing) ...[
-                  // Immutable when editing — show disabled chip
+                  // Immutable when editing — show read-only chips
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: [
                       for (final type in CustomFieldType.values)
-                        ChoiceChip(
-                          label: Text(type.label),
+                        PrismChip(
+                          label: type.label,
                           selected: type == _selectedType,
-                          onSelected: null,
-                          avatar: Icon(
-                            _iconForType(type),
-                            size: 18,
-                          ),
+                          onTap: null,
+                          avatar: Icon(_iconForType(type), size: 16),
                         ),
                     ],
                   ),
@@ -181,21 +180,17 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                 ] else ...[
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: [
                       for (final type in CustomFieldType.values)
-                        ChoiceChip(
-                          label: Text(type.label),
+                        PrismChip(
+                          label: type.label,
                           selected: type == _selectedType,
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() => _selectedType = type);
-                              Haptics.selection();
-                            }
+                          onTap: () {
+                            setState(() => _selectedType = type);
+                            Haptics.selection();
                           },
-                          avatar: Icon(
-                            _iconForType(type),
-                            size: 18,
-                          ),
+                          avatar: Icon(_iconForType(type), size: 16),
                         ),
                     ],
                   ),
@@ -216,14 +211,12 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                     runSpacing: 8,
                     children: [
                       for (final precision in DatePrecision.values)
-                        ChoiceChip(
-                          label: Text(precision.label),
+                        PrismChip(
+                          label: precision.label,
                           selected: precision == _selectedPrecision,
-                          onSelected: (selected) {
-                            if (selected) {
-                              setState(() => _selectedPrecision = precision);
-                              Haptics.selection();
-                            }
+                          onTap: () {
+                            setState(() => _selectedPrecision = precision);
+                            Haptics.selection();
                           },
                         ),
                     ],
