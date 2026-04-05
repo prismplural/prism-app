@@ -25,104 +25,44 @@ enum OnboardingStep {
     welcome => 'Welcome to Prism',
     syncDevice => 'Sync From Device',
     importedDataReady => 'Data Ready',
-    importData => 'Import Data',
-    systemName => 'Name Your System',
-    addMembers => 'Add Members',
-    features => 'Choose Features',
-    chatSetup => 'Set Up Chat',
-    preferences => 'Customize',
-    whosFronting => "Who's Fronting?",
-    complete => "You're All Set!",
+    importData => 'Already have data?',
+    systemName => 'Name your system',
+    addMembers => "Who's here?",
+    features => 'Pick your tools',
+    chatSetup => 'Set up chat',
+    preferences => 'Make it yours',
+    whosFronting => "Who's fronting?",
+    complete => 'Ready when you are',
   };
 
   String get subtitle => switch (this) {
-    welcome => 'A safe space for managing your plural system',
+    welcome => 'Your system, your way.',
     syncDevice => 'Pair with an existing device',
     importedDataReady => 'Your imported system is ready to use',
-    importData => 'Bring your data from another app',
-    systemName => 'What would you like to call your system?',
-    addMembers => 'Add the members of your system',
-    features => 'Select which features you want to use',
-    chatSetup => 'Enable internal communication',
-    preferences => 'Personalize your experience',
-    whosFronting => 'Set your initial fronter',
-    complete => 'Your system is ready to use',
+    importData => 'Bring your system with you.',
+    systemName => 'Whatever feels right.',
+    addMembers => 'Add the people in your system.',
+    features => 'Turn on what you need. Change anytime.',
+    chatSetup => 'Channels for your system to talk.',
+    preferences => 'Colors, language, the small things.',
+    whosFronting => "Tap whoever's here right now.",
+    complete => "Your system is set up. Here's what to explore.",
   };
 
   IconData get icon => switch (this) {
-    welcome => AppIcons.autoAwesome,
-    syncDevice => AppIcons.sync,
-    importedDataReady => AppIcons.checkCircle,
-    importData => AppIcons.download,
+    welcome => AppIcons.duotoneStar,
+    syncDevice => AppIcons.duotoneSync,
+    importedDataReady => AppIcons.duotoneSuccess,
+    importData => AppIcons.duotoneImport,
     systemName => AppIcons.label,
-    addMembers => AppIcons.group,
-    features => AppIcons.gridView,
-    chatSetup => AppIcons.forum,
-    preferences => AppIcons.brush,
-    whosFronting => AppIcons.personPin,
-    complete => AppIcons.checkCircle,
+    addMembers => AppIcons.duotoneMembers,
+    features => AppIcons.duotoneSettings,
+    chatSetup => AppIcons.duotoneChat,
+    preferences => AppIcons.duotoneTheme,
+    whosFronting => AppIcons.duotoneFronting,
+    complete => AppIcons.duotoneSuccess,
   };
 
-  Color get iconColor => switch (this) {
-    welcome => Colors.purple,
-    syncDevice => Colors.cyan,
-    importedDataReady => Colors.green,
-    importData => Colors.cyan,
-    systemName => Colors.blue,
-    addMembers => Colors.green,
-    features => Colors.indigo,
-    chatSetup => Colors.orange,
-    preferences => Colors.pink,
-    whosFronting => Colors.cyan,
-    complete => Colors.green,
-  };
-
-  List<Color> get gradientColors => switch (this) {
-    welcome => [
-      Colors.purple.withValues(alpha: 0.3),
-      Colors.blue.withValues(alpha: 0.3),
-    ],
-    syncDevice => [
-      Colors.cyan.withValues(alpha: 0.3),
-      Colors.purple.withValues(alpha: 0.3),
-    ],
-    importedDataReady => [
-      Colors.green.withValues(alpha: 0.3),
-      Colors.teal.withValues(alpha: 0.3),
-    ],
-    importData => [
-      Colors.cyan.withValues(alpha: 0.3),
-      Colors.blue.withValues(alpha: 0.3),
-    ],
-    systemName => [
-      Colors.blue.withValues(alpha: 0.3),
-      Colors.cyan.withValues(alpha: 0.3),
-    ],
-    addMembers => [
-      Colors.green.withValues(alpha: 0.3),
-      Colors.teal.withValues(alpha: 0.3),
-    ],
-    features => [
-      Colors.indigo.withValues(alpha: 0.3),
-      Colors.purple.withValues(alpha: 0.3),
-    ],
-    chatSetup => [
-      Colors.orange.withValues(alpha: 0.3),
-      Colors.yellow.withValues(alpha: 0.3),
-    ],
-    preferences => [
-      Colors.pink.withValues(alpha: 0.3),
-      Colors.pink.withValues(alpha: 0.2),
-    ],
-    whosFronting => [
-      Colors.cyan.withValues(alpha: 0.3),
-      Colors.blue.withValues(alpha: 0.3),
-    ],
-    complete => [
-      Colors.green.withValues(alpha: 0.3),
-      Colors.teal.withValues(alpha: 0.3),
-    ],
-  };
 }
 
 class OnboardingState {
