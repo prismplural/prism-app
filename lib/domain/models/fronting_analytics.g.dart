@@ -22,6 +22,16 @@ _FrontingAnalytics _$FrontingAnalyticsFromJson(Map<String, dynamic> json) =>
       memberStats: (json['memberStats'] as List<dynamic>)
           .map((e) => MemberAnalytics.fromJson(e as Map<String, dynamic>))
           .toList(),
+      dailyActivity:
+          (json['dailyActivity'] as List<dynamic>?)
+              ?.map((e) => DailyActivity.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      topCoFrontingPairs:
+          (json['topCoFrontingPairs'] as List<dynamic>?)
+              ?.map((e) => CoFrontingPair.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
 
 Map<String, dynamic> _$FrontingAnalyticsToJson(_FrontingAnalytics instance) =>
@@ -34,6 +44,8 @@ Map<String, dynamic> _$FrontingAnalyticsToJson(_FrontingAnalytics instance) =>
       'uniqueFronters': instance.uniqueFronters,
       'switchesPerDay': instance.switchesPerDay,
       'memberStats': instance.memberStats,
+      'dailyActivity': instance.dailyActivity,
+      'topCoFrontingPairs': instance.topCoFrontingPairs,
     };
 
 _MemberAnalytics _$MemberAnalyticsFromJson(Map<String, dynamic> json) =>
@@ -70,4 +82,32 @@ Map<String, dynamic> _$MemberAnalyticsToJson(_MemberAnalytics instance) =>
       'shortestSession': instance.shortestSession.inMicroseconds,
       'longestSession': instance.longestSession.inMicroseconds,
       'timeOfDayBreakdown': instance.timeOfDayBreakdown,
+    };
+
+_DailyActivity _$DailyActivityFromJson(Map<String, dynamic> json) =>
+    _DailyActivity(
+      date: DateTime.parse(json['date'] as String),
+      totalMinutes: (json['totalMinutes'] as num).toInt(),
+      sessionCount: (json['sessionCount'] as num).toInt(),
+    );
+
+Map<String, dynamic> _$DailyActivityToJson(_DailyActivity instance) =>
+    <String, dynamic>{
+      'date': instance.date.toIso8601String(),
+      'totalMinutes': instance.totalMinutes,
+      'sessionCount': instance.sessionCount,
+    };
+
+_CoFrontingPair _$CoFrontingPairFromJson(Map<String, dynamic> json) =>
+    _CoFrontingPair(
+      memberIdA: json['memberIdA'] as String,
+      memberIdB: json['memberIdB'] as String,
+      totalTime: Duration(microseconds: (json['totalTime'] as num).toInt()),
+    );
+
+Map<String, dynamic> _$CoFrontingPairToJson(_CoFrontingPair instance) =>
+    <String, dynamic>{
+      'memberIdA': instance.memberIdA,
+      'memberIdB': instance.memberIdB,
+      'totalTime': instance.totalTime.inMicroseconds,
     };
