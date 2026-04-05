@@ -21,7 +21,9 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 /// Detail screen for a single poll with voting and results.
 class PollDetailScreen extends ConsumerWidget {
@@ -341,14 +343,23 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                       itemBuilder: (context, index) {
                         final member = members[index];
                         final isSelected = votingAs == member.id;
-                        return _VotingAsMemberChip(
-                          member: member,
-                          isSelected: isSelected,
-                          onTap: () {
-                            ref
-                                .read(votingAsProvider.notifier)
-                                .setMember(member.id);
-                          },
+                        return PrismChip(
+                          label: member.name,
+                          selected: isSelected,
+                          onTap: () => ref
+                              .read(votingAsProvider.notifier)
+                              .setMember(member.id),
+                          avatar: MemberAvatar(
+                            avatarImageData: member.avatarImageData,
+                            emoji: member.emoji,
+                            customColorEnabled: member.customColorEnabled,
+                            customColorHex: member.customColorHex,
+                            size: 24,
+                          ),
+                          selectedColor: member.customColorEnabled &&
+                                  member.customColorHex != null
+                              ? AppColors.fromHex(member.customColorHex!)
+                              : null,
                         );
                       },
                     ),
@@ -627,67 +638,6 @@ class _VoterNames extends ConsumerWidget {
           padding: EdgeInsets.zero,
         );
       }).toList(),
-    );
-  }
-}
-
-// ── Voting-as member chip ──────────────────────────────────────────────────
-
-class _VotingAsMemberChip extends StatelessWidget {
-  const _VotingAsMemberChip({
-    required this.member,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final Member member;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: isSelected
-              ? theme.colorScheme.primaryContainer
-              : theme.colorScheme.surfaceContainerHighest,
-          border: isSelected
-              ? Border.all(
-                  color: theme.colorScheme.primary,
-                  width: 2,
-                )
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            MemberAvatar(
-              avatarImageData: member.avatarImageData,
-              emoji: member.emoji,
-              customColorEnabled: member.customColorEnabled,
-              customColorHex: member.customColorHex,
-              size: 28,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              member.name,
-              style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

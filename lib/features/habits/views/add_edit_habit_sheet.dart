@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 class AddEditHabitSheet extends ConsumerStatefulWidget {
@@ -370,17 +371,18 @@ class _WeekdayPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Wrap(
       spacing: 8,
+      runSpacing: 8,
       children: List.generate(7, (i) {
         final isSelected = selected.contains(i);
-        return FilterChip(
-          label: Text(_days[i]),
+        return PrismChip(
+          label: _days[i],
           selected: isSelected,
-          onSelected: (v) {
+          onTap: () {
             final newSet = Set<int>.from(selected);
-            if (v) {
-              newSet.add(i);
-            } else {
+            if (isSelected) {
               newSet.remove(i);
+            } else {
+              newSet.add(i);
             }
             onChanged(newSet);
           },

@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 /// Inline widget showing small colored chips for each group a member belongs to.
 ///
@@ -32,57 +32,24 @@ class MemberGroupChips extends ConsumerWidget {
         return Wrap(
           spacing: 6,
           runSpacing: 6,
-          children: groups.map((group) => _GroupChip(group: group)).toList(),
+          children: groups.map((group) {
+            final accentColor = group.colorHex != null &&
+                    group.colorHex!.isNotEmpty
+                ? AppColors.fromHex(group.colorHex!)
+                : null;
+            return PrismChip(
+              label: group.name,
+              selected: false,
+              onTap: () => context.push(AppRoutePaths.settingsGroup(group.id)),
+              avatar: group.emoji != null && group.emoji!.isNotEmpty
+                  ? Text(group.emoji!, style: const TextStyle(fontSize: 12))
+                  : null,
+              tintColor: accentColor,
+            );
+          }).toList(),
         );
       },
     );
   }
 }
 
-class _GroupChip extends StatelessWidget {
-  const _GroupChip({required this.group});
-
-  final MemberGroup group;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final hasColor = group.colorHex != null && group.colorHex!.isNotEmpty;
-    final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
-
-    final backgroundColor = accentColor?.withValues(alpha: 0.15) ??
-        theme.colorScheme.surfaceContainerHighest;
-    final foregroundColor =
-        accentColor ?? theme.colorScheme.onSurfaceVariant;
-
-    return GestureDetector(
-      onTap: () => context.push(AppRoutePaths.settingsGroup(group.id)),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (group.emoji != null && group.emoji!.isNotEmpty) ...[
-              Text(
-                group.emoji!,
-                style: const TextStyle(fontSize: 12),
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              group.name,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: foregroundColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

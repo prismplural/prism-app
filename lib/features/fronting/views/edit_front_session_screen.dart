@@ -28,6 +28,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Full-screen editor for an existing fronting session.
@@ -452,26 +453,18 @@ class _MemberSelector extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        // "Unknown" option
-        ChoiceChip(
-          label: const Text('Unknown'),
+        PrismChip(
+          label: 'Unknown',
           selected: selectedId == null,
-          onSelected: (v) {
-            if (v) onSelect(null);
-          },
-          avatar: Icon(AppIcons.helpOutline, size: 18),
+          onTap: () => onSelect(null),
+          avatar: Icon(AppIcons.helpOutline, size: 16),
         ),
-        ...members.map((m) {
-          final isSelected = m.id == selectedId;
-          return ChoiceChip(
-            label: Text(m.name),
-            selected: isSelected,
-            onSelected: (v) {
-              if (v) onSelect(m.id);
-            },
-            avatar: Text(m.emoji, style: const TextStyle(fontSize: 16)),
-          );
-        }),
+        ...members.map((m) => PrismChip(
+          label: m.name,
+          selected: m.id == selectedId,
+          onTap: () => onSelect(m.id),
+          avatar: Text(m.emoji, style: const TextStyle(fontSize: 15)),
+        )),
       ],
     );
   }

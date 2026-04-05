@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Settings screen for PIN lock, biometric unlock, and auto-lock delay.
@@ -189,19 +190,12 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                             300: '5m',
                             900: '15m',
                           }.entries)
-                            ChoiceChip(
-                              label: Text(entry.value),
-                              selected:
-                                  autoLockDelay == entry.key,
-                              onSelected: (selected) {
-                                if (selected) {
-                                  ref
-                                      .read(settingsNotifierProvider
-                                          .notifier)
-                                      .updateAutoLockDelaySeconds(
-                                          entry.key);
-                                }
-                              },
+                            PrismChip(
+                              label: entry.value,
+                              selected: autoLockDelay == entry.key,
+                              onTap: () => ref
+                                  .read(settingsNotifierProvider.notifier)
+                                  .updateAutoLockDelaySeconds(entry.key),
                             ),
                         ],
                       ),
