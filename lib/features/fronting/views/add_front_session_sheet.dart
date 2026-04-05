@@ -144,8 +144,22 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     };
     final hasActiveSession = activeSessions.isNotEmpty;
 
-    return Column(
-      children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxHeight < 100) return const SizedBox.shrink();
+        return Column(children: _buildContent(context, theme, membersAsync, frontingMemberIds, hasActiveSession));
+      },
+    );
+  }
+
+  List<Widget> _buildContent(
+    BuildContext context,
+    ThemeData theme,
+    AsyncValue<List<Member>> membersAsync,
+    Set<String> frontingMemberIds,
+    bool hasActiveSession,
+  ) {
+    return [
         PrismSheetTopBar(
           title: _coFrontMode ? 'Add Co-Fronter' : 'New Session',
           trailing: PrismGlassIconButton(
@@ -363,8 +377,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
             ],
           ),
         ),
-      ],
-    );
+      ];
   }
 }
 
