@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -7,33 +8,35 @@ class WelcomeStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _FeatureRow(
-            icon: AppIcons.shieldOutlined,
-            color: Colors.blue,
-            title: 'Privacy First',
+            icon: AppIcons.duotoneEncryption,
+            title: 'Private by default',
             description:
-                'Your data stays on your device with optional encrypted cloud sync.',
+                'Not even we can read your data. Everything stays on your device unless you choose to sync.',
+            isDark: isDark,
           ),
           SizedBox(height: 20),
           _FeatureRow(
-            icon: AppIcons.cloudOutlined,
-            color: Colors.cyan,
-            title: 'Cloud Sync',
+            icon: AppIcons.duotoneSync,
+            title: 'Sync across devices',
             description:
-                'Optionally sync across devices with end-to-end encryption.',
+                'End-to-end encrypted. The server only sees noise.',
+            isDark: isDark,
           ),
           SizedBox(height: 20),
           _FeatureRow(
-            icon: AppIcons.paletteOutlined,
-            color: Colors.purple,
-            title: 'Customizable',
+            icon: AppIcons.duotoneTheme,
+            title: 'Built for you',
             description:
-                'Tailor terminology, colors, and features to your system.',
+                'Your words, your colors, your features. Prism adapts to how your system works.',
+            isDark: isDark,
           ),
         ],
       ),
@@ -44,15 +47,15 @@ class WelcomeStep extends StatelessWidget {
 class _FeatureRow extends StatelessWidget {
   const _FeatureRow({
     required this.icon,
-    required this.color,
     required this.title,
     required this.description,
+    required this.isDark,
   });
 
-  final IconData icon;
-  final Color color;
+  final PhosphorIconData icon;
   final String title;
   final String description;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -62,10 +65,18 @@ class _FeatureRow extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(12),
+            shape: BoxShape.circle,
+            color: AppColors.prismPurple.withValues(alpha: 0.15),
           ),
-          child: Icon(icon, color: color, size: 24),
+          child: Center(
+            child: PhosphorIcon(
+              icon,
+              size: 24,
+              color: isDark
+                  ? AppColors.prismPurple
+                  : AppColors.prismPurpleLight,
+            ),
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -74,8 +85,10 @@ class _FeatureRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: AppColors.warmWhite,
+                style: TextStyle(
+                  color: isDark
+                      ? AppColors.warmWhite
+                      : AppColors.warmBlack,
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
                 ),
@@ -84,7 +97,9 @@ class _FeatureRow extends StatelessWidget {
               Text(
                 description,
                 style: TextStyle(
-                  color: AppColors.warmWhite.withValues(alpha: 0.7),
+                  color: isDark
+                      ? AppColors.mutedTextDark
+                      : AppColors.mutedTextLight,
                   fontSize: 14,
                 ),
               ),
