@@ -3,10 +3,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 
-/// Compact area chart showing daily fronting activity across a date range.
+/// Area chart showing daily fronting activity across a date range.
 ///
 /// Renders only when at least 5 days contain session data.
-/// Hidden axes, warm gradient fill, first/last date labels only.
 class FrontingActivityChart extends StatelessWidget {
   const FrontingActivityChart({super.key, required this.dailyActivity});
 
@@ -35,84 +34,116 @@ class FrontingActivityChart extends StatelessWidget {
     final lineColor = theme.colorScheme.primary;
     final fillColor = theme.colorScheme.primary.withValues(alpha: 0.15);
 
-    final peakIdx = dailyActivity.indexWhere(
-        (d) => d.totalMinutes == maxMinutes.toInt());
+    final peakIdx =
+        dailyActivity.indexWhere((d) => d.totalMinutes == maxMinutes.toInt());
     final peakHours = (maxMinutes / 60).toStringAsFixed(1);
     final avgMinutes = dailyActivity
             .map((d) => d.totalMinutes)
             .reduce((a, b) => a + b) /
         dailyActivity.length;
     final avgHours = (avgMinutes / 60).toStringAsFixed(1);
-
+    final peakDate =
+        peakIdx >= 0 ? _shortDate(dailyActivity[peakIdx].date) : '';
     final firstDate = _shortDate(dailyActivity.first.date);
     final lastDate = _shortDate(dailyActivity.last.date);
 
-    final peakDate = peakIdx >= 0
-        ? _shortDate(dailyActivity[peakIdx].date)
-        : firstDate;
-
     return Semantics(
-      label:
-          'Fronting activity over the selected period. '
+      label: 'Daily fronting activity. '
           'Peak: ${peakHours}h on $peakDate. '
           'Average: ${avgHours}h per day.',
       excludeSemantics: true,
-      child: SizedBox(
-        height: 80,
-        child: LineChart(
-          LineChartData(
-            gridData: const FlGridData(show: false),
-            borderData: FlBorderData(show: false),
-            minY: 0,
-            maxY: maxMinutes * 1.15,
-            titlesData: FlTitlesData(
-              show: true,
-              leftTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false)),
-              rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false)),
-              topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false)),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 16,
-                  getTitlesWidget: (value, meta) {
-                    final idx = value.toInt();
-                    final style = theme.textTheme.labelSmall?.copyWith(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Daily Activity',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    'avg ${avgHours}h/day',
+                    style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
-                    );
-                    if (idx == 0) {
-                      return SideTitleWidget(
-                        axisSide: meta.axisSide,
-                        child: Text(firstDate, style: style),
-                      );
-                    }
-                    if (idx == dailyActivity.length - 1) {
-                      return SideTitleWidget(
-                        axisSide: meta.axisSide,
-                        child: Text(lastDate, style: style),
-                      );
-                    }
-                    return const SizedBox.shrink();
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            lineBarsData: [
-              LineChartBarData(
-                spots: spots,
-                isCurved: true,
-                curveSmoothness: 0.3,
-                color: lineColor,
-                barWidth: 1.5,
-                dotData: const FlDotData(show: false),
-                belowBarData: BarAreaData(
-                  show: true,
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [fillColor, Colors.transparent],
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 80,
+                child: Padding(
+                  // Extra horizontal inset so the line doesn't touch card edges.
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: LineChart(
+                    LineChartData(
+                      gridData: const FlGridData(show: false),
+                      borderData: FlBorderData(show: false),
+                      // 30% headroom above peak so the line is never clipped.
+                      minY: 0,
+                      maxY: maxMinutes * 1.3,
+                      // Disable touch — this is ambient context, not interactive.
+                      lineTouchData: const LineTouchData(enabled: false),
+                      titlesData: FlTitlesData(
+                        show: true,
+                        leftTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 18,
+                            getTitlesWidget: (value, meta) {
+                              final idx = value.toInt();
+                              final style =
+                                  theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              );
+                              if (idx == 0) {
+                                return SideTitleWidget(
+                                  axisSide: meta.axisSide,
+                                  child: Text(firstDate, style: style),
+                                );
+                              }
+                              if (idx == dailyActivity.length - 1) {
+                                return SideTitleWidget(
+                                  axisSide: meta.axisSide,
+                                  child: Text(lastDate, style: style),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ),
+                      ),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          curveSmoothness: 0.3,
+                          color: lineColor,
+                          barWidth: 1.5,
+                          dotData: const FlDotData(show: false),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [fillColor, Colors.transparent],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
