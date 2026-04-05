@@ -27,18 +27,19 @@ class OnboardingDataReadyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: 8),
-          Icon(AppIcons.checkCircleOutline, color: Colors.green, size: 56),
+          Icon(AppIcons.checkCircleOutline, color: AppColors.success, size: 56),
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(
-              color: AppColors.warmWhite,
+            style: TextStyle(
+              color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
               fontSize: 26,
               fontWeight: FontWeight.w700,
             ),
@@ -48,7 +49,9 @@ class OnboardingDataReadyView extends StatelessWidget {
           Text(
             description,
             style: TextStyle(
-              color: AppColors.warmWhite.withValues(alpha: 0.7),
+              color: isDark
+                  ? AppColors.mutedTextDark
+                  : AppColors.mutedTextLight,
               fontSize: 14,
             ),
             textAlign: TextAlign.center,
@@ -59,7 +62,9 @@ class OnboardingDataReadyView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppColors.warmWhite.withValues(alpha: 0.1),
+                color: isDark
+                    ? AppColors.warmWhite.withValues(alpha: 0.1)
+                    : AppColors.parchmentElevated,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -68,7 +73,9 @@ class OnboardingDataReadyView extends StatelessWidget {
                   Text(
                     summaryLabel,
                     style: TextStyle(
-                      color: AppColors.warmWhite.withValues(alpha: 0.6),
+                      color: isDark
+                          ? AppColors.mutedTextDark
+                          : AppColors.mutedTextLight,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.8,
@@ -116,6 +123,7 @@ class _CountRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -124,15 +132,17 @@ class _CountRow extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                color: AppColors.warmWhite.withValues(alpha: 0.72),
+                color: isDark
+                    ? AppColors.mutedTextDark
+                    : AppColors.mutedTextLight,
                 fontSize: 14,
               ),
             ),
           ),
           Text(
             '$count',
-            style: const TextStyle(
-              color: AppColors.warmWhite,
+            style: TextStyle(
+              color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
