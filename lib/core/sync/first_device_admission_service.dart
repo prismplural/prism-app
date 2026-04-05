@@ -13,6 +13,7 @@ class FirstDeviceAdmissionService {
   Future<void> preparePendingRegistration({
     required ffi.PrismSyncHandle handle,
     required String relayUrl,
+    String? registrationToken,
   }) async {
     final pairingJson = await ffi.generatePairingRequest(handle: handle);
     final pairing = jsonDecode(pairingJson) as Map<String, dynamic>;
@@ -20,7 +21,11 @@ class FirstDeviceAdmissionService {
     final syncId = _generateSyncId();
 
     final nonceUri = Uri.parse('$relayUrl/v1/sync/$syncId/register-nonce');
-    final nonceResp = await http.get(nonceUri);
+    final nonceHeaders = <String, String>{};
+    if (registrationToken != null && registrationToken.isNotEmpty) {
+      nonceHeaders['X-Registration-Token'] = registrationToken;
+    }
+    final nonceResp = await http.get(nonceUri, headers: nonceHeaders);
     if (nonceResp.statusCode < 200 || nonceResp.statusCode >= 300) {
       throw Exception(
         'Failed to prepare registration challenge: HTTP ${nonceResp.statusCode}',
@@ -47,6 +52,10 @@ class FirstDeviceAdmissionService {
       pendingEntries['pending_first_device_admission_proof'] = _encodeJson(
         proof,
       );
+    }
+    if (registrationToken != null && registrationToken.isNotEmpty) {
+      pendingEntries['pending_registration_token'] =
+          _encodeUtf8(registrationToken);
     }
 
     await ffi.seedSecureStore(
