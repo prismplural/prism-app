@@ -333,6 +333,9 @@ class StressDataGenerator {
       (i) => 'stress-conv-$i',
     );
 
+    // Build participant lists during creation so messages can reference them.
+    final convParticipants = <String, List<String>>{};
+
     yield StressProgress('Conversations', 0, preset.conversations);
     if (preset.conversations > 0) {
       await _db.batch((batch) {
@@ -344,6 +347,7 @@ class StressDataGenerator {
             final p = memberIds[rng.nextInt(preset.members)];
             if (!participants.contains(p)) participants.add(p);
           }
+          convParticipants[conversationIds[i]] = participants;
           final created = earliest.add(Duration(
             seconds: rng.nextInt(timeSpan.inSeconds),
           ));
@@ -368,27 +372,12 @@ class StressDataGenerator {
     // Messages distributed with power law across conversations.
     yield StressProgress('Messages', 0, preset.messages);
     if (preset.messages > 0 && preset.conversations > 0) {
-      // Power-law weights for conversations.
+      // Power-law weights for conversations (double for _pickWeighted).
       final convWeights = List.generate(
         preset.conversations,
-        (i) => preset.conversations - i,
+        (i) => (preset.conversations - i).toDouble(),
       );
       final convTotalWeight = convWeights.reduce((a, b) => a + b);
-
-      // Pre-read conversation participant lists for message authoring.
-      // For efficiency, just regenerate with same logic as above.
-      final convParticipants = <String, List<String>>{};
-      final convRng = Random(42);
-      for (var i = 0; i < preset.conversations; i++) {
-        final isDm = i < preset.conversations ~/ 3;
-        final participantCount = isDm ? 2 : (3 + convRng.nextInt(6));
-        final participants = <String>[];
-        while (participants.length < min(participantCount, preset.members)) {
-          final p = memberIds[convRng.nextInt(preset.members)];
-          if (!participants.contains(p)) participants.add(p);
-        }
-        convParticipants[conversationIds[i]] = participants;
-      }
 
       for (var chunk = 0; chunk < preset.messages; chunk += _chunkSize) {
         final end = min(chunk + _chunkSize, preset.messages);
