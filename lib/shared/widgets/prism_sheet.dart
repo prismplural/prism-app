@@ -110,6 +110,8 @@ class PrismSheet extends StatelessWidget {
         minChildSize: 0.0,
         maxChildSize: 1.0,
         expand: false,
+        snap: true,
+        snapSizes: const [1.0],
         builder: builder,
       ),
     );
