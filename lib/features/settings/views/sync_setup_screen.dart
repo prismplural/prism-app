@@ -23,6 +23,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _relayUrlController = TextEditingController();
+  final _registrationTokenController = TextEditingController();
   bool _showRelayField = false;
   bool _hasSavedKey = false;
   bool _obscurePassword = true;
@@ -43,6 +44,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _relayUrlController.dispose();
+    _registrationTokenController.dispose();
     super.dispose();
   }
 
@@ -73,6 +75,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
               key: const ValueKey('intro'),
               showRelayField: _showRelayField,
               relayUrlController: _relayUrlController,
+              registrationTokenController: _registrationTokenController,
               relayUrlError: _relayUrlError,
               onToggleRelay: () =>
                   setState(() => _showRelayField = !_showRelayField),
@@ -90,6 +93,10 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
                     setState(() => _relayUrlError = null);
                     ref.read(syncSetupProvider.notifier).setRelayUrl(url);
                   }
+                  final token = _registrationTokenController.text.trim();
+                  ref.read(syncSetupProvider.notifier).setRegistrationToken(
+                    token.isNotEmpty ? token : null,
+                  );
                 }
                 ref.read(syncSetupProvider.notifier).proceedToPassword();
               },
@@ -154,6 +161,7 @@ class _IntroStep extends StatelessWidget {
     super.key,
     required this.showRelayField,
     required this.relayUrlController,
+    required this.registrationTokenController,
     required this.relayUrlError,
     required this.onToggleRelay,
     required this.onContinue,
@@ -161,6 +169,7 @@ class _IntroStep extends StatelessWidget {
 
   final bool showRelayField;
   final TextEditingController relayUrlController;
+  final TextEditingController registrationTokenController;
   final String? relayUrlError;
   final VoidCallback onToggleRelay;
   final VoidCallback onContinue;
@@ -229,6 +238,20 @@ class _IntroStep extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: 12),
+            PrismTextField(
+              controller: registrationTokenController,
+              labelText: 'Registration token',
+              hintText: 'Optional',
+              obscureText: true,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Required if your relay has registration gating enabled.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
           const SizedBox(height: 32),
           PrismButton(

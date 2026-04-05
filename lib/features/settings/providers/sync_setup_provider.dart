@@ -24,6 +24,7 @@ const _sentinel = Object();
 class SyncSetupState {
   final SyncSetupStep step;
   final String relayUrl;
+  final String? registrationToken;
   final String? password;
   final String? mnemonic;
   final bool isProcessing;
@@ -33,6 +34,7 @@ class SyncSetupState {
   const SyncSetupState({
     this.step = SyncSetupStep.intro,
     this.relayUrl = AppConstants.defaultRelayUrl,
+    this.registrationToken,
     this.password,
     this.mnemonic,
     this.isProcessing = false,
@@ -43,6 +45,7 @@ class SyncSetupState {
   SyncSetupState copyWith({
     SyncSetupStep? step,
     String? relayUrl,
+    Object? registrationToken = _sentinel,
     Object? password = _sentinel,
     Object? mnemonic = _sentinel,
     bool? isProcessing,
@@ -51,6 +54,9 @@ class SyncSetupState {
   }) => SyncSetupState(
     step: step ?? this.step,
     relayUrl: relayUrl ?? this.relayUrl,
+    registrationToken: registrationToken == _sentinel
+        ? this.registrationToken
+        : registrationToken as String?,
     password: password == _sentinel ? this.password : password as String?,
     mnemonic: mnemonic == _sentinel ? this.mnemonic : mnemonic as String?,
     isProcessing: isProcessing ?? this.isProcessing,
@@ -67,6 +73,10 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
 
   void setRelayUrl(String url) {
     state = state.copyWith(relayUrl: url);
+  }
+
+  void setRegistrationToken(String? token) {
+    state = state.copyWith(registrationToken: token);
   }
 
   void proceedToPassword() {
@@ -148,6 +158,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       await admissionService.preparePendingRegistration(
         handle: handle,
         relayUrl: state.relayUrl,
+        registrationToken: state.registrationToken,
       );
 
       // createSyncGroup handles key hierarchy creation internally.
