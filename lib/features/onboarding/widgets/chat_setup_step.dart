@@ -32,6 +32,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
 
@@ -43,7 +45,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
           Text(
             'Suggested Channels',
             style: TextStyle(
-              color: AppColors.warmWhite.withValues(alpha: 0.8),
+              color: isDark ? AppColors.warmWhite.withValues(alpha: 0.8) : AppColors.warmBlack.withValues(alpha: 0.8),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -67,8 +69,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? AppColors.warmWhite.withValues(alpha: 0.15)
-                        : AppColors.warmWhite.withValues(alpha: 0.07),
+                        ? (isDark ? AppColors.warmWhite.withValues(alpha: 0.15) : AppColors.parchmentElevated)
+                        : (isDark ? AppColors.warmWhite.withValues(alpha: 0.07) : AppColors.warmBlack.withValues(alpha: 0.04)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -78,8 +80,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                       Expanded(
                         child: Text(
                           entry.key,
-                          style: const TextStyle(
-                            color: AppColors.warmWhite,
+                          style: TextStyle(
+                            color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
@@ -89,7 +91,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                         Icon(
                           AppIcons.lock,
                           size: 16,
-                          color: AppColors.warmWhite.withValues(alpha: 0.4),
+                          color: isDark ? AppColors.warmWhite.withValues(alpha: 0.4) : AppColors.warmBlack.withValues(alpha: 0.4),
                         )
                       else
                         Icon(
@@ -97,8 +99,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                               ? AppIcons.checkCircle
                               : AppIcons.circleOutlined,
                           color: isSelected
-                              ? Colors.cyan
-                              : AppColors.warmWhite.withValues(alpha: 0.3),
+                              ? primary
+                              : (isDark ? AppColors.warmWhite.withValues(alpha: 0.3) : AppColors.warmBlack.withValues(alpha: 0.3)),
                           size: 22,
                         ),
                     ],
@@ -114,7 +116,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
           Text(
             'Custom Channel',
             style: TextStyle(
-              color: AppColors.warmWhite.withValues(alpha: 0.8),
+              color: isDark ? AppColors.warmWhite.withValues(alpha: 0.8) : AppColors.warmBlack.withValues(alpha: 0.8),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -125,15 +127,15 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
               Expanded(
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppColors.warmWhite.withValues(alpha: 0.1),
+                    color: isDark ? AppColors.warmWhite.withValues(alpha: 0.1) : AppColors.parchmentElevated,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: PrismTextField(
                     controller: _customChannelController,
-                    style: const TextStyle(color: AppColors.warmWhite),
+                    style: TextStyle(color: isDark ? AppColors.warmWhite : AppColors.warmBlack),
                     hintText: 'Channel name',
                     hintStyle: TextStyle(
-                      color: AppColors.warmWhite.withValues(alpha: 0.35),
+                      color: isDark ? AppColors.warmWhite.withValues(alpha: 0.35) : AppColors.warmBlack.withValues(alpha: 0.35),
                     ),
                     fieldStyle: PrismTextFieldStyle.borderless,
                     contentPadding: const EdgeInsets.symmetric(
@@ -156,10 +158,10 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: Colors.cyan.withValues(alpha: 0.4),
+                    color: primary.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(AppIcons.add, color: AppColors.warmWhite, size: 22),
+                  child: Icon(AppIcons.add, color: isDark ? AppColors.warmWhite : AppColors.warmBlack, size: 22),
                 ),
               ),
             ],
@@ -178,7 +180,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: AppColors.warmWhite.withValues(alpha: 0.12),
+                          color: isDark ? AppColors.warmWhite.withValues(alpha: 0.12) : AppColors.parchmentElevated,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
@@ -189,8 +191,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                             Expanded(
                               child: Text(
                                 entry.key,
-                                style: const TextStyle(
-                                  color: AppColors.warmWhite,
+                                style: TextStyle(
+                                  color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                                   fontSize: 15,
                                 ),
                               ),
@@ -201,7 +203,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                               child: Icon(
                                 AppIcons.close,
                                 size: 18,
-                                color: AppColors.warmWhite.withValues(alpha: 0.5),
+                                color: isDark ? AppColors.warmWhite.withValues(alpha: 0.5) : AppColors.warmBlack.withValues(alpha: 0.5),
                               ),
                             ),
                           ],
