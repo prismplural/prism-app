@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
@@ -11,6 +12,8 @@ class FeaturesStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -18,8 +21,9 @@ class FeaturesStep extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _FeatureToggle(
-            icon: AppIcons.forum,
-            iconColor: Colors.orange,
+            icon: AppIcons.duotoneChat,
+            isDark: isDark,
+            primary: primary,
             title: 'Chat',
             description: 'Internal messaging between system members',
             value: onboarding.chatEnabled,
@@ -27,8 +31,9 @@ class FeaturesStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _FeatureToggle(
-            icon: AppIcons.poll,
-            iconColor: Colors.indigo,
+            icon: AppIcons.duotonePolls,
+            isDark: isDark,
+            primary: primary,
             title: 'Polls',
             description: 'Create polls for system decisions',
             value: onboarding.pollsEnabled,
@@ -36,8 +41,9 @@ class FeaturesStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _FeatureToggle(
-            icon: AppIcons.checkCircleOutline,
-            iconColor: Colors.green,
+            icon: AppIcons.duotoneHabits,
+            isDark: isDark,
+            primary: primary,
             title: 'Habits',
             description: 'Track daily habits and routines',
             value: onboarding.habitsEnabled,
@@ -45,8 +51,9 @@ class FeaturesStep extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _FeatureToggle(
-            icon: AppIcons.bedtime,
-            iconColor: Colors.blue,
+            icon: AppIcons.duotoneSleep,
+            isDark: isDark,
+            primary: primary,
             title: 'Sleep Tracking',
             description: 'Monitor sleep patterns and quality',
             value: onboarding.sleepTrackingEnabled,
@@ -62,15 +69,17 @@ class FeaturesStep extends ConsumerWidget {
 class _FeatureToggle extends StatelessWidget {
   const _FeatureToggle({
     required this.icon,
-    required this.iconColor,
+    required this.isDark,
+    required this.primary,
     required this.title,
     required this.description,
     required this.value,
     required this.onChanged,
   });
 
-  final IconData icon;
-  final Color iconColor;
+  final PhosphorIconData icon;
+  final bool isDark;
+  final Color primary;
   final String title;
   final String description;
   final bool value;
@@ -81,7 +90,9 @@ class _FeatureToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.warmWhite.withValues(alpha: 0.1),
+        color: isDark
+            ? AppColors.warmWhite.withValues(alpha: 0.1)
+            : AppColors.parchmentElevated,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -90,10 +101,12 @@ class _FeatureToggle extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(10),
+              shape: BoxShape.circle,
+              color: primary.withValues(alpha: 0.15),
             ),
-            child: Icon(icon, color: iconColor, size: 22),
+            child: Center(
+              child: PhosphorIcon(icon, size: 22, color: primary),
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -102,8 +115,10 @@ class _FeatureToggle extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: AppColors.warmWhite,
+                  style: TextStyle(
+                    color: isDark
+                        ? AppColors.warmWhite
+                        : AppColors.warmBlack,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
@@ -111,7 +126,9 @@ class _FeatureToggle extends StatelessWidget {
                 Text(
                   description,
                   style: TextStyle(
-                    color: AppColors.warmWhite.withValues(alpha: 0.6),
+                    color: isDark
+                        ? AppColors.mutedTextDark
+                        : AppColors.mutedTextLight,
                     fontSize: 13,
                   ),
                 ),
@@ -121,15 +138,21 @@ class _FeatureToggle extends StatelessWidget {
           Switch.adaptive(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: AppColors.warmWhite.withValues(alpha: 0.3),
-            activeThumbColor: AppColors.warmWhite,
-            inactiveTrackColor: AppColors.warmWhite.withValues(alpha: 0.08),
-            inactiveThumbColor: AppColors.warmWhite.withValues(alpha: 0.4),
+            activeTrackColor: primary.withValues(alpha: 0.5),
+            activeThumbColor: primary,
+            inactiveTrackColor: isDark
+                ? AppColors.warmWhite.withValues(alpha: 0.08)
+                : AppColors.warmBlack.withValues(alpha: 0.08),
+            inactiveThumbColor: isDark
+                ? AppColors.warmWhite.withValues(alpha: 0.4)
+                : AppColors.warmBlack.withValues(alpha: 0.4),
             trackOutlineColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return AppColors.warmWhite.withValues(alpha: 0.15);
+                return primary.withValues(alpha: 0.15);
               }
-              return AppColors.warmWhite.withValues(alpha: 0.1);
+              return isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.1)
+                  : AppColors.warmBlack.withValues(alpha: 0.1);
             }),
           ),
         ],
