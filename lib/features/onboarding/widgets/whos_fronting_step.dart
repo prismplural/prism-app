@@ -14,8 +14,12 @@ class WhosFrontingStep extends ConsumerWidget {
     final notifier = ref.read(onboardingProvider.notifier);
 
     return membersAsync.when(
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: AppColors.warmWhite),
+      loading: () => Center(
+        child: CircularProgressIndicator(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? AppColors.warmWhite
+              : AppColors.warmBlack,
+        ),
       ),
       error: (e, _) => Center(
         child: Text(
@@ -24,12 +28,15 @@ class WhosFrontingStep extends ConsumerWidget {
         ),
       ),
       data: (members) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final primary = Theme.of(context).colorScheme.primary;
+
         if (members.isEmpty) {
           return Center(
             child: Text(
               'No members added yet.\nGo back to add members first.',
               style: TextStyle(
-                color: AppColors.warmWhite.withValues(alpha: 0.6),
+                color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
                 fontSize: 15,
               ),
               textAlign: TextAlign.center,
@@ -44,7 +51,7 @@ class WhosFrontingStep extends ConsumerWidget {
               Text(
                 'Tap to select who is currently fronting',
                 style: TextStyle(
-                  color: AppColors.warmWhite.withValues(alpha: 0.6),
+                  color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
                   fontSize: 14,
                 ),
               ),
@@ -70,8 +77,10 @@ class WhosFrontingStep extends ConsumerWidget {
                         duration: const Duration(milliseconds: 200),
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? Colors.cyan.withValues(alpha: 0.2)
-                              : AppColors.warmWhite.withValues(alpha: 0.1),
+                              ? primary.withValues(alpha: 0.2)
+                              : isDark
+                                  ? AppColors.warmWhite.withValues(alpha: 0.1)
+                                  : AppColors.parchmentElevated,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
@@ -83,7 +92,9 @@ class WhosFrontingStep extends ConsumerWidget {
                               height: 52,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppColors.warmWhite.withValues(alpha: 0.15),
+                                color: isDark
+                                    ? AppColors.warmWhite.withValues(alpha: 0.15)
+                                    : AppColors.warmBlack.withValues(alpha: 0.08),
                               ),
                               child: member.avatarImageData != null
                                   ? ClipOval(
@@ -111,8 +122,10 @@ class WhosFrontingStep extends ConsumerWidget {
                                 member.name,
                                 style: TextStyle(
                                   color: isSelected
-                                      ? Colors.cyan
-                                      : AppColors.warmWhite,
+                                      ? primary
+                                      : isDark
+                                          ? AppColors.warmWhite
+                                          : AppColors.warmBlack,
                                   fontWeight: isSelected
                                       ? FontWeight.w600
                                       : FontWeight.w500,
