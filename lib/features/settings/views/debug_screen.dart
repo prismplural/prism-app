@@ -35,6 +35,7 @@ class DebugScreen extends ConsumerStatefulWidget {
 
 class _DebugScreenState extends ConsumerState<DebugScreen> {
   StressProgress? _progress;
+  StressPreset? _currentPreset;
   bool _isGenerating = false;
 
   @override
@@ -121,7 +122,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                     LinearProgressIndicator(value: _progress!.fraction),
                     const SizedBox(height: 4),
                     Text(
-                      '${_progress!.phase}... ${_progress!.current}/${_progress!.total}',
+                      '${_progress!.phase}... ${_progress!.current}/${_progress!.total}'
+                      '${_currentPreset != null ? ' • ~${_currentPreset!.estimatedSizeMb}MB' : ''}',
                       style: theme.textTheme.bodySmall,
                     ),
                     const SizedBox(height: 12),
@@ -438,6 +440,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     setState(() {
       _isGenerating = true;
       _progress = null;
+      _currentPreset = preset;
     });
 
     try {
@@ -462,6 +465,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
         setState(() {
           _isGenerating = false;
           _progress = null;
+          _currentPreset = null;
         });
       }
     }
@@ -489,9 +493,15 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 
     if (!confirmed || !mounted) return;
 
-    await generator.clearStressData();
-    if (mounted) {
-      PrismToast.show(context, message: 'Stress data cleared');
+    try {
+      await generator.clearStressData();
+      if (mounted) {
+        PrismToast.show(context, message: 'Stress data cleared');
+      }
+    } catch (e) {
+      if (mounted) {
+        PrismToast.show(context, message: 'Failed to clear stress data: $e');
+      }
     }
   }
 }

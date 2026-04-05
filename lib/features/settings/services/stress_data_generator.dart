@@ -143,8 +143,12 @@ class StressDataGenerator {
     final rng = Random(42); // Deterministic for reproducibility
 
     // Build Zipf-like member weights for session distribution.
+    // Harmonic series: weight(rank) = 1/rank^0.8, so top 10% gets ~60%.
     final memberIds = List.generate(preset.members, (i) => 'stress-member-$i');
-    final weights = List.generate(preset.members, (i) => preset.members - i);
+    final weights = List.generate(
+      preset.members,
+      (i) => 1.0 / pow(i + 1, 0.8),
+    );
     final totalWeight = weights.reduce((a, b) => a + b);
 
     // --- Members ---
@@ -682,10 +686,10 @@ class StressDataGenerator {
   static T _pickWeighted<T>(
     Random rng,
     List<T> items,
-    List<int> weights,
-    int totalWeight,
+    List<double> weights,
+    double totalWeight,
   ) {
-    var roll = rng.nextInt(totalWeight);
+    var roll = rng.nextDouble() * totalWeight;
     for (var i = 0; i < items.length; i++) {
       roll -= weights[i];
       if (roll < 0) return items[i];
