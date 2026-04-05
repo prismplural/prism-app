@@ -36,6 +36,8 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
   Widget build(BuildContext context) {
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -46,7 +48,9 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           Text(
             'Terminology',
             style: TextStyle(
-              color: AppColors.warmWhite.withValues(alpha: 0.8),
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.8)
+                  : AppColors.warmBlack.withValues(alpha: 0.8),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -68,8 +72,10 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? Colors.pink.withValues(alpha: 0.3)
-                        : AppColors.warmWhite.withValues(alpha: 0.1),
+                        ? primary.withValues(alpha: 0.2)
+                        : isDark
+                            ? AppColors.warmWhite.withValues(alpha: 0.1)
+                            : AppColors.parchmentElevated,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Center(
@@ -79,8 +85,10 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                           : term.pluralForm,
                       style: TextStyle(
                         color: isSelected
-                            ? Colors.pink.shade200
-                            : AppColors.warmWhite.withValues(alpha: 0.8),
+                            ? primary
+                            : isDark
+                                ? AppColors.warmWhite.withValues(alpha: 0.8)
+                                : AppColors.warmBlack.withValues(alpha: 0.8),
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.normal,
                         fontSize: 15,
@@ -102,6 +110,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                     controller: _customSingularController,
                     hint: 'Singular (e.g. Alter)',
                     onChanged: notifier.setCustomTermSingular,
+                    isDark: isDark,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -110,6 +119,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                     controller: _customPluralController,
                     hint: 'Plural (e.g. Alters)',
                     onChanged: notifier.setCustomTermPlural,
+                    isDark: isDark,
                   ),
                 ),
               ],
@@ -122,7 +132,9 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           Text(
             'Accent Color',
             style: TextStyle(
-              color: AppColors.warmWhite.withValues(alpha: 0.8),
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.8)
+                  : AppColors.warmBlack.withValues(alpha: 0.8),
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -170,7 +182,9 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.warmWhite.withValues(alpha: 0.1),
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.1)
+                  : AppColors.parchmentElevated,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -179,10 +193,12 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Per-Member Colors',
                         style: TextStyle(
-                          color: AppColors.warmWhite,
+                          color: isDark
+                              ? AppColors.warmWhite
+                              : AppColors.warmBlack,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
                         ),
@@ -190,7 +206,9 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                       Text(
                         'Let each member have their own accent color',
                         style: TextStyle(
-                          color: AppColors.warmWhite.withValues(alpha: 0.6),
+                          color: isDark
+                              ? AppColors.mutedTextDark
+                              : AppColors.mutedTextLight,
                           fontSize: 13,
                         ),
                       ),
@@ -200,7 +218,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                 Switch.adaptive(
                   value: onboarding.usePerMemberColors,
                   onChanged: notifier.setUsePerMemberColors,
-                  activeTrackColor: Colors.pink,
+                  activeTrackColor: primary,
                 ),
               ],
             ),
@@ -214,18 +232,26 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
     required TextEditingController controller,
     required String hint,
     required ValueChanged<String> onChanged,
+    required bool isDark,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.warmWhite.withValues(alpha: 0.1),
+        color: isDark
+            ? AppColors.warmWhite.withValues(alpha: 0.1)
+            : AppColors.parchmentElevated,
         borderRadius: BorderRadius.circular(10),
       ),
       child: PrismTextField(
         controller: controller,
-        style: const TextStyle(color: AppColors.warmWhite, fontSize: 14),
+        style: TextStyle(
+          color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+          fontSize: 14,
+        ),
         hintText: hint,
         hintStyle: TextStyle(
-          color: AppColors.warmWhite.withValues(alpha: 0.35),
+          color: isDark
+              ? AppColors.warmWhite.withValues(alpha: 0.35)
+              : AppColors.warmBlack.withValues(alpha: 0.35),
           fontSize: 14,
         ),
         fieldStyle: PrismTextFieldStyle.borderless,
