@@ -264,16 +264,7 @@ class _SessionTile extends ConsumerWidget {
         ? AppColors.fromHex(member.customColorHex!)
         : theme.colorScheme.primary;
 
-    final startStr = displaySession.displayStart.toTimeString();
-    final endStr = displaySession.displayEnd?.toTimeString();
-    final String timeRange;
-    if (displaySession.isActive && !displaySession.continuesNextDay) {
-      timeRange = '$startStr \u2013 ongoing';
-    } else if (displaySession.continuesNextDay) {
-      timeRange = '$startStr \u2013 12:00 AM';
-    } else {
-      timeRange = '$startStr \u2013 ${endStr ?? "?"}';
-    }
+    final timeRange = displaySession.timeRangeString;
 
     final Widget leadingWidget;
     if (isUnknown) {
@@ -454,6 +445,7 @@ class _InlineSleepTile extends ConsumerWidget {
       destructive: true,
     );
     if (confirmed) {
+      Haptics.heavy();
       await ref.read(sleepNotifierProvider.notifier).deleteSleep(session.id);
     }
   }
@@ -462,16 +454,7 @@ class _InlineSleepTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    final startStr = displaySession.displayStart.toTimeString();
-    final endStr = displaySession.displayEnd?.toTimeString();
-    final String timeRange;
-    if (displaySession.isActive && !displaySession.continuesNextDay) {
-      timeRange = '$startStr \u2013 ongoing';
-    } else if (displaySession.continuesNextDay) {
-      timeRange = '$startStr \u2013 12:00 AM';
-    } else {
-      timeRange = '$startStr \u2013 ${endStr ?? "?"}';
-    }
+    final timeRange = displaySession.timeRangeString;
 
     final quality = session.quality;
     final hasQuality = quality != null && quality != SleepQuality.unknown;
