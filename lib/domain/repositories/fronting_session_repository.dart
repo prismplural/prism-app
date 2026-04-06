@@ -17,6 +17,7 @@ abstract class FrontingSessionRepository {
   Future<List<domain.FrontingSession>> getRecentSessions({int limit = 20});
   Future<List<domain.FrontingSession>> getRecentSleepSessions({int limit = 10});
   Stream<List<domain.FrontingSession>> watchRecentSessions({int limit = 20});
+  Stream<List<domain.FrontingSession>> watchRecentAllSessions({int limit = 30});
   Future<void> createSession(domain.FrontingSession session);
   Future<void> updateSession(domain.FrontingSession session);
   Future<void> endSession(String id, DateTime endTime);
