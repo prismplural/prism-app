@@ -44,6 +44,16 @@ class DriftChatMessageRepository
   }
 
   @override
+  Stream<List<domain.ChatMessage>> watchRecentMessages(
+    String conversationId, {
+    required int limit,
+  }) {
+    return _dao
+        .watchRecentMessages(conversationId, limit: limit)
+        .map((rows) => rows.map(ChatMessageMapper.toDomain).toList());
+  }
+
+  @override
   Future<List<domain.ChatMessage>> getAllMessages() async {
     final rows = await _dao.getAllMessages();
     return rows.map(ChatMessageMapper.toDomain).toList();
