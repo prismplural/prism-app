@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -39,6 +40,28 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   final _scrollController = ScrollController();
   bool _hasMarkedRead = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    // In a reversed ListView, maxScrollExtent is the TOP (oldest messages).
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 200) {
+      final currentLimit = ref.read(messageLimitProvider(widget.conversationId));
+      final messages = ref.read(messagesProvider(widget.conversationId)).value;
+      // Only load more if the current page is full (previous load completed).
+      if (messages != null && messages.length >= currentLimit) {
+        ref.read(messageLimitProvider(widget.conversationId).notifier).state =
+            currentLimit + messagePageSize;
+        SemanticsService.announce('Loading older messages', TextDirection.ltr);
+      }
+    }
+  }
+
   // Captured before dispose so we can safely mark-as-read during unmount.
   String? _lastSpeakingAs;
   ChatNotifier? _chatNotifier;
@@ -62,6 +85,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       }
     }
     _highlightTimer?.cancel();
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -245,6 +269,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       highlightedMessageIdProvider(widget.conversationId),
                     );
 
+                    final hasMore = messages.length >=
+                        ref.read(messageLimitProvider(widget.conversationId));
+
                     return ListView.builder(
                       controller: _scrollController,
                       reverse: true,
@@ -252,8 +279,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           ScrollViewKeyboardDismissBehavior.onDrag,
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: groupItems.length,
+                      itemCount: groupItems.length + (hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
+                        if (hasMore && index == groupItems.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                                child: CircularProgressIndicator.adaptive()),
+                          );
+                        }
                         final item = groupItems[index];
                         return switch (item) {
                           DateSeparatorItem(:final date) =>

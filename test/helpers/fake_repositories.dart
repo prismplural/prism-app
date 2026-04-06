@@ -549,6 +549,10 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
       Stream.value(sessions.take(limit).toList());
 
   @override
+  Stream<List<FrontingSession>> watchRecentAllSessions({int limit = 30}) =>
+      Stream.value(sessions.take(limit).toList());
+
+  @override
   Stream<FrontingSession?> watchSessionById(String id) => Stream.value(null);
 
   @override
