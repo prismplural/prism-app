@@ -52,9 +52,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final pos = _scrollController.position;
     if (pos.pixels >= pos.maxScrollExtent - 200) {
       final currentLimit = ref.read(messageLimitProvider(widget.conversationId));
-      ref.read(messageLimitProvider(widget.conversationId).notifier).state =
-          currentLimit + messagePageSize;
-      SemanticsService.announce('Loading older messages', TextDirection.ltr);
+      final messages = ref.read(messagesProvider(widget.conversationId)).value;
+      // Only load more if the current page is full (previous load completed).
+      if (messages != null && messages.length >= currentLimit) {
+        ref.read(messageLimitProvider(widget.conversationId).notifier).state =
+            currentLimit + messagePageSize;
+        SemanticsService.announce('Loading older messages', TextDirection.ltr);
+      }
     }
   }
 
