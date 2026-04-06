@@ -149,7 +149,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
         ),
 
         // 3. Sessions grouped by day (active session naturally at top)
-        const SessionHistoryList(limit: 30),
+        const SessionHistoryList(),
 
         // 4. Recent sleep sessions
         const SleepHistoryList(),
