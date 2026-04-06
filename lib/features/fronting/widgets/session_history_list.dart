@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
@@ -31,13 +34,11 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 /// Each day is rendered as a centered header followed by a card containing
 /// all sessions for that day, matching the SwiftUI design.
 class SessionHistoryList extends ConsumerWidget {
-  const SessionHistoryList({super.key, this.limit = 20});
-
-  final int limit;
+  const SessionHistoryList({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final historyAsync = ref.watch(frontingHistoryProvider(limit));
+    final historyAsync = ref.watch(unifiedHistoryProvider);
 
     return historyAsync.when(
       loading: () => const SliverToBoxAdapter(
@@ -69,7 +70,7 @@ class SessionHistoryList extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'No fronting history yet',
+                      'No session history yet',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(
                           context,
@@ -149,11 +150,14 @@ class _DayGroupWidget extends StatelessWidget {
             child: Column(
               children: [
                 for (var i = 0; i < group.sessions.length; i++) ...[
-                  _SessionTile(
-                    displaySession: group.sessions[i],
-                    isLatest: isFirstGroup && i == 0,
-                    membersMap: membersMap,
-                  ),
+                  if (group.sessions[i].session.isSleep)
+                    _InlineSleepTile(displaySession: group.sessions[i])
+                  else
+                    _SessionTile(
+                      displaySession: group.sessions[i],
+                      isLatest: isFirstGroup && i == 0,
+                      membersMap: membersMap,
+                    ),
                   if (i < group.sessions.length - 1)
                     Divider(
                       height: 1,
@@ -260,16 +264,7 @@ class _SessionTile extends ConsumerWidget {
         ? AppColors.fromHex(member.customColorHex!)
         : theme.colorScheme.primary;
 
-    final startStr = displaySession.displayStart.toTimeString();
-    final endStr = displaySession.displayEnd?.toTimeString();
-    final String timeRange;
-    if (displaySession.isActive && !displaySession.continuesNextDay) {
-      timeRange = '$startStr \u2013 ongoing';
-    } else if (displaySession.continuesNextDay) {
-      timeRange = '$startStr \u2013 12:00 AM';
-    } else {
-      timeRange = '$startStr \u2013 ${endStr ?? "?"}';
-    }
+    final timeRange = displaySession.timeRangeString;
 
     final Widget leadingWidget;
     if (isUnknown) {
@@ -429,6 +424,128 @@ class _SessionTile extends ConsumerWidget {
               ),
             )
           : tileContent,
+    );
+  }
+}
+
+/// Inline sleep session tile with tinted background.
+class _InlineSleepTile extends ConsumerWidget {
+  const _InlineSleepTile({required this.displaySession});
+
+  final DisplaySession displaySession;
+
+  FrontingSession get session => displaySession.session;
+
+  Future<void> _showDeleteDialog(BuildContext context, WidgetRef ref) async {
+    final confirmed = await PrismDialog.confirm(
+      context: context,
+      title: 'Delete Sleep Session',
+      message: 'Are you sure you want to delete this sleep session?',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (confirmed) {
+      Haptics.heavy();
+      await ref.read(sleepNotifierProvider.notifier).deleteSleep(session.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    final timeRange = displaySession.timeRangeString;
+
+    final quality = session.quality;
+    final hasQuality = quality != null && quality != SleepQuality.unknown;
+
+    final trailing = hasQuality
+        ? Text(
+            quality.label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onTertiaryContainer,
+              fontWeight: FontWeight.w500,
+            ),
+          )
+        : Icon(
+            AppIcons.chevronRightRounded,
+            size: 20,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+          );
+
+    return Semantics(
+      label:
+          'Sleep session, ${displaySession.displayDuration.toShortString()}, $timeRange',
+      child: Container(
+        color: theme.colorScheme.tertiaryContainer,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => context.go(AppRoutePaths.session(session.id)),
+            onLongPress: () => _showDeleteDialog(context, ref),
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.colorScheme.tertiary.withValues(alpha: 0.2),
+                    ),
+                    child: PhosphorIcon(
+                      AppIcons.duotoneSleep,
+                      size: 20,
+                      color: theme.colorScheme.tertiary,
+                      semanticLabel: 'Sleep',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sleep',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: displaySession.displayDuration
+                                    .toShortString(),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextSpan(
+                                text: '  \u00b7  $timeRange',
+                                style: TextStyle(
+                                  color:
+                                      theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  trailing,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

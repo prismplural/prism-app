@@ -71,7 +71,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 32;
+  int get schemaVersion => 33;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -93,6 +93,10 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE system_settings ADD COLUMN display_font_in_app_bar INTEGER NOT NULL DEFAULT 1',
         );
+      }
+
+      if (from < 33) {
+        await _createCurrentIndexes();
       }
     },
     onCreate: (migrator) async {
@@ -199,6 +203,14 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_friends_deleted '
       'ON friends (is_deleted)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_custom_field_values_member '
+      'ON custom_field_values (member_id, is_deleted)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_habit_completions_member '
+      'ON habit_completions (completed_by_member_id, is_deleted, completed_at DESC)',
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,7 +9,6 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/views/add_front_session_sheet.dart';
 import 'package:prism_plurality/features/fronting/views/empty_system_view.dart';
-import 'package:prism_plurality/features/fronting/views/sleep_history_list.dart';
 import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
@@ -41,6 +41,25 @@ class FrontingScreen extends ConsumerStatefulWidget {
 
 class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 300) {
+      final currentLimit = ref.read(sessionLimitProvider);
+      final sessions = ref.read(unifiedHistoryProvider).value;
+      if (sessions != null && sessions.length >= currentLimit) {
+        ref.read(sessionLimitProvider.notifier).loadMore();
+        SemanticsService.announce('Loading older sessions', TextDirection.ltr);
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -149,10 +168,21 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
         ),
 
         // 3. Sessions grouped by day (active session naturally at top)
-        const SessionHistoryList(limit: 30),
+        const SessionHistoryList(),
 
-        // 4. Recent sleep sessions
-        const SleepHistoryList(),
+        // 4. Loading indicator for infinite scroll
+        Consumer(builder: (context, ref, _) {
+          final limit = ref.watch(sessionLimitProvider);
+          final sessions = ref.watch(unifiedHistoryProvider).value;
+          final hasMore = sessions != null && sessions.length >= limit;
+          if (!hasMore) return const SliverToBoxAdapter(child: SizedBox.shrink());
+          return const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator.adaptive()),
+            ),
+          );
+        }),
 
         // Bottom padding to clear floating nav bar
         SliverPadding(

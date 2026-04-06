@@ -93,6 +93,13 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
             ..limit(limit))
           .watch();
 
+  Stream<List<FrontingSession>> watchRecentAllSessions({int limit = 30}) =>
+      (select(frontingSessions)
+            ..where((s) => s.isDeleted.equals(false))
+            ..orderBy([(s) => OrderingTerm.desc(s.startTime)])
+            ..limit(limit))
+          .watch();
+
   Future<List<FrontingSession>> getFrontingSessions() =>
       (select(frontingSessions)
             ..where(
