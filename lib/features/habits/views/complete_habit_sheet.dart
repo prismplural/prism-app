@@ -4,17 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
-import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/headmate_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
-import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 class CompleteHabitSheet extends ConsumerStatefulWidget {
   const CompleteHabitSheet({super.key, required this.habit, this.scrollController});
@@ -50,7 +48,6 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final membersAsync = ref.watch(allMembersProvider);
     ref.watch(currentFronterProvider); // keep provider warm for _save()
     final theme = Theme.of(context);
 
@@ -71,53 +68,26 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
             controller: widget.scrollController,
             padding: const EdgeInsets.all(16),
             children: [
-              // ── Date/Time ──────────────────────────────────
-              PrismListRow(
-                leading: Icon(AppIcons.accessTime),
-                title: const Text('Completed At'),
-                subtitle: Text(_formatDateTime(_completedAt)),
-                showChevron: true,
-                onTap: _pickDateTime,
+              // ── Completed At ──────────────────────────────
+              PrismDateTimePills(
+                label: 'Completed At',
+                dateTime: _completedAt,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+                onChanged: (dt) => setState(() => _completedAt = dt),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               // ── Member Picker ──────────────────────────────
-              membersAsync.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (e, _) => Text('Error: $e'),
-                data: (members) => PrismSurface(
-                  tone: PrismSurfaceTone.subtle,
-                  padding: EdgeInsets.zero,
-                  child: DropdownButtonFormField<String?>(
-                    initialValue: _completedByMemberId,
-                    decoration: const InputDecoration(
-                      labelText: 'Completed By',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text('Unknown')),
-                      ...members.map((m) => DropdownMenuItem(
-                            value: m.id,
-                            child: Text(m.name),
-                          )),
-                    ],
-                    onChanged: (v) => setState(() => _completedByMemberId = v),
-                  ),
-                ),
+              HeadmatePicker(
+                label: 'Completed By',
+                selectedMemberId: _completedByMemberId,
+                includeUnknown: true,
+                onSelected: (v) => setState(() => _completedByMemberId = v),
               ),
 
-              const SizedBox(height: 16),
-
-              // ── Notes ──────────────────────────────────────
-              PrismTextField(
-                controller: _notesController,
-                labelText: 'Notes (optional)',
-                maxLines: 3,
-              ),
-
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               // ── Rating ─────────────────────────────────────
               const PrismSectionHeader(title: 'RATING'),
@@ -144,32 +114,21 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
                   );
                 }),
               ),
+
+              const SizedBox(height: 24),
+
+              // ── Notes ──────────────────────────────────────
+              PrismTextField(
+                controller: _notesController,
+                labelText: 'Notes (optional)',
+                maxLines: 5,
+                minLines: 3,
+              ),
             ],
           ),
         ),
       ],
     );
-  }
-
-  Future<void> _pickDateTime() async {
-    final date = await showPrismDatePicker(
-      context: context,
-      initialDate: _completedAt,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-    if (date == null || !mounted) return;
-
-    final time = await showPrismTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_completedAt),
-    );
-    if (time == null || !mounted) return;
-
-    setState(() {
-      _completedAt = DateTime(
-          date.year, date.month, date.day, time.hour, time.minute);
-    });
   }
 
   Future<void> _save() async {
@@ -191,12 +150,5 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
         );
 
     if (mounted) Navigator.of(context).pop();
-  }
-
-  String _formatDateTime(DateTime dt) {
-    final hour = dt.hour > 12 ? dt.hour - 12 : dt.hour;
-    final period = dt.hour >= 12 ? 'PM' : 'AM';
-    return '${dt.month}/${dt.day}/${dt.year} '
-        '${hour == 0 ? 12 : hour}:${dt.minute.toString().padLeft(2, '0')} $period';
   }
 }
