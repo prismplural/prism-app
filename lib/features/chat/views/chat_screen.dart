@@ -303,6 +303,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
             // Conversation list
             ...conversationsAsync.when(
+              skipLoadingOnReload: true,
               data: (conversations) {
                 _seedDefaultConversation(conversations);
 

@@ -61,12 +61,22 @@ final filteredConversationsProvider =
 /// How many messages to load per page.
 const messagePageSize = 50;
 
-/// Tracks how many messages to load for a conversation.
-/// Starts at [messagePageSize], increases by [messagePageSize] on each loadMore().
+/// Tracks how many messages to load for a given conversation.
+/// Starts at [messagePageSize], increases by [messagePageSize] on scroll.
+class MessageLimitNotifier extends Notifier<int> {
+  MessageLimitNotifier(this.conversationId);
+  final String conversationId;
+
+  @override
+  int build() => messagePageSize;
+
+  void loadMore() => state = state + messagePageSize;
+}
+
 final messageLimitProvider =
-    StateProvider.autoDispose.family<int, String>((ref, conversationId) {
-  return messagePageSize;
-});
+    NotifierProvider.family<MessageLimitNotifier, int, String>(
+  MessageLimitNotifier.new,
+);
 
 /// Messages for a conversation — paginated by [messageLimitProvider].
 final messagesProvider =

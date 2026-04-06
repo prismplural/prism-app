@@ -97,7 +97,10 @@ class PrismSheet extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       isDismissible: isDismissible,
-      enableDrag: isDismissible,
+      // Disable the modal's own drag-to-dismiss — we let the
+      // DraggableScrollableSheet handle it to avoid two competing
+      // gesture detectors.
+      enableDrag: false,
       showDragHandle: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
@@ -105,13 +108,8 @@ class PrismSheet extends StatelessWidget {
           top: Radius.circular(PrismTokens.radiusLarge),
         ),
       ),
-      builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 1.0,
-        minChildSize: 0.0,
-        maxChildSize: 1.0,
-        expand: false,
-        snap: true,
-        snapSizes: const [1.0],
+      builder: (sheetContext) => _FullScreenSheetBody<T>(
+        isDismissible: isDismissible,
         builder: builder,
       ),
     );
@@ -166,6 +164,65 @@ class PrismSheet extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Bridges [DraggableScrollableSheet] with the modal route so that dragging
+/// below a threshold actually pops the route (and its scrim) instead of
+/// leaving an invisible sheet with a lingering barrier.
+class _FullScreenSheetBody<T> extends StatefulWidget {
+  const _FullScreenSheetBody({
+    required this.isDismissible,
+    required this.builder,
+  });
+
+  final bool isDismissible;
+  final Widget Function(BuildContext, ScrollController) builder;
+
+  @override
+  State<_FullScreenSheetBody<T>> createState() =>
+      _FullScreenSheetBodyState<T>();
+}
+
+class _FullScreenSheetBodyState<T> extends State<_FullScreenSheetBody<T>> {
+  final _controller = DraggableScrollableController();
+  bool _popping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isDismissible) {
+      _controller.addListener(_onSizeChanged);
+    }
+  }
+
+  void _onSizeChanged() {
+    // When the sheet is dragged below 40% height, dismiss the route.
+    if (!_popping && _controller.size < 0.4) {
+      _popping = true;
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onSizeChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      controller: _controller,
+      initialChildSize: 1.0,
+      minChildSize: widget.isDismissible ? 0.0 : 1.0,
+      maxChildSize: 1.0,
+      expand: false,
+      snap: true,
+      snapSizes: const [1.0],
+      builder: widget.builder,
     );
   }
 }
