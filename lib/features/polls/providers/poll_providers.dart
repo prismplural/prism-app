@@ -24,7 +24,7 @@ final pollMutationServiceProvider = Provider<PollMutationService>((ref) {
   );
 });
 
-final _pollClockProvider = StreamProvider<DateTime>((ref) async* {
+final _pollClockProvider = StreamProvider.autoDispose<DateTime>((ref) async* {
   yield DateTime.now();
   while (true) {
     await Future<void>.delayed(const Duration(minutes: 1));
@@ -33,13 +33,14 @@ final _pollClockProvider = StreamProvider<DateTime>((ref) async* {
 });
 
 /// Watches all polls ordered by creation date.
-final allPollsProvider = StreamProvider<List<PollSummary>>((ref) {
+final allPollsProvider = StreamProvider.autoDispose<List<PollSummary>>((ref) {
   final service = ref.watch(pollMutationServiceProvider);
   return service.watchPollSummaries();
 });
 
 /// Watches active polls (not closed and not expired).
-final activePollsProvider = StreamProvider<List<PollSummary>>((ref) {
+final activePollsProvider =
+    StreamProvider.autoDispose<List<PollSummary>>((ref) {
   final service = ref.watch(pollMutationServiceProvider);
   final now = ref.watch(_pollClockProvider).value ?? DateTime.now();
   return service.watchPollSummaries().map((polls) {
@@ -50,7 +51,8 @@ final activePollsProvider = StreamProvider<List<PollSummary>>((ref) {
 });
 
 /// Watches closed polls (closed or expired).
-final closedPollsProvider = StreamProvider<List<PollSummary>>((ref) {
+final closedPollsProvider =
+    StreamProvider.autoDispose<List<PollSummary>>((ref) {
   final service = ref.watch(pollMutationServiceProvider);
   final now = ref.watch(_pollClockProvider).value ?? DateTime.now();
   return service.watchPollSummaries().map((polls) {

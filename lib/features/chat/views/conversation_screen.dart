@@ -55,8 +55,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       final messages = ref.read(messagesProvider(widget.conversationId)).value;
       // Only load more if the current page is full (previous load completed).
       if (messages != null && messages.length >= currentLimit) {
-        ref.read(messageLimitProvider(widget.conversationId).notifier).state =
-            currentLimit + messagePageSize;
+        ref.read(messageLimitProvider(widget.conversationId).notifier).loadMore();
+        // ignore: deprecated_member_use
         SemanticsService.announce('Loading older messages', TextDirection.ltr);
       }
     }
@@ -186,6 +186,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
               // Messages list
               Expanded(
                 child: messagesAsync.when(
+                  skipLoadingOnReload: true,
                   data: (messages) {
                     if (messages.isEmpty) {
                       return Center(

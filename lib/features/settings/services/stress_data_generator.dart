@@ -327,6 +327,59 @@ class StressDataGenerator {
       yield StressProgress('Fronting Sessions', end, preset.sessions);
     }
 
+    // --- Sleep Sessions ---
+    // Generate ~1 sleep session per 2 days across the time span.
+    final sleepCount = preset.years * 365 ~/ 2;
+    yield StressProgress('Sleep Sessions', 0, sleepCount);
+    for (var chunk = 0; chunk < sleepCount; chunk += _chunkSize) {
+      final end = min(chunk + _chunkSize, sleepCount);
+      await _db.batch((batch) {
+        for (var i = chunk; i < end; i++) {
+          // Sleep sessions: start in the evening, end in the morning.
+          final dayOffset = i * 2 + rng.nextInt(2);
+          final sleepStart = earliest
+              .add(Duration(days: dayOffset))
+              .copyWith(hour: 21 + rng.nextInt(3), minute: rng.nextInt(60));
+          final sleepHours = 5 + rng.nextInt(5); // 5-9 hours
+          final sleepEnd = sleepStart.add(Duration(hours: sleepHours, minutes: rng.nextInt(60)));
+          batch.insert(
+            _db.sleepSessions,
+            SleepSessionsCompanion.insert(
+              id: 'stress-sleep-$i',
+              startTime: sleepStart,
+              endTime: Value(sleepEnd),
+              quality: Value(rng.nextInt(5)),
+              notes: i % 4 == 0
+                  ? Value(_generateText(rng, _noteWords, 3, 10))
+                  : const Value.absent(),
+            ),
+          );
+        }
+      });
+      yield StressProgress('Sleep Sessions', end, sleepCount);
+    }
+
+    // --- Conversation Categories ---
+    const categoryNames = ['General', 'System Talk', 'Fun', 'Venting', 'Planning'];
+    final categoryCount = min(categoryNames.length, preset.conversations ~/ 4);
+    final categoryIds = List.generate(categoryCount, (i) => 'stress-cat-$i');
+    if (categoryCount > 0) {
+      await _db.batch((batch) {
+        for (var i = 0; i < categoryCount; i++) {
+          batch.insert(
+            _db.conversationCategories,
+            ConversationCategoriesCompanion.insert(
+              id: categoryIds[i],
+              name: categoryNames[i],
+              displayOrder: Value(i),
+              createdAt: earliest,
+              modifiedAt: earliest,
+            ),
+          );
+        }
+      });
+    }
+
     // --- Conversations & Messages ---
     final conversationIds = List.generate(
       preset.conversations,
@@ -351,6 +404,8 @@ class StressDataGenerator {
           final created = earliest.add(Duration(
             seconds: rng.nextInt(timeSpan.inSeconds),
           ));
+          // Assign ~60% of group chats to a category.
+          final assignCategory = !isDm && categoryCount > 0 && rng.nextDouble() < 0.6;
           batch.insert(
             _db.conversations,
             ConversationsCompanion.insert(
@@ -362,6 +417,9 @@ class StressDataGenerator {
               isDirectMessage: Value(isDm),
               creatorId: Value(participants.first),
               participantIds: Value(jsonEncode(participants)),
+              categoryId: assignCategory
+                  ? Value(categoryIds[rng.nextInt(categoryCount)])
+                  : const Value.absent(),
             ),
           );
         }
@@ -488,6 +546,36 @@ class StressDataGenerator {
         });
         yield StressProgress('Completions', end, preset.completions);
       }
+    }
+
+    // --- Reminders ---
+    const reminderNames = [
+      'Check in with everyone', 'Take meds', 'Stretch break',
+      'Log fronting', 'Drink water', 'Therapy prep',
+      'Update journal', 'System meeting',
+    ];
+    final reminderCount = min(reminderNames.length, preset.habits ~/ 3);
+    if (reminderCount > 0) {
+      await _db.batch((batch) {
+        for (var i = 0; i < reminderCount; i++) {
+          final created = earliest.add(Duration(
+            seconds: rng.nextInt(timeSpan.inSeconds),
+          ));
+          batch.insert(
+            _db.reminders,
+            RemindersCompanion.insert(
+              id: 'stress-reminder-$i',
+              name: reminderNames[i],
+              message: 'Time to ${reminderNames[i].toLowerCase()}!',
+              createdAt: created,
+              modifiedAt: created,
+              trigger: Value(rng.nextInt(3)),
+              intervalDays: Value(1 + rng.nextInt(7)),
+              isActive: Value(i % 3 != 0), // ~66% active
+            ),
+          );
+        }
+      });
     }
 
     // --- Notes ---
@@ -626,8 +714,21 @@ class StressDataGenerator {
   }
 
   /// Delete all data with IDs starting with 'stress-'.
+  ///
+  /// Key insight: the `chat_messages_fts_delete` trigger fires for every row
+  /// deleted from `chat_messages`, doing a full FTS table scan each time
+  /// (`message_id` is UNINDEXED). With thousands of stress messages this
+  /// takes minutes. Fix: delete FTS rows FIRST so the trigger is a no-op,
+  /// then delete the base rows.
+  ///
+  /// Uses a single `transaction` + `customStatement` (silent — no per-table
+  /// stream notifications) then one `notifyUpdates` call after commit.
   Future<void> clearStressData() async {
-    const tables = [
+    const tableNames = [
+      // FTS first — removes the rows that chat_messages_fts_delete trigger
+      // would otherwise scan for on every chat_messages row deletion.
+      'chat_messages_fts',
+      // Then referencing rows before referenced rows.
       'chat_messages',
       'front_session_comments',
       'habit_completions',
@@ -636,23 +737,34 @@ class StressDataGenerator {
       'custom_field_values',
       'member_group_entries',
       'fronting_sessions',
+      'sleep_sessions',
       'conversations',
+      'conversation_categories',
       'habits',
+      'reminders',
       'notes',
       'polls',
       'custom_fields',
       'member_groups',
       'members',
     ];
-    for (final table in tables) {
-      await _db.customStatement(
-        "DELETE FROM $table WHERE id LIKE 'stress-%'",
-      );
-    }
-    // Clean up FTS entries for deleted messages.
-    await _db.customStatement(
-      "DELETE FROM chat_messages_fts WHERE message_id LIKE 'stress-%'",
-    );
+
+    // The id column in chat_messages_fts is message_id, not id.
+    const ftsWhere = "WHERE message_id LIKE 'stress-%'";
+    const defaultWhere = "WHERE id LIKE 'stress-%'";
+
+    await _db.transaction(() async {
+      for (final table in tableNames) {
+        final where = table == 'chat_messages_fts' ? ftsWhere : defaultWhere;
+        await _db.customStatement('DELETE FROM $table $where');
+      }
+    });
+
+    // Single bulk notification so all Drift stream watchers refresh at once.
+    _db.notifyUpdates({
+      for (final table in tableNames)
+        if (table != 'chat_messages_fts') TableUpdate(table),
+    });
   }
 
   /// Check if any stress data exists in the database.

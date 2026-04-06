@@ -37,6 +37,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
   StressProgress? _progress;
   StressPreset? _currentPreset;
   bool _isGenerating = false;
+  bool _isClearing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -144,11 +145,12 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: PrismButton(
-                      label: 'Clear Stress Data',
+                      label: _isClearing ? 'Clearing...' : 'Clear Stress Data',
                       icon: AppIcons.deleteForever,
                       tone: PrismButtonTone.destructive,
                       expanded: true,
-                      enabled: !_isGenerating,
+                      isLoading: _isClearing,
+                      enabled: !_isGenerating && !_isClearing,
                       onPressed: () => _confirmClearStressData(context),
                     ),
                   ),
@@ -493,6 +495,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 
     if (!confirmed || !mounted) return;
 
+    setState(() => _isClearing = true);
     try {
       await generator.clearStressData();
       if (mounted) {
@@ -502,6 +505,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
       if (mounted) {
         PrismToast.show(context, message: 'Failed to clear stress data: $e');
       }
+    } finally {
+      if (mounted) setState(() => _isClearing = false);
     }
   }
 }

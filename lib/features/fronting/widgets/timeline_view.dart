@@ -108,6 +108,9 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         const SizedBox(height: 4),
         Expanded(
           child: rowsAsync.when(
+            // Keep showing existing timeline while loading more sessions
+            // (avoids flicker when session limit increases on scroll).
+            skipLoadingOnReload: true,
             loading: () => const Center(child: PrismLoadingState()),
             error: (e, _) => Center(child: Text('Error: $e')),
             data: (data) {

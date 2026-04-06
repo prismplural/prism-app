@@ -149,6 +149,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
 
             // Poll list
             pollsAsync.when(
+              skipLoadingOnReload: true,
               data: (polls) {
                 if (polls.isEmpty) {
                   final (icon, title, subtitle) = switch (_filter) {

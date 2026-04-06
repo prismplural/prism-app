@@ -32,6 +32,7 @@ class HabitsListScreen extends ConsumerWidget {
 
     return Scaffold(
       body: habitsAsync.when(
+        skipLoadingOnReload: true,
         loading: () => const PrismLoadingState(),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (habits) {
