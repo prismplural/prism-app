@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -511,10 +512,11 @@ class _InlineSleepTile extends ConsumerWidget {
                       shape: BoxShape.circle,
                       color: theme.colorScheme.tertiary.withValues(alpha: 0.2),
                     ),
-                    child: Icon(
-                      AppIcons.bedtimeRounded,
+                    child: PhosphorIcon(
+                      AppIcons.duotoneSleep,
                       size: 20,
                       color: theme.colorScheme.tertiary,
+                      semanticLabel: 'Sleep',
                     ),
                   ),
                   const SizedBox(width: 12),
