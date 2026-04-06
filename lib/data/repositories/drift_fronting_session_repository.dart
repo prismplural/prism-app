@@ -132,6 +132,13 @@ class DriftFrontingSessionRepository
   }
 
   @override
+  Stream<List<domain.FrontingSession>> watchRecentAllSessions({int limit = 30}) {
+    return _dao
+        .watchRecentAllSessions(limit: limit)
+        .map((rows) => rows.map(FrontingSessionMapper.toDomain).toList());
+  }
+
+  @override
   Future<void> createSession(domain.FrontingSession session) async {
     final companion = FrontingSessionMapper.toCompanion(session);
     await _dao.insertSession(companion);
