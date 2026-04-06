@@ -155,7 +155,7 @@ class _DayGroupWidget extends StatelessWidget {
                   else
                     _SessionTile(
                       displaySession: group.sessions[i],
-                      isLatest: isFirstGroup && i == 0 && !group.sessions[i].session.isSleep,
+                      isLatest: isFirstGroup && i == 0,
                       membersMap: membersMap,
                     ),
                   if (i < group.sessions.length - 1)
