@@ -176,7 +176,7 @@ class HabitsListScreen extends ConsumerWidget {
     );
   }
 
-  void _showCompleteSheet(BuildContext context, WidgetRef ref, Habit habit) {
+  Future<void> _showCompleteSheet(BuildContext context, WidgetRef ref, Habit habit) async {
     final completions = ref.read(todayCompletionsProvider).value ?? [];
     final alreadyCompleted = completions.any((c) => c.habitId == habit.id);
 
@@ -189,7 +189,7 @@ class HabitsListScreen extends ConsumerWidget {
       return;
     }
 
-    PrismSheet.showFullScreen(
+    await PrismSheet.showFullScreen(
       context: context,
       builder: (ctx, sc) => CompleteHabitSheet(habit: habit, scrollController: sc),
     );
@@ -215,7 +215,7 @@ class _HabitSection extends StatelessWidget {
   final Map<String, List<HabitCompletion>> weeklyByHabit;
   final bool isDueSection;
   final void Function(Habit) onTap;
-  final void Function(Habit) onQuickComplete;
+  final Future<void> Function(Habit) onQuickComplete;
 
   @override
   Widget build(BuildContext context) {

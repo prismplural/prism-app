@@ -30,7 +30,7 @@ class HabitRow extends StatefulWidget {
   final bool isDueToday;
   final bool isCompletedToday;
   final VoidCallback? onTap;
-  final VoidCallback? onQuickComplete;
+  final Future<void> Function()? onQuickComplete;
 
   @override
   State<HabitRow> createState() => _HabitRowState();
@@ -83,10 +83,14 @@ class _HabitRowState extends State<HabitRow> {
     }
   }
 
-  void _handleQuickComplete() {
+  Future<void> _handleQuickComplete() async {
     if (_isCompleting || widget.onQuickComplete == null) return;
     setState(() => _isCompleting = true);
-    widget.onQuickComplete!();
+    try {
+      await widget.onQuickComplete!();
+    } finally {
+      if (mounted) setState(() => _isCompleting = false);
+    }
   }
 
   @override

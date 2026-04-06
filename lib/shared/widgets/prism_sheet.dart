@@ -276,35 +276,35 @@ class PrismSheetTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        PrismTokens.pageHorizontalPadding, 8,
-        PrismTokens.pageHorizontalPadding, 0,
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
+    return SizedBox(
+      height: PrismTokens.topBarHeight,
+      child: Padding(
+        padding: PrismTokens.topBarPadding,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: PrismGlassIconButton(
-              icon: AppIcons.close,
-              size: PrismTokens.topBarActionSize,
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ),
-          if (trailing != null)
             Align(
-              alignment: Alignment.centerRight,
-              child: trailing!,
+              alignment: Alignment.centerLeft,
+              child: PrismGlassIconButton(
+                icon: AppIcons.close,
+                size: PrismTokens.topBarActionSize,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
             ),
-        ],
+            if (trailing != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: trailing!,
+              ),
+          ],
+        ),
       ),
     );
   }
