@@ -74,7 +74,7 @@ void main() {
 
   test('FTS message search', () async {
     final sw = Stopwatch()..start();
-    final results = await db.chatMessagesDao.searchMessages('hello');
+    await db.chatMessagesDao.searchMessages('hello');
     sw.stop();
     // FTS should be fast regardless of dataset size.
     expect(sw.elapsedMilliseconds, lessThan(1000));
