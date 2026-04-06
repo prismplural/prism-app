@@ -34,6 +34,19 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
             ..orderBy([(m) => OrderingTerm.desc(m.timestamp)]))
           .watch();
 
+  /// Watch messages with a limit — used for paginated display.
+  Stream<List<ChatMessage>> watchRecentMessages(
+    String conversationId, {
+    required int limit,
+  }) =>
+      (select(chatMessages)
+            ..where((m) =>
+                m.conversationId.equals(conversationId) &
+                m.isDeleted.equals(false))
+            ..orderBy([(m) => OrderingTerm.desc(m.timestamp)])
+            ..limit(limit))
+          .watch();
+
   Future<List<ChatMessage>> getAllMessages() =>
       (select(chatMessages)
             ..where((m) => m.isDeleted.equals(false))

@@ -58,11 +58,22 @@ final filteredConversationsProvider =
   });
 });
 
-/// Messages for a conversation.
+/// How many messages to load per page.
+const messagePageSize = 50;
+
+/// Tracks how many messages to load for a conversation.
+/// Starts at [messagePageSize], increases by [messagePageSize] on each loadMore().
+final messageLimitProvider =
+    StateProvider.autoDispose.family<int, String>((ref, conversationId) {
+  return messagePageSize;
+});
+
+/// Messages for a conversation — paginated by [messageLimitProvider].
 final messagesProvider =
     StreamProvider.autoDispose.family<List<ChatMessage>, String>((ref, conversationId) {
+  final limit = ref.watch(messageLimitProvider(conversationId));
   final repo = ref.watch(chatMessageRepositoryProvider);
-  return repo.watchMessagesForConversation(conversationId);
+  return repo.watchRecentMessages(conversationId, limit: limit);
 });
 
 /// Latest message for a conversation (for tile preview).
