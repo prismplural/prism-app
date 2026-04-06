@@ -23,6 +23,19 @@ class DisplaySession {
 
   Duration get displayDuration =>
       (displayEnd ?? DateTime.now()).difference(displayStart);
+
+  /// Formatted time range string (e.g. "11:00 PM – 2:00 AM" or "3:00 PM – ongoing").
+  String get timeRangeString {
+    final startStr = displayStart.toTimeString();
+    final endStr = displayEnd?.toTimeString();
+    if (isActive && !continuesNextDay) {
+      return '$startStr \u2013 ongoing';
+    } else if (continuesNextDay) {
+      return '$startStr \u2013 12:00 AM';
+    } else {
+      return '$startStr \u2013 ${endStr ?? "?"}';
+    }
+  }
 }
 
 /// Sessions grouped by day key (e.g., "2026-03-20").
