@@ -299,3 +299,27 @@ class FrontingNotifier extends Notifier<void> {
 final frontingNotifierProvider = NotifierProvider<FrontingNotifier, void>(
   FrontingNotifier.new,
 );
+
+/// Page size for unified session history (fronting + sleep).
+const sessionPageSize = 30;
+
+/// Tracks how many sessions to load in the unified history.
+/// Starts at [sessionPageSize], increases on scroll.
+class SessionLimitNotifier extends Notifier<int> {
+  @override
+  int build() => sessionPageSize;
+
+  void loadMore() => state = state + sessionPageSize;
+}
+
+final sessionLimitProvider = NotifierProvider<SessionLimitNotifier, int>(
+  SessionLimitNotifier.new,
+);
+
+/// Unified session history (fronting + sleep), paginated by [sessionLimitProvider].
+final unifiedHistoryProvider =
+    StreamProvider.autoDispose<List<FrontingSession>>((ref) {
+  final limit = ref.watch(sessionLimitProvider);
+  final repo = ref.watch(frontingSessionRepositoryProvider);
+  return repo.watchRecentAllSessions(limit: limit);
+});
