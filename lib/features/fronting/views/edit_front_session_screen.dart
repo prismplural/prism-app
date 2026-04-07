@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -29,7 +30,6 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Full-screen editor for an existing fronting session.
 class EditFrontSessionScreen extends ConsumerStatefulWidget {
@@ -99,7 +99,8 @@ class _EditFrontSessionScreenState
     }
 
     // 3. Short duration warning (< 1 minute)
-    if (end != null && end.difference(_startTime) < const Duration(minutes: 1)) {
+    if (end != null &&
+        end.difference(_startTime) < const Duration(minutes: 1)) {
       if (!mounted) return;
       final proceed = await PrismDialog.confirm(
         context: context,
@@ -126,8 +127,9 @@ class _EditFrontSessionScreenState
     // 5. Load nearby sessions directly from repository (not stream provider,
     // which may not be loaded yet)
     final allSessions = await repo.getAllSessions();
-    final nearbySnapshots =
-        allSessions.map(FrontingSanitizerService.toSnapshot).toList();
+    final nearbySnapshots = allSessions
+        .map(FrontingSanitizerService.toSnapshot)
+        .toList();
 
     // 6. Build the proposed snapshot (post-edit state) for overlap resolution
     final proposedSnapshot = FrontingSessionSnapshot(
@@ -155,8 +157,10 @@ class _EditFrontSessionScreenState
       // Check if any trim would delete a session
       var wouldDelete = false;
       for (final overlap in validation.overlappingSessions) {
-        final trimResult =
-            resolutionService.computeTrimChanges(originalSnapshot, overlap);
+        final trimResult = resolutionService.computeTrimChanges(
+          originalSnapshot,
+          overlap,
+        );
         if (trimResult.wouldDeleteConflicting) {
           wouldDelete = true;
           break;
@@ -191,8 +195,9 @@ class _EditFrontSessionScreenState
       if (!mounted) return;
 
       if (gapResolution == GapResolution.fillWithUnknown) {
-        final gapChanges =
-            resolutionService.computeGapFillChanges(validation.gapsCreated);
+        final gapChanges = resolutionService.computeGapFillChanges(
+          validation.gapsCreated,
+        );
         allChanges.addAll(gapChanges);
       }
     }
@@ -202,7 +207,8 @@ class _EditFrontSessionScreenState
       final proceed = await PrismDialog.confirm(
         context: context,
         title: 'Duplicate Session',
-        message: 'This session appears to be a duplicate of '
+        message:
+            'This session appears to be a duplicate of '
             '${validation.duplicates.length} other '
             '${validation.duplicates.length == 1 ? 'session' : 'sessions'}. '
             'Save anyway?',
@@ -224,8 +230,13 @@ class _EditFrontSessionScreenState
       final result = await changeExecutor.execute(allChanges);
       result.when(
         success: (_) {
+          invalidateFrontingProviders(ref);
           // Fire-and-forget rescan to update the issue banner
-          triggerPostEditRescan(ref, sessionStart: _startTime, sessionEnd: _endTime);
+          triggerPostEditRescan(
+            ref,
+            sessionStart: _startTime,
+            sessionEnd: _endTime,
+          );
           if (mounted) Navigator.of(context).pop(true);
         },
         failure: (error) {
@@ -363,7 +374,7 @@ class _EditFrontSessionScreenState
                       .toList();
                   return Column(
                     children: available.map((m) {
-                      return PrismListRow(
+                      return PrismCheckboxRow(
                         leading: MemberAvatar(
                           avatarImageData: m.avatarImageData,
                           emoji: m.emoji,
@@ -372,24 +383,13 @@ class _EditFrontSessionScreenState
                           size: 36,
                         ),
                         title: Text(m.name),
-                        trailing: Checkbox(
-                          value: _coFronterIds.contains(m.id),
-                          onChanged: (v) {
-                            setState(() {
-                              if (v == true) {
-                                _coFronterIds.add(m.id);
-                              } else {
-                                _coFronterIds.remove(m.id);
-                              }
-                            });
-                          },
-                        ),
-                        onTap: () {
+                        value: _coFronterIds.contains(m.id),
+                        onChanged: (selected) {
                           setState(() {
-                            if (_coFronterIds.contains(m.id)) {
-                              _coFronterIds.remove(m.id);
-                            } else {
+                            if (selected) {
                               _coFronterIds.add(m.id);
+                            } else {
+                              _coFronterIds.remove(m.id);
                             }
                           });
                         },
@@ -433,7 +433,6 @@ class _EditFrontSessionScreenState
       ),
     );
   }
-
 }
 
 class _MemberSelector extends StatelessWidget {
@@ -459,12 +458,14 @@ class _MemberSelector extends StatelessWidget {
           onTap: () => onSelect(null),
           avatar: Icon(AppIcons.helpOutline, size: 16),
         ),
-        ...members.map((m) => PrismChip(
-          label: m.name,
-          selected: m.id == selectedId,
-          onTap: () => onSelect(m.id),
-          avatar: Text(m.emoji, style: const TextStyle(fontSize: 15)),
-        )),
+        ...members.map(
+          (m) => PrismChip(
+            label: m.name,
+            selected: m.id == selectedId,
+            onTap: () => onSelect(m.id),
+            avatar: Text(m.emoji, style: const TextStyle(fontSize: 15)),
+          ),
+        ),
       ],
     );
   }
@@ -486,10 +487,7 @@ class _ConfidenceEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     return PrismSegmentedControl<FrontConfidence>(
       segments: FrontConfidence.values.map((c) {
-        return PrismSegment(
-          value: c,
-          label: _labels[c]!,
-        );
+        return PrismSegment(value: c, label: _labels[c]!);
       }).toList(),
       selected: selected ?? FrontConfidence.unsure,
       onChanged: onSelect,
