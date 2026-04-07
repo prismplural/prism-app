@@ -5,18 +5,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/sharing/friend.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
-/// Detail screen for a single friend — scope management, verification,
-/// and revocation.
+/// Detail screen for a single sharing relationship.
 class FriendDetailScreen extends ConsumerWidget {
   const FriendDetailScreen({super.key, required this.friendId});
 
@@ -25,7 +24,13 @@ class FriendDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final friends = ref.watch(friendsProvider);
-    final friend = friends.where((f) => f.id == friendId).firstOrNull;
+    Friend? friend;
+    for (final candidate in friends) {
+      if (candidate.id == friendId) {
+        friend = candidate;
+        break;
+      }
+    }
 
     if (friend == null) {
       return const PrismPageScaffold(
@@ -33,37 +38,34 @@ class FriendDetailScreen extends ConsumerWidget {
         body: Center(child: Text('Friend not found')),
       );
     }
+    final resolvedFriend = friend;
 
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: friend.displayName, showBackButton: true),
+      topBar: PrismTopBar(
+        title: resolvedFriend.displayName,
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
         children: [
-          // ── Header ──────────────────────────────────────
-          _FriendHeader(friend: friend),
-
+          _FriendHeader(friend: resolvedFriend),
           const Divider(height: 32),
-
-          // ── Verification ────────────────────────────────
-          if (!friend.isVerified)
+          if (!resolvedFriend.isVerified)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _VerifyCard(
-                friend: friend,
+                friend: resolvedFriend,
                 onVerified: () {
-                  ref.read(friendsProvider.notifier).updateFriend(
-                        friend.copyWith(isVerified: true),
-                      );
+                  ref
+                      .read(friendsProvider.notifier)
+                      .updateFriend(resolvedFriend.copyWith(isVerified: true));
                 },
               ),
             ),
-
-          if (!friend.isVerified) const SizedBox(height: 16),
-
-          // ── Scope toggles ──────────────────────────────
+          if (!resolvedFriend.isVerified) const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
@@ -78,62 +80,66 @@ class FriendDetailScreen extends ConsumerWidget {
           ...ShareScope.values.map(
             (scope) => _ScopeToggle(
               scope: scope,
-              isEnabled: friend.grantedScopes.contains(scope),
+              isEnabled: resolvedFriend.grantedScopes.contains(scope),
               onChanged: (enabled) {
-                final scopes = List<ShareScope>.from(friend.grantedScopes);
+                final scopes = List<ShareScope>.from(
+                  resolvedFriend.grantedScopes,
+                );
                 if (enabled) {
                   scopes.add(scope);
                 } else {
                   scopes.remove(scope);
                 }
-                ref.read(friendsProvider.notifier).updateFriend(
-                      friend.copyWith(grantedScopes: scopes),
+                ref
+                    .read(friendsProvider.notifier)
+                    .updateFriend(
+                      resolvedFriend.copyWith(grantedScopes: scopes),
                     );
               },
             ),
           ),
-
           const SizedBox(height: 16),
           const Divider(height: 1, indent: 16, endIndent: 16),
           const SizedBox(height: 8),
-
-          // ── Public key ─────────────────────────────────
-          PrismListRow(
-            leading: Icon(AppIcons.key),
-            title: const Text('Public Key'),
-            subtitle: Text(
-              _truncateKey(friend.publicKeyHex),
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontFamily: 'monospace',
+          if ((resolvedFriend.peerSharingId ?? '').isNotEmpty)
+            PrismListRow(
+              leading: Icon(AppIcons.link),
+              title: const Text('Sharing ID'),
+              subtitle: Text(
+                resolvedFriend.peerSharingId!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFamily: 'monospace',
+                ),
+              ),
+              trailing: IconButton(
+                icon: Icon(AppIcons.copy, size: 20),
+                tooltip: 'Copy sharing ID',
+                onPressed: () {
+                  Clipboard.setData(
+                    ClipboardData(text: resolvedFriend.peerSharingId!),
+                  );
+                  PrismToast.show(context, message: 'Sharing ID copied');
+                },
               ),
             ),
-            trailing: IconButton(
-              icon: Icon(AppIcons.copy, size: 20),
-              tooltip: 'Copy public key',
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: friend.publicKeyHex));
-                PrismToast.show(context, message: 'Public key copied');
-              },
-            ),
-          ),
-
-          // ── Last sync ──────────────────────────────────
-          if (friend.lastSyncAt != null)
+          _FingerprintRow(friend: resolvedFriend),
+          if (resolvedFriend.lastSyncAt != null)
             PrismListRow(
               leading: Icon(AppIcons.sync),
               title: const Text('Last synced'),
               subtitle: Text(
-                friend.lastSyncAt!.toLocal().toString().split('.').first,
+                resolvedFriend.lastSyncAt!
+                    .toLocal()
+                    .toString()
+                    .split('.')
+                    .first,
               ),
             ),
-
           const SizedBox(height: 24),
-
-          // ── Revoke ─────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: PrismButton(
-              onPressed: () => _confirmRevoke(context, ref, friend),
+              onPressed: () => _confirmRevoke(context, ref, resolvedFriend),
               icon: AppIcons.block,
               label: 'Revoke Access',
               tone: PrismButtonTone.destructive,
@@ -144,17 +150,16 @@ class FriendDetailScreen extends ConsumerWidget {
     );
   }
 
-  String _truncateKey(String hex) {
-    if (hex.length <= 16) return hex;
-    return '${hex.substring(0, 8)}...${hex.substring(hex.length - 8)}';
-  }
-
-  Future<void> _confirmRevoke(BuildContext context, WidgetRef ref, Friend friend) async {
+  Future<void> _confirmRevoke(
+    BuildContext context,
+    WidgetRef ref,
+    Friend friend,
+  ) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Revoke access',
-      message: 'Revoke all access for ${friend.displayName}? '
-          'Resource keys will be rotated.',
+      message:
+          'Revoke all access for ${friend.displayName}? Resource keys will be rotated.',
       confirmLabel: 'Revoke',
       destructive: true,
     );
@@ -220,7 +225,7 @@ class _FriendHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Added ${friend.addedAt.toLocal().toString().split(' ').first}',
+                  'Added ${(friend.establishedAt ?? friend.addedAt).toLocal().toString().split(' ').first}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -256,7 +261,7 @@ class _VerifyCard extends ConsumerWidget {
                 Icon(AppIcons.warningAmber, color: theme.colorScheme.error),
                 const SizedBox(width: 8),
                 Text(
-                  'Verification Required',
+                  'Verification Recommended',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: theme.colorScheme.onErrorContainer,
                   ),
@@ -265,16 +270,15 @@ class _VerifyCard extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Compare the verification code with your friend '
-              'to confirm a secure connection.',
+              'Compare fingerprints with ${friend.displayName} out of band before marking this relationship as verified.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onErrorContainer,
               ),
             ),
             const SizedBox(height: 12),
             PrismButton(
-              onPressed: () => _showSasDialog(context, ref),
-              label: 'Verify Now',
+              onPressed: () => _showFingerprintDialog(context, ref),
+              label: 'Compare Fingerprint',
               tone: PrismButtonTone.filled,
             ),
           ],
@@ -283,47 +287,49 @@ class _VerifyCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _showSasDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showFingerprintDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final sharingService = ref.read(sharingServiceProvider);
     if (sharingService == null) {
       PrismToast.error(context, message: 'Sync is not configured');
       return;
     }
-    String? sasCode;
+
+    String fingerprint;
     try {
-      sasCode = await sharingService.getSasCodeForFriend(friend);
+      fingerprint = await sharingService.fingerprintForFriend(friend);
     } catch (_) {
       if (!context.mounted) return;
-      PrismToast.error(context, message: 'Unable to generate verification code');
+      PrismToast.error(context, message: 'Unable to compute fingerprint');
       return;
     }
 
     if (!context.mounted) return;
     PrismDialog.show(
       context: context,
-      title: 'Verification Code',
-      builder: (ctx) => Column(
+      title: 'Security Fingerprint',
+      builder: (_) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Share this code with ${friend.displayName} and confirm '
-            'they see the same number.',
+            'Compare this fingerprint with ${friend.displayName}. Only mark it verified if they see the same value.',
           ),
           const SizedBox(height: 24),
-          Text(
-            sasCode!,
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  fontFamily: 'monospace',
-                  letterSpacing: 8,
-                  fontWeight: FontWeight.bold,
-                ),
+          SelectableText(
+            fingerprint,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              fontFamily: 'monospace',
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
-            'Do NOT confirm if the codes don\'t match.',
+            'Do not verify if the fingerprints differ.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                ),
+              color: Theme.of(context).colorScheme.error,
+            ),
           ),
         ],
       ),
@@ -338,11 +344,53 @@ class _VerifyCard extends ConsumerWidget {
             onVerified();
             Navigator.of(context).pop();
           },
-          label: 'Codes Match',
+          label: 'Mark Verified',
           tone: PrismButtonTone.filled,
         ),
       ],
     );
+  }
+}
+
+class _FingerprintRow extends ConsumerWidget {
+  const _FingerprintRow({required this.friend});
+
+  final Friend friend;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sharingService = ref.watch(sharingServiceProvider);
+    return FutureBuilder<String>(
+      future: sharingService?.fingerprintForFriend(friend),
+      builder: (context, snapshot) {
+        final theme = Theme.of(context);
+        final fallback = friend.publicKeyHex;
+        final label = snapshot.hasData ? 'Fingerprint' : 'Identity';
+        final value = snapshot.data ?? _truncate(fallback);
+        return PrismListRow(
+          leading: Icon(snapshot.hasData ? AppIcons.fingerprint : AppIcons.key),
+          title: Text(label),
+          subtitle: Text(
+            value,
+            style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
+          ),
+          trailing: IconButton(
+            icon: Icon(AppIcons.copy, size: 20),
+            tooltip: 'Copy $label',
+            onPressed: () {
+              final text = snapshot.data ?? fallback;
+              Clipboard.setData(ClipboardData(text: text));
+              PrismToast.show(context, message: '$label copied');
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  String _truncate(String value) {
+    if (value.length <= 20) return value;
+    return '${value.substring(0, 10)}...${value.substring(value.length - 10)}';
   }
 }
 

@@ -75,6 +75,7 @@ const String prismSyncSchema = '''
     "system_settings": {
       "fields": {
         "system_name": "String",
+        "sharing_id": "String",
         "show_quick_front": "Bool",
         "accent_color_hex": "String",
         "per_member_accent_colors": "Bool",
@@ -258,11 +259,17 @@ const String prismSyncSchema = '''
     "friends": {
       "fields": {
         "display_name": "String",
+        "peer_sharing_id": "String",
+        "pairwise_secret": "Blob",
+        "pinned_identity": "Blob",
+        "offered_scopes": "String",
         "public_key_hex": "String",
         "shared_secret_hex": "String",
         "granted_scopes": "String",
         "is_verified": "Bool",
+        "init_id": "String",
         "created_at": "DateTime",
+        "established_at": "DateTime",
         "last_sync_at": "DateTime",
         "is_deleted": "Bool"
       }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/sharing/friend.dart';
+import 'package:prism_plurality/core/sharing/pending_sharing_request.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
 import 'package:prism_plurality/core/sharing/sharing_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -14,15 +15,29 @@ final sharingServiceProvider = Provider<SharingService?>((ref) {
   final handleAsync = ref.watch(prismSyncHandleProvider);
   final handle = handleAsync.value;
   if (handle == null) return null;
-  return SharingService(handle: handle);
+  return SharingService(
+    handle: handle,
+    settingsRepository: ref.watch(systemSettingsRepositoryProvider),
+    friendsRepository: ref.watch(friendsRepositoryProvider),
+    sharingRequestsDao: ref.watch(sharingRequestsDaoProvider),
+  );
 });
+
+final pendingSharingRequestsProvider =
+    StreamProvider<List<PendingSharingRequest>>((ref) {
+      final dao = ref.watch(sharingRequestsDaoProvider);
+      return dao.watchPending().map(
+        (rows) => rows.map(PendingSharingRequest.fromRow).toList(),
+      );
+    });
 
 /// Database-backed friends list.
 ///
 /// Converts between the domain [FriendRecord] (persisted) and the in-memory
 /// [Friend] model used by the sharing UI.
-final friendsProvider =
-    NotifierProvider<FriendsNotifier, List<Friend>>(FriendsNotifier.new);
+final friendsProvider = NotifierProvider<FriendsNotifier, List<Friend>>(
+  FriendsNotifier.new,
+);
 
 class FriendsNotifier extends Notifier<List<Friend>> {
   @override
@@ -62,14 +77,23 @@ Friend _recordToFriend(FriendRecord record) {
   return Friend(
     id: record.id,
     displayName: record.displayName,
+    peerSharingId: record.peerSharingId,
+    pairwiseSecret: record.pairwiseSecret,
+    pinnedIdentity: record.pinnedIdentity,
+    offeredScopes: record.offeredScopes
+        .map(_parseScopeString)
+        .whereType<ShareScope>()
+        .toList(),
     publicKeyHex: record.publicKeyHex,
     grantedScopes: record.grantedScopes
         .map(_parseScopeString)
         .whereType<ShareScope>()
         .toList(),
     addedAt: record.createdAt,
+    establishedAt: record.establishedAt,
     lastSyncAt: record.lastSyncAt,
     sharedSecretHex: record.sharedSecretHex,
+    initId: record.initId,
     isVerified: record.isVerified,
   );
 }
@@ -78,11 +102,17 @@ FriendRecord _friendToRecord(Friend friend) {
   return FriendRecord(
     id: friend.id,
     displayName: friend.displayName,
+    peerSharingId: friend.peerSharingId,
+    pairwiseSecret: friend.pairwiseSecret,
+    pinnedIdentity: friend.pinnedIdentity,
+    offeredScopes: friend.offeredScopes.map((s) => s.name).toList(),
     publicKeyHex: friend.publicKeyHex,
     sharedSecretHex: friend.sharedSecretHex,
     grantedScopes: friend.grantedScopes.map((s) => s.name).toList(),
     isVerified: friend.isVerified,
+    initId: friend.initId,
     createdAt: friend.addedAt,
+    establishedAt: friend.establishedAt,
     lastSyncAt: friend.lastSyncAt,
   );
 }

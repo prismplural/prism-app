@@ -506,6 +506,7 @@ class DataImportService {
         await systemSettingsRepository.updateSettings(
           SystemSettings(
             systemName: s.systemName,
+            sharingId: s.sharingId,
             showQuickFront: s.showQuickFront,
             accentColorHex: s.accentColorHex,
             perMemberAccentColors: s.perMemberAccentColors,
@@ -849,11 +850,17 @@ class DataImportService {
           FriendRecord(
             id: f.id,
             displayName: f.displayName,
+            peerSharingId: f.peerSharingId,
+            offeredScopes: f.offeredScopes,
             publicKeyHex: f.publicKeyHex,
             sharedSecretHex: f.sharedSecretHex,
             grantedScopes: f.grantedScopes,
             isVerified: f.isVerified,
+            initId: f.initId,
             createdAt: DateTime.parse(f.createdAt),
+            establishedAt: f.establishedAt != null
+                ? DateTime.parse(f.establishedAt!)
+                : null,
             lastSyncAt: f.lastSyncAt != null
                 ? DateTime.parse(f.lastSyncAt!)
                 : null,

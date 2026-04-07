@@ -381,6 +381,7 @@ class DataExportService {
 
   V3SystemSettings _mapSettings(SystemSettings s) => V3SystemSettings(
     systemName: s.systemName,
+    sharingId: s.sharingId,
     showQuickFront: s.showQuickFront,
     accentColorHex: s.accentColorHex,
     perMemberAccentColors: s.perMemberAccentColors,
@@ -532,12 +533,16 @@ class DataExportService {
     id: f.id,
     displayName: f.displayName,
     publicKeyHex: f.publicKeyHex,
+    peerSharingId: f.peerSharingId,
     // Exclude sharedSecretHex from export — cryptographic secret should not
     // appear in plaintext backup files. Friends must re-verify after restore.
     sharedSecretHex: null,
+    offeredScopes: f.offeredScopes,
     grantedScopes: f.grantedScopes,
     isVerified: f.isVerified,
+    initId: f.initId,
     createdAt: f.createdAt.toUtc().toIso8601String(),
+    establishedAt: f.establishedAt?.toUtc().toIso8601String(),
     lastSyncAt: f.lastSyncAt?.toUtc().toIso8601String(),
   );
 }

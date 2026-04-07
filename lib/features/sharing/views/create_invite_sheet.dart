@@ -2,19 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/sharing/share_invite.dart';
-import 'package:prism_plurality/core/sharing/share_scope.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/sensitive_clipboard.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-/// Bottom sheet for creating and sharing an invite.
+/// Bottom sheet for publishing and sharing the local `sharing_id`.
 class CreateInviteSheet extends ConsumerStatefulWidget {
   const CreateInviteSheet({super.key, this.scrollController});
 
@@ -26,7 +25,6 @@ class CreateInviteSheet extends ConsumerStatefulWidget {
 
 class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
   final _nameController = TextEditingController();
-  final _selectedScopes = <ShareScope>{ShareScope.frontStatusOnly};
 
   ShareInvite? _invite;
   bool _generating = false;
@@ -38,39 +36,34 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
     super.dispose();
   }
 
-  bool get _canGenerate =>
-      !_generating && _nameController.text.trim().isNotEmpty;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canGenerate = _canGenerate;
 
     return SafeArea(
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: _invite != null ? 'Share Invite' : 'Create Invite',
+            title: _invite != null ? 'Share Your Code' : 'Enable Sharing',
             trailing: _invite == null
                 ? (_generating
-                    ? const SizedBox(
-                        width: PrismTokens.topBarActionSize,
-                        height: PrismTokens.topBarActionSize,
-                        child: Center(
-                          child: SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                      ? const SizedBox(
+                          width: PrismTokens.topBarActionSize,
+                          height: PrismTokens.topBarActionSize,
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
                           ),
-                        ),
-                      )
-                    : PrismGlassIconButton(
-                        icon: AppIcons.check,
-                        size: PrismTokens.topBarActionSize,
-                        tint: canGenerate ? theme.colorScheme.primary : null,
-                        accentIcon: canGenerate,
-                        onPressed: canGenerate ? _generate : null,
-                      ))
+                        )
+                      : PrismGlassIconButton(
+                          icon: AppIcons.check,
+                          size: PrismTokens.topBarActionSize,
+                          accentIcon: true,
+                          onPressed: _generate,
+                        ))
                 : null,
           ),
           const SizedBox(height: 8),
@@ -84,112 +77,71 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
               ),
               children: [
                 if (_error != null) ...[
-                  Card(
-                    color: theme.colorScheme.errorContainer,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Text(
-                        _error!,
-                        style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                  PrismSurface(
+                    padding: const EdgeInsets.all(12),
+                    fillColor: theme.colorScheme.errorContainer,
+                    borderColor: theme.colorScheme.error.withValues(alpha: 0.2),
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: theme.colorScheme.onErrorContainer,
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
                 ],
-
                 if (_invite == null) ...[
-                  // ── Input form ────────────────────────────────
-                  PrismTextField(
-                    controller: _nameController,
-                    labelText: 'Your display name',
-                    hintText: 'How your friend will see you',
-                    textInputAction: TextInputAction.done,
-                    onChanged: (_) => setState(() {}),
+                  Text(
+                    'Sharing uses a stable code instead of an inline key exchange. '
+                    'Anyone with this code can send you a sharing request.',
+                    style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
-
-                  Text(
-                    'What to share',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...ShareScope.values.map(
-                    (scope) => PrismListRow(
-                      dense: true,
-                      leading: Icon(scope.icon, size: 20),
-                      title: Text(scope.displayName),
-                      subtitle: Text(
-                        scope.description,
-                      ),
-                      trailing: Checkbox(
-                        value: _selectedScopes.contains(scope),
-                        onChanged: (checked) {
-                          setState(() {
-                            if (checked == true) {
-                              _selectedScopes.add(scope);
-                            } else {
-                              _selectedScopes.remove(scope);
-                            }
-                          });
-                        },
-                      ),
-                      onTap: () {
-                        setState(() {
-                          if (_selectedScopes.contains(scope)) {
-                            _selectedScopes.remove(scope);
-                          } else {
-                            _selectedScopes.add(scope);
-                          }
-                        });
-                      },
-                    ),
+                  PrismTextField(
+                    controller: _nameController,
+                    labelText: 'Display name (optional)',
+                    hintText: 'Shown to the person opening your code',
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _generate(),
                   ),
                 ] else ...[
-                  // ── Invite display ────────────────────────────
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(AppIcons.link, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Invite Code',
-                                style: theme.textTheme.titleSmall,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(8),
+                  PrismSurface(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(AppIcons.link, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Sharing Code',
+                              style: theme.textTheme.titleSmall,
                             ),
-                            child: SelectableText(
-                              _invite!.toShareString(),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontFamily: 'monospace',
-                              ),
-                              maxLines: 4,
-                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Expires in 24 hours',
+                          child: SelectableText(
+                            _invite!.toShareString(),
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
+                              fontFamily: 'monospace',
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'This code stays valid until you turn sharing off.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -223,9 +175,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
   }
 
   Future<void> _generate() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return;
-
+    if (_generating) return;
     setState(() {
       _generating = true;
       _error = null;
@@ -240,14 +190,16 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
         });
         return;
       }
-      final invite = await sharingService.createInvite(name);
+      final invite = await sharingService.createInvite(
+        displayName: _nameController.text.trim(),
+      );
       setState(() {
         _invite = invite;
         _generating = false;
       });
     } catch (e) {
       setState(() {
-        _error = 'Failed to create invite: $e';
+        _error = 'Failed to enable sharing: $e';
         _generating = false;
       });
     }
@@ -256,6 +208,9 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
   void _copyToClipboard() {
     if (_invite == null) return;
     SensitiveClipboard.copy(_invite!.toShareString());
-    PrismToast.show(context, message: 'Invite copied (auto-clears in 15s)');
+    PrismToast.show(
+      context,
+      message: 'Sharing code copied (auto-clears in 15s)',
+    );
   }
 }

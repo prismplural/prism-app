@@ -3502,6 +3502,17 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _sharingIdMeta = const VerificationMeta(
+    'sharingId',
+  );
+  @override
+  late final GeneratedColumn<String> sharingId = GeneratedColumn<String>(
+    'sharing_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _frontingRemindersEnabledMeta =
       const VerificationMeta('frontingRemindersEnabled');
   @override
@@ -3927,6 +3938,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     terminology,
     customTerminology,
     customPluralTerminology,
+    sharingId,
     frontingRemindersEnabled,
     frontingReminderIntervalMinutes,
     themeMode,
@@ -4032,6 +4044,12 @@ class $SystemSettingsTableTable extends SystemSettingsTable
           data['custom_plural_terminology']!,
           _customPluralTerminologyMeta,
         ),
+      );
+    }
+    if (data.containsKey('sharing_id')) {
+      context.handle(
+        _sharingIdMeta,
+        sharingId.isAcceptableOrUnknown(data['sharing_id']!, _sharingIdMeta),
       );
     }
     if (data.containsKey('fronting_reminders_enabled')) {
@@ -4336,6 +4354,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}custom_plural_terminology'],
       ),
+      sharingId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sharing_id'],
+      ),
       frontingRemindersEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}fronting_reminders_enabled'],
@@ -4479,6 +4501,7 @@ class SystemSettingsData extends DataClass
   final int terminology;
   final String? customTerminology;
   final String? customPluralTerminology;
+  final String? sharingId;
   final bool frontingRemindersEnabled;
   final int frontingReminderIntervalMinutes;
   final int themeMode;
@@ -4519,6 +4542,7 @@ class SystemSettingsData extends DataClass
     required this.terminology,
     this.customTerminology,
     this.customPluralTerminology,
+    this.sharingId,
     required this.frontingRemindersEnabled,
     required this.frontingReminderIntervalMinutes,
     required this.themeMode,
@@ -4569,6 +4593,9 @@ class SystemSettingsData extends DataClass
       map['custom_plural_terminology'] = Variable<String>(
         customPluralTerminology,
       );
+    }
+    if (!nullToAbsent || sharingId != null) {
+      map['sharing_id'] = Variable<String>(sharingId);
     }
     map['fronting_reminders_enabled'] = Variable<bool>(
       frontingRemindersEnabled,
@@ -4630,6 +4657,9 @@ class SystemSettingsData extends DataClass
       customPluralTerminology: customPluralTerminology == null && nullToAbsent
           ? const Value.absent()
           : Value(customPluralTerminology),
+      sharingId: sharingId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sharingId),
       frontingRemindersEnabled: Value(frontingRemindersEnabled),
       frontingReminderIntervalMinutes: Value(frontingReminderIntervalMinutes),
       themeMode: Value(themeMode),
@@ -4688,6 +4718,7 @@ class SystemSettingsData extends DataClass
       customPluralTerminology: serializer.fromJson<String?>(
         json['customPluralTerminology'],
       ),
+      sharingId: serializer.fromJson<String?>(json['sharingId']),
       frontingRemindersEnabled: serializer.fromJson<bool>(
         json['frontingRemindersEnabled'],
       ),
@@ -4763,6 +4794,7 @@ class SystemSettingsData extends DataClass
       'customPluralTerminology': serializer.toJson<String?>(
         customPluralTerminology,
       ),
+      'sharingId': serializer.toJson<String?>(sharingId),
       'frontingRemindersEnabled': serializer.toJson<bool>(
         frontingRemindersEnabled,
       ),
@@ -4814,6 +4846,7 @@ class SystemSettingsData extends DataClass
     int? terminology,
     Value<String?> customTerminology = const Value.absent(),
     Value<String?> customPluralTerminology = const Value.absent(),
+    Value<String?> sharingId = const Value.absent(),
     bool? frontingRemindersEnabled,
     int? frontingReminderIntervalMinutes,
     int? themeMode,
@@ -4858,6 +4891,7 @@ class SystemSettingsData extends DataClass
     customPluralTerminology: customPluralTerminology.present
         ? customPluralTerminology.value
         : this.customPluralTerminology,
+    sharingId: sharingId.present ? sharingId.value : this.sharingId,
     frontingRemindersEnabled:
         frontingRemindersEnabled ?? this.frontingRemindersEnabled,
     frontingReminderIntervalMinutes:
@@ -4923,6 +4957,7 @@ class SystemSettingsData extends DataClass
       customPluralTerminology: data.customPluralTerminology.present
           ? data.customPluralTerminology.value
           : this.customPluralTerminology,
+      sharingId: data.sharingId.present ? data.sharingId.value : this.sharingId,
       frontingRemindersEnabled: data.frontingRemindersEnabled.present
           ? data.frontingRemindersEnabled.value
           : this.frontingRemindersEnabled,
@@ -5025,6 +5060,7 @@ class SystemSettingsData extends DataClass
           ..write('terminology: $terminology, ')
           ..write('customTerminology: $customTerminology, ')
           ..write('customPluralTerminology: $customPluralTerminology, ')
+          ..write('sharingId: $sharingId, ')
           ..write('frontingRemindersEnabled: $frontingRemindersEnabled, ')
           ..write(
             'frontingReminderIntervalMinutes: $frontingReminderIntervalMinutes, ',
@@ -5072,6 +5108,7 @@ class SystemSettingsData extends DataClass
     terminology,
     customTerminology,
     customPluralTerminology,
+    sharingId,
     frontingRemindersEnabled,
     frontingReminderIntervalMinutes,
     themeMode,
@@ -5116,6 +5153,7 @@ class SystemSettingsData extends DataClass
           other.terminology == this.terminology &&
           other.customTerminology == this.customTerminology &&
           other.customPluralTerminology == this.customPluralTerminology &&
+          other.sharingId == this.sharingId &&
           other.frontingRemindersEnabled == this.frontingRemindersEnabled &&
           other.frontingReminderIntervalMinutes ==
               this.frontingReminderIntervalMinutes &&
@@ -5163,6 +5201,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> terminology;
   final Value<String?> customTerminology;
   final Value<String?> customPluralTerminology;
+  final Value<String?> sharingId;
   final Value<bool> frontingRemindersEnabled;
   final Value<int> frontingReminderIntervalMinutes;
   final Value<int> themeMode;
@@ -5204,6 +5243,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.terminology = const Value.absent(),
     this.customTerminology = const Value.absent(),
     this.customPluralTerminology = const Value.absent(),
+    this.sharingId = const Value.absent(),
     this.frontingRemindersEnabled = const Value.absent(),
     this.frontingReminderIntervalMinutes = const Value.absent(),
     this.themeMode = const Value.absent(),
@@ -5246,6 +5286,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.terminology = const Value.absent(),
     this.customTerminology = const Value.absent(),
     this.customPluralTerminology = const Value.absent(),
+    this.sharingId = const Value.absent(),
     this.frontingRemindersEnabled = const Value.absent(),
     this.frontingReminderIntervalMinutes = const Value.absent(),
     this.themeMode = const Value.absent(),
@@ -5288,6 +5329,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? terminology,
     Expression<String>? customTerminology,
     Expression<String>? customPluralTerminology,
+    Expression<String>? sharingId,
     Expression<bool>? frontingRemindersEnabled,
     Expression<int>? frontingReminderIntervalMinutes,
     Expression<int>? themeMode,
@@ -5332,6 +5374,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (customTerminology != null) 'custom_terminology': customTerminology,
       if (customPluralTerminology != null)
         'custom_plural_terminology': customPluralTerminology,
+      if (sharingId != null) 'sharing_id': sharingId,
       if (frontingRemindersEnabled != null)
         'fronting_reminders_enabled': frontingRemindersEnabled,
       if (frontingReminderIntervalMinutes != null)
@@ -5389,6 +5432,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? terminology,
     Value<String?>? customTerminology,
     Value<String?>? customPluralTerminology,
+    Value<String?>? sharingId,
     Value<bool>? frontingRemindersEnabled,
     Value<int>? frontingReminderIntervalMinutes,
     Value<int>? themeMode,
@@ -5433,6 +5477,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       customTerminology: customTerminology ?? this.customTerminology,
       customPluralTerminology:
           customPluralTerminology ?? this.customPluralTerminology,
+      sharingId: sharingId ?? this.sharingId,
       frontingRemindersEnabled:
           frontingRemindersEnabled ?? this.frontingRemindersEnabled,
       frontingReminderIntervalMinutes:
@@ -5505,6 +5550,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       map['custom_plural_terminology'] = Variable<String>(
         customPluralTerminology.value,
       );
+    }
+    if (sharingId.present) {
+      map['sharing_id'] = Variable<String>(sharingId.value);
     }
     if (frontingRemindersEnabled.present) {
       map['fronting_reminders_enabled'] = Variable<bool>(
@@ -5640,6 +5688,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('terminology: $terminology, ')
           ..write('customTerminology: $customTerminology, ')
           ..write('customPluralTerminology: $customPluralTerminology, ')
+          ..write('sharingId: $sharingId, ')
           ..write('frontingRemindersEnabled: $frontingRemindersEnabled, ')
           ..write(
             'frontingReminderIntervalMinutes: $frontingReminderIntervalMinutes, ',
@@ -14463,6 +14512,53 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _peerSharingIdMeta = const VerificationMeta(
+    'peerSharingId',
+  );
+  @override
+  late final GeneratedColumn<String> peerSharingId = GeneratedColumn<String>(
+    'peer_sharing_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pairwiseSecretMeta = const VerificationMeta(
+    'pairwiseSecret',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> pairwiseSecret =
+      GeneratedColumn<Uint8List>(
+        'pairwise_secret',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _pinnedIdentityMeta = const VerificationMeta(
+    'pinnedIdentity',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> pinnedIdentity =
+      GeneratedColumn<Uint8List>(
+        'pinned_identity',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _offeredScopesMeta = const VerificationMeta(
+    'offeredScopes',
+  );
+  @override
+  late final GeneratedColumn<String> offeredScopes = GeneratedColumn<String>(
+    'offered_scopes',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
   static const VerificationMeta _publicKeyHexMeta = const VerificationMeta(
     'publicKeyHex',
   );
@@ -14512,6 +14608,15 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _initIdMeta = const VerificationMeta('initId');
+  @override
+  late final GeneratedColumn<String> initId = GeneratedColumn<String>(
+    'init_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -14523,6 +14628,18 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _establishedAtMeta = const VerificationMeta(
+    'establishedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> establishedAt =
+      GeneratedColumn<DateTime>(
+        'established_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _lastSyncAtMeta = const VerificationMeta(
     'lastSyncAt',
   );
@@ -14553,11 +14670,17 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
   List<GeneratedColumn> get $columns => [
     id,
     displayName,
+    peerSharingId,
+    pairwiseSecret,
+    pinnedIdentity,
+    offeredScopes,
     publicKeyHex,
     sharedSecretHex,
     grantedScopes,
     isVerified,
+    initId,
     createdAt,
+    establishedAt,
     lastSyncAt,
     isDeleted,
   ];
@@ -14588,6 +14711,42 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
       );
     } else if (isInserting) {
       context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('peer_sharing_id')) {
+      context.handle(
+        _peerSharingIdMeta,
+        peerSharingId.isAcceptableOrUnknown(
+          data['peer_sharing_id']!,
+          _peerSharingIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pairwise_secret')) {
+      context.handle(
+        _pairwiseSecretMeta,
+        pairwiseSecret.isAcceptableOrUnknown(
+          data['pairwise_secret']!,
+          _pairwiseSecretMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pinned_identity')) {
+      context.handle(
+        _pinnedIdentityMeta,
+        pinnedIdentity.isAcceptableOrUnknown(
+          data['pinned_identity']!,
+          _pinnedIdentityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('offered_scopes')) {
+      context.handle(
+        _offeredScopesMeta,
+        offeredScopes.isAcceptableOrUnknown(
+          data['offered_scopes']!,
+          _offeredScopesMeta,
+        ),
+      );
     }
     if (data.containsKey('public_key_hex')) {
       context.handle(
@@ -14624,6 +14783,12 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
         isVerified.isAcceptableOrUnknown(data['is_verified']!, _isVerifiedMeta),
       );
     }
+    if (data.containsKey('init_id')) {
+      context.handle(
+        _initIdMeta,
+        initId.isAcceptableOrUnknown(data['init_id']!, _initIdMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -14631,6 +14796,15 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
       );
     } else if (isInserting) {
       context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('established_at')) {
+      context.handle(
+        _establishedAtMeta,
+        establishedAt.isAcceptableOrUnknown(
+          data['established_at']!,
+          _establishedAtMeta,
+        ),
+      );
     }
     if (data.containsKey('last_sync_at')) {
       context.handle(
@@ -14664,6 +14838,22 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
         DriftSqlType.string,
         data['${effectivePrefix}display_name'],
       )!,
+      peerSharingId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}peer_sharing_id'],
+      ),
+      pairwiseSecret: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}pairwise_secret'],
+      ),
+      pinnedIdentity: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}pinned_identity'],
+      ),
+      offeredScopes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}offered_scopes'],
+      )!,
       publicKeyHex: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}public_key_hex'],
@@ -14680,10 +14870,18 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_verified'],
       )!,
+      initId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}init_id'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      establishedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}established_at'],
+      ),
       lastSyncAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_sync_at'],
@@ -14704,23 +14902,37 @@ class $FriendsTable extends Friends with TableInfo<$FriendsTable, FriendRow> {
 class FriendRow extends DataClass implements Insertable<FriendRow> {
   final String id;
   final String displayName;
+  final String? peerSharingId;
+  final Uint8List? pairwiseSecret;
+  final Uint8List? pinnedIdentity;
+
+  /// JSON-encoded list of scope strings the peer offered us.
+  final String offeredScopes;
   final String publicKeyHex;
   final String? sharedSecretHex;
 
   /// JSON-encoded list of granted scope strings.
   final String grantedScopes;
   final bool isVerified;
+  final String? initId;
   final DateTime createdAt;
+  final DateTime? establishedAt;
   final DateTime? lastSyncAt;
   final bool isDeleted;
   const FriendRow({
     required this.id,
     required this.displayName,
+    this.peerSharingId,
+    this.pairwiseSecret,
+    this.pinnedIdentity,
+    required this.offeredScopes,
     required this.publicKeyHex,
     this.sharedSecretHex,
     required this.grantedScopes,
     required this.isVerified,
+    this.initId,
     required this.createdAt,
+    this.establishedAt,
     this.lastSyncAt,
     required this.isDeleted,
   });
@@ -14729,13 +14941,29 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['display_name'] = Variable<String>(displayName);
+    if (!nullToAbsent || peerSharingId != null) {
+      map['peer_sharing_id'] = Variable<String>(peerSharingId);
+    }
+    if (!nullToAbsent || pairwiseSecret != null) {
+      map['pairwise_secret'] = Variable<Uint8List>(pairwiseSecret);
+    }
+    if (!nullToAbsent || pinnedIdentity != null) {
+      map['pinned_identity'] = Variable<Uint8List>(pinnedIdentity);
+    }
+    map['offered_scopes'] = Variable<String>(offeredScopes);
     map['public_key_hex'] = Variable<String>(publicKeyHex);
     if (!nullToAbsent || sharedSecretHex != null) {
       map['shared_secret_hex'] = Variable<String>(sharedSecretHex);
     }
     map['granted_scopes'] = Variable<String>(grantedScopes);
     map['is_verified'] = Variable<bool>(isVerified);
+    if (!nullToAbsent || initId != null) {
+      map['init_id'] = Variable<String>(initId);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || establishedAt != null) {
+      map['established_at'] = Variable<DateTime>(establishedAt);
+    }
     if (!nullToAbsent || lastSyncAt != null) {
       map['last_sync_at'] = Variable<DateTime>(lastSyncAt);
     }
@@ -14747,13 +14975,29 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
     return FriendsCompanion(
       id: Value(id),
       displayName: Value(displayName),
+      peerSharingId: peerSharingId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(peerSharingId),
+      pairwiseSecret: pairwiseSecret == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pairwiseSecret),
+      pinnedIdentity: pinnedIdentity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinnedIdentity),
+      offeredScopes: Value(offeredScopes),
       publicKeyHex: Value(publicKeyHex),
       sharedSecretHex: sharedSecretHex == null && nullToAbsent
           ? const Value.absent()
           : Value(sharedSecretHex),
       grantedScopes: Value(grantedScopes),
       isVerified: Value(isVerified),
+      initId: initId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(initId),
       createdAt: Value(createdAt),
+      establishedAt: establishedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(establishedAt),
       lastSyncAt: lastSyncAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastSyncAt),
@@ -14769,11 +15013,17 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
     return FriendRow(
       id: serializer.fromJson<String>(json['id']),
       displayName: serializer.fromJson<String>(json['displayName']),
+      peerSharingId: serializer.fromJson<String?>(json['peerSharingId']),
+      pairwiseSecret: serializer.fromJson<Uint8List?>(json['pairwiseSecret']),
+      pinnedIdentity: serializer.fromJson<Uint8List?>(json['pinnedIdentity']),
+      offeredScopes: serializer.fromJson<String>(json['offeredScopes']),
       publicKeyHex: serializer.fromJson<String>(json['publicKeyHex']),
       sharedSecretHex: serializer.fromJson<String?>(json['sharedSecretHex']),
       grantedScopes: serializer.fromJson<String>(json['grantedScopes']),
       isVerified: serializer.fromJson<bool>(json['isVerified']),
+      initId: serializer.fromJson<String?>(json['initId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      establishedAt: serializer.fromJson<DateTime?>(json['establishedAt']),
       lastSyncAt: serializer.fromJson<DateTime?>(json['lastSyncAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
     );
@@ -14784,11 +15034,17 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'displayName': serializer.toJson<String>(displayName),
+      'peerSharingId': serializer.toJson<String?>(peerSharingId),
+      'pairwiseSecret': serializer.toJson<Uint8List?>(pairwiseSecret),
+      'pinnedIdentity': serializer.toJson<Uint8List?>(pinnedIdentity),
+      'offeredScopes': serializer.toJson<String>(offeredScopes),
       'publicKeyHex': serializer.toJson<String>(publicKeyHex),
       'sharedSecretHex': serializer.toJson<String?>(sharedSecretHex),
       'grantedScopes': serializer.toJson<String>(grantedScopes),
       'isVerified': serializer.toJson<bool>(isVerified),
+      'initId': serializer.toJson<String?>(initId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'establishedAt': serializer.toJson<DateTime?>(establishedAt),
       'lastSyncAt': serializer.toJson<DateTime?>(lastSyncAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
     };
@@ -14797,23 +15053,43 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
   FriendRow copyWith({
     String? id,
     String? displayName,
+    Value<String?> peerSharingId = const Value.absent(),
+    Value<Uint8List?> pairwiseSecret = const Value.absent(),
+    Value<Uint8List?> pinnedIdentity = const Value.absent(),
+    String? offeredScopes,
     String? publicKeyHex,
     Value<String?> sharedSecretHex = const Value.absent(),
     String? grantedScopes,
     bool? isVerified,
+    Value<String?> initId = const Value.absent(),
     DateTime? createdAt,
+    Value<DateTime?> establishedAt = const Value.absent(),
     Value<DateTime?> lastSyncAt = const Value.absent(),
     bool? isDeleted,
   }) => FriendRow(
     id: id ?? this.id,
     displayName: displayName ?? this.displayName,
+    peerSharingId: peerSharingId.present
+        ? peerSharingId.value
+        : this.peerSharingId,
+    pairwiseSecret: pairwiseSecret.present
+        ? pairwiseSecret.value
+        : this.pairwiseSecret,
+    pinnedIdentity: pinnedIdentity.present
+        ? pinnedIdentity.value
+        : this.pinnedIdentity,
+    offeredScopes: offeredScopes ?? this.offeredScopes,
     publicKeyHex: publicKeyHex ?? this.publicKeyHex,
     sharedSecretHex: sharedSecretHex.present
         ? sharedSecretHex.value
         : this.sharedSecretHex,
     grantedScopes: grantedScopes ?? this.grantedScopes,
     isVerified: isVerified ?? this.isVerified,
+    initId: initId.present ? initId.value : this.initId,
     createdAt: createdAt ?? this.createdAt,
+    establishedAt: establishedAt.present
+        ? establishedAt.value
+        : this.establishedAt,
     lastSyncAt: lastSyncAt.present ? lastSyncAt.value : this.lastSyncAt,
     isDeleted: isDeleted ?? this.isDeleted,
   );
@@ -14823,6 +15099,18 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
       displayName: data.displayName.present
           ? data.displayName.value
           : this.displayName,
+      peerSharingId: data.peerSharingId.present
+          ? data.peerSharingId.value
+          : this.peerSharingId,
+      pairwiseSecret: data.pairwiseSecret.present
+          ? data.pairwiseSecret.value
+          : this.pairwiseSecret,
+      pinnedIdentity: data.pinnedIdentity.present
+          ? data.pinnedIdentity.value
+          : this.pinnedIdentity,
+      offeredScopes: data.offeredScopes.present
+          ? data.offeredScopes.value
+          : this.offeredScopes,
       publicKeyHex: data.publicKeyHex.present
           ? data.publicKeyHex.value
           : this.publicKeyHex,
@@ -14835,7 +15123,11 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
       isVerified: data.isVerified.present
           ? data.isVerified.value
           : this.isVerified,
+      initId: data.initId.present ? data.initId.value : this.initId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      establishedAt: data.establishedAt.present
+          ? data.establishedAt.value
+          : this.establishedAt,
       lastSyncAt: data.lastSyncAt.present
           ? data.lastSyncAt.value
           : this.lastSyncAt,
@@ -14848,11 +15140,17 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
     return (StringBuffer('FriendRow(')
           ..write('id: $id, ')
           ..write('displayName: $displayName, ')
+          ..write('peerSharingId: $peerSharingId, ')
+          ..write('pairwiseSecret: $pairwiseSecret, ')
+          ..write('pinnedIdentity: $pinnedIdentity, ')
+          ..write('offeredScopes: $offeredScopes, ')
           ..write('publicKeyHex: $publicKeyHex, ')
           ..write('sharedSecretHex: $sharedSecretHex, ')
           ..write('grantedScopes: $grantedScopes, ')
           ..write('isVerified: $isVerified, ')
+          ..write('initId: $initId, ')
           ..write('createdAt: $createdAt, ')
+          ..write('establishedAt: $establishedAt, ')
           ..write('lastSyncAt: $lastSyncAt, ')
           ..write('isDeleted: $isDeleted')
           ..write(')'))
@@ -14863,11 +15161,17 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
   int get hashCode => Object.hash(
     id,
     displayName,
+    peerSharingId,
+    $driftBlobEquality.hash(pairwiseSecret),
+    $driftBlobEquality.hash(pinnedIdentity),
+    offeredScopes,
     publicKeyHex,
     sharedSecretHex,
     grantedScopes,
     isVerified,
+    initId,
     createdAt,
+    establishedAt,
     lastSyncAt,
     isDeleted,
   );
@@ -14877,11 +15181,23 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
       (other is FriendRow &&
           other.id == this.id &&
           other.displayName == this.displayName &&
+          other.peerSharingId == this.peerSharingId &&
+          $driftBlobEquality.equals(
+            other.pairwiseSecret,
+            this.pairwiseSecret,
+          ) &&
+          $driftBlobEquality.equals(
+            other.pinnedIdentity,
+            this.pinnedIdentity,
+          ) &&
+          other.offeredScopes == this.offeredScopes &&
           other.publicKeyHex == this.publicKeyHex &&
           other.sharedSecretHex == this.sharedSecretHex &&
           other.grantedScopes == this.grantedScopes &&
           other.isVerified == this.isVerified &&
+          other.initId == this.initId &&
           other.createdAt == this.createdAt &&
+          other.establishedAt == this.establishedAt &&
           other.lastSyncAt == this.lastSyncAt &&
           other.isDeleted == this.isDeleted);
 }
@@ -14889,22 +15205,34 @@ class FriendRow extends DataClass implements Insertable<FriendRow> {
 class FriendsCompanion extends UpdateCompanion<FriendRow> {
   final Value<String> id;
   final Value<String> displayName;
+  final Value<String?> peerSharingId;
+  final Value<Uint8List?> pairwiseSecret;
+  final Value<Uint8List?> pinnedIdentity;
+  final Value<String> offeredScopes;
   final Value<String> publicKeyHex;
   final Value<String?> sharedSecretHex;
   final Value<String> grantedScopes;
   final Value<bool> isVerified;
+  final Value<String?> initId;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> establishedAt;
   final Value<DateTime?> lastSyncAt;
   final Value<bool> isDeleted;
   final Value<int> rowid;
   const FriendsCompanion({
     this.id = const Value.absent(),
     this.displayName = const Value.absent(),
+    this.peerSharingId = const Value.absent(),
+    this.pairwiseSecret = const Value.absent(),
+    this.pinnedIdentity = const Value.absent(),
+    this.offeredScopes = const Value.absent(),
     this.publicKeyHex = const Value.absent(),
     this.sharedSecretHex = const Value.absent(),
     this.grantedScopes = const Value.absent(),
     this.isVerified = const Value.absent(),
+    this.initId = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.establishedAt = const Value.absent(),
     this.lastSyncAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -14912,11 +15240,17 @@ class FriendsCompanion extends UpdateCompanion<FriendRow> {
   FriendsCompanion.insert({
     required String id,
     required String displayName,
+    this.peerSharingId = const Value.absent(),
+    this.pairwiseSecret = const Value.absent(),
+    this.pinnedIdentity = const Value.absent(),
+    this.offeredScopes = const Value.absent(),
     required String publicKeyHex,
     this.sharedSecretHex = const Value.absent(),
     this.grantedScopes = const Value.absent(),
     this.isVerified = const Value.absent(),
+    this.initId = const Value.absent(),
     required DateTime createdAt,
+    this.establishedAt = const Value.absent(),
     this.lastSyncAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -14927,11 +15261,17 @@ class FriendsCompanion extends UpdateCompanion<FriendRow> {
   static Insertable<FriendRow> custom({
     Expression<String>? id,
     Expression<String>? displayName,
+    Expression<String>? peerSharingId,
+    Expression<Uint8List>? pairwiseSecret,
+    Expression<Uint8List>? pinnedIdentity,
+    Expression<String>? offeredScopes,
     Expression<String>? publicKeyHex,
     Expression<String>? sharedSecretHex,
     Expression<String>? grantedScopes,
     Expression<bool>? isVerified,
+    Expression<String>? initId,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? establishedAt,
     Expression<DateTime>? lastSyncAt,
     Expression<bool>? isDeleted,
     Expression<int>? rowid,
@@ -14939,11 +15279,17 @@ class FriendsCompanion extends UpdateCompanion<FriendRow> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (displayName != null) 'display_name': displayName,
+      if (peerSharingId != null) 'peer_sharing_id': peerSharingId,
+      if (pairwiseSecret != null) 'pairwise_secret': pairwiseSecret,
+      if (pinnedIdentity != null) 'pinned_identity': pinnedIdentity,
+      if (offeredScopes != null) 'offered_scopes': offeredScopes,
       if (publicKeyHex != null) 'public_key_hex': publicKeyHex,
       if (sharedSecretHex != null) 'shared_secret_hex': sharedSecretHex,
       if (grantedScopes != null) 'granted_scopes': grantedScopes,
       if (isVerified != null) 'is_verified': isVerified,
+      if (initId != null) 'init_id': initId,
       if (createdAt != null) 'created_at': createdAt,
+      if (establishedAt != null) 'established_at': establishedAt,
       if (lastSyncAt != null) 'last_sync_at': lastSyncAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (rowid != null) 'rowid': rowid,
@@ -14953,11 +15299,17 @@ class FriendsCompanion extends UpdateCompanion<FriendRow> {
   FriendsCompanion copyWith({
     Value<String>? id,
     Value<String>? displayName,
+    Value<String?>? peerSharingId,
+    Value<Uint8List?>? pairwiseSecret,
+    Value<Uint8List?>? pinnedIdentity,
+    Value<String>? offeredScopes,
     Value<String>? publicKeyHex,
     Value<String?>? sharedSecretHex,
     Value<String>? grantedScopes,
     Value<bool>? isVerified,
+    Value<String?>? initId,
     Value<DateTime>? createdAt,
+    Value<DateTime?>? establishedAt,
     Value<DateTime?>? lastSyncAt,
     Value<bool>? isDeleted,
     Value<int>? rowid,
@@ -14965,11 +15317,17 @@ class FriendsCompanion extends UpdateCompanion<FriendRow> {
     return FriendsCompanion(
       id: id ?? this.id,
       displayName: displayName ?? this.displayName,
+      peerSharingId: peerSharingId ?? this.peerSharingId,
+      pairwiseSecret: pairwiseSecret ?? this.pairwiseSecret,
+      pinnedIdentity: pinnedIdentity ?? this.pinnedIdentity,
+      offeredScopes: offeredScopes ?? this.offeredScopes,
       publicKeyHex: publicKeyHex ?? this.publicKeyHex,
       sharedSecretHex: sharedSecretHex ?? this.sharedSecretHex,
       grantedScopes: grantedScopes ?? this.grantedScopes,
       isVerified: isVerified ?? this.isVerified,
+      initId: initId ?? this.initId,
       createdAt: createdAt ?? this.createdAt,
+      establishedAt: establishedAt ?? this.establishedAt,
       lastSyncAt: lastSyncAt ?? this.lastSyncAt,
       isDeleted: isDeleted ?? this.isDeleted,
       rowid: rowid ?? this.rowid,
@@ -14985,6 +15343,18 @@ class FriendsCompanion extends UpdateCompanion<FriendRow> {
     if (displayName.present) {
       map['display_name'] = Variable<String>(displayName.value);
     }
+    if (peerSharingId.present) {
+      map['peer_sharing_id'] = Variable<String>(peerSharingId.value);
+    }
+    if (pairwiseSecret.present) {
+      map['pairwise_secret'] = Variable<Uint8List>(pairwiseSecret.value);
+    }
+    if (pinnedIdentity.present) {
+      map['pinned_identity'] = Variable<Uint8List>(pinnedIdentity.value);
+    }
+    if (offeredScopes.present) {
+      map['offered_scopes'] = Variable<String>(offeredScopes.value);
+    }
     if (publicKeyHex.present) {
       map['public_key_hex'] = Variable<String>(publicKeyHex.value);
     }
@@ -14997,8 +15367,14 @@ class FriendsCompanion extends UpdateCompanion<FriendRow> {
     if (isVerified.present) {
       map['is_verified'] = Variable<bool>(isVerified.value);
     }
+    if (initId.present) {
+      map['init_id'] = Variable<String>(initId.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (establishedAt.present) {
+      map['established_at'] = Variable<DateTime>(establishedAt.value);
     }
     if (lastSyncAt.present) {
       map['last_sync_at'] = Variable<DateTime>(lastSyncAt.value);
@@ -15017,13 +15393,791 @@ class FriendsCompanion extends UpdateCompanion<FriendRow> {
     return (StringBuffer('FriendsCompanion(')
           ..write('id: $id, ')
           ..write('displayName: $displayName, ')
+          ..write('peerSharingId: $peerSharingId, ')
+          ..write('pairwiseSecret: $pairwiseSecret, ')
+          ..write('pinnedIdentity: $pinnedIdentity, ')
+          ..write('offeredScopes: $offeredScopes, ')
           ..write('publicKeyHex: $publicKeyHex, ')
           ..write('sharedSecretHex: $sharedSecretHex, ')
           ..write('grantedScopes: $grantedScopes, ')
           ..write('isVerified: $isVerified, ')
+          ..write('initId: $initId, ')
           ..write('createdAt: $createdAt, ')
+          ..write('establishedAt: $establishedAt, ')
           ..write('lastSyncAt: $lastSyncAt, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SharingRequestsTable extends SharingRequests
+    with TableInfo<$SharingRequestsTable, SharingRequestRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SharingRequestsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _initIdMeta = const VerificationMeta('initId');
+  @override
+  late final GeneratedColumn<String> initId = GeneratedColumn<String>(
+    'init_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderSharingIdMeta = const VerificationMeta(
+    'senderSharingId',
+  );
+  @override
+  late final GeneratedColumn<String> senderSharingId = GeneratedColumn<String>(
+    'sender_sharing_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _offeredScopesMeta = const VerificationMeta(
+    'offeredScopes',
+  );
+  @override
+  late final GeneratedColumn<String> offeredScopes = GeneratedColumn<String>(
+    'offered_scopes',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _senderIdentityMeta = const VerificationMeta(
+    'senderIdentity',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> senderIdentity =
+      GeneratedColumn<Uint8List>(
+        'sender_identity',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _pairwiseSecretMeta = const VerificationMeta(
+    'pairwiseSecret',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> pairwiseSecret =
+      GeneratedColumn<Uint8List>(
+        'pairwise_secret',
+        aliasedName,
+        true,
+        type: DriftSqlType.blob,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _fingerprintMeta = const VerificationMeta(
+    'fingerprint',
+  );
+  @override
+  late final GeneratedColumn<String> fingerprint = GeneratedColumn<String>(
+    'fingerprint',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _trustDecisionMeta = const VerificationMeta(
+    'trustDecision',
+  );
+  @override
+  late final GeneratedColumn<String> trustDecision = GeneratedColumn<String>(
+    'trust_decision',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
+  @override
+  late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isResolvedMeta = const VerificationMeta(
+    'isResolved',
+  );
+  @override
+  late final GeneratedColumn<bool> isResolved = GeneratedColumn<bool>(
+    'is_resolved',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_resolved" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> receivedAt = GeneratedColumn<DateTime>(
+    'received_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
+    'resolvedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> resolvedAt = GeneratedColumn<DateTime>(
+    'resolved_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    initId,
+    senderSharingId,
+    displayName,
+    offeredScopes,
+    senderIdentity,
+    pairwiseSecret,
+    fingerprint,
+    trustDecision,
+    errorMessage,
+    isResolved,
+    receivedAt,
+    resolvedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sharing_requests';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SharingRequestRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('init_id')) {
+      context.handle(
+        _initIdMeta,
+        initId.isAcceptableOrUnknown(data['init_id']!, _initIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_initIdMeta);
+    }
+    if (data.containsKey('sender_sharing_id')) {
+      context.handle(
+        _senderSharingIdMeta,
+        senderSharingId.isAcceptableOrUnknown(
+          data['sender_sharing_id']!,
+          _senderSharingIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_senderSharingIdMeta);
+    }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_displayNameMeta);
+    }
+    if (data.containsKey('offered_scopes')) {
+      context.handle(
+        _offeredScopesMeta,
+        offeredScopes.isAcceptableOrUnknown(
+          data['offered_scopes']!,
+          _offeredScopesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sender_identity')) {
+      context.handle(
+        _senderIdentityMeta,
+        senderIdentity.isAcceptableOrUnknown(
+          data['sender_identity']!,
+          _senderIdentityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pairwise_secret')) {
+      context.handle(
+        _pairwiseSecretMeta,
+        pairwiseSecret.isAcceptableOrUnknown(
+          data['pairwise_secret']!,
+          _pairwiseSecretMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fingerprint')) {
+      context.handle(
+        _fingerprintMeta,
+        fingerprint.isAcceptableOrUnknown(
+          data['fingerprint']!,
+          _fingerprintMeta,
+        ),
+      );
+    }
+    if (data.containsKey('trust_decision')) {
+      context.handle(
+        _trustDecisionMeta,
+        trustDecision.isAcceptableOrUnknown(
+          data['trust_decision']!,
+          _trustDecisionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_trustDecisionMeta);
+    }
+    if (data.containsKey('error_message')) {
+      context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
+          _errorMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_resolved')) {
+      context.handle(
+        _isResolvedMeta,
+        isResolved.isAcceptableOrUnknown(data['is_resolved']!, _isResolvedMeta),
+      );
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedAtMeta);
+    }
+    if (data.containsKey('resolved_at')) {
+      context.handle(
+        _resolvedAtMeta,
+        resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {initId};
+  @override
+  SharingRequestRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SharingRequestRow(
+      initId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}init_id'],
+      )!,
+      senderSharingId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_sharing_id'],
+      )!,
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      )!,
+      offeredScopes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}offered_scopes'],
+      )!,
+      senderIdentity: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}sender_identity'],
+      ),
+      pairwiseSecret: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}pairwise_secret'],
+      ),
+      fingerprint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}fingerprint'],
+      ),
+      trustDecision: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trust_decision'],
+      )!,
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
+      isResolved: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_resolved'],
+      )!,
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}received_at'],
+      )!,
+      resolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}resolved_at'],
+      ),
+    );
+  }
+
+  @override
+  $SharingRequestsTable createAlias(String alias) {
+    return $SharingRequestsTable(attachedDatabase, alias);
+  }
+}
+
+class SharingRequestRow extends DataClass
+    implements Insertable<SharingRequestRow> {
+  final String initId;
+  final String senderSharingId;
+  final String displayName;
+
+  /// JSON-encoded list of offered scope strings.
+  final String offeredScopes;
+  final Uint8List? senderIdentity;
+  final Uint8List? pairwiseSecret;
+  final String? fingerprint;
+  final String trustDecision;
+  final String? errorMessage;
+  final bool isResolved;
+  final DateTime receivedAt;
+  final DateTime? resolvedAt;
+  const SharingRequestRow({
+    required this.initId,
+    required this.senderSharingId,
+    required this.displayName,
+    required this.offeredScopes,
+    this.senderIdentity,
+    this.pairwiseSecret,
+    this.fingerprint,
+    required this.trustDecision,
+    this.errorMessage,
+    required this.isResolved,
+    required this.receivedAt,
+    this.resolvedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['init_id'] = Variable<String>(initId);
+    map['sender_sharing_id'] = Variable<String>(senderSharingId);
+    map['display_name'] = Variable<String>(displayName);
+    map['offered_scopes'] = Variable<String>(offeredScopes);
+    if (!nullToAbsent || senderIdentity != null) {
+      map['sender_identity'] = Variable<Uint8List>(senderIdentity);
+    }
+    if (!nullToAbsent || pairwiseSecret != null) {
+      map['pairwise_secret'] = Variable<Uint8List>(pairwiseSecret);
+    }
+    if (!nullToAbsent || fingerprint != null) {
+      map['fingerprint'] = Variable<String>(fingerprint);
+    }
+    map['trust_decision'] = Variable<String>(trustDecision);
+    if (!nullToAbsent || errorMessage != null) {
+      map['error_message'] = Variable<String>(errorMessage);
+    }
+    map['is_resolved'] = Variable<bool>(isResolved);
+    map['received_at'] = Variable<DateTime>(receivedAt);
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt);
+    }
+    return map;
+  }
+
+  SharingRequestsCompanion toCompanion(bool nullToAbsent) {
+    return SharingRequestsCompanion(
+      initId: Value(initId),
+      senderSharingId: Value(senderSharingId),
+      displayName: Value(displayName),
+      offeredScopes: Value(offeredScopes),
+      senderIdentity: senderIdentity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(senderIdentity),
+      pairwiseSecret: pairwiseSecret == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pairwiseSecret),
+      fingerprint: fingerprint == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fingerprint),
+      trustDecision: Value(trustDecision),
+      errorMessage: errorMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMessage),
+      isResolved: Value(isResolved),
+      receivedAt: Value(receivedAt),
+      resolvedAt: resolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedAt),
+    );
+  }
+
+  factory SharingRequestRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SharingRequestRow(
+      initId: serializer.fromJson<String>(json['initId']),
+      senderSharingId: serializer.fromJson<String>(json['senderSharingId']),
+      displayName: serializer.fromJson<String>(json['displayName']),
+      offeredScopes: serializer.fromJson<String>(json['offeredScopes']),
+      senderIdentity: serializer.fromJson<Uint8List?>(json['senderIdentity']),
+      pairwiseSecret: serializer.fromJson<Uint8List?>(json['pairwiseSecret']),
+      fingerprint: serializer.fromJson<String?>(json['fingerprint']),
+      trustDecision: serializer.fromJson<String>(json['trustDecision']),
+      errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      isResolved: serializer.fromJson<bool>(json['isResolved']),
+      receivedAt: serializer.fromJson<DateTime>(json['receivedAt']),
+      resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'initId': serializer.toJson<String>(initId),
+      'senderSharingId': serializer.toJson<String>(senderSharingId),
+      'displayName': serializer.toJson<String>(displayName),
+      'offeredScopes': serializer.toJson<String>(offeredScopes),
+      'senderIdentity': serializer.toJson<Uint8List?>(senderIdentity),
+      'pairwiseSecret': serializer.toJson<Uint8List?>(pairwiseSecret),
+      'fingerprint': serializer.toJson<String?>(fingerprint),
+      'trustDecision': serializer.toJson<String>(trustDecision),
+      'errorMessage': serializer.toJson<String?>(errorMessage),
+      'isResolved': serializer.toJson<bool>(isResolved),
+      'receivedAt': serializer.toJson<DateTime>(receivedAt),
+      'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
+    };
+  }
+
+  SharingRequestRow copyWith({
+    String? initId,
+    String? senderSharingId,
+    String? displayName,
+    String? offeredScopes,
+    Value<Uint8List?> senderIdentity = const Value.absent(),
+    Value<Uint8List?> pairwiseSecret = const Value.absent(),
+    Value<String?> fingerprint = const Value.absent(),
+    String? trustDecision,
+    Value<String?> errorMessage = const Value.absent(),
+    bool? isResolved,
+    DateTime? receivedAt,
+    Value<DateTime?> resolvedAt = const Value.absent(),
+  }) => SharingRequestRow(
+    initId: initId ?? this.initId,
+    senderSharingId: senderSharingId ?? this.senderSharingId,
+    displayName: displayName ?? this.displayName,
+    offeredScopes: offeredScopes ?? this.offeredScopes,
+    senderIdentity: senderIdentity.present
+        ? senderIdentity.value
+        : this.senderIdentity,
+    pairwiseSecret: pairwiseSecret.present
+        ? pairwiseSecret.value
+        : this.pairwiseSecret,
+    fingerprint: fingerprint.present ? fingerprint.value : this.fingerprint,
+    trustDecision: trustDecision ?? this.trustDecision,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    isResolved: isResolved ?? this.isResolved,
+    receivedAt: receivedAt ?? this.receivedAt,
+    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+  );
+  SharingRequestRow copyWithCompanion(SharingRequestsCompanion data) {
+    return SharingRequestRow(
+      initId: data.initId.present ? data.initId.value : this.initId,
+      senderSharingId: data.senderSharingId.present
+          ? data.senderSharingId.value
+          : this.senderSharingId,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      offeredScopes: data.offeredScopes.present
+          ? data.offeredScopes.value
+          : this.offeredScopes,
+      senderIdentity: data.senderIdentity.present
+          ? data.senderIdentity.value
+          : this.senderIdentity,
+      pairwiseSecret: data.pairwiseSecret.present
+          ? data.pairwiseSecret.value
+          : this.pairwiseSecret,
+      fingerprint: data.fingerprint.present
+          ? data.fingerprint.value
+          : this.fingerprint,
+      trustDecision: data.trustDecision.present
+          ? data.trustDecision.value
+          : this.trustDecision,
+      errorMessage: data.errorMessage.present
+          ? data.errorMessage.value
+          : this.errorMessage,
+      isResolved: data.isResolved.present
+          ? data.isResolved.value
+          : this.isResolved,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+      resolvedAt: data.resolvedAt.present
+          ? data.resolvedAt.value
+          : this.resolvedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SharingRequestRow(')
+          ..write('initId: $initId, ')
+          ..write('senderSharingId: $senderSharingId, ')
+          ..write('displayName: $displayName, ')
+          ..write('offeredScopes: $offeredScopes, ')
+          ..write('senderIdentity: $senderIdentity, ')
+          ..write('pairwiseSecret: $pairwiseSecret, ')
+          ..write('fingerprint: $fingerprint, ')
+          ..write('trustDecision: $trustDecision, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('isResolved: $isResolved, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('resolvedAt: $resolvedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    initId,
+    senderSharingId,
+    displayName,
+    offeredScopes,
+    $driftBlobEquality.hash(senderIdentity),
+    $driftBlobEquality.hash(pairwiseSecret),
+    fingerprint,
+    trustDecision,
+    errorMessage,
+    isResolved,
+    receivedAt,
+    resolvedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SharingRequestRow &&
+          other.initId == this.initId &&
+          other.senderSharingId == this.senderSharingId &&
+          other.displayName == this.displayName &&
+          other.offeredScopes == this.offeredScopes &&
+          $driftBlobEquality.equals(
+            other.senderIdentity,
+            this.senderIdentity,
+          ) &&
+          $driftBlobEquality.equals(
+            other.pairwiseSecret,
+            this.pairwiseSecret,
+          ) &&
+          other.fingerprint == this.fingerprint &&
+          other.trustDecision == this.trustDecision &&
+          other.errorMessage == this.errorMessage &&
+          other.isResolved == this.isResolved &&
+          other.receivedAt == this.receivedAt &&
+          other.resolvedAt == this.resolvedAt);
+}
+
+class SharingRequestsCompanion extends UpdateCompanion<SharingRequestRow> {
+  final Value<String> initId;
+  final Value<String> senderSharingId;
+  final Value<String> displayName;
+  final Value<String> offeredScopes;
+  final Value<Uint8List?> senderIdentity;
+  final Value<Uint8List?> pairwiseSecret;
+  final Value<String?> fingerprint;
+  final Value<String> trustDecision;
+  final Value<String?> errorMessage;
+  final Value<bool> isResolved;
+  final Value<DateTime> receivedAt;
+  final Value<DateTime?> resolvedAt;
+  final Value<int> rowid;
+  const SharingRequestsCompanion({
+    this.initId = const Value.absent(),
+    this.senderSharingId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.offeredScopes = const Value.absent(),
+    this.senderIdentity = const Value.absent(),
+    this.pairwiseSecret = const Value.absent(),
+    this.fingerprint = const Value.absent(),
+    this.trustDecision = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.isResolved = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SharingRequestsCompanion.insert({
+    required String initId,
+    required String senderSharingId,
+    required String displayName,
+    this.offeredScopes = const Value.absent(),
+    this.senderIdentity = const Value.absent(),
+    this.pairwiseSecret = const Value.absent(),
+    this.fingerprint = const Value.absent(),
+    required String trustDecision,
+    this.errorMessage = const Value.absent(),
+    this.isResolved = const Value.absent(),
+    required DateTime receivedAt,
+    this.resolvedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : initId = Value(initId),
+       senderSharingId = Value(senderSharingId),
+       displayName = Value(displayName),
+       trustDecision = Value(trustDecision),
+       receivedAt = Value(receivedAt);
+  static Insertable<SharingRequestRow> custom({
+    Expression<String>? initId,
+    Expression<String>? senderSharingId,
+    Expression<String>? displayName,
+    Expression<String>? offeredScopes,
+    Expression<Uint8List>? senderIdentity,
+    Expression<Uint8List>? pairwiseSecret,
+    Expression<String>? fingerprint,
+    Expression<String>? trustDecision,
+    Expression<String>? errorMessage,
+    Expression<bool>? isResolved,
+    Expression<DateTime>? receivedAt,
+    Expression<DateTime>? resolvedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (initId != null) 'init_id': initId,
+      if (senderSharingId != null) 'sender_sharing_id': senderSharingId,
+      if (displayName != null) 'display_name': displayName,
+      if (offeredScopes != null) 'offered_scopes': offeredScopes,
+      if (senderIdentity != null) 'sender_identity': senderIdentity,
+      if (pairwiseSecret != null) 'pairwise_secret': pairwiseSecret,
+      if (fingerprint != null) 'fingerprint': fingerprint,
+      if (trustDecision != null) 'trust_decision': trustDecision,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (isResolved != null) 'is_resolved': isResolved,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (resolvedAt != null) 'resolved_at': resolvedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SharingRequestsCompanion copyWith({
+    Value<String>? initId,
+    Value<String>? senderSharingId,
+    Value<String>? displayName,
+    Value<String>? offeredScopes,
+    Value<Uint8List?>? senderIdentity,
+    Value<Uint8List?>? pairwiseSecret,
+    Value<String?>? fingerprint,
+    Value<String>? trustDecision,
+    Value<String?>? errorMessage,
+    Value<bool>? isResolved,
+    Value<DateTime>? receivedAt,
+    Value<DateTime?>? resolvedAt,
+    Value<int>? rowid,
+  }) {
+    return SharingRequestsCompanion(
+      initId: initId ?? this.initId,
+      senderSharingId: senderSharingId ?? this.senderSharingId,
+      displayName: displayName ?? this.displayName,
+      offeredScopes: offeredScopes ?? this.offeredScopes,
+      senderIdentity: senderIdentity ?? this.senderIdentity,
+      pairwiseSecret: pairwiseSecret ?? this.pairwiseSecret,
+      fingerprint: fingerprint ?? this.fingerprint,
+      trustDecision: trustDecision ?? this.trustDecision,
+      errorMessage: errorMessage ?? this.errorMessage,
+      isResolved: isResolved ?? this.isResolved,
+      receivedAt: receivedAt ?? this.receivedAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (initId.present) {
+      map['init_id'] = Variable<String>(initId.value);
+    }
+    if (senderSharingId.present) {
+      map['sender_sharing_id'] = Variable<String>(senderSharingId.value);
+    }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (offeredScopes.present) {
+      map['offered_scopes'] = Variable<String>(offeredScopes.value);
+    }
+    if (senderIdentity.present) {
+      map['sender_identity'] = Variable<Uint8List>(senderIdentity.value);
+    }
+    if (pairwiseSecret.present) {
+      map['pairwise_secret'] = Variable<Uint8List>(pairwiseSecret.value);
+    }
+    if (fingerprint.present) {
+      map['fingerprint'] = Variable<String>(fingerprint.value);
+    }
+    if (trustDecision.present) {
+      map['trust_decision'] = Variable<String>(trustDecision.value);
+    }
+    if (errorMessage.present) {
+      map['error_message'] = Variable<String>(errorMessage.value);
+    }
+    if (isResolved.present) {
+      map['is_resolved'] = Variable<bool>(isResolved.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<DateTime>(receivedAt.value);
+    }
+    if (resolvedAt.present) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SharingRequestsCompanion(')
+          ..write('initId: $initId, ')
+          ..write('senderSharingId: $senderSharingId, ')
+          ..write('displayName: $displayName, ')
+          ..write('offeredScopes: $offeredScopes, ')
+          ..write('senderIdentity: $senderIdentity, ')
+          ..write('pairwiseSecret: $pairwiseSecret, ')
+          ..write('fingerprint: $fingerprint, ')
+          ..write('trustDecision: $trustDecision, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('isResolved: $isResolved, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('resolvedAt: $resolvedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -15066,6 +16220,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $ConversationCategoriesTable(this);
   late final $RemindersTable reminders = $RemindersTable(this);
   late final $FriendsTable friends = $FriendsTable(this);
+  late final $SharingRequestsTable sharingRequests = $SharingRequestsTable(
+    this,
+  );
   late final MembersDao membersDao = MembersDao(this as AppDatabase);
   late final FrontingSessionsDao frontingSessionsDao = FrontingSessionsDao(
     this as AppDatabase,
@@ -15104,6 +16261,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       ConversationCategoriesDao(this as AppDatabase);
   late final RemindersDao remindersDao = RemindersDao(this as AppDatabase);
   late final FriendsDao friendsDao = FriendsDao(this as AppDatabase);
+  late final SharingRequestsDao sharingRequestsDao = SharingRequestsDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -15131,6 +16291,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     conversationCategories,
     reminders,
     friends,
+    sharingRequests,
   ];
 }
 
@@ -16699,6 +17860,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> terminology,
       Value<String?> customTerminology,
       Value<String?> customPluralTerminology,
+      Value<String?> sharingId,
       Value<bool> frontingRemindersEnabled,
       Value<int> frontingReminderIntervalMinutes,
       Value<int> themeMode,
@@ -16742,6 +17904,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> terminology,
       Value<String?> customTerminology,
       Value<String?> customPluralTerminology,
+      Value<String?> sharingId,
       Value<bool> frontingRemindersEnabled,
       Value<int> frontingReminderIntervalMinutes,
       Value<int> themeMode,
@@ -16822,6 +17985,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<String> get customPluralTerminology => $composableBuilder(
     column: $table.customPluralTerminology,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sharingId => $composableBuilder(
+    column: $table.sharingId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17030,6 +18198,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get sharingId => $composableBuilder(
+    column: $table.sharingId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get frontingRemindersEnabled => $composableBuilder(
     column: $table.frontingRemindersEnabled,
     builder: (column) => ColumnOrderings(column),
@@ -17234,6 +18407,9 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get sharingId =>
+      $composableBuilder(column: $table.sharingId, builder: (column) => column);
+
   GeneratedColumn<bool> get frontingRemindersEnabled => $composableBuilder(
     column: $table.frontingRemindersEnabled,
     builder: (column) => column,
@@ -17436,6 +18612,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> terminology = const Value.absent(),
                 Value<String?> customTerminology = const Value.absent(),
                 Value<String?> customPluralTerminology = const Value.absent(),
+                Value<String?> sharingId = const Value.absent(),
                 Value<bool> frontingRemindersEnabled = const Value.absent(),
                 Value<int> frontingReminderIntervalMinutes =
                     const Value.absent(),
@@ -17478,6 +18655,7 @@ class $$SystemSettingsTableTableTableManager
                 terminology: terminology,
                 customTerminology: customTerminology,
                 customPluralTerminology: customPluralTerminology,
+                sharingId: sharingId,
                 frontingRemindersEnabled: frontingRemindersEnabled,
                 frontingReminderIntervalMinutes:
                     frontingReminderIntervalMinutes,
@@ -17522,6 +18700,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> terminology = const Value.absent(),
                 Value<String?> customTerminology = const Value.absent(),
                 Value<String?> customPluralTerminology = const Value.absent(),
+                Value<String?> sharingId = const Value.absent(),
                 Value<bool> frontingRemindersEnabled = const Value.absent(),
                 Value<int> frontingReminderIntervalMinutes =
                     const Value.absent(),
@@ -17564,6 +18743,7 @@ class $$SystemSettingsTableTableTableManager
                 terminology: terminology,
                 customTerminology: customTerminology,
                 customPluralTerminology: customPluralTerminology,
+                sharingId: sharingId,
                 frontingRemindersEnabled: frontingRemindersEnabled,
                 frontingReminderIntervalMinutes:
                     frontingReminderIntervalMinutes,
@@ -22042,11 +23222,17 @@ typedef $$FriendsTableCreateCompanionBuilder =
     FriendsCompanion Function({
       required String id,
       required String displayName,
+      Value<String?> peerSharingId,
+      Value<Uint8List?> pairwiseSecret,
+      Value<Uint8List?> pinnedIdentity,
+      Value<String> offeredScopes,
       required String publicKeyHex,
       Value<String?> sharedSecretHex,
       Value<String> grantedScopes,
       Value<bool> isVerified,
+      Value<String?> initId,
       required DateTime createdAt,
+      Value<DateTime?> establishedAt,
       Value<DateTime?> lastSyncAt,
       Value<bool> isDeleted,
       Value<int> rowid,
@@ -22055,11 +23241,17 @@ typedef $$FriendsTableUpdateCompanionBuilder =
     FriendsCompanion Function({
       Value<String> id,
       Value<String> displayName,
+      Value<String?> peerSharingId,
+      Value<Uint8List?> pairwiseSecret,
+      Value<Uint8List?> pinnedIdentity,
+      Value<String> offeredScopes,
       Value<String> publicKeyHex,
       Value<String?> sharedSecretHex,
       Value<String> grantedScopes,
       Value<bool> isVerified,
+      Value<String?> initId,
       Value<DateTime> createdAt,
+      Value<DateTime?> establishedAt,
       Value<DateTime?> lastSyncAt,
       Value<bool> isDeleted,
       Value<int> rowid,
@@ -22084,6 +23276,26 @@ class $$FriendsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get peerSharingId => $composableBuilder(
+    column: $table.peerSharingId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get pairwiseSecret => $composableBuilder(
+    column: $table.pairwiseSecret,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get pinnedIdentity => $composableBuilder(
+    column: $table.pinnedIdentity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get offeredScopes => $composableBuilder(
+    column: $table.offeredScopes,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get publicKeyHex => $composableBuilder(
     column: $table.publicKeyHex,
     builder: (column) => ColumnFilters(column),
@@ -22104,8 +23316,18 @@ class $$FriendsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get initId => $composableBuilder(
+    column: $table.initId,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get establishedAt => $composableBuilder(
+    column: $table.establishedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22139,6 +23361,26 @@ class $$FriendsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get peerSharingId => $composableBuilder(
+    column: $table.peerSharingId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get pairwiseSecret => $composableBuilder(
+    column: $table.pairwiseSecret,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get pinnedIdentity => $composableBuilder(
+    column: $table.pinnedIdentity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get offeredScopes => $composableBuilder(
+    column: $table.offeredScopes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get publicKeyHex => $composableBuilder(
     column: $table.publicKeyHex,
     builder: (column) => ColumnOrderings(column),
@@ -22159,8 +23401,18 @@ class $$FriendsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get initId => $composableBuilder(
+    column: $table.initId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get establishedAt => $composableBuilder(
+    column: $table.establishedAt,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -22192,6 +23444,26 @@ class $$FriendsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get peerSharingId => $composableBuilder(
+    column: $table.peerSharingId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get pairwiseSecret => $composableBuilder(
+    column: $table.pairwiseSecret,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get pinnedIdentity => $composableBuilder(
+    column: $table.pinnedIdentity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get offeredScopes => $composableBuilder(
+    column: $table.offeredScopes,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get publicKeyHex => $composableBuilder(
     column: $table.publicKeyHex,
     builder: (column) => column,
@@ -22212,8 +23484,16 @@ class $$FriendsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get initId =>
+      $composableBuilder(column: $table.initId, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get establishedAt => $composableBuilder(
+    column: $table.establishedAt,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get lastSyncAt => $composableBuilder(
     column: $table.lastSyncAt,
@@ -22254,22 +23534,34 @@ class $$FriendsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> displayName = const Value.absent(),
+                Value<String?> peerSharingId = const Value.absent(),
+                Value<Uint8List?> pairwiseSecret = const Value.absent(),
+                Value<Uint8List?> pinnedIdentity = const Value.absent(),
+                Value<String> offeredScopes = const Value.absent(),
                 Value<String> publicKeyHex = const Value.absent(),
                 Value<String?> sharedSecretHex = const Value.absent(),
                 Value<String> grantedScopes = const Value.absent(),
                 Value<bool> isVerified = const Value.absent(),
+                Value<String?> initId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> establishedAt = const Value.absent(),
                 Value<DateTime?> lastSyncAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FriendsCompanion(
                 id: id,
                 displayName: displayName,
+                peerSharingId: peerSharingId,
+                pairwiseSecret: pairwiseSecret,
+                pinnedIdentity: pinnedIdentity,
+                offeredScopes: offeredScopes,
                 publicKeyHex: publicKeyHex,
                 sharedSecretHex: sharedSecretHex,
                 grantedScopes: grantedScopes,
                 isVerified: isVerified,
+                initId: initId,
                 createdAt: createdAt,
+                establishedAt: establishedAt,
                 lastSyncAt: lastSyncAt,
                 isDeleted: isDeleted,
                 rowid: rowid,
@@ -22278,22 +23570,34 @@ class $$FriendsTableTableManager
               ({
                 required String id,
                 required String displayName,
+                Value<String?> peerSharingId = const Value.absent(),
+                Value<Uint8List?> pairwiseSecret = const Value.absent(),
+                Value<Uint8List?> pinnedIdentity = const Value.absent(),
+                Value<String> offeredScopes = const Value.absent(),
                 required String publicKeyHex,
                 Value<String?> sharedSecretHex = const Value.absent(),
                 Value<String> grantedScopes = const Value.absent(),
                 Value<bool> isVerified = const Value.absent(),
+                Value<String?> initId = const Value.absent(),
                 required DateTime createdAt,
+                Value<DateTime?> establishedAt = const Value.absent(),
                 Value<DateTime?> lastSyncAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FriendsCompanion.insert(
                 id: id,
                 displayName: displayName,
+                peerSharingId: peerSharingId,
+                pairwiseSecret: pairwiseSecret,
+                pinnedIdentity: pinnedIdentity,
+                offeredScopes: offeredScopes,
                 publicKeyHex: publicKeyHex,
                 sharedSecretHex: sharedSecretHex,
                 grantedScopes: grantedScopes,
                 isVerified: isVerified,
+                initId: initId,
                 createdAt: createdAt,
+                establishedAt: establishedAt,
                 lastSyncAt: lastSyncAt,
                 isDeleted: isDeleted,
                 rowid: rowid,
@@ -22318,6 +23622,367 @@ typedef $$FriendsTableProcessedTableManager =
       $$FriendsTableUpdateCompanionBuilder,
       (FriendRow, BaseReferences<_$AppDatabase, $FriendsTable, FriendRow>),
       FriendRow,
+      PrefetchHooks Function()
+    >;
+typedef $$SharingRequestsTableCreateCompanionBuilder =
+    SharingRequestsCompanion Function({
+      required String initId,
+      required String senderSharingId,
+      required String displayName,
+      Value<String> offeredScopes,
+      Value<Uint8List?> senderIdentity,
+      Value<Uint8List?> pairwiseSecret,
+      Value<String?> fingerprint,
+      required String trustDecision,
+      Value<String?> errorMessage,
+      Value<bool> isResolved,
+      required DateTime receivedAt,
+      Value<DateTime?> resolvedAt,
+      Value<int> rowid,
+    });
+typedef $$SharingRequestsTableUpdateCompanionBuilder =
+    SharingRequestsCompanion Function({
+      Value<String> initId,
+      Value<String> senderSharingId,
+      Value<String> displayName,
+      Value<String> offeredScopes,
+      Value<Uint8List?> senderIdentity,
+      Value<Uint8List?> pairwiseSecret,
+      Value<String?> fingerprint,
+      Value<String> trustDecision,
+      Value<String?> errorMessage,
+      Value<bool> isResolved,
+      Value<DateTime> receivedAt,
+      Value<DateTime?> resolvedAt,
+      Value<int> rowid,
+    });
+
+class $$SharingRequestsTableFilterComposer
+    extends Composer<_$AppDatabase, $SharingRequestsTable> {
+  $$SharingRequestsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get initId => $composableBuilder(
+    column: $table.initId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderSharingId => $composableBuilder(
+    column: $table.senderSharingId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get offeredScopes => $composableBuilder(
+    column: $table.offeredScopes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get senderIdentity => $composableBuilder(
+    column: $table.senderIdentity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get pairwiseSecret => $composableBuilder(
+    column: $table.pairwiseSecret,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fingerprint => $composableBuilder(
+    column: $table.fingerprint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trustDecision => $composableBuilder(
+    column: $table.trustDecision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isResolved => $composableBuilder(
+    column: $table.isResolved,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SharingRequestsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SharingRequestsTable> {
+  $$SharingRequestsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get initId => $composableBuilder(
+    column: $table.initId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderSharingId => $composableBuilder(
+    column: $table.senderSharingId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get offeredScopes => $composableBuilder(
+    column: $table.offeredScopes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get senderIdentity => $composableBuilder(
+    column: $table.senderIdentity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get pairwiseSecret => $composableBuilder(
+    column: $table.pairwiseSecret,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fingerprint => $composableBuilder(
+    column: $table.fingerprint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get trustDecision => $composableBuilder(
+    column: $table.trustDecision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isResolved => $composableBuilder(
+    column: $table.isResolved,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SharingRequestsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SharingRequestsTable> {
+  $$SharingRequestsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get initId =>
+      $composableBuilder(column: $table.initId, builder: (column) => column);
+
+  GeneratedColumn<String> get senderSharingId => $composableBuilder(
+    column: $table.senderSharingId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get offeredScopes => $composableBuilder(
+    column: $table.offeredScopes,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get senderIdentity => $composableBuilder(
+    column: $table.senderIdentity,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get pairwiseSecret => $composableBuilder(
+    column: $table.pairwiseSecret,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fingerprint => $composableBuilder(
+    column: $table.fingerprint,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get trustDecision => $composableBuilder(
+    column: $table.trustDecision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isResolved => $composableBuilder(
+    column: $table.isResolved,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$SharingRequestsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SharingRequestsTable,
+          SharingRequestRow,
+          $$SharingRequestsTableFilterComposer,
+          $$SharingRequestsTableOrderingComposer,
+          $$SharingRequestsTableAnnotationComposer,
+          $$SharingRequestsTableCreateCompanionBuilder,
+          $$SharingRequestsTableUpdateCompanionBuilder,
+          (
+            SharingRequestRow,
+            BaseReferences<
+              _$AppDatabase,
+              $SharingRequestsTable,
+              SharingRequestRow
+            >,
+          ),
+          SharingRequestRow,
+          PrefetchHooks Function()
+        > {
+  $$SharingRequestsTableTableManager(
+    _$AppDatabase db,
+    $SharingRequestsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SharingRequestsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SharingRequestsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SharingRequestsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> initId = const Value.absent(),
+                Value<String> senderSharingId = const Value.absent(),
+                Value<String> displayName = const Value.absent(),
+                Value<String> offeredScopes = const Value.absent(),
+                Value<Uint8List?> senderIdentity = const Value.absent(),
+                Value<Uint8List?> pairwiseSecret = const Value.absent(),
+                Value<String?> fingerprint = const Value.absent(),
+                Value<String> trustDecision = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<bool> isResolved = const Value.absent(),
+                Value<DateTime> receivedAt = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SharingRequestsCompanion(
+                initId: initId,
+                senderSharingId: senderSharingId,
+                displayName: displayName,
+                offeredScopes: offeredScopes,
+                senderIdentity: senderIdentity,
+                pairwiseSecret: pairwiseSecret,
+                fingerprint: fingerprint,
+                trustDecision: trustDecision,
+                errorMessage: errorMessage,
+                isResolved: isResolved,
+                receivedAt: receivedAt,
+                resolvedAt: resolvedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String initId,
+                required String senderSharingId,
+                required String displayName,
+                Value<String> offeredScopes = const Value.absent(),
+                Value<Uint8List?> senderIdentity = const Value.absent(),
+                Value<Uint8List?> pairwiseSecret = const Value.absent(),
+                Value<String?> fingerprint = const Value.absent(),
+                required String trustDecision,
+                Value<String?> errorMessage = const Value.absent(),
+                Value<bool> isResolved = const Value.absent(),
+                required DateTime receivedAt,
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SharingRequestsCompanion.insert(
+                initId: initId,
+                senderSharingId: senderSharingId,
+                displayName: displayName,
+                offeredScopes: offeredScopes,
+                senderIdentity: senderIdentity,
+                pairwiseSecret: pairwiseSecret,
+                fingerprint: fingerprint,
+                trustDecision: trustDecision,
+                errorMessage: errorMessage,
+                isResolved: isResolved,
+                receivedAt: receivedAt,
+                resolvedAt: resolvedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SharingRequestsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SharingRequestsTable,
+      SharingRequestRow,
+      $$SharingRequestsTableFilterComposer,
+      $$SharingRequestsTableOrderingComposer,
+      $$SharingRequestsTableAnnotationComposer,
+      $$SharingRequestsTableCreateCompanionBuilder,
+      $$SharingRequestsTableUpdateCompanionBuilder,
+      (
+        SharingRequestRow,
+        BaseReferences<_$AppDatabase, $SharingRequestsTable, SharingRequestRow>,
+      ),
+      SharingRequestRow,
       PrefetchHooks Function()
     >;
 
@@ -22371,4 +24036,6 @@ class $AppDatabaseManager {
       $$RemindersTableTableManager(_db, _db.reminders);
   $$FriendsTableTableManager get friends =>
       $$FriendsTableTableManager(_db, _db.friends);
+  $$SharingRequestsTableTableManager get sharingRequests =>
+      $$SharingRequestsTableTableManager(_db, _db.sharingRequests);
 }

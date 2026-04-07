@@ -353,6 +353,8 @@ const _secureStoreKeys = [
   'relay_url',
   'mnemonic',
   'setup_rollback_marker',
+  'sharing_prekey_store',
+  'sharing_id_cache',
 ];
 
 /// Key for persisting the raw DEK in the platform keychain (Signal-style).

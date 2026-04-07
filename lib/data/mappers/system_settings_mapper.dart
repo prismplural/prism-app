@@ -10,6 +10,7 @@ class SystemSettingsMapper {
   static domain.SystemSettings toDomain(SystemSettingsData row) {
     return domain.SystemSettings(
       systemName: row.systemName,
+      sharingId: row.sharingId,
       showQuickFront: row.showQuickFront,
       accentColorHex: row.accentColorHex,
       perMemberAccentColors: row.perMemberAccentColors,
@@ -34,8 +35,9 @@ class SystemSettingsMapper {
       notesEnabled: row.notesEnabled,
       previousAccentColorHex: row.previousAccentColorHex,
       systemDescription: row.systemDescription,
-      systemAvatarData:
-          row.systemAvatarData != null ? Uint8List.fromList(row.systemAvatarData!) : null,
+      systemAvatarData: row.systemAvatarData != null
+          ? Uint8List.fromList(row.systemAvatarData!)
+          : null,
       remindersEnabled: row.remindersEnabled,
       fontScale: row.fontScale,
       fontFamily: domain.FontFamily.values[row.fontFamily],
@@ -50,11 +52,11 @@ class SystemSettingsMapper {
     );
   }
 
-  static SystemSettingsTableCompanion toCompanion(
-      domain.SystemSettings model) {
+  static SystemSettingsTableCompanion toCompanion(domain.SystemSettings model) {
     return SystemSettingsTableCompanion(
       id: const Value('singleton'),
       systemName: Value(model.systemName),
+      sharingId: Value(model.sharingId),
       showQuickFront: Value(model.showQuickFront),
       accentColorHex: Value(model.accentColorHex),
       perMemberAccentColors: Value(model.perMemberAccentColors),
@@ -62,8 +64,9 @@ class SystemSettingsMapper {
       customTerminology: Value(model.customTerminology),
       customPluralTerminology: Value(model.customPluralTerminology),
       frontingRemindersEnabled: Value(model.frontingRemindersEnabled),
-      frontingReminderIntervalMinutes:
-          Value(model.frontingReminderIntervalMinutes),
+      frontingReminderIntervalMinutes: Value(
+        model.frontingReminderIntervalMinutes,
+      ),
       themeMode: Value(model.themeMode.index),
       themeBrightness: Value(model.themeBrightness.index),
       themeStyle: Value(model.themeStyle.index),

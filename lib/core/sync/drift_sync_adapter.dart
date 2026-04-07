@@ -636,6 +636,7 @@ DriftSyncEntity _systemSettingsEntity(
       final r = row as SystemSettingsData;
       return {
         'system_name': r.systemName,
+        'sharing_id': r.sharingId,
         'show_quick_front': r.showQuickFront,
         'accent_color_hex': r.accentColorHex,
         'per_member_accent_colors': r.perMemberAccentColors,
@@ -679,6 +680,7 @@ DriftSyncEntity _systemSettingsEntity(
       final companion = SystemSettingsTableCompanion(
         id: Value(id),
         systemName: f.stringFieldNullable('system_name'),
+        sharingId: f.stringFieldNullable('sharing_id'),
         showQuickFront: f.boolField('show_quick_front'),
         accentColorHex: f.stringField('accent_color_hex'),
         perMemberAccentColors: f.boolField('per_member_accent_colors'),
@@ -732,6 +734,7 @@ DriftSyncEntity _systemSettingsEntity(
       if (row == null) return null;
       return {
         'system_name': row.systemName,
+        'sharing_id': row.sharingId,
         'show_quick_front': row.showQuickFront,
         'accent_color_hex': row.accentColorHex,
         'per_member_accent_colors': row.perMemberAccentColors,
@@ -1726,11 +1729,21 @@ DriftSyncEntity _friendsEntity(
       final r = row as FriendRow;
       return {
         'display_name': r.displayName,
+        'peer_sharing_id': r.peerSharingId,
+        'pairwise_secret': r.pairwiseSecret != null
+            ? base64Encode(r.pairwiseSecret!)
+            : null,
+        'pinned_identity': r.pinnedIdentity != null
+            ? base64Encode(r.pinnedIdentity!)
+            : null,
+        'offered_scopes': r.offeredScopes,
         'public_key_hex': r.publicKeyHex,
         'shared_secret_hex': r.sharedSecretHex,
         'granted_scopes': r.grantedScopes,
         'is_verified': r.isVerified,
+        'init_id': r.initId,
         'created_at': r.createdAt.toIso8601String(),
+        'established_at': r.establishedAt?.toIso8601String(),
         'last_sync_at': r.lastSyncAt?.toIso8601String(),
         'is_deleted': r.isDeleted,
       };
@@ -1746,11 +1759,17 @@ DriftSyncEntity _friendsEntity(
       final companion = FriendsCompanion(
         id: Value(id),
         displayName: f.stringField('display_name'),
+        peerSharingId: f.stringFieldNullable('peer_sharing_id'),
+        pairwiseSecret: f.blobFieldNullable('pairwise_secret'),
+        pinnedIdentity: f.blobFieldNullable('pinned_identity'),
+        offeredScopes: f.stringField('offered_scopes'),
         publicKeyHex: f.stringField('public_key_hex'),
         sharedSecretHex: f.stringFieldNullable('shared_secret_hex'),
         grantedScopes: f.stringField('granted_scopes'),
         isVerified: f.boolField('is_verified'),
+        initId: f.stringFieldNullable('init_id'),
         createdAt: f.dateTimeField('created_at'),
+        establishedAt: f.dateTimeFieldNullable('established_at'),
         lastSyncAt: f.dateTimeFieldNullable('last_sync_at'),
         isDeleted: f.boolField('is_deleted'),
       );
@@ -1766,11 +1785,21 @@ DriftSyncEntity _friendsEntity(
       if (row == null) return null;
       return {
         'display_name': row.displayName,
+        'peer_sharing_id': row.peerSharingId,
+        'pairwise_secret': row.pairwiseSecret != null
+            ? base64Encode(row.pairwiseSecret!)
+            : null,
+        'pinned_identity': row.pinnedIdentity != null
+            ? base64Encode(row.pinnedIdentity!)
+            : null,
+        'offered_scopes': row.offeredScopes,
         'public_key_hex': row.publicKeyHex,
         'shared_secret_hex': row.sharedSecretHex,
         'granted_scopes': row.grantedScopes,
         'is_verified': row.isVerified,
+        'init_id': row.initId,
         'created_at': row.createdAt.toIso8601String(),
+        'established_at': row.establishedAt?.toIso8601String(),
         'last_sync_at': row.lastSyncAt?.toIso8601String(),
         'is_deleted': row.isDeleted,
       };

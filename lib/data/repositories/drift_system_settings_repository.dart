@@ -38,7 +38,10 @@ class DriftSystemSettingsRepository
     final companion = SystemSettingsMapper.toCompanion(settings);
     await _dao.upsertSettings(companion);
     await syncRecordUpdate(
-        _table, _settingsEntityId, _settingsFields(settings));
+      _table,
+      _settingsEntityId,
+      _settingsFields(settings),
+    );
   }
 
   // --- Field-level updates ---
@@ -49,6 +52,12 @@ class DriftSystemSettingsRepository
   Future<void> updateSystemName(String? name) async {
     await _dao.updateSystemName(name);
     await _syncField('system_name', name);
+  }
+
+  @override
+  Future<void> updateSharingId(String? sharingId) async {
+    await _dao.updateSharingId(sharingId);
+    await _syncField('sharing_id', sharingId);
   }
 
   @override
@@ -348,8 +357,7 @@ class DriftSystemSettingsRepository
       syncRecordUpdate(_table, _settingsEntityId, {fieldName: value});
 
   /// Sync a field only if theme sync is enabled.
-  Future<void> _syncFieldIfThemeEnabled(
-      String fieldName, dynamic value) async {
+  Future<void> _syncFieldIfThemeEnabled(String fieldName, dynamic value) async {
     final settings = await getSettings();
     if (settings.syncThemeEnabled) {
       await _syncField(fieldName, value);
@@ -357,8 +365,7 @@ class DriftSystemSettingsRepository
   }
 
   /// Sync a field only if navigation sync is enabled.
-  Future<void> _syncFieldIfNavEnabled(
-      String fieldName, dynamic value) async {
+  Future<void> _syncFieldIfNavEnabled(String fieldName, dynamic value) async {
     final settings = await getSettings();
     if (settings.syncNavigationEnabled) {
       await _syncField(fieldName, value);
@@ -368,6 +375,7 @@ class DriftSystemSettingsRepository
   Map<String, dynamic> _settingsFields(domain.SystemSettings s) {
     return {
       'system_name': s.systemName,
+      'sharing_id': s.sharingId,
       'show_quick_front': s.showQuickFront,
       'accent_color_hex': s.accentColorHex,
       'per_member_accent_colors': s.perMemberAccentColors,
@@ -390,15 +398,18 @@ class DriftSystemSettingsRepository
       'timing_mode': s.timingMode.index,
       'notes_enabled': s.notesEnabled,
       'system_description': s.systemDescription,
-      'system_avatar_data':
-          s.systemAvatarData != null ? base64Encode(s.systemAvatarData!) : null,
+      'system_avatar_data': s.systemAvatarData != null
+          ? base64Encode(s.systemAvatarData!)
+          : null,
       'reminders_enabled': s.remindersEnabled,
       'sync_navigation_enabled': s.syncNavigationEnabled,
       'nav_bar_items': SystemSettingsMapper.encodeNavBarItems(s.navBarItems),
-      'nav_bar_overflow_items':
-          SystemSettingsMapper.encodeNavBarItems(s.navBarOverflowItems),
-      'chat_badge_preferences':
-          SystemSettingsMapper.encodeBadgePrefs(s.chatBadgePreferences),
+      'nav_bar_overflow_items': SystemSettingsMapper.encodeNavBarItems(
+        s.navBarOverflowItems,
+      ),
+      'chat_badge_preferences': SystemSettingsMapper.encodeBadgePrefs(
+        s.chatBadgePreferences,
+      ),
       'is_deleted': false,
     };
   }
