@@ -212,6 +212,7 @@ class _SessionTile extends ConsumerWidget {
     Haptics.heavy();
     final changes = resolutionService.computeDeleteChanges(deleteCtx, strategy);
     await changeExecutor.execute(changes);
+    invalidateFrontingProviders(ref);
 
     triggerPostEditRescan(
       ref,

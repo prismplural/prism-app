@@ -115,6 +115,7 @@ class SessionDetailScreen extends ConsumerWidget {
     Haptics.heavy();
     final changes = resolutionService.computeDeleteChanges(deleteCtx, strategy);
     await changeExecutor.execute(changes);
+    invalidateFrontingProviders(ref);
 
     // Fire-and-forget rescan to update the issue banner
     triggerPostEditRescan(ref, sessionStart: session.startTime, sessionEnd: session.endTime);

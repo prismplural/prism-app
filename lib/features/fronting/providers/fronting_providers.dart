@@ -71,6 +71,15 @@ final frontingMutationServiceProvider = Provider<FrontingMutationService>((
   );
 });
 
+/// Invalidates providers that depend on active fronting session state.
+/// Call this after any mutation that changes which sessions are active or
+/// modifies session member IDs (e.g. via [FrontingChangeExecutor]).
+void invalidateFrontingProviders(WidgetRef ref) {
+  ref.invalidate(activeSessionProvider);
+  ref.invalidate(activeSessionsProvider);
+  ref.invalidate(memberFrontingCountsProvider);
+}
+
 /// Fronting service for actions (start/end/switch sessions).
 class FrontingNotifier extends Notifier<void> {
   @override

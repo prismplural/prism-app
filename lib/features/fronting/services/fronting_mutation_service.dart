@@ -145,6 +145,14 @@ class FrontingMutationService {
                 'No active fronting session to correct.',
               );
             }
+            // End any other active sessions (e.g. from sync) to avoid
+            // multiple active sessions co-existing after the correction.
+            final now = DateTime.now();
+            for (final session in activeSessions) {
+              if (session.id != activeSession.id) {
+                await _repository.endSession(session.id, now);
+              }
+            }
             final corrected = activeSession.copyWith(memberId: newMemberId);
             await _repository.updateSession(corrected);
             return FrontingMutationResult(
