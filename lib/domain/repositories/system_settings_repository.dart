@@ -11,6 +11,7 @@ abstract class SystemSettingsRepository {
 
   // Text fields
   Future<void> updateSystemName(String? name);
+  Future<void> updateSharingId(String? sharingId);
   Future<void> updateAccentColorHex(String hex);
   Future<void> updateCustomTerminology(String? value);
   Future<void> updateCustomPluralTerminology(String? value);

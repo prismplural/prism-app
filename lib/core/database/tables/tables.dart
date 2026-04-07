@@ -20,3 +20,4 @@ export 'front_session_comments_table.dart';
 export 'conversation_categories_table.dart';
 export 'reminders_table.dart';
 export 'friends_table.dart';
+export 'sharing_requests_table.dart';

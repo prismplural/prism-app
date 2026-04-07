@@ -10,6 +10,7 @@ _SystemSettings _$SystemSettingsFromJson(
   Map<String, dynamic> json,
 ) => _SystemSettings(
   systemName: json['systemName'] as String?,
+  sharingId: json['sharingId'] as String?,
   showQuickFront: json['showQuickFront'] as bool? ?? true,
   accentColorHex: json['accentColorHex'] as String? ?? '#AF8EE9',
   perMemberAccentColors: json['perMemberAccentColors'] as bool? ?? true,
@@ -78,6 +79,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   _SystemSettings instance,
 ) => <String, dynamic>{
   'systemName': instance.systemName,
+  'sharingId': instance.sharingId,
   'showQuickFront': instance.showQuickFront,
   'accentColorHex': instance.accentColorHex,
   'perMemberAccentColors': instance.perMemberAccentColors,

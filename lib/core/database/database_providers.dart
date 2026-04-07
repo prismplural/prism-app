@@ -35,6 +35,7 @@ import 'package:prism_plurality/core/database/daos/front_session_comments_dao.da
 import 'package:prism_plurality/core/database/daos/conversation_categories_dao.dart';
 import 'package:prism_plurality/core/database/daos/reminders_dao.dart';
 import 'package:prism_plurality/core/database/daos/friends_dao.dart';
+import 'package:prism_plurality/core/database/daos/sharing_requests_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_custom_fields_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_notes_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_front_session_comments_repository.dart';
@@ -216,6 +217,10 @@ final remindersRepositoryProvider = Provider<RemindersRepository>(
 
 final friendsDaoProvider = Provider<FriendsDao>(
   (ref) => ref.watch(databaseProvider).friendsDao,
+);
+
+final sharingRequestsDaoProvider = Provider<SharingRequestsDao>(
+  (ref) => ref.watch(databaseProvider).sharingRequestsDao,
 );
 
 final friendsRepositoryProvider = Provider<FriendsRepository>(

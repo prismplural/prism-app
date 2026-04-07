@@ -14,23 +14,22 @@ class SystemSettingsTable extends Table {
       integer().withDefault(const Constant(0))(); // enum index
   TextColumn get customTerminology => text().nullable()();
   TextColumn get customPluralTerminology => text().nullable()();
+  TextColumn get sharingId => text().nullable()();
   BoolColumn get frontingRemindersEnabled =>
       boolean().withDefault(const Constant(false))();
   IntColumn get frontingReminderIntervalMinutes =>
       integer().withDefault(const Constant(60))();
-  IntColumn get themeMode =>
-      integer().withDefault(const Constant(0))(); // AppThemeMode enum index (legacy)
+  IntColumn get themeMode => integer().withDefault(
+    const Constant(0),
+  )(); // AppThemeMode enum index (legacy)
   IntColumn get themeBrightness =>
       integer().withDefault(const Constant(0))(); // ThemeBrightness enum index
   IntColumn get themeStyle =>
       integer().withDefault(const Constant(0))(); // ThemeStyle enum index
   // Feature toggles
-  BoolColumn get chatEnabled =>
-      boolean().withDefault(const Constant(true))();
-  BoolColumn get pollsEnabled =>
-      boolean().withDefault(const Constant(true))();
-  BoolColumn get habitsEnabled =>
-      boolean().withDefault(const Constant(true))();
+  BoolColumn get chatEnabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get pollsEnabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get habitsEnabled => boolean().withDefault(const Constant(true))();
   BoolColumn get sleepTrackingEnabled =>
       boolean().withDefault(const Constant(true))();
   // Quick-switch correction
@@ -46,13 +45,14 @@ class SystemSettingsTable extends Table {
   BoolColumn get syncThemeEnabled =>
       boolean().withDefault(const Constant(false))();
   // Fronting timing mode (synced — system-level decision)
-  IntColumn get timingMode => integer().withDefault(const Constant(0))(); // FrontingTimingMode enum index
+  IntColumn get timingMode => integer().withDefault(
+    const Constant(0),
+  )(); // FrontingTimingMode enum index
   // Habits badge (local-only, not synced)
   BoolColumn get habitsBadgeEnabled =>
       boolean().withDefault(const Constant(true))();
   // Notes feature toggle
-  BoolColumn get notesEnabled =>
-      boolean().withDefault(const Constant(true))();
+  BoolColumn get notesEnabled => boolean().withDefault(const Constant(true))();
   // Phase 3: Synced settings
   TextColumn get systemDescription => text().nullable()();
   BlobColumn get systemAvatarData => blob().nullable()();
@@ -60,7 +60,8 @@ class SystemSettingsTable extends Table {
       boolean().withDefault(const Constant(true))();
   // Phase 3: Device-local settings
   RealColumn get fontScale => real().withDefault(const Constant(1.0))();
-  IntColumn get fontFamily => integer().withDefault(const Constant(0))(); // FontFamily enum index
+  IntColumn get fontFamily =>
+      integer().withDefault(const Constant(0))(); // FontFamily enum index
   BoolColumn get pinLockEnabled =>
       boolean().withDefault(const Constant(false))();
   BoolColumn get biometricLockEnabled =>
@@ -72,10 +73,12 @@ class SystemSettingsTable extends Table {
       boolean().withDefault(const Constant(true))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
   // Stores the user's accent color before switching to Material You
-  TextColumn get previousAccentColorHex => text().withDefault(const Constant(''))();
+  TextColumn get previousAccentColorHex =>
+      text().withDefault(const Constant(''))();
   // Device-local nav bar configuration (JSON-encoded list of tab IDs)
   TextColumn get navBarItems => text().withDefault(const Constant(''))();
-  TextColumn get navBarOverflowItems => text().withDefault(const Constant(''))();
+  TextColumn get navBarOverflowItems =>
+      text().withDefault(const Constant(''))();
   BoolColumn get syncNavigationEnabled =>
       boolean().withDefault(const Constant(true))();
   // Chat badge preferences — JSON map of memberId → 'all' | 'mentions_only'

@@ -124,6 +124,7 @@ enum SystemTerminology {
 abstract class SystemSettings with _$SystemSettings {
   const factory SystemSettings({
     String? systemName,
+    String? sharingId,
     @Default(true) bool showQuickFront,
     @Default('#AF8EE9') String accentColorHex,
     @Default(true) bool perMemberAccentColors,

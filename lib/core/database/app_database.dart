@@ -17,6 +17,7 @@ import 'package:prism_plurality/core/database/daos/front_session_comments_dao.da
 import 'package:prism_plurality/core/database/daos/conversation_categories_dao.dart';
 import 'package:prism_plurality/core/database/daos/reminders_dao.dart';
 import 'package:prism_plurality/core/database/daos/friends_dao.dart';
+import 'package:prism_plurality/core/database/daos/sharing_requests_dao.dart';
 import 'package:prism_plurality/core/database/tables/tables.dart';
 
 part 'app_database.g.dart';
@@ -45,6 +46,7 @@ part 'app_database.g.dart';
     ConversationCategories,
     Reminders,
     Friends,
+    SharingRequests,
   ],
   daos: [
     MembersDao,
@@ -65,13 +67,14 @@ part 'app_database.g.dart';
     ConversationCategoriesDao,
     RemindersDao,
     FriendsDao,
+    SharingRequestsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 33;
+  int get schemaVersion => 34;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -96,6 +99,33 @@ class AppDatabase extends _$AppDatabase {
       }
 
       if (from < 33) {
+        await _createCurrentIndexes();
+      }
+
+      if (from < 34) {
+        await customStatement(
+          'ALTER TABLE system_settings ADD COLUMN sharing_id TEXT',
+        );
+        await customStatement(
+          'ALTER TABLE friends ADD COLUMN peer_sharing_id TEXT',
+        );
+        await customStatement(
+          'ALTER TABLE friends ADD COLUMN pairwise_secret BLOB',
+        );
+        await customStatement(
+          'ALTER TABLE friends ADD COLUMN pinned_identity BLOB',
+        );
+        await customStatement(
+          "ALTER TABLE friends ADD COLUMN offered_scopes TEXT NOT NULL DEFAULT '[]'",
+        );
+        await customStatement('ALTER TABLE friends ADD COLUMN init_id TEXT');
+        await customStatement(
+          'ALTER TABLE friends ADD COLUMN established_at INTEGER',
+        );
+        await customStatement(
+          'UPDATE friends SET established_at = created_at WHERE established_at IS NULL',
+        );
+        await migrator.createTable(sharingRequests);
         await _createCurrentIndexes();
       }
     },
@@ -203,6 +233,14 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_friends_deleted '
       'ON friends (is_deleted)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_friends_peer_sharing '
+      'ON friends (peer_sharing_id, is_deleted)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_sharing_requests_resolved_received '
+      'ON sharing_requests (is_resolved, received_at DESC)',
     );
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_custom_field_values_member '

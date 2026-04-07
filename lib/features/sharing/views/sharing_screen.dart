@@ -3,75 +3,358 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/sharing/friend.dart';
+import 'package:prism_plurality/core/sharing/pending_sharing_request.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
+import 'package:prism_plurality/core/sharing/sharing_service.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/features/sharing/views/accept_invite_sheet.dart';
 import 'package:prism_plurality/features/sharing/views/create_invite_sheet.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-/// Main sharing screen showing the friends list and invite controls.
-class SharingScreen extends ConsumerWidget {
+/// Main sharing screen showing pending requests and established relationships.
+class SharingScreen extends ConsumerStatefulWidget {
   const SharingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SharingScreen> createState() => _SharingScreenState();
+}
+
+class _SharingScreenState extends ConsumerState<SharingScreen> {
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshInbox(showNoopToast: false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final friends = ref.watch(friendsProvider);
+    final pendingAsync = ref.watch(pendingSharingRequestsProvider);
+    final pending = pendingAsync.value ?? const <PendingSharingRequest>[];
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
         title: 'Sharing',
         showBackButton: true,
-        trailing: PrismTopBarAction(
-          icon: AppIcons.personAdd,
-          tooltip: 'Create invite',
-          onPressed: () => _showCreateInvite(context),
-        ),
+        actions: [
+          PrismTopBarAction(
+            icon: AppIcons.refresh,
+            tooltip: 'Refresh inbox',
+            onPressed: _refreshing
+                ? null
+                : () => _refreshInbox(showNoopToast: true),
+          ),
+          PrismTopBarAction(
+            icon: AppIcons.paste,
+            tooltip: 'Use sharing code',
+            onPressed: () => _showUseInvite(context),
+          ),
+          PrismTopBarAction(
+            icon: AppIcons.personAdd,
+            tooltip: 'Share your code',
+            onPressed: () => _showCreateInvite(context),
+          ),
+        ],
       ),
       bodyPadding: EdgeInsets.zero,
-      body: friends.isEmpty
-          ? _EmptyState(onCreateInvite: () => _showCreateInvite(context))
-          : ListView.builder(
-              padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-              itemCount: friends.length,
-              itemBuilder: (context, index) => _FriendTile(
-                friend: friends[index],
-                onTap: () => context.go(
-                  '/settings/sharing/${friends[index].id}',
-                ),
-                onDelete: () => _confirmDelete(context, ref, friends[index]),
+      body: pendingAsync.isLoading && friends.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: () => _refreshInbox(showNoopToast: false),
+              child: ListView(
+                padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+                children: [
+                  if (pending.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'Pending Requests',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...pending.map(
+                      (request) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
+                        child: _PendingRequestCard(
+                          request: request,
+                          onAccept: request.canAccept
+                              ? () => _acceptRequest(request)
+                              : null,
+                          onDismiss: () => _dismissRequest(request),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (friends.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'Trusted People',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...friends.map(
+                      (friend) => _FriendTile(
+                        friend: friend,
+                        onTap: () =>
+                            context.go('/settings/sharing/${friend.id}'),
+                        onDelete: () => _confirmDelete(context, friend),
+                      ),
+                    ),
+                  ],
+                  if (friends.isEmpty && pending.isEmpty)
+                    _EmptyState(
+                      onCreateInvite: () => _showCreateInvite(context),
+                      onUseInvite: () => _showUseInvite(context),
+                    ),
+                ],
               ),
             ),
     );
   }
 
-  void _showCreateInvite(BuildContext context) {
-    PrismSheet.showFullScreen(
+  Future<void> _showCreateInvite(BuildContext context) async {
+    await PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => CreateInviteSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          CreateInviteSheet(scrollController: scrollController),
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Friend friend) async {
+  Future<void> _showUseInvite(BuildContext context) async {
+    final result = await PrismSheet.showFullScreen<bool>(
+      context: context,
+      builder: (context, _) => const AcceptInviteSheet(),
+    );
+    if (result == true && context.mounted) {
+      PrismToast.show(
+        context,
+        message:
+            'Sharing request sent. They will see it the next time they check sharing.',
+      );
+    }
+  }
+
+  Future<void> _refreshInbox({required bool showNoopToast}) async {
+    if (_refreshing) return;
+    final sharingService = ref.read(sharingServiceProvider);
+    if (sharingService == null) {
+      if (mounted) {
+        PrismToast.error(context, message: 'Sync is not configured');
+      }
+      return;
+    }
+
+    setState(() {
+      _refreshing = true;
+    });
+    try {
+      final result = await sharingService.refreshPendingRequests();
+      if (!mounted) return;
+      if (result.hasUpdates) {
+        PrismToast.show(context, message: _refreshSummary(result));
+      } else if (showNoopToast) {
+        PrismToast.show(context, message: 'No new sharing requests');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      PrismToast.error(context, message: 'Unable to refresh sharing inbox');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _refreshing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _acceptRequest(PendingSharingRequest request) async {
+    final sharingService = ref.read(sharingServiceProvider);
+    if (sharingService == null) return;
+
+    try {
+      await sharingService.acceptPendingRequest(request.initId);
+      if (!mounted) return;
+      PrismToast.show(context, message: 'Sharing request accepted');
+    } catch (e) {
+      if (!mounted) return;
+      PrismToast.error(context, message: 'Unable to accept request');
+    }
+  }
+
+  Future<void> _dismissRequest(PendingSharingRequest request) async {
+    final sharingService = ref.read(sharingServiceProvider);
+    if (sharingService == null) return;
+
+    await sharingService.rejectPendingRequest(request.initId);
+    if (!mounted) return;
+    PrismToast.show(context, message: 'Request dismissed');
+  }
+
+  Future<void> _confirmDelete(BuildContext context, Friend friend) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Remove friend',
-      message: 'Remove ${friend.displayName} and revoke their access? '
-          'This cannot be undone.',
+      title: 'Remove relationship',
+      message:
+          'Remove ${friend.displayName} and revoke their access? This cannot be undone.',
       confirmLabel: 'Remove',
       destructive: true,
     );
     if (confirmed) {
       ref.read(friendsProvider.notifier).removeFriend(friend.id);
     }
+  }
+
+  String _refreshSummary(SharingInboxRefreshResult result) {
+    final parts = <String>[];
+    if (result.accepted > 0) {
+      parts.add('${result.accepted} accepted');
+    }
+    if (result.warned > 0) {
+      parts.add('${result.warned} need review');
+    }
+    if (result.blocked > 0) {
+      parts.add('${result.blocked} blocked');
+    }
+    if (result.errored > 0) {
+      parts.add('${result.errored} failed');
+    }
+    return parts.join(', ');
+  }
+}
+
+class _PendingRequestCard extends StatelessWidget {
+  const _PendingRequestCard({
+    required this.request,
+    required this.onDismiss,
+    this.onAccept,
+  });
+
+  final PendingSharingRequest request;
+  final VoidCallback onDismiss;
+  final VoidCallback? onAccept;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final warningTone =
+        request.trustDecision == PendingSharingTrustDecision.blockKeyChange;
+
+    return PrismSurface(
+      padding: const EdgeInsets.all(16),
+      fillColor: warningTone
+          ? theme.colorScheme.errorContainer
+          : theme.colorScheme.surface,
+      borderColor: warningTone
+          ? theme.colorScheme.error.withValues(alpha: 0.2)
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                warningTone ? AppIcons.warningAmber : AppIcons.personAdd,
+                color: warningTone ? theme.colorScheme.error : null,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  request.displayName,
+                  style: theme.textTheme.titleSmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            request.trustDecision.title,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: warningTone ? theme.colorScheme.error : null,
+            ),
+          ),
+          if (request.fingerprint != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Fingerprint: ${request.fingerprint}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+          if (request.errorMessage != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              request.errorMessage!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ],
+          if (request.offeredScopes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              request.offeredScopes
+                  .map((scope) => scope.displayName)
+                  .join(', '),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: PrismButton(
+                  label: request.canAccept ? 'Ignore' : 'Dismiss',
+                  onPressed: onDismiss,
+                  tone: PrismButtonTone.subtle,
+                ),
+              ),
+              if (request.canAccept) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: PrismButton(
+                    label: 'Accept',
+                    onPressed: onAccept ?? () {},
+                    enabled: onAccept != null,
+                    tone: PrismButtonTone.filled,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -91,8 +374,8 @@ class _FriendTile extends StatelessWidget {
     final theme = Theme.of(context);
     final highestScope = friend.grantedScopes.isNotEmpty
         ? (friend.grantedScopes.toList()
-              ..sort((a, b) => b.index.compareTo(a.index)))
-            .first
+                ..sort((a, b) => b.index.compareTo(a.index)))
+              .first
         : null;
 
     return Dismissible(
@@ -100,7 +383,7 @@ class _FriendTile extends StatelessWidget {
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async {
         onDelete();
-        return false; // Dialog handles removal
+        return false;
       },
       background: Container(
         alignment: Alignment.centerRight,
@@ -158,9 +441,10 @@ class _FriendTile extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onCreateInvite});
+  const _EmptyState({required this.onCreateInvite, required this.onUseInvite});
 
   final VoidCallback onCreateInvite;
+  final VoidCallback onUseInvite;
 
   @override
   Widget build(BuildContext context) {
@@ -179,15 +463,14 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No friends yet',
+              'No sharing relationships yet',
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Create an invite to share your system info '
-              'with trusted friends.',
+              'Share your code so someone can send you a request, or use someone else\'s code to connect.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -195,10 +478,17 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             PrismButton(
-              label: 'Create Invite',
+              label: 'Share My Code',
               icon: AppIcons.personAdd,
               onPressed: onCreateInvite,
               tone: PrismButtonTone.filled,
+            ),
+            const SizedBox(height: 12),
+            PrismButton(
+              label: 'Use a Code',
+              icon: AppIcons.paste,
+              onPressed: onUseInvite,
+              tone: PrismButtonTone.subtle,
             ),
           ],
         ),
