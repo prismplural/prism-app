@@ -86,6 +86,13 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
   }
 
   @override
+  Stream<List<domain.HabitCompletion>> watchAllCompletions() {
+    return _dao.watchAllCompletions().map(
+      (rows) => rows.map(HabitCompletionMapper.toDomain).toList(),
+    );
+  }
+
+  @override
   Stream<List<domain.HabitCompletion>> watchCompletionsForHabit(
     String habitId,
   ) {
@@ -112,7 +119,9 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
 
   @override
   Stream<List<domain.HabitCompletion>> watchCompletionsForDateRange(
-      DateTime start, DateTime end) {
+    DateTime start,
+    DateTime end,
+  ) {
     return _dao
         .watchCompletionsForDateRange(start, end)
         .map((rows) => rows.map(HabitCompletionMapper.toDomain).toList());
@@ -122,7 +131,11 @@ class DriftHabitRepository with SyncRecordMixin implements HabitRepository {
   Future<void> createCompletion(domain.HabitCompletion completion) async {
     final companion = HabitCompletionMapper.toCompanion(completion);
     await _dao.createCompletion(companion);
-    await syncRecordCreate(_completionTable, completion.id, _completionFields(completion));
+    await syncRecordCreate(
+      _completionTable,
+      completion.id,
+      _completionFields(completion),
+    );
   }
 
   @override

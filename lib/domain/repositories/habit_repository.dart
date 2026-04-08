@@ -12,13 +12,17 @@ abstract class HabitRepository {
   Future<void> deleteHabit(String id);
 
   Future<List<domain.HabitCompletion>> getAllCompletions();
+  Stream<List<domain.HabitCompletion>> watchAllCompletions();
   Stream<List<domain.HabitCompletion>> watchCompletionsForHabit(String habitId);
   Future<List<domain.HabitCompletion>> getCompletionsForHabit(
     String habitId, {
     DateTime? since,
   });
   Stream<List<domain.HabitCompletion>> watchCompletionsForDate(DateTime date);
-  Stream<List<domain.HabitCompletion>> watchCompletionsForDateRange(DateTime start, DateTime end);
+  Stream<List<domain.HabitCompletion>> watchCompletionsForDateRange(
+    DateTime start,
+    DateTime end,
+  );
   Future<void> createCompletion(domain.HabitCompletion completion);
   Future<void> deleteCompletion(String id);
 }
