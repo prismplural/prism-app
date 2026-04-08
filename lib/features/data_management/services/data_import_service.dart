@@ -537,6 +537,7 @@ class DataImportService {
             habitsEnabled: s.habitsEnabled,
             sleepTrackingEnabled: s.sleepTrackingEnabled,
             quickSwitchThresholdSeconds: s.quickSwitchThresholdSeconds,
+            identityGeneration: s.identityGeneration,
             chatLogsFront: s.chatLogsFront,
             hasCompletedOnboarding: preserveImportedOnboardingState
                 ? s.hasCompletedOnboarding

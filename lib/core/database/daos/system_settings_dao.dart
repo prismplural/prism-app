@@ -191,6 +191,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(quickSwitchThresholdSeconds: Value(value)),
   );
 
+  Future<void> updateIdentityGeneration(int value) => _updateField(
+    SystemSettingsTableCompanion(identityGeneration: Value(value)),
+  );
+
   // --- Multi-field updates ---
 
   Future<void> updateTerminologyFields({

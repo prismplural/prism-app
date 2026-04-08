@@ -3647,6 +3647,17 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         requiredDuringInsert: false,
         defaultValue: const Constant(30),
       );
+  static const VerificationMeta _identityGenerationMeta =
+      const VerificationMeta('identityGeneration');
+  @override
+  late final GeneratedColumn<int> identityGeneration = GeneratedColumn<int>(
+    'identity_generation',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _chatLogsFrontMeta = const VerificationMeta(
     'chatLogsFront',
   );
@@ -3949,6 +3960,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     habitsEnabled,
     sleepTrackingEnabled,
     quickSwitchThresholdSeconds,
+    identityGeneration,
     chatLogsFront,
     hasCompletedOnboarding,
     syncThemeEnabled,
@@ -4133,6 +4145,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         quickSwitchThresholdSeconds.isAcceptableOrUnknown(
           data['quick_switch_threshold_seconds']!,
           _quickSwitchThresholdSecondsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('identity_generation')) {
+      context.handle(
+        _identityGenerationMeta,
+        identityGeneration.isAcceptableOrUnknown(
+          data['identity_generation']!,
+          _identityGenerationMeta,
         ),
       );
     }
@@ -4398,6 +4419,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}quick_switch_threshold_seconds'],
       )!,
+      identityGeneration: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}identity_generation'],
+      )!,
       chatLogsFront: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}chat_logs_front'],
@@ -4512,6 +4537,7 @@ class SystemSettingsData extends DataClass
   final bool habitsEnabled;
   final bool sleepTrackingEnabled;
   final int quickSwitchThresholdSeconds;
+  final int identityGeneration;
   final bool chatLogsFront;
   final bool hasCompletedOnboarding;
   final bool syncThemeEnabled;
@@ -4553,6 +4579,7 @@ class SystemSettingsData extends DataClass
     required this.habitsEnabled,
     required this.sleepTrackingEnabled,
     required this.quickSwitchThresholdSeconds,
+    required this.identityGeneration,
     required this.chatLogsFront,
     required this.hasCompletedOnboarding,
     required this.syncThemeEnabled,
@@ -4613,6 +4640,7 @@ class SystemSettingsData extends DataClass
     map['quick_switch_threshold_seconds'] = Variable<int>(
       quickSwitchThresholdSeconds,
     );
+    map['identity_generation'] = Variable<int>(identityGeneration);
     map['chat_logs_front'] = Variable<bool>(chatLogsFront);
     map['has_completed_onboarding'] = Variable<bool>(hasCompletedOnboarding);
     map['sync_theme_enabled'] = Variable<bool>(syncThemeEnabled);
@@ -4670,6 +4698,7 @@ class SystemSettingsData extends DataClass
       habitsEnabled: Value(habitsEnabled),
       sleepTrackingEnabled: Value(sleepTrackingEnabled),
       quickSwitchThresholdSeconds: Value(quickSwitchThresholdSeconds),
+      identityGeneration: Value(identityGeneration),
       chatLogsFront: Value(chatLogsFront),
       hasCompletedOnboarding: Value(hasCompletedOnboarding),
       syncThemeEnabled: Value(syncThemeEnabled),
@@ -4737,6 +4766,7 @@ class SystemSettingsData extends DataClass
       quickSwitchThresholdSeconds: serializer.fromJson<int>(
         json['quickSwitchThresholdSeconds'],
       ),
+      identityGeneration: serializer.fromJson<int>(json['identityGeneration']),
       chatLogsFront: serializer.fromJson<bool>(json['chatLogsFront']),
       hasCompletedOnboarding: serializer.fromJson<bool>(
         json['hasCompletedOnboarding'],
@@ -4811,6 +4841,7 @@ class SystemSettingsData extends DataClass
       'quickSwitchThresholdSeconds': serializer.toJson<int>(
         quickSwitchThresholdSeconds,
       ),
+      'identityGeneration': serializer.toJson<int>(identityGeneration),
       'chatLogsFront': serializer.toJson<bool>(chatLogsFront),
       'hasCompletedOnboarding': serializer.toJson<bool>(hasCompletedOnboarding),
       'syncThemeEnabled': serializer.toJson<bool>(syncThemeEnabled),
@@ -4857,6 +4888,7 @@ class SystemSettingsData extends DataClass
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
     int? quickSwitchThresholdSeconds,
+    int? identityGeneration,
     bool? chatLogsFront,
     bool? hasCompletedOnboarding,
     bool? syncThemeEnabled,
@@ -4905,6 +4937,7 @@ class SystemSettingsData extends DataClass
     sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
     quickSwitchThresholdSeconds:
         quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
+    identityGeneration: identityGeneration ?? this.identityGeneration,
     chatLogsFront: chatLogsFront ?? this.chatLogsFront,
     hasCompletedOnboarding:
         hasCompletedOnboarding ?? this.hasCompletedOnboarding,
@@ -4987,6 +5020,9 @@ class SystemSettingsData extends DataClass
       quickSwitchThresholdSeconds: data.quickSwitchThresholdSeconds.present
           ? data.quickSwitchThresholdSeconds.value
           : this.quickSwitchThresholdSeconds,
+      identityGeneration: data.identityGeneration.present
+          ? data.identityGeneration.value
+          : this.identityGeneration,
       chatLogsFront: data.chatLogsFront.present
           ? data.chatLogsFront.value
           : this.chatLogsFront,
@@ -5073,6 +5109,7 @@ class SystemSettingsData extends DataClass
           ..write('habitsEnabled: $habitsEnabled, ')
           ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
           ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
+          ..write('identityGeneration: $identityGeneration, ')
           ..write('chatLogsFront: $chatLogsFront, ')
           ..write('hasCompletedOnboarding: $hasCompletedOnboarding, ')
           ..write('syncThemeEnabled: $syncThemeEnabled, ')
@@ -5119,6 +5156,7 @@ class SystemSettingsData extends DataClass
     habitsEnabled,
     sleepTrackingEnabled,
     quickSwitchThresholdSeconds,
+    identityGeneration,
     chatLogsFront,
     hasCompletedOnboarding,
     syncThemeEnabled,
@@ -5166,6 +5204,7 @@ class SystemSettingsData extends DataClass
           other.sleepTrackingEnabled == this.sleepTrackingEnabled &&
           other.quickSwitchThresholdSeconds ==
               this.quickSwitchThresholdSeconds &&
+          other.identityGeneration == this.identityGeneration &&
           other.chatLogsFront == this.chatLogsFront &&
           other.hasCompletedOnboarding == this.hasCompletedOnboarding &&
           other.syncThemeEnabled == this.syncThemeEnabled &&
@@ -5212,6 +5251,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> habitsEnabled;
   final Value<bool> sleepTrackingEnabled;
   final Value<int> quickSwitchThresholdSeconds;
+  final Value<int> identityGeneration;
   final Value<bool> chatLogsFront;
   final Value<bool> hasCompletedOnboarding;
   final Value<bool> syncThemeEnabled;
@@ -5254,6 +5294,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsEnabled = const Value.absent(),
     this.sleepTrackingEnabled = const Value.absent(),
     this.quickSwitchThresholdSeconds = const Value.absent(),
+    this.identityGeneration = const Value.absent(),
     this.chatLogsFront = const Value.absent(),
     this.hasCompletedOnboarding = const Value.absent(),
     this.syncThemeEnabled = const Value.absent(),
@@ -5297,6 +5338,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsEnabled = const Value.absent(),
     this.sleepTrackingEnabled = const Value.absent(),
     this.quickSwitchThresholdSeconds = const Value.absent(),
+    this.identityGeneration = const Value.absent(),
     this.chatLogsFront = const Value.absent(),
     this.hasCompletedOnboarding = const Value.absent(),
     this.syncThemeEnabled = const Value.absent(),
@@ -5340,6 +5382,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? habitsEnabled,
     Expression<bool>? sleepTrackingEnabled,
     Expression<int>? quickSwitchThresholdSeconds,
+    Expression<int>? identityGeneration,
     Expression<bool>? chatLogsFront,
     Expression<bool>? hasCompletedOnboarding,
     Expression<bool>? syncThemeEnabled,
@@ -5389,6 +5432,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'sleep_tracking_enabled': sleepTrackingEnabled,
       if (quickSwitchThresholdSeconds != null)
         'quick_switch_threshold_seconds': quickSwitchThresholdSeconds,
+      if (identityGeneration != null) 'identity_generation': identityGeneration,
       if (chatLogsFront != null) 'chat_logs_front': chatLogsFront,
       if (hasCompletedOnboarding != null)
         'has_completed_onboarding': hasCompletedOnboarding,
@@ -5443,6 +5487,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? habitsEnabled,
     Value<bool>? sleepTrackingEnabled,
     Value<int>? quickSwitchThresholdSeconds,
+    Value<int>? identityGeneration,
     Value<bool>? chatLogsFront,
     Value<bool>? hasCompletedOnboarding,
     Value<bool>? syncThemeEnabled,
@@ -5492,6 +5537,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
       quickSwitchThresholdSeconds:
           quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
+      identityGeneration: identityGeneration ?? this.identityGeneration,
       chatLogsFront: chatLogsFront ?? this.chatLogsFront,
       hasCompletedOnboarding:
           hasCompletedOnboarding ?? this.hasCompletedOnboarding,
@@ -5591,6 +5637,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       map['quick_switch_threshold_seconds'] = Variable<int>(
         quickSwitchThresholdSeconds.value,
       );
+    }
+    if (identityGeneration.present) {
+      map['identity_generation'] = Variable<int>(identityGeneration.value);
     }
     if (chatLogsFront.present) {
       map['chat_logs_front'] = Variable<bool>(chatLogsFront.value);
@@ -5701,6 +5750,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('habitsEnabled: $habitsEnabled, ')
           ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
           ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
+          ..write('identityGeneration: $identityGeneration, ')
           ..write('chatLogsFront: $chatLogsFront, ')
           ..write('hasCompletedOnboarding: $hasCompletedOnboarding, ')
           ..write('syncThemeEnabled: $syncThemeEnabled, ')
@@ -17871,6 +17921,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> habitsEnabled,
       Value<bool> sleepTrackingEnabled,
       Value<int> quickSwitchThresholdSeconds,
+      Value<int> identityGeneration,
       Value<bool> chatLogsFront,
       Value<bool> hasCompletedOnboarding,
       Value<bool> syncThemeEnabled,
@@ -17915,6 +17966,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> habitsEnabled,
       Value<bool> sleepTrackingEnabled,
       Value<int> quickSwitchThresholdSeconds,
+      Value<int> identityGeneration,
       Value<bool> chatLogsFront,
       Value<bool> hasCompletedOnboarding,
       Value<bool> syncThemeEnabled,
@@ -18040,6 +18092,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<int> get quickSwitchThresholdSeconds => $composableBuilder(
     column: $table.quickSwitchThresholdSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get identityGeneration => $composableBuilder(
+    column: $table.identityGeneration,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18254,6 +18311,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get identityGeneration => $composableBuilder(
+    column: $table.identityGeneration,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get chatLogsFront => $composableBuilder(
     column: $table.chatLogsFront,
     builder: (column) => ColumnOrderings(column),
@@ -18459,6 +18521,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get identityGeneration => $composableBuilder(
+    column: $table.identityGeneration,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get chatLogsFront => $composableBuilder(
     column: $table.chatLogsFront,
     builder: (column) => column,
@@ -18624,6 +18691,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsEnabled = const Value.absent(),
                 Value<bool> sleepTrackingEnabled = const Value.absent(),
                 Value<int> quickSwitchThresholdSeconds = const Value.absent(),
+                Value<int> identityGeneration = const Value.absent(),
                 Value<bool> chatLogsFront = const Value.absent(),
                 Value<bool> hasCompletedOnboarding = const Value.absent(),
                 Value<bool> syncThemeEnabled = const Value.absent(),
@@ -18667,6 +18735,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsEnabled: habitsEnabled,
                 sleepTrackingEnabled: sleepTrackingEnabled,
                 quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
+                identityGeneration: identityGeneration,
                 chatLogsFront: chatLogsFront,
                 hasCompletedOnboarding: hasCompletedOnboarding,
                 syncThemeEnabled: syncThemeEnabled,
@@ -18712,6 +18781,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsEnabled = const Value.absent(),
                 Value<bool> sleepTrackingEnabled = const Value.absent(),
                 Value<int> quickSwitchThresholdSeconds = const Value.absent(),
+                Value<int> identityGeneration = const Value.absent(),
                 Value<bool> chatLogsFront = const Value.absent(),
                 Value<bool> hasCompletedOnboarding = const Value.absent(),
                 Value<bool> syncThemeEnabled = const Value.absent(),
@@ -18755,6 +18825,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsEnabled: habitsEnabled,
                 sleepTrackingEnabled: sleepTrackingEnabled,
                 quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
+                identityGeneration: identityGeneration,
                 chatLogsFront: chatLogsFront,
                 hasCompletedOnboarding: hasCompletedOnboarding,
                 syncThemeEnabled: syncThemeEnabled,

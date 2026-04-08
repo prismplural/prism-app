@@ -398,6 +398,7 @@ class DataExportService {
     habitsEnabled: s.habitsEnabled,
     sleepTrackingEnabled: s.sleepTrackingEnabled,
     quickSwitchThresholdSeconds: s.quickSwitchThresholdSeconds,
+    identityGeneration: s.identityGeneration,
     chatLogsFront: s.chatLogsFront,
     hasCompletedOnboarding: s.hasCompletedOnboarding,
     syncThemeEnabled: s.syncThemeEnabled,

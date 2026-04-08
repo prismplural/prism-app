@@ -39,6 +39,7 @@ abstract class SystemSettingsRepository {
   // Int fields
   Future<void> updateFrontingReminderIntervalMinutes(int value);
   Future<void> updateQuickSwitchThresholdSeconds(int value);
+  Future<void> updateIdentityGeneration(int value);
 
   // Multi-field updates
   Future<void> updateTerminologyFields({

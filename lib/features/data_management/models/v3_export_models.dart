@@ -706,6 +706,7 @@ class V3SystemSettings {
     this.habitsEnabled = true,
     this.sleepTrackingEnabled = true,
     this.quickSwitchThresholdSeconds = 30,
+    this.identityGeneration = 0,
     this.chatLogsFront = false,
     this.hasCompletedOnboarding = false,
     this.syncThemeEnabled = false,
@@ -745,6 +746,7 @@ class V3SystemSettings {
   final bool habitsEnabled;
   final bool sleepTrackingEnabled;
   final int quickSwitchThresholdSeconds;
+  final int identityGeneration;
   final bool chatLogsFront;
   final bool hasCompletedOnboarding;
   final bool syncThemeEnabled;
@@ -785,6 +787,7 @@ class V3SystemSettings {
     'habitsEnabled': habitsEnabled,
     'sleepTrackingEnabled': sleepTrackingEnabled,
     'quickSwitchThresholdSeconds': quickSwitchThresholdSeconds,
+    'identityGeneration': identityGeneration,
     'chatLogsFront': chatLogsFront,
     'hasCompletedOnboarding': hasCompletedOnboarding,
     'syncThemeEnabled': syncThemeEnabled,
@@ -832,6 +835,7 @@ class V3SystemSettings {
     sleepTrackingEnabled: json['sleepTrackingEnabled'] as bool? ?? true,
     quickSwitchThresholdSeconds:
         json['quickSwitchThresholdSeconds'] as int? ?? 30,
+    identityGeneration: json['identityGeneration'] as int? ?? 0,
     chatLogsFront: json['chatLogsFront'] as bool? ?? false,
     hasCompletedOnboarding: json['hasCompletedOnboarding'] as bool? ?? false,
     syncThemeEnabled: json['syncThemeEnabled'] as bool? ?? false,

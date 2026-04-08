@@ -92,6 +92,7 @@ const String prismSyncSchema = '''
         "habits_enabled": "Bool",
         "sleep_tracking_enabled": "Bool",
         "quick_switch_threshold_seconds": "Int",
+        "identity_generation": "Int",
         "has_completed_onboarding": "Bool",
         "chat_logs_front": "Bool",
         "sync_theme_enabled": "Bool",
