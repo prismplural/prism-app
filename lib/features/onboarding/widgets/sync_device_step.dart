@@ -5,7 +5,6 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
@@ -49,9 +48,17 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
           key: const ValueKey('showing-request'),
           qrPayload: pairingState.requestQrPayload!,
           onBack: () => ref.read(devicePairingProvider.notifier).reset(),
-          onApprovalScanned: (bytes) => ref
-              .read(devicePairingProvider.notifier)
-              .setApprovalQrBytes(bytes),
+        );
+      case PairingStep.waitingForSas:
+        child = const _WaitingForSasView(key: ValueKey('waiting-sas'));
+      case PairingStep.showingSas:
+        child = _SasVerificationView(
+          key: const ValueKey('sas-verify'),
+          sasWords: pairingState.sasWords!,
+          sasDecimal: pairingState.sasDecimal!,
+          onConfirm: () =>
+              ref.read(devicePairingProvider.notifier).confirmSas(),
+          onReject: () => ref.read(devicePairingProvider.notifier).reset(),
         );
       case PairingStep.enterPassword:
         child = _PasswordView(
@@ -197,47 +204,22 @@ class _JoinPromptView extends StatelessWidget {
   }
 }
 
-/// Displays the joiner's PairingRequest QR and provides a button to scan
-/// the approval response from the existing device.
-class _ShowingRequestView extends StatefulWidget {
+/// Displays the joiner's rendezvous token QR. The initiator scans this,
+/// then both sides derive SAS words automatically.
+class _ShowingRequestView extends StatelessWidget {
   const _ShowingRequestView({
     super.key,
     required this.qrPayload,
     required this.onBack,
-    required this.onApprovalScanned,
   });
 
   final List<int> qrPayload;
   final VoidCallback onBack;
-  final void Function(List<int> bytes) onApprovalScanned;
-
-  @override
-  State<_ShowingRequestView> createState() => _ShowingRequestViewState();
-}
-
-class _ShowingRequestViewState extends State<_ShowingRequestView> {
-  bool _scanning = false;
-  bool _scanned = false;
-  MobileScannerController? _scannerController;
-
-  MobileScannerController _ensureScanner() {
-    return _scannerController ??= MobileScannerController();
-  }
-
-  @override
-  void dispose() {
-    _scannerController?.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    if (_scanning) {
-      return _buildApprovalScanner();
-    }
-
-    // Encode QR payload as base64 for the QR code display
-    final qrData = base64Encode(widget.qrPayload);
+    // Encode token bytes as base64 for the QR code display
+    final qrData = base64Encode(qrPayload);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -246,7 +228,7 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: _BackLink(label: 'Back', onTap: widget.onBack),
+            child: _BackLink(label: 'Back', onTap: onBack),
           ),
           const SizedBox(height: 20),
           Icon(AppIcons.qrCode, color: AppColors.warmWhite, size: 48),
@@ -262,7 +244,7 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
           ),
           const SizedBox(height: 8),
           Text(
-            'On your existing device, open "Set Up Another Device" and choose "Scan Joiner\'s QR". Then scan this code.',
+            'On your existing device, open "Set Up Another Device" and scan this code.',
             style: TextStyle(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
               fontSize: 14,
@@ -285,52 +267,98 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
             ),
           ),
           const SizedBox(height: 24),
-          _ActionButton(
-            label: 'Scan Approval',
-            color: Colors.purple,
-            onPressed: () => setState(() => _scanning = true),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'After your existing device approves, it will show an approval QR. Tap above to scan it.',
-            style: TextStyle(
-              color: AppColors.warmWhite.withValues(alpha: 0.5),
-              fontSize: 12,
-            ),
-            textAlign: TextAlign.center,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.warmWhite,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Waiting for other device to scan...',
+                style: TextStyle(
+                  color: AppColors.warmWhite.withValues(alpha: 0.7),
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
         ],
       ),
     );
   }
+}
 
-  Widget _buildApprovalScanner() {
+/// Shown while the joiner is waiting for the initiator to scan and derive SAS.
+class _WaitingForSasView extends StatelessWidget {
+  const _WaitingForSasView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: AppColors.warmWhite),
+            SizedBox(height: 24),
+            Text(
+              'Waiting for security verification...',
+              style: TextStyle(
+                color: AppColors.warmWhite,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'The other device is connecting. Security codes will appear shortly.',
+              style: TextStyle(color: Color(0x99FFFFFF), fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shows SAS words for the joiner to verify with the initiator.
+class _SasVerificationView extends StatelessWidget {
+  const _SasVerificationView({
+    super.key,
+    required this.sasWords,
+    required this.sasDecimal,
+    required this.onConfirm,
+    required this.onReject,
+  });
+
+  final String sasWords;
+  final String sasDecimal;
+  final VoidCallback onConfirm;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final words = sasWords.split(' ');
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: _BackLink(
-              label: 'Back',
-              onTap: () {
-                _scannerController?.stop();
-                _scannerController?.dispose();
-                _scannerController = null;
-                setState(() {
-                  _scanning = false;
-                  _scanned = false;
-                });
-              },
-            ),
-          ),
-          const SizedBox(height: 20),
-          Icon(AppIcons.qrCodeScanner, color: AppColors.warmWhite, size: 48),
+          Icon(AppIcons.shieldOutlined, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           const Text(
-            'Scan approval QR',
+            'Verify Security Code',
             style: TextStyle(
               color: AppColors.warmWhite,
               fontSize: 22,
@@ -340,7 +368,7 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Scan the approval QR code shown on your existing device.',
+            'Confirm these words match the ones shown on your existing device.',
             style: TextStyle(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
               fontSize: 14,
@@ -348,31 +376,60 @@ class _ShowingRequestViewState extends State<_ShowingRequestView> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 28),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: SizedBox(
-              height: 280,
-              child: MobileScanner(
-                controller: _ensureScanner(),
-                onDetect: (capture) {
-                  if (_scanned) return;
-                  final barcode = capture.barcodes.firstOrNull;
-                  final raw = barcode?.rawValue;
-                  if (raw == null) return;
-                  // Decode the base64 approval QR back to bytes
-                  try {
-                    final bytes = base64Decode(raw);
-                    setState(() => _scanned = true);
-                    widget.onApprovalScanned(bytes);
-                  } catch (_) {
-                    PrismToast.show(
-                      context,
-                      message: 'Invalid approval QR code.',
-                    );
-                  }
-                },
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            decoration: BoxDecoration(
+              color: AppColors.warmWhite.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.warmWhite.withValues(alpha: 0.2),
               ),
             ),
+            child: Column(
+              children: [
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: words
+                      .map(
+                        (word) => Text(
+                          word,
+                          style: const TextStyle(
+                            color: AppColors.warmWhite,
+                            fontSize: 24,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  sasDecimal,
+                  style: TextStyle(
+                    color: AppColors.warmWhite.withValues(alpha: 0.5),
+                    fontFamily: 'monospace',
+                    fontSize: 14,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          _ActionButton(
+            label: 'They Match',
+            color: Colors.purple,
+            onPressed: onConfirm,
+          ),
+          const SizedBox(height: 8),
+          _ActionButton(
+            label: 'They Don\'t Match',
+            color: Colors.redAccent,
+            tone: PrismButtonTone.subtle,
+            onPressed: onReject,
           ),
           const SizedBox(height: 16),
         ],
@@ -479,7 +536,16 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
       PrismToast.show(context, message: 'Please enter your password.');
       return;
     }
-    ref.read(devicePairingProvider.notifier).connect(password);
+    final state = ref.read(devicePairingProvider);
+    // If we came through the relay ceremony (SAS verification), use the
+    // ceremony completion path. Otherwise fall back to URL-based join.
+    if (state.sasWords != null) {
+      ref
+          .read(devicePairingProvider.notifier)
+          .completeJoinerWithPassword(password);
+    } else {
+      ref.read(devicePairingProvider.notifier).connect(password);
+    }
   }
 }
 

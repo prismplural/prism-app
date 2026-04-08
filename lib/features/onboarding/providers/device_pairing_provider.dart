@@ -15,8 +15,12 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 enum PairingStep {
   // User enters a join URL or legacy invite string
   enterUrl,
-  // Joiner's PairingRequest QR is displayed, waiting for approval scan
+  // Joiner's rendezvous QR is displayed, waiting for initiator to scan
   showingRequest,
+  // Waiting for initiator to scan QR and derive SAS
+  waitingForSas,
+  // Displaying SAS words for user verification
+  showingSas,
   // User enters the sync password
   enterPassword,
   // Connecting to the relay / performing the join
@@ -34,11 +38,17 @@ class PairingState {
   final String? errorCode;
   final SyncCounts? counts;
 
-  /// QR payload bytes for the joiner's PairingRequest (joiner-initiated flow).
+  /// QR payload bytes for the joiner's rendezvous token (joiner-initiated flow).
   final List<int>? requestQrPayload;
 
-  /// The joiner's device ID from generatePairingRequest.
+  /// The joiner's device ID from startJoinerCeremony.
   final String? requestDeviceId;
+
+  /// SAS verification words displayed during relay-based pairing.
+  final String? sasWords;
+
+  /// SAS decimal code displayed during relay-based pairing.
+  final String? sasDecimal;
 
   /// When true, the initial data sync timed out and some data may still be
   /// arriving in the background. The pairing itself succeeded, but the user
@@ -53,6 +63,8 @@ class PairingState {
     this.counts,
     this.requestQrPayload,
     this.requestDeviceId,
+    this.sasWords,
+    this.sasDecimal,
     this.syncIncomplete = false,
   });
 
@@ -64,6 +76,8 @@ class PairingState {
     Object? counts = _sentinel,
     Object? requestQrPayload = _sentinel,
     Object? requestDeviceId = _sentinel,
+    Object? sasWords = _sentinel,
+    Object? sasDecimal = _sentinel,
     bool? syncIncomplete,
   }) {
     return PairingState(
@@ -80,6 +94,10 @@ class PairingState {
       requestDeviceId: requestDeviceId == _sentinel
           ? this.requestDeviceId
           : requestDeviceId as String?,
+      sasWords:
+          sasWords == _sentinel ? this.sasWords : sasWords as String?,
+      sasDecimal:
+          sasDecimal == _sentinel ? this.sasDecimal : sasDecimal as String?,
       syncIncomplete: syncIncomplete ?? this.syncIncomplete,
     );
   }
@@ -138,7 +156,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     }
   }
 
-  /// Generate a PairingRequest QR for the joiner-initiated flow.
+  /// Generate a rendezvous token QR for the joiner-initiated relay ceremony.
   /// The joiner displays this QR for an existing device to scan.
   Future<void> generateRequest() async {
     _generation++;
@@ -153,19 +171,55 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
       if (_generation != myGeneration) return;
 
-      final jsonString = await ffi.generatePairingRequest(handle: handle);
+      final jsonString = await ffi.startJoinerCeremony(handle: handle);
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
-      final rawBytes = (json['qr_payload'] as List<dynamic>).cast<int>();
+      final tokenBytes = (json['token_bytes'] as List<dynamic>).cast<int>();
       final deviceId = json['device_id'] as String;
 
       if (_generation != myGeneration) return;
 
       state = state.copyWith(
         step: PairingStep.showingRequest,
-        requestQrPayload: rawBytes,
+        requestQrPayload: tokenBytes,
         requestDeviceId: deviceId,
         errorMessage: null,
         errorCode: null,
+      );
+
+      // Automatically start polling for SAS after showing the QR
+      _waitForSas(handle, myGeneration);
+    } catch (e) {
+      final structuredError = PrismSyncStructuredError.tryParse(e);
+      if (_generation != myGeneration) return;
+      state = state.copyWith(
+        step: PairingStep.error,
+        errorMessage: structuredError?.userMessage ?? e.toString(),
+        errorCode: structuredError?.code,
+      );
+    }
+  }
+
+  /// Poll for SAS words from the relay after the initiator scans the QR.
+  Future<void> _waitForSas(
+    ffi.PrismSyncHandle handle,
+    int myGeneration,
+  ) async {
+    try {
+      if (_generation != myGeneration) return;
+      state = state.copyWith(step: PairingStep.waitingForSas);
+
+      final sasJsonString = await ffi.getJoinerSas(handle: handle);
+
+      if (_generation != myGeneration) return;
+
+      final sasJson = jsonDecode(sasJsonString) as Map<String, dynamic>;
+      final sasWords = sasJson['sas_words'] as String;
+      final sasDecimal = sasJson['sas_decimal'] as String;
+
+      state = state.copyWith(
+        step: PairingStep.showingSas,
+        sasWords: sasWords,
+        sasDecimal: sasDecimal,
       );
     } catch (e) {
       final structuredError = PrismSyncStructuredError.tryParse(e);
@@ -178,24 +232,18 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     }
   }
 
-  /// Set the approval QR bytes scanned from the existing device's response.
-  /// Transitions to password entry for the joiner-initiated flow.
-  void setApprovalQrBytes(List<int> qrBytes) {
-    // Store the approval bytes in the url field as base64 so the existing
-    // password → connect flow can distinguish between URL-based and QR-based
-    // joins. We use a prefix to differentiate.
-    final encoded = base64Encode(qrBytes);
+  /// User confirmed SAS words match — transition to password entry.
+  void confirmSas() {
+    if (state.step != PairingStep.showingSas) return;
     state = state.copyWith(
-      url: 'qr-approval:$encoded',
       step: PairingStep.enterPassword,
       errorMessage: null,
       errorCode: null,
     );
   }
 
-  /// Join from an approval QR (joiner-initiated flow). Called after the user
-  /// enters their password on the joiner side.
-  Future<void> joinFromApprovalQr(List<int> qrBytes, String password) async {
+  /// Complete the joiner ceremony with the user's password.
+  Future<void> completeJoinerWithPassword(String password) async {
     if (password.trim().isEmpty) {
       state = state.copyWith(
         step: PairingStep.error,
@@ -214,7 +262,23 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     );
 
     try {
-      await _joinFromQrWithTimeout(qrBytes, password, myGeneration);
+      await Future(() async {
+        final handle = ref.read(prismSyncHandleProvider).value;
+        if (handle == null) {
+          throw StateError('No sync handle available');
+        }
+
+        if (_generation != myGeneration) return;
+
+        await ffi.completeJoinerCeremony(
+          handle: handle,
+          password: password,
+        );
+
+        if (_generation != myGeneration) return;
+
+        await _bootstrapAfterJoin(handle, myGeneration);
+      }).timeout(const Duration(seconds: 60));
     } on TimeoutException {
       await _cleanupKeychainOnFailure();
       if (_generation != myGeneration) return;
@@ -236,33 +300,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     }
   }
 
-  Future<void> _joinFromQrWithTimeout(
-    List<int> qrBytes,
-    String password,
-    int myGeneration,
-  ) async {
-    await Future(() async {
-      final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
-      final relayUrl =
-          await ref.read(relayUrlProvider.future) ??
-          AppConstants.defaultRelayUrl;
-      final handle = await handleNotifier.createHandle(relayUrl: relayUrl);
-
-      if (_generation != myGeneration) return;
-
-      await ffi.joinFromQr(
-        handle: handle,
-        qrBytes: qrBytes,
-        password: password,
-      );
-
-      if (_generation != myGeneration) return;
-
-      // Same bootstrap flow as the join flow.
-      await _bootstrapAfterJoin(handle, myGeneration);
-    }).timeout(const Duration(seconds: 60));
-  }
-
   Future<void> connect(String password) async {
     final url = state.url;
     if (url == null || url.isEmpty) {
@@ -281,14 +318,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         errorMessage: 'Password cannot be empty.',
         errorCode: null,
       );
-      return;
-    }
-
-    // Route joiner-initiated approval QR bytes to the QR-based join flow
-    if (url.startsWith('qr-approval:')) {
-      final encoded = url.substring('qr-approval:'.length);
-      final qrBytes = base64Decode(encoded);
-      await joinFromApprovalQr(qrBytes, password);
       return;
     }
 
