@@ -4,11 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -57,15 +55,27 @@ class _SetupDeviceSheetContent extends ConsumerStatefulWidget {
       _SetupDeviceSheetContentState();
 }
 
+enum _InitiatorStep {
+  prompt,
+  scanning,
+  connecting,
+  sasVerification,
+  passwordEntry,
+  completing,
+  done,
+  error,
+}
+
 class _SetupDeviceSheetContentState
     extends ConsumerState<_SetupDeviceSheetContent> {
-  // State for the "Scan Joiner's QR" flow
-  bool _scanningJoinerQr = false;
+  _InitiatorStep _step = _InitiatorStep.prompt;
   bool _joinerScanned = false;
-  bool _approvingRequest = false;
-  String? _approvalQrData; // base64-encoded approval response QR
-  String? _joinerError;
+  String? _sasWords;
+  String? _sasDecimal;
+  String? _error;
   MobileScannerController? _joinerScannerController;
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   MobileScannerController _ensureJoinerScanner() {
     return _joinerScannerController ??= MobileScannerController();
@@ -74,36 +84,76 @@ class _SetupDeviceSheetContentState
   @override
   void dispose() {
     _joinerScannerController?.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
   void _reset() {
     _joinerScannerController?.dispose();
     _joinerScannerController = null;
+    _passwordController.clear();
     setState(() {
-      _scanningJoinerQr = false;
+      _step = _InitiatorStep.prompt;
       _joinerScanned = false;
-      _approvingRequest = false;
-      _approvalQrData = null;
-      _joinerError = null;
+      _sasWords = null;
+      _sasDecimal = null;
+      _error = null;
+      _obscurePassword = true;
     });
   }
 
-  Future<void> _approveJoinerRequest(Uint8List requestBytes) async {
+  Future<void> _startInitiatorCeremony(Uint8List tokenBytes) async {
     setState(() {
-      _approvingRequest = true;
-      _joinerError = null;
+      _step = _InitiatorStep.connecting;
+      _error = null;
     });
 
     try {
-      final jsonString = await ffi.approvePairingRequest(
+      final jsonString = await ffi.startInitiatorCeremony(
         handle: widget.handle,
-        requestBytes: requestBytes,
+        tokenBytes: tokenBytes,
       );
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
-      final rawBytes = (json['qr_payload'] as List<dynamic>).cast<int>();
+      final sasWords = json['sas_words'] as String;
+      final sasDecimal = json['sas_decimal'] as String;
 
-      // Drain store after approval (may mutate epoch / credentials)
+      if (!mounted) return;
+      setState(() {
+        _sasWords = sasWords;
+        _sasDecimal = sasDecimal;
+        _step = _InitiatorStep.sasVerification;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _step = _InitiatorStep.error;
+      });
+    }
+  }
+
+  Future<void> _completeInitiator() async {
+    final password = _passwordController.text;
+    if (password.trim().isEmpty) {
+      setState(() {
+        _error = 'Password cannot be empty.';
+        _step = _InitiatorStep.error;
+      });
+      return;
+    }
+
+    setState(() {
+      _step = _InitiatorStep.completing;
+      _error = null;
+    });
+
+    try {
+      await ffi.completeInitiatorCeremony(
+        handle: widget.handle,
+        password: password,
+      );
+
+      // Drain store after completion (may mutate epoch / credentials)
       await drainRustStore(widget.handle);
 
       // Upload ephemeral snapshot for the joiner device
@@ -118,14 +168,13 @@ class _SetupDeviceSheetContentState
 
       if (!mounted) return;
       setState(() {
-        _approvalQrData = base64Encode(rawBytes);
-        _approvingRequest = false;
+        _step = _InitiatorStep.done;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _joinerError = e.toString();
-        _approvingRequest = false;
+        _error = e.toString();
+        _step = _InitiatorStep.error;
       });
     }
   }
@@ -149,33 +198,68 @@ class _SetupDeviceSheetContentState
   }
 
   Widget _buildContent() {
-    // If we have an approval QR result, show it (scan-joiner flow complete)
-    if (_approvalQrData != null) {
-      return _ApprovalResponseView(
-        qrData: _approvalQrData!,
-        onDone: _reset,
-      );
-    }
-
-    // If we're scanning a joiner's QR
-    if (_scanningJoinerQr) {
-      return _JoinerQrScannerView(
+    return switch (_step) {
+      _InitiatorStep.prompt => _ScanJoinerPrompt(
+        onStartScan: () => setState(() => _step = _InitiatorStep.scanning),
+      ),
+      _InitiatorStep.scanning => _JoinerQrScannerView(
         ensureScanner: _ensureJoinerScanner,
         scanned: _joinerScanned,
-        approving: _approvingRequest,
-        error: _joinerError,
+        error: _error,
         onBack: _reset,
         onScanned: (bytes) {
           setState(() => _joinerScanned = true);
-          _approveJoinerRequest(bytes);
+          _startInitiatorCeremony(bytes);
         },
-      );
-    }
-
-    // Default: show the scan joiner prompt
-    return _ScanJoinerPrompt(
-      onStartScan: () => setState(() => _scanningJoinerQr = true),
-    );
+      ),
+      _InitiatorStep.connecting => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(48),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Connecting to joiner...'),
+            ],
+          ),
+        ),
+      ),
+      _InitiatorStep.sasVerification => _SasVerificationView(
+        sasWords: _sasWords!,
+        sasDecimal: _sasDecimal!,
+        onConfirm: () =>
+            setState(() => _step = _InitiatorStep.passwordEntry),
+        onReject: _reset,
+      ),
+      _InitiatorStep.passwordEntry => _InitiatorPasswordView(
+        controller: _passwordController,
+        obscure: _obscurePassword,
+        onToggleObscure: () =>
+            setState(() => _obscurePassword = !_obscurePassword),
+        onSubmit: _completeInitiator,
+        onBack: () =>
+            setState(() => _step = _InitiatorStep.sasVerification),
+      ),
+      _InitiatorStep.completing => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(48),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Completing pairing...'),
+            ],
+          ),
+        ),
+      ),
+      _InitiatorStep.done => _InitiatorDoneView(onDone: _reset),
+      _InitiatorStep.error => _InitiatorErrorView(
+        message: _error ?? 'An unknown error occurred.',
+        onTryAgain: _reset,
+      ),
+    };
   }
 }
 
@@ -207,12 +291,11 @@ class _ScanJoinerPrompt extends StatelessWidget {
   }
 }
 
-/// Camera view for scanning the joiner's PairingRequest QR.
+/// Camera view for scanning the joiner's rendezvous token QR.
 class _JoinerQrScannerView extends StatelessWidget {
   const _JoinerQrScannerView({
     required this.ensureScanner,
     required this.scanned,
-    required this.approving,
     required this.error,
     required this.onBack,
     required this.onScanned,
@@ -220,7 +303,6 @@ class _JoinerQrScannerView extends StatelessWidget {
 
   final MobileScannerController Function() ensureScanner;
   final bool scanned;
-  final bool approving;
   final String? error;
   final VoidCallback onBack;
   final void Function(Uint8List bytes) onScanned;
@@ -228,22 +310,6 @@ class _JoinerQrScannerView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    if (approving) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(48),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Approving request...'),
-            ],
-          ),
-        ),
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -259,7 +325,7 @@ class _JoinerQrScannerView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          "Scan the joiner's pairing request QR code.",
+          "Scan the joiner's pairing QR code.",
           style: theme.textTheme.bodyMedium,
           textAlign: TextAlign.center,
         ),
@@ -282,7 +348,7 @@ class _JoinerQrScannerView extends StatelessWidget {
                   if (context.mounted) {
                     PrismToast.show(
                       context,
-                      message: 'Invalid pairing request QR code.',
+                      message: 'Invalid pairing QR code.',
                     );
                   }
                 }
@@ -305,16 +371,194 @@ class _JoinerQrScannerView extends StatelessWidget {
   }
 }
 
-/// Shows the approval response QR for the joiner to scan.
-class _ApprovalResponseView extends StatelessWidget {
-  const _ApprovalResponseView({required this.qrData, required this.onDone});
+/// Shows SAS words for the initiator to verify with the joiner.
+class _SasVerificationView extends StatelessWidget {
+  const _SasVerificationView({
+    required this.sasWords,
+    required this.sasDecimal,
+    required this.onConfirm,
+    required this.onReject,
+  });
 
-  final String qrData;
+  final String sasWords;
+  final String sasDecimal;
+  final VoidCallback onConfirm;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final words = sasWords.split(' ');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Icon(AppIcons.shieldOutlined, color: theme.colorScheme.primary, size: 40),
+        const SizedBox(height: 16),
+        Text(
+          'Verify Security Code',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Confirm these words match on the joining device.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 28),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: theme.colorScheme.primary.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Column(
+            children: [
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: words
+                    .map(
+                      (word) => Text(
+                        word,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                sasDecimal,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontFamily: 'monospace',
+                  letterSpacing: 2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        PrismButton(
+          label: 'They Match',
+          icon: AppIcons.checkCircle,
+          onPressed: onConfirm,
+        ),
+        const SizedBox(height: 8),
+        PrismButton(
+          label: 'They Don\'t Match',
+          icon: AppIcons.close,
+          tone: PrismButtonTone.subtle,
+          onPressed: onReject,
+        ),
+      ],
+    );
+  }
+}
+
+/// Password entry for the initiator after SAS verification.
+class _InitiatorPasswordView extends StatelessWidget {
+  const _InitiatorPasswordView({
+    required this.controller,
+    required this.obscure,
+    required this.onToggleObscure,
+    required this.onSubmit,
+    required this.onBack,
+  });
+
+  final TextEditingController controller;
+  final bool obscure;
+  final VoidCallback onToggleObscure;
+  final VoidCallback onSubmit;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: PrismButton(
+            label: 'Back',
+            onPressed: onBack,
+            icon: AppIcons.arrowBackIosNew,
+            tone: PrismButtonTone.subtle,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Icon(AppIcons.lockOutline, color: theme.colorScheme.primary, size: 40),
+        const SizedBox(height: 16),
+        Text(
+          'Enter Sync Password',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Enter your sync password to complete the pairing.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        TextField(
+          controller: controller,
+          obscureText: obscure,
+          autofocus: true,
+          onSubmitted: (_) => onSubmit(),
+          decoration: InputDecoration(
+            hintText: 'Password',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            suffixIcon: IconButton(
+              icon: Icon(
+                obscure ? AppIcons.visibilityOff : AppIcons.visibility,
+              ),
+              onPressed: onToggleObscure,
+              tooltip: obscure ? 'Show password' : 'Hide password',
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        PrismButton(
+          label: 'Complete Pairing',
+          icon: AppIcons.check,
+          onPressed: onSubmit,
+        ),
+      ],
+    );
+  }
+}
+
+/// Success view after initiator completes pairing.
+class _InitiatorDoneView extends StatelessWidget {
+  const _InitiatorDoneView({required this.onDone});
+
   final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Column(
       children: [
         Container(
@@ -329,7 +573,7 @@ class _ApprovalResponseView extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Request approved. Show this QR to the joining device.',
+                  'Pairing complete! The new device is now syncing.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: Colors.green,
                   ),
@@ -338,28 +582,7 @@ class _ApprovalResponseView extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.warmWhite,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: QrImageView(
-            data: qrData,
-            size: 220,
-            backgroundColor: AppColors.warmWhite,
-          ),
-        ),
         const SizedBox(height: 16),
-        Text(
-          'The joining device should scan this approval QR, then enter the sync password to finish pairing.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -376,7 +599,7 @@ class _ApprovalResponseView extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'An encrypted snapshot will be temporarily uploaded and '
+                  'An encrypted snapshot has been uploaded and will be '
                   'automatically deleted after the new device connects '
                   '(or after 24 hours).',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -389,6 +612,52 @@ class _ApprovalResponseView extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         PrismButton(label: 'Done', icon: AppIcons.check, onPressed: onDone),
+      ],
+    );
+  }
+}
+
+/// Error view for the initiator flow.
+class _InitiatorErrorView extends StatelessWidget {
+  const _InitiatorErrorView({
+    required this.message,
+    required this.onTryAgain,
+  });
+
+  final String message;
+  final VoidCallback onTryAgain;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Icon(AppIcons.errorOutline, color: theme.colorScheme.error, size: 40),
+        const SizedBox(height: 16),
+        Text(
+          'Pairing Failed',
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          message,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        PrismButton(
+          label: 'Try Again',
+          icon: AppIcons.refresh,
+          tone: PrismButtonTone.subtle,
+          onPressed: onTryAgain,
+        ),
       ],
     );
   }
