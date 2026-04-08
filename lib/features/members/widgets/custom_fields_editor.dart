@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 /// Inline editor for custom field values on the member edit sheet.
@@ -60,7 +61,11 @@ class CustomFieldsEditor extends ConsumerWidget {
         const SizedBox(height: 16),
         Row(
           children: [
-            Icon(AppIcons.tuneOutlined, size: 18, color: theme.colorScheme.primary),
+            Icon(
+              AppIcons.tuneOutlined,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(width: 8),
             Text(
               'Custom Fields',
@@ -137,7 +142,9 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     }
     if (value.isEmpty) return;
 
-    ref.read(customFieldValueNotifierProvider.notifier).setValue(
+    ref
+        .read(customFieldValueNotifierProvider.notifier)
+        .setValue(
           customFieldId: widget.field.id,
           memberId: widget.memberId,
           value: value,
@@ -184,28 +191,28 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
         if (!hasFocus) _saveValue(_textController.text.trim());
       },
       child: PrismTextField(
-      controller: _textController,
-      labelText: widget.field.name,
-      hintText: '#AF8EE9',
-      onChanged: (val) => setState(() {}),
-      onSubmitted: _saveValue,
-      suffix: previewColor != null
-          ? Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: previewColor,
-                  border: Border.all(
-                    color: theme.colorScheme.outline.withValues(alpha: 0.3),
+        controller: _textController,
+        labelText: widget.field.name,
+        hintText: '#AF8EE9',
+        onChanged: (val) => setState(() {}),
+        onSubmitted: _saveValue,
+        suffix: previewColor != null
+            ? Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: previewColor,
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.3),
+                    ),
                   ),
                 ),
-              ),
-            )
-          : null,
-    ),
+              )
+            : null,
+      ),
     );
   }
 
@@ -234,12 +241,9 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (currentValue.isNotEmpty)
-                IconButton(
-                  icon: Icon(
-                    AppIcons.clear,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                PrismFieldIconButton(
+                  icon: AppIcons.clear,
+                  color: theme.colorScheme.onSurfaceVariant,
                   onPressed: () {
                     _textController.text = '';
                     if (widget.existingValue != null) {
@@ -249,6 +253,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
                     }
                     setState(() {});
                   },
+                  tooltip: 'Clear date',
                 ),
               Icon(
                 AppIcons.calendarToday,
@@ -290,7 +295,8 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
           initialDate: initial,
           firstDate: DateTime(1900),
           lastDate: DateTime(2100),
-          initialDatePickerMode: precision == DatePrecision.year ||
+          initialDatePickerMode:
+              precision == DatePrecision.year ||
                   precision == DatePrecision.monthYear
               ? DatePickerMode.year
               : DatePickerMode.day,
@@ -336,25 +342,23 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
           firstDate: DateTime(1900),
           lastDate: DateTime(2100),
         );
-        if (pickedDate != null && mounted) {
-          final pickedTime = await showPrismTimePicker(
-            context: context,
-            initialTime: TimeOfDay.fromDateTime(initial),
-          );
-          if (mounted) {
-            final time = pickedTime ?? TimeOfDay.fromDateTime(initial);
-            final combined = DateTime(
-              pickedDate.year,
-              pickedDate.month,
-              pickedDate.day,
-              time.hour,
-              time.minute,
-            );
-            _textController.text = combined.toIso8601String();
-            _saveValue(_textController.text);
-            setState(() {});
-          }
-        }
+        if (pickedDate == null || !context.mounted) return;
+        final pickedTime = await showPrismTimePicker(
+          context: context,
+          initialTime: TimeOfDay.fromDateTime(initial),
+        );
+        if (!mounted) return;
+        final time = pickedTime ?? TimeOfDay.fromDateTime(initial);
+        final combined = DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          time.hour,
+          time.minute,
+        );
+        _textController.text = combined.toIso8601String();
+        _saveValue(_textController.text);
+        setState(() {});
     }
   }
 

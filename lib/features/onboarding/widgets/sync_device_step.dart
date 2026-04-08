@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -452,11 +453,10 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
                 horizontal: 16,
                 vertical: 14,
               ),
-              suffix: IconButton(
-                icon: Icon(
-                  _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-                  color: AppColors.warmWhite.withValues(alpha: 0.5),
-                ),
+              suffix: PrismFieldIconButton(
+                icon: _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
+                color: AppColors.warmWhite.withValues(alpha: 0.75),
+                tooltip: _obscure ? 'Show password' : 'Hide password',
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),

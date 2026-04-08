@@ -128,7 +128,9 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
     final description = _descriptionController.text.trim();
 
     try {
-      await ref.read(pollNotifierProvider.notifier).createPoll(
+      await ref
+          .read(pollNotifierProvider.notifier)
+          .createPoll(
             question: _questionController.text.trim(),
             description: description.isNotEmpty ? description : null,
             optionTexts: optionTexts,
@@ -193,131 +195,132 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 bottom: MediaQuery.of(context).viewInsets.bottom + 16,
               ),
               children: [
-              // Question
-              PrismTextField(
-                controller: _questionController,
-                labelText: 'Question',
-                hintText: 'What do you want to ask?',
-                maxLines: 2,
-                textCapitalization: TextCapitalization.sentences,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 12),
+                // Question
+                PrismTextField(
+                  controller: _questionController,
+                  labelText: 'Question',
+                  hintText: 'What do you want to ask?',
+                  maxLines: 2,
+                  textCapitalization: TextCapitalization.sentences,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
 
-              // Description (optional)
-              PrismTextField(
-                controller: _descriptionController,
-                labelText: 'Description (optional)',
-                hintText: 'Add context or details...',
-                maxLines: 3,
-                minLines: 1,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 16),
+                // Description (optional)
+                PrismTextField(
+                  controller: _descriptionController,
+                  labelText: 'Description (optional)',
+                  hintText: 'Add context or details...',
+                  maxLines: 3,
+                  minLines: 1,
+                  textCapitalization: TextCapitalization.sentences,
+                ),
+                const SizedBox(height: 16),
 
-              // Options header
-              Text('Options', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+                // Options header
+                Text('Options', style: theme.textTheme.titleSmall),
+                const SizedBox(height: 8),
 
-              // Option fields
-              for (var i = 0; i < _optionControllers.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      // Color dot
-                      _OptionColorDot(
-                        colorHex: _optionColors[i],
-                        onColorSelected: (hex) {
-                          setState(() => _optionColors[i] = hex);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: PrismTextField(
-                          controller: _optionControllers[i],
-                          labelText: 'Option ${i + 1}',
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
+                // Option fields
+                for (var i = 0; i < _optionControllers.length; i++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        // Color dot
+                        _OptionColorDot(
+                          colorHex: _optionColors[i],
+                          onColorSelected: (hex) {
+                            setState(() => _optionColors[i] = hex);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: PrismTextField(
+                            controller: _optionControllers[i],
+                            labelText: 'Option ${i + 1}',
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            textCapitalization: TextCapitalization.sentences,
+                            onChanged: (_) => setState(() {}),
                           ),
-                          textCapitalization: TextCapitalization.sentences,
-                          onChanged: (_) => setState(() {}),
                         ),
-                      ),
-                      if (_optionControllers.length > 2)
-                        IconButton(
-                          icon: Icon(AppIcons.removeCircleOutline),
-                          color: theme.colorScheme.error,
-                          onPressed: () => _removeOption(i),
-                          tooltip: 'Remove option',
-                        ),
-                    ],
+                        if (_optionControllers.length > 2)
+                          PrismIconButton(
+                            icon: AppIcons.removeCircleOutline,
+                            color: theme.colorScheme.error,
+                            size: 36,
+                            iconSize: 18,
+                            onPressed: () => _removeOption(i),
+                            tooltip: 'Remove option',
+                          ),
+                      ],
+                    ),
                   ),
-                ),
 
-              // Add option button
-              Align(
-                alignment: Alignment.centerLeft,
-                child: PrismButton(
-                  label: 'Add option',
-                  onPressed: _addOption,
-                  icon: AppIcons.add,
-                  tone: PrismButtonTone.subtle,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Toggles
-              PrismSwitchRow(
-                title: 'Add "Other" option',
-                subtitle: 'Allows free-text responses',
-                value: _addOtherOption,
-                onChanged: (v) => setState(() => _addOtherOption = v),
-              ),
-              PrismSwitchRow(
-                title: 'Anonymous voting',
-                subtitle: 'Hide who voted for what',
-                value: _isAnonymous,
-                onChanged: (v) => setState(() => _isAnonymous = v),
-              ),
-              PrismSwitchRow(
-                title: 'Allow multiple votes',
-                subtitle:
-                    '${ref.watch(terminologyProvider).plural} can vote for more than one option',
-                value: _allowsMultipleVotes,
-                onChanged: (v) =>
-                    setState(() => _allowsMultipleVotes = v),
-              ),
-
-              // Expiration
-              PrismSwitchRow(
-                title: 'Set expiration',
-                subtitle: _hasExpiration && _expiresAt != null
-                    ? _formatDateTime(_expiresAt!)
-                    : 'Poll stays open until manually closed',
-                value: _hasExpiration,
-                onChanged: (v) {
-                  setState(() => _hasExpiration = v);
-                  if (v) _pickExpiration();
-                },
-              ),
-              if (_hasExpiration)
+                // Add option button
                 Align(
                   alignment: Alignment.centerLeft,
                   child: PrismButton(
-                    label: _expiresAt != null
-                        ? 'Change: ${_formatDateTime(_expiresAt!)}'
-                        : 'Pick date & time',
-                    onPressed: _pickExpiration,
-                    icon: AppIcons.schedule,
+                    label: 'Add option',
+                    onPressed: _addOption,
+                    icon: AppIcons.add,
                     tone: PrismButtonTone.subtle,
                   ),
                 ),
+                const SizedBox(height: 8),
 
-              const SizedBox(height: 32),
-            ],
-          ),
+                // Toggles
+                PrismSwitchRow(
+                  title: 'Add "Other" option',
+                  subtitle: 'Allows free-text responses',
+                  value: _addOtherOption,
+                  onChanged: (v) => setState(() => _addOtherOption = v),
+                ),
+                PrismSwitchRow(
+                  title: 'Anonymous voting',
+                  subtitle: 'Hide who voted for what',
+                  value: _isAnonymous,
+                  onChanged: (v) => setState(() => _isAnonymous = v),
+                ),
+                PrismSwitchRow(
+                  title: 'Allow multiple votes',
+                  subtitle:
+                      '${ref.watch(terminologyProvider).plural} can vote for more than one option',
+                  value: _allowsMultipleVotes,
+                  onChanged: (v) => setState(() => _allowsMultipleVotes = v),
+                ),
+
+                // Expiration
+                PrismSwitchRow(
+                  title: 'Set expiration',
+                  subtitle: _hasExpiration && _expiresAt != null
+                      ? _formatDateTime(_expiresAt!)
+                      : 'Poll stays open until manually closed',
+                  value: _hasExpiration,
+                  onChanged: (v) {
+                    setState(() => _hasExpiration = v);
+                    if (v) _pickExpiration();
+                  },
+                ),
+                if (_hasExpiration)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: PrismButton(
+                      label: _expiresAt != null
+                          ? 'Change: ${_formatDateTime(_expiresAt!)}'
+                          : 'Pick date & time',
+                      onPressed: _pickExpiration,
+                      icon: AppIcons.schedule,
+                      tone: PrismButtonTone.subtle,
+                    ),
+                  ),
+
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ],
       ),
@@ -326,8 +329,18 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
 
   String _formatDateTime(DateTime dt) {
     final months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
     final amPm = dt.hour >= 12 ? 'PM' : 'AM';

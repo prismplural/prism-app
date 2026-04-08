@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Comments section shown on session detail screen.
@@ -41,11 +42,11 @@ class SessionCommentsSection extends ConsumerWidget {
                       ),
                     ),
                     const Spacer(),
-                    IconButton(
-                      icon: Icon(AppIcons.addCommentOutlined,
-                          size: 20, color: theme.colorScheme.primary),
+                    PrismInlineIconButton(
+                      icon: AppIcons.addCommentOutlined,
+                      iconSize: 20,
+                      color: theme.colorScheme.primary,
                       onPressed: () => _openAddSheet(context),
-                      visualDensity: VisualDensity.compact,
                       tooltip: 'Add comment',
                     ),
                   ],
@@ -62,10 +63,7 @@ class SessionCommentsSection extends ConsumerWidget {
                   const SizedBox(height: 12),
                   for (var i = 0; i < comments.length; i++) ...[
                     if (i > 0) const Divider(height: 16),
-                    _CommentTile(
-                      comment: comments[i],
-                      sessionId: sessionId,
-                    ),
+                    _CommentTile(comment: comments[i], sessionId: sessionId),
                   ],
                 ],
               ],
@@ -114,10 +112,11 @@ class _CommentTile extends ConsumerWidget {
           );
         }
         return PrismListRow(
-          leading: Icon(AppIcons.deleteOutline,
-              color: theme.colorScheme.error),
-          title: Text('Delete',
-              style: TextStyle(color: theme.colorScheme.error)),
+          leading: Icon(AppIcons.deleteOutline, color: theme.colorScheme.error),
+          title: Text(
+            'Delete',
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
           onTap: () {
             close();
             _confirmDelete(context, ref);
@@ -146,10 +145,7 @@ class _CommentTile extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              comment.body,
-              style: theme.textTheme.bodyMedium,
-            ),
+            child: Text(comment.body, style: theme.textTheme.bodyMedium),
           ),
         ],
       ),

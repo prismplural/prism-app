@@ -6,7 +6,9 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -27,10 +29,8 @@ class EditSleepSheet extends ConsumerStatefulWidget {
   static Future<bool?> show(BuildContext context, FrontingSession session) {
     return PrismSheet.showFullScreen<bool>(
       context: context,
-      builder: (context, scrollController) => EditSleepSheet(
-        session: session,
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          EditSleepSheet(session: session, scrollController: scrollController),
     );
   }
 
@@ -71,10 +71,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
 
     if (endTime != null && !endTime.isAfter(_startTime)) {
       if (!mounted) return;
-      PrismToast.error(
-        context,
-        message: 'End time must be after start time.',
-      );
+      PrismToast.error(context, message: 'End time must be after start time.');
       return;
     }
 
@@ -85,11 +82,11 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
           : const FieldPatch.absent(),
       endTime: _isActive
           ? (widget.session.endTime != null
-              ? const FieldPatch.value(null)
-              : const FieldPatch.absent())
+                ? const FieldPatch.value(null)
+                : const FieldPatch.absent())
           : (_endTime != widget.session.endTime
-              ? FieldPatch.value(endTime)
-              : const FieldPatch.absent()),
+                ? FieldPatch.value(endTime)
+                : const FieldPatch.absent()),
       notes: notes != (widget.session.notes ?? '')
           ? FieldPatch.value(notes.isEmpty ? null : notes)
           : const FieldPatch.absent(),
@@ -140,111 +137,98 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
               24 + MediaQuery.of(context).viewInsets.bottom,
             ),
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            AppIcons.bedtimeRounded,
-                            color: theme.colorScheme.tertiary,
+              PrismSurface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          AppIcons.bedtimeRounded,
+                          color: theme.colorScheme.tertiary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Sleep session',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Sleep session',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      PrismSwitchRow(
-                        title: 'Still Sleeping',
-                        subtitle: 'Leave the session open-ended',
-                        value: _isActive,
-                        onChanged: (value) {
-                          setState(() {
-                            _isActive = value;
-                            if (value) {
-                              _endTime = null;
-                            } else {
-                              _endTime ??= DateTime.now();
-                            }
-                          });
-                        },
-                      ),
-                      const Divider(height: 24),
-                      PrismDateTimePills(
-                        label: 'Start',
-                        dateTime: _startTime,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                        onChanged: (dt) =>
-                            setState(() => _startTime = dt),
-                      ),
-                      if (!_isActive) ...[
-                        const SizedBox(height: 16),
-                        PrismDateTimePills(
-                          label: 'End',
-                          dateTime: _endTime,
-                          firstDate: _startTime,
-                          lastDate: DateTime.now(),
-                          placeholder: 'Tap to set',
-                          onChanged: (dt) => setState(() {
-                            _endTime = dt;
-                            _isActive = false;
-                          }),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    PrismSwitchRow(
+                      title: 'Still Sleeping',
+                      subtitle: 'Leave the session open-ended',
+                      value: _isActive,
+                      onChanged: (value) {
+                        setState(() {
+                          _isActive = value;
+                          if (value) {
+                            _endTime = null;
+                          } else {
+                            _endTime ??= DateTime.now();
+                          }
+                        });
+                      },
+                    ),
+                    const Divider(height: 24),
+                    PrismDateTimePills(
+                      label: 'Start',
+                      dateTime: _startTime,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                      onChanged: (dt) => setState(() => _startTime = dt),
+                    ),
+                    if (!_isActive) ...[
+                      const SizedBox(height: 16),
+                      PrismDateTimePills(
+                        label: 'End',
+                        dateTime: _endTime,
+                        firstDate: _startTime,
+                        lastDate: DateTime.now(),
+                        placeholder: 'Tap to set',
+                        onChanged: (dt) => setState(() {
+                          _endTime = dt;
+                          _isActive = false;
+                        }),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Quality',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+              PrismSurface(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quality',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<SleepQuality>(
-                        initialValue: _quality,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Sleep quality',
-                        ),
-                        items: SleepQuality.values
-                            .map(
-                              (quality) => DropdownMenuItem(
-                                value: quality,
-                                child: Text(
-                                  quality == SleepQuality.unknown
-                                      ? 'Unrated'
-                                      : quality.label,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: _saving
-                            ? null
-                            : (value) {
-                                if (value == null) return;
-                                setState(() => _quality = value);
-                              },
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 12),
+                    PrismSelect<SleepQuality>(
+                      value: _quality,
+                      labelText: 'Sleep quality',
+                      enabled: !_saving,
+                      items: SleepQuality.values
+                          .map(
+                            (quality) => PrismSelectItem(
+                              value: quality,
+                              label: quality == SleepQuality.unknown
+                                  ? 'Unrated'
+                                  : quality.label,
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _quality = value);
+                      },
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -264,5 +248,4 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
       ],
     );
   }
-
 }

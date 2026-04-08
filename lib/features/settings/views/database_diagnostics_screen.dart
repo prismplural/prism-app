@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -26,7 +27,10 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
     final dbPathAsync = ref.watch(dbPathProvider);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Database Diagnostics', showBackButton: true),
+      topBar: const PrismTopBar(
+        title: 'Database Diagnostics',
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
@@ -95,8 +99,9 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
                   const Divider(height: 16),
                   _InfoRow(
                     label: 'Latest HLC',
-                    valueAsync:
-                        hlcAsync.whenData((v) => v ?? 'No changes recorded'),
+                    valueAsync: hlcAsync.whenData(
+                      (v) => v ?? 'No changes recorded',
+                    ),
                   ),
                 ],
               ),
@@ -186,8 +191,9 @@ class _CountRow extends StatelessWidget {
           ),
           error: (_, _) => Text(
             'Error',
-            style:
-                theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.error),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
+            ),
           ),
           data: (count) => Text(
             '$count',
@@ -335,8 +341,9 @@ class _InfoRow extends StatelessWidget {
                 ),
               ),
               if (copyable)
-                IconButton(
-                  icon: Icon(AppIcons.copy, size: 18),
+                PrismInlineIconButton(
+                  icon: AppIcons.copy,
+                  iconSize: 18,
                   tooltip: 'Copy',
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: value));

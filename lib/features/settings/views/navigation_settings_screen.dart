@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 class NavigationSettingsScreen extends ConsumerWidget {
@@ -52,16 +53,10 @@ class NavigationSettingsScreen extends ConsumerWidget {
     ];
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(
-        title: 'Navigation',
-        showBackButton: true,
-      ),
+      topBar: const PrismTopBar(title: 'Navigation', showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
-        padding: EdgeInsets.only(
-          top: 8,
-          bottom: NavBarInset.of(context),
-        ),
+        padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
         children: [
           // Sync toggle
           Padding(
@@ -125,12 +120,10 @@ class NavigationSettingsScreen extends ConsumerWidget {
                         : () => _removeItem(ref, entries, index),
                     onMoveToOverflow: tab.isLocked || !isInPrimary
                         ? null
-                        : () => _moveToOtherSection(
-                            ref, entries, index, false),
+                        : () => _moveToOtherSection(ref, entries, index, false),
                     onMoveToPrimary: tab.isLocked || isInPrimary
                         ? null
-                        : () => _moveToOtherSection(
-                            ref, entries, index, true),
+                        : () => _moveToOtherSection(ref, entries, index, true),
                   );
                 },
               ),
@@ -148,10 +141,10 @@ class NavigationSettingsScreen extends ConsumerWidget {
                       _AvailableItem(
                         tab: availableTabs[i],
                         terminologyPlural: terms.plural,
-                        onAddToBar: () => _addToPrimary(
-                            ref, primaryTabs, availableTabs[i]),
-                        onAddToOverflow: () => _addToOverflow(
-                            ref, overflowTabs, availableTabs[i]),
+                        onAddToBar: () =>
+                            _addToPrimary(ref, primaryTabs, availableTabs[i]),
+                        onAddToOverflow: () =>
+                            _addToOverflow(ref, overflowTabs, availableTabs[i]),
                       ),
                       if (i < availableTabs.length - 1)
                         const Divider(height: 1, indent: 56),
@@ -192,7 +185,8 @@ class NavigationSettingsScreen extends ConsumerWidget {
   /// Find the index of the overflow header in the entries list.
   int _overflowHeaderIndex(List<_UnifiedEntry> entries) {
     return entries.indexWhere(
-        (e) => e.isHeader && e.headerTitle == 'More Menu');
+      (e) => e.isHeader && e.headerTitle == 'More Menu',
+    );
   }
 
   /// Whether the item at [index] is in the primary section (before overflow header).
@@ -203,7 +197,11 @@ class NavigationSettingsScreen extends ConsumerWidget {
   /// Handle reorder within the unified list. Headers cannot move, and locked
   /// items (Home at index 1, Settings at the end) stay put.
   void _onReorder(
-      WidgetRef ref, List<_UnifiedEntry> entries, int oldIndex, int newIndex) {
+    WidgetRef ref,
+    List<_UnifiedEntry> entries,
+    int oldIndex,
+    int newIndex,
+  ) {
     if (newIndex > oldIndex) newIndex--;
 
     final entry = entries[oldIndex];
@@ -227,7 +225,11 @@ class NavigationSettingsScreen extends ConsumerWidget {
 
   /// Move an item to the other section using the arrow buttons.
   void _moveToOtherSection(
-      WidgetRef ref, List<_UnifiedEntry> entries, int index, bool toPrimary) {
+    WidgetRef ref,
+    List<_UnifiedEntry> entries,
+    int index,
+    bool toPrimary,
+  ) {
     final reordered = List<_UnifiedEntry>.from(entries);
     final item = reordered.removeAt(index);
     final overflowIdx = _overflowHeaderIndex(reordered);
@@ -243,8 +245,7 @@ class NavigationSettingsScreen extends ConsumerWidget {
   }
 
   /// Remove an item from the unified list entirely.
-  void _removeItem(
-      WidgetRef ref, List<_UnifiedEntry> entries, int index) {
+  void _removeItem(WidgetRef ref, List<_UnifiedEntry> entries, int index) {
     final reordered = List<_UnifiedEntry>.from(entries);
     reordered.removeAt(index);
     _saveFromEntries(ref, reordered);
@@ -253,7 +254,8 @@ class NavigationSettingsScreen extends ConsumerWidget {
   /// Derive primary and overflow tab lists from the unified entries and persist.
   void _saveFromEntries(WidgetRef ref, List<_UnifiedEntry> entries) {
     final overflowIdx = entries.indexWhere(
-        (e) => e.isHeader && e.headerTitle == 'More Menu');
+      (e) => e.isHeader && e.headerTitle == 'More Menu',
+    );
 
     final primaryItems = <AppShellTab>[];
     final overflowItems = <AppShellTab>[];
@@ -269,10 +271,10 @@ class NavigationSettingsScreen extends ConsumerWidget {
     }
 
     // Validate locked positions: Home must be first in primary, Settings last
-    final homeIdx =
-        primaryItems.indexWhere((t) => t.id == AppShellTabId.home);
-    final settingsIdx =
-        primaryItems.indexWhere((t) => t.id == AppShellTabId.settings);
+    final homeIdx = primaryItems.indexWhere((t) => t.id == AppShellTabId.home);
+    final settingsIdx = primaryItems.indexWhere(
+      (t) => t.id == AppShellTabId.settings,
+    );
 
     // If Home is not at position 0 in primary, or Settings is somewhere wrong,
     // reject the reorder silently (same behavior as the old code).
@@ -291,10 +293,14 @@ class NavigationSettingsScreen extends ConsumerWidget {
   // --- Add operations (from Available section) ---
 
   void _addToPrimary(
-      WidgetRef ref, List<AppShellTab> current, AppShellTab tab) {
+    WidgetRef ref,
+    List<AppShellTab> current,
+    AppShellTab tab,
+  ) {
     final updated = List<AppShellTab>.from(current);
-    final settingsIdx =
-        updated.indexWhere((t) => t.id == AppShellTabId.settings);
+    final settingsIdx = updated.indexWhere(
+      (t) => t.id == AppShellTabId.settings,
+    );
     if (settingsIdx >= 0) {
       updated.insert(settingsIdx, tab);
     } else {
@@ -304,7 +310,10 @@ class NavigationSettingsScreen extends ConsumerWidget {
   }
 
   void _addToOverflow(
-      WidgetRef ref, List<AppShellTab> current, AppShellTab tab) {
+    WidgetRef ref,
+    List<AppShellTab> current,
+    AppShellTab tab,
+  ) {
     _saveOverflow(ref, [...current, tab]);
   }
 
@@ -388,40 +397,31 @@ class _NavItem extends StatelessWidget {
             Icon(
               AppIcons.lockOutline,
               size: 18,
-              color:
-                  theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
             )
           else ...[
             if (onMoveToPrimary != null)
-              IconButton(
-                icon: Icon(
-                  AppIcons.arrowUpward,
-                  size: 18,
-                  color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                ),
+              PrismInlineIconButton(
+                icon: AppIcons.arrowUpward,
+                iconSize: 18,
+                color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 tooltip: 'Move to nav bar',
                 onPressed: onMoveToPrimary,
-                visualDensity: VisualDensity.compact,
               ),
             if (onMoveToOverflow != null)
-              IconButton(
-                icon: Icon(
-                  AppIcons.arrowDownward,
-                  size: 18,
-                  color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                ),
+              PrismInlineIconButton(
+                icon: AppIcons.arrowDownward,
+                iconSize: 18,
+                color: theme.colorScheme.primary.withValues(alpha: 0.7),
                 tooltip: 'Move to More menu',
                 onPressed: onMoveToOverflow,
-                visualDensity: VisualDensity.compact,
               ),
             if (onRemove != null)
-              IconButton(
-                icon: Icon(
-                  AppIcons.removeCircleOutline,
-                  color: theme.colorScheme.error.withValues(alpha: 0.7),
-                ),
+              PrismInlineIconButton(
+                icon: AppIcons.removeCircleOutline,
+                color: theme.colorScheme.error.withValues(alpha: 0.7),
                 onPressed: onRemove,
-                visualDensity: VisualDensity.compact,
+                tooltip: 'Remove from navigation',
               ),
           ],
           if (!isLocked)
@@ -429,8 +429,9 @@ class _NavItem extends StatelessWidget {
               index: reorderIndex,
               child: Icon(
                 AppIcons.dragHandle,
-                color: theme.colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.4),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.4,
+                ),
               ),
             ),
         ],
@@ -457,30 +458,23 @@ class _AvailableItem extends StatelessWidget {
     final theme = Theme.of(context);
     return PrismListRow(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      leading:
-          Icon(tab.icon, color: theme.colorScheme.onSurfaceVariant),
+      leading: Icon(tab.icon, color: theme.colorScheme.onSurfaceVariant),
       title: Text(tab.displayLabel(terminologyPlural: terminologyPlural)),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: Icon(
-              AppIcons.addCircleOutline,
-              color: theme.colorScheme.primary,
-            ),
+          PrismInlineIconButton(
+            icon: AppIcons.addCircleOutline,
+            color: theme.colorScheme.primary,
             tooltip: 'Add to nav bar',
             onPressed: onAddToBar,
-            visualDensity: VisualDensity.compact,
           ),
-          IconButton(
-            icon: Icon(
-              AppIcons.moreVert,
-              size: 20,
-              color: theme.colorScheme.primary.withValues(alpha: 0.7),
-            ),
+          PrismInlineIconButton(
+            icon: AppIcons.moreVert,
+            iconSize: 20,
+            color: theme.colorScheme.primary.withValues(alpha: 0.7),
             tooltip: 'Add to More menu',
             onPressed: onAddToOverflow,
-            visualDensity: VisualDensity.compact,
           ),
         ],
       ),

@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 
 /// Card shown on the fronting screen when a sleep session is active.
 class SleepModeCard extends ConsumerWidget {
@@ -43,19 +44,13 @@ class _ActiveSleepCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: sleepColor.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: sleepColor.withValues(alpha: 0.3)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            Icon(
-              AppIcons.bedtimeRounded,
-              size: 48,
-              color: sleepColor,
-            ),
+            Icon(AppIcons.bedtimeRounded, size: 48, color: sleepColor),
             const SizedBox(height: 8),
             Text(
               'Sleeping',
@@ -106,9 +101,7 @@ class _ActiveSleepCard extends ConsumerWidget {
               label: 'Wake Up',
               icon: AppIcons.wbSunnyRounded,
               onPressed: () {
-                ref
-                    .read(sleepNotifierProvider.notifier)
-                    .endSleep(session.id);
+                ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
               },
               density: PrismControlDensity.compact,
             ),
@@ -120,10 +113,7 @@ class _ActiveSleepCard extends ConsumerWidget {
 }
 
 class _QualityRating extends StatelessWidget {
-  const _QualityRating({
-    required this.quality,
-    required this.onChanged,
-  });
+  const _QualityRating({required this.quality, required this.onChanged});
 
   final SleepQuality quality;
   final ValueChanged<SleepQuality> onChanged;
@@ -143,7 +133,9 @@ class _QualityRating extends StatelessWidget {
     return Column(
       children: [
         Text(
-          quality == SleepQuality.unknown ? 'Sleep Quality: Unrated' : 'Sleep Quality: ${quality.label}',
+          quality == SleepQuality.unknown
+              ? 'Sleep Quality: Unrated'
+              : 'Sleep Quality: ${quality.label}',
           style: theme.textTheme.labelMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           ),
@@ -153,26 +145,23 @@ class _QualityRating extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(5, (index) {
             final q = qualityValues[index];
-            final isSelected = quality != SleepQuality.unknown &&
-                quality.index >= q.index;
+            final isSelected =
+                quality != SleepQuality.unknown && quality.index >= q.index;
             return Semantics(
               button: true,
               selected: isSelected,
               label: 'Rate sleep as ${q.label}',
-              child: IconButton(
+              child: PrismInlineIconButton(
                 onPressed: () => onChanged(q),
-                icon: Icon(
-                  isSelected ? AppIcons.starRounded : AppIcons.starOutlineRounded,
-                  color: isSelected
-                      ? Colors.amber
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                  size: 28,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                constraints: const BoxConstraints.tightFor(
-                  width: 44,
-                  height: 44,
-                ),
+                icon: isSelected
+                    ? AppIcons.starRounded
+                    : AppIcons.starOutlineRounded,
+                color: isSelected
+                    ? Colors.amber
+                    : theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                size: 44,
+                iconSize: 28,
+                tooltip: q.label,
               ),
             );
           }),

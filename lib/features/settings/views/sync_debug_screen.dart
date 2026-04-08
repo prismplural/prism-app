@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -52,9 +53,14 @@ class SyncDebugScreen extends ConsumerWidget {
       body: events.isEmpty
           ? const _EmptyState()
           : ListView.separated(
-              padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                NavBarInset.of(context) + 16,
+              ),
               itemCount: events.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final entry = events[events.length - 1 - index];
                 return _EventTile(entry: entry);
@@ -112,9 +118,7 @@ class _EventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ExpansionTile(
-      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    return PrismExpandableSection(
       title: Text(
         entry.summary,
         style: theme.textTheme.bodyMedium?.copyWith(

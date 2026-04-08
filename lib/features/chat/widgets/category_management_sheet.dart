@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/conversation_category.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -23,9 +24,8 @@ class CategoryManagementSheet extends ConsumerStatefulWidget {
   static Future<void> show(BuildContext context) {
     return PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => CategoryManagementSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          CategoryManagementSheet(scrollController: scrollController),
     );
   }
 
@@ -115,10 +115,8 @@ class _CategoryManagementSheetState
           const SizedBox(height: 8),
           Expanded(
             child: categoriesAsync.when(
-              loading: () => const SizedBox(
-                height: 200,
-                child: PrismLoadingState(),
-              ),
+              loading: () =>
+                  const SizedBox(height: 200, child: PrismLoadingState()),
               error: (e, _) => SizedBox(
                 height: 200,
                 child: Center(child: Text('Error: $e')),
@@ -147,7 +145,9 @@ class _CategoryManagementSheetState
                           itemCount: categories.length,
                           onReorder: (oldIndex, newIndex) {
                             if (newIndex > oldIndex) newIndex--;
-                            final reordered = List<ConversationCategory>.from(categories);
+                            final reordered = List<ConversationCategory>.from(
+                              categories,
+                            );
                             final item = reordered.removeAt(oldIndex);
                             reordered.insert(newIndex, item);
                             ref
@@ -175,21 +175,24 @@ class _CategoryManagementSheetState
                                   : GestureDetector(
                                       onTap: () {
                                         _editController.text = category.name;
-                                        setState(() => _editingId = category.id);
+                                        setState(
+                                          () => _editingId = category.id,
+                                        );
                                       },
                                       child: Text(category.name),
                                     ),
                               trailing: isEditing
-                                  ? IconButton(
-                                      icon: Icon(AppIcons.check, size: 20),
+                                  ? PrismIconButton(
+                                      icon: AppIcons.check,
+                                      size: 32,
+                                      iconSize: 18,
                                       onPressed: () => _saveEdit(category),
                                     )
-                                  : IconButton(
-                                      icon: Icon(
-                                        AppIcons.deleteOutline,
-                                        size: 20,
-                                        color: theme.colorScheme.error,
-                                      ),
+                                  : PrismIconButton(
+                                      icon: AppIcons.deleteOutline,
+                                      size: 32,
+                                      iconSize: 18,
+                                      color: theme.colorScheme.error,
                                       onPressed: () => _confirmDelete(category),
                                     ),
                             );
@@ -210,11 +213,11 @@ class _CategoryManagementSheetState
                           ),
                         ),
                         const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(
-                            AppIcons.addCircle,
-                            color: theme.colorScheme.primary,
-                          ),
+                        PrismIconButton(
+                          icon: AppIcons.addCircle,
+                          color: theme.colorScheme.primary,
+                          size: 40,
+                          iconSize: 20,
                           onPressed: _createCategory,
                           tooltip: 'Add category',
                         ),

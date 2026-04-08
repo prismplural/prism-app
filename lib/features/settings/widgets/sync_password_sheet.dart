@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -45,8 +46,9 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
       _error = null;
     });
 
-    final success =
-        await ref.read(syncHealthProvider.notifier).attemptUnlock(password);
+    final success = await ref
+        .read(syncHealthProvider.notifier)
+        .attemptUnlock(password);
 
     if (!mounted) return;
 
@@ -105,10 +107,9 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
             enabled: !_isLoading,
             onSubmitted: (_) => _unlock(),
             hintText: 'Password',
-            suffix: IconButton(
-              icon: Icon(
-                _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-              ),
+            suffix: PrismFieldIconButton(
+              icon: _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
+              tooltip: _obscure ? 'Show password' : 'Hide password',
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
             errorText: _error,

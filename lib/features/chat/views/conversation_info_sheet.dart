@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 /// Full-screen sheet for viewing and managing conversation details.
 ///
@@ -52,8 +53,7 @@ class ConversationInfoSheet extends ConsumerStatefulWidget {
       _ConversationInfoSheetState();
 }
 
-class _ConversationInfoSheetState
-    extends ConsumerState<ConversationInfoSheet> {
+class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   bool _editingTitle = false;
   final _titleController = TextEditingController();
   bool _saving = false;
@@ -73,7 +73,9 @@ class _ConversationInfoSheetState
 
     setState(() => _saving = true);
     try {
-      await ref.read(chatNotifierProvider.notifier).updateConversation(
+      await ref
+          .read(chatNotifierProvider.notifier)
+          .updateConversation(
             conversationId,
             title: newTitle,
             emoji: currentEmoji,
@@ -98,7 +100,9 @@ class _ConversationInfoSheetState
 
     setState(() => _saving = true);
     try {
-      await ref.read(chatNotifierProvider.notifier).updateConversation(
+      await ref
+          .read(chatNotifierProvider.notifier)
+          .updateConversation(
             conversationId,
             title: currentTitle,
             emoji: emoji,
@@ -173,7 +177,8 @@ class _ConversationInfoSheetState
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Delete Conversation',
-      message: 'Are you sure you want to delete this conversation? '
+      message:
+          'Are you sure you want to delete this conversation? '
           'All messages will be permanently removed. This cannot be undone.',
       confirmLabel: 'Delete',
       destructive: true,
@@ -193,8 +198,9 @@ class _ConversationInfoSheetState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final conversationAsync =
-        ref.watch(conversationByIdProvider(widget.conversationId));
+    final conversationAsync = ref.watch(
+      conversationByIdProvider(widget.conversationId),
+    );
     final speakingAsMemberId = ref.watch(speakingAsProvider);
     final speakingAsMemberAsync = speakingAsMemberId != null
         ? ref.watch(memberByIdProvider(speakingAsMemberId))
@@ -202,18 +208,14 @@ class _ConversationInfoSheetState
 
     return conversationAsync.when(
       loading: () => const SafeArea(child: PrismLoadingState()),
-      error: (e, _) => SafeArea(
-        child: Center(child: Text('Error: $e')),
-      ),
+      error: (e, _) => SafeArea(child: Center(child: Text('Error: $e'))),
       data: (conversation) {
         if (conversation == null) {
           return const SafeArea(
             child: Column(
               children: [
                 PrismSheetTopBar(title: 'Info'),
-                Expanded(
-                  child: Center(child: Text('Conversation not found')),
-                ),
+                Expanded(child: Center(child: Text('Conversation not found'))),
               ],
             ),
           );
@@ -250,12 +252,7 @@ class _ConversationInfoSheetState
                   ),
                   children: [
                     // HEADER SECTION
-                    _buildHeader(
-                      context,
-                      conversation,
-                      permissions,
-                      theme,
-                    ),
+                    _buildHeader(context, conversation, permissions, theme),
                     const Divider(height: 32),
 
                     // PARTICIPANTS or DM SECTION
@@ -269,11 +266,7 @@ class _ConversationInfoSheetState
                         theme,
                       )
                     else
-                      _buildDmSection(
-                        conversation,
-                        speakingAsMemberId,
-                        theme,
-                      ),
+                      _buildDmSection(conversation, speakingAsMemberId, theme),
 
                     const Divider(height: 32),
 
@@ -434,8 +427,10 @@ class _ConversationInfoSheetState
             ),
             const Spacer(),
             if (permissions.canAddMembers)
-              IconButton(
-                icon: Icon(AppIcons.personAdd, size: 20),
+              PrismIconButton(
+                icon: AppIcons.personAdd,
+                size: 32,
+                iconSize: 18,
                 tooltip: 'Add members',
                 onPressed: () => AddMembersSheet.show(context, conversation),
               ),
@@ -582,10 +577,14 @@ class _ConversationInfoSheetState
         // Delete
         if (permissions.canDeleteConversation)
           PrismListRow(
-            leading: Icon(AppIcons.deleteOutline,
-                color: theme.colorScheme.error),
-            title: Text('Delete conversation',
-                style: TextStyle(color: theme.colorScheme.error)),
+            leading: Icon(
+              AppIcons.deleteOutline,
+              color: theme.colorScheme.error,
+            ),
+            title: Text(
+              'Delete conversation',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
             padding: EdgeInsets.zero,
             onTap: () => _confirmDelete(conversation.id),
           ),
@@ -631,10 +630,12 @@ class _ParticipantTile extends ConsumerWidget {
           );
         }
 
-        final isOwner = participantId == (conversation.creatorId ??
-            (conversation.participantIds.isNotEmpty
-                ? conversation.participantIds.first
-                : null));
+        final isOwner =
+            participantId ==
+            (conversation.creatorId ??
+                (conversation.participantIds.isNotEmpty
+                    ? conversation.participantIds.first
+                    : null));
 
         final tile = PrismListRow(
           padding: EdgeInsets.zero,
@@ -658,8 +659,7 @@ class _ParticipantTile extends ConsumerWidget {
               ],
             ],
           ),
-          subtitle:
-              member.pronouns != null ? Text(member.pronouns!) : null,
+          subtitle: member.pronouns != null ? Text(member.pronouns!) : null,
         );
 
         if (!permissions.canRemoveMembers) return tile;
@@ -671,8 +671,7 @@ class _ParticipantTile extends ConsumerWidget {
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.only(left: 24),
             color: theme.colorScheme.error.withValues(alpha: 0.2),
-            child: Icon(AppIcons.personRemove,
-                color: theme.colorScheme.error),
+            child: Icon(AppIcons.personRemove, color: theme.colorScheme.error),
           ),
           confirmDismiss: (_) async {
             await onRemove(participantId);
@@ -737,10 +736,10 @@ class _CategoryPicker extends ConsumerWidget {
 
     final currentName = currentCategoryId != null
         ? categories
-            .where((c) => c.id == currentCategoryId)
-            .map((c) => c.name)
-            .firstOrNull ??
-          'None'
+                  .where((c) => c.id == currentCategoryId)
+                  .map((c) => c.name)
+                  .firstOrNull ??
+              'None'
         : 'None';
 
     return Padding(
@@ -752,7 +751,8 @@ class _CategoryPicker extends ConsumerWidget {
           title: const Text('Category'),
           subtitle: Text(currentName),
           trailing: Icon(AppIcons.chevronRightRounded),
-          onTap: () => _showCategorySheet(context, ref, categories, currentName),
+          onTap: () =>
+              _showCategorySheet(context, ref, categories, currentName),
         ),
       ),
     );
@@ -775,10 +775,9 @@ class _CategoryPicker extends ConsumerWidget {
                 ? Icon(AppIcons.checkRounded)
                 : null,
             onTap: () {
-              ref.read(chatNotifierProvider.notifier).updateConversation(
-                    conversationId,
-                    clearCategory: true,
-                  );
+              ref
+                  .read(chatNotifierProvider.notifier)
+                  .updateConversation(conversationId, clearCategory: true);
               Navigator.of(context).pop();
             },
           ),
@@ -789,10 +788,9 @@ class _CategoryPicker extends ConsumerWidget {
                   ? Icon(AppIcons.checkRounded)
                   : null,
               onTap: () {
-                ref.read(chatNotifierProvider.notifier).updateConversation(
-                      conversationId,
-                      categoryId: cat.id,
-                    );
+                ref
+                    .read(chatNotifierProvider.notifier)
+                    .updateConversation(conversationId, categoryId: cat.id);
                 Navigator.of(context).pop();
               },
             ),

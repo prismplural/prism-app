@@ -5,7 +5,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -29,9 +29,9 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
   bool _saving = false;
 
   Set<String> get _excludedIds => {
-        if (widget.currentFronterId != null) widget.currentFronterId!,
-        ...widget.existingCoFronterIds,
-      };
+    if (widget.currentFronterId != null) widget.currentFronterId!,
+    ...widget.existingCoFronterIds,
+  };
 
   Future<void> _add() async {
     if (_selectedIds.isEmpty) return;
@@ -61,9 +61,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(28),
-        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -75,16 +73,16 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
               width: 32,
               height: 4,
               decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.4),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.4,
+                ),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
           // Header
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -145,7 +143,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                   itemCount: available.length,
                   itemBuilder: (context, index) {
                     final member = available[index];
-                    return PrismListRow(
+                    return PrismCheckboxRow(
                       leading: MemberAvatar(
                         avatarImageData: member.avatarImageData,
                         emoji: member.emoji,
@@ -157,24 +155,13 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                       subtitle: member.pronouns != null
                           ? Text(member.pronouns!)
                           : null,
-                      trailing: Checkbox(
-                        value: _selectedIds.contains(member.id),
-                        onChanged: (v) {
-                          setState(() {
-                            if (v == true) {
-                              _selectedIds.add(member.id);
-                            } else {
-                              _selectedIds.remove(member.id);
-                            }
-                          });
-                        },
-                      ),
-                      onTap: () {
+                      value: _selectedIds.contains(member.id),
+                      onChanged: (selected) {
                         setState(() {
-                          if (_selectedIds.contains(member.id)) {
-                            _selectedIds.remove(member.id);
-                          } else {
+                          if (selected) {
                             _selectedIds.add(member.id);
+                          } else {
+                            _selectedIds.remove(member.id);
                           }
                         });
                       },

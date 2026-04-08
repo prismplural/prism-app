@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -14,16 +15,12 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Modal for creating a new fronting session with full details.
 ///
 /// Opens via [PrismSheet.showFullScreen] for consistency with other modals.
 class AddFrontSessionSheet extends ConsumerStatefulWidget {
-  const AddFrontSessionSheet({
-    super.key,
-    required this.scrollController,
-  });
+  const AddFrontSessionSheet({super.key, required this.scrollController});
 
   final ScrollController scrollController;
 
@@ -31,9 +28,8 @@ class AddFrontSessionSheet extends ConsumerStatefulWidget {
   static Future<bool?> show(BuildContext context) {
     return PrismSheet.showFullScreen<bool>(
       context: context,
-      builder: (context, scrollController) => AddFrontSessionSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          AddFrontSessionSheet(scrollController: scrollController),
     );
   }
 
@@ -134,8 +130,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     final theme = Theme.of(context);
     final membersAsync = ref.watch(activeMembersProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
-    final activeSessions =
-        activeSessionsAsync.whenOrNull(data: (s) => s) ?? [];
+    final activeSessions = activeSessionsAsync.whenOrNull(data: (s) => s) ?? [];
     final frontingMemberIds = <String>{
       for (final s in activeSessions) ...[
         if (s.memberId != null) s.memberId!,
@@ -147,7 +142,15 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxHeight < 100) return const SizedBox.shrink();
-        return Column(children: _buildContent(context, theme, membersAsync, frontingMemberIds, hasActiveSession));
+        return Column(
+          children: _buildContent(
+            context,
+            theme,
+            membersAsync,
+            frontingMemberIds,
+            hasActiveSession,
+          ),
+        );
       },
     );
   }
@@ -160,193 +163,191 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
     bool hasActiveSession,
   ) {
     return [
-        PrismSheetTopBar(
-          title: _coFrontMode ? 'Add Co-Fronter' : 'New Session',
-          trailing: PrismGlassIconButton(
-            icon: AppIcons.check,
-            onPressed: (_saving || _selectedId == null)
-                ? null
-                : _coFrontMode
-                    ? () => _addCoFronter(_selectedId!)
-                    : _create,
-          ),
+      PrismSheetTopBar(
+        title: _coFrontMode ? 'Add Co-Fronter' : 'New Session',
+        trailing: PrismGlassIconButton(
+          icon: AppIcons.check,
+          onPressed: (_saving || _selectedId == null)
+              ? null
+              : _coFrontMode
+              ? () => _addCoFronter(_selectedId!)
+              : _create,
         ),
-        const Divider(height: 1),
-        Expanded(
-          child: ListView(
-            controller: widget.scrollController,
-            padding: EdgeInsets.fromLTRB(
-              24, 24, 24,
-              24 + MediaQuery.of(context).viewInsets.bottom,
-            ),
-            children: [
-              // Header row with optional co-front toggle
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _coFrontMode ? 'Select Member' : 'Select Fronter',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+      ),
+      const Divider(height: 1),
+      Expanded(
+        child: ListView(
+          controller: widget.scrollController,
+          padding: EdgeInsets.fromLTRB(
+            24,
+            24,
+            24,
+            24 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          children: [
+            // Header row with optional co-front toggle
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _coFrontMode ? 'Select Member' : 'Select Fronter',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (hasActiveSession) ...[
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => setState(() {
-                        _coFrontMode = !_coFrontMode;
-                        _selectedId = null;
-                        _coFronterIds.clear();
-                      }),
-                      child: Padding(
+                ),
+                if (hasActiveSession) ...[
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() {
+                      _coFrontMode = !_coFrontMode;
+                      _selectedId = null;
+                      _coFronterIds.clear();
+                    }),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 6),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _coFrontMode
+                              ? AppColors.fronting(
+                                  theme.brightness,
+                                ).withValues(alpha: 0.15)
+                              : Colors.transparent,
+                          border: Border.all(
                             color: _coFrontMode
-                                ? AppColors.fronting(theme.brightness).withValues(alpha: 0.15)
-                                : Colors.transparent,
-                            border: Border.all(
+                                ? AppColors.fronting(theme.brightness)
+                                : theme.colorScheme.outline.withValues(
+                                    alpha: 0.4,
+                                  ),
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              AppIcons.group,
+                              size: 14,
                               color: _coFrontMode
                                   ? AppColors.fronting(theme.brightness)
-                                  : theme.colorScheme.outline
-                                      .withValues(alpha: 0.4),
+                                  : theme.colorScheme.onSurfaceVariant,
                             ),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                AppIcons.group,
-                                size: 14,
+                            const SizedBox(width: 4),
+                            Text(
+                              'Co-front',
+                              style: theme.textTheme.labelSmall?.copyWith(
                                 color: _coFrontMode
                                     ? AppColors.fronting(theme.brightness)
                                     : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: _coFrontMode
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Co-front',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: _coFrontMode
-                                      ? AppColors.fronting(theme.brightness)
-                                      : theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: _coFrontMode
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            membersAsync.when(
+              loading: () => const PrismLoadingState(),
+              error: (e, _) => Text('Error: $e'),
+              data: (members) => _MemberGrid(
+                members: members,
+                selectedId: _selectedId,
+                unknownId: _unknownId,
+                frontingMemberIds: frontingMemberIds,
+                coFrontMode: _coFrontMode,
+                onSelect: (id) {
+                  setState(() {
+                    _selectedId = id;
+                    if (id == _unknownId) _coFronterIds.clear();
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Co-fronter multi-select (hidden in co-front mode)
+            if (_selectedMemberId != null && !_coFrontMode) ...[
+              Text(
+                'Co-Fronters',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 12),
               membersAsync.when(
-                loading: () => const PrismLoadingState(),
-                error: (e, _) => Text('Error: $e'),
-                data: (members) => _MemberGrid(
-                  members: members,
-                  selectedId: _selectedId,
-                  unknownId: _unknownId,
-                  frontingMemberIds: frontingMemberIds,
-                  coFrontMode: _coFrontMode,
-                  onSelect: (id) {
-                    setState(() {
-                      _selectedId = id;
-                      if (id == _unknownId) _coFronterIds.clear();
-                    });
-                  },
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
+                data: (members) {
+                  final available = members
+                      .where((m) => m.id != _selectedMemberId)
+                      .toList();
+                  if (available.isEmpty) {
+                    return Text(
+                      'No other members available',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: available.map((m) {
+                      return PrismCheckboxRow(
+                        leading: MemberAvatar(
+                          avatarImageData: m.avatarImageData,
+                          emoji: m.emoji,
+                          customColorEnabled: m.customColorEnabled,
+                          customColorHex: m.customColorHex,
+                          size: 36,
+                        ),
+                        title: Text(m.name),
+                        value: _coFronterIds.contains(m.id),
+                        onChanged: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _coFronterIds.add(m.id);
+                            } else {
+                              _coFronterIds.remove(m.id);
+                            }
+                          });
+                        },
+                        padding: EdgeInsets.zero,
+                        dense: true,
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            if (_coFrontMode) ...[
+              // In co-front mode, just show a hint
+              Text(
+                'Tap a member to add them as a co-fronter to the current session.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 32),
+            ],
 
-              // Co-fronter multi-select (hidden in co-front mode)
-              if (_selectedMemberId != null && !_coFrontMode) ...[
-                Text(
-                  'Co-Fronters',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                membersAsync.when(
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, _) => const SizedBox.shrink(),
-                  data: (members) {
-                    final available = members
-                        .where((m) => m.id != _selectedMemberId)
-                        .toList();
-                    if (available.isEmpty) {
-                      return Text(
-                        'No other members available',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      );
-                    }
-                    return Column(
-                      children: available.map((m) {
-                        return PrismListRow(
-                          leading: MemberAvatar(
-                            avatarImageData: m.avatarImageData,
-                            emoji: m.emoji,
-                            customColorEnabled: m.customColorEnabled,
-                            customColorHex: m.customColorHex,
-                            size: 36,
-                          ),
-                          title: Text(m.name),
-                          trailing: Checkbox(
-                            value: _coFronterIds.contains(m.id),
-                            onChanged: (v) {
-                              setState(() {
-                                if (v == true) {
-                                  _coFronterIds.add(m.id);
-                                } else {
-                                  _coFronterIds.remove(m.id);
-                                }
-                              });
-                            },
-                          ),
-                          onTap: () {
-                            setState(() {
-                              if (_coFronterIds.contains(m.id)) {
-                                _coFronterIds.remove(m.id);
-                              } else {
-                                _coFronterIds.add(m.id);
-                              }
-                            });
-                          },
-                          padding: EdgeInsets.zero,
-                          dense: true,
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              if (_coFrontMode) ...[
-                // In co-front mode, just show a hint
-                Text(
-                  'Tap a member to add them as a co-fronter to the current session.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 32),
-              ],
-
-              // Confidence level picker (hidden in co-front mode)
-              if (!_coFrontMode) ...[
+            // Confidence level picker (hidden in co-front mode)
+            if (!_coFrontMode) ...[
               Text(
                 'Confidence Level',
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -373,11 +374,11 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                 textCapitalization: TextCapitalization.sentences,
               ),
               const SizedBox(height: 32),
-              ], // end if (!_coFrontMode)
-            ],
-          ),
+            ], // end if (!_coFrontMode)
+          ],
         ),
-      ];
+      ),
+    ];
   }
 }
 
@@ -458,12 +459,10 @@ class _MemberGridState extends State<_MemberGrid> {
         decoration: isSelected
             ? BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.primary,
-                  width: 2,
+                border: Border.all(color: theme.colorScheme.primary, width: 2),
+                color: theme.colorScheme.primaryContainer.withValues(
+                  alpha: 0.3,
                 ),
-                color: theme.colorScheme.primaryContainer
-                    .withValues(alpha: 0.3),
               )
             : null,
         padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
@@ -478,7 +477,9 @@ class _MemberGridState extends State<_MemberGrid> {
                 customColorEnabled: member.customColorEnabled,
                 customColorHex: member.customColorHex,
                 size: 72,
-                tintOverride: isFronting ? AppColors.fronting(theme.brightness) : null,
+                tintOverride: isFronting
+                    ? AppColors.fronting(theme.brightness)
+                    : null,
               ),
             ),
             const SizedBox(height: 6),
@@ -494,16 +495,21 @@ class _MemberGridState extends State<_MemberGrid> {
             if (isFronting) ...[
               const SizedBox(height: 2),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.fronting(theme.brightness).withValues(alpha: 0.15),
+                  color: AppColors.fronting(
+                    theme.brightness,
+                  ).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(AppIcons.flashOn, size: 10, color: AppColors.fronting(theme.brightness)),
+                    Icon(
+                      AppIcons.flashOn,
+                      size: 10,
+                      color: AppColors.fronting(theme.brightness),
+                    ),
                     const SizedBox(width: 2),
                     Text(
                       'Fronting',
@@ -532,12 +538,10 @@ class _MemberGridState extends State<_MemberGrid> {
         decoration: isSelected
             ? BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: theme.colorScheme.primary,
-                  width: 2,
+                border: Border.all(color: theme.colorScheme.primary, width: 2),
+                color: theme.colorScheme.primaryContainer.withValues(
+                  alpha: 0.3,
                 ),
-                color: theme.colorScheme.primaryContainer
-                    .withValues(alpha: 0.3),
               )
             : null,
         padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
@@ -582,10 +586,10 @@ class _MemberGridState extends State<_MemberGrid> {
     final filtered = _search.isEmpty
         ? widget.members
         : widget.members
-            .where(
-              (m) => m.name.toLowerCase().contains(_search.toLowerCase()),
-            )
-            .toList();
+              .where(
+                (m) => m.name.toLowerCase().contains(_search.toLowerCase()),
+              )
+              .toList();
 
     return Column(
       children: [
@@ -638,7 +642,9 @@ class _MemberGridState extends State<_MemberGrid> {
               customColorEnabled: member.customColorEnabled,
               customColorHex: member.customColorHex,
               size: 40,
-              tintOverride: isFronting ? AppColors.fronting(theme.brightness) : null,
+              tintOverride: isFronting
+                  ? AppColors.fronting(theme.brightness)
+                  : null,
             ),
             name: member.name,
             isSelected: isSelected,
@@ -690,24 +696,31 @@ class _MemberGridState extends State<_MemberGrid> {
                 child: Text(
                   name,
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight:
-                        isSelected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ),
               if (isFronting && !isSelected)
                 Container(
                   margin: const EdgeInsets.only(right: 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppColors.fronting(theme.brightness).withValues(alpha: 0.15),
+                    color: AppColors.fronting(
+                      theme.brightness,
+                    ).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(AppIcons.flashOn, size: 10, color: AppColors.fronting(theme.brightness)),
+                      Icon(
+                        AppIcons.flashOn,
+                        size: 10,
+                        color: AppColors.fronting(theme.brightness),
+                      ),
                       const SizedBox(width: 2),
                       Text(
                         'Fronting',
@@ -735,10 +748,7 @@ class _MemberGridState extends State<_MemberGrid> {
 }
 
 class _ConfidencePicker extends StatelessWidget {
-  const _ConfidencePicker({
-    required this.selected,
-    required this.onSelect,
-  });
+  const _ConfidencePicker({required this.selected, required this.onSelect});
 
   final FrontConfidence? selected;
   final ValueChanged<FrontConfidence?> onSelect;
@@ -753,10 +763,7 @@ class _ConfidencePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return PrismSegmentedControl<FrontConfidence>(
       segments: FrontConfidence.values.map((c) {
-        return PrismSegment(
-          value: c,
-          label: _labels[c]!,
-        );
+        return PrismSegment(value: c, label: _labels[c]!);
       }).toList(),
       selected: selected ?? FrontConfidence.unsure,
       onChanged: onSelect,

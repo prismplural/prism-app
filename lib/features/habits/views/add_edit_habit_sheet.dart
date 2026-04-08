@@ -7,8 +7,10 @@ import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -58,11 +60,13 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     super.initState();
     final habit = widget.existingHabit;
     _nameController = TextEditingController(text: habit?.name ?? '');
-    _descriptionController =
-        TextEditingController(text: habit?.description ?? '');
+    _descriptionController = TextEditingController(
+      text: habit?.description ?? '',
+    );
     _iconController = TextEditingController(text: habit?.icon ?? '');
-    _notificationMessageController =
-        TextEditingController(text: habit?.notificationMessage ?? '');
+    _notificationMessageController = TextEditingController(
+      text: habit?.notificationMessage ?? '',
+    );
 
     _frequency = habit?.frequency ?? HabitFrequency.daily;
     _weeklyDays = (habit?.weeklyDays ?? []).toSet();
@@ -166,20 +170,16 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 const SizedBox(height: 8),
                 PrismSegmentedControl<HabitFrequency>(
                   segments: HabitFrequency.values
-                      .map((f) => PrismSegment(
-                          value: f,
-                          label: f.label))
+                      .map((f) => PrismSegment(value: f, label: f.label))
                       .toList(),
                   selected: _frequency,
-                  onChanged: (value) =>
-                      setState(() => _frequency = value),
+                  onChanged: (value) => setState(() => _frequency = value),
                 ),
                 const SizedBox(height: 12),
                 if (_frequency == HabitFrequency.weekly)
                   _WeekdayPicker(
                     selected: _weeklyDays,
-                    onChanged: (days) =>
-                        setState(() => _weeklyDays = days),
+                    onChanged: (days) => setState(() => _weeklyDays = days),
                   ),
                 if (_frequency == HabitFrequency.interval)
                   Row(
@@ -191,12 +191,13 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                         enabled: _intervalDays > 1,
                         tooltip: 'Decrease interval',
                       ),
-                      Text('$_intervalDays',
-                          style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        '$_intervalDays',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       PrismIconButton(
                         icon: AppIcons.add,
-                        onPressed: () =>
-                            setState(() => _intervalDays++),
+                        onPressed: () => setState(() => _intervalDays++),
                         tooltip: 'Increase interval',
                       ),
                       const Text(' days'),
@@ -214,8 +215,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 PrismSwitchRow(
                   title: 'Enable Reminders',
                   value: _notificationsEnabled,
-                  onChanged: (v) =>
-                      setState(() => _notificationsEnabled = v),
+                  onChanged: (v) => setState(() => _notificationsEnabled = v),
                 ),
                 if (_notificationsEnabled) ...[
                   PrismListRow(
@@ -240,26 +240,36 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 membersAsync.when(
                   loading: () => const LinearProgressIndicator(),
                   error: (e, _) => Text('Error: $e'),
-                  data: (members) => PrismSurface(
-                    tone: PrismSurfaceTone.subtle,
-                    padding: EdgeInsets.zero,
-                    child: DropdownButtonFormField<String?>(
-                      initialValue: _assignedMemberId,
-                      decoration: const InputDecoration(
-                        labelText: 'Assigned Member',
-                        border: OutlineInputBorder(),
+                  data: (members) => PrismSelect<String?>(
+                    value: _assignedMemberId,
+                    labelText: 'Assigned Member',
+                    items: [
+                      const PrismSelectItem<String?>(
+                        value: null,
+                        label: 'Anyone',
                       ),
-                      items: [
-                        const DropdownMenuItem(
-                            value: null, child: Text('Anyone')),
-                        ...members.map((m) => DropdownMenuItem(
-                              value: m.id,
-                              child: Text(m.name),
-                            )),
-                      ],
-                      onChanged: (v) =>
-                          setState(() => _assignedMemberId = v),
-                    ),
+                      ...members.map(
+                        (m) => PrismSelectItem<String?>(
+                          value: m.id,
+                          label: m.name,
+                          leading: MemberAvatar(
+                            avatarImageData: m.avatarImageData,
+                            emoji: m.emoji,
+                            customColorEnabled: m.customColorEnabled,
+                            customColorHex: m.customColorHex,
+                            size: 28,
+                          ),
+                          fieldLeading: MemberAvatar(
+                            avatarImageData: m.avatarImageData,
+                            emoji: m.emoji,
+                            customColorEnabled: m.customColorEnabled,
+                            customColorHex: m.customColorHex,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (v) => setState(() => _assignedMemberId = v),
                   ),
                 ),
                 if (_assignedMemberId != null)
@@ -290,7 +300,8 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
   }
 
   Future<void> _pickTime() async {
-    final initial = _parseTime(_reminderTime) ?? const TimeOfDay(hour: 9, minute: 0);
+    final initial =
+        _parseTime(_reminderTime) ?? const TimeOfDay(hour: 9, minute: 0);
     final picked = await showPrismTimePicker(
       context: context,
       initialTime: initial,
@@ -308,8 +319,9 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     final parts = time.split(':');
     if (parts.length != 2) return null;
     return TimeOfDay(
-        hour: int.tryParse(parts[0]) ?? 0,
-        minute: int.tryParse(parts[1]) ?? 0);
+      hour: int.tryParse(parts[0]) ?? 0,
+      minute: int.tryParse(parts[1]) ?? 0,
+    );
   }
 
   Future<void> _save() async {
@@ -333,14 +345,14 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
       weeklyDays: _frequency == HabitFrequency.weekly
           ? (_weeklyDays.toList()..sort())
           : null,
-      intervalDays:
-          _frequency == HabitFrequency.interval ? _intervalDays : null,
+      intervalDays: _frequency == HabitFrequency.interval
+          ? _intervalDays
+          : null,
       reminderTime: _notificationsEnabled ? _reminderTime : null,
       notificationsEnabled: _notificationsEnabled,
-      notificationMessage:
-          _notificationMessageController.text.trim().isEmpty
-              ? null
-              : _notificationMessageController.text.trim(),
+      notificationMessage: _notificationMessageController.text.trim().isEmpty
+          ? null
+          : _notificationMessageController.text.trim(),
       assignedMemberId: _assignedMemberId,
       onlyNotifyWhenFronting: _onlyNotifyWhenFronting,
       isPrivate: _isPrivate,
@@ -399,8 +411,14 @@ class _ColorPicker extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   static const _colors = [
-    'FF6B6B', '4ECDC4', '45B7D1', 'FFA07A',
-    '98D8C8', 'F7DC6F', 'BB8FCE', '85C1E9',
+    'FF6B6B',
+    '4ECDC4',
+    '45B7D1',
+    'FFA07A',
+    '98D8C8',
+    'F7DC6F',
+    'BB8FCE',
+    '85C1E9',
   ];
 
   @override
@@ -423,7 +441,8 @@ class _ColorPicker extends StatelessWidget {
                 border: isSelected
                     ? Border.all(
                         color: Theme.of(context).colorScheme.primary,
-                        width: 3)
+                        width: 3,
+                      )
                     : null,
               ),
             ),

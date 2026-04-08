@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/members/widgets/note_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 
 /// Notes section shown on member detail screen.
 class NotesSection extends ConsumerWidget {
@@ -36,8 +37,11 @@ class NotesSection extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  Icon(AppIcons.stickyNote2Outlined,
-                      size: 18, color: theme.colorScheme.primary),
+                  Icon(
+                    AppIcons.stickyNote2Outlined,
+                    size: 18,
+                    color: theme.colorScheme.primary,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Notes',
@@ -47,11 +51,11 @@ class NotesSection extends ConsumerWidget {
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    icon: Icon(AppIcons.add,
-                        size: 20, color: theme.colorScheme.primary),
+                  PrismInlineIconButton(
+                    icon: AppIcons.add,
+                    iconSize: 20,
+                    color: theme.colorScheme.primary,
                     onPressed: () => _openCreateSheet(context),
-                    visualDensity: VisualDensity.compact,
                     tooltip: 'Add note',
                   ),
                 ],
@@ -101,10 +105,8 @@ class NotesSection extends ConsumerWidget {
   void _openCreateSheet(BuildContext context) {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => NoteSheet(
-        memberId: memberId,
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          NoteSheet(memberId: memberId, scrollController: scrollController),
     );
   }
 }
@@ -120,8 +122,7 @@ class _NoteTile extends StatelessWidget {
     final dateStr = DateFormat.MMMd().format(note.date);
 
     return InkWell(
-      onTap: () =>
-          context.push('${AppRoutePaths.settings}/notes/${note.id}'),
+      onTap: () => context.push('${AppRoutePaths.settings}/notes/${note.id}'),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(

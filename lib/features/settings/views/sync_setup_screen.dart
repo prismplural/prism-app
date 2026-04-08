@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/features/settings/providers/sync_setup_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_content.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -59,7 +60,8 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     };
 
     return PopScope(
-      canPop: setupState.step == SyncSetupStep.intro && !setupState.isProcessing,
+      canPop:
+          setupState.step == SyncSetupStep.intro && !setupState.isProcessing,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !setupState.isProcessing) {
           ref.read(syncSetupProvider.notifier).goBack();
@@ -94,9 +96,9 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
                     ref.read(syncSetupProvider.notifier).setRelayUrl(url);
                   }
                   final token = _registrationTokenController.text.trim();
-                  ref.read(syncSetupProvider.notifier).setRegistrationToken(
-                    token.isNotEmpty ? token : null,
-                  );
+                  ref
+                      .read(syncSetupProvider.notifier)
+                      .setRegistrationToken(token.isNotEmpty ? token : null);
                 }
                 ref.read(syncSetupProvider.notifier).proceedToPassword();
               },
@@ -183,7 +185,11 @@ class _IntroStep extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 32),
-          PhosphorIcon(AppIcons.duotoneSync, size: 64, color: theme.colorScheme.primary),
+          PhosphorIcon(
+            AppIcons.duotoneSync,
+            size: 64,
+            color: theme.colorScheme.primary,
+          ),
           const SizedBox(height: 24),
           Text(
             'Keep your data in sync across all your devices.',
@@ -315,11 +321,12 @@ class _PasswordStep extends StatelessWidget {
             obscureText: obscurePassword,
             keyboardType: TextInputType.visiblePassword,
             textInputAction: TextInputAction.next,
-            suffix: IconButton(
+            suffix: PrismFieldIconButton(
+              icon: obscurePassword
+                  ? AppIcons.visibilityOff
+                  : AppIcons.visibility,
+              tooltip: obscurePassword ? 'Show password' : 'Hide password',
               onPressed: onTogglePasswordVisibility,
-              icon: Icon(
-                obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
-              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -329,13 +336,14 @@ class _PasswordStep extends StatelessWidget {
             obscureText: obscureConfirmPassword,
             keyboardType: TextInputType.visiblePassword,
             textInputAction: TextInputAction.done,
-            suffix: IconButton(
+            suffix: PrismFieldIconButton(
+              icon: obscureConfirmPassword
+                  ? AppIcons.visibilityOff
+                  : AppIcons.visibility,
+              tooltip: obscureConfirmPassword
+                  ? 'Show password'
+                  : 'Hide password',
               onPressed: onToggleConfirmPasswordVisibility,
-              icon: Icon(
-                obscureConfirmPassword
-                    ? AppIcons.visibilityOff
-                    : AppIcons.visibility,
-              ),
             ),
             onSubmitted: (_) => onContinue(),
           ),

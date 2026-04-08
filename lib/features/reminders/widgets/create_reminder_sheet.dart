@@ -6,6 +6,7 @@ import 'package:prism_plurality/features/reminders/providers/reminders_providers
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -13,11 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 
 class CreateReminderSheet extends ConsumerStatefulWidget {
-  const CreateReminderSheet({
-    super.key,
-    this.editing,
-    this.scrollController,
-  });
+  const CreateReminderSheet({super.key, this.editing, this.scrollController});
 
   final Reminder? editing;
   final ScrollController? scrollController;
@@ -133,15 +130,16 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                   // Interval picker
                   _LabeledRow(
                     label: 'Repeat every',
-                    child: DropdownButton<int>(
+                    child: PrismSelect<int>.compact(
                       value: _intervalDays ?? 1,
+                      menuWidth: 180,
                       items: const [
-                        DropdownMenuItem(value: 1, child: Text('1 day')),
-                        DropdownMenuItem(value: 2, child: Text('2 days')),
-                        DropdownMenuItem(value: 3, child: Text('3 days')),
-                        DropdownMenuItem(value: 7, child: Text('7 days')),
-                        DropdownMenuItem(value: 14, child: Text('14 days')),
-                        DropdownMenuItem(value: 30, child: Text('30 days')),
+                        PrismSelectItem(value: 1, label: '1 day'),
+                        PrismSelectItem(value: 2, label: '2 days'),
+                        PrismSelectItem(value: 3, label: '3 days'),
+                        PrismSelectItem(value: 7, label: '7 days'),
+                        PrismSelectItem(value: 14, label: '14 days'),
+                        PrismSelectItem(value: 30, label: '30 days'),
                       ],
                       onChanged: (v) => setState(() => _intervalDays = v),
                     ),
@@ -156,7 +154,8 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                       onPressed: () async {
                         final picked = await showPrismTimePicker(
                           context: context,
-                          initialTime: _timeOfDay ?? const TimeOfDay(hour: 9, minute: 0),
+                          initialTime:
+                              _timeOfDay ?? const TimeOfDay(hour: 9, minute: 0),
                         );
                         if (picked != null) {
                           setState(() => _timeOfDay = picked);
@@ -168,15 +167,16 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                   // Delay picker for front change
                   _LabeledRow(
                     label: 'Delay after front change',
-                    child: DropdownButton<int>(
+                    child: PrismSelect<int>.compact(
                       value: _delayHours ?? 0,
+                      menuWidth: 180,
                       items: const [
-                        DropdownMenuItem(value: 0, child: Text('Immediately')),
-                        DropdownMenuItem(value: 1, child: Text('1 hour')),
-                        DropdownMenuItem(value: 2, child: Text('2 hours')),
-                        DropdownMenuItem(value: 4, child: Text('4 hours')),
-                        DropdownMenuItem(value: 8, child: Text('8 hours')),
-                        DropdownMenuItem(value: 12, child: Text('12 hours')),
+                        PrismSelectItem(value: 0, label: 'Immediately'),
+                        PrismSelectItem(value: 1, label: '1 hour'),
+                        PrismSelectItem(value: 2, label: '2 hours'),
+                        PrismSelectItem(value: 4, label: '4 hours'),
+                        PrismSelectItem(value: 8, label: '8 hours'),
+                        PrismSelectItem(value: 12, label: '12 hours'),
                       ],
                       onChanged: (v) => setState(() => _delayHours = v),
                     ),
@@ -212,26 +212,36 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     final notifier = ref.read(remindersNotifierProvider.notifier);
     final timeStr = _timeOfDay != null
         ? '${_timeOfDay!.hour.toString().padLeft(2, '0')}:'
-            '${_timeOfDay!.minute.toString().padLeft(2, '0')}'
+              '${_timeOfDay!.minute.toString().padLeft(2, '0')}'
         : null;
 
     if (_isEditing) {
-      notifier.updateReminder(widget.editing!.copyWith(
-        name: name,
-        message: message,
-        trigger: _trigger,
-        intervalDays: _trigger == ReminderTrigger.scheduled ? _intervalDays : null,
-        timeOfDay: _trigger == ReminderTrigger.scheduled ? timeStr : null,
-        delayHours: _trigger == ReminderTrigger.onFrontChange ? _delayHours : null,
-      ));
+      notifier.updateReminder(
+        widget.editing!.copyWith(
+          name: name,
+          message: message,
+          trigger: _trigger,
+          intervalDays: _trigger == ReminderTrigger.scheduled
+              ? _intervalDays
+              : null,
+          timeOfDay: _trigger == ReminderTrigger.scheduled ? timeStr : null,
+          delayHours: _trigger == ReminderTrigger.onFrontChange
+              ? _delayHours
+              : null,
+        ),
+      );
     } else {
       notifier.createReminder(
         name: name,
         message: message,
         trigger: _trigger,
-        intervalDays: _trigger == ReminderTrigger.scheduled ? _intervalDays : null,
+        intervalDays: _trigger == ReminderTrigger.scheduled
+            ? _intervalDays
+            : null,
         timeOfDay: _trigger == ReminderTrigger.scheduled ? timeStr : null,
-        delayHours: _trigger == ReminderTrigger.onFrontChange ? _delayHours : null,
+        delayHours: _trigger == ReminderTrigger.onFrontChange
+            ? _delayHours
+            : null,
       );
     }
     Navigator.of(context).pop();

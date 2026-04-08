@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 
 /// Detail screen for a single poll with voting and results.
 class PollDetailScreen extends ConsumerWidget {
@@ -95,8 +96,8 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
         final fronter = ref.read(activeSessionProvider).value;
         final fronterId = fronter?.memberId;
         // Use the current fronter if they are in the active members list.
-        final defaultId = (fronterId != null &&
-                members.any((m) => m.id == fronterId))
+        final defaultId =
+            (fronterId != null && members.any((m) => m.id == fronterId))
             ? fronterId
             : members.first.id;
         ref.read(votingAsProvider.notifier).setMember(defaultId);
@@ -143,7 +144,10 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   Future<void> _submitVote() async {
     final votingAs = ref.read(votingAsProvider);
     if (votingAs == null) {
-      PrismToast.show(context, message: '${ref.read(terminologyProvider).selectText} to vote as');
+      PrismToast.show(
+        context,
+        message: '${ref.read(terminologyProvider).selectText} to vote as',
+      );
       return;
     }
 
@@ -198,7 +202,8 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Close poll?',
-      message: 'No more votes can be cast once the poll is closed. '
+      message:
+          'No more votes can be cast once the poll is closed. '
           'This cannot be undone.',
       confirmLabel: 'Close Poll',
       destructive: true,
@@ -213,7 +218,8 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Delete poll?',
-      message: 'This will permanently delete the poll and all votes. '
+      message:
+          'This will permanently delete the poll and all votes. '
           'This action cannot be undone.',
       confirmLabel: 'Delete',
       destructive: true,
@@ -244,7 +250,12 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
             ),
           PrismPopupMenu<String>(
             items: [
-              PrismMenuItem(value: 'delete', label: 'Delete', icon: AppIcons.deleteOutline, destructive: true),
+              PrismMenuItem(
+                value: 'delete',
+                label: 'Delete',
+                icon: AppIcons.deleteOutline,
+                destructive: true,
+              ),
             ],
             onSelected: (action) {
               if (action == 'delete') _confirmDelete();
@@ -310,10 +321,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                     label: 'Multi-vote',
                   ),
                 if (_isClosed)
-                  _MetadataChip(
-                    icon: AppIcons.lockOutline,
-                    label: 'Closed',
-                  ),
+                  _MetadataChip(icon: AppIcons.lockOutline, label: 'Closed'),
               ],
             ),
 
@@ -356,7 +364,8 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                             customColorHex: member.customColorHex,
                             size: 24,
                           ),
-                          selectedColor: member.customColorEnabled &&
+                          selectedColor:
+                              member.customColorEnabled &&
                                   member.customColorHex != null
                               ? AppColors.fromHex(member.customColorHex!)
                               : null,
@@ -419,8 +428,8 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                 label: 'Submit Vote',
                 tone: PrismButtonTone.filled,
                 expanded: true,
-                enabled: _selectedOptionId != null ||
-                    _selectedOptionIds.isNotEmpty,
+                enabled:
+                    _selectedOptionId != null || _selectedOptionIds.isNotEmpty,
                 onPressed: _submitVote,
               ),
             ],
@@ -514,8 +523,7 @@ class _OptionTile extends ConsumerWidget {
                     ),
 
                   // Option color dot
-                  if (option.colorHex != null &&
-                      option.colorHex!.isNotEmpty)
+                  if (option.colorHex != null && option.colorHex!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Container(
@@ -579,11 +587,9 @@ class _OptionTile extends ConsumerWidget {
                     value: percentage,
                     minHeight: 8,
                     backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    color: option.colorHex != null &&
-                            option.colorHex!.isNotEmpty
-                        ? Color(
-                            int.parse('FF${option.colorHex}', radix: 16),
-                          )
+                    color:
+                        option.colorHex != null && option.colorHex!.isNotEmpty
+                        ? Color(int.parse('FF${option.colorHex}', radix: 16))
                         : null,
                   ),
                 ),
@@ -618,24 +624,17 @@ class _VoterNames extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-
     return Wrap(
       spacing: 4,
       runSpacing: 4,
       children: votes.map((vote) {
         final memberAsync = ref.watch(memberByIdProvider(vote.memberId));
         final name = memberAsync.value?.name ?? 'Unknown';
-        return Chip(
-          label: Text(
-            vote.responseText != null && vote.responseText!.isNotEmpty
-                ? '$name: ${vote.responseText}'
-                : name,
-            style: theme.textTheme.labelSmall,
-          ),
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          padding: EdgeInsets.zero,
+        return PrismPill(
+          label: vote.responseText != null && vote.responseText!.isNotEmpty
+              ? '$name: ${vote.responseText}'
+              : name,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         );
       }).toList(),
     );

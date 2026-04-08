@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 
 /// About info widget for the settings screen.
 ///
@@ -26,10 +27,7 @@ class AboutSection extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
-          child: const Text(
-            '\u{1F52E}',
-            style: TextStyle(fontSize: 36),
-          ),
+          child: const Text('\u{1F52E}', style: TextStyle(fontSize: 36)),
         ),
         const SizedBox(height: 12),
         Text(
@@ -69,24 +67,27 @@ class AboutSection extends StatelessWidget {
         Wrap(
           spacing: 8,
           children: [
-            ActionChip(
+            PrismChip(
               avatar: Icon(AppIcons.code, size: 18),
-              label: const Text('GitHub'),
-              onPressed: () {
+              label: 'GitHub',
+              selected: false,
+              onTap: () {
                 PrismToast.show(context, message: 'GitHub link coming soon');
               },
             ),
-            ActionChip(
+            PrismChip(
               avatar: Icon(AppIcons.privacyTipOutlined, size: 18),
-              label: const Text('Privacy'),
-              onPressed: () {
+              label: 'Privacy',
+              selected: false,
+              onTap: () {
                 PrismToast.show(context, message: 'Privacy policy coming soon');
               },
             ),
-            ActionChip(
+            PrismChip(
               avatar: Icon(AppIcons.feedbackOutlined, size: 18),
-              label: const Text('Feedback'),
-              onPressed: () {
+              label: 'Feedback',
+              selected: false,
+              onTap: () {
                 PrismToast.show(context, message: 'Feedback form coming soon');
               },
             ),

@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Placeholder — pending changes count (sync now managed by Rust layer).
@@ -252,9 +254,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                   title: const Text('Timeline Sanitization'),
                   subtitle: const Text('Scan for and fix timeline issues'),
                   trailing: Icon(AppIcons.chevronRight),
-                  onTap: () => context.push(
-                    AppRoutePaths.settingsTimelineSanitization,
-                  ),
+                  onTap: () =>
+                      context.push(AppRoutePaths.settingsTimelineSanitization),
                 ),
               ],
             ),
@@ -305,13 +306,12 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                             ),
                           ),
                           if (nodeId != null)
-                            IconButton(
-                              icon: Icon(AppIcons.copy, size: 18),
+                            PrismInlineIconButton(
+                              icon: AppIcons.copy,
+                              iconSize: 18,
                               tooltip: 'Copy Node ID',
                               onPressed: () {
-                                Clipboard.setData(
-                                  ClipboardData(text: nodeId),
-                                );
+                                Clipboard.setData(ClipboardData(text: nodeId));
                                 PrismToast.show(
                                   context,
                                   message: 'Node ID copied to clipboard',
@@ -379,7 +379,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 
   List<StressPreset> get _availablePresets {
     if (kIsWeb) return [StressPreset.medium];
-    final isDesktop = defaultTargetPlatform == TargetPlatform.macOS ||
+    final isDesktop =
+        defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux;
     if (isDesktop) {
@@ -424,7 +425,9 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     final generator = StressDataGenerator(db);
     final hasExisting = await generator.hasExistingData();
 
-    if (hasExisting && mounted) {
+    if (!context.mounted) return;
+
+    if (hasExisting) {
       final confirmed = await PrismDialog.confirm(
         context: context,
         title: 'Database Not Empty',
@@ -455,11 +458,14 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
         }
       }
 
-      if (mounted) {
-        PrismToast.show(context, message: '${preset.label} stress data generated');
+      if (context.mounted) {
+        PrismToast.show(
+          context,
+          message: '${preset.label} stress data generated',
+        );
       }
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         PrismToast.show(context, message: 'Generation failed: $e');
       }
     } finally {
@@ -479,11 +485,13 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     final hasStress = await generator.hasStressData();
 
     if (!hasStress) {
-      if (mounted) PrismToast.show(context, message: 'No stress data to clear');
+      if (context.mounted) {
+        PrismToast.show(context, message: 'No stress data to clear');
+      }
       return;
     }
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     final confirmed = await PrismDialog.confirm(
       context: context,
@@ -498,11 +506,11 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     setState(() => _isClearing = true);
     try {
       await generator.clearStressData();
-      if (mounted) {
+      if (context.mounted) {
         PrismToast.show(context, message: 'Stress data cleared');
       }
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         PrismToast.show(context, message: 'Failed to clear stress data: $e');
       }
     } finally {
