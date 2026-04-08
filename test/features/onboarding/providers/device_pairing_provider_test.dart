@@ -1,6 +1,93 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
+
+class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
+  const _FakePrismSyncHandle();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakePrismSyncHandleNotifier extends PrismSyncHandleNotifier {
+  _FakePrismSyncHandleNotifier(this.handle);
+
+  final ffi.PrismSyncHandle handle;
+
+  @override
+  Future<ffi.PrismSyncHandle?> build() async => handle;
+
+  @override
+  Future<ffi.PrismSyncHandle> createHandle({required String relayUrl}) async {
+    return handle;
+  }
+}
+
+class _FakePairingCeremonyApi extends PairingCeremonyApi {
+  _FakePairingCeremonyApi({
+    this.startJoinerCeremonyHandler,
+    this.getJoinerSasHandler,
+  });
+
+  Future<String> Function({required ffi.PrismSyncHandle handle})?
+  startJoinerCeremonyHandler;
+  Future<String> Function({required ffi.PrismSyncHandle handle})?
+  getJoinerSasHandler;
+
+  @override
+  Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) {
+    return startJoinerCeremonyHandler?.call(handle: handle) ??
+        Future.value(
+          jsonEncode({
+            'token_bytes': [1, 2, 3, 4],
+            'token_url': 'prismsync://pair?d=test',
+            'device_id': 'test-device',
+          }),
+        );
+  }
+
+  @override
+  Future<String> getJoinerSas({required ffi.PrismSyncHandle handle}) {
+    return getJoinerSasHandler?.call(handle: handle) ??
+        Future.value(
+          jsonEncode({
+            'sas_words': 'apple banana cherry',
+            'sas_decimal': '123456',
+          }),
+        );
+  }
+
+  @override
+  Future<String> completeJoinerCeremony({
+    required ffi.PrismSyncHandle handle,
+    required String password,
+  }) => Future.value(jsonEncode({'sync_id': 'unused'}));
+
+  @override
+  Future<String> startInitiatorCeremony({
+    required ffi.PrismSyncHandle handle,
+    required List<int> tokenBytes,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<String> completeInitiatorCeremony({
+    required ffi.PrismSyncHandle handle,
+    required String password,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> joinFromUrl({
+    required ffi.PrismSyncHandle handle,
+    required String url,
+    required String password,
+  }) => Future.value();
+}
 
 void main() {
   group('PairingState', () {
@@ -147,10 +234,9 @@ void main() {
       addTearDown(container.dispose);
 
       // Manually set state to showingSas to test the transition
-      final notifier = container.read(devicePairingProvider.notifier);
       // We can't easily reach showingSas without FFI, so we test the
       // state copyWith + confirmSas guard instead.
-      final state = const PairingState(
+      const state = PairingState(
         step: PairingStep.showingSas,
         sasWords: 'apple banana cherry',
         sasDecimal: '1234',
@@ -158,6 +244,71 @@ void main() {
       expect(state.sasWords, equals('apple banana cherry'));
       expect(state.sasDecimal, equals('1234'));
     });
+  });
+
+  group('DevicePairingNotifier', () {
+    test(
+      'generateRequest drives joiner ceremony into SAS verification',
+      () async {
+        const fakeHandle = _FakePrismSyncHandle();
+        final sasCompleter = Completer<String>();
+        final fakeApi = _FakePairingCeremonyApi(
+          startJoinerCeremonyHandler: ({required handle}) async {
+            expect(handle, same(fakeHandle));
+            return jsonEncode({
+              'token_bytes': [9, 8, 7],
+              'token_url': 'prismsync://pair?d=test',
+              'device_id': 'joiner-device',
+            });
+          },
+          getJoinerSasHandler: ({required handle}) {
+            expect(handle, same(fakeHandle));
+            return sasCompleter.future;
+          },
+        );
+
+        final container = ProviderContainer(
+          overrides: [
+            pairingCeremonyApiProvider.overrideWith((ref) => fakeApi),
+            relayUrlProvider.overrideWith(
+              (ref) async => 'https://relay.example.com',
+            ),
+            prismSyncHandleProvider.overrideWith(
+              () => _FakePrismSyncHandleNotifier(fakeHandle),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final notifier = container.read(devicePairingProvider.notifier);
+        await notifier.generateRequest();
+        await pumpEventQueue();
+
+        var state = container.read(devicePairingProvider);
+        expect(state.step, PairingStep.waitingForSas);
+        expect(state.requestQrPayload, [9, 8, 7]);
+        expect(state.requestDeviceId, 'joiner-device');
+
+        sasCompleter.complete(
+          jsonEncode({
+            'sas_words': 'delta echo foxtrot',
+            'sas_decimal': '654321',
+          }),
+        );
+        await pumpEventQueue();
+
+        state = container.read(devicePairingProvider);
+        expect(state.step, PairingStep.showingSas);
+        expect(state.sasWords, 'delta echo foxtrot');
+        expect(state.sasDecimal, '654321');
+
+        notifier.confirmSas();
+        expect(
+          container.read(devicePairingProvider).step,
+          PairingStep.enterPassword,
+        );
+      },
+    );
   });
 
   group('SyncCounts', () {
