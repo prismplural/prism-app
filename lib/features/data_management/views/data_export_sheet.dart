@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -55,7 +56,8 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
     }
     if (password.length < 12) {
       setState(
-          () => _passwordError = 'Password must be at least 12 characters');
+        () => _passwordError = 'Password must be at least 12 characters',
+      );
       return;
     }
     if (password != confirm) {
@@ -71,7 +73,8 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Export without encryption?',
-      message: 'This will create a plain JSON file that anyone who opens it can read. '
+      message:
+          'This will create a plain JSON file that anyone who opens it can read. '
           'Use encrypted export unless you specifically need an insecure backup.',
       confirmLabel: 'Export Unencrypted',
     );
@@ -168,11 +171,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             shape: BoxShape.circle,
             color: Colors.blue.withValues(alpha: 0.15),
           ),
-          child: Icon(
-            AppIcons.uploadOutlined,
-            size: 40,
-            color: Colors.blue,
-          ),
+          child: Icon(AppIcons.uploadOutlined, size: 40, color: Colors.blue),
         ),
         const SizedBox(height: 16),
         Text(
@@ -268,10 +267,11 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           autofocus: true,
           labelText: 'Password',
           hintText: 'Use a passphrase of 15+ words for best protection',
-          suffix: IconButton(
-            icon: Icon(
-              _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
-            ),
+          suffix: PrismFieldIconButton(
+            icon: _obscurePassword
+                ? AppIcons.visibilityOff
+                : AppIcons.visibility,
+            tooltip: _obscurePassword ? 'Show password' : 'Hide password',
             onPressed: () =>
                 setState(() => _obscurePassword = !_obscurePassword),
           ),
@@ -287,12 +287,12 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           obscureText: _obscureConfirm,
           labelText: 'Confirm Password',
           errorText: _passwordError,
-          suffix: IconButton(
-            icon: Icon(
-              _obscureConfirm ? AppIcons.visibilityOff : AppIcons.visibility,
-            ),
-            onPressed: () =>
-                setState(() => _obscureConfirm = !_obscureConfirm),
+          suffix: PrismFieldIconButton(
+            icon: _obscureConfirm
+                ? AppIcons.visibilityOff
+                : AppIcons.visibility,
+            tooltip: _obscureConfirm ? 'Show password' : 'Hide password',
+            onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
           ),
           onSubmitted: (_) => _onPasswordSubmit(),
         ),

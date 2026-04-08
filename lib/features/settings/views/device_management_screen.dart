@@ -11,6 +11,9 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_pill.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
 class DeviceManagementScreen extends ConsumerWidget {
@@ -32,8 +35,11 @@ class DeviceManagementScreen extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(AppIcons.errorOutline,
-                    size: 48, color: Theme.of(context).colorScheme.error),
+                Icon(
+                  AppIcons.errorOutline,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.error,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Failed to load devices',
@@ -76,16 +82,15 @@ class DeviceManagementScreen extends ConsumerWidget {
                   trailing: Text(
                     '${otherDevices.length}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha: 0.5),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
                 ),
                 if (otherDevices.isEmpty)
                   Padding(
-                    padding: EdgeInsets.only(top: 32),
+                    padding: const EdgeInsets.only(top: 32),
                     child: EmptyState(
                       icon: Icon(AppIcons.devices, size: 48),
                       title: 'No other devices',
@@ -98,8 +103,7 @@ class DeviceManagementScreen extends ConsumerWidget {
                     (device) => _DeviceTile(
                       device: device,
                       isCurrent: false,
-                      onRevoke: () =>
-                          _confirmRevoke(context, ref, device),
+                      onRevoke: () => _confirmRevoke(context, ref, device),
                     ),
                   ),
               ],
@@ -118,37 +122,25 @@ class DeviceManagementScreen extends ConsumerWidget {
     final result = await PrismDialog.show<({bool confirmed, bool wipe})>(
       context: context,
       title: 'Revoke Device?',
-      message: 'Device ${device.shortId} will be removed from the sync '
+      message:
+          'Device ${device.shortId} will be removed from the sync '
           'group and can no longer sync. This cannot be undone.',
       builder: (dialogContext) {
         var requestWipe = false;
 
         return StatefulBuilder(
-          builder: (builderContext, setState) {
-            final theme = Theme.of(builderContext);
-
+          builder: (_, setState) {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    'Request remote data wipe',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  subtitle: Text(
-                    'Asks the device to erase its sync data. This is a '
-                    'request \u2014 if the device is offline or '
-                    'compromised, it may not be honored.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface
-                          .withValues(alpha: 0.5),
-                    ),
-                  ),
+                PrismSwitchRow(
+                  title: 'Request remote data wipe',
+                  subtitle:
+                      'Asks the device to erase its sync data. This is a '
+                      'request \u2014 if the device is offline or '
+                      'compromised, it may not be honored.',
                   value: requestWipe,
-                  onChanged: (value) => setState(() {
-                    requestWipe = value;
-                  }),
+                  onChanged: (value) => setState(() => requestWipe = value),
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -156,14 +148,14 @@ class DeviceManagementScreen extends ConsumerWidget {
                   children: [
                     PrismButton(
                       label: 'Cancel',
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(null),
+                      onPressed: () => Navigator.of(dialogContext).pop(null),
                     ),
                     const SizedBox(width: 8),
                     PrismButton(
                       label: 'Revoke',
-                      onPressed: () => Navigator.of(dialogContext)
-                          .pop((confirmed: true, wipe: requestWipe)),
+                      onPressed: () => Navigator.of(
+                        dialogContext,
+                      ).pop((confirmed: true, wipe: requestWipe)),
                       tone: PrismButtonTone.destructive,
                     ),
                   ],
@@ -182,8 +174,10 @@ class DeviceManagementScreen extends ConsumerWidget {
           .read(deviceListProvider.notifier)
           .revoke(device.deviceId, remoteWipe: result.wipe);
       if (context.mounted) {
-        PrismToast.success(context,
-            message: 'Device ${device.shortId} revoked');
+        PrismToast.success(
+          context,
+          message: 'Device ${device.shortId} revoked',
+        );
       }
     } catch (e) {
       if (context.mounted) {
@@ -208,17 +202,13 @@ class _SectionHeader extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.6),
-                  fontWeight: FontWeight.w600,
-                ),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          if (trailing != null) ...[
-            const SizedBox(width: 8),
-            trailing!,
-          ],
+          if (trailing != null) ...[const SizedBox(width: 8), trailing!],
         ],
       ),
     );
@@ -257,7 +247,8 @@ class _DeviceTile extends StatelessWidget {
     return Semantics(
       label:
           'Device ${device.shortId}, ${_statusLabel()}${isCurrent ? ', this device' : ''}',
-      child: Card(
+      child: PrismSurface(
+        padding: EdgeInsets.zero,
         margin: const EdgeInsets.symmetric(vertical: 4),
         child: PrismListRow(
           leading: Container(
@@ -279,39 +270,24 @@ class _DeviceTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               if (isCurrent)
-                Chip(
-                  label: const Text('This Device'),
-                  labelStyle: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onPrimary,
-                  ),
-                  backgroundColor: theme.colorScheme.primary,
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
+                const PrismPill(
+                  label: 'This Device',
+                  tone: PrismPillTone.accent,
                 )
               else
-                Chip(
-                  label: Text(_statusLabel()),
-                  labelStyle: theme.textTheme.labelSmall?.copyWith(
-                    color: statusColor,
-                  ),
-                  side: BorderSide(color: statusColor.withValues(alpha: 0.3)),
-                  backgroundColor:
-                      statusColor.withValues(alpha: 0.1),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                ),
+                PrismPill(label: _statusLabel(), color: statusColor),
             ],
           ),
           subtitle: Text('Epoch ${device.epoch}'),
           trailing: isCurrent
               ? null
-              : IconButton(
-                  icon: Icon(AppIcons.removeCircleOutline),
+              : PrismIconButton(
+                  icon: AppIcons.removeCircleOutline,
                   tooltip: 'Revoke device',
                   color: theme.colorScheme.error,
-                  onPressed: onRevoke,
+                  size: 36,
+                  iconSize: 18,
+                  onPressed: onRevoke!,
                 ),
           onLongPress: () {
             Clipboard.setData(ClipboardData(text: device.deviceId));

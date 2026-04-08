@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Settings screen for PIN lock, biometric unlock, and auto-lock delay.
@@ -62,7 +63,9 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     await service.clearPin();
     ref.invalidate(isPinSetProvider);
     ref.read(settingsNotifierProvider.notifier).updatePinLockEnabled(false);
-    ref.read(settingsNotifierProvider.notifier).updateBiometricLockEnabled(false);
+    ref
+        .read(settingsNotifierProvider.notifier)
+        .updateBiometricLockEnabled(false);
   }
 
   @override
@@ -83,12 +86,9 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     final biometricAvailable = biometricAvailableAsync.value ?? false;
 
     if (!settingsLoaded) {
-      return PrismPageScaffold(
-        topBar: const PrismTopBar(
-          title: 'Privacy & Security',
-          showBackButton: true,
-        ),
-        body: const Center(child: CircularProgressIndicator()),
+      return const PrismPageScaffold(
+        topBar: PrismTopBar(title: 'Privacy & Security', showBackButton: true),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -166,16 +166,14 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(
-                          left: 6,
-                          bottom: 8,
-                        ),
+                        padding: const EdgeInsets.only(left: 6, bottom: 8),
                         child: Text(
                           'Lock after leaving the app',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                         ),
                       ),
@@ -215,10 +213,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                     PrismListRow(
                       leading: Icon(AppIcons.pinOutlined),
                       title: const Text('Change PIN'),
-                      trailing: Icon(
-                        AppIcons.chevronRightRounded,
-                        size: 20,
-                      ),
+                      trailing: Icon(AppIcons.chevronRightRounded, size: 20),
                       onTap: _changePinFlow,
                     ),
                     const Divider(height: 1, indent: 56, endIndent: 12),
@@ -247,10 +242,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
 
 /// Two-step set-PIN flow: set then confirm.
 class _SetPinFlowScreen extends ConsumerStatefulWidget {
-  const _SetPinFlowScreen({
-    required this.onComplete,
-    required this.onCancel,
-  });
+  const _SetPinFlowScreen({required this.onComplete, required this.onCancel});
 
   final VoidCallback onComplete;
   final VoidCallback onCancel;
@@ -324,16 +316,16 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
-    _shakeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
-    ]).animate(CurvedAnimation(
-      parent: _shakeController,
-      curve: Curves.easeInOut,
-    ));
+    _shakeAnimation =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
+        ]).animate(
+          CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
+        );
   }
 
   @override
@@ -406,8 +398,10 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
               alignment: Alignment.topLeft,
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, top: 8),
-                child: IconButton(
-                  icon: Icon(AppIcons.arrowBack),
+                child: PrismInlineIconButton(
+                  icon: AppIcons.arrowBack,
+                  iconSize: 20,
+                  tooltip: 'Back',
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -481,32 +475,19 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
     if (row < 3) {
       return List.generate(3, (col) {
         final digit = '${row * 3 + col + 1}';
-        return _NumpadKey(
-          label: digit,
-          onTap: () => _onDigit(digit),
-        );
+        return _NumpadKey(label: digit, onTap: () => _onDigit(digit));
       });
     }
     return [
       const SizedBox(width: 72, height: 72),
-      _NumpadKey(
-        label: '0',
-        onTap: () => _onDigit('0'),
-      ),
-      _NumpadKey(
-        icon: AppIcons.backspaceOutlined,
-        onTap: _onBackspace,
-      ),
+      _NumpadKey(label: '0', onTap: () => _onDigit('0')),
+      _NumpadKey(icon: AppIcons.backspaceOutlined, onTap: _onBackspace),
     ];
   }
 }
 
 class _NumpadKey extends StatelessWidget {
-  const _NumpadKey({
-    this.label,
-    this.icon,
-    required this.onTap,
-  });
+  const _NumpadKey({this.label, this.icon, required this.onTap});
 
   final String? label;
   final IconData? icon;
@@ -524,7 +505,9 @@ class _NumpadKey extends StatelessWidget {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          color: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.5,
+          ),
         ),
         child: label != null
             ? Text(

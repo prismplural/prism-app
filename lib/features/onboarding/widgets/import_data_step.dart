@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/migration/providers/migration_providers
 import 'package:prism_plurality/features/migration/services/sp_importer.dart'
     as sp_importer;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 
 /// Import Data step — lets user choose between PluralKit, Simply Plural,
 /// or skipping entirely (default: no import selected).
@@ -188,18 +189,18 @@ class _SourceCardState extends State<_SourceCard> {
           decoration: BoxDecoration(
             color: _pressed
                 ? (isDark
-                    ? AppColors.warmWhite.withValues(alpha: 0.25)
-                    : AppColors.warmBlack.withValues(alpha: 0.12))
+                      ? AppColors.warmWhite.withValues(alpha: 0.25)
+                      : AppColors.warmBlack.withValues(alpha: 0.12))
                 : (isDark
-                    ? AppColors.warmWhite.withValues(alpha: 0.12)
-                    : AppColors.parchmentElevated),
+                      ? AppColors.warmWhite.withValues(alpha: 0.12)
+                      : AppColors.parchmentElevated),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: _pressed
                   ? primary.withValues(alpha: 0.5)
                   : (isDark
-                      ? AppColors.warmWhite.withValues(alpha: 0.1)
-                      : AppColors.warmBlack.withValues(alpha: 0.1)),
+                        ? AppColors.warmWhite.withValues(alpha: 0.1)
+                        : AppColors.warmBlack.withValues(alpha: 0.1)),
             ),
           ),
           child: Row(
@@ -361,15 +362,15 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                 horizontal: 16,
                 vertical: 14,
               ),
-              suffix: IconButton(
-                icon: Icon(
-                  _obscureToken ? AppIcons.visibilityOff : AppIcons.visibility,
-                  color: isDark
-                      ? AppColors.warmWhite.withValues(alpha: 0.5)
-                      : AppColors.warmBlack.withValues(alpha: 0.5),
-                ),
-                onPressed: () =>
-                    setState(() => _obscureToken = !_obscureToken),
+              suffix: PrismFieldIconButton(
+                icon: _obscureToken
+                    ? AppIcons.visibilityOff
+                    : AppIcons.visibility,
+                color: isDark
+                    ? AppColors.warmWhite.withValues(alpha: 0.75)
+                    : AppColors.warmBlack.withValues(alpha: 0.75),
+                tooltip: _obscureToken ? 'Show token' : 'Hide token',
+                onPressed: () => setState(() => _obscureToken = !_obscureToken),
               ),
             ),
           ),
@@ -744,9 +745,7 @@ class _PrismExportImportFlowState
         Text(
           'Enter the export password to unlock this Prism backup.',
           style: TextStyle(
-            color: isDark
-                ? AppColors.mutedTextDark
-                : AppColors.mutedTextLight,
+            color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
             fontSize: 14,
           ),
           textAlign: TextAlign.center,
@@ -779,13 +778,14 @@ class _PrismExportImportFlowState
               horizontal: 16,
               vertical: 14,
             ),
-            suffix: IconButton(
-              icon: Icon(
-                _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
-                color: isDark
-                    ? AppColors.warmWhite.withValues(alpha: 0.5)
-                    : AppColors.warmBlack.withValues(alpha: 0.5),
-              ),
+            suffix: PrismFieldIconButton(
+              icon: _obscurePassword
+                  ? AppIcons.visibilityOff
+                  : AppIcons.visibility,
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.75)
+                  : AppColors.warmBlack.withValues(alpha: 0.75),
+              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
             ),
@@ -1021,10 +1021,7 @@ class _SimplyPluralImportFlowState
                   children: [
                     CircularProgressIndicator(color: textColor),
                     const SizedBox(height: 16),
-                    Text(
-                      'Reading file...',
-                      style: TextStyle(color: textColor),
-                    ),
+                    Text('Reading file...', style: TextStyle(color: textColor)),
                   ],
                 ),
               ),
@@ -1191,18 +1188,11 @@ class _BackLink extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            AppIcons.arrowBackIos,
-            size: 14,
-            color: linkColor,
-          ),
+          Icon(AppIcons.arrowBackIos, size: 14, color: linkColor),
           const SizedBox(width: 4),
           Text(
             'Other import options',
-            style: TextStyle(
-              color: linkColor,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: linkColor, fontSize: 14),
           ),
         ],
       ),

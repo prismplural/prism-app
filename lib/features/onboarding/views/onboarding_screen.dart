@@ -20,6 +20,7 @@ import 'package:prism_plurality/features/onboarding/services/onboarding_commit_s
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -71,9 +72,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         body: Stack(
           children: [
             // Background color
-            Container(
-              color: isDark ? AppColors.charcoal : AppColors.parchment,
-            ),
+            Container(color: isDark ? AppColors.charcoal : AppColors.parchment),
             // Ambient glow
             Positioned(
               top: -100,
@@ -99,7 +98,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 child: Container(
                   decoration: BoxDecoration(
                     image: DecorationImage(
-                      image: const AssetImage('assets/textures/noise_64x64.png'),
+                      image: const AssetImage(
+                        'assets/textures/noise_64x64.png',
+                      ),
                       repeat: ImageRepeat.repeat,
                       opacity: isDark ? 0.06 : 0.03,
                     ),
@@ -121,14 +122,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       child: Row(
                         children: [
                           if (hasExistingData)
-                            IconButton(
+                            PrismInlineIconButton(
                               onPressed: () => context.go(AppRoutePaths.home),
-                              icon: Icon(
-                                AppIcons.close,
-                                color: isDark
-                                    ? AppColors.warmWhite.withValues(alpha: 0.7)
-                                    : AppColors.warmBlack.withValues(alpha: 0.7),
-                              ),
+                              icon: AppIcons.close,
+                              color: isDark
+                                  ? AppColors.warmWhite.withValues(alpha: 0.8)
+                                  : AppColors.warmBlack.withValues(alpha: 0.8),
+                              tooltip: 'Close onboarding',
                             )
                           else
                             const SizedBox(width: 48),
@@ -171,7 +171,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         fontFamily: 'Unbounded',
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
-                        color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                        color: isDark
+                            ? AppColors.warmWhite
+                            : AppColors.warmBlack,
                       ),
                     ),
                     const SizedBox(height: 4),

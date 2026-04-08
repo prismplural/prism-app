@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
@@ -38,8 +39,9 @@ class SyncEntityCounts {
   final int last24h;
 }
 
-final syncEntityCountsProvider =
-    FutureProvider.autoDispose<SyncEntityCounts>((ref) async {
+final syncEntityCountsProvider = FutureProvider.autoDispose<SyncEntityCounts>((
+  ref,
+) async {
   final db = ref.watch(databaseProvider);
 
   // All synced entity tables with is_deleted column.
@@ -85,8 +87,9 @@ final syncEntityCountsProvider =
   };
 
   // Build a single SQL query: total count across all tables.
-  final totalParts =
-      tables.map((t) => 'SELECT COUNT(*) AS c FROM $t WHERE is_deleted = 0');
+  final totalParts = tables.map(
+    (t) => 'SELECT COUNT(*) AS c FROM $t WHERE is_deleted = 0',
+  );
   final totalSql =
       'SELECT SUM(c) AS total FROM (${totalParts.join(' UNION ALL ')})';
 
@@ -94,12 +97,16 @@ final syncEntityCountsProvider =
   final total = totalResult.read<int>('total');
 
   // Build a single SQL query: count of entities with a recent date.
-  final cutoff = DateTime.now()
-      .subtract(const Duration(hours: 24))
-      .millisecondsSinceEpoch ~/ 1000;
-  final recentParts = dateColumns.entries.map((e) =>
-      'SELECT COUNT(*) AS c FROM ${e.key} '
-      'WHERE is_deleted = 0 AND ${e.value} >= $cutoff');
+  final cutoff =
+      DateTime.now()
+          .subtract(const Duration(hours: 24))
+          .millisecondsSinceEpoch ~/
+      1000;
+  final recentParts = dateColumns.entries.map(
+    (e) =>
+        'SELECT COUNT(*) AS c FROM ${e.key} '
+        'WHERE is_deleted = 0 AND ${e.value} >= $cutoff',
+  );
   final recentSql =
       'SELECT SUM(c) AS total FROM (${recentParts.join(' UNION ALL ')})';
 
@@ -355,8 +362,7 @@ class _ConfiguredView extends ConsumerWidget {
                     icon: AppIcons.devicesOther,
                     title: 'Manage Devices',
                     subtitle: 'View and revoke linked devices',
-                    onTap: () =>
-                        context.push(AppRoutePaths.settingsDevices),
+                    onTap: () => context.push(AppRoutePaths.settingsDevices),
                   ),
                 ],
                 if (syncHealth == SyncHealthState.healthy) ...[
@@ -411,14 +417,10 @@ class _ConfiguredView extends ConsumerWidget {
                       quarantinedAsync.value!.isNotEmpty)
                     const Divider(height: 1),
                   PrismListRow(
-                    title: Text(
-                      'Clear all',
-                    ),
+                    title: const Text('Clear all'),
                     destructive: true,
                     onTap: () async {
-                      await ref
-                          .read(syncQuarantineServiceProvider)
-                          .clearAll();
+                      await ref.read(syncQuarantineServiceProvider).clearAll();
                       ref.invalidate(quarantinedItemsProvider);
                       ref
                           .read(syncStatusProvider.notifier)
@@ -455,9 +457,7 @@ class _ConfiguredView extends ConsumerWidget {
                       size: 20,
                       color: theme.colorScheme.error,
                     ),
-                    title: Text(
-                      syncStatus.lastError!,
-                    ),
+                    title: Text(syncStatus.lastError!),
                     destructive: true,
                   ),
                 ],
@@ -503,9 +503,8 @@ class _ConfiguredView extends ConsumerWidget {
   void _showSecretKey(BuildContext context) {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => _ViewSecretKeySheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          _ViewSecretKeySheet(scrollController: scrollController),
     );
   }
 }
@@ -528,8 +527,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
   String? _error;
   String? _mnemonic;
 
-  ffi.PrismSyncHandle? get _handle =>
-      ref.read(prismSyncHandleProvider).value;
+  ffi.PrismSyncHandle? get _handle => ref.read(prismSyncHandleProvider).value;
 
   @override
   void dispose() {
@@ -550,9 +548,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
 
     try {
       // Read the mnemonic from keychain
-      final mnemonicB64 = await secureStorage.read(
-        key: 'prism_sync.mnemonic',
-      );
+      final mnemonicB64 = await secureStorage.read(key: 'prism_sync.mnemonic');
       if (mnemonicB64 == null) {
         if (!mounted) return;
         setState(() {
@@ -657,7 +653,9 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
                         Text(
                           'Enter your sync password to reveal your 12-word recovery phrase.',
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -669,11 +667,15 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
                           enabled: !_isLoading,
                           onSubmitted: (_) => _verifyAndReveal(),
                           hintText: 'Sync password',
-                          suffix: IconButton(
-                            icon: Icon(
-                              _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-                            ),
-                            onPressed: () => setState(() => _obscure = !_obscure),
+                          suffix: PrismFieldIconButton(
+                            icon: _obscure
+                                ? AppIcons.visibilityOff
+                                : AppIcons.visibility,
+                            tooltip: _obscure
+                                ? 'Show password'
+                                : 'Hide password',
+                            onPressed: () =>
+                                setState(() => _obscure = !_obscure),
                           ),
                           errorText: _error,
                         ),
@@ -704,9 +706,8 @@ class _SyncThemeToggle extends ConsumerWidget {
       title: 'Sync theme across devices',
       subtitle: 'Share brightness, style, and accent color via sync',
       value: value,
-      onChanged: (v) => ref
-          .read(settingsNotifierProvider.notifier)
-          .updateSyncThemeEnabled(v),
+      onChanged: (v) =>
+          ref.read(settingsNotifierProvider.notifier).updateSyncThemeEnabled(v),
     );
   }
 }
@@ -745,9 +746,7 @@ class _QuarantineItemTile extends StatelessWidget {
         size: 20,
         color: Colors.amber.shade700,
       ),
-      title: Text(
-        '${item.entityType} · $field',
-      ),
+      title: Text('${item.entityType} · $field'),
       subtitle: Text(
         item.errorMessage ??
             'Expected ${item.expectedType}, got ${item.receivedType}',
@@ -770,10 +769,7 @@ class _SyncEntityCountRows extends ConsumerWidget {
             value: '${counts.last24h} entities',
           ),
           const Divider(height: 1),
-          _DetailRow(
-            label: 'Total synced',
-            value: '${counts.total} entities',
-          ),
+          _DetailRow(label: 'Total synced', value: '${counts.total} entities'),
         ],
       ),
       loading: () => const Column(
@@ -797,13 +793,7 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PrismListRow(
-      dense: true,
-      title: Text(label),
-      subtitle: Text(
-        value,
-      ),
-    );
+    return PrismListRow(dense: true, title: Text(label), subtitle: Text(value));
   }
 }
 

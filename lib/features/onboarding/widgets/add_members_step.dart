@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/onboarding/providers/onboarding_provide
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 
 class AddMembersStep extends ConsumerWidget {
   const AddMembersStep({super.key});
@@ -27,24 +28,22 @@ class AddMembersStep extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: GestureDetector(
-                onTap: () => ref
-                    .read(onboardingProvider.notifier)
-                    .addDefaultMembers(),
+                onTap: () =>
+                    ref.read(onboardingProvider.notifier).addDefaultMembers(),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: primary.withValues(alpha: 0.3),
-                    ),
+                    border: Border.all(color: primary.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(AppIcons.autoAwesome,
-                          color: primary, size: 18),
+                      Icon(AppIcons.autoAwesome, color: primary, size: 18),
                       const SizedBox(width: 8),
                       Text(
                         "Skylar's Defaults",
@@ -66,7 +65,9 @@ class AddMembersStep extends ConsumerWidget {
                     child: Text(
                       'No members yet.\nTap "Add Member" or use the defaults.',
                       style: TextStyle(
-                        color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+                        color: isDark
+                            ? AppColors.mutedTextDark
+                            : AppColors.mutedTextLight,
                         fontSize: 15,
                       ),
                       textAlign: TextAlign.center,
@@ -84,7 +85,9 @@ class AddMembersStep extends ConsumerWidget {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: isDark ? AppColors.warmWhite.withValues(alpha: 0.1) : AppColors.parchmentElevated,
+                            color: isDark
+                                ? AppColors.warmWhite.withValues(alpha: 0.1)
+                                : AppColors.parchmentElevated,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
@@ -96,8 +99,12 @@ class AddMembersStep extends ConsumerWidget {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: isDark
-                                      ? AppColors.warmWhite.withValues(alpha: 0.15)
-                                      : AppColors.warmBlack.withValues(alpha: 0.08),
+                                      ? AppColors.warmWhite.withValues(
+                                          alpha: 0.15,
+                                        )
+                                      : AppColors.warmBlack.withValues(
+                                          alpha: 0.08,
+                                        ),
                                 ),
                                 child: member.avatarImageData != null
                                     ? ClipOval(
@@ -111,8 +118,7 @@ class AddMembersStep extends ConsumerWidget {
                                     : Center(
                                         child: Text(
                                           member.emoji,
-                                          style:
-                                              const TextStyle(fontSize: 20),
+                                          style: const TextStyle(fontSize: 20),
                                         ),
                                       ),
                               ),
@@ -120,13 +126,14 @@ class AddMembersStep extends ConsumerWidget {
                               // Name + pronouns
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       member.name,
                                       style: TextStyle(
-                                        color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                                        color: isDark
+                                            ? AppColors.warmWhite
+                                            : AppColors.warmBlack,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 16,
                                       ),
@@ -136,7 +143,9 @@ class AddMembersStep extends ConsumerWidget {
                                       Text(
                                         member.pronouns!,
                                         style: TextStyle(
-                                          color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+                                          color: isDark
+                                              ? AppColors.mutedTextDark
+                                              : AppColors.mutedTextLight,
                                           fontSize: 13,
                                         ),
                                       ),
@@ -144,18 +153,19 @@ class AddMembersStep extends ConsumerWidget {
                                 ),
                               ),
                               // Delete
-                              IconButton(
-                                icon: Icon(
-                                  AppIcons.close,
-                                  color: isDark
-                                      ? AppColors.warmWhite.withValues(alpha: 0.5)
-                                      : AppColors.warmBlack.withValues(alpha: 0.5),
-                                  size: 20,
-                                ),
+                              PrismInlineIconButton(
+                                icon: AppIcons.close,
+                                color: isDark
+                                    ? AppColors.warmWhite.withValues(alpha: 0.7)
+                                    : AppColors.warmBlack.withValues(
+                                        alpha: 0.7,
+                                      ),
+                                iconSize: 20,
+                                tooltip: 'Remove member',
                                 onPressed: () {
-                                  ref.read(onboardingProvider.notifier).deleteMember(
-                                        member.id,
-                                      );
+                                  ref
+                                      .read(onboardingProvider.notifier)
+                                      .deleteMember(member.id);
                                 },
                               ),
                             ],
@@ -173,17 +183,25 @@ class AddMembersStep extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: isDark ? AppColors.warmWhite.withValues(alpha: 0.15) : AppColors.warmBlack.withValues(alpha: 0.06),
+                color: isDark
+                    ? AppColors.warmWhite.withValues(alpha: 0.15)
+                    : AppColors.warmBlack.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark ? AppColors.warmWhite.withValues(alpha: 0.2) : AppColors.warmBlack.withValues(alpha: 0.12),
+                  color: isDark
+                      ? AppColors.warmWhite.withValues(alpha: 0.2)
+                      : AppColors.warmBlack.withValues(alpha: 0.12),
                 ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(AppIcons.add, color: isDark ? AppColors.warmWhite : AppColors.warmBlack, size: 20),
-                  SizedBox(width: 8),
+                  Icon(
+                    AppIcons.add,
+                    color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
                   Text(
                     'Add Member',
                     style: TextStyle(
@@ -252,8 +270,11 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Emoji
-                _buildField('Emoji', _emojiController,
-                    textAlign: TextAlign.center),
+                _buildField(
+                  'Emoji',
+                  _emojiController,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 12),
 
                 // Name (required)
@@ -283,8 +304,11 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                 const SizedBox(height: 12),
 
                 // Age (optional)
-                _buildField('Age (optional)', _ageController,
-                    keyboardType: TextInputType.number),
+                _buildField(
+                  'Age (optional)',
+                  _ageController,
+                  keyboardType: TextInputType.number,
+                ),
                 const SizedBox(height: 12),
 
                 // Bio (optional)
@@ -304,7 +328,9 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                       child: Text(
                         'Add',
                         style: TextStyle(
-                          color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                          color: isDark
+                              ? AppColors.warmWhite
+                              : AppColors.warmBlack,
                           fontWeight: FontWeight.w600,
                           fontSize: 16,
                         ),
@@ -331,7 +357,9 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? AppColors.warmWhite.withValues(alpha: 0.1) : AppColors.parchmentElevated,
+        color: isDark
+            ? AppColors.warmWhite.withValues(alpha: 0.1)
+            : AppColors.parchmentElevated,
         borderRadius: BorderRadius.circular(10),
       ),
       child: PrismTextField(
@@ -340,12 +368,20 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
         keyboardType: keyboardType,
         maxLines: maxLines,
         textAlign: textAlign,
-        style: TextStyle(color: isDark ? AppColors.warmWhite : AppColors.warmBlack),
+        style: TextStyle(
+          color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+        ),
         hintText: hint,
-        hintStyle: TextStyle(color: isDark ? AppColors.warmWhite.withValues(alpha: 0.35) : AppColors.warmBlack.withValues(alpha: 0.35)),
+        hintStyle: TextStyle(
+          color: isDark
+              ? AppColors.warmWhite.withValues(alpha: 0.35)
+              : AppColors.warmBlack.withValues(alpha: 0.35),
+        ),
         fieldStyle: PrismTextFieldStyle.borderless,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         onChanged: (_) => setState(() {}),
       ),
     );
@@ -355,7 +391,9 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
 
-    await ref.read(onboardingProvider.notifier).createMember(
+    await ref
+        .read(onboardingProvider.notifier)
+        .createMember(
           name: name,
           pronouns: _pronounsController.text.trim().isNotEmpty
               ? _pronounsController.text.trim()
@@ -373,4 +411,3 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     Navigator.of(context).pop();
   }
 }
-

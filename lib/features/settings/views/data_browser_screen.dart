@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 
@@ -34,8 +36,8 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
         title: 'Data Browser',
         showBackButton: true,
         actions: [
-          IconButton(
-            icon: Icon(AppIcons.refresh),
+          PrismTopBarAction(
+            icon: AppIcons.refresh,
             tooltip: 'Reload data',
             onPressed: () => setState(() => _refreshKey++),
           ),
@@ -50,8 +52,14 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
             child: PrismSegmentedControl<_DataTable>(
               segments: [
                 const PrismSegment(value: _DataTable.members, label: 'Members'),
-                const PrismSegment(value: _DataTable.sessions, label: 'Sessions'),
-                const PrismSegment(value: _DataTable.conversations, label: 'Chats'),
+                const PrismSegment(
+                  value: _DataTable.sessions,
+                  label: 'Sessions',
+                ),
+                const PrismSegment(
+                  value: _DataTable.conversations,
+                  label: 'Chats',
+                ),
                 const PrismSegment(value: _DataTable.messages, label: 'Msgs'),
                 const PrismSegment(value: _DataTable.polls, label: 'Polls'),
               ],
@@ -67,7 +75,9 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
             child: switch (_selectedTable) {
               _DataTable.members => _MembersTable(key: ValueKey(_refreshKey)),
               _DataTable.sessions => _SessionsTable(key: ValueKey(_refreshKey)),
-              _DataTable.conversations => _ConversationsTable(key: ValueKey(_refreshKey)),
+              _DataTable.conversations => _ConversationsTable(
+                key: ValueKey(_refreshKey),
+              ),
               _DataTable.messages => _MessagesTable(key: ValueKey(_refreshKey)),
               _DataTable.polls => _PollsTable(key: ValueKey(_refreshKey)),
             },
@@ -182,8 +192,7 @@ class _SessionsTableState extends ConsumerState<_SessionsTable> {
       itemBuilder: (context, index) {
         final s = data[index];
         return _ExpandableRecord(
-          primaryField:
-              s.startTime.toIso8601String().substring(0, 16),
+          primaryField: s.startTime.toIso8601String().substring(0, 16),
           secondaryField: s.isActive ? 'Active' : 'Ended',
           id: s.id,
           fields: {
@@ -245,8 +254,7 @@ class _ConversationsTableState extends ConsumerState<_ConversationsTable> {
         final c = data[index];
         return _ExpandableRecord(
           primaryField: c.title ?? 'Untitled',
-          secondaryField:
-              '${c.participantIds.length} participants',
+          secondaryField: '${c.participantIds.length} participants',
           id: c.id,
           fields: {
             'id': c.id,
@@ -327,8 +335,7 @@ class _MessagesForConversation extends StatefulWidget {
       _MessagesForConversationState();
 }
 
-class _MessagesForConversationState
-    extends State<_MessagesForConversation> {
+class _MessagesForConversationState extends State<_MessagesForConversation> {
   List<ChatMessage>? _messages;
   Object? _error;
   bool _loading = false;
@@ -340,8 +347,9 @@ class _MessagesForConversationState
       _error = null;
     });
     try {
-      final messages = await widget.messageRepo
-          .getMessagesForConversation(widget.conversation.id);
+      final messages = await widget.messageRepo.getMessagesForConversation(
+        widget.conversation.id,
+      );
       if (mounted) setState(() => _messages = messages);
     } catch (e) {
       if (mounted) setState(() => _error = e);
@@ -354,6 +362,47 @@ class _MessagesForConversationState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final messages = _messages;
+    final contentChildren = _loading
+        ? const [
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: PrismLoadingState()),
+            ),
+          ]
+        : messages == null
+        ? const [SizedBox.shrink()]
+        : messages.isEmpty
+        ? [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
+              child: Text(
+                'No messages in this conversation.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ]
+        : messages.map((msg) {
+            return _ExpandableRecord(
+              primaryField: msg.content.length > 50
+                  ? '${msg.content.substring(0, 50)}...'
+                  : msg.content,
+              secondaryField: msg.isSystemMessage ? 'System' : '',
+              id: msg.id,
+              margin: EdgeInsets.zero,
+              fields: {
+                'id': msg.id,
+                'content': msg.content,
+                'timestamp': msg.timestamp.toIso8601String(),
+                'authorId': msg.authorId ?? 'null',
+                'conversationId': msg.conversationId,
+                'isSystemMessage': msg.isSystemMessage.toString(),
+                'editedAt': msg.editedAt?.toIso8601String() ?? 'null',
+                'reactions': msg.reactions.length.toString(),
+              },
+            );
+          }).toList();
 
     final String subtitle;
     if (_error != null) {
@@ -364,7 +413,8 @@ class _MessagesForConversationState
       subtitle = 'Tap to load messages';
     }
 
-    return ExpansionTile(
+    return PrismExpandableSection(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       onExpansionChanged: (expanded) {
         // Load on first expand, or retry on expand after error
         if (expanded && (messages == null || _error != null)) {
@@ -393,33 +443,9 @@ class _MessagesForConversationState
               : theme.colorScheme.onSurfaceVariant,
         ),
       ),
-      children: _loading
-          ? const [
-              Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: PrismLoadingState()),
-              ),
-            ]
-          : (messages ?? []).map((msg) {
-              return _ExpandableRecord(
-                primaryField: msg.content.length > 50
-                    ? '${msg.content.substring(0, 50)}...'
-                    : msg.content,
-                secondaryField: msg.isSystemMessage ? 'System' : '',
-                id: msg.id,
-                fields: {
-                  'id': msg.id,
-                  'content': msg.content,
-                  'timestamp': msg.timestamp.toIso8601String(),
-                  'authorId': msg.authorId ?? 'null',
-                  'conversationId': msg.conversationId,
-                  'isSystemMessage': msg.isSystemMessage.toString(),
-                  'editedAt':
-                      msg.editedAt?.toIso8601String() ?? 'null',
-                  'reactions': msg.reactions.length.toString(),
-                },
-              );
-            }).toList(),
+      contentPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      contentSpacing: 8,
+      children: contentChildren,
     );
   }
 }
@@ -465,8 +491,7 @@ class _PollsTableState extends ConsumerState<_PollsTable> {
         final p = data[index];
         return _ExpandableRecord(
           primaryField: p.question,
-          secondaryField:
-              p.isClosed ? 'Closed' : 'Active',
+          secondaryField: p.isClosed ? 'Closed' : 'Active',
           id: p.id,
           fields: {
             'id': p.id,
@@ -492,23 +517,24 @@ class _ExpandableRecord extends StatelessWidget {
     required this.secondaryField,
     required this.id,
     required this.fields,
+    this.margin = const EdgeInsets.fromLTRB(16, 4, 16, 4),
   });
 
   final String primaryField;
   final String secondaryField;
   final String id;
   final Map<String, String> fields;
+  final EdgeInsets margin;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final truncatedId =
-        id.length > 8 ? '${id.substring(0, 8)}...' : id;
+    final truncatedId = id.length > 8 ? '${id.substring(0, 8)}...' : id;
 
-    return ExpansionTile(
+    return PrismExpandableSection(
+      margin: margin,
       leading: CircleAvatar(
-        backgroundColor:
-            theme.colorScheme.surfaceContainerHighest,
+        backgroundColor: theme.colorScheme.surfaceContainerHighest,
         radius: 16,
         child: Icon(
           AppIcons.dataObject,
@@ -545,18 +571,17 @@ class _ExpandableRecord extends StatelessWidget {
           ],
         ],
       ),
+      contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          padding: const EdgeInsets.only(top: 4),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: theme.colorScheme.outlineVariant,
-              ),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

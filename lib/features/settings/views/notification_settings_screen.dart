@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
@@ -31,8 +32,12 @@ class NotificationSettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final frontingRemindersEnabled = ref.watch(frontingRemindersEnabledProvider);
-    final frontingReminderInterval = ref.watch(frontingReminderIntervalProvider);
+    final frontingRemindersEnabled = ref.watch(
+      frontingRemindersEnabledProvider,
+    );
+    final frontingReminderInterval = ref.watch(
+      frontingReminderIntervalProvider,
+    );
     final permissionAsync = ref.watch(notificationPermissionProvider);
     final theme = Theme.of(context);
 
@@ -69,19 +74,20 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     PrismListRow(
                       title: const Text('Reminder interval'),
-                      subtitle:
-                          const Text('How often to send reminders'),
-                      trailing: DropdownButton<int>(
-                        value: _reminderIntervals.containsKey(
-                                frontingReminderInterval)
+                      subtitle: const Text('How often to send reminders'),
+                      trailing: PrismSelect<int>.compact(
+                        value:
+                            _reminderIntervals.containsKey(
+                              frontingReminderInterval,
+                            )
                             ? frontingReminderInterval
                             : 60,
-                        underline: const SizedBox.shrink(),
+                        menuWidth: 180,
                         items: _reminderIntervals.entries
-                            .map((e) => DropdownMenuItem(
-                                  value: e.key,
-                                  child: Text(e.value),
-                                ))
+                            .map(
+                              (e) =>
+                                  PrismSelectItem(value: e.key, label: e.value),
+                            )
                             .toList(),
                         onChanged: (value) {
                           if (value != null) {
@@ -106,8 +112,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
 
           // ── About (reduced visual weight) ──────────
           Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Text(
               'Fronting reminders send periodic notifications to help you '
               'stay aware of who is fronting. This can be useful for '
@@ -183,30 +188,35 @@ class _NotificationPermissionTile extends ConsumerWidget {
         ),
       ),
       error: (_, _) => PrismListRow(
-        leading: Icon(AppIcons.errorOutline,
-            color: Theme.of(context).colorScheme.error),
+        leading: Icon(
+          AppIcons.errorOutline,
+          color: Theme.of(context).colorScheme.error,
+        ),
         title: const Text('Could not check permissions'),
       ),
       data: (granted) {
         if (granted) {
           return PrismListRow(
-            leading: Icon(AppIcons.checkCircle,
-                color: Theme.of(context).colorScheme.primary),
+            leading: Icon(
+              AppIcons.checkCircle,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             title: const Text('Notifications enabled'),
             subtitle: const Text('Permission granted'),
           );
         }
 
         return PrismListRow(
-          leading: Icon(AppIcons.warningAmberRounded,
-              color: Theme.of(context).colorScheme.error),
+          leading: Icon(
+            AppIcons.warningAmberRounded,
+            color: Theme.of(context).colorScheme.error,
+          ),
           title: const Text('Notifications not enabled'),
           subtitle: const Text('Permission required for reminders'),
           trailing: PrismButton(
             label: 'Request',
             onPressed: () async {
-              final service =
-                  ref.read(frontingNotificationServiceProvider);
+              final service = ref.read(frontingNotificationServiceProvider);
               await service.requestPermission();
               ref.invalidate(notificationPermissionProvider);
             },

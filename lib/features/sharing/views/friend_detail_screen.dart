@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
@@ -111,8 +112,9 @@ class FriendDetailScreen extends ConsumerWidget {
                   fontFamily: 'monospace',
                 ),
               ),
-              trailing: IconButton(
-                icon: Icon(AppIcons.copy, size: 20),
+              trailing: PrismInlineIconButton(
+                icon: AppIcons.copy,
+                iconSize: 20,
                 tooltip: 'Copy sharing ID',
                 onPressed: () {
                   Clipboard.setData(
@@ -374,8 +376,9 @@ class _FingerprintRow extends ConsumerWidget {
             value,
             style: theme.textTheme.bodySmall?.copyWith(fontFamily: 'monospace'),
           ),
-          trailing: IconButton(
-            icon: Icon(AppIcons.copy, size: 20),
+          trailing: PrismInlineIconButton(
+            icon: AppIcons.copy,
+            iconSize: 20,
             tooltip: 'Copy $label',
             onPressed: () {
               final text = snapshot.data ?? fallback;

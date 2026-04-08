@@ -14,7 +14,12 @@ Quick reference for the shared widget library in `lib/shared/widgets/`.
 | `PrismGlassInputBar` | `prism_glass_input_bar.dart` | Rounded glass container for composer bars, search fields, and inline inputs |
 | `PrismButton` | `prism_button.dart` | Styled button with subtle/filled/destructive tones, loading state, and scale feedback |
 | `PrismIconButton` | `prism_button.dart` | Circular icon button with tinted background, tooltip, and long-press support |
+| `PrismInlineIconButton` | `prism_inline_icon_button.dart` | Lightweight icon action for inline row controls, compact headers, and editor affordances |
+| `PrismFieldIconButton` | `prism_field_icon_button.dart` | Compact icon button for text-field suffixes and other tight inline field actions |
 | `PrismTextField` | `prism_text_field.dart` | Text input wrapper with standard and borderless styles; use instead of raw `TextField` |
+| `PrismSelect` | `prism_select.dart` | Field-styled select/dropdown with frosted popup rows; supports avatars, subtitles, and custom leading widgets |
+| `PrismCheckboxRow` | `prism_checkbox_row.dart` | Selectable row with built-in checkbox; use for multi-select lists and confirmation rows |
+| `PrismExpandableSection` | `prism_expandable_section.dart` | Surface-backed expandable section for disclosure rows and collapsible record/detail blocks |
 | `PrismSurface` | `prism_surface.dart` | Rounded surface container with subtle/strong/accent tones; base for cards and groups |
 | `PrismSectionCard` | `prism_section_card.dart` | Grouped content container (wraps `PrismSurface`); use for related rows or controls |
 | `PrismSection` | `prism_section.dart` | Section shell with title, optional description, and footer; use for labeled groups |
@@ -35,16 +40,20 @@ Quick reference for the shared widget library in `lib/shared/widgets/`.
 | `ListTile` | `PrismListRow` (general) or `PrismSettingsRow` (settings screens) |
 | `Card` | `PrismSurface` or `PrismSectionCard` for grouped content |
 | `ElevatedButton` / `TextButton` | `PrismButton` with appropriate `PrismButtonTone` |
-| `IconButton` | `PrismIconButton` or `PrismGlassIconButton` (glass contexts) |
+| `IconButton` | `PrismInlineIconButton`, `PrismIconButton`, or `PrismGlassIconButton` depending on density and context |
+| `TextField` suffix `IconButton` | `PrismFieldIconButton` |
 | `TextField` / `TextFormField` | `PrismTextField` |
+| Field-style `DropdownButton` / `DropdownButtonFormField` | `PrismSelect` |
+| `PrismListRow` + trailing/leading `Checkbox` | `PrismCheckboxRow` |
+| `ExpansionTile` | `PrismExpandableSection` |
 | `showModalBottomSheet(...)` | `PrismSheet.show(...)` |
 | `showDialog(...)` | `PrismDialog.show(...)` or `PrismDialog.confirm(...)` |
 
 ### Keep raw Material for
 
-These controls are complex, platform-native, or have no Prism wrapper yet:
+These controls are complex, platform-native, or still intentionally raw:
 
-- `Switch`, `Slider`, `Checkbox`, `Radio`
+- `Switch`, `Slider`, standalone `Checkbox`, `Radio`
 - `DatePicker`, `TimePicker`
 - `SearchDelegate`
 - `PopupMenuButton` (when `BlurPopupAnchor` is not suitable)

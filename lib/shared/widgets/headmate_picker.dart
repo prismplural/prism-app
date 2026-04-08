@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_select.dart';
 
 /// Reusable member selection dropdown.
 ///
-/// Shows a [DropdownButtonFormField] populated with active system members.
-/// Each item displays the member's emoji and name. Optionally includes an
-/// "Unknown" option at the top when [includeUnknown] is true.
+/// Shows a [PrismSelect] populated with active system members.
+/// Each item can render an avatar, emoji, and optional pronouns.
+/// Optionally includes an "Unknown" option at the top when [includeUnknown]
+/// is true.
 class HeadmatePicker extends ConsumerWidget {
   const HeadmatePicker({
     super.key,
@@ -44,46 +47,46 @@ class HeadmatePicker extends ConsumerWidget {
         child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
       ),
       error: (e, _) => Text(
-          'Error loading ${ref.read(terminologyProvider).pluralLower}: $e'),
+        'Error loading ${ref.read(terminologyProvider).pluralLower}: $e',
+      ),
       data: (members) {
         final filtered = members
             .where((m) => !excludeIds.contains(m.id))
             .toList();
-        final effectiveLabel =
-            label ?? ref.watch(terminologyProvider).singular;
+        final effectiveLabel = label ?? ref.watch(terminologyProvider).singular;
+        const unknownLeading = Text('\u2753', style: TextStyle(fontSize: 18));
 
-        return DropdownButtonFormField<String?>(
-          initialValue: selectedMemberId,
-          decoration: InputDecoration(
-            labelText: effectiveLabel,
-            border: const OutlineInputBorder(),
-          ),
+        return PrismSelect<String?>(
+          value: selectedMemberId,
+          labelText: effectiveLabel,
           items: [
             if (includeUnknown)
-              const DropdownMenuItem<String?>(
+              const PrismSelectItem<String?>(
                 value: null,
-                child: Row(
-                  children: [
-                    Text('\u2753', style: TextStyle(fontSize: 18)),
-                    SizedBox(width: 8),
-                    Text('Unknown'),
-                  ],
-                ),
+                label: 'Unknown',
+                leading: unknownLeading,
+                fieldLeading: unknownLeading,
               ),
             ...filtered.map(
-              (member) => DropdownMenuItem<String?>(
+              (member) => PrismSelectItem<String?>(
                 value: member.id,
-                child: Row(
-                  children: [
-                    Text(member.emoji, style: const TextStyle(fontSize: 18)),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        member.name,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                label: member.name,
+                subtitle: member.pronouns != null && member.pronouns!.isNotEmpty
+                    ? member.pronouns
+                    : null,
+                leading: MemberAvatar(
+                  avatarImageData: member.avatarImageData,
+                  emoji: member.emoji,
+                  customColorEnabled: member.customColorEnabled,
+                  customColorHex: member.customColorHex,
+                  size: 28,
+                ),
+                fieldLeading: MemberAvatar(
+                  avatarImageData: member.avatarImageData,
+                  emoji: member.emoji,
+                  customColorEnabled: member.customColorEnabled,
+                  customColorHex: member.customColorHex,
+                  size: 24,
                 ),
               ),
             ),

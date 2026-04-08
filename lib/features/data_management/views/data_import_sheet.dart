@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/data_management/providers/data_manageme
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -181,14 +182,14 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             shape: BoxShape.circle,
             color: Colors.green.withValues(alpha: 0.15),
           ),
-          child: Icon(AppIcons.downloadOutlined,
-              size: 40, color: Colors.green),
+          child: Icon(AppIcons.downloadOutlined, size: 40, color: Colors.green),
         ),
         const SizedBox(height: 16),
         Text(
           'Import Data',
-          style: theme.textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
@@ -249,10 +250,11 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           autofocus: true,
           labelText: 'Password',
           errorText: _passwordError,
-          suffix: IconButton(
-            icon: Icon(
-              _obscurePassword ? AppIcons.visibilityOff : AppIcons.visibility,
-            ),
+          suffix: PrismFieldIconButton(
+            icon: _obscurePassword
+                ? AppIcons.visibilityOff
+                : AppIcons.visibility,
+            tooltip: _obscurePassword ? 'Show password' : 'Hide password',
             onPressed: () =>
                 setState(() => _obscurePassword = !_obscurePassword),
           ),
@@ -295,8 +297,9 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
       children: [
         Text(
           'Import Preview',
-          style: theme.textTheme.titleLarge
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 4),
         if (p.exportDate.isNotEmpty)
@@ -365,15 +368,11 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         children: [
           Text(
             label,
-            style: bold
-                ? const TextStyle(fontWeight: FontWeight.bold)
-                : null,
+            style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null,
           ),
           Text(
             count.toString(),
-            style: bold
-                ? const TextStyle(fontWeight: FontWeight.bold)
-                : null,
+            style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null,
           ),
         ],
       ),
@@ -405,16 +404,13 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          AppIcons.checkCircleOutline,
-          size: 48,
-          color: Colors.green,
-        ),
+        Icon(AppIcons.checkCircleOutline, size: 48, color: Colors.green),
         const SizedBox(height: 16),
         Text(
           'Import Complete',
-          style: theme.textTheme.titleMedium
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 16),
         Container(
@@ -461,8 +457,9 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         const SizedBox(height: 16),
         Text(
           'Import Failed',
-          style: theme.textTheme.titleMedium
-              ?.copyWith(fontWeight: FontWeight.bold),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 8),
         Text(

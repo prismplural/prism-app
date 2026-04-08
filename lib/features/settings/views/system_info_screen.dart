@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -106,8 +107,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
         loading: () => const PrismLoadingState(),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (settings) {
-          final members =
-              membersAsync.whenOrNull(data: (m) => m) ?? [];
+          final members = membersAsync.whenOrNull(data: (m) => m) ?? [];
           final Uint8List? avatarData = settings.systemAvatarData;
           final String? description = settings.systemDescription;
           final theme = Theme.of(context);
@@ -166,17 +166,17 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           backgroundImage: MemoryImage(avatarData),
                         )
                       : members.isNotEmpty
-                          ? _AvatarCluster(members: members)
-                          : CircleAvatar(
-                              radius: 56,
-                              backgroundColor:
-                                  theme.colorScheme.surfaceContainerHighest,
-                              child: Icon(
-                                AppIcons.addAPhotoOutlined,
-                                size: 32,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
+                      ? _AvatarCluster(members: members)
+                      : CircleAvatar(
+                          radius: 56,
+                          backgroundColor:
+                              theme.colorScheme.surfaceContainerHighest,
+                          child: Icon(
+                            AppIcons.addAPhotoOutlined,
+                            size: 32,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                 ),
               ),
 
@@ -184,8 +184,10 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
 
               // System name
               PrismSectionCard(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 child: _editingSystemName
                     ? Row(
                         children: [
@@ -198,21 +200,21 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          IconButton(
-                            icon: Icon(AppIcons.check, size: 20),
+                          PrismInlineIconButton(
+                            icon: AppIcons.check,
+                            iconSize: 20,
+                            tooltip: 'Save system name',
                             onPressed: _saveSystemName,
-                            visualDensity: VisualDensity.compact,
                           ),
-                          IconButton(
-                            icon: Icon(
-                              AppIcons.close,
-                              size: 20,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5),
+                          PrismInlineIconButton(
+                            icon: AppIcons.close,
+                            iconSize: 20,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
                             ),
+                            tooltip: 'Cancel editing',
                             onPressed: () =>
                                 setState(() => _editingSystemName = false),
-                            visualDensity: VisualDensity.compact,
                           ),
                         ],
                       )
@@ -227,19 +229,15 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                                 children: [
                                   Text(
                                     'Name',
-                                    style:
-                                        theme.textTheme.labelSmall?.copyWith(
-                                      color:
-                                          theme.colorScheme.onSurfaceVariant,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     settings.systemName ?? 'My System',
                                     style: theme.textTheme.titleMedium
-                                        ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                        ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
                                 ],
                               ),
@@ -247,8 +245,9 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             Icon(
                               AppIcons.editOutlined,
                               size: 18,
-                              color: theme.colorScheme.primary
-                                  .withValues(alpha: 0.6),
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                           ],
                         ),
@@ -259,8 +258,10 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
 
               // Description
               PrismSectionCard(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
                 child: _editingDescription
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -272,33 +273,31 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                               autofocus: true,
                               maxLines: 3,
                               minLines: 1,
-                              textCapitalization:
-                                  TextCapitalization.sentences,
+                              textCapitalization: TextCapitalization.sentences,
                               onSubmitted: (_) => _saveDescription(),
                             ),
                           ),
                           const SizedBox(width: 4),
-                          IconButton(
-                            icon: Icon(AppIcons.check, size: 20),
+                          PrismInlineIconButton(
+                            icon: AppIcons.check,
+                            iconSize: 20,
+                            tooltip: 'Save description',
                             onPressed: _saveDescription,
-                            visualDensity: VisualDensity.compact,
                           ),
-                          IconButton(
-                            icon: Icon(
-                              AppIcons.close,
-                              size: 20,
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.5),
+                          PrismInlineIconButton(
+                            icon: AppIcons.close,
+                            iconSize: 20,
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
                             ),
+                            tooltip: 'Cancel editing',
                             onPressed: () =>
                                 setState(() => _editingDescription = false),
-                            visualDensity: VisualDensity.compact,
                           ),
                         ],
                       )
                     : GestureDetector(
-                        onTap: () =>
-                            _startEditingDescription(description),
+                        onTap: () => _startEditingDescription(description),
                         behavior: HitTestBehavior.opaque,
                         child: Row(
                           children: [
@@ -308,22 +307,18 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                                 children: [
                                   Text(
                                     'Description',
-                                    style:
-                                        theme.textTheme.labelSmall?.copyWith(
-                                      color:
-                                          theme.colorScheme.onSurfaceVariant,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     description ?? 'Add a description...',
-                                    style:
-                                        theme.textTheme.bodyMedium?.copyWith(
+                                    style: theme.textTheme.bodyMedium?.copyWith(
                                       color: description != null
                                           ? theme.colorScheme.onSurface
-                                          : theme
-                                              .colorScheme.onSurfaceVariant
-                                              .withValues(alpha: 0.5),
+                                          : theme.colorScheme.onSurfaceVariant
+                                                .withValues(alpha: 0.5),
                                       fontStyle: description == null
                                           ? FontStyle.italic
                                           : null,
@@ -335,8 +330,9 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             Icon(
                               AppIcons.editOutlined,
                               size: 18,
-                              color: theme.colorScheme.primary
-                                  .withValues(alpha: 0.6),
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.6,
+                              ),
                             ),
                           ],
                         ),
