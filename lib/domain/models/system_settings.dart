@@ -143,6 +143,8 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(true) bool habitsEnabled,
     @Default(true) bool sleepTrackingEnabled,
     @Default(30) int quickSwitchThresholdSeconds,
+    // Sharing identity generation — incremented on DEK rotation
+    @Default(0) int identityGeneration,
     @Default(false) bool chatLogsFront,
     @Default(false) bool hasCompletedOnboarding,
     @Default(false) bool syncThemeEnabled,

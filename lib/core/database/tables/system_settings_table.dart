@@ -35,6 +35,9 @@ class SystemSettingsTable extends Table {
   // Quick-switch correction
   IntColumn get quickSwitchThresholdSeconds =>
       integer().withDefault(const Constant(30))();
+  // Sharing identity generation — incremented on DEK rotation
+  IntColumn get identityGeneration =>
+      integer().withDefault(const Constant(0))();
   // Chat behavior
   BoolColumn get chatLogsFront =>
       boolean().withDefault(const Constant(false))();

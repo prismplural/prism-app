@@ -179,6 +179,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateQuickSwitchThresholdSeconds(int value) async =>
       updateSettings(settings.copyWith(quickSwitchThresholdSeconds: value));
   @override
+  Future<void> updateIdentityGeneration(int value) async =>
+      updateSettings(settings.copyWith(identityGeneration: value));
+  @override
   Future<void> updateTerminologyFields({
     required SystemTerminology terminology,
     String? customTerminology,

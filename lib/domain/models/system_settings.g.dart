@@ -37,6 +37,7 @@ _SystemSettings _$SystemSettingsFromJson(
   sleepTrackingEnabled: json['sleepTrackingEnabled'] as bool? ?? true,
   quickSwitchThresholdSeconds:
       (json['quickSwitchThresholdSeconds'] as num?)?.toInt() ?? 30,
+  identityGeneration: (json['identityGeneration'] as num?)?.toInt() ?? 0,
   chatLogsFront: json['chatLogsFront'] as bool? ?? false,
   hasCompletedOnboarding: json['hasCompletedOnboarding'] as bool? ?? false,
   syncThemeEnabled: json['syncThemeEnabled'] as bool? ?? false,
@@ -96,6 +97,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'habitsEnabled': instance.habitsEnabled,
   'sleepTrackingEnabled': instance.sleepTrackingEnabled,
   'quickSwitchThresholdSeconds': instance.quickSwitchThresholdSeconds,
+  'identityGeneration': instance.identityGeneration,
   'chatLogsFront': instance.chatLogsFront,
   'hasCompletedOnboarding': instance.hasCompletedOnboarding,
   'syncThemeEnabled': instance.syncThemeEnabled,

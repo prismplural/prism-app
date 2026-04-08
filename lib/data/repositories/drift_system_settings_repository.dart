@@ -204,6 +204,12 @@ class DriftSystemSettingsRepository
     await _syncField('quick_switch_threshold_seconds', value);
   }
 
+  @override
+  Future<void> updateIdentityGeneration(int value) async {
+    await _dao.updateIdentityGeneration(value);
+    await _syncField('identity_generation', value);
+  }
+
   // Multi-field updates
 
   @override
@@ -392,6 +398,7 @@ class DriftSystemSettingsRepository
       'habits_enabled': s.habitsEnabled,
       'sleep_tracking_enabled': s.sleepTrackingEnabled,
       'quick_switch_threshold_seconds': s.quickSwitchThresholdSeconds,
+      'identity_generation': s.identityGeneration,
       'has_completed_onboarding': s.hasCompletedOnboarding,
       'chat_logs_front': s.chatLogsFront,
       'sync_theme_enabled': s.syncThemeEnabled,

@@ -30,6 +30,7 @@ void main() {
         habitsEnabled: true,
         sleepTrackingEnabled: true,
         quickSwitchThresholdSeconds: 30,
+        identityGeneration: 0,
         chatLogsFront: false,
         hasCompletedOnboarding: false,
         syncThemeEnabled: false,
