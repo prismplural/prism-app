@@ -74,7 +74,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 34;
+  int get schemaVersion => 35;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -127,6 +127,12 @@ class AppDatabase extends _$AppDatabase {
         );
         await migrator.createTable(sharingRequests);
         await _createCurrentIndexes();
+      }
+
+      if (from < 35) {
+        await customStatement(
+          'ALTER TABLE system_settings ADD COLUMN identity_generation INTEGER NOT NULL DEFAULT 0',
+        );
       }
     },
     onCreate: (migrator) async {

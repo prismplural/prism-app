@@ -7,6 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -109,7 +110,8 @@ class _SetupDeviceSheetContentState
     });
 
     try {
-      final jsonString = await ffi.startInitiatorCeremony(
+      final pairingApi = ref.read(pairingCeremonyApiProvider);
+      final jsonString = await pairingApi.startInitiatorCeremony(
         handle: widget.handle,
         tokenBytes: tokenBytes,
       );
@@ -148,7 +150,8 @@ class _SetupDeviceSheetContentState
     });
 
     try {
-      await ffi.completeInitiatorCeremony(
+      final pairingApi = ref.read(pairingCeremonyApiProvider);
+      await pairingApi.completeInitiatorCeremony(
         handle: widget.handle,
         password: password,
       );
@@ -228,8 +231,7 @@ class _SetupDeviceSheetContentState
       _InitiatorStep.sasVerification => _SasVerificationView(
         sasWords: _sasWords!,
         sasDecimal: _sasDecimal!,
-        onConfirm: () =>
-            setState(() => _step = _InitiatorStep.passwordEntry),
+        onConfirm: () => setState(() => _step = _InitiatorStep.passwordEntry),
         onReject: _reset,
       ),
       _InitiatorStep.passwordEntry => _InitiatorPasswordView(
@@ -238,8 +240,7 @@ class _SetupDeviceSheetContentState
         onToggleObscure: () =>
             setState(() => _obscurePassword = !_obscurePassword),
         onSubmit: _completeInitiator,
-        onBack: () =>
-            setState(() => _step = _InitiatorStep.sasVerification),
+        onBack: () => setState(() => _step = _InitiatorStep.sasVerification),
       ),
       _InitiatorStep.completing => const Center(
         child: Padding(
@@ -393,7 +394,11 @@ class _SasVerificationView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(AppIcons.shieldOutlined, color: theme.colorScheme.primary, size: 40),
+        Icon(
+          AppIcons.shieldOutlined,
+          color: theme.colorScheme.primary,
+          size: 40,
+        ),
         const SizedBox(height: 16),
         Text(
           'Verify Security Code',
@@ -526,9 +531,7 @@ class _InitiatorPasswordView extends StatelessWidget {
           onSubmitted: (_) => onSubmit(),
           decoration: InputDecoration(
             hintText: 'Password',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             suffixIcon: IconButton(
               icon: Icon(
                 obscure ? AppIcons.visibilityOff : AppIcons.visibility,
@@ -619,10 +622,7 @@ class _InitiatorDoneView extends StatelessWidget {
 
 /// Error view for the initiator flow.
 class _InitiatorErrorView extends StatelessWidget {
-  const _InitiatorErrorView({
-    required this.message,
-    required this.onTryAgain,
-  });
+  const _InitiatorErrorView({required this.message, required this.onTryAgain});
 
   final String message;
   final VoidCallback onTryAgain;

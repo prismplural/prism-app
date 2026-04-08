@@ -175,6 +175,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   /// the platform keychain so that initialize/unlock/configureEngine can
   /// access persisted credentials.
   Future<ffi.PrismSyncHandle> createHandle({required String relayUrl}) async {
+    final previousHandle = _handle;
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
     final databaseKeyHex = await ensureLocalDatabaseKey();
@@ -193,6 +194,9 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // Publish the handle before auto-configuring. Startup auto-sync can emit
     // RemoteChanges almost immediately after configureEngine/setAutoSync, and
     // those changes must not beat Dart's event-stream subscription.
+    if (previousHandle != null && !identical(previousHandle, handle)) {
+      previousHandle.dispose();
+    }
     _handle = handle;
     state = AsyncData(handle);
 

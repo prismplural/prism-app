@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -94,10 +95,10 @@ class PairingState {
       requestDeviceId: requestDeviceId == _sentinel
           ? this.requestDeviceId
           : requestDeviceId as String?,
-      sasWords:
-          sasWords == _sentinel ? this.sasWords : sasWords as String?,
-      sasDecimal:
-          sasDecimal == _sentinel ? this.sasDecimal : sasDecimal as String?,
+      sasWords: sasWords == _sentinel ? this.sasWords : sasWords as String?,
+      sasDecimal: sasDecimal == _sentinel
+          ? this.sasDecimal
+          : sasDecimal as String?,
       syncIncomplete: syncIncomplete ?? this.syncIncomplete,
     );
   }
@@ -164,6 +165,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     try {
       final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
+      final pairingApi = ref.read(pairingCeremonyApiProvider);
       final relayUrl =
           await ref.read(relayUrlProvider.future) ??
           AppConstants.defaultRelayUrl;
@@ -171,7 +173,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
       if (_generation != myGeneration) return;
 
-      final jsonString = await ffi.startJoinerCeremony(handle: handle);
+      final jsonString = await pairingApi.startJoinerCeremony(handle: handle);
       final json = jsonDecode(jsonString) as Map<String, dynamic>;
       final tokenBytes = (json['token_bytes'] as List<dynamic>).cast<int>();
       final deviceId = json['device_id'] as String;
@@ -200,15 +202,13 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   }
 
   /// Poll for SAS words from the relay after the initiator scans the QR.
-  Future<void> _waitForSas(
-    ffi.PrismSyncHandle handle,
-    int myGeneration,
-  ) async {
+  Future<void> _waitForSas(ffi.PrismSyncHandle handle, int myGeneration) async {
     try {
+      final pairingApi = ref.read(pairingCeremonyApiProvider);
       if (_generation != myGeneration) return;
       state = state.copyWith(step: PairingStep.waitingForSas);
 
-      final sasJsonString = await ffi.getJoinerSas(handle: handle);
+      final sasJsonString = await pairingApi.getJoinerSas(handle: handle);
 
       if (_generation != myGeneration) return;
 
@@ -262,6 +262,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     );
 
     try {
+      final pairingApi = ref.read(pairingCeremonyApiProvider);
       await Future(() async {
         final handle = ref.read(prismSyncHandleProvider).value;
         if (handle == null) {
@@ -270,7 +271,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
         if (_generation != myGeneration) return;
 
-        await ffi.completeJoinerCeremony(
+        await pairingApi.completeJoinerCeremony(
           handle: handle,
           password: password,
         );
@@ -363,6 +364,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       // (or the default) since the real relay URL is embedded in the payload
       // and Rust extracts it internally during joinFromUrl.
       final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
+      final pairingApi = ref.read(pairingCeremonyApiProvider);
       final relayUrl =
           await ref.read(relayUrlProvider.future) ??
           AppConstants.defaultRelayUrl;
@@ -370,7 +372,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
       if (_generation != myGeneration) return;
 
-      await ffi.joinFromUrl(handle: handle, url: url, password: password);
+      await pairingApi.joinFromUrl(
+        handle: handle,
+        url: url,
+        password: password,
+      );
 
       if (_generation != myGeneration) return;
 
