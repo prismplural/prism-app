@@ -7,6 +7,7 @@ import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/habits/services/habit_notification_service.dart';
+import 'package:prism_plurality/features/habits/utils/habit_due.dart';
 
 /// Provides today's date (year, month, day only — no time component).
 ///
@@ -40,8 +41,7 @@ final habitsProvider = StreamProvider<List<Habit>>((ref) {
 });
 
 /// Watches a single habit by ID.
-final habitByIdProvider =
-    StreamProvider.family<Habit?, String>((ref, id) {
+final habitByIdProvider = StreamProvider.family<Habit?, String>((ref, id) {
   final repo = ref.watch(habitRepositoryProvider);
   return repo.watchHabitById(id);
 });
@@ -49,25 +49,29 @@ final habitByIdProvider =
 /// Watches completions for a specific habit.
 final habitCompletionsProvider =
     StreamProvider.family<List<HabitCompletion>, String>((ref, habitId) {
-  final repo = ref.watch(habitRepositoryProvider);
-  return repo.watchCompletionsForHabit(habitId);
-});
+      final repo = ref.watch(habitRepositoryProvider);
+      return repo.watchCompletionsForHabit(habitId);
+    });
 
 /// Watches completions for today's date.
 /// Depends on [currentDateProvider] so it re-evaluates at midnight and on
 /// app resume.
-final todayCompletionsProvider =
-    StreamProvider<List<HabitCompletion>>((ref) {
+final todayCompletionsProvider = StreamProvider<List<HabitCompletion>>((ref) {
   final today = ref.watch(currentDateProvider);
   final repo = ref.watch(habitRepositoryProvider);
   return repo.watchCompletionsForDate(today);
 });
 
+/// Watches all completions across all habits.
+final allCompletionsProvider = StreamProvider<List<HabitCompletion>>((ref) {
+  final repo = ref.watch(habitRepositoryProvider);
+  return repo.watchAllCompletions();
+});
+
 /// Watches completions for the current week (Monday–Sunday).
 /// Depends on [currentDateProvider] so it re-evaluates at midnight and on
 /// app resume.
-final weeklyCompletionsProvider =
-    StreamProvider<List<HabitCompletion>>((ref) {
+final weeklyCompletionsProvider = StreamProvider<List<HabitCompletion>>((ref) {
   final today = ref.watch(currentDateProvider);
   final repo = ref.watch(habitRepositoryProvider);
   // Monday = 1 in Dart's weekday
@@ -79,96 +83,97 @@ final weeklyCompletionsProvider =
 /// Count of habits that are due today but not yet completed.
 final dueHabitsCountProvider = Provider<int>((ref) {
   final habits = ref.watch(habitsProvider).value ?? [];
-  final completions = ref.watch(todayCompletionsProvider).value ?? [];
-  final completedIds = completions.map((c) => c.habitId).toSet();
+  final todayCompletions = ref.watch(todayCompletionsProvider).value ?? [];
+  final allCompletions = ref.watch(allCompletionsProvider).value ?? [];
+  final completedIds = todayCompletions.map((c) => c.habitId).toSet();
   final now = ref.watch(currentDateProvider);
 
   int count = 0;
   for (final habit in habits) {
     if (!habit.isActive || completedIds.contains(habit.id)) continue;
-    final isDue = switch (habit.frequency) {
-      HabitFrequency.daily => true,
-      HabitFrequency.weekly => habit.weeklyDays?.contains(now.weekday % 7) ?? false,
-      HabitFrequency.interval => _isIntervalDue(habit, completions, now),
-      HabitFrequency.custom => true,
-    };
+    final isDue = isHabitDueToday(
+      habit: habit,
+      todayCompletions: todayCompletions,
+      allCompletions: allCompletions,
+      now: now,
+    );
     if (isDue) count++;
   }
   return count;
 });
 
-bool _isIntervalDue(Habit habit, List<HabitCompletion> completions, DateTime now) {
-  if (habit.intervalDays == null) return true;
-  final habitCompletions = completions.where((c) => c.habitId == habit.id).toList();
-  if (habitCompletions.isEmpty) return true;
-  final last = habitCompletions.reduce(
-    (a, b) => a.completedAt.isAfter(b.completedAt) ? a : b,
-  );
-  final todayStart = DateTime(now.year, now.month, now.day);
-  final lastDay = DateTime(last.completedAt.year, last.completedAt.month, last.completedAt.day);
-  return todayStart.difference(lastDay).inDays >= habit.intervalDays!;
-}
-
 /// Stats for a habit over a given timeframe.
-final habitStatsProvider = FutureProvider.family<HabitStats,
-    ({String habitId, StatisticsTimeframe timeframe})>((ref, params) async {
-  final repo = ref.watch(habitRepositoryProvider);
-  final habit = await repo.getHabitById(params.habitId);
-  if (habit == null) {
-    return const HabitStats(
-      totalCompletions: 0,
-      expectedCompletions: 0,
-      completionRate: 0,
-      currentStreak: 0,
-      bestStreak: 0,
-    );
-  }
+final habitStatsProvider =
+    FutureProvider.family<
+      HabitStats,
+      ({String habitId, StatisticsTimeframe timeframe})
+    >((ref, params) async {
+      final repo = ref.watch(habitRepositoryProvider);
+      final habit = await repo.getHabitById(params.habitId);
+      if (habit == null) {
+        return const HabitStats(
+          totalCompletions: 0,
+          expectedCompletions: 0,
+          completionRate: 0,
+          currentStreak: 0,
+          bestStreak: 0,
+        );
+      }
 
-  final since = params.timeframe.startDate;
-  final completions =
-      await repo.getCompletionsForHabit(params.habitId, since: since);
+      final since = params.timeframe.startDate;
+      final completions = await repo.getCompletionsForHabit(
+        params.habitId,
+        since: since,
+      );
 
-  // Calculate expected completions
-  final now = DateTime.now();
-  final daysSince = now.difference(since).inDays;
-  final expectedCompletions = switch (habit.frequency) {
-    HabitFrequency.daily => daysSince,
-    HabitFrequency.weekly =>
-      habit.weeklyDays != null ? (daysSince ~/ 7) * habit.weeklyDays!.length : daysSince ~/ 7,
-    HabitFrequency.interval =>
-      habit.intervalDays != null && habit.intervalDays! > 0
-          ? daysSince ~/ habit.intervalDays!
-          : daysSince,
-    HabitFrequency.custom => daysSince,
-  };
+      // Calculate expected completions
+      final now = DateTime.now();
+      final daysSince = now.difference(since).inDays;
+      final expectedCompletions = switch (habit.frequency) {
+        HabitFrequency.daily => daysSince,
+        HabitFrequency.weekly =>
+          habit.weeklyDays != null
+              ? (daysSince ~/ 7) * habit.weeklyDays!.length
+              : daysSince ~/ 7,
+        HabitFrequency.interval =>
+          habit.intervalDays != null && habit.intervalDays! > 0
+              ? daysSince ~/ habit.intervalDays!
+              : daysSince,
+        HabitFrequency.custom => daysSince,
+      };
 
-  final rate = expectedCompletions > 0
-      ? (completions.length / expectedCompletions * 100).clamp(0, 100).toDouble()
-      : 0.0;
+      final rate = expectedCompletions > 0
+          ? (completions.length / expectedCompletions * 100)
+                .clamp(0, 100)
+                .toDouble()
+          : 0.0;
 
-  // Average rating
-  final rated = completions.where((c) => c.rating != null).toList();
-  final avgRating = rated.isNotEmpty
-      ? rated.map((c) => c.rating!).reduce((a, b) => a + b) / rated.length
-      : null;
+      // Average rating
+      final rated = completions.where((c) => c.rating != null).toList();
+      final avgRating = rated.isNotEmpty
+          ? rated.map((c) => c.rating!).reduce((a, b) => a + b) / rated.length
+          : null;
 
-  // Completions by member
-  final byMember = <String, int>{};
-  for (final c in completions) {
-    final key = c.completedByMemberId ?? 'unknown';
-    byMember[key] = (byMember[key] ?? 0) + 1;
-  }
+      // Completions by member
+      final byMember = <String, int>{};
+      for (final c in completions) {
+        final key = c.completedByMemberId ?? 'unknown';
+        byMember[key] = (byMember[key] ?? 0) + 1;
+      }
 
-  return HabitStats(
-    totalCompletions: completions.length,
-    expectedCompletions: expectedCompletions.clamp(0, double.maxFinite.toInt()),
-    completionRate: rate,
-    currentStreak: habit.currentStreak,
-    bestStreak: habit.bestStreak,
-    averageRating: avgRating,
-    completionsByMember: byMember,
-  );
-});
+      return HabitStats(
+        totalCompletions: completions.length,
+        expectedCompletions: expectedCompletions.clamp(
+          0,
+          double.maxFinite.toInt(),
+        ),
+        completionRate: rate,
+        currentStreak: habit.currentStreak,
+        bestStreak: habit.bestStreak,
+        averageRating: avgRating,
+        completionsByMember: byMember,
+      );
+    });
 
 /// Notifier for habit CRUD and completion actions.
 class HabitNotifier extends Notifier<void> {
@@ -205,10 +210,9 @@ class HabitNotifier extends Notifier<void> {
     final repo = ref.read(habitRepositoryProvider);
     final habit = await repo.getHabitById(id);
     if (habit == null) return;
-    await repo.updateHabit(habit.copyWith(
-      isActive: !habit.isActive,
-      modifiedAt: DateTime.now(),
-    ));
+    await repo.updateHabit(
+      habit.copyWith(isActive: !habit.isActive, modifiedAt: DateTime.now()),
+    );
   }
 
   /// Complete a habit and recalculate streaks.
@@ -242,15 +246,18 @@ class HabitNotifier extends Notifier<void> {
 
     final completions = await repo.getCompletionsForHabit(habitId);
     final currentStreak = _calculateCurrentStreak(habit, completions);
-    final bestStreak =
-        currentStreak > habit.bestStreak ? currentStreak : habit.bestStreak;
+    final bestStreak = currentStreak > habit.bestStreak
+        ? currentStreak
+        : habit.bestStreak;
 
-    await repo.updateHabit(habit.copyWith(
-      totalCompletions: habit.totalCompletions + 1,
-      currentStreak: currentStreak,
-      bestStreak: bestStreak,
-      modifiedAt: now,
-    ));
+    await repo.updateHabit(
+      habit.copyWith(
+        totalCompletions: habit.totalCompletions + 1,
+        currentStreak: currentStreak,
+        bestStreak: bestStreak,
+        modifiedAt: now,
+      ),
+    );
   }
 
   /// Remove a completion and recalculate streaks.
@@ -267,15 +274,21 @@ class HabitNotifier extends Notifier<void> {
     final completions = await repo.getCompletionsForHabit(habitId);
     final currentStreak = _calculateCurrentStreak(habit, completions);
     // bestStreak is a ratchet: never decreases
-    final bestStreak =
-        currentStreak > habit.bestStreak ? currentStreak : habit.bestStreak;
+    final bestStreak = currentStreak > habit.bestStreak
+        ? currentStreak
+        : habit.bestStreak;
 
-    await repo.updateHabit(habit.copyWith(
-      totalCompletions: (habit.totalCompletions - 1).clamp(0, double.maxFinite.toInt()),
-      currentStreak: currentStreak,
-      bestStreak: bestStreak,
-      modifiedAt: DateTime.now(),
-    ));
+    await repo.updateHabit(
+      habit.copyWith(
+        totalCompletions: (habit.totalCompletions - 1).clamp(
+          0,
+          double.maxFinite.toInt(),
+        ),
+        currentStreak: currentStreak,
+        bestStreak: bestStreak,
+        modifiedAt: DateTime.now(),
+      ),
+    );
   }
 
   // ── Streak Calculation ───────────────────────────────────────────
@@ -284,8 +297,8 @@ class HabitNotifier extends Notifier<void> {
     if (completions.isEmpty) return 0;
 
     return switch (habit.frequency) {
-      HabitFrequency.daily || HabitFrequency.custom =>
-        _calculateDailyStreak(completions),
+      HabitFrequency.daily ||
+      HabitFrequency.custom => _calculateDailyStreak(completions),
       HabitFrequency.weekly => _calculateWeeklyStreak(habit, completions),
       HabitFrequency.interval => _calculateIntervalStreak(habit, completions),
     };
@@ -296,8 +309,9 @@ class HabitNotifier extends Notifier<void> {
   int _calculateDailyStreak(List<HabitCompletion> completions) {
     final completionDays = <DateTime>{};
     for (final c in completions) {
-      completionDays.add(DateTime(
-          c.completedAt.year, c.completedAt.month, c.completedAt.day));
+      completionDays.add(
+        DateTime(c.completedAt.year, c.completedAt.month, c.completedAt.day),
+      );
     }
 
     final today = DateTime.now();
@@ -318,8 +332,7 @@ class HabitNotifier extends Notifier<void> {
 
   /// Weekly: count consecutive weeks where ALL required weeklyDays have
   /// completions.
-  int _calculateWeeklyStreak(
-      Habit habit, List<HabitCompletion> completions) {
+  int _calculateWeeklyStreak(Habit habit, List<HabitCompletion> completions) {
     final requiredDays = habit.weeklyDays;
     if (requiredDays == null || requiredDays.isEmpty) return 0;
 
@@ -356,18 +369,25 @@ class HabitNotifier extends Notifier<void> {
 
   /// Interval: count consecutive interval periods backward with >=1
   /// completion.
-  int _calculateIntervalStreak(
-      Habit habit, List<HabitCompletion> completions) {
+  int _calculateIntervalStreak(Habit habit, List<HabitCompletion> completions) {
     final intervalDays = habit.intervalDays;
     if (intervalDays == null || intervalDays <= 0) return 0;
 
     final completionDates = completions
-        .map((c) => DateTime(
-            c.completedAt.year, c.completedAt.month, c.completedAt.day))
+        .map(
+          (c) => DateTime(
+            c.completedAt.year,
+            c.completedAt.month,
+            c.completedAt.day,
+          ),
+        )
         .toSet();
 
     final today = DateTime(
-        DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
 
     // Find the most recent period end
     var periodEnd = today;
@@ -375,9 +395,11 @@ class HabitNotifier extends Notifier<void> {
 
     // Check if current period has a completion; if not, move back one period
     bool hasCompletionInRange(DateTime start, DateTime end) {
-      return completionDates.any((d) =>
-          (d.isAtSameMomentAs(start) || d.isAfter(start)) &&
-          (d.isAtSameMomentAs(end) || d.isBefore(end)));
+      return completionDates.any(
+        (d) =>
+            (d.isAtSameMomentAs(start) || d.isAfter(start)) &&
+            (d.isAtSameMomentAs(end) || d.isBefore(end)),
+      );
     }
 
     if (!hasCompletionInRange(periodStart, periodEnd)) {
@@ -403,5 +425,6 @@ class HabitNotifier extends Notifier<void> {
   }
 }
 
-final habitNotifierProvider =
-    NotifierProvider<HabitNotifier, void>(HabitNotifier.new);
+final habitNotifierProvider = NotifierProvider<HabitNotifier, void>(
+  HabitNotifier.new,
+);

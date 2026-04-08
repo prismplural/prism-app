@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
+import 'package:prism_plurality/features/habits/utils/habit_due.dart';
 import 'package:prism_plurality/features/habits/widgets/habit_row.dart';
 import 'package:prism_plurality/features/habits/views/add_edit_habit_sheet.dart';
 import 'package:prism_plurality/features/habits/views/complete_habit_sheet.dart';
@@ -28,6 +29,7 @@ class HabitsListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final habitsAsync = ref.watch(habitsProvider);
     final todayAsync = ref.watch(todayCompletionsProvider);
+    final allCompletionsAsync = ref.watch(allCompletionsProvider);
     final weeklyAsync = ref.watch(weeklyCompletionsProvider);
 
     return Scaffold(
@@ -36,10 +38,13 @@ class HabitsListScreen extends ConsumerWidget {
         loading: () => const PrismLoadingState(),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (habits) {
-          final completions = todayAsync.value ?? <HabitCompletion>[];
+          final todayCompletions = todayAsync.value ?? <HabitCompletion>[];
+          final allCompletions =
+              allCompletionsAsync.value ?? <HabitCompletion>[];
           final weeklyCompletions = weeklyAsync.value ?? <HabitCompletion>[];
-          final completedHabitIds =
-              completions.map((c) => c.habitId).toSet();
+          final completedHabitIds = todayCompletions
+              .map((c) => c.habitId)
+              .toSet();
           // Pre-index weekly completions by habitId for O(1) lookup in rows.
           final weeklyByHabit = <String, List<HabitCompletion>>{};
           for (final c in weeklyCompletions) {
@@ -53,7 +58,12 @@ class HabitsListScreen extends ConsumerWidget {
           for (final habit in habits) {
             if (!habit.isActive) {
               inactive.add(habit);
-            } else if (_isDueToday(habit, completions)) {
+            } else if (isHabitDueToday(
+              habit: habit,
+              todayCompletions: todayCompletions,
+              allCompletions: allCompletions,
+              now: DateTime.now(),
+            )) {
               today.add(habit);
             } else {
               upcoming.add(habit);
@@ -93,7 +103,7 @@ class HabitsListScreen extends ConsumerWidget {
                   _HabitSection(
                     title: 'Today',
                     habits: today,
-                    completions: completions,
+                    completions: todayCompletions,
                     completedHabitIds: completedHabitIds,
                     weeklyByHabit: weeklyByHabit,
                     isDueSection: true,
@@ -104,7 +114,7 @@ class HabitsListScreen extends ConsumerWidget {
                   _HabitSection(
                     title: 'Upcoming',
                     habits: upcoming,
-                    completions: completions,
+                    completions: todayCompletions,
                     completedHabitIds: completedHabitIds,
                     weeklyByHabit: weeklyByHabit,
                     onTap: (h) => context.go(AppRoutePaths.habit(h.id)),
@@ -114,7 +124,7 @@ class HabitsListScreen extends ConsumerWidget {
                   _HabitSection(
                     title: 'Inactive',
                     habits: inactive,
-                    completions: completions,
+                    completions: todayCompletions,
                     completedHabitIds: completedHabitIds,
                     weeklyByHabit: weeklyByHabit,
                     onTap: (h) => context.go(AppRoutePaths.habit(h.id)),
@@ -131,52 +141,19 @@ class HabitsListScreen extends ConsumerWidget {
     );
   }
 
-  bool _isDueToday(Habit habit, List<HabitCompletion> completions) {
-    final now = DateTime.now();
-    final todayStart = DateTime(now.year, now.month, now.day);
-    final completedToday = completions.any((c) => c.habitId == habit.id);
-
-    switch (habit.frequency) {
-      case HabitFrequency.daily:
-        return true;
-      case HabitFrequency.weekly:
-        if (habit.weeklyDays == null) return false;
-        final todayWeekday = now.weekday % 7; // 0=Sun
-        return habit.weeklyDays!.contains(todayWeekday);
-      case HabitFrequency.interval:
-        if (habit.intervalDays == null) return true;
-        final habitCompletions = completions
-            .where((c) => c.habitId == habit.id)
-            .toList();
-        if (habitCompletions.isEmpty) return true;
-        final lastCompletion = habitCompletions.reduce(
-          (a, b) => a.completedAt.isAfter(b.completedAt) ? a : b,
-        );
-        final daysSince = todayStart
-            .difference(
-              DateTime(
-                lastCompletion.completedAt.year,
-                lastCompletion.completedAt.month,
-                lastCompletion.completedAt.day,
-              ),
-            )
-            .inDays;
-        return daysSince >= habit.intervalDays!;
-      case HabitFrequency.custom:
-        return !completedToday;
-    }
-  }
-
   void _showAddHabit(BuildContext context) {
     PrismSheet.showFullScreen(
       context: context,
-      builder: (context, scrollController) => AddEditHabitSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          AddEditHabitSheet(scrollController: scrollController),
     );
   }
 
-  Future<void> _showCompleteSheet(BuildContext context, WidgetRef ref, Habit habit) async {
+  Future<void> _showCompleteSheet(
+    BuildContext context,
+    WidgetRef ref,
+    Habit habit,
+  ) async {
     final completions = ref.read(todayCompletionsProvider).value ?? [];
     final alreadyCompleted = completions.any((c) => c.habitId == habit.id);
 
@@ -191,7 +168,8 @@ class HabitsListScreen extends ConsumerWidget {
 
     await PrismSheet.showFullScreen(
       context: context,
-      builder: (ctx, sc) => CompleteHabitSheet(habit: habit, scrollController: sc),
+      builder: (ctx, sc) =>
+          CompleteHabitSheet(habit: habit, scrollController: sc),
     );
   }
 }
@@ -227,18 +205,19 @@ class _HabitSection extends StatelessWidget {
             child: UnconstrainedBox(
               child: TintedGlassSurface(
                 borderRadius: BorderRadius.circular(999),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 child: Text(
                   title.toUpperCase(),
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurfaceVariant
-                            .withValues(alpha: 0.9),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                      ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
                 ),
               ),
             ),
@@ -249,13 +228,9 @@ class _HabitSection extends StatelessWidget {
           itemBuilder: (context, index) {
             final habit = habits[index];
             final isCompleted = completedHabitIds.contains(habit.id);
-            final showsBanner =
-                isDueSection && !isCompleted;
+            final showsBanner = isDueSection && !isCompleted;
             return PrismSectionCard(
-              margin: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               padding: showsBanner
                   ? const EdgeInsets.only(top: 6)
                   : const EdgeInsets.symmetric(vertical: 6),
@@ -266,11 +241,9 @@ class _HabitSection extends StatelessWidget {
               child: HabitRow(
                 habit: habit,
                 todayCompletions: completions,
-                weeklyCompletions:
-                    weeklyByHabit[habit.id] ?? const [],
+                weeklyCompletions: weeklyByHabit[habit.id] ?? const [],
                 isDueToday: isDueSection,
-                isCompletedToday:
-                    completedHabitIds.contains(habit.id),
+                isCompletedToday: completedHabitIds.contains(habit.id),
                 onQuickComplete: () => onQuickComplete(habit),
               ),
             );

@@ -19,8 +19,7 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
 
   Stream<List<Habit>> watchActiveHabits() =>
       (select(habits)
-            ..where(
-                (h) => h.isActive.equals(true) & h.isDeleted.equals(false))
+            ..where((h) => h.isActive.equals(true) & h.isDeleted.equals(false))
             ..orderBy([(h) => OrderingTerm.desc(h.createdAt)]))
           .watch();
 
@@ -40,20 +39,20 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
             ..orderBy([(h) => OrderingTerm.desc(h.createdAt)]))
           .get();
 
-  Future<int> createHabit(HabitsCompanion habit) =>
-      into(habits).insert(habit);
+  Future<int> createHabit(HabitsCompanion habit) => into(habits).insert(habit);
 
   Future<void> updateHabit(String id, HabitsCompanion habit) =>
       (update(habits)..where((h) => h.id.equals(id))).write(habit);
 
   Future<void> deleteHabit(String id) async {
     // Soft-delete completions first
-    await (update(habitCompletions)
-          ..where((c) => c.habitId.equals(id)))
-        .write(const HabitCompletionsCompanion(isDeleted: Value(true)));
+    await (update(habitCompletions)..where((c) => c.habitId.equals(id))).write(
+      const HabitCompletionsCompanion(isDeleted: Value(true)),
+    );
     // Soft-delete the habit
     await (update(habits)..where((h) => h.id.equals(id))).write(
-        const HabitsCompanion(isDeleted: Value(true)));
+      const HabitsCompanion(isDeleted: Value(true)),
+    );
   }
 
   // ── Completions ──────────────────────────────────────────────────
@@ -64,11 +63,17 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
             ..orderBy([(c) => OrderingTerm.desc(c.completedAt)]))
           .get();
 
-  Stream<List<HabitCompletion>> watchCompletionsForHabit(
-          String habitId) =>
+  Stream<List<HabitCompletion>> watchAllCompletions() =>
       (select(habitCompletions)
-            ..where((c) =>
-                c.habitId.equals(habitId) & c.isDeleted.equals(false))
+            ..where((c) => c.isDeleted.equals(false))
+            ..orderBy([(c) => OrderingTerm.desc(c.completedAt)]))
+          .watch();
+
+  Stream<List<HabitCompletion>> watchCompletionsForHabit(String habitId) =>
+      (select(habitCompletions)
+            ..where(
+              (c) => c.habitId.equals(habitId) & c.isDeleted.equals(false),
+            )
             ..orderBy([(c) => OrderingTerm.desc(c.completedAt)]))
           .watch();
 
@@ -85,29 +90,37 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
     return query.get();
   }
 
-  Stream<List<HabitCompletion>> watchCompletionsForDate(
-      DateTime date) {
+  Stream<List<HabitCompletion>> watchCompletionsForDate(DateTime date) {
     final start = DateTime(date.year, date.month, date.day);
     final end = start.add(const Duration(days: 1));
     return (select(habitCompletions)
-          ..where((c) =>
-              c.completedAt.isBiggerOrEqualValue(start) &
-              c.completedAt.isSmallerThanValue(end) &
-              c.isDeleted.equals(false))
+          ..where(
+            (c) =>
+                c.completedAt.isBiggerOrEqualValue(start) &
+                c.completedAt.isSmallerThanValue(end) &
+                c.isDeleted.equals(false),
+          )
           ..orderBy([(c) => OrderingTerm.desc(c.completedAt)]))
         .watch();
   }
 
   Stream<List<HabitCompletion>> watchCompletionsForDateRange(
-      DateTime start, DateTime end) {
+    DateTime start,
+    DateTime end,
+  ) {
     final rangeStart = DateTime(start.year, start.month, start.day);
-    final rangeEnd = DateTime(end.year, end.month, end.day)
-        .add(const Duration(days: 1));
+    final rangeEnd = DateTime(
+      end.year,
+      end.month,
+      end.day,
+    ).add(const Duration(days: 1));
     return (select(habitCompletions)
-          ..where((c) =>
-              c.completedAt.isBiggerOrEqualValue(rangeStart) &
-              c.completedAt.isSmallerThanValue(rangeEnd) &
-              c.isDeleted.equals(false))
+          ..where(
+            (c) =>
+                c.completedAt.isBiggerOrEqualValue(rangeStart) &
+                c.completedAt.isSmallerThanValue(rangeEnd) &
+                c.isDeleted.equals(false),
+          )
           ..orderBy([(c) => OrderingTerm.desc(c.completedAt)]))
         .watch();
   }
@@ -117,5 +130,6 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
 
   Future<void> deleteCompletion(String id) =>
       (update(habitCompletions)..where((c) => c.id.equals(id))).write(
-          const HabitCompletionsCompanion(isDeleted: Value(true)));
+        const HabitCompletionsCompanion(isDeleted: Value(true)),
+      );
 }

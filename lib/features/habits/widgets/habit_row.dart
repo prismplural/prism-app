@@ -9,7 +9,6 @@ import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-
 /// A single habit row with completion circle, name, frequency, streak,
 /// weekly progress pill, and optional "Task Due" banner.
 class HabitRow extends StatefulWidget {
@@ -66,19 +65,18 @@ class _HabitRowState extends State<HabitRow> {
     for (final c in widget.weeklyCompletions) {
       completedDays.add(c.completedAt.weekday % 7); // 0=Sun
     }
-    final completed =
-        habit.weeklyDays!.where(completedDays.contains).length;
+    final completed = habit.weeklyDays!.where(completedDays.contains).length;
     return (completed, total);
   }
 
-  bool get _showBanner =>
-      widget.isDueToday && !_isCompletedToday;
+  bool get _showBanner => widget.isDueToday && !_isCompletedToday;
 
   @override
   void didUpdateWidget(HabitRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Reset loading state when completion status changes (stream rebuild).
-    if (_isCompleting && widget.isCompletedToday != oldWidget.isCompletedToday) {
+    if (_isCompleting &&
+        widget.isCompletedToday != oldWidget.isCompletedToday) {
       _isCompleting = false;
     }
   }
@@ -129,8 +127,11 @@ class _HabitRowState extends State<HabitRow> {
                               style: const TextStyle(fontSize: 20),
                             ),
                           )
-                        : Icon(AppIcons.circleOutlined,
-                            size: 20, color: color.withValues(alpha: 0.4)),
+                        : Icon(
+                            AppIcons.circleOutlined,
+                            size: 20,
+                            color: color.withValues(alpha: 0.4),
+                          ),
                   ),
                 ),
                 if (completed)
@@ -166,12 +167,12 @@ class _HabitRowState extends State<HabitRow> {
         children: [
           PrismPill(
             icon: AppIcons.calendarToday,
-            label: widget.habit.frequency == HabitFrequency.interval &&
+            label:
+                widget.habit.frequency == HabitFrequency.interval &&
                     widget.habit.intervalDays != null
                 ? 'Every ${widget.habit.intervalDays} days'
                 : widget.habit.frequency.label,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           ),
           if (completed) ...[
             const SizedBox(width: 8),
@@ -179,7 +180,7 @@ class _HabitRowState extends State<HabitRow> {
               icon: AppIcons.checkCircle,
               label: 'Complete',
               color: Colors.green,
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             ),
           ],
           if (weeklyProgress != null) ...[
@@ -191,8 +192,7 @@ class _HabitRowState extends State<HabitRow> {
                 icon: AppIcons.check,
                 label: '${weeklyProgress.$1}/${weeklyProgress.$2}',
                 color: color,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               ),
             ),
           ],
@@ -202,8 +202,7 @@ class _HabitRowState extends State<HabitRow> {
               icon: AppIcons.localFireDepartment,
               label: '${widget.habit.currentStreak}',
               color: Colors.orange.shade700,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             ),
           ],
         ],
@@ -218,37 +217,37 @@ class _HabitRowState extends State<HabitRow> {
 
     // Task Due banner with tinted background to stand out from the card.
     return Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          row,
-          TintedGlassSurface(
-            borderWidth: 0,
-            tint: color,
-            borderRadius: BorderRadius.zero,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            child: Row(
-              children: [
-                Text(
-                  'Task Due',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.tertiary,
-                    fontWeight: FontWeight.w600,
-                  ),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        row,
+        TintedGlassSurface(
+          borderWidth: 0,
+          tint: color,
+          borderRadius: BorderRadius.zero,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              Text(
+                'Task Due',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.tertiary,
+                  fontWeight: FontWeight.w600,
                 ),
-                const Spacer(),
-                PrismButton(
-                  tone: PrismButtonTone.filled,
-                  density: PrismControlDensity.compact,
-                  label: 'Complete',
-                  icon: AppIcons.check,
-                  isLoading: _isCompleting,
-                  semanticLabel: 'Complete ${widget.habit.name}',
-                  onPressed: _handleQuickComplete,
-                ),
-              ],
-            ),
+              ),
+              const Spacer(),
+              PrismButton(
+                tone: PrismButtonTone.filled,
+                density: PrismControlDensity.compact,
+                label: 'Complete',
+                icon: AppIcons.check,
+                isLoading: _isCompleting,
+                semanticLabel: 'Complete ${widget.habit.name}',
+                onPressed: _handleQuickComplete,
+              ),
+            ],
           ),
-        ],
+        ),
+      ],
     );
   }
 }
