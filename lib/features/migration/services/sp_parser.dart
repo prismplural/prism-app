@@ -7,6 +7,7 @@ class SpExportData {
   final List<SpFrontHistory> frontHistory;
   final List<SpGroup> groups;
   final List<SpChannel> channels;
+  final List<SpChannelCategory> channelCategories;
   final List<SpMessage> messages;
   final List<SpPoll> polls;
   final List<SpNote> notes;
@@ -23,6 +24,7 @@ class SpExportData {
     required this.frontHistory,
     required this.groups,
     required this.channels,
+    this.channelCategories = const [],
     required this.messages,
     required this.polls,
     this.notes = const [],
@@ -40,6 +42,7 @@ class SpExportData {
       frontHistory.length +
       groups.length +
       channels.length +
+      channelCategories.length +
       messages.length +
       polls.length +
       notes.length +
@@ -221,12 +224,14 @@ class SpGroup {
 class SpChannel {
   final String id;
   final String? name;
+  final String? desc;
   final List<String> memberIds;
   final DateTime? createdAt;
 
   const SpChannel({
     required this.id,
     this.name,
+    this.desc,
     this.memberIds = const [],
     this.createdAt,
   });
@@ -243,6 +248,7 @@ class SpChannel {
     return SpChannel(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       name: json['name'] as String?,
+      desc: json['desc'] as String?,
       memberIds: memberList,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString())
@@ -422,19 +428,27 @@ class SpComment {
 class SpCustomFieldDef {
   final String id;
   final String name;
-  final String type;
+  final int type;
+  final String? order;
+  final bool supportMarkdown;
 
   const SpCustomFieldDef({
     required this.id,
     required this.name,
     required this.type,
+    this.order,
+    this.supportMarkdown = false,
   });
 
   factory SpCustomFieldDef.fromJson(Map<String, dynamic> json) {
     return SpCustomFieldDef(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       name: (json['name'] ?? 'Field').toString(),
-      type: (json['type'] ?? 'text').toString(),
+      type: (json['type'] is int
+          ? json['type'] as int
+          : int.tryParse(json['type'].toString()) ?? 0),
+      order: json['order']?.toString(),
+      supportMarkdown: json['supportMarkdown'] == true,
     );
   }
 }
@@ -554,6 +568,35 @@ class SpRepeatedTimer {
   }
 }
 
+/// SP channel category structure.
+class SpChannelCategory {
+  final String id;
+  final String name;
+  final List<String> channelIds;
+
+  const SpChannelCategory({
+    required this.id,
+    required this.name,
+    this.channelIds = const [],
+  });
+
+  factory SpChannelCategory.fromJson(Map<String, dynamic> json) {
+    final channelList = <String>[];
+    final rawChannels = json['channels'];
+    if (rawChannels is List) {
+      for (final ch in rawChannels) {
+        channelList.add(ch.toString());
+      }
+    }
+
+    return SpChannelCategory(
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
+      name: (json['name'] ?? 'Category').toString(),
+      channelIds: channelList,
+    );
+  }
+}
+
 /// Parser for Simply Plural JSON exports.
 class SpParser {
   SpParser._();
@@ -589,6 +632,7 @@ class SpParser {
           _parseList(json['frontHistory'], SpFrontHistory.fromJson),
       groups: _parseList(json['groups'], SpGroup.fromJson),
       channels: _parseList(json['channels'], SpChannel.fromJson),
+      channelCategories: _parseList(json['channelCategories'], SpChannelCategory.fromJson),
       messages: _parseMessages(json['messages'], json['boardMessages'], json['chatMessages']),
       polls: _parseList(json['polls'], SpPoll.fromJson),
       notes: _parseList(json['notes'], SpNote.fromJson),

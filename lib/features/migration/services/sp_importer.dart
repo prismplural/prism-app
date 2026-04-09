@@ -15,6 +15,7 @@ import 'package:prism_plurality/domain/repositories/front_session_comments_repos
 import 'package:prism_plurality/domain/repositories/custom_fields_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
 import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
+import 'package:prism_plurality/domain/repositories/conversation_categories_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
 
@@ -120,6 +121,7 @@ class SpImporter {
     CustomFieldsRepository? customFieldsRepo,
     MemberGroupsRepository? groupsRepo,
     RemindersRepository? remindersRepo,
+    ConversationCategoriesRepository? categoriesRepo,
     bool downloadAvatars = true,
     bool clearExistingData = false,
     void Function(int current, int total, String label)? onProgress,
@@ -130,6 +132,7 @@ class SpImporter {
 
     final totalItems = mapped.members.length +
         mapped.sessions.length +
+        mapped.conversationCategories.length +
         mapped.conversations.length +
         mapped.messages.length +
         mapped.polls.length +
@@ -232,21 +235,31 @@ class SpImporter {
         }
       }
 
-      // 7. Import conversations.
+      // 7. Import conversation categories.
+      if (categoriesRepo != null) {
+        for (final cat in mapped.conversationCategories) {
+          onProgress?.call(
+              currentItem, totalItems, 'Importing categories...');
+          await categoriesRepo.create(cat);
+          currentItem++;
+        }
+      }
+
+      // 8. Import conversations.
       for (final conversation in mapped.conversations) {
         onProgress?.call(currentItem, totalItems, 'Importing conversations...');
         await conversationRepo.createConversation(conversation);
         currentItem++;
       }
 
-      // 8. Import messages.
+      // 9. Import messages.
       for (final message in mapped.messages) {
         onProgress?.call(currentItem, totalItems, 'Importing messages...');
         await messageRepo.createMessage(message);
         currentItem++;
       }
 
-      // 9. Import polls.
+      // 10. Import polls.
       for (final poll in mapped.polls) {
         onProgress?.call(currentItem, totalItems, 'Importing polls...');
         await pollRepo.createPoll(poll);
