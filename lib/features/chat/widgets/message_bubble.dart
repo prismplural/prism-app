@@ -375,7 +375,15 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     );
 
     if (isDeparted) {
-      return Opacity(opacity: 0.5, child: avatar);
+      return ColorFiltered(
+        colorFilter: const ColorFilter.matrix(<double>[
+          1, 0, 0, 0, 0, // R
+          0, 1, 0, 0, 0, // G
+          0, 0, 1, 0, 0, // B
+          0, 0, 0, 0.5, 0, // A
+        ]),
+        child: avatar,
+      );
     }
     return avatar;
   }
@@ -559,12 +567,12 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     return Stack(
       children: [
         Positioned.fill(
-          child: AnimatedOpacity(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.08, end: 0.0),
             duration: const Duration(milliseconds: 1200),
             curve: Curves.easeOut,
-            opacity: 1.0,
-            child: ColoredBox(
-              color: theme.colorScheme.primary.withValues(alpha: 0.08),
+            builder: (context, value, _) => ColoredBox(
+              color: theme.colorScheme.primary.withValues(alpha: value),
             ),
           ),
         ),

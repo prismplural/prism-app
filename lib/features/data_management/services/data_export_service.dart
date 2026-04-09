@@ -111,13 +111,7 @@ class DataExportService {
 
     // Fetch member groups and entries
     final memberGroups = await memberGroupsRepository.watchAllGroups().first;
-    final allGroupEntries = <MemberGroupEntry>[];
-    for (final group in memberGroups) {
-      final entries = await memberGroupsRepository
-          .watchGroupEntries(group.id)
-          .first;
-      allGroupEntries.addAll(entries);
-    }
+    final allGroupEntries = await memberGroupsRepository.getAllGroupEntries();
     final v3MemberGroups = memberGroups.map(_mapMemberGroup).toList();
     final v3MemberGroupEntries = allGroupEntries
         .map(_mapMemberGroupEntry)
@@ -136,13 +130,7 @@ class DataExportService {
     final v3Notes = allNotes.map(_mapNote).toList();
 
     // Fetch front session comments
-    final allComments = <FrontSessionComment>[];
-    for (final session in frontSessions) {
-      final comments = await frontSessionCommentsRepository
-          .watchCommentsForSession(session.id)
-          .first;
-      allComments.addAll(comments);
-    }
+    final allComments = await frontSessionCommentsRepository.getAllComments();
     final v3FrontSessionComments = allComments
         .map(_mapFrontSessionComment)
         .toList();

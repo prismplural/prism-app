@@ -6,6 +6,8 @@ abstract class MemberGroupsRepository {
   Stream<domain.MemberGroup?> watchGroupById(String id);
   Stream<List<domain.MemberGroup>> watchGroupsForMember(String memberId);
   Stream<List<domain.MemberGroupEntry>> watchGroupEntries(String groupId);
+  Stream<List<domain.MemberGroupEntry>> watchAllGroupEntries();
+  Future<List<domain.MemberGroupEntry>> getAllGroupEntries();
   Stream<Map<String, int>> watchMemberCountsByGroup();
   Future<void> createGroup(domain.MemberGroup group);
   Future<void> updateGroup(domain.MemberGroup group);

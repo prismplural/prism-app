@@ -26,6 +26,20 @@ class FrontSessionCommentsDao extends DatabaseAccessor<AppDatabase>
     return query.watchSingle().map((row) => row.read(count)!);
   }
 
+  /// Returns all active comments across all sessions.
+  Stream<List<FrontSessionCommentRow>> watchAllComments() =>
+      (select(frontSessionComments)
+            ..where((c) => c.isDeleted.equals(false))
+            ..orderBy([(c) => OrderingTerm.asc(c.timestamp)]))
+          .watch();
+
+  /// Returns all active comments across all sessions as a future.
+  Future<List<FrontSessionCommentRow>> getAllComments() =>
+      (select(frontSessionComments)
+            ..where((c) => c.isDeleted.equals(false))
+            ..orderBy([(c) => OrderingTerm.asc(c.timestamp)]))
+          .get();
+
   Future<int> createComment(FrontSessionCommentsCompanion companion) =>
       into(frontSessionComments).insert(companion);
 

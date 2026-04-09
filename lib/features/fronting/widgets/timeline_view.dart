@@ -225,29 +225,6 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         : availableWidth;
     final needsHorizontalScroll = columnsWidth > availableWidth;
 
-    Widget buildHeaderColumns({ScrollController? controller}) {
-      return SizedBox(
-        width: columnsWidth,
-        child: ListView.builder(
-          controller: controller,
-          scrollDirection: Axis.horizontal,
-          physics: controller != null
-              ? const NeverScrollableScrollPhysics()
-              : null,
-          itemCount: rows.length,
-          itemExtent: totalColumnWidth,
-          itemBuilder: (context, i) => _MemberHeader(
-            row: rows[i],
-            rowIndex: i,
-            width: totalColumnWidth,
-            columnWidth: columnWidth,
-            primaryColor: theme.colorScheme.primary,
-            brightness: theme.brightness,
-          ),
-        ),
-      );
-    }
-
     final mergedListenable = Listenable.merge([
       _nowNotifier,
       _scrollOffsetNotifier,
@@ -286,12 +263,25 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
               const SizedBox(width: _timeGutterWidth),
               if (needsHorizontalScroll)
                 Expanded(
-                  child: buildHeaderColumns(
+                  child: _HeaderRow(
+                    rows: rows,
+                    columnsWidth: columnsWidth,
+                    totalColumnWidth: totalColumnWidth,
+                    columnWidth: columnWidth,
+                    primaryColor: theme.colorScheme.primary,
+                    brightness: theme.brightness,
                     controller: _horizontalController,
                   ),
                 )
               else
-                buildHeaderColumns(),
+                _HeaderRow(
+                  rows: rows,
+                  columnsWidth: columnsWidth,
+                  totalColumnWidth: totalColumnWidth,
+                  columnWidth: columnWidth,
+                  primaryColor: theme.colorScheme.primary,
+                  brightness: theme.brightness,
+                ),
             ],
           ),
         ),
@@ -379,6 +369,55 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     } else {
       _verticalController.jumpTo(scrollTo);
     }
+  }
+}
+
+/// The row of member headers pinned above the timeline.
+///
+/// Extracted as a standalone widget so Flutter can skip rebuilds when only the
+/// vertical scroll offset changes (the header depends on member data, not on
+/// scroll position).
+class _HeaderRow extends StatelessWidget {
+  const _HeaderRow({
+    required this.rows,
+    required this.columnsWidth,
+    required this.totalColumnWidth,
+    required this.columnWidth,
+    required this.primaryColor,
+    required this.brightness,
+    this.controller,
+  });
+
+  final List<TimelineMemberRow> rows;
+  final double columnsWidth;
+  final double totalColumnWidth;
+  final double columnWidth;
+  final Color primaryColor;
+  final Brightness brightness;
+  final ScrollController? controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: columnsWidth,
+      child: ListView.builder(
+        controller: controller,
+        scrollDirection: Axis.horizontal,
+        physics: controller != null
+            ? const NeverScrollableScrollPhysics()
+            : null,
+        itemCount: rows.length,
+        itemExtent: totalColumnWidth,
+        itemBuilder: (context, i) => _MemberHeader(
+          row: rows[i],
+          rowIndex: i,
+          width: totalColumnWidth,
+          columnWidth: columnWidth,
+          primaryColor: primaryColor,
+          brightness: brightness,
+        ),
+      ),
+    );
   }
 }
 

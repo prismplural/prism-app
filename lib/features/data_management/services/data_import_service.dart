@@ -690,11 +690,10 @@ class DataImportService {
 
       // 12. Import member group entries
       var memberGroupEntriesCreated = 0;
+      final existingEntries = await memberGroupsRepository.getAllGroupEntries();
+      final existingEntryIds = existingEntries.map((e) => e.id).toSet();
       for (final e in export.memberGroupEntries) {
-        final existingEntries = await memberGroupsRepository
-            .watchGroupEntries(e.groupId)
-            .first;
-        if (existingEntries.any((existing) => existing.id == e.id)) continue;
+        if (existingEntryIds.contains(e.id)) continue;
         await memberGroupsRepository.addMemberToGroup(
           e.groupId,
           e.memberId,
@@ -735,12 +734,13 @@ class DataImportService {
 
       // 14. Import custom field values
       var customFieldValuesCreated = 0;
+      final existingValues = await customFieldsRepository.getAllValues();
+      final existingValueKeys =
+          existingValues.map((v) => '${v.customFieldId}:${v.memberId}').toSet();
       for (final v in export.customFieldValues) {
-        final existing = await customFieldsRepository.getValueForField(
-          v.customFieldId,
-          v.memberId,
-        );
-        if (existing != null) continue;
+        if (existingValueKeys.contains('${v.customFieldId}:${v.memberId}')) {
+          continue;
+        }
         await customFieldsRepository.upsertValue(
           CustomFieldValue(
             id: v.id,
@@ -776,11 +776,12 @@ class DataImportService {
 
       // 16. Import front session comments
       var frontSessionCommentsCreated = 0;
+      final existingComments =
+          await frontSessionCommentsRepository.getAllComments();
+      final existingCommentIds =
+          existingComments.map((c) => c.id).toSet();
       for (final c in export.frontSessionComments) {
-        final existingComments = await frontSessionCommentsRepository
-            .watchCommentsForSession(c.sessionId)
-            .first;
-        if (existingComments.any((existing) => existing.id == c.id)) continue;
+        if (existingCommentIds.contains(c.id)) continue;
         await frontSessionCommentsRepository.createComment(
           FrontSessionComment(
             id: c.id,

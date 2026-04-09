@@ -266,10 +266,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       });
                     }
 
-                    final highlightedMessageId = ref.watch(
-                      highlightedMessageIdProvider(widget.conversationId),
-                    );
-
                     final hasMore = messages.length >=
                         ref.read(messageLimitProvider(widget.conversationId));
 
@@ -295,6 +291,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             DateSeparator(date: date),
                           MessageGroup() => PrismMessageGroup(
                               group: item,
+                              conversationId: widget.conversationId,
                               permissions: permissions,
                               participantIds: participantIds,
                               authorMap: authorMap,
@@ -307,7 +304,6 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                                     ).notifier,
                                   )
                                   .setReplyTo(msg),
-                              highlightedMessageId: highlightedMessageId,
                             ),
                         };
                       },

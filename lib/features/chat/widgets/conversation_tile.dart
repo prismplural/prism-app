@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
-import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
-import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -13,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 /// List tile for a conversation in the conversation list.
 ///
 /// Uses the same row layout as session tiles: avatar + title/subtitle + trailing.
+/// Watches a single [conversationTileDataProvider] to reduce provider fan-out.
 class ConversationTile extends ConsumerWidget {
   const ConversationTile({
     super.key,
@@ -26,16 +24,12 @@ class ConversationTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final speakingAs = ref.watch(speakingAsProvider);
-    final lastMessageAsync = ref.watch(lastMessageProvider(conversation.id));
-    final participantMapAsync = ref.watch(
-      membersByIdsProvider(memberIdsKey(conversation.participantIds)),
-    );
+    final tileData = ref.watch(conversationTileDataProvider(conversation.id));
 
-    final bool hasUnread = _hasUnread(speakingAs);
-    final unreadCount = ref.watch(unreadMessageCountProvider(conversation.id));
-    final bool isArchived =
-        speakingAs != null && conversation.archivedByMemberIds.contains(speakingAs);
+    // While the batched provider is loading, show a minimal placeholder.
+    if (tileData == null) {
+      return const SizedBox.shrink();
+    }
 
     final child = Material(
       color: Colors.transparent,
@@ -45,42 +39,24 @@ class ConversationTile extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              _buildLeading(context, ref),
+              _buildLeading(context, tileData),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _displayTitle(participantMapAsync, speakingAs),
+                      tileData.displayTitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight:
-                            hasUnread ? FontWeight.w700 : FontWeight.w600,
+                        fontWeight: tileData.hasUnread
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    lastMessageAsync.when(
-                      data: (lastMessage) {
-                        if (lastMessage == null) {
-                          return Text(
-                            'No messages yet',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          );
-                        }
-                        return _MessagePreview(
-                          message: lastMessage,
-                          hasUnread: hasUnread,
-                        );
-                      },
-                      loading: () => const SizedBox.shrink(),
-                      error: (_, _) => const SizedBox.shrink(),
-                    ),
+                    _buildMessagePreview(context, tileData),
                   ],
                 ),
               ),
@@ -90,18 +66,20 @@ class ConversationTile extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    _relativeTimestamp(conversation.lastActivityAt),
+                    _relativeTimestamp(tileData.conversation.lastActivityAt),
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: hasUnread
+                      color: tileData.hasUnread
                           ? theme.colorScheme.primary
                           : theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  if (unreadCount > 0) ...[
+                  if (tileData.unreadCount > 0) ...[
                     const SizedBox(height: 4),
                     Badge(
                       label: Text(
-                        unreadCount > 99 ? '99+' : '$unreadCount',
+                        tileData.unreadCount > 99
+                            ? '99+'
+                            : '${tileData.unreadCount}',
                       ),
                       child: const SizedBox.shrink(),
                     ),
@@ -112,7 +90,8 @@ class ConversationTile extends ConsumerWidget {
               Icon(
                 AppIcons.chevronRightRounded,
                 size: 20,
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                color:
+                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ],
           ),
@@ -121,7 +100,7 @@ class ConversationTile extends ConsumerWidget {
     );
 
     // Use ColorFiltered instead of Opacity to avoid an extra compositing layer.
-    if (isArchived) {
+    if (tileData.isArchived) {
       return ColorFiltered(
         colorFilter: const ColorFilter.matrix(<double>[
           1, 0, 0, 0, 0, // R
@@ -135,45 +114,34 @@ class ConversationTile extends ConsumerWidget {
     return child;
   }
 
-  Widget _buildLeading(BuildContext context, WidgetRef ref) {
-    if (conversation.emoji != null) {
+  Widget _buildLeading(BuildContext context, ConversationTileData tileData) {
+    if (tileData.conversation.emoji != null) {
       return TintedGlassSurface.circle(
         size: 40,
         child: MemberAvatar.centeredEmoji(
-          conversation.emoji!,
+          tileData.conversation.emoji!,
           fontSize: 20,
         ),
       );
     }
 
-    // For DMs, show the other participant's avatar
-    if (conversation.isDirectMessage) {
-      final speakingAs = ref.watch(speakingAsProvider);
-      final otherId = conversation.participantIds
-          .where((id) => id != speakingAs)
-          .firstOrNull;
-      if (otherId != null) {
-        final memberAsync = ref.watch(memberByIdProvider(otherId));
-        return memberAsync.when(
-          data: (member) {
-            if (member == null) {
-              return _fallbackAvatar(context, AppIcons.person);
-            }
-            return MemberAvatar(
-              avatarImageData: member.avatarImageData,
-              emoji: member.emoji,
-              customColorEnabled: member.customColorEnabled,
-              customColorHex: member.customColorHex,
-              size: 40,
-            );
-          },
-          loading: () => _fallbackAvatar(context, AppIcons.person),
-          error: (_, _) => _fallbackAvatar(context, AppIcons.person),
-        );
-      }
+    // For DMs, show the other participant's avatar.
+    if (tileData.conversation.isDirectMessage && tileData.dmPartner != null) {
+      final member = tileData.dmPartner!;
+      return MemberAvatar(
+        avatarImageData: member.avatarImageData,
+        emoji: member.emoji,
+        customColorEnabled: member.customColorEnabled,
+        customColorHex: member.customColorHex,
+        size: 40,
+      );
     }
 
-    return _fallbackAvatar(context, AppIcons.group);
+    // DM with unknown partner or group without emoji.
+    final icon = tileData.conversation.isDirectMessage
+        ? AppIcons.person
+        : AppIcons.group;
+    return _fallbackAvatar(context, icon);
   }
 
   Widget _fallbackAvatar(BuildContext context, IconData icon) {
@@ -193,75 +161,26 @@ class ConversationTile extends ConsumerWidget {
     );
   }
 
-  String _displayTitle(
-    AsyncValue<Map<String, Member>> participantMapAsync,
-    String? speakingAs,
+  Widget _buildMessagePreview(
+    BuildContext context,
+    ConversationTileData tileData,
   ) {
-    if (conversation.title != null &&
-        conversation.title!.isNotEmpty) {
-      return conversation.title!;
-    }
-
-    // For DMs, show the other participant's name
-    return participantMapAsync.when(
-      data: (participantMap) {
-        final otherNames = conversation.participantIds
-            .where((id) => id != speakingAs)
-            .map((id) => participantMap[id]?.name ?? 'Unknown')
-            .toList();
-        if (otherNames.isEmpty) return 'Conversation';
-        return otherNames.join(', ');
-      },
-      loading: () => 'Loading...',
-      error: (_, _) => 'Conversation',
-    );
-  }
-
-  bool _hasUnread(String? speakingAs) {
-    if (speakingAs == null) return false;
-    final lastRead = conversation.lastReadTimestamps[speakingAs];
-    if (lastRead == null) {
-      return conversation.lastActivityAt.isAfter(conversation.createdAt);
-    }
-    return conversation.lastActivityAt.isAfter(lastRead);
-  }
-
-  String _relativeTimestamp(DateTime dateTime) {
-    final now = DateTime.now();
-    final diff = now.difference(dateTime);
-
-    if (diff.inMinutes < 1) return 'now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-    if (diff.inHours < 24) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays}d';
-    return '${dateTime.month}/${dateTime.day}';
-  }
-}
-
-/// Separate ConsumerWidget so it can watch [memberByIdProvider] for the author.
-class _MessagePreview extends ConsumerWidget {
-  const _MessagePreview({
-    required this.message,
-    required this.hasUnread,
-  });
-
-  final ChatMessage message;
-  final bool hasUnread;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final authorId = message.authorId;
-    final authorName = authorId != null
-        ? ref.watch(memberByIdProvider(authorId)).whenOrNull(
-              data: (m) => m?.name,
-            )
-        : null;
-    final prefix = authorName != null ? '$authorName: ' : '';
 
-    // Resolve mention tokens to display names in the preview.
-    final nameMap = ref.watch(memberNameMapProvider);
-    final displayContent = replaceMentionsWithNames(message.content, nameMap);
+    if (tileData.lastMessage == null) {
+      return Text(
+        'No messages yet',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      );
+    }
+
+    final authorName = tileData.lastMessageAuthorName;
+    final prefix = authorName != null ? '$authorName: ' : '';
+    final displayContent = tileData.lastMessageDisplayContent ?? '';
 
     return Text.rich(
       TextSpan(
@@ -278,7 +197,7 @@ class _MessagePreview extends ConsumerWidget {
             text: displayContent,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: hasUnread ? FontWeight.w600 : null,
+              fontWeight: tileData.hasUnread ? FontWeight.w600 : null,
             ),
           ),
         ],
@@ -286,5 +205,16 @@ class _MessagePreview extends ConsumerWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
+  }
+
+  String _relativeTimestamp(DateTime dateTime) {
+    final now = DateTime.now();
+    final diff = now.difference(dateTime);
+
+    if (diff.inMinutes < 1) return 'now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${dateTime.month}/${dateTime.day}';
   }
 }

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
+import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/widgets/message_bubble.dart';
 
 // ---------------------------------------------------------------------------
@@ -142,16 +144,19 @@ class PrismMessageGroup extends StatelessWidget {
   const PrismMessageGroup({
     super.key,
     required this.group,
+    required this.conversationId,
     this.permissions,
     this.participantIds,
     this.authorMap,
     this.messageKeys,
     this.onScrollToMessage,
     this.onReply,
-    this.highlightedMessageId,
   });
 
   final MessageGroup group;
+
+  /// Conversation ID used to scope the highlight provider watch.
+  final String conversationId;
 
   /// Permission model for the current conversation. Forwarded to each
   /// [MessageBubble] to control edit/delete visibility.
@@ -176,9 +181,6 @@ class PrismMessageGroup extends StatelessWidget {
   /// Called when the user selects Reply from a message's context menu.
   final void Function(ChatMessage message)? onReply;
 
-  /// The ID of the message that should display a highlight flash overlay.
-  final String? highlightedMessageId;
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -187,8 +189,9 @@ class PrismMessageGroup extends StatelessWidget {
         for (var i = 0; i < group.messages.length; i++) ...[
           KeyedSubtree(
             key: messageKeys?[group.messages[i].id],
-            child: MessageBubble(
+            child: _HighlightAwareMessageBubble(
               message: group.messages[i],
+              conversationId: conversationId,
               showAuthorInfo: i == 0,
               permissions: permissions,
               participantIds: participantIds,
@@ -197,11 +200,53 @@ class PrismMessageGroup extends StatelessWidget {
                   ? () => onScrollToMessage?.call(group.messages[i].replyToId!)
                   : null,
               onReply: onReply,
-              isHighlighted: group.messages[i].id == highlightedMessageId,
             ),
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Thin wrapper that watches [highlightedMessageIdProvider] with `.select()`
+/// so only the single highlighted message rebuilds — not every visible bubble.
+class _HighlightAwareMessageBubble extends ConsumerWidget {
+  const _HighlightAwareMessageBubble({
+    required this.message,
+    required this.conversationId,
+    required this.showAuthorInfo,
+    this.permissions,
+    this.participantIds,
+    this.authorMap,
+    this.onScrollToReply,
+    this.onReply,
+  });
+
+  final ChatMessage message;
+  final String conversationId;
+  final bool showAuthorInfo;
+  final ConversationPermissions? permissions;
+  final Set<String>? participantIds;
+  final Map<String, Member>? authorMap;
+  final VoidCallback? onScrollToReply;
+  final void Function(ChatMessage message)? onReply;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isHighlighted = ref.watch(
+      highlightedMessageIdProvider(conversationId)
+          .select((id) => id == message.id),
+    );
+
+    return MessageBubble(
+      message: message,
+      showAuthorInfo: showAuthorInfo,
+      permissions: permissions,
+      participantIds: participantIds,
+      authorMap: authorMap,
+      onScrollToReply: onScrollToReply,
+      onReply: onReply,
+      isHighlighted: isHighlighted,
     );
   }
 }

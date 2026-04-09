@@ -94,6 +94,18 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
+  /// Returns all active group entries across all groups.
+  Stream<List<MemberGroupEntryRow>> watchAllGroupEntries() =>
+      (select(memberGroupEntries)
+            ..where((e) => e.isDeleted.equals(false)))
+          .watch();
+
+  /// Returns all active group entries across all groups as a future.
+  Future<List<MemberGroupEntryRow>> getAllGroupEntries() =>
+      (select(memberGroupEntries)
+            ..where((e) => e.isDeleted.equals(false)))
+          .get();
+
   /// Find an active entry for a specific group + member combination.
   Future<MemberGroupEntryRow?> findEntry(
           String groupId, String memberId) =>
