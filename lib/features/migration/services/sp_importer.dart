@@ -16,6 +16,7 @@ import 'package:prism_plurality/domain/repositories/custom_fields_repository.dar
 import 'package:prism_plurality/domain/repositories/member_groups_repository.dart';
 import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/conversation_categories_repository.dart';
+import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
 
@@ -122,6 +123,7 @@ class SpImporter {
     MemberGroupsRepository? groupsRepo,
     RemindersRepository? remindersRepo,
     ConversationCategoriesRepository? categoriesRepo,
+    SystemSettingsRepository? settingsRepo,
     bool downloadAvatars = true,
     bool clearExistingData = false,
     void Function(int current, int total, String label)? onProgress,
@@ -278,6 +280,21 @@ class SpImporter {
           onProgress?.call(currentItem, totalItems, 'Importing reminders...');
           await remindersRepo.create(reminder);
           currentItem++;
+        }
+      }
+
+      // 11. Update system settings from SP profile.
+      if (settingsRepo != null) {
+        if (mapped.systemName != null && mapped.systemName!.isNotEmpty) {
+          await settingsRepo.updateSystemName(mapped.systemName);
+        }
+        if (mapped.systemColor != null && mapped.systemColor!.isNotEmpty) {
+          await settingsRepo.updateAccentColorHex(
+              mapped.systemColor!.replaceFirst('#', ''));
+        }
+        if (mapped.systemDescription != null &&
+            mapped.systemDescription!.isNotEmpty) {
+          await settingsRepo.updateSystemDescription(mapped.systemDescription);
         }
       }
     });
