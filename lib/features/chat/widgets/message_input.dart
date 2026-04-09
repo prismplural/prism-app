@@ -15,6 +15,7 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
 import 'package:prism_plurality/features/chat/widgets/mention_overlay.dart';
+import 'package:prism_plurality/features/chat/widgets/voice_recorder.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -45,10 +46,16 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   String _mentionFilter = '';
   final _mentionOverlayKey = GlobalKey<MentionOverlayState>();
   Uint8List? _stagedImageBytes;
+  bool _isRecording = false;
 
   bool get _canSend =>
       (_controller.text.trim().isNotEmpty || _stagedImageBytes != null) &&
       ref.read(speakingAsProvider) != null;
+
+  bool get _showMicButton =>
+      _controller.text.trim().isEmpty &&
+      _stagedImageBytes == null &&
+      !_isRecording;
 
   @override
   void initState() {
@@ -265,6 +272,52 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     }
   }
 
+  Future<void> _sendVoiceNote(Uint8List audioBytes, int durationMs, String waveformB64) async {
+    setState(() { _isRecording = false; _isSending = true; });
+
+    final speakingAs = ref.read(speakingAsProvider);
+    if (speakingAs == null) {
+      if (mounted) setState(() => _isSending = false);
+      return;
+    }
+
+    try {
+      final messageId = await ref.read(chatNotifierProvider.notifier).sendMessage(
+        conversationId: widget.conversationId,
+        content: '',
+        authorId: speakingAs,
+      );
+
+      final mediaService = ref.read(mediaServiceProvider);
+      final repo = ref.read(mediaAttachmentRepositoryProvider);
+      final data = await mediaService.prepareVoiceNote(audioBytes, durationMs, waveformB64);
+
+      await repo.create(media.MediaAttachment(
+        id: const Uuid().v4(),
+        messageId: messageId,
+        mediaId: data.mediaId,
+        mediaType: 'voice',
+        encryptionKeyB64: base64Encode(data.encryptionKey),
+        contentHash: data.contentHash,
+        plaintextHash: data.plaintextHash,
+        mimeType: data.mimeType,
+        sizeBytes: data.sizeBytes,
+        width: 0,
+        height: 0,
+        durationMs: data.durationMs,
+        blurhash: '',
+        waveformB64: data.waveformB64,
+        thumbnailMediaId: '',
+        sourceUrl: '',
+        previewUrl: '',
+      ));
+
+      await mediaService.uploadVoice(data);
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -382,50 +435,81 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                         ),
                 ),
                 ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _showAttachmentSheet,
-                  child: TintedGlassSurface.circle(
-                    size: inputHeight,
-                    child: Icon(
-                      AppIcons.add,
-                      size: 19,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                if (_isRecording) ...[
+                  const SizedBox(width: 8),
+                  Opacity(
+                    opacity: 0.3,
+                    child: TintedGlassSurface.circle(
+                      size: inputHeight,
+                      child: Icon(
+                        AppIcons.add,
+                        size: 19,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: CompositedTransformTarget(
-                    link: _layerLink,
-                    child: _GlassTextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      minHeight: inputHeight,
-                      onChanged: (_) => setState(() {}),
-                      onSend: _sendMessage,
-                      onKeyEvent: _mentionOverlay != null
-                          ? (event) {
-                              final consumed =
-                                  _mentionOverlayKey.currentState?.handleKeyEvent(event) ?? false;
-                              if (event is KeyDownEvent &&
-                                  event.logicalKey == LogicalKeyboardKey.escape) {
-                                _dismissMentionOverlay();
-                                return true;
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: VoiceRecorder(
+                      onSend: _sendVoiceNote,
+                      onCancel: () => setState(() => _isRecording = false),
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: _showAttachmentSheet,
+                    child: TintedGlassSurface.circle(
+                      size: inputHeight,
+                      child: Icon(
+                        AppIcons.add,
+                        size: 19,
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: CompositedTransformTarget(
+                      link: _layerLink,
+                      child: _GlassTextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        minHeight: inputHeight,
+                        onChanged: (_) => setState(() {}),
+                        onSend: _sendMessage,
+                        onKeyEvent: _mentionOverlay != null
+                            ? (event) {
+                                final consumed =
+                                    _mentionOverlayKey.currentState?.handleKeyEvent(event) ?? false;
+                                if (event is KeyDownEvent &&
+                                    event.logicalKey == LogicalKeyboardKey.escape) {
+                                  _dismissMentionOverlay();
+                                  return true;
+                                }
+                                return consumed;
                               }
-                              return consumed;
-                            }
-                          : null,
+                            : null,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _SendButton(
-                  canSend: _canSend,
-                  isSending: _isSending,
-                  size: inputHeight,
-                  onPressed: _sendMessage,
-                ),
+                  const SizedBox(width: 8),
+                  if (_showMicButton)
+                    _MicButton(
+                      size: inputHeight,
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        setState(() => _isRecording = true);
+                      },
+                    )
+                  else
+                    _SendButton(
+                      canSend: _canSend,
+                      isSending: _isSending,
+                      size: inputHeight,
+                      onPressed: _sendMessage,
+                    ),
+                ],
               ],
             ),
           ),
@@ -682,6 +766,33 @@ class _SendButtonState extends State<_SendButton> {
                 ),
         ),
       ),
+      ),
+    );
+  }
+}
+
+class _MicButton extends StatelessWidget {
+  const _MicButton({required this.size, required this.onPressed});
+
+  final double size;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      label: 'Record voice note',
+      button: true,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: TintedGlassSurface.circle(
+          size: size,
+          child: Icon(
+            AppIcons.microphone,
+            size: 19,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+          ),
+        ),
       ),
     );
   }
