@@ -35,6 +35,11 @@ class MappedData {
   /// Map of SP member ID to avatar URL (for download later).
   final Map<String, String> avatarUrls;
 
+  /// System profile info from SP export.
+  final String? systemName;
+  final String? systemColor;
+  final String? systemDescription;
+
   const MappedData({
     required this.members,
     required this.sessions,
@@ -50,6 +55,9 @@ class MappedData {
     this.reminders = const [],
     required this.warnings,
     required this.avatarUrls,
+    this.systemName,
+    this.systemColor,
+    this.systemDescription,
   });
 }
 
@@ -154,6 +162,9 @@ class SpMapper {
       reminders: reminders,
       warnings: warnings,
       avatarUrls: avatarUrls,
+      systemName: data.systemName,
+      systemColor: data.systemColor,
+      systemDescription: data.systemDescription,
     );
   }
 
@@ -193,6 +204,7 @@ class SpMapper {
         displayOrder: i,
         customColorEnabled: colorHex != null,
         customColorHex: colorHex,
+        pluralkitId: sp.pkId,
       ));
     }
 
@@ -260,13 +272,22 @@ class SpMapper {
       final sessionId = _uuid.v4();
       _sessionIdMap[entry.id] = sessionId;
 
+      // Combine customStatus and comment when both exist.
+      String? notes;
+      if (entry.customStatus != null && entry.customStatus!.isNotEmpty &&
+          entry.comment != null && entry.comment!.isNotEmpty) {
+        notes = '[${entry.customStatus}] ${entry.comment}';
+      } else {
+        notes = entry.comment ?? entry.customStatus;
+      }
+
       sessions.add(domain.FrontingSession(
         id: sessionId,
         startTime: entry.startTime,
         endTime: entry.endTime,
         memberId: prismMemberId,
         coFronterIds: coFronterIds,
-        notes: entry.comment ?? entry.customStatus,
+        notes: notes,
       ));
     }
 
@@ -472,6 +493,8 @@ class SpMapper {
   /// Map SP groups to Prism member groups.
   List<domain.MemberGroup> _mapGroups(List<SpGroup> spGroups) {
     final groups = <domain.MemberGroup>[];
+
+    // First pass: create all groups and build the ID map.
     for (var i = 0; i < spGroups.length; i++) {
       final sp = spGroups[i];
       final prismId = _uuid.v4();
@@ -483,15 +506,36 @@ class SpMapper {
         if (colorHex == '#') colorHex = null;
       }
 
+      // Resolve parent if already mapped; "root" means top-level.
+      String? parentGroupId;
+      if (sp.parent != null && sp.parent != 'root') {
+        parentGroupId = _groupIdMap[sp.parent!];
+      }
+
       groups.add(domain.MemberGroup(
         id: prismId,
         name: sp.name,
         description: sp.desc,
         colorHex: colorHex,
+        emoji: sp.emoji,
         displayOrder: i,
+        parentGroupId: parentGroupId,
         createdAt: DateTime.now(),
       ));
     }
+
+    // Second pass: fix up any parent references that couldn't resolve in the
+    // first pass (child appeared before parent in the list).
+    for (var i = 0; i < spGroups.length; i++) {
+      final sp = spGroups[i];
+      if (sp.parent != null && sp.parent != 'root' && groups[i].parentGroupId == null) {
+        final resolvedParent = _groupIdMap[sp.parent!];
+        if (resolvedParent != null) {
+          groups[i] = groups[i].copyWith(parentGroupId: resolvedParent);
+        }
+      }
+    }
+
     return groups;
   }
 

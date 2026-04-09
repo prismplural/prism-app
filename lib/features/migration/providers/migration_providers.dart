@@ -276,6 +276,7 @@ class ImporterNotifier extends Notifier<MigrationState> {
         customFieldsRepo: ref.read(customFieldsRepositoryProvider),
         groupsRepo: ref.read(memberGroupsRepositoryProvider),
         remindersRepo: ref.read(remindersRepositoryProvider),
+        settingsRepo: ref.read(systemSettingsRepositoryProvider),
         downloadAvatars: downloadAvatars,
         clearExistingData: resetFirst,
         onProgress: (current, total, label) {
