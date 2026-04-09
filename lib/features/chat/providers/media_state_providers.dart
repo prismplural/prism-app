@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -36,6 +37,24 @@ final mediaFileProvider =
     final manager = ref.watch(downloadManagerProvider);
     final encryptionKey = Uint8List.fromList(base64Decode(params.encryptionKeyB64));
     return manager.getMedia(
+      mediaId: params.mediaId,
+      encryptionKey: encryptionKey,
+      ciphertextHash: params.ciphertextHash,
+      plaintextHash: params.plaintextHash,
+    );
+  },
+);
+
+/// Returns a decrypted audio [File] on disk, suitable for [AudioSource.file].
+/// Unlike [mediaFileProvider] which returns raw bytes, this returns the cached
+/// file path so just_audio can stream from it directly.
+final mediaAudioFileProvider =
+    FutureProvider.autoDispose.family<File?, MediaFileParams>(
+  (ref, params) {
+    final manager = ref.watch(downloadManagerProvider);
+    final encryptionKey =
+        Uint8List.fromList(base64Decode(params.encryptionKeyB64));
+    return manager.getMediaFile(
       mediaId: params.mediaId,
       encryptionKey: encryptionKey,
       ciphertextHash: params.ciphertextHash,
