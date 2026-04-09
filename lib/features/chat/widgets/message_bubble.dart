@@ -11,7 +11,9 @@ import 'package:prism_plurality/features/chat/providers/media_state_providers.da
 import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
+import 'package:prism_plurality/features/chat/widgets/media/gif_bubble.dart';
 import 'package:prism_plurality/features/chat/widgets/media/image_bubble.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/chat/widgets/media/voice_bubble.dart';
 import 'package:prism_plurality/features/chat/widgets/reaction_bar.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -624,6 +626,8 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         return _buildImageAttachment(attachment);
       case 'voice':
         return _buildVoiceAttachment(attachment, authorColor);
+      case 'gif':
+        return _buildGifAttachment(attachment);
       default:
         return const ExpiredMedia();
     }
@@ -698,6 +702,19 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       width: attachment.width > 0 ? attachment.width.toDouble() : null,
       height: attachment.height > 0 ? attachment.height.toDouble() : null,
       blurhash: attachment.blurhash.isNotEmpty ? attachment.blurhash : null,
+    );
+  }
+
+  Widget _buildGifAttachment(MediaAttachment attachment) {
+    final gifEnabled = ref.watch(gifSearchEnabledProvider);
+    return GifBubble(
+      sourceUrl: attachment.sourceUrl,
+      previewUrl: attachment.previewUrl,
+      width: attachment.width > 0 ? attachment.width.toDouble() : null,
+      height: attachment.height > 0 ? attachment.height.toDouble() : null,
+      contentDescription:
+          attachment.blurhash.isNotEmpty ? attachment.blurhash : null,
+      gifEnabled: gifEnabled,
     );
   }
 
