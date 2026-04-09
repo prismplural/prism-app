@@ -14,6 +14,8 @@ import 'package:prism_plurality/domain/models/custom_field.dart' as domain;
 import 'package:prism_plurality/domain/models/custom_field_value.dart'
     as domain;
 import 'package:prism_plurality/domain/models/member_group.dart' as domain;
+import 'package:prism_plurality/domain/models/conversation_category.dart'
+    as domain;
 import 'package:prism_plurality/domain/models/reminder.dart' as domain;
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 
@@ -30,6 +32,7 @@ class MappedData {
   final List<domain.CustomFieldValue> customFieldValues;
   final List<domain.MemberGroup> groups;
   final List<MapEntry<String, String>> groupMemberships;
+  final List<domain.ConversationCategory> conversationCategories;
   final List<domain.Reminder> reminders;
   final List<String> warnings;
 
@@ -48,6 +51,7 @@ class MappedData {
     this.customFieldValues = const [],
     this.groups = const [],
     this.groupMemberships = const [],
+    this.conversationCategories = const [],
     this.reminders = const [],
     required this.warnings,
     required this.avatarUrls,
@@ -73,6 +77,12 @@ class SpMapper {
   /// Map of SP custom field ID to Prism field UUID.
   final Map<String, String> _fieldIdMap = {};
 
+  /// Map of SP category ID to Prism category UUID.
+  final Map<String, String> _categoryIdMap = {};
+
+  /// Map of SP channel ID to (categoryId, displayOrder) within the category.
+  final Map<String, ({String categoryId, int displayOrder})> _channelCategoryInfo = {};
+
   /// Resolve SP member ID to Prism UUID.
   String? resolveMemberId(String spId) => _memberIdMap[spId];
 
@@ -90,7 +100,11 @@ class SpMapper {
     // 2. Map front history to sessions.
     final sessions = _mapFrontHistory(data.frontHistory, warnings);
 
-    // 3. Map channels to conversations.
+    // 3. Map channel categories (before channels so category info is available).
+    final conversationCategories =
+        _mapChannelCategories(data.channelCategories);
+
+    // 3b. Map channels to conversations.
     final conversations = _mapChannels(data.channels);
 
     // 4. Add a board conversation if there are board messages.
@@ -152,6 +166,7 @@ class SpMapper {
       customFieldValues: customFieldValues,
       groups: groups,
       groupMemberships: groupMemberships,
+      conversationCategories: conversationCategories,
       reminders: reminders,
       warnings: warnings,
       avatarUrls: avatarUrls,
@@ -274,6 +289,40 @@ class SpMapper {
     return sessions;
   }
 
+  /// Map SP channel categories to Prism conversation categories.
+  ///
+  /// Also populates [_channelCategoryInfo] so that [_mapChannels] can assign
+  /// each conversation its category ID and display order.
+  List<domain.ConversationCategory> _mapChannelCategories(
+      List<SpChannelCategory> spCategories) {
+    final categories = <domain.ConversationCategory>[];
+    final now = DateTime.now();
+
+    for (var i = 0; i < spCategories.length; i++) {
+      final sp = spCategories[i];
+      final prismId = _uuid.v4();
+      _categoryIdMap[sp.id] = prismId;
+
+      categories.add(domain.ConversationCategory(
+        id: prismId,
+        name: sp.name,
+        displayOrder: i,
+        createdAt: now,
+        modifiedAt: now,
+      ));
+
+      // Record which channels belong to this category and their order.
+      for (var j = 0; j < sp.channelIds.length; j++) {
+        _channelCategoryInfo[sp.channelIds[j]] = (
+          categoryId: prismId,
+          displayOrder: j,
+        );
+      }
+    }
+
+    return categories;
+  }
+
   /// Map SP channels to Prism conversations.
   List<domain.Conversation> _mapChannels(List<SpChannel> channels) {
     final conversations = <domain.Conversation>[];
@@ -291,13 +340,19 @@ class SpMapper {
         }
       }
 
+      // Look up category info if this channel belongs to a category.
+      final catInfo = _channelCategoryInfo[ch.id];
+
       conversations.add(domain.Conversation(
         id: prismId,
         createdAt: ch.createdAt ?? DateTime.now(),
         lastActivityAt: ch.createdAt ?? DateTime.now(),
         title: ch.name,
+        description: ch.desc,
         isDirectMessage: participantIds.length <= 2,
         participantIds: participantIds,
+        categoryId: catInfo?.categoryId,
+        displayOrder: catInfo?.displayOrder ?? 0,
       ));
     }
 
@@ -420,17 +475,29 @@ class SpMapper {
       final prismId = _uuid.v4();
       _fieldIdMap[sp.id] = prismId;
 
-      // Map SP type to Prism type.
-      final fieldType = switch (sp.type.toLowerCase()) {
-        'color' => domain.CustomFieldType.color,
-        'date' => domain.CustomFieldType.date,
+      // Map SP integer type to Prism type.
+      // SP types: 0=text, 1=color, 2=date, 3=month, 4=year, 5=monthYear, 6=timestamp, 7=monthDay
+      final fieldType = switch (sp.type) {
+        1 => domain.CustomFieldType.color,
+        2 || 3 || 4 || 5 || 6 || 7 => domain.CustomFieldType.date,
         _ => domain.CustomFieldType.text,
+      };
+
+      final datePrecision = switch (sp.type) {
+        2 => domain.DatePrecision.full,
+        3 => domain.DatePrecision.month,
+        4 => domain.DatePrecision.year,
+        5 => domain.DatePrecision.monthYear,
+        6 => domain.DatePrecision.timestamp,
+        7 => domain.DatePrecision.monthDay,
+        _ => null,
       };
 
       fields.add(domain.CustomField(
         id: prismId,
         name: sp.name,
         fieldType: fieldType,
+        datePrecision: datePrecision,
         displayOrder: i,
         createdAt: DateTime.now(),
       ));
