@@ -185,6 +185,7 @@ abstract final class AppIcons {
 
   // ── Content / media (regular) ──────────────────────────────────────────
 
+  static final gif = PhosphorIcons.gif();
   static final imageBroken = PhosphorIcons.imageBroken();
   static final imageOutlined = PhosphorIcons.image();
   static final photoLibrary = PhosphorIcons.images();
