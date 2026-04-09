@@ -167,10 +167,11 @@ class ChatNotifier extends Notifier<void> {
     return conversation;
   }
 
-  Future<void> sendMessage({
+  Future<String> sendMessage({
     required String conversationId,
     required String content,
     required String authorId,
+    String? messageId,
     String? replyToId,
     String? replyToAuthorId,
     String? replyToContent,
@@ -178,8 +179,9 @@ class ChatNotifier extends Notifier<void> {
     final msgRepo = ref.read(chatMessageRepositoryProvider);
     final convRepo = ref.read(conversationRepositoryProvider);
 
+    final id = messageId ?? _uuid.v4();
     final message = ChatMessage(
-      id: _uuid.v4(),
+      id: id,
       content: content,
       timestamp: DateTime.now(),
       authorId: authorId,
@@ -196,6 +198,8 @@ class ChatNotifier extends Notifier<void> {
     if (conv != null && conv.archivedByMemberIds.isNotEmpty) {
       await convRepo.setArchivedByMemberIds(conversationId, []);
     }
+
+    return id;
   }
 
   Future<void> _sendSystemMessage(
