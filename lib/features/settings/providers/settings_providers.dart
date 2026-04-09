@@ -149,6 +149,11 @@ class SettingsNotifier extends Notifier<void> {
     await repo.updateRemindersEnabled(value);
   }
 
+  Future<void> updateGifSearchEnabled(bool value) async {
+    final repo = ref.read(systemSettingsRepositoryProvider);
+    await repo.updateGifSearchEnabled(value);
+  }
+
   Future<void> updateSystemDescription(String? value) async {
     final repo = ref.read(systemSettingsRepositoryProvider);
     await repo.updateSystemDescription(value);
@@ -406,6 +411,14 @@ final syncNavigationEnabledProvider = Provider<bool>((ref) {
 final chatEnabledProvider = Provider<bool>((ref) {
   return ref.watch(systemSettingsProvider).whenOrNull(
             data: (s) => s.chatEnabled,
+          ) ??
+      true;
+});
+
+/// Narrow provider for `gifSearchEnabled` flag.
+final gifSearchEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.gifSearchEnabled,
           ) ??
       true;
 });

@@ -29,6 +29,7 @@ void main() {
         pollsEnabled: true,
         habitsEnabled: true,
         sleepTrackingEnabled: true,
+        gifSearchEnabled: true,
         quickSwitchThresholdSeconds: 30,
         identityGeneration: 0,
         chatLogsFront: false,

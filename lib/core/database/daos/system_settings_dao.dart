@@ -92,6 +92,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(sleepTrackingEnabled: Value(value)),
   );
 
+  Future<void> updateGifSearchEnabled(bool value) => _updateField(
+    SystemSettingsTableCompanion(gifSearchEnabled: Value(value)),
+  );
+
   Future<void> updateChatLogsFront(bool value) =>
       _updateField(SystemSettingsTableCompanion(chatLogsFront: Value(value)));
 
@@ -224,6 +228,7 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     bool? pollsEnabled,
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
+    bool? gifSearchEnabled,
   }) {
     final companion = SystemSettingsTableCompanion(
       chatEnabled: chatEnabled != null
@@ -237,6 +242,9 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
           : const Value.absent(),
       sleepTrackingEnabled: sleepTrackingEnabled != null
           ? Value(sleepTrackingEnabled)
+          : const Value.absent(),
+      gifSearchEnabled: gifSearchEnabled != null
+          ? Value(gifSearchEnabled)
           : const Value.absent(),
     );
     return _updateField(companion);

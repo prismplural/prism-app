@@ -129,6 +129,12 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateGifSearchEnabled(bool value) async {
+    await _dao.updateGifSearchEnabled(value);
+    await _syncField('gif_search_enabled', value);
+  }
+
+  @override
   Future<void> updateChatLogsFront(bool value) async {
     await _dao.updateChatLogsFront(value);
     await _syncField('chat_logs_front', value);
@@ -251,12 +257,14 @@ class DriftSystemSettingsRepository
     bool? pollsEnabled,
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
+    bool? gifSearchEnabled,
   }) async {
     await _dao.updateFeatureToggles(
       chatEnabled: chatEnabled,
       pollsEnabled: pollsEnabled,
       habitsEnabled: habitsEnabled,
       sleepTrackingEnabled: sleepTrackingEnabled,
+      gifSearchEnabled: gifSearchEnabled,
     );
     final syncFields = <String, dynamic>{};
     if (chatEnabled != null) syncFields['chat_enabled'] = chatEnabled;
@@ -264,6 +272,9 @@ class DriftSystemSettingsRepository
     if (habitsEnabled != null) syncFields['habits_enabled'] = habitsEnabled;
     if (sleepTrackingEnabled != null) {
       syncFields['sleep_tracking_enabled'] = sleepTrackingEnabled;
+    }
+    if (gifSearchEnabled != null) {
+      syncFields['gif_search_enabled'] = gifSearchEnabled;
     }
     if (syncFields.isNotEmpty) {
       await syncRecordUpdate(_table, _settingsEntityId, syncFields);
@@ -397,6 +408,7 @@ class DriftSystemSettingsRepository
       'polls_enabled': s.pollsEnabled,
       'habits_enabled': s.habitsEnabled,
       'sleep_tracking_enabled': s.sleepTrackingEnabled,
+      'gif_search_enabled': s.gifSearchEnabled,
       'quick_switch_threshold_seconds': s.quickSwitchThresholdSeconds,
       'identity_generation': s.identityGeneration,
       'has_completed_onboarding': s.hasCompletedOnboarding,

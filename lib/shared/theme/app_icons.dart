@@ -303,6 +303,7 @@ abstract final class AppIcons {
   static final book = PhosphorIcons.book();
   static final desktop = PhosphorIcons.desktop();
   static final microphone = PhosphorIcons.microphone();
+  static final gif = PhosphorIcons.gif();
 
   // ── Polls (regular) ───────────────────────────────────────────────────
 

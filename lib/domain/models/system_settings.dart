@@ -142,6 +142,7 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(true) bool pollsEnabled,
     @Default(true) bool habitsEnabled,
     @Default(true) bool sleepTrackingEnabled,
+    @Default(true) bool gifSearchEnabled,
     @Default(30) int quickSwitchThresholdSeconds,
     // Sharing identity generation — incremented on DEK rotation
     @Default(0) int identityGeneration,
