@@ -4,7 +4,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
-    hide FrontingSession, Habit, HabitCompletion;
+    hide FrontingSession, Habit, HabitCompletion, Member;
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
@@ -19,9 +19,14 @@ import 'package:prism_plurality/data/repositories/drift_front_session_comments_r
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
+import 'package:prism_plurality/domain/models/custom_field.dart';
+import 'package:prism_plurality/domain/models/custom_field_value.dart';
+import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
+import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/habit_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
@@ -389,6 +394,263 @@ void main() {
         expect(imported.single.sessionType, SessionType.sleep);
         expect(imported.single.quality, SleepQuality.good);
         expect(imported.single.isHealthKitImport, isTrue);
+      },
+    );
+
+    test(
+      'member groups, entries, custom fields, values, and front session comments survive roundtrip',
+      () async {
+        final now = DateTime(2026, 3, 10, 12, 0, 0).toUtc();
+
+        // --- Seed a member (needed as FK target for group entries and field values)
+        await DriftMemberRepository(sourceDb.membersDao, null).createMember(
+          Member(
+            id: 'member-rnd',
+            name: 'Roundtrip Member',
+            pronouns: 'they/them',
+            emoji: '\u2728',
+            createdAt: now,
+          ),
+        );
+
+        // --- Seed member groups + entries
+        final sourceGroupsRepo = DriftMemberGroupsRepository(
+          sourceDb.memberGroupsDao,
+          null,
+        );
+        await sourceGroupsRepo.createGroup(
+          MemberGroup(
+            id: 'group-1',
+            name: 'Test Group',
+            description: 'A test group',
+            colorHex: '#FF0000',
+            emoji: '\uD83C\uDF1F',
+            displayOrder: 1,
+            createdAt: now,
+          ),
+        );
+        await sourceGroupsRepo.addMemberToGroup(
+          'group-1',
+          'member-rnd',
+          'entry-1',
+        );
+
+        // --- Seed custom fields + values
+        final sourceFieldsRepo = DriftCustomFieldsRepository(
+          sourceDb.customFieldsDao,
+          null,
+        );
+        await sourceFieldsRepo.createField(
+          CustomField(
+            id: 'field-1',
+            name: 'Favorite Color',
+            fieldType: CustomFieldType.text,
+            displayOrder: 0,
+            createdAt: now,
+          ),
+        );
+        await sourceFieldsRepo.upsertValue(
+          const CustomFieldValue(
+            id: 'fv-1',
+            customFieldId: 'field-1',
+            memberId: 'member-rnd',
+            value: 'Purple',
+          ),
+        );
+
+        // --- Seed a fronting session (needed as FK target for comments)
+        await DriftFrontingSessionRepository(
+          sourceDb.frontingSessionsDao,
+          null,
+        ).createSession(
+          FrontingSession(
+            id: 'session-rnd',
+            startTime: now.subtract(const Duration(hours: 2)),
+            endTime: now,
+            memberId: 'member-rnd',
+          ),
+        );
+
+        // --- Seed front session comments
+        final sourceCommentsRepo = DriftFrontSessionCommentsRepository(
+          sourceDb.frontSessionCommentsDao,
+          null,
+        );
+        await sourceCommentsRepo.createComment(
+          FrontSessionComment(
+            id: 'comment-1',
+            sessionId: 'session-rnd',
+            body: 'Felt good today',
+            timestamp: now,
+            createdAt: now,
+          ),
+        );
+        await sourceCommentsRepo.createComment(
+          FrontSessionComment(
+            id: 'comment-2',
+            sessionId: 'session-rnd',
+            body: 'Second comment',
+            timestamp: now.add(const Duration(minutes: 5)),
+            createdAt: now.add(const Duration(minutes: 5)),
+          ),
+        );
+
+        // Act: export from source, import into target
+        final result = await _roundtrip(exportService, importService);
+
+        // Assert counts
+        expect(result.memberGroupsCreated, 1);
+        expect(result.memberGroupEntriesCreated, 1);
+        expect(result.customFieldsCreated, 1);
+        expect(result.customFieldValuesCreated, 1);
+        expect(result.frontSessionCommentsCreated, 2);
+
+        // Assert member group fields restored
+        final targetGroupsRepo = DriftMemberGroupsRepository(
+          targetDb.memberGroupsDao,
+          null,
+        );
+        final importedGroups = await targetGroupsRepo.watchAllGroups().first;
+        expect(importedGroups, hasLength(1));
+        expect(importedGroups.single.id, 'group-1');
+        expect(importedGroups.single.name, 'Test Group');
+        expect(importedGroups.single.description, 'A test group');
+
+        // Assert member group entry restored
+        final importedEntries = await targetGroupsRepo.getAllGroupEntries();
+        expect(importedEntries, hasLength(1));
+        expect(importedEntries.single.groupId, 'group-1');
+        expect(importedEntries.single.memberId, 'member-rnd');
+
+        // Assert custom field restored
+        final targetFieldsRepo = DriftCustomFieldsRepository(
+          targetDb.customFieldsDao,
+          null,
+        );
+        final importedFields = await targetFieldsRepo.watchAllFields().first;
+        expect(importedFields, hasLength(1));
+        expect(importedFields.single.name, 'Favorite Color');
+        expect(importedFields.single.fieldType, CustomFieldType.text);
+
+        // Assert custom field value restored
+        final importedValues = await targetFieldsRepo.getAllValues();
+        expect(importedValues, hasLength(1));
+        expect(importedValues.single.value, 'Purple');
+        expect(importedValues.single.memberId, 'member-rnd');
+
+        // Assert front session comments restored
+        final targetCommentsRepo = DriftFrontSessionCommentsRepository(
+          targetDb.frontSessionCommentsDao,
+          null,
+        );
+        final importedComments = await targetCommentsRepo.getAllComments();
+        expect(importedComments, hasLength(2));
+        final c1 = importedComments.firstWhere((c) => c.id == 'comment-1');
+        expect(c1.body, 'Felt good today');
+        expect(c1.sessionId, 'session-rnd');
+        final c2 = importedComments.firstWhere((c) => c.id == 'comment-2');
+        expect(c2.body, 'Second comment');
+      },
+    );
+
+    test(
+      'idempotent import of groups, fields, and comments creates zero duplicates',
+      () async {
+        final now = DateTime(2026, 3, 11, 8, 0, 0).toUtc();
+
+        // Seed member
+        await DriftMemberRepository(sourceDb.membersDao, null).createMember(
+          Member(
+            id: 'member-idem',
+            name: 'Idempotent Member',
+            pronouns: 'she/her',
+            emoji: '\uD83D\uDC9C',
+            createdAt: now,
+          ),
+        );
+
+        // Seed group + entry
+        final sourceGroupsRepo = DriftMemberGroupsRepository(
+          sourceDb.memberGroupsDao,
+          null,
+        );
+        await sourceGroupsRepo.createGroup(
+          MemberGroup(
+            id: 'group-idem',
+            name: 'Idem Group',
+            createdAt: now,
+          ),
+        );
+        await sourceGroupsRepo.addMemberToGroup(
+          'group-idem',
+          'member-idem',
+          'entry-idem',
+        );
+
+        // Seed custom field + value
+        final sourceFieldsRepo = DriftCustomFieldsRepository(
+          sourceDb.customFieldsDao,
+          null,
+        );
+        await sourceFieldsRepo.createField(
+          CustomField(
+            id: 'field-idem',
+            name: 'Role',
+            fieldType: CustomFieldType.text,
+            createdAt: now,
+          ),
+        );
+        await sourceFieldsRepo.upsertValue(
+          const CustomFieldValue(
+            id: 'fv-idem',
+            customFieldId: 'field-idem',
+            memberId: 'member-idem',
+            value: 'Host',
+          ),
+        );
+
+        // Seed fronting session + comment
+        await DriftFrontingSessionRepository(
+          sourceDb.frontingSessionsDao,
+          null,
+        ).createSession(
+          FrontingSession(
+            id: 'session-idem',
+            startTime: now.subtract(const Duration(hours: 1)),
+            endTime: now,
+            memberId: 'member-idem',
+          ),
+        );
+
+        final sourceCommentsRepo = DriftFrontSessionCommentsRepository(
+          sourceDb.frontSessionCommentsDao,
+          null,
+        );
+        await sourceCommentsRepo.createComment(
+          FrontSessionComment(
+            id: 'comment-idem',
+            sessionId: 'session-idem',
+            body: 'Test comment',
+            timestamp: now,
+            createdAt: now,
+          ),
+        );
+
+        // First import
+        final result1 = await _roundtrip(exportService, importService);
+        expect(result1.memberGroupsCreated, 1);
+        expect(result1.memberGroupEntriesCreated, 1);
+        expect(result1.customFieldsCreated, 1);
+        expect(result1.customFieldValuesCreated, 1);
+        expect(result1.frontSessionCommentsCreated, 1);
+
+        // Second import — same data, same target DB
+        final result2 = await _roundtrip(exportService, importService);
+        expect(result2.memberGroupsCreated, 0);
+        expect(result2.memberGroupEntriesCreated, 0);
+        expect(result2.customFieldsCreated, 0);
+        expect(result2.customFieldValuesCreated, 0);
+        expect(result2.frontSessionCommentsCreated, 0);
       },
     );
 

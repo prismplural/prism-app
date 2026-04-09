@@ -21,6 +21,7 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/desktop_breakpoint.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/pin_lock_decision.dart';
 
 /// Gap between overflow row and primary row when the nav bar is expanded.
 const _kNavBarRowGap = 6.0;
@@ -141,29 +142,19 @@ class _AppShellState extends ConsumerState<AppShell>
     final settingsAsync = ref.read(systemSettingsProvider);
     final isPinSetAsync = ref.read(isPinSetProvider);
 
-    // If either provider is still loading, bail out — the ref.listen
-    // callbacks in build() will call us again when they resolve.
-    if (settingsAsync is AsyncLoading || isPinSetAsync is AsyncLoading) return;
+    final decision = initialLockDecision(
+      settingsLoading: settingsAsync is AsyncLoading,
+      isPinSetLoading: isPinSetAsync is AsyncLoading,
+      pinLockEnabled: settingsAsync.value?.pinLockEnabled,
+      isPinSet: isPinSetAsync.value,
+    );
 
-    final settings = settingsAsync.value;
-    if (settings == null) {
-      // Settings errored or empty — treat as resolved (no lock).
-      setState(() => _pinCheckResolved = true);
-      return;
-    }
+    if (!decision.resolved) return;
 
-    if (settings.pinLockEnabled) {
-      final isPinSet = isPinSetAsync.value ?? false;
-      if (isPinSet) {
-        setState(() {
-          _locked = true;
-          _pinCheckResolved = true;
-        });
-        return;
-      }
-    }
-
-    setState(() => _pinCheckResolved = true);
+    setState(() {
+      _locked = decision.locked;
+      _pinCheckResolved = true;
+    });
   }
 
   @override
@@ -178,20 +169,16 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   void _checkLockOnResume() {
-    if (_locked) return; // Already locked.
     final settings = ref.read(systemSettingsProvider).value;
-    if (settings == null || !settings.pinLockEnabled) return;
-    final isPinSet = ref.read(isPinSetProvider).value ?? false;
-    if (!isPinSet) return;
+    final shouldLock = resumeLockDecision(
+      alreadyLocked: _locked,
+      pinLockEnabled: settings?.pinLockEnabled,
+      isPinSet: ref.read(isPinSetProvider).value,
+      backgroundedAt: _backgroundedAt,
+      autoLockDelaySeconds: settings?.autoLockDelaySeconds ?? 0,
+    );
 
-    final bgTime = _backgroundedAt;
-    if (bgTime == null) {
-      setState(() => _locked = true);
-      return;
-    }
-
-    final elapsed = DateTime.now().difference(bgTime).inSeconds;
-    if (elapsed >= settings.autoLockDelaySeconds) {
+    if (shouldLock) {
       setState(() => _locked = true);
     }
   }
@@ -409,9 +396,7 @@ class _AppShellState extends ConsumerState<AppShell>
           shell,
           Positioned.fill(
             child: ColoredBox(
-              color: MediaQuery.platformBrightnessOf(context) == Brightness.dark
-                  ? AppColors.warmBlack
-                  : AppColors.warmWhite,
+              color: Theme.of(context).scaffoldBackgroundColor,
             ),
           ),
         ],

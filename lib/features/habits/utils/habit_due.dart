@@ -26,15 +26,10 @@ bool _isIntervalDue(
   if (habit.intervalDays == null) return true;
 
   final habitCompletions = allCompletions.where((c) => c.habitId == habit.id);
-  HabitCompletion? lastCompletion;
-  for (final completion in habitCompletions) {
-    if (lastCompletion == null ||
-        completion.completedAt.isAfter(lastCompletion.completedAt)) {
-      lastCompletion = completion;
-    }
-  }
-
-  if (lastCompletion == null) return true;
+  if (habitCompletions.isEmpty) return true; // no completions = due
+  final lastCompletion = habitCompletions.reduce(
+    (a, b) => a.completedAt.isAfter(b.completedAt) ? a : b,
+  );
 
   final todayStart = DateTime(now.year, now.month, now.day);
   final lastDay = DateTime(

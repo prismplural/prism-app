@@ -4,7 +4,10 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
@@ -260,27 +263,31 @@ class ChatNotifier extends Notifier<void> {
     String conversationId,
     String memberId,
   ) async {
-    final convRepo = ref.read(conversationRepositoryProvider);
-    final conv = await convRepo.getConversationById(conversationId);
-    if (conv == null) return;
+    await _mutationPool.withResource(() async {
+      final convRepo = ref.read(conversationRepositoryProvider);
+      final conv = await convRepo.getConversationById(conversationId);
+      if (conv == null) return;
 
-    if (conv.archivedByMemberIds.contains(memberId)) return;
+      if (conv.archivedByMemberIds.contains(memberId)) return;
 
-    final updatedArchived = [...conv.archivedByMemberIds, memberId];
-    await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+      final updatedArchived = [...conv.archivedByMemberIds, memberId];
+      await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+    });
   }
 
   Future<void> unarchiveConversation(
     String conversationId,
     String memberId,
   ) async {
-    final convRepo = ref.read(conversationRepositoryProvider);
-    final conv = await convRepo.getConversationById(conversationId);
-    if (conv == null) return;
+    await _mutationPool.withResource(() async {
+      final convRepo = ref.read(conversationRepositoryProvider);
+      final conv = await convRepo.getConversationById(conversationId);
+      if (conv == null) return;
 
-    final updatedArchived =
-        conv.archivedByMemberIds.where((id) => id != memberId).toList();
-    await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+      final updatedArchived =
+          conv.archivedByMemberIds.where((id) => id != memberId).toList();
+      await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+    });
   }
 
   Future<void> leaveConversation(
@@ -399,25 +406,29 @@ class ChatNotifier extends Notifier<void> {
   }
 
   Future<void> markConversationAsRead(String conversationId, String memberId) async {
-    final repo = ref.read(conversationRepositoryProvider);
-    final conv = await repo.getConversationById(conversationId);
-    if (conv == null) return;
+    await _mutationPool.withResource(() async {
+      final repo = ref.read(conversationRepositoryProvider);
+      final conv = await repo.getConversationById(conversationId);
+      if (conv == null) return;
 
-    final updatedTimestamps = Map<String, DateTime>.from(conv.lastReadTimestamps);
-    updatedTimestamps[memberId] = DateTime.now();
-    await repo.setLastReadTimestamps(conversationId, updatedTimestamps);
+      final updatedTimestamps = Map<String, DateTime>.from(conv.lastReadTimestamps);
+      updatedTimestamps[memberId] = DateTime.now();
+      await repo.setLastReadTimestamps(conversationId, updatedTimestamps);
+    });
   }
 
   Future<void> toggleMute(String conversationId, String memberId) async {
-    final repo = ref.read(conversationRepositoryProvider);
-    final conv = await repo.getConversationById(conversationId);
-    if (conv == null) return;
+    await _mutationPool.withResource(() async {
+      final repo = ref.read(conversationRepositoryProvider);
+      final conv = await repo.getConversationById(conversationId);
+      if (conv == null) return;
 
-    final muted = conv.mutedByMemberIds.contains(memberId);
-    final updatedMuted = muted
-        ? conv.mutedByMemberIds.where((id) => id != memberId).toList()
-        : [...conv.mutedByMemberIds, memberId];
-    await repo.setMutedByMemberIds(conversationId, updatedMuted);
+      final muted = conv.mutedByMemberIds.contains(memberId);
+      final updatedMuted = muted
+          ? conv.mutedByMemberIds.where((id) => id != memberId).toList()
+          : [...conv.mutedByMemberIds, memberId];
+      await repo.setMutedByMemberIds(conversationId, updatedMuted);
+    });
   }
 
   Future<void> toggleReaction({
@@ -607,3 +618,127 @@ final highlightedMessageIdProvider =
     NotifierProvider.family<HighlightedMessageIdNotifier, String?, String>(
   HighlightedMessageIdNotifier.new,
 );
+
+/// Pre-fetched data for a single [ConversationTile].
+///
+/// Batches all the per-tile provider watches into one derived provider so each
+/// tile triggers a single rebuild instead of 5+ independent listener fan-outs.
+class ConversationTileData {
+  final Conversation conversation;
+  final ChatMessage? lastMessage;
+  final Map<String, Member> participantMap;
+  final int unreadCount;
+  final String? speakingAs;
+  final Member? dmPartner;
+  final String? lastMessageAuthorName;
+  final String? lastMessageDisplayContent;
+
+  const ConversationTileData({
+    required this.conversation,
+    this.lastMessage,
+    required this.participantMap,
+    required this.unreadCount,
+    this.speakingAs,
+    this.dmPartner,
+    this.lastMessageAuthorName,
+    this.lastMessageDisplayContent,
+  });
+
+  bool get hasUnread {
+    if (speakingAs == null) return false;
+    final lastRead = conversation.lastReadTimestamps[speakingAs];
+    if (lastRead == null) {
+      return conversation.lastActivityAt.isAfter(conversation.createdAt);
+    }
+    return conversation.lastActivityAt.isAfter(lastRead);
+  }
+
+  bool get isArchived =>
+      speakingAs != null &&
+      conversation.archivedByMemberIds.contains(speakingAs);
+
+  String get displayTitle {
+    if (conversation.title != null && conversation.title!.isNotEmpty) {
+      return conversation.title!;
+    }
+    final otherNames = conversation.participantIds
+        .where((id) => id != speakingAs)
+        .map((id) => participantMap[id]?.name ?? 'Unknown')
+        .toList();
+    if (otherNames.isEmpty) return 'Conversation';
+    return otherNames.join(', ');
+  }
+}
+
+/// O(1) conversation lookup by ID. Built once from the conversation list, shared
+/// across all tile providers. Avoids O(N) linear scan per tile.
+final conversationMapProvider =
+    Provider.autoDispose<Map<String, Conversation>>((ref) {
+  final list = ref.watch(conversationsProvider).value;
+  if (list == null) return const {};
+  return {for (final c in list) c.id: c};
+});
+
+/// Batched per-tile data provider. Each [ConversationTile] watches this single
+/// provider instead of 5+ individual providers, reducing listener fan-out.
+final conversationTileDataProvider = Provider.autoDispose
+    .family<ConversationTileData?, String>((ref, conversationId) {
+  final speakingAs = ref.watch(speakingAsProvider);
+
+  // O(1) lookup via the shared map provider.
+  final conversationMap = ref.watch(conversationMapProvider);
+  final conversation = conversationMap[conversationId];
+  if (conversation == null) return null;
+
+  // Participant map (batch loaded).
+  final participantMapAsync = ref.watch(
+    membersByIdsProvider(memberIdsKey(conversation.participantIds)),
+  );
+  final participantMap = participantMapAsync.value ?? const {};
+
+  // Last message.
+  final lastMessageAsync = ref.watch(lastMessageProvider(conversationId));
+  final lastMessage = lastMessageAsync.value;
+
+  // Unread count (derived from batch provider).
+  final unreadCount = ref.watch(unreadMessageCountProvider(conversationId));
+
+  // Mention name map — always watch to keep the dependency graph stable.
+  final nameMap = ref.watch(memberNameMapProvider);
+
+  // DM partner: derive from participantMap (already batch-loaded) rather than
+  // a conditional ref.watch() that would destabilize the dependency graph.
+  Member? dmPartner;
+  if (conversation.emoji == null && conversation.isDirectMessage) {
+    final otherId = conversation.participantIds
+        .where((id) => id != speakingAs)
+        .firstOrNull;
+    if (otherId != null) {
+      dmPartner = participantMap[otherId];
+    }
+  }
+
+  // Last message author name + display content (resolves mentions).
+  // Derive author name from the already-watched participantMap to avoid
+  // conditional ref.watch() calls that change the dependency graph.
+  String? lastMessageAuthorName;
+  String? lastMessageDisplayContent;
+  if (lastMessage != null) {
+    if (lastMessage.authorId != null) {
+      lastMessageAuthorName = participantMap[lastMessage.authorId]?.name;
+    }
+    lastMessageDisplayContent =
+        replaceMentionsWithNames(lastMessage.content, nameMap);
+  }
+
+  return ConversationTileData(
+    conversation: conversation,
+    lastMessage: lastMessage,
+    participantMap: participantMap,
+    unreadCount: unreadCount,
+    speakingAs: speakingAs,
+    dmPartner: dmPartner,
+    lastMessageAuthorName: lastMessageAuthorName,
+    lastMessageDisplayContent: lastMessageDisplayContent,
+  );
+});

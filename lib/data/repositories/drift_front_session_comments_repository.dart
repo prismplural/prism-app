@@ -27,6 +27,18 @@ class DriftFrontSessionCommentsRepository
   }
 
   @override
+  Stream<List<domain.FrontSessionComment>> watchAllComments() {
+    return _dao.watchAllComments().map(
+        (rows) => rows.map(FrontSessionCommentMapper.toDomain).toList());
+  }
+
+  @override
+  Future<List<domain.FrontSessionComment>> getAllComments() async {
+    final rows = await _dao.getAllComments();
+    return rows.map(FrontSessionCommentMapper.toDomain).toList();
+  }
+
+  @override
   Stream<int> watchCommentCount(String sessionId) {
     return _dao.watchCommentCount(sessionId);
   }

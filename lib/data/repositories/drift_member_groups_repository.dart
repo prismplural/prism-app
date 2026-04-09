@@ -49,6 +49,19 @@ class DriftMemberGroupsRepository
   }
 
   @override
+  Stream<List<domain.MemberGroupEntry>> watchAllGroupEntries() {
+    return _dao.watchAllGroupEntries().map(
+      (rows) => rows.map(MemberGroupEntryMapper.toDomain).toList(),
+    );
+  }
+
+  @override
+  Future<List<domain.MemberGroupEntry>> getAllGroupEntries() async {
+    final rows = await _dao.getAllGroupEntries();
+    return rows.map(MemberGroupEntryMapper.toDomain).toList();
+  }
+
+  @override
   Stream<Map<String, int>> watchMemberCountsByGroup() {
     return _dao.watchMemberCountsByGroup();
   }

@@ -4,6 +4,8 @@ import 'package:prism_plurality/domain/models/front_session_comment.dart'
 abstract class FrontSessionCommentsRepository {
   Stream<List<domain.FrontSessionComment>> watchCommentsForSession(
       String sessionId);
+  Stream<List<domain.FrontSessionComment>> watchAllComments();
+  Future<List<domain.FrontSessionComment>> getAllComments();
   Stream<int> watchCommentCount(String sessionId);
   Future<void> createComment(domain.FrontSessionComment comment);
   Future<void> updateComment(domain.FrontSessionComment comment);
