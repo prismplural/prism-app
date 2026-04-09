@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/media_attachment_providers.dart';
+import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
 import 'package:prism_plurality/features/chat/widgets/media/image_bubble.dart';
@@ -614,27 +617,37 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
   Widget _buildSingleAttachment(MediaAttachment attachment, Color authorColor) {
     if (attachment.isDeleted) {
-      return const ExpiredMediaPlaceholder();
+      return const ExpiredMedia();
     }
 
     switch (attachment.mediaType) {
       case 'image':
-        return ImageBubble(
-          attachment: attachment,
-          onTap: () {
-            // Full-screen viewer will be added in Batch 8.
-          },
-          accentColor: authorColor,
-        );
+        return _buildImageAttachment(attachment);
       case 'voice':
-        return VoiceBubble(
-          attachment: attachment,
-          accentColor: authorColor,
-        );
+        return VoiceBubble(durationMs: attachment.durationMs);
       default:
-        // Unknown media types show as expired/unavailable for now.
-        return const ExpiredMediaPlaceholder();
+        return const ExpiredMedia();
     }
+  }
+
+  Widget _buildImageAttachment(MediaAttachment attachment) {
+    final encryptionKey = base64Decode(attachment.encryptionKeyB64);
+    final params = (
+      mediaId: attachment.mediaId,
+      encryptionKey: Uint8List.fromList(encryptionKey),
+      ciphertextHash: attachment.contentHash,
+      plaintextHash: attachment.plaintextHash,
+    );
+    final mediaAsync = ref.watch(mediaFileProvider(params));
+
+    return ImageBubble(
+      imageBytes: mediaAsync.value,
+      isLoading: mediaAsync.isLoading,
+      hasError: mediaAsync.hasError,
+      width: attachment.width > 0 ? attachment.width.toDouble() : null,
+      height: attachment.height > 0 ? attachment.height.toDouble() : null,
+      blurhash: attachment.blurhash.isNotEmpty ? attachment.blurhash : null,
+    );
   }
 
   /// Build a TextSpan that renders @[uuid] tokens with member colors.
