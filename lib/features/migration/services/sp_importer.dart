@@ -252,6 +252,9 @@ class SpImporter {
         await pollRepo.createPoll(poll);
         for (final option in poll.options) {
           await pollRepo.createOption(option, poll.id);
+          for (final vote in option.votes) {
+            await pollRepo.castVote(vote, option.id);
+          }
         }
         currentItem++;
       }

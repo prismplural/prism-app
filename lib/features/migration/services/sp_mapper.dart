@@ -6,6 +6,7 @@ import 'package:prism_plurality/domain/models/conversation.dart' as domain;
 import 'package:prism_plurality/domain/models/chat_message.dart' as domain;
 import 'package:prism_plurality/domain/models/poll.dart' as domain;
 import 'package:prism_plurality/domain/models/poll_option.dart' as domain;
+import 'package:prism_plurality/domain/models/poll_vote.dart' as domain;
 import 'package:prism_plurality/domain/models/note.dart' as domain;
 import 'package:prism_plurality/domain/models/front_session_comment.dart'
     as domain;
@@ -648,23 +649,64 @@ class SpMapper {
     for (final sp in spPolls) {
       if (sp.question.isEmpty) continue;
 
+      // Build options with colors.
       final options = <domain.PollOption>[];
       for (var i = 0; i < sp.options.length; i++) {
+        final spOption = sp.options[i];
+        String? colorHex = spOption.color;
+        if (colorHex != null) {
+          colorHex = colorHex.replaceFirst('#', '');
+          if (colorHex.isEmpty) colorHex = null;
+        }
+
         options.add(domain.PollOption(
           id: _uuid.v4(),
-          text: sp.options[i],
+          text: spOption.name,
           sortOrder: i,
+          colorHex: colorHex,
         ));
       }
+
+      // Build a lookup from option name to PollOption for vote resolution.
+      final optionByName = <String, domain.PollOption>{};
+      for (final opt in options) {
+        optionByName[opt.text] = opt;
+      }
+
+      // Collect votes grouped by option ID.
+      final votesByOptionId = <String, List<domain.PollVote>>{};
+      for (final vote in sp.votes) {
+        final prismMemberId = _memberIdMap[vote.memberId];
+        if (prismMemberId == null) continue; // Unknown member, skip.
+
+        final matchedOption = optionByName[vote.optionName];
+        if (matchedOption == null) continue; // No matching option, skip.
+
+        votesByOptionId
+            .putIfAbsent(matchedOption.id, () => [])
+            .add(domain.PollVote(
+              id: _uuid.v4(),
+              memberId: prismMemberId,
+              votedAt: DateTime.now(),
+              responseText: vote.comment,
+            ));
+      }
+
+      // Attach votes to their options.
+      final optionsWithVotes = options.map((opt) {
+        final votes = votesByOptionId[opt.id];
+        return votes != null ? opt.copyWith(votes: votes) : opt;
+      }).toList();
 
       polls.add(domain.Poll(
         id: _uuid.v4(),
         question: sp.question,
+        description: sp.description,
         allowsMultipleVotes: sp.allowMultiple,
         isClosed: sp.endDate != null && sp.endDate!.isBefore(DateTime.now()),
         expiresAt: sp.endDate,
         createdAt: DateTime.now(),
-        options: options,
+        options: optionsWithVotes,
       ));
     }
 
