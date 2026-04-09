@@ -143,6 +143,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateSleepTrackingEnabled(bool value) async =>
       updateSettings(settings.copyWith(sleepTrackingEnabled: value));
   @override
+  Future<void> updateGifSearchEnabled(bool value) async =>
+      updateSettings(settings.copyWith(gifSearchEnabled: value));
+  @override
   Future<void> updateChatLogsFront(bool value) async =>
       updateSettings(settings.copyWith(chatLogsFront: value));
   @override
@@ -209,6 +212,7 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
     bool? pollsEnabled,
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
+    bool? gifSearchEnabled,
   }) async => updateSettings(
     settings.copyWith(
       chatEnabled: chatEnabled ?? settings.chatEnabled,
@@ -216,6 +220,7 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
       habitsEnabled: habitsEnabled ?? settings.habitsEnabled,
       sleepTrackingEnabled:
           sleepTrackingEnabled ?? settings.sleepTrackingEnabled,
+      gifSearchEnabled: gifSearchEnabled ?? settings.gifSearchEnabled,
     ),
   );
   @override

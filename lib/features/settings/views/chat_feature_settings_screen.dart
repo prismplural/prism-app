@@ -18,6 +18,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chatEnabled = ref.watch(chatEnabledProvider);
     final chatLogsFront = ref.watch(chatLogsFrontProvider);
+    final gifSearchEnabled = ref.watch(gifSearchEnabledProvider);
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
@@ -56,16 +57,30 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
               title: 'Options',
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
-                child: PrismSwitchRow(
-                  icon: AppIcons.swapHorizRounded,
-                  iconColor: Colors.blue,
-                  title: 'Log Front on Switch',
-                  subtitle:
-                      'Changing who\'s speaking in chat also logs a front',
-                  value: chatLogsFront,
-                  onChanged: (value) => ref
-                      .read(settingsNotifierProvider.notifier)
-                      .updateChatLogsFront(value),
+                child: Column(
+                  children: [
+                    PrismSwitchRow(
+                      icon: AppIcons.swapHorizRounded,
+                      iconColor: Colors.blue,
+                      title: 'Log Front on Switch',
+                      subtitle:
+                          'Changing who\'s speaking in chat also logs a front',
+                      value: chatLogsFront,
+                      onChanged: (value) => ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateChatLogsFront(value),
+                    ),
+                    PrismSwitchRow(
+                      icon: AppIcons.gif,
+                      iconColor: Colors.deepPurple,
+                      title: 'GIF Search',
+                      subtitle: 'Search and send GIFs in chat',
+                      value: gifSearchEnabled,
+                      onChanged: (value) => ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateGifSearchEnabled(value),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -77,7 +77,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 37;
+  int get schemaVersion => 38;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -146,6 +146,12 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'CREATE INDEX IF NOT EXISTS idx_media_attachments_message_id '
           'ON media_attachments (message_id)',
+        );
+      }
+
+      if (from < 38) {
+        await customStatement(
+          'ALTER TABLE system_settings ADD COLUMN gif_search_enabled INTEGER NOT NULL DEFAULT 1',
         );
       }
     },

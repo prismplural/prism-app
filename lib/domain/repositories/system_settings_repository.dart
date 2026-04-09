@@ -25,6 +25,7 @@ abstract class SystemSettingsRepository {
   Future<void> updatePollsEnabled(bool value);
   Future<void> updateHabitsEnabled(bool value);
   Future<void> updateSleepTrackingEnabled(bool value);
+  Future<void> updateGifSearchEnabled(bool value);
   Future<void> updateChatLogsFront(bool value);
   Future<void> updateSyncThemeEnabled(bool value);
   Future<void> updateHasCompletedOnboarding(bool value);
@@ -56,6 +57,7 @@ abstract class SystemSettingsRepository {
     bool? pollsEnabled,
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
+    bool? gifSearchEnabled,
   });
   Future<void> updateHabitsBadgeEnabled(bool value);
   Future<void> updateNotesEnabled(bool value);

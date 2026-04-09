@@ -32,6 +32,8 @@ class SystemSettingsTable extends Table {
   BoolColumn get habitsEnabled => boolean().withDefault(const Constant(true))();
   BoolColumn get sleepTrackingEnabled =>
       boolean().withDefault(const Constant(true))();
+  BoolColumn get gifSearchEnabled =>
+      boolean().withDefault(const Constant(true))();
   // Quick-switch correction
   IntColumn get quickSwitchThresholdSeconds =>
       integer().withDefault(const Constant(30))();

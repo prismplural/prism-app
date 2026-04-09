@@ -3635,6 +3635,21 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _gifSearchEnabledMeta = const VerificationMeta(
+    'gifSearchEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> gifSearchEnabled = GeneratedColumn<bool>(
+    'gif_search_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("gif_search_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _quickSwitchThresholdSecondsMeta =
       const VerificationMeta('quickSwitchThresholdSeconds');
   @override
@@ -3959,6 +3974,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     pollsEnabled,
     habitsEnabled,
     sleepTrackingEnabled,
+    gifSearchEnabled,
     quickSwitchThresholdSeconds,
     identityGeneration,
     chatLogsFront,
@@ -4136,6 +4152,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         sleepTrackingEnabled.isAcceptableOrUnknown(
           data['sleep_tracking_enabled']!,
           _sleepTrackingEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('gif_search_enabled')) {
+      context.handle(
+        _gifSearchEnabledMeta,
+        gifSearchEnabled.isAcceptableOrUnknown(
+          data['gif_search_enabled']!,
+          _gifSearchEnabledMeta,
         ),
       );
     }
@@ -4415,6 +4440,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.bool,
         data['${effectivePrefix}sleep_tracking_enabled'],
       )!,
+      gifSearchEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}gif_search_enabled'],
+      )!,
       quickSwitchThresholdSeconds: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}quick_switch_threshold_seconds'],
@@ -4536,6 +4565,7 @@ class SystemSettingsData extends DataClass
   final bool pollsEnabled;
   final bool habitsEnabled;
   final bool sleepTrackingEnabled;
+  final bool gifSearchEnabled;
   final int quickSwitchThresholdSeconds;
   final int identityGeneration;
   final bool chatLogsFront;
@@ -4578,6 +4608,7 @@ class SystemSettingsData extends DataClass
     required this.pollsEnabled,
     required this.habitsEnabled,
     required this.sleepTrackingEnabled,
+    required this.gifSearchEnabled,
     required this.quickSwitchThresholdSeconds,
     required this.identityGeneration,
     required this.chatLogsFront,
@@ -4637,6 +4668,7 @@ class SystemSettingsData extends DataClass
     map['polls_enabled'] = Variable<bool>(pollsEnabled);
     map['habits_enabled'] = Variable<bool>(habitsEnabled);
     map['sleep_tracking_enabled'] = Variable<bool>(sleepTrackingEnabled);
+    map['gif_search_enabled'] = Variable<bool>(gifSearchEnabled);
     map['quick_switch_threshold_seconds'] = Variable<int>(
       quickSwitchThresholdSeconds,
     );
@@ -4697,6 +4729,7 @@ class SystemSettingsData extends DataClass
       pollsEnabled: Value(pollsEnabled),
       habitsEnabled: Value(habitsEnabled),
       sleepTrackingEnabled: Value(sleepTrackingEnabled),
+      gifSearchEnabled: Value(gifSearchEnabled),
       quickSwitchThresholdSeconds: Value(quickSwitchThresholdSeconds),
       identityGeneration: Value(identityGeneration),
       chatLogsFront: Value(chatLogsFront),
@@ -4763,6 +4796,7 @@ class SystemSettingsData extends DataClass
       sleepTrackingEnabled: serializer.fromJson<bool>(
         json['sleepTrackingEnabled'],
       ),
+      gifSearchEnabled: serializer.fromJson<bool>(json['gifSearchEnabled']),
       quickSwitchThresholdSeconds: serializer.fromJson<int>(
         json['quickSwitchThresholdSeconds'],
       ),
@@ -4838,6 +4872,7 @@ class SystemSettingsData extends DataClass
       'pollsEnabled': serializer.toJson<bool>(pollsEnabled),
       'habitsEnabled': serializer.toJson<bool>(habitsEnabled),
       'sleepTrackingEnabled': serializer.toJson<bool>(sleepTrackingEnabled),
+      'gifSearchEnabled': serializer.toJson<bool>(gifSearchEnabled),
       'quickSwitchThresholdSeconds': serializer.toJson<int>(
         quickSwitchThresholdSeconds,
       ),
@@ -4887,6 +4922,7 @@ class SystemSettingsData extends DataClass
     bool? pollsEnabled,
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
+    bool? gifSearchEnabled,
     int? quickSwitchThresholdSeconds,
     int? identityGeneration,
     bool? chatLogsFront,
@@ -4935,6 +4971,7 @@ class SystemSettingsData extends DataClass
     pollsEnabled: pollsEnabled ?? this.pollsEnabled,
     habitsEnabled: habitsEnabled ?? this.habitsEnabled,
     sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
+    gifSearchEnabled: gifSearchEnabled ?? this.gifSearchEnabled,
     quickSwitchThresholdSeconds:
         quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
     identityGeneration: identityGeneration ?? this.identityGeneration,
@@ -5017,6 +5054,9 @@ class SystemSettingsData extends DataClass
       sleepTrackingEnabled: data.sleepTrackingEnabled.present
           ? data.sleepTrackingEnabled.value
           : this.sleepTrackingEnabled,
+      gifSearchEnabled: data.gifSearchEnabled.present
+          ? data.gifSearchEnabled.value
+          : this.gifSearchEnabled,
       quickSwitchThresholdSeconds: data.quickSwitchThresholdSeconds.present
           ? data.quickSwitchThresholdSeconds.value
           : this.quickSwitchThresholdSeconds,
@@ -5108,6 +5148,7 @@ class SystemSettingsData extends DataClass
           ..write('pollsEnabled: $pollsEnabled, ')
           ..write('habitsEnabled: $habitsEnabled, ')
           ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
+          ..write('gifSearchEnabled: $gifSearchEnabled, ')
           ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
           ..write('identityGeneration: $identityGeneration, ')
           ..write('chatLogsFront: $chatLogsFront, ')
@@ -5155,6 +5196,7 @@ class SystemSettingsData extends DataClass
     pollsEnabled,
     habitsEnabled,
     sleepTrackingEnabled,
+    gifSearchEnabled,
     quickSwitchThresholdSeconds,
     identityGeneration,
     chatLogsFront,
@@ -5202,6 +5244,7 @@ class SystemSettingsData extends DataClass
           other.pollsEnabled == this.pollsEnabled &&
           other.habitsEnabled == this.habitsEnabled &&
           other.sleepTrackingEnabled == this.sleepTrackingEnabled &&
+          other.gifSearchEnabled == this.gifSearchEnabled &&
           other.quickSwitchThresholdSeconds ==
               this.quickSwitchThresholdSeconds &&
           other.identityGeneration == this.identityGeneration &&
@@ -5250,6 +5293,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> pollsEnabled;
   final Value<bool> habitsEnabled;
   final Value<bool> sleepTrackingEnabled;
+  final Value<bool> gifSearchEnabled;
   final Value<int> quickSwitchThresholdSeconds;
   final Value<int> identityGeneration;
   final Value<bool> chatLogsFront;
@@ -5293,6 +5337,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.pollsEnabled = const Value.absent(),
     this.habitsEnabled = const Value.absent(),
     this.sleepTrackingEnabled = const Value.absent(),
+    this.gifSearchEnabled = const Value.absent(),
     this.quickSwitchThresholdSeconds = const Value.absent(),
     this.identityGeneration = const Value.absent(),
     this.chatLogsFront = const Value.absent(),
@@ -5337,6 +5382,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.pollsEnabled = const Value.absent(),
     this.habitsEnabled = const Value.absent(),
     this.sleepTrackingEnabled = const Value.absent(),
+    this.gifSearchEnabled = const Value.absent(),
     this.quickSwitchThresholdSeconds = const Value.absent(),
     this.identityGeneration = const Value.absent(),
     this.chatLogsFront = const Value.absent(),
@@ -5381,6 +5427,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? pollsEnabled,
     Expression<bool>? habitsEnabled,
     Expression<bool>? sleepTrackingEnabled,
+    Expression<bool>? gifSearchEnabled,
     Expression<int>? quickSwitchThresholdSeconds,
     Expression<int>? identityGeneration,
     Expression<bool>? chatLogsFront,
@@ -5430,6 +5477,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (habitsEnabled != null) 'habits_enabled': habitsEnabled,
       if (sleepTrackingEnabled != null)
         'sleep_tracking_enabled': sleepTrackingEnabled,
+      if (gifSearchEnabled != null) 'gif_search_enabled': gifSearchEnabled,
       if (quickSwitchThresholdSeconds != null)
         'quick_switch_threshold_seconds': quickSwitchThresholdSeconds,
       if (identityGeneration != null) 'identity_generation': identityGeneration,
@@ -5486,6 +5534,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? pollsEnabled,
     Value<bool>? habitsEnabled,
     Value<bool>? sleepTrackingEnabled,
+    Value<bool>? gifSearchEnabled,
     Value<int>? quickSwitchThresholdSeconds,
     Value<int>? identityGeneration,
     Value<bool>? chatLogsFront,
@@ -5535,6 +5584,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       pollsEnabled: pollsEnabled ?? this.pollsEnabled,
       habitsEnabled: habitsEnabled ?? this.habitsEnabled,
       sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
+      gifSearchEnabled: gifSearchEnabled ?? this.gifSearchEnabled,
       quickSwitchThresholdSeconds:
           quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
       identityGeneration: identityGeneration ?? this.identityGeneration,
@@ -5632,6 +5682,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       map['sleep_tracking_enabled'] = Variable<bool>(
         sleepTrackingEnabled.value,
       );
+    }
+    if (gifSearchEnabled.present) {
+      map['gif_search_enabled'] = Variable<bool>(gifSearchEnabled.value);
     }
     if (quickSwitchThresholdSeconds.present) {
       map['quick_switch_threshold_seconds'] = Variable<int>(
@@ -5749,6 +5802,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('pollsEnabled: $pollsEnabled, ')
           ..write('habitsEnabled: $habitsEnabled, ')
           ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
+          ..write('gifSearchEnabled: $gifSearchEnabled, ')
           ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
           ..write('identityGeneration: $identityGeneration, ')
           ..write('chatLogsFront: $chatLogsFront, ')
@@ -18913,6 +18967,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> pollsEnabled,
       Value<bool> habitsEnabled,
       Value<bool> sleepTrackingEnabled,
+      Value<bool> gifSearchEnabled,
       Value<int> quickSwitchThresholdSeconds,
       Value<int> identityGeneration,
       Value<bool> chatLogsFront,
@@ -18958,6 +19013,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> pollsEnabled,
       Value<bool> habitsEnabled,
       Value<bool> sleepTrackingEnabled,
+      Value<bool> gifSearchEnabled,
       Value<int> quickSwitchThresholdSeconds,
       Value<int> identityGeneration,
       Value<bool> chatLogsFront,
@@ -19080,6 +19136,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<bool> get sleepTrackingEnabled => $composableBuilder(
     column: $table.sleepTrackingEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get gifSearchEnabled => $composableBuilder(
+    column: $table.gifSearchEnabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19299,6 +19360,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get gifSearchEnabled => $composableBuilder(
+    column: $table.gifSearchEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get quickSwitchThresholdSeconds => $composableBuilder(
     column: $table.quickSwitchThresholdSeconds,
     builder: (column) => ColumnOrderings(column),
@@ -19509,6 +19575,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get gifSearchEnabled => $composableBuilder(
+    column: $table.gifSearchEnabled,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get quickSwitchThresholdSeconds => $composableBuilder(
     column: $table.quickSwitchThresholdSeconds,
     builder: (column) => column,
@@ -19683,6 +19754,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> pollsEnabled = const Value.absent(),
                 Value<bool> habitsEnabled = const Value.absent(),
                 Value<bool> sleepTrackingEnabled = const Value.absent(),
+                Value<bool> gifSearchEnabled = const Value.absent(),
                 Value<int> quickSwitchThresholdSeconds = const Value.absent(),
                 Value<int> identityGeneration = const Value.absent(),
                 Value<bool> chatLogsFront = const Value.absent(),
@@ -19727,6 +19799,7 @@ class $$SystemSettingsTableTableTableManager
                 pollsEnabled: pollsEnabled,
                 habitsEnabled: habitsEnabled,
                 sleepTrackingEnabled: sleepTrackingEnabled,
+                gifSearchEnabled: gifSearchEnabled,
                 quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
                 identityGeneration: identityGeneration,
                 chatLogsFront: chatLogsFront,
@@ -19773,6 +19846,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> pollsEnabled = const Value.absent(),
                 Value<bool> habitsEnabled = const Value.absent(),
                 Value<bool> sleepTrackingEnabled = const Value.absent(),
+                Value<bool> gifSearchEnabled = const Value.absent(),
                 Value<int> quickSwitchThresholdSeconds = const Value.absent(),
                 Value<int> identityGeneration = const Value.absent(),
                 Value<bool> chatLogsFront = const Value.absent(),
@@ -19817,6 +19891,7 @@ class $$SystemSettingsTableTableTableManager
                 pollsEnabled: pollsEnabled,
                 habitsEnabled: habitsEnabled,
                 sleepTrackingEnabled: sleepTrackingEnabled,
+                gifSearchEnabled: gifSearchEnabled,
                 quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
                 identityGeneration: identityGeneration,
                 chatLogsFront: chatLogsFront,

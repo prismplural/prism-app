@@ -35,6 +35,7 @@ _SystemSettings _$SystemSettingsFromJson(
   pollsEnabled: json['pollsEnabled'] as bool? ?? true,
   habitsEnabled: json['habitsEnabled'] as bool? ?? true,
   sleepTrackingEnabled: json['sleepTrackingEnabled'] as bool? ?? true,
+  gifSearchEnabled: json['gifSearchEnabled'] as bool? ?? true,
   quickSwitchThresholdSeconds:
       (json['quickSwitchThresholdSeconds'] as num?)?.toInt() ?? 30,
   identityGeneration: (json['identityGeneration'] as num?)?.toInt() ?? 0,
@@ -96,6 +97,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'pollsEnabled': instance.pollsEnabled,
   'habitsEnabled': instance.habitsEnabled,
   'sleepTrackingEnabled': instance.sleepTrackingEnabled,
+  'gifSearchEnabled': instance.gifSearchEnabled,
   'quickSwitchThresholdSeconds': instance.quickSwitchThresholdSeconds,
   'identityGeneration': instance.identityGeneration,
   'chatLogsFront': instance.chatLogsFront,
