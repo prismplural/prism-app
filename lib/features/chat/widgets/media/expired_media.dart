@@ -4,38 +4,48 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// Placeholder shown when a media attachment has expired or is no longer
-/// available on the relay.
-class ExpiredMediaPlaceholder extends StatelessWidget {
-  const ExpiredMediaPlaceholder({super.key});
+/// available (e.g. relay TTL exceeded, deleted from server).
+class ExpiredMedia extends StatelessWidget {
+  const ExpiredMedia({
+    super.key,
+    this.width,
+    this.height,
+  });
 
-  static const _borderRadius = 12.0;
+  /// Display width constraint. Defaults to 200.
+  final double? width;
+
+  /// Display height constraint. Defaults to 80.
+  final double? height;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final mutedColor = theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5);
+    final effectiveWidth = width ?? 200.0;
+    final effectiveHeight = height ?? 80.0;
 
     return Semantics(
       label: 'Media no longer available',
       child: TintedGlassSurface(
-        borderRadius: BorderRadius.circular(_borderRadius),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        borderRadius: BorderRadius.circular(12),
+        width: effectiveWidth,
+        height: effectiveHeight,
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              AppIcons.imageOutlined,
-              size: 20,
-              color: mutedColor,
+              AppIcons.schedule,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
             const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                'Media no longer available',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: mutedColor,
-                  fontStyle: FontStyle.italic,
-                ),
+            Text(
+              'Media expired',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color:
+                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                fontStyle: FontStyle.italic,
               ),
             ),
           ],

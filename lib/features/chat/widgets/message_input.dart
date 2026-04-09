@@ -261,8 +261,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
           curve: Curves.easeOut,
           child: _stagedImageBytes != null
               ? AttachmentPreview(
-                  imageBytes: _stagedImageBytes!,
-                  onRemove: () => setState(() => _stagedImageBytes = null),
+                  attachments: [_stagedImageBytes!],
+                  onRemove: (_) => setState(() => _stagedImageBytes = null),
                 )
               : const SizedBox.shrink(),
         ),
@@ -291,7 +291,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                BlurPopupAnchor(
+                Semantics(
+                  label: currentMember != null
+                      ? 'Speaking as ${currentMember.name}. Double tap to change.'
+                      : 'Choose speaking member',
+                  button: true,
+                  child: BlurPopupAnchor(
                   preferredDirection: BlurPopupDirection.up,
                   itemCount: members.length,
                   itemBuilder: (context, index, close) {
@@ -347,6 +352,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
+                ),
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
@@ -581,7 +587,11 @@ class _SendButtonState extends State<_SendButton> {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
 
-    return GestureDetector(
+    return Semantics(
+      label: widget.canSend ? 'Send message' : 'Send message, disabled',
+      button: true,
+      enabled: widget.canSend,
+      child: GestureDetector(
       onTapDown: widget.canSend ? (_) => setState(() => _pressed = true) : null,
       onTapUp: widget.canSend
           ? (_) {
@@ -643,6 +653,7 @@ class _SendButtonState extends State<_SendButton> {
                   ),
                 ),
         ),
+      ),
       ),
     );
   }
