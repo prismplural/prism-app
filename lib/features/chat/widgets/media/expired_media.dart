@@ -35,13 +35,13 @@ class ExpiredMedia extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              AppIcons.schedule,
+              AppIcons.imageBroken,
               size: 18,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
             const SizedBox(width: 8),
             Text(
-              'Media expired',
+              'Media no longer available',
               style: theme.textTheme.bodySmall?.copyWith(
                 color:
                     theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),

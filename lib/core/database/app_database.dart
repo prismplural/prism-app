@@ -77,7 +77,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 36;
+  int get schemaVersion => 37;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -140,6 +140,13 @@ class AppDatabase extends _$AppDatabase {
 
       if (from < 36) {
         await migrator.createTable(mediaAttachments);
+      }
+
+      if (from < 37) {
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_media_attachments_message_id '
+          'ON media_attachments (message_id)',
+        );
       }
     },
     onCreate: (migrator) async {
@@ -262,6 +269,10 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_habit_completions_member '
       'ON habit_completions (completed_by_member_id, is_deleted, completed_at DESC)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_media_attachments_message_id '
+      'ON media_attachments (message_id)',
     );
   }
 
