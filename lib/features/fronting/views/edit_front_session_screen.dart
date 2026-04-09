@@ -25,7 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
@@ -264,12 +264,10 @@ class _EditFrontSessionScreenState
       topBar: PrismTopBar(
         title: 'Edit Session',
         showBackButton: true,
-        trailing: PrismButton(
-          label: 'Save',
-          tone: PrismButtonTone.subtle,
-          onPressed: _save,
-          enabled: !_saving,
-          isLoading: _saving,
+        trailing: PrismGlassIconButton(
+          icon: AppIcons.check,
+          onPressed: _saving ? null : _save,
+          semanticLabel: 'Save session',
         ),
       ),
       bodyPadding: EdgeInsets.zero,
