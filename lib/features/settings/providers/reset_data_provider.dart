@@ -270,6 +270,9 @@ class ResetDataNotifier extends Notifier<void> {
       'relay_url',
       'mnemonic',
       'setup_rollback_marker',
+      'sharing_prekey_store',
+      'sharing_id_cache',
+      'min_signature_version_floor',
       'runtime_dek',
     ]) {
       await storage.delete('$prefix$key');

@@ -249,6 +249,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       '${prefix}epoch',
       '${prefix}relay_url',
       '${prefix}mnemonic',
+      '${prefix}sharing_prekey_store',
+      '${prefix}sharing_id_cache',
+      '${prefix}min_signature_version_floor',
       '${prefix}runtime_dek',
     ];
     for (final key in keysToClean) {

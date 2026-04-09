@@ -14,7 +14,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 enum PairingStep {
-  // User enters a join URL or legacy invite string
+  // User is ready to request admission from an existing device.
   enterUrl,
   // Joiner's rendezvous QR is displayed, waiting for initiator to scan
   showingRequest,
@@ -34,7 +34,6 @@ enum PairingStep {
 
 class PairingState {
   final PairingStep step;
-  final String? url;
   final String? errorMessage;
   final String? errorCode;
   final SyncCounts? counts;
@@ -58,7 +57,6 @@ class PairingState {
 
   const PairingState({
     this.step = PairingStep.enterUrl,
-    this.url,
     this.errorMessage,
     this.errorCode,
     this.counts,
@@ -71,7 +69,6 @@ class PairingState {
 
   PairingState copyWith({
     PairingStep? step,
-    Object? url = _sentinel,
     Object? errorMessage = _sentinel,
     Object? errorCode = _sentinel,
     Object? counts = _sentinel,
@@ -83,7 +80,6 @@ class PairingState {
   }) {
     return PairingState(
       step: step ?? this.step,
-      url: url == _sentinel ? this.url : url as String?,
       errorMessage: errorMessage == _sentinel
           ? this.errorMessage
           : errorMessage as String?,
@@ -132,15 +128,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   PairingState build() {
     _generation++;
     return const PairingState();
-  }
-
-  void setUrl(String url) {
-    state = state.copyWith(
-      url: url,
-      step: PairingStep.enterPassword,
-      errorMessage: null,
-      errorCode: null,
-    );
   }
 
   void reset() {
@@ -301,91 +288,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     }
   }
 
-  Future<void> connect(String password) async {
-    final url = state.url;
-    if (url == null || url.isEmpty) {
-      state = state.copyWith(
-        step: PairingStep.error,
-        errorMessage: 'No join URL provided.',
-        errorCode: null,
-      );
-      return;
-    }
-
-    // Validate password is non-empty
-    if (password.trim().isEmpty) {
-      state = state.copyWith(
-        step: PairingStep.error,
-        errorMessage: 'Password cannot be empty.',
-        errorCode: null,
-      );
-      return;
-    }
-
-    _generation++;
-    final myGeneration = _generation;
-    state = state.copyWith(
-      step: PairingStep.connecting,
-      errorMessage: null,
-      errorCode: null,
-    );
-
-    try {
-      await _connectWithTimeout(url, password, myGeneration);
-    } on TimeoutException {
-      await _cleanupKeychainOnFailure();
-      if (_generation != myGeneration) return;
-      state = state.copyWith(
-        step: PairingStep.error,
-        errorMessage:
-            'Connection timed out. Check your internet connection and try again.',
-        errorCode: null,
-      );
-    } catch (e) {
-      final structuredError = PrismSyncStructuredError.tryParse(e);
-      await _cleanupKeychainOnFailure();
-      if (_generation != myGeneration) return;
-      state = state.copyWith(
-        step: PairingStep.error,
-        errorMessage: structuredError?.userMessage ?? e.toString(),
-        errorCode: structuredError?.code,
-      );
-    }
-  }
-
-  Future<void> _connectWithTimeout(
-    String url,
-    String password,
-    int myGeneration,
-  ) async {
-    // 60s timeout so the user isn't stuck on the spinner indefinitely.
-    await Future(() async {
-      // Get or create the FFI handle. Use the app's configured relay URL
-      // (or the default) since the real relay URL is embedded in the payload
-      // and Rust extracts it internally during joinFromUrl.
-      final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
-      final pairingApi = ref.read(pairingCeremonyApiProvider);
-      final relayUrl =
-          await ref.read(relayUrlProvider.future) ??
-          AppConstants.defaultRelayUrl;
-      final handle = await handleNotifier.createHandle(relayUrl: relayUrl);
-
-      if (_generation != myGeneration) return;
-
-      await pairingApi.joinFromUrl(
-        handle: handle,
-        url: url,
-        password: password,
-      );
-
-      if (_generation != myGeneration) return;
-
-      await _bootstrapAfterJoin(handle, myGeneration);
-    }).timeout(const Duration(seconds: 60));
-  }
-
-  /// Shared bootstrap logic for both legacy invite and joiner-initiated flows.
-  /// Called after the join FFI call succeeds (joinFromUrl or joinFromQr).
+  /// Shared bootstrap logic after the relay ceremony succeeds.
   Future<void> _bootstrapAfterJoin(
     ffi.PrismSyncHandle handle,
     int myGeneration,

@@ -33,6 +33,7 @@ class PrismSyncStructuredError {
     this.relayKind,
     this.code,
     this.status,
+    this.minSignatureVersion,
     this.remoteWipe,
   });
 
@@ -42,6 +43,7 @@ class PrismSyncStructuredError {
   final String? relayKind;
   final String? code;
   final int? status;
+  final int? minSignatureVersion;
   final bool? remoteWipe;
 
   bool get isDeviceIdentityMismatch => code == 'device_identity_mismatch';
@@ -67,6 +69,7 @@ class PrismSyncStructuredError {
       relayKind: json['relay_kind'] as String?,
       code: json['code'] as String?,
       status: (json['status'] as num?)?.toInt(),
+      minSignatureVersion: (json['min_signature_version'] as num?)?.toInt(),
       remoteWipe: json['remote_wipe'] as bool?,
     );
   }
@@ -359,6 +362,7 @@ const _secureStoreKeys = [
   'setup_rollback_marker',
   'sharing_prekey_store',
   'sharing_id_cache',
+  'min_signature_version_floor',
 ];
 
 /// Key for persisting the raw DEK in the platform keychain (Signal-style).
@@ -383,8 +387,8 @@ Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
 
 /// Export the raw DEK from Rust and cache it in the platform keychain.
 ///
-/// Call after `initialize()`, `unlock()`, or `joinFromUrl()` — any operation
-/// that leaves the key hierarchy unlocked. On subsequent app launches,
+/// Call after `initialize()`, `unlock()`, or a completed pairing ceremony —
+/// any operation that leaves the key hierarchy unlocked. On subsequent app launches,
 /// `_autoConfigureIfReady` uses this cached DEK to restore the unlocked
 /// state without re-deriving via Argon2id.
 ///
@@ -422,6 +426,11 @@ Future<void> cacheRuntimeKeys(ffi.PrismSyncHandle handle) async {
 Future<void> drainRustStore(ffi.PrismSyncHandle handle) async {
   final json = await ffi.drainSecureStore(handle: handle);
   final entries = Map<String, String>.from(jsonDecode(json) as Map);
+  for (final key in _secureStoreKeys) {
+    if (!entries.containsKey(key)) {
+      await _storage.delete(key: '$_secureStorePrefix$key');
+    }
+  }
   for (final entry in entries.entries) {
     await _storage.write(
       key: '$_secureStorePrefix${entry.key}',
@@ -1046,6 +1055,9 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       'relay_url',
       'mnemonic',
       'setup_rollback_marker',
+      'sharing_prekey_store',
+      'sharing_id_cache',
+      'min_signature_version_floor',
       'runtime_dek',
     ]) {
       try {
