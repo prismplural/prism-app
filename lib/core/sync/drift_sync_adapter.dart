@@ -82,6 +82,7 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
       _notesEntity(db, quarantine, pendingQuarantineWrites.add),
       _frontSessionCommentsEntity(db, quarantine, pendingQuarantineWrites.add),
       _friendsEntity(db, quarantine, pendingQuarantineWrites.add),
+      _mediaAttachmentsEntity(db, quarantine, pendingQuarantineWrites.add),
     ],
   );
   return SyncAdapterWithCompletion(adapter, pendingQuarantineWrites);
@@ -1807,6 +1808,107 @@ DriftSyncEntity _friendsEntity(
     isDeleted: (String id) async {
       final row = await (db.select(
         db.friends,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      return row?.isDeleted ?? true;
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
+// media_attachments
+// ---------------------------------------------------------------------------
+
+DriftSyncEntity _mediaAttachmentsEntity(
+  AppDatabase db,
+  SyncQuarantineService? quarantine,
+  void Function(Future<void> write) trackQuarantineWrite,
+) {
+  return DriftSyncEntity(
+    tableName: 'media_attachments',
+    toSyncFields: (dynamic row) {
+      final r = row as MediaAttachment;
+      return {
+        'message_id': r.messageId,
+        'media_id': r.mediaId,
+        'media_type': r.mediaType,
+        'encryption_key_b64': r.encryptionKeyB64,
+        'content_hash': r.contentHash,
+        'plaintext_hash': r.plaintextHash,
+        'mime_type': r.mimeType,
+        'size_bytes': r.sizeBytes,
+        'width': r.width,
+        'height': r.height,
+        'duration_ms': r.durationMs,
+        'blurhash': r.blurhash,
+        'waveform_b64': r.waveformB64,
+        'thumbnail_media_id': r.thumbnailMediaId,
+        'source_url': r.sourceUrl,
+        'preview_url': r.previewUrl,
+        'is_deleted': r.isDeleted,
+      };
+    },
+    applyFields: (String id, Map<String, dynamic> fields) async {
+      final f = _FieldContext(
+        entityType: 'media_attachments',
+        entityId: id,
+        fields: fields,
+        quarantine: quarantine,
+        trackQuarantineWrite: trackQuarantineWrite,
+      );
+      final companion = MediaAttachmentsCompanion(
+        id: Value(id),
+        messageId: f.stringField('message_id'),
+        mediaId: f.stringField('media_id'),
+        mediaType: f.stringField('media_type'),
+        encryptionKeyB64: f.stringField('encryption_key_b64'),
+        contentHash: f.stringField('content_hash'),
+        plaintextHash: f.stringField('plaintext_hash'),
+        mimeType: f.stringField('mime_type'),
+        sizeBytes: f.intField('size_bytes'),
+        width: f.intField('width'),
+        height: f.intField('height'),
+        durationMs: f.intField('duration_ms'),
+        blurhash: f.stringField('blurhash'),
+        waveformB64: f.stringField('waveform_b64'),
+        thumbnailMediaId: f.stringField('thumbnail_media_id'),
+        sourceUrl: f.stringField('source_url'),
+        previewUrl: f.stringField('preview_url'),
+        isDeleted: f.boolField('is_deleted'),
+      );
+      await db.into(db.mediaAttachments).insertOnConflictUpdate(companion);
+    },
+    hardDelete: (String id) async {
+      await (db.delete(db.mediaAttachments)..where((t) => t.id.equals(id)))
+          .go();
+    },
+    readRow: (String id) async {
+      final row = await (db.select(
+        db.mediaAttachments,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      if (row == null) return null;
+      return {
+        'message_id': row.messageId,
+        'media_id': row.mediaId,
+        'media_type': row.mediaType,
+        'encryption_key_b64': row.encryptionKeyB64,
+        'content_hash': row.contentHash,
+        'plaintext_hash': row.plaintextHash,
+        'mime_type': row.mimeType,
+        'size_bytes': row.sizeBytes,
+        'width': row.width,
+        'height': row.height,
+        'duration_ms': row.durationMs,
+        'blurhash': row.blurhash,
+        'waveform_b64': row.waveformB64,
+        'thumbnail_media_id': row.thumbnailMediaId,
+        'source_url': row.sourceUrl,
+        'preview_url': row.previewUrl,
+        'is_deleted': row.isDeleted,
+      };
+    },
+    isDeleted: (String id) async {
+      final row = await (db.select(
+        db.mediaAttachments,
       )..where((t) => t.id.equals(id))).getSingleOrNull();
       return row?.isDeleted ?? true;
     },

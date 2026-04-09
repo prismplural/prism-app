@@ -16234,6 +16234,992 @@ class SharingRequestsCompanion extends UpdateCompanion<SharingRequestRow> {
   }
 }
 
+class $MediaAttachmentsTable extends MediaAttachments
+    with TableInfo<$MediaAttachmentsTable, MediaAttachment> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MediaAttachmentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _mediaIdMeta = const VerificationMeta(
+    'mediaId',
+  );
+  @override
+  late final GeneratedColumn<String> mediaId = GeneratedColumn<String>(
+    'media_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _mediaTypeMeta = const VerificationMeta(
+    'mediaType',
+  );
+  @override
+  late final GeneratedColumn<String> mediaType = GeneratedColumn<String>(
+    'media_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _encryptionKeyB64Meta = const VerificationMeta(
+    'encryptionKeyB64',
+  );
+  @override
+  late final GeneratedColumn<String> encryptionKeyB64 = GeneratedColumn<String>(
+    'encryption_key_b64',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _contentHashMeta = const VerificationMeta(
+    'contentHash',
+  );
+  @override
+  late final GeneratedColumn<String> contentHash = GeneratedColumn<String>(
+    'content_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _plaintextHashMeta = const VerificationMeta(
+    'plaintextHash',
+  );
+  @override
+  late final GeneratedColumn<String> plaintextHash = GeneratedColumn<String>(
+    'plaintext_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _mimeTypeMeta = const VerificationMeta(
+    'mimeType',
+  );
+  @override
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+    'mime_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _sizeBytesMeta = const VerificationMeta(
+    'sizeBytes',
+  );
+  @override
+  late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
+    'size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _widthMeta = const VerificationMeta('width');
+  @override
+  late final GeneratedColumn<int> width = GeneratedColumn<int>(
+    'width',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _heightMeta = const VerificationMeta('height');
+  @override
+  late final GeneratedColumn<int> height = GeneratedColumn<int>(
+    'height',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _durationMsMeta = const VerificationMeta(
+    'durationMs',
+  );
+  @override
+  late final GeneratedColumn<int> durationMs = GeneratedColumn<int>(
+    'duration_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _blurhashMeta = const VerificationMeta(
+    'blurhash',
+  );
+  @override
+  late final GeneratedColumn<String> blurhash = GeneratedColumn<String>(
+    'blurhash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _waveformB64Meta = const VerificationMeta(
+    'waveformB64',
+  );
+  @override
+  late final GeneratedColumn<String> waveformB64 = GeneratedColumn<String>(
+    'waveform_b64',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _thumbnailMediaIdMeta = const VerificationMeta(
+    'thumbnailMediaId',
+  );
+  @override
+  late final GeneratedColumn<String> thumbnailMediaId = GeneratedColumn<String>(
+    'thumbnail_media_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _sourceUrlMeta = const VerificationMeta(
+    'sourceUrl',
+  );
+  @override
+  late final GeneratedColumn<String> sourceUrl = GeneratedColumn<String>(
+    'source_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _previewUrlMeta = const VerificationMeta(
+    'previewUrl',
+  );
+  @override
+  late final GeneratedColumn<String> previewUrl = GeneratedColumn<String>(
+    'preview_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    messageId,
+    mediaId,
+    mediaType,
+    encryptionKeyB64,
+    contentHash,
+    plaintextHash,
+    mimeType,
+    sizeBytes,
+    width,
+    height,
+    durationMs,
+    blurhash,
+    waveformB64,
+    thumbnailMediaId,
+    sourceUrl,
+    previewUrl,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'media_attachments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MediaAttachment> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    }
+    if (data.containsKey('media_id')) {
+      context.handle(
+        _mediaIdMeta,
+        mediaId.isAcceptableOrUnknown(data['media_id']!, _mediaIdMeta),
+      );
+    }
+    if (data.containsKey('media_type')) {
+      context.handle(
+        _mediaTypeMeta,
+        mediaType.isAcceptableOrUnknown(data['media_type']!, _mediaTypeMeta),
+      );
+    }
+    if (data.containsKey('encryption_key_b64')) {
+      context.handle(
+        _encryptionKeyB64Meta,
+        encryptionKeyB64.isAcceptableOrUnknown(
+          data['encryption_key_b64']!,
+          _encryptionKeyB64Meta,
+        ),
+      );
+    }
+    if (data.containsKey('content_hash')) {
+      context.handle(
+        _contentHashMeta,
+        contentHash.isAcceptableOrUnknown(
+          data['content_hash']!,
+          _contentHashMeta,
+        ),
+      );
+    }
+    if (data.containsKey('plaintext_hash')) {
+      context.handle(
+        _plaintextHashMeta,
+        plaintextHash.isAcceptableOrUnknown(
+          data['plaintext_hash']!,
+          _plaintextHashMeta,
+        ),
+      );
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(
+        _mimeTypeMeta,
+        mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta),
+      );
+    }
+    if (data.containsKey('size_bytes')) {
+      context.handle(
+        _sizeBytesMeta,
+        sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
+      );
+    }
+    if (data.containsKey('width')) {
+      context.handle(
+        _widthMeta,
+        width.isAcceptableOrUnknown(data['width']!, _widthMeta),
+      );
+    }
+    if (data.containsKey('height')) {
+      context.handle(
+        _heightMeta,
+        height.isAcceptableOrUnknown(data['height']!, _heightMeta),
+      );
+    }
+    if (data.containsKey('duration_ms')) {
+      context.handle(
+        _durationMsMeta,
+        durationMs.isAcceptableOrUnknown(data['duration_ms']!, _durationMsMeta),
+      );
+    }
+    if (data.containsKey('blurhash')) {
+      context.handle(
+        _blurhashMeta,
+        blurhash.isAcceptableOrUnknown(data['blurhash']!, _blurhashMeta),
+      );
+    }
+    if (data.containsKey('waveform_b64')) {
+      context.handle(
+        _waveformB64Meta,
+        waveformB64.isAcceptableOrUnknown(
+          data['waveform_b64']!,
+          _waveformB64Meta,
+        ),
+      );
+    }
+    if (data.containsKey('thumbnail_media_id')) {
+      context.handle(
+        _thumbnailMediaIdMeta,
+        thumbnailMediaId.isAcceptableOrUnknown(
+          data['thumbnail_media_id']!,
+          _thumbnailMediaIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('source_url')) {
+      context.handle(
+        _sourceUrlMeta,
+        sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta),
+      );
+    }
+    if (data.containsKey('preview_url')) {
+      context.handle(
+        _previewUrlMeta,
+        previewUrl.isAcceptableOrUnknown(data['preview_url']!, _previewUrlMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MediaAttachment map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MediaAttachment(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_id'],
+      )!,
+      mediaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}media_id'],
+      )!,
+      mediaType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}media_type'],
+      )!,
+      encryptionKeyB64: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}encryption_key_b64'],
+      )!,
+      contentHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_hash'],
+      )!,
+      plaintextHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plaintext_hash'],
+      )!,
+      mimeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mime_type'],
+      )!,
+      sizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size_bytes'],
+      )!,
+      width: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}width'],
+      )!,
+      height: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}height'],
+      )!,
+      durationMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_ms'],
+      )!,
+      blurhash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}blurhash'],
+      )!,
+      waveformB64: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}waveform_b64'],
+      )!,
+      thumbnailMediaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}thumbnail_media_id'],
+      )!,
+      sourceUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_url'],
+      )!,
+      previewUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}preview_url'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $MediaAttachmentsTable createAlias(String alias) {
+    return $MediaAttachmentsTable(attachedDatabase, alias);
+  }
+}
+
+class MediaAttachment extends DataClass implements Insertable<MediaAttachment> {
+  final String id;
+  final String messageId;
+  final String mediaId;
+  final String mediaType;
+  final String encryptionKeyB64;
+  final String contentHash;
+  final String plaintextHash;
+  final String mimeType;
+  final int sizeBytes;
+  final int width;
+  final int height;
+  final int durationMs;
+  final String blurhash;
+  final String waveformB64;
+  final String thumbnailMediaId;
+  final String sourceUrl;
+  final String previewUrl;
+  final bool isDeleted;
+  const MediaAttachment({
+    required this.id,
+    required this.messageId,
+    required this.mediaId,
+    required this.mediaType,
+    required this.encryptionKeyB64,
+    required this.contentHash,
+    required this.plaintextHash,
+    required this.mimeType,
+    required this.sizeBytes,
+    required this.width,
+    required this.height,
+    required this.durationMs,
+    required this.blurhash,
+    required this.waveformB64,
+    required this.thumbnailMediaId,
+    required this.sourceUrl,
+    required this.previewUrl,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['message_id'] = Variable<String>(messageId);
+    map['media_id'] = Variable<String>(mediaId);
+    map['media_type'] = Variable<String>(mediaType);
+    map['encryption_key_b64'] = Variable<String>(encryptionKeyB64);
+    map['content_hash'] = Variable<String>(contentHash);
+    map['plaintext_hash'] = Variable<String>(plaintextHash);
+    map['mime_type'] = Variable<String>(mimeType);
+    map['size_bytes'] = Variable<int>(sizeBytes);
+    map['width'] = Variable<int>(width);
+    map['height'] = Variable<int>(height);
+    map['duration_ms'] = Variable<int>(durationMs);
+    map['blurhash'] = Variable<String>(blurhash);
+    map['waveform_b64'] = Variable<String>(waveformB64);
+    map['thumbnail_media_id'] = Variable<String>(thumbnailMediaId);
+    map['source_url'] = Variable<String>(sourceUrl);
+    map['preview_url'] = Variable<String>(previewUrl);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  MediaAttachmentsCompanion toCompanion(bool nullToAbsent) {
+    return MediaAttachmentsCompanion(
+      id: Value(id),
+      messageId: Value(messageId),
+      mediaId: Value(mediaId),
+      mediaType: Value(mediaType),
+      encryptionKeyB64: Value(encryptionKeyB64),
+      contentHash: Value(contentHash),
+      plaintextHash: Value(plaintextHash),
+      mimeType: Value(mimeType),
+      sizeBytes: Value(sizeBytes),
+      width: Value(width),
+      height: Value(height),
+      durationMs: Value(durationMs),
+      blurhash: Value(blurhash),
+      waveformB64: Value(waveformB64),
+      thumbnailMediaId: Value(thumbnailMediaId),
+      sourceUrl: Value(sourceUrl),
+      previewUrl: Value(previewUrl),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory MediaAttachment.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MediaAttachment(
+      id: serializer.fromJson<String>(json['id']),
+      messageId: serializer.fromJson<String>(json['messageId']),
+      mediaId: serializer.fromJson<String>(json['mediaId']),
+      mediaType: serializer.fromJson<String>(json['mediaType']),
+      encryptionKeyB64: serializer.fromJson<String>(json['encryptionKeyB64']),
+      contentHash: serializer.fromJson<String>(json['contentHash']),
+      plaintextHash: serializer.fromJson<String>(json['plaintextHash']),
+      mimeType: serializer.fromJson<String>(json['mimeType']),
+      sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
+      width: serializer.fromJson<int>(json['width']),
+      height: serializer.fromJson<int>(json['height']),
+      durationMs: serializer.fromJson<int>(json['durationMs']),
+      blurhash: serializer.fromJson<String>(json['blurhash']),
+      waveformB64: serializer.fromJson<String>(json['waveformB64']),
+      thumbnailMediaId: serializer.fromJson<String>(json['thumbnailMediaId']),
+      sourceUrl: serializer.fromJson<String>(json['sourceUrl']),
+      previewUrl: serializer.fromJson<String>(json['previewUrl']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'messageId': serializer.toJson<String>(messageId),
+      'mediaId': serializer.toJson<String>(mediaId),
+      'mediaType': serializer.toJson<String>(mediaType),
+      'encryptionKeyB64': serializer.toJson<String>(encryptionKeyB64),
+      'contentHash': serializer.toJson<String>(contentHash),
+      'plaintextHash': serializer.toJson<String>(plaintextHash),
+      'mimeType': serializer.toJson<String>(mimeType),
+      'sizeBytes': serializer.toJson<int>(sizeBytes),
+      'width': serializer.toJson<int>(width),
+      'height': serializer.toJson<int>(height),
+      'durationMs': serializer.toJson<int>(durationMs),
+      'blurhash': serializer.toJson<String>(blurhash),
+      'waveformB64': serializer.toJson<String>(waveformB64),
+      'thumbnailMediaId': serializer.toJson<String>(thumbnailMediaId),
+      'sourceUrl': serializer.toJson<String>(sourceUrl),
+      'previewUrl': serializer.toJson<String>(previewUrl),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  MediaAttachment copyWith({
+    String? id,
+    String? messageId,
+    String? mediaId,
+    String? mediaType,
+    String? encryptionKeyB64,
+    String? contentHash,
+    String? plaintextHash,
+    String? mimeType,
+    int? sizeBytes,
+    int? width,
+    int? height,
+    int? durationMs,
+    String? blurhash,
+    String? waveformB64,
+    String? thumbnailMediaId,
+    String? sourceUrl,
+    String? previewUrl,
+    bool? isDeleted,
+  }) => MediaAttachment(
+    id: id ?? this.id,
+    messageId: messageId ?? this.messageId,
+    mediaId: mediaId ?? this.mediaId,
+    mediaType: mediaType ?? this.mediaType,
+    encryptionKeyB64: encryptionKeyB64 ?? this.encryptionKeyB64,
+    contentHash: contentHash ?? this.contentHash,
+    plaintextHash: plaintextHash ?? this.plaintextHash,
+    mimeType: mimeType ?? this.mimeType,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    width: width ?? this.width,
+    height: height ?? this.height,
+    durationMs: durationMs ?? this.durationMs,
+    blurhash: blurhash ?? this.blurhash,
+    waveformB64: waveformB64 ?? this.waveformB64,
+    thumbnailMediaId: thumbnailMediaId ?? this.thumbnailMediaId,
+    sourceUrl: sourceUrl ?? this.sourceUrl,
+    previewUrl: previewUrl ?? this.previewUrl,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  MediaAttachment copyWithCompanion(MediaAttachmentsCompanion data) {
+    return MediaAttachment(
+      id: data.id.present ? data.id.value : this.id,
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      mediaId: data.mediaId.present ? data.mediaId.value : this.mediaId,
+      mediaType: data.mediaType.present ? data.mediaType.value : this.mediaType,
+      encryptionKeyB64: data.encryptionKeyB64.present
+          ? data.encryptionKeyB64.value
+          : this.encryptionKeyB64,
+      contentHash: data.contentHash.present
+          ? data.contentHash.value
+          : this.contentHash,
+      plaintextHash: data.plaintextHash.present
+          ? data.plaintextHash.value
+          : this.plaintextHash,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
+      sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
+      width: data.width.present ? data.width.value : this.width,
+      height: data.height.present ? data.height.value : this.height,
+      durationMs: data.durationMs.present
+          ? data.durationMs.value
+          : this.durationMs,
+      blurhash: data.blurhash.present ? data.blurhash.value : this.blurhash,
+      waveformB64: data.waveformB64.present
+          ? data.waveformB64.value
+          : this.waveformB64,
+      thumbnailMediaId: data.thumbnailMediaId.present
+          ? data.thumbnailMediaId.value
+          : this.thumbnailMediaId,
+      sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      previewUrl: data.previewUrl.present
+          ? data.previewUrl.value
+          : this.previewUrl,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MediaAttachment(')
+          ..write('id: $id, ')
+          ..write('messageId: $messageId, ')
+          ..write('mediaId: $mediaId, ')
+          ..write('mediaType: $mediaType, ')
+          ..write('encryptionKeyB64: $encryptionKeyB64, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('plaintextHash: $plaintextHash, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('durationMs: $durationMs, ')
+          ..write('blurhash: $blurhash, ')
+          ..write('waveformB64: $waveformB64, ')
+          ..write('thumbnailMediaId: $thumbnailMediaId, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('previewUrl: $previewUrl, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    messageId,
+    mediaId,
+    mediaType,
+    encryptionKeyB64,
+    contentHash,
+    plaintextHash,
+    mimeType,
+    sizeBytes,
+    width,
+    height,
+    durationMs,
+    blurhash,
+    waveformB64,
+    thumbnailMediaId,
+    sourceUrl,
+    previewUrl,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MediaAttachment &&
+          other.id == this.id &&
+          other.messageId == this.messageId &&
+          other.mediaId == this.mediaId &&
+          other.mediaType == this.mediaType &&
+          other.encryptionKeyB64 == this.encryptionKeyB64 &&
+          other.contentHash == this.contentHash &&
+          other.plaintextHash == this.plaintextHash &&
+          other.mimeType == this.mimeType &&
+          other.sizeBytes == this.sizeBytes &&
+          other.width == this.width &&
+          other.height == this.height &&
+          other.durationMs == this.durationMs &&
+          other.blurhash == this.blurhash &&
+          other.waveformB64 == this.waveformB64 &&
+          other.thumbnailMediaId == this.thumbnailMediaId &&
+          other.sourceUrl == this.sourceUrl &&
+          other.previewUrl == this.previewUrl &&
+          other.isDeleted == this.isDeleted);
+}
+
+class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
+  final Value<String> id;
+  final Value<String> messageId;
+  final Value<String> mediaId;
+  final Value<String> mediaType;
+  final Value<String> encryptionKeyB64;
+  final Value<String> contentHash;
+  final Value<String> plaintextHash;
+  final Value<String> mimeType;
+  final Value<int> sizeBytes;
+  final Value<int> width;
+  final Value<int> height;
+  final Value<int> durationMs;
+  final Value<String> blurhash;
+  final Value<String> waveformB64;
+  final Value<String> thumbnailMediaId;
+  final Value<String> sourceUrl;
+  final Value<String> previewUrl;
+  final Value<bool> isDeleted;
+  final Value<int> rowid;
+  const MediaAttachmentsCompanion({
+    this.id = const Value.absent(),
+    this.messageId = const Value.absent(),
+    this.mediaId = const Value.absent(),
+    this.mediaType = const Value.absent(),
+    this.encryptionKeyB64 = const Value.absent(),
+    this.contentHash = const Value.absent(),
+    this.plaintextHash = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.durationMs = const Value.absent(),
+    this.blurhash = const Value.absent(),
+    this.waveformB64 = const Value.absent(),
+    this.thumbnailMediaId = const Value.absent(),
+    this.sourceUrl = const Value.absent(),
+    this.previewUrl = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MediaAttachmentsCompanion.insert({
+    required String id,
+    this.messageId = const Value.absent(),
+    this.mediaId = const Value.absent(),
+    this.mediaType = const Value.absent(),
+    this.encryptionKeyB64 = const Value.absent(),
+    this.contentHash = const Value.absent(),
+    this.plaintextHash = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.durationMs = const Value.absent(),
+    this.blurhash = const Value.absent(),
+    this.waveformB64 = const Value.absent(),
+    this.thumbnailMediaId = const Value.absent(),
+    this.sourceUrl = const Value.absent(),
+    this.previewUrl = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<MediaAttachment> custom({
+    Expression<String>? id,
+    Expression<String>? messageId,
+    Expression<String>? mediaId,
+    Expression<String>? mediaType,
+    Expression<String>? encryptionKeyB64,
+    Expression<String>? contentHash,
+    Expression<String>? plaintextHash,
+    Expression<String>? mimeType,
+    Expression<int>? sizeBytes,
+    Expression<int>? width,
+    Expression<int>? height,
+    Expression<int>? durationMs,
+    Expression<String>? blurhash,
+    Expression<String>? waveformB64,
+    Expression<String>? thumbnailMediaId,
+    Expression<String>? sourceUrl,
+    Expression<String>? previewUrl,
+    Expression<bool>? isDeleted,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (messageId != null) 'message_id': messageId,
+      if (mediaId != null) 'media_id': mediaId,
+      if (mediaType != null) 'media_type': mediaType,
+      if (encryptionKeyB64 != null) 'encryption_key_b64': encryptionKeyB64,
+      if (contentHash != null) 'content_hash': contentHash,
+      if (plaintextHash != null) 'plaintext_hash': plaintextHash,
+      if (mimeType != null) 'mime_type': mimeType,
+      if (sizeBytes != null) 'size_bytes': sizeBytes,
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (durationMs != null) 'duration_ms': durationMs,
+      if (blurhash != null) 'blurhash': blurhash,
+      if (waveformB64 != null) 'waveform_b64': waveformB64,
+      if (thumbnailMediaId != null) 'thumbnail_media_id': thumbnailMediaId,
+      if (sourceUrl != null) 'source_url': sourceUrl,
+      if (previewUrl != null) 'preview_url': previewUrl,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MediaAttachmentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? messageId,
+    Value<String>? mediaId,
+    Value<String>? mediaType,
+    Value<String>? encryptionKeyB64,
+    Value<String>? contentHash,
+    Value<String>? plaintextHash,
+    Value<String>? mimeType,
+    Value<int>? sizeBytes,
+    Value<int>? width,
+    Value<int>? height,
+    Value<int>? durationMs,
+    Value<String>? blurhash,
+    Value<String>? waveformB64,
+    Value<String>? thumbnailMediaId,
+    Value<String>? sourceUrl,
+    Value<String>? previewUrl,
+    Value<bool>? isDeleted,
+    Value<int>? rowid,
+  }) {
+    return MediaAttachmentsCompanion(
+      id: id ?? this.id,
+      messageId: messageId ?? this.messageId,
+      mediaId: mediaId ?? this.mediaId,
+      mediaType: mediaType ?? this.mediaType,
+      encryptionKeyB64: encryptionKeyB64 ?? this.encryptionKeyB64,
+      contentHash: contentHash ?? this.contentHash,
+      plaintextHash: plaintextHash ?? this.plaintextHash,
+      mimeType: mimeType ?? this.mimeType,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      durationMs: durationMs ?? this.durationMs,
+      blurhash: blurhash ?? this.blurhash,
+      waveformB64: waveformB64 ?? this.waveformB64,
+      thumbnailMediaId: thumbnailMediaId ?? this.thumbnailMediaId,
+      sourceUrl: sourceUrl ?? this.sourceUrl,
+      previewUrl: previewUrl ?? this.previewUrl,
+      isDeleted: isDeleted ?? this.isDeleted,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (mediaId.present) {
+      map['media_id'] = Variable<String>(mediaId.value);
+    }
+    if (mediaType.present) {
+      map['media_type'] = Variable<String>(mediaType.value);
+    }
+    if (encryptionKeyB64.present) {
+      map['encryption_key_b64'] = Variable<String>(encryptionKeyB64.value);
+    }
+    if (contentHash.present) {
+      map['content_hash'] = Variable<String>(contentHash.value);
+    }
+    if (plaintextHash.present) {
+      map['plaintext_hash'] = Variable<String>(plaintextHash.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
+    }
+    if (sizeBytes.present) {
+      map['size_bytes'] = Variable<int>(sizeBytes.value);
+    }
+    if (width.present) {
+      map['width'] = Variable<int>(width.value);
+    }
+    if (height.present) {
+      map['height'] = Variable<int>(height.value);
+    }
+    if (durationMs.present) {
+      map['duration_ms'] = Variable<int>(durationMs.value);
+    }
+    if (blurhash.present) {
+      map['blurhash'] = Variable<String>(blurhash.value);
+    }
+    if (waveformB64.present) {
+      map['waveform_b64'] = Variable<String>(waveformB64.value);
+    }
+    if (thumbnailMediaId.present) {
+      map['thumbnail_media_id'] = Variable<String>(thumbnailMediaId.value);
+    }
+    if (sourceUrl.present) {
+      map['source_url'] = Variable<String>(sourceUrl.value);
+    }
+    if (previewUrl.present) {
+      map['preview_url'] = Variable<String>(previewUrl.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MediaAttachmentsCompanion(')
+          ..write('id: $id, ')
+          ..write('messageId: $messageId, ')
+          ..write('mediaId: $mediaId, ')
+          ..write('mediaType: $mediaType, ')
+          ..write('encryptionKeyB64: $encryptionKeyB64, ')
+          ..write('contentHash: $contentHash, ')
+          ..write('plaintextHash: $plaintextHash, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('durationMs: $durationMs, ')
+          ..write('blurhash: $blurhash, ')
+          ..write('waveformB64: $waveformB64, ')
+          ..write('thumbnailMediaId: $thumbnailMediaId, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('previewUrl: $previewUrl, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -16271,6 +17257,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RemindersTable reminders = $RemindersTable(this);
   late final $FriendsTable friends = $FriendsTable(this);
   late final $SharingRequestsTable sharingRequests = $SharingRequestsTable(
+    this,
+  );
+  late final $MediaAttachmentsTable mediaAttachments = $MediaAttachmentsTable(
     this,
   );
   late final MembersDao membersDao = MembersDao(this as AppDatabase);
@@ -16314,6 +17303,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final SharingRequestsDao sharingRequestsDao = SharingRequestsDao(
     this as AppDatabase,
   );
+  late final MediaAttachmentsDao mediaAttachmentsDao = MediaAttachmentsDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -16342,6 +17334,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     reminders,
     friends,
     sharingRequests,
+    mediaAttachments,
   ];
 }
 
@@ -24056,6 +25049,473 @@ typedef $$SharingRequestsTableProcessedTableManager =
       SharingRequestRow,
       PrefetchHooks Function()
     >;
+typedef $$MediaAttachmentsTableCreateCompanionBuilder =
+    MediaAttachmentsCompanion Function({
+      required String id,
+      Value<String> messageId,
+      Value<String> mediaId,
+      Value<String> mediaType,
+      Value<String> encryptionKeyB64,
+      Value<String> contentHash,
+      Value<String> plaintextHash,
+      Value<String> mimeType,
+      Value<int> sizeBytes,
+      Value<int> width,
+      Value<int> height,
+      Value<int> durationMs,
+      Value<String> blurhash,
+      Value<String> waveformB64,
+      Value<String> thumbnailMediaId,
+      Value<String> sourceUrl,
+      Value<String> previewUrl,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+typedef $$MediaAttachmentsTableUpdateCompanionBuilder =
+    MediaAttachmentsCompanion Function({
+      Value<String> id,
+      Value<String> messageId,
+      Value<String> mediaId,
+      Value<String> mediaType,
+      Value<String> encryptionKeyB64,
+      Value<String> contentHash,
+      Value<String> plaintextHash,
+      Value<String> mimeType,
+      Value<int> sizeBytes,
+      Value<int> width,
+      Value<int> height,
+      Value<int> durationMs,
+      Value<String> blurhash,
+      Value<String> waveformB64,
+      Value<String> thumbnailMediaId,
+      Value<String> sourceUrl,
+      Value<String> previewUrl,
+      Value<bool> isDeleted,
+      Value<int> rowid,
+    });
+
+class $$MediaAttachmentsTableFilterComposer
+    extends Composer<_$AppDatabase, $MediaAttachmentsTable> {
+  $$MediaAttachmentsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mediaId => $composableBuilder(
+    column: $table.mediaId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mediaType => $composableBuilder(
+    column: $table.mediaType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get encryptionKeyB64 => $composableBuilder(
+    column: $table.encryptionKeyB64,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get plaintextHash => $composableBuilder(
+    column: $table.plaintextHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get width => $composableBuilder(
+    column: $table.width,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get height => $composableBuilder(
+    column: $table.height,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationMs => $composableBuilder(
+    column: $table.durationMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get blurhash => $composableBuilder(
+    column: $table.blurhash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get waveformB64 => $composableBuilder(
+    column: $table.waveformB64,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get thumbnailMediaId => $composableBuilder(
+    column: $table.thumbnailMediaId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get previewUrl => $composableBuilder(
+    column: $table.previewUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MediaAttachmentsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MediaAttachmentsTable> {
+  $$MediaAttachmentsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mediaId => $composableBuilder(
+    column: $table.mediaId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mediaType => $composableBuilder(
+    column: $table.mediaType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get encryptionKeyB64 => $composableBuilder(
+    column: $table.encryptionKeyB64,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get plaintextHash => $composableBuilder(
+    column: $table.plaintextHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get width => $composableBuilder(
+    column: $table.width,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get height => $composableBuilder(
+    column: $table.height,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationMs => $composableBuilder(
+    column: $table.durationMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get blurhash => $composableBuilder(
+    column: $table.blurhash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get waveformB64 => $composableBuilder(
+    column: $table.waveformB64,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get thumbnailMediaId => $composableBuilder(
+    column: $table.thumbnailMediaId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get previewUrl => $composableBuilder(
+    column: $table.previewUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MediaAttachmentsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MediaAttachmentsTable> {
+  $$MediaAttachmentsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumn<String> get mediaId =>
+      $composableBuilder(column: $table.mediaId, builder: (column) => column);
+
+  GeneratedColumn<String> get mediaType =>
+      $composableBuilder(column: $table.mediaType, builder: (column) => column);
+
+  GeneratedColumn<String> get encryptionKeyB64 => $composableBuilder(
+    column: $table.encryptionKeyB64,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get contentHash => $composableBuilder(
+    column: $table.contentHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get plaintextHash => $composableBuilder(
+    column: $table.plaintextHash,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
+
+  GeneratedColumn<int> get sizeBytes =>
+      $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
+
+  GeneratedColumn<int> get width =>
+      $composableBuilder(column: $table.width, builder: (column) => column);
+
+  GeneratedColumn<int> get height =>
+      $composableBuilder(column: $table.height, builder: (column) => column);
+
+  GeneratedColumn<int> get durationMs => $composableBuilder(
+    column: $table.durationMs,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get blurhash =>
+      $composableBuilder(column: $table.blurhash, builder: (column) => column);
+
+  GeneratedColumn<String> get waveformB64 => $composableBuilder(
+    column: $table.waveformB64,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get thumbnailMediaId => $composableBuilder(
+    column: $table.thumbnailMediaId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceUrl =>
+      $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get previewUrl => $composableBuilder(
+    column: $table.previewUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$MediaAttachmentsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MediaAttachmentsTable,
+          MediaAttachment,
+          $$MediaAttachmentsTableFilterComposer,
+          $$MediaAttachmentsTableOrderingComposer,
+          $$MediaAttachmentsTableAnnotationComposer,
+          $$MediaAttachmentsTableCreateCompanionBuilder,
+          $$MediaAttachmentsTableUpdateCompanionBuilder,
+          (
+            MediaAttachment,
+            BaseReferences<
+              _$AppDatabase,
+              $MediaAttachmentsTable,
+              MediaAttachment
+            >,
+          ),
+          MediaAttachment,
+          PrefetchHooks Function()
+        > {
+  $$MediaAttachmentsTableTableManager(
+    _$AppDatabase db,
+    $MediaAttachmentsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MediaAttachmentsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MediaAttachmentsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MediaAttachmentsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> messageId = const Value.absent(),
+                Value<String> mediaId = const Value.absent(),
+                Value<String> mediaType = const Value.absent(),
+                Value<String> encryptionKeyB64 = const Value.absent(),
+                Value<String> contentHash = const Value.absent(),
+                Value<String> plaintextHash = const Value.absent(),
+                Value<String> mimeType = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<int> width = const Value.absent(),
+                Value<int> height = const Value.absent(),
+                Value<int> durationMs = const Value.absent(),
+                Value<String> blurhash = const Value.absent(),
+                Value<String> waveformB64 = const Value.absent(),
+                Value<String> thumbnailMediaId = const Value.absent(),
+                Value<String> sourceUrl = const Value.absent(),
+                Value<String> previewUrl = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MediaAttachmentsCompanion(
+                id: id,
+                messageId: messageId,
+                mediaId: mediaId,
+                mediaType: mediaType,
+                encryptionKeyB64: encryptionKeyB64,
+                contentHash: contentHash,
+                plaintextHash: plaintextHash,
+                mimeType: mimeType,
+                sizeBytes: sizeBytes,
+                width: width,
+                height: height,
+                durationMs: durationMs,
+                blurhash: blurhash,
+                waveformB64: waveformB64,
+                thumbnailMediaId: thumbnailMediaId,
+                sourceUrl: sourceUrl,
+                previewUrl: previewUrl,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String> messageId = const Value.absent(),
+                Value<String> mediaId = const Value.absent(),
+                Value<String> mediaType = const Value.absent(),
+                Value<String> encryptionKeyB64 = const Value.absent(),
+                Value<String> contentHash = const Value.absent(),
+                Value<String> plaintextHash = const Value.absent(),
+                Value<String> mimeType = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<int> width = const Value.absent(),
+                Value<int> height = const Value.absent(),
+                Value<int> durationMs = const Value.absent(),
+                Value<String> blurhash = const Value.absent(),
+                Value<String> waveformB64 = const Value.absent(),
+                Value<String> thumbnailMediaId = const Value.absent(),
+                Value<String> sourceUrl = const Value.absent(),
+                Value<String> previewUrl = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MediaAttachmentsCompanion.insert(
+                id: id,
+                messageId: messageId,
+                mediaId: mediaId,
+                mediaType: mediaType,
+                encryptionKeyB64: encryptionKeyB64,
+                contentHash: contentHash,
+                plaintextHash: plaintextHash,
+                mimeType: mimeType,
+                sizeBytes: sizeBytes,
+                width: width,
+                height: height,
+                durationMs: durationMs,
+                blurhash: blurhash,
+                waveformB64: waveformB64,
+                thumbnailMediaId: thumbnailMediaId,
+                sourceUrl: sourceUrl,
+                previewUrl: previewUrl,
+                isDeleted: isDeleted,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MediaAttachmentsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MediaAttachmentsTable,
+      MediaAttachment,
+      $$MediaAttachmentsTableFilterComposer,
+      $$MediaAttachmentsTableOrderingComposer,
+      $$MediaAttachmentsTableAnnotationComposer,
+      $$MediaAttachmentsTableCreateCompanionBuilder,
+      $$MediaAttachmentsTableUpdateCompanionBuilder,
+      (
+        MediaAttachment,
+        BaseReferences<_$AppDatabase, $MediaAttachmentsTable, MediaAttachment>,
+      ),
+      MediaAttachment,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -24109,4 +25569,6 @@ class $AppDatabaseManager {
       $$FriendsTableTableManager(_db, _db.friends);
   $$SharingRequestsTableTableManager get sharingRequests =>
       $$SharingRequestsTableTableManager(_db, _db.sharingRequests);
+  $$MediaAttachmentsTableTableManager get mediaAttachments =>
+      $$MediaAttachmentsTableTableManager(_db, _db.mediaAttachments);
 }

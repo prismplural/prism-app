@@ -21,3 +21,4 @@ export 'conversation_categories_table.dart';
 export 'reminders_table.dart';
 export 'friends_table.dart';
 export 'sharing_requests_table.dart';
+export 'media_attachments_table.dart';
