@@ -292,43 +292,108 @@ class SpMessage {
   }
 }
 
+/// SP poll option with name and optional color.
+class SpPollOption {
+  final String name;
+  final String? color;
+
+  const SpPollOption({required this.name, this.color});
+}
+
+/// SP poll vote entry.
+class SpPollVote {
+  final String memberId;
+  final String optionName;
+  final String? comment;
+
+  const SpPollVote({
+    required this.memberId,
+    required this.optionName,
+    this.comment,
+  });
+}
+
 /// SP poll structure.
 class SpPoll {
   final String id;
   final String question;
-  final List<String> options;
+  final String? description;
+  final List<SpPollOption> options;
+  final List<SpPollVote> votes;
   final bool allowMultiple;
   final DateTime? endDate;
 
   const SpPoll({
     required this.id,
     required this.question,
+    this.description,
     this.options = const [],
+    this.votes = const [],
     this.allowMultiple = false,
     this.endDate,
   });
 
   factory SpPoll.fromJson(Map<String, dynamic> json) {
-    final optionList = <String>[];
+    DateTime parseTime(dynamic value) {
+      if (value is int) {
+        return DateTime.fromMillisecondsSinceEpoch(value);
+      }
+      if (value is num) {
+        return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+      }
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) {
+          return DateTime.fromMillisecondsSinceEpoch(parsed);
+        }
+        return DateTime.tryParse(value) ?? DateTime.now();
+      }
+      return DateTime.now();
+    }
+
+    final optionList = <SpPollOption>[];
     final rawOptions = json['options'];
     if (rawOptions is List) {
       for (final o in rawOptions) {
         if (o is Map) {
-          optionList.add((o['text'] ?? o['name'] ?? o.toString()).toString());
+          optionList.add(SpPollOption(
+            name: (o['text'] ?? o['name'] ?? o.toString()).toString(),
+            color: o['color'] as String?,
+          ));
         } else {
-          optionList.add(o.toString());
+          optionList.add(SpPollOption(name: o.toString()));
         }
       }
     }
 
+    final voteList = <SpPollVote>[];
+    final rawVotes = json['votes'];
+    if (rawVotes is List) {
+      for (final v in rawVotes) {
+        if (v is Map) {
+          final memberId = (v['id'] ?? '').toString();
+          final optionName = (v['vote'] ?? '').toString();
+          if (memberId.isNotEmpty && optionName.isNotEmpty) {
+            voteList.add(SpPollVote(
+              memberId: memberId,
+              optionName: optionName,
+              comment: v['comment'] as String?,
+            ));
+          }
+        }
+      }
+    }
+
+    final rawEndTime = json['endTime'] ?? json['endDate'];
+
     return SpPoll(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       question: (json['question'] ?? json['title'] ?? '').toString(),
+      description: json['desc'] as String? ?? json['description'] as String?,
       options: optionList,
+      votes: voteList,
       allowMultiple: json['allowMultiple'] == true,
-      endDate: json['endDate'] != null
-          ? DateTime.tryParse(json['endDate'].toString())
-          : null,
+      endDate: rawEndTime != null ? parseTime(rawEndTime) : null,
     );
   }
 }
