@@ -43,7 +43,10 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
   StreamSubscription<Duration?>? _durationSub;
 
   @override
-  VoicePlaybackState build() => const VoicePlaybackState();
+  VoicePlaybackState build() {
+    ref.onDispose(_disposePlayer);
+    return const VoicePlaybackState();
+  }
 
   Future<void> togglePlayPause(String mediaId, File audioFile) async {
     if (state.activeMediaId == mediaId && state.isPlaying) {

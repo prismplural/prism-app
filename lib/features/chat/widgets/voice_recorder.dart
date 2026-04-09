@@ -196,15 +196,15 @@ class _VoiceSendButtonState extends State<_VoiceSendButton> {
       button: true,
       enabled: widget.canSend,
       child: GestureDetector(
-        onTapDown: widget.canSend ? (_) => setState(() => _pressed = true) : null,
+        onTapDown: widget.canSend
+            ? (_) => setState(() => _pressed = true)
+            : (_) => HapticFeedback.heavyImpact(),
         onTapUp: widget.canSend
             ? (_) {
                 setState(() => _pressed = false);
                 widget.onPressed?.call();
               }
-            : (_) {
-                HapticFeedback.heavyImpact();
-              },
+            : null,
         onTapCancel: () => setState(() => _pressed = false),
         child: SizedBox(
           width: 44,
@@ -320,5 +320,5 @@ class _WaveformPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_WaveformPainter old) => old.samples != samples;
+  bool shouldRepaint(_WaveformPainter old) => old.samples.length != samples.length;
 }

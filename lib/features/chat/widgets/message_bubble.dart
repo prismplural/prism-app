@@ -637,19 +637,31 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       plaintextHash: attachment.plaintextHash,
     );
     final mediaAsync = ref.watch(mediaAudioFileProvider(params));
-    final playback = ref.watch(voicePlaybackProvider);
 
-    final isThisNote = playback.activeMediaId == attachment.mediaId;
-    final isPlaying = isThisNote && playback.isPlaying;
-    final progress = isThisNote && playback.duration.inMilliseconds > 0
-        ? playback.position.inMilliseconds / playback.duration.inMilliseconds
-        : 0.0;
+    // Select only fields relevant to this bubble so non-active bubbles skip
+    // rebuilds from the ~10-20 Hz position stream.
+    final mediaId = attachment.mediaId;
+    final isActive = ref.watch(
+      voicePlaybackProvider.select((s) => s.activeMediaId == mediaId),
+    );
+    final isPlaying = ref.watch(
+      voicePlaybackProvider.select((s) => s.activeMediaId == mediaId && s.isPlaying),
+    );
+    final progress = ref.watch(
+      voicePlaybackProvider.select((s) {
+        if (s.activeMediaId != mediaId || s.duration.inMilliseconds <= 0) return 0.0;
+        return s.position.inMilliseconds / s.duration.inMilliseconds;
+      }),
+    );
+    final speed = ref.watch(
+      voicePlaybackProvider.select((s) => s.activeMediaId == mediaId ? s.speed : 1.0),
+    );
 
     return VoiceBubble(
       durationMs: attachment.durationMs,
       isPlaying: isPlaying,
       progress: progress,
-      speed: isThisNote ? playback.speed : 1.0,
+      speed: speed,
       isLoading: mediaAsync.isLoading,
       onPlayPause: mediaAsync.value != null
           ? () => ref
@@ -664,7 +676,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                   .seek(Duration(milliseconds: (fraction * totalMs).round()));
             }
           : null,
-      onSpeedTap: isThisNote
+      onSpeedTap: isActive
           ? () => ref.read(voicePlaybackProvider.notifier).cycleSpeed()
           : null,
     );
