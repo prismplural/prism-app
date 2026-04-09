@@ -40,6 +40,30 @@ class MediaAttachmentData {
   });
 }
 
+class VoiceAttachmentData {
+  const VoiceAttachmentData({
+    required this.mediaId,
+    required this.encryptedAudio,
+    required this.encryptionKey,
+    required this.contentHash,
+    required this.plaintextHash,
+    required this.durationMs,
+    required this.waveformB64,
+    required this.sizeBytes,
+    required this.mimeType,
+  });
+
+  final String mediaId;
+  final Uint8List encryptedAudio;
+  final Uint8List encryptionKey;
+  final String contentHash;
+  final String plaintextHash;
+  final int durationMs;
+  final String waveformB64;
+  final int sizeBytes;
+  final String mimeType;
+}
+
 class MediaService {
   MediaService({
     required this.compression,
@@ -92,6 +116,35 @@ class MediaService {
       mediaId: data.thumbnailMediaId,
       contentHash: data.thumbnailContentHash,
       encryptedData: data.encryptedThumbnail,
+    ));
+  }
+
+  Future<VoiceAttachmentData> prepareVoiceNote(
+    Uint8List audioBytes,
+    int durationMs,
+    String waveformB64,
+  ) async {
+    final encrypted = await encryption.encryptMedia(audioBytes);
+    final mediaId = _uuid.v4();
+
+    return VoiceAttachmentData(
+      mediaId: mediaId,
+      encryptedAudio: encrypted.ciphertext,
+      encryptionKey: encrypted.key,
+      contentHash: encrypted.ciphertextHash,
+      plaintextHash: encrypted.plaintextHash,
+      durationMs: durationMs,
+      waveformB64: waveformB64,
+      sizeBytes: audioBytes.length,
+      mimeType: 'audio/ogg',
+    );
+  }
+
+  Future<void> uploadVoice(VoiceAttachmentData data) async {
+    await uploadQueue.enqueue(UploadTask(
+      mediaId: data.mediaId,
+      contentHash: data.contentHash,
+      encryptedData: data.encryptedAudio,
     ));
   }
 

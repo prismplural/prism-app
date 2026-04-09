@@ -302,6 +302,7 @@ abstract final class AppIcons {
   static final circle = PhosphorIcons.circle(PhosphorIconsStyle.fill);
   static final book = PhosphorIcons.book();
   static final desktop = PhosphorIcons.desktop();
+  static final microphone = PhosphorIcons.microphone();
 
   // ── Polls (regular) ───────────────────────────────────────────────────
 
