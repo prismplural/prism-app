@@ -87,6 +87,10 @@ dependencies:
   hashlib: ^1.19.2
   local_auth: ^3.0.0
   phosphor_flutter: ^2.1.0
+  flutter_image_compress: ^2.4.0
+  blurhash_dart: ^1.2.1
+  flutter_sound: ^9.22.3
+  just_audio: ^0.9.43
   cupertino_calendar_picker: ^2.2.6
 
 dev_dependencies:
