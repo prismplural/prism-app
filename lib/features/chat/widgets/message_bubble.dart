@@ -597,7 +597,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     Color authorColor,
   ) {
     final attachmentsAsync = ref.watch(
-      messageAttachmentsProvider(widget.message.id),
+      mediaAttachmentsForMessageProvider(widget.message.id),
     );
 
     final attachments = attachmentsAsync.value;
@@ -613,7 +613,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   }
 
   Widget _buildSingleAttachment(MediaAttachment attachment, Color authorColor) {
-    if (attachment.isExpired) {
+    if (attachment.isDeleted) {
       return const ExpiredMediaPlaceholder();
     }
 
