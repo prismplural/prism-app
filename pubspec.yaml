@@ -91,6 +91,7 @@ dependencies:
   blurhash_dart: ^1.2.1
   flutter_sound: ^9.22.3
   just_audio: ^0.9.43
+  video_player: ^2.9.2
   cupertino_calendar_picker: ^2.2.6
 
 dev_dependencies:
