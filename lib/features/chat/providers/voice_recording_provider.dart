@@ -1,0 +1,214 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_sound/flutter_sound.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
+
+enum VoiceRecordingStatus { idle, recording, processing, done, error }
+
+class VoiceRecordingState {
+  const VoiceRecordingState({
+    this.status = VoiceRecordingStatus.idle,
+    this.elapsedMs = 0,
+    this.amplitudeSamples = const [],
+    this.audioBytes,
+    this.durationMs = 0,
+    this.waveformB64 = '',
+    this.error,
+  });
+
+  final VoiceRecordingStatus status;
+  final int elapsedMs;
+  final List<double> amplitudeSamples;
+  final Uint8List? audioBytes;
+  final int durationMs;
+  final String waveformB64;
+  final String? error;
+
+  VoiceRecordingState copyWith({
+    VoiceRecordingStatus? status,
+    int? elapsedMs,
+    List<double>? amplitudeSamples,
+    Uint8List? audioBytes,
+    int? durationMs,
+    String? waveformB64,
+    String? error,
+  }) {
+    return VoiceRecordingState(
+      status: status ?? this.status,
+      elapsedMs: elapsedMs ?? this.elapsedMs,
+      amplitudeSamples: amplitudeSamples ?? this.amplitudeSamples,
+      audioBytes: audioBytes ?? this.audioBytes,
+      durationMs: durationMs ?? this.durationMs,
+      waveformB64: waveformB64 ?? this.waveformB64,
+      error: error ?? this.error,
+    );
+  }
+}
+
+class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
+  FlutterSoundRecorder? _recorder;
+  StreamSubscription<RecordingDisposition>? _progressSub;
+  String? _tempFilePath;
+  static const _uuid = Uuid();
+
+  @override
+  VoiceRecordingState build() {
+    ref.onDispose(_cleanup);
+    return const VoiceRecordingState();
+  }
+
+  void _cleanup() {
+    _progressSub?.cancel();
+    _progressSub = null;
+    _recorder?.closeRecorder();
+    _recorder = null;
+    if (_tempFilePath != null) {
+      try {
+        File(_tempFilePath!).deleteSync();
+      } catch (_) {}
+      _tempFilePath = null;
+    }
+  }
+
+  Future<void> startRecording() async {
+    try {
+      _recorder ??= FlutterSoundRecorder();
+      await _recorder!.openRecorder();
+
+      final dir = await getTemporaryDirectory();
+      _tempFilePath = '${dir.path}/voice_${_uuid.v4()}.ogg';
+
+      await _recorder!.setSubscriptionDuration(
+        const Duration(milliseconds: 50),
+      );
+
+      await _recorder!.startRecorder(
+        toFile: _tempFilePath,
+        codec: Codec.opusOGG,
+        sampleRate: 48000,
+        numChannels: 1,
+      );
+
+      _progressSub = _recorder!.onProgress!.listen((event) {
+        final samples = [...state.amplitudeSamples, event.decibels ?? -160.0];
+        state = state.copyWith(
+          elapsedMs: event.duration.inMilliseconds,
+          amplitudeSamples: samples,
+        );
+      });
+
+      await HapticFeedback.mediumImpact();
+
+      state = state.copyWith(status: VoiceRecordingStatus.recording);
+    } catch (e) {
+      state = VoiceRecordingState(
+        status: VoiceRecordingStatus.error,
+        error: e.toString(),
+      );
+    }
+  }
+
+  Future<VoiceRecordingState> stopRecording() async {
+    if (state.status != VoiceRecordingStatus.recording) return state;
+
+    try {
+      state = state.copyWith(status: VoiceRecordingStatus.processing);
+
+      await _recorder!.stopRecorder();
+      await _progressSub?.cancel();
+      _progressSub = null;
+
+      await _recorder!.closeRecorder();
+      _recorder = null;
+
+      final bytes = await File(_tempFilePath!).readAsBytes();
+
+      final samples = state.amplitudeSamples;
+      if (samples.isEmpty) {
+        state = const VoiceRecordingState(
+          status: VoiceRecordingStatus.error,
+          error: 'No amplitude samples recorded',
+        );
+        return state;
+      }
+
+      final minDb = samples.reduce(min);
+      final maxDb = samples.reduce(max);
+      final range = (maxDb - minDb).abs();
+      final normalized = samples.map((s) {
+        if (range < 0.01) return 128;
+        return ((s - minDb) / range * 255).round().clamp(0, 255);
+      }).toList();
+      final waveformB64 = base64Encode(Uint8List.fromList(normalized));
+
+      state = state.copyWith(
+        status: VoiceRecordingStatus.done,
+        audioBytes: bytes,
+        durationMs: state.elapsedMs,
+        waveformB64: waveformB64,
+      );
+
+      await HapticFeedback.lightImpact();
+
+      return state;
+    } catch (e) {
+      state = VoiceRecordingState(
+        status: VoiceRecordingStatus.error,
+        error: e.toString(),
+      );
+      return state;
+    }
+  }
+
+  Future<void> cancelRecording() async {
+    if (state.status != VoiceRecordingStatus.recording) return;
+
+    try {
+      await _recorder?.stopRecorder();
+    } catch (_) {
+      // Fire-and-forget: ignore errors during cancellation.
+    }
+
+    try {
+      await _recorder?.closeRecorder();
+    } catch (_) {}
+    _recorder = null;
+
+    await _progressSub?.cancel();
+    _progressSub = null;
+
+    await _deleteTempFile();
+
+    state = const VoiceRecordingState();
+
+    await HapticFeedback.lightImpact();
+  }
+
+  void reset() {
+    _deleteTempFile();
+    state = const VoiceRecordingState();
+  }
+
+  Future<void> _deleteTempFile() async {
+    if (_tempFilePath != null) {
+      try {
+        final file = File(_tempFilePath!);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (_) {}
+      _tempFilePath = null;
+    }
+  }
+}
+
+final voiceRecordingProvider =
+    NotifierProvider.autoDispose<VoiceRecordingNotifier, VoiceRecordingState>(
+  VoiceRecordingNotifier.new,
+);
