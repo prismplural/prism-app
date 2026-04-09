@@ -16,6 +16,8 @@ class SpExportData {
   final List<SpAutomatedTimer> automatedTimers;
   final List<SpRepeatedTimer> repeatedTimers;
   final String? systemName;
+  final String? systemColor;
+  final String? systemDescription;
 
   const SpExportData({
     required this.members,
@@ -32,6 +34,8 @@ class SpExportData {
     this.automatedTimers = const [],
     this.repeatedTimers = const [],
     this.systemName,
+    this.systemColor,
+    this.systemDescription,
   });
 
   int get totalEntities =>
@@ -61,7 +65,7 @@ class SpMember {
   final String? color;
   final String? desc;
   final bool archived;
-  final int? pkId;
+  final String? pkId;
   final Map<String, dynamic> info;
 
   const SpMember({
@@ -85,7 +89,9 @@ class SpMember {
       color: json['color'] as String?,
       desc: json['desc'] as String?,
       archived: json['archived'] == true,
-      pkId: json['pkId'] is int ? json['pkId'] as int : null,
+      pkId: json['pkId'] != null && json['pkId'].toString().isNotEmpty
+          ? json['pkId'].toString()
+          : null,
       info: json['info'] is Map<String, dynamic>
           ? json['info'] as Map<String, dynamic>
           : const {},
@@ -189,6 +195,8 @@ class SpGroup {
   final String? desc;
   final List<String> memberIds;
   final String? color;
+  final String? emoji;
+  final String? parent;
 
   const SpGroup({
     required this.id,
@@ -196,6 +204,8 @@ class SpGroup {
     this.desc,
     this.memberIds = const [],
     this.color,
+    this.emoji,
+    this.parent,
   });
 
   factory SpGroup.fromJson(Map<String, dynamic> json) {
@@ -213,6 +223,8 @@ class SpGroup {
       desc: json['desc'] as String?,
       memberIds: memberList,
       color: json['color'] as String?,
+      emoji: json['emoji'] as String?,
+      parent: json['parent'] as String?,
     );
   }
 }
@@ -575,10 +587,23 @@ class SpParser {
 
     // Parse system name from settings if available.
     String? systemName;
+    String? systemColor;
+    String? systemDescription;
     final settings = json['settings'];
     if (settings is Map<String, dynamic>) {
       systemName =
           settings['systemName'] as String? ?? settings['name'] as String?;
+    }
+
+    // Try to get system info from users collection.
+    final users = json['users'];
+    if (users is List && users.isNotEmpty) {
+      final user = users.first;
+      if (user is Map<String, dynamic>) {
+        systemName ??= user['username'] as String?;
+        systemColor ??= user['color'] as String?;
+        systemDescription ??= user['desc'] as String?;
+      }
     }
 
     return SpExportData(
@@ -602,6 +627,8 @@ class SpParser {
       repeatedTimers:
           _parseList(json['repeatedReminders'] ?? json['repeatedRemidners'] ?? json['repeatedTimers'], SpRepeatedTimer.fromJson),
       systemName: systemName,
+      systemColor: systemColor,
+      systemDescription: systemDescription,
     );
   }
 
