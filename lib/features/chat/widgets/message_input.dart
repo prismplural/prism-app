@@ -12,10 +12,13 @@ import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart' as media;
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
+import 'package:prism_plurality/features/chat/widgets/gif_picker_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/mention_overlay.dart';
 import 'package:prism_plurality/features/chat/widgets/voice_recorder.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -170,6 +173,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   void _showAttachmentSheet() {
+    final gifEnabled = ref.read(gifSearchEnabledProvider);
+
     PrismSheet.show(
       context: context,
       title: 'Add Attachment',
@@ -198,9 +203,66 @@ class _MessageInputState extends ConsumerState<MessageInput> {
               _pickImage(ImageSource.gallery);
             },
           ),
+          if (gifEnabled)
+            PrismListRow(
+              leading: Icon(
+                AppIcons.gif,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: const Text('GIF'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _showGifPicker();
+              },
+            ),
         ],
       ),
     );
+  }
+
+  Future<void> _showGifPicker() async {
+    final gif = await GifPickerSheet.show(context);
+    if (gif != null && mounted) {
+      await _sendGif(gif);
+    }
+  }
+
+  Future<void> _sendGif(KlipyGif gif) async {
+    final speakingAs = ref.read(speakingAsProvider);
+    if (speakingAs == null) return;
+
+    setState(() => _isSending = true);
+
+    try {
+      final messageId = await ref.read(chatNotifierProvider.notifier).sendMessage(
+            conversationId: widget.conversationId,
+            content: '',
+            authorId: speakingAs,
+          );
+
+      final repo = ref.read(mediaAttachmentRepositoryProvider);
+      await repo.create(media.MediaAttachment(
+        id: const Uuid().v4(),
+        messageId: messageId,
+        mediaId: '',
+        mediaType: 'gif',
+        encryptionKeyB64: '',
+        contentHash: '',
+        plaintextHash: '',
+        mimeType: 'video/mp4',
+        sizeBytes: 0,
+        width: gif.width,
+        height: gif.height,
+        durationMs: 0,
+        blurhash: gif.contentDescription,
+        waveformB64: '',
+        thumbnailMediaId: '',
+        sourceUrl: gif.mp4Url,
+        previewUrl: gif.previewUrl,
+      ));
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
   }
 
   Future<void> _sendMessage() async {
