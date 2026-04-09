@@ -536,16 +536,7 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
       PrismToast.show(context, message: 'Please enter your password.');
       return;
     }
-    final state = ref.read(devicePairingProvider);
-    // If we came through the relay ceremony (SAS verification), use the
-    // ceremony completion path. Otherwise fall back to URL-based join.
-    if (state.sasWords != null) {
-      ref
-          .read(devicePairingProvider.notifier)
-          .completeJoinerWithPassword(password);
-    } else {
-      ref.read(devicePairingProvider.notifier).connect(password);
-    }
+    ref.read(devicePairingProvider.notifier).completeJoinerWithPassword(password);
   }
 }
 

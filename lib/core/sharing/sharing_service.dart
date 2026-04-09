@@ -8,8 +8,9 @@ import 'package:prism_plurality/core/sharing/friend.dart';
 import 'package:prism_plurality/core/sharing/pending_sharing_request.dart';
 import 'package:prism_plurality/core/sharing/share_invite.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
-import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sharing/sharing_sync_api.dart';
 import 'package:prism_plurality/domain/models/friend_record.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 
@@ -24,18 +25,22 @@ class SharingService {
     required SystemSettingsRepository settingsRepository,
     required FriendsRepository friendsRepository,
     required SharingRequestsDao sharingRequestsDao,
+    SharingSyncApi? sharingApi,
   }) : _handle = handle,
        _settingsRepository = settingsRepository,
        _friendsRepository = friendsRepository,
-       _sharingRequestsDao = sharingRequestsDao;
+       _sharingRequestsDao = sharingRequestsDao,
+       _sharingApi = sharingApi ?? const PrismSyncSharingApi();
 
   final ffi.PrismSyncHandle _handle;
   final SystemSettingsRepository _settingsRepository;
   final FriendsRepository _friendsRepository;
   final SharingRequestsDao _sharingRequestsDao;
+  final SharingSyncApi _sharingApi;
 
   Future<ShareInvite> createInvite({String? displayName}) async {
-    final sharingId = await _ensureSharingReady();
+    final identity = await _currentIdentity();
+    final sharingId = await _ensureSharingReady(identity);
     return ShareInvite(
       sharingId: sharingId,
       displayName: _cleanOptionalText(displayName),
@@ -44,15 +49,34 @@ class SharingService {
   }
 
   Future<void> disableSharing() async {
-    final settings = await _settingsRepository.getSettings();
-    final sharingId = settings.sharingId;
+    final identity = await _currentIdentity();
+    final sharingId = identity.sharingId;
     if (sharingId == null || sharingId.isEmpty) {
       return;
     }
 
-    await ffi.sharingDisable(handle: _handle, sharingId: sharingId);
-    await _settingsRepository.updateSharingId(null);
-    await drainRustStore(_handle);
+    await _sharingApi.sharingDisable(handle: _handle, sharingId: sharingId);
+    // Keep the synced sharing_id stable across disable/re-enable cycles.
+    await _sharingApi.persistState(handle: _handle);
+  }
+
+  Future<int> changePassword({
+    required String oldPassword,
+    required String newPassword,
+    required List<int> secretKey,
+  }) async {
+    final identity = await _currentIdentity();
+    final nextGeneration = await _sharingApi.changePassword(
+      handle: _handle,
+      oldPassword: oldPassword,
+      newPassword: newPassword,
+      secretKey: secretKey,
+      sharingId: identity.sharingId,
+      currentIdentityGeneration: identity.identityGeneration,
+    );
+    await _settingsRepository.updateIdentityGeneration(nextGeneration);
+    await _sharingApi.persistPasswordChangeState(handle: _handle);
+    return nextGeneration;
   }
 
   Future<Friend> initiateFromInvite(
@@ -60,7 +84,8 @@ class SharingService {
     required String displayName,
     required List<ShareScope> offeredScopes,
   }) async {
-    final senderSharingId = await _ensureSharingReady();
+    final identity = await _currentIdentity();
+    final senderSharingId = await _ensureSharingReady(identity);
     final normalizedDisplayName = displayName.trim();
     if (normalizedDisplayName.isEmpty) {
       throw SharingException('Display name is required');
@@ -69,7 +94,7 @@ class SharingService {
       throw SharingException('Select at least one scope to share');
     }
 
-    final responseJson = await ffi.sharingInitiate(
+    final responseJson = await _sharingApi.sharingInitiate(
       handle: _handle,
       senderSharingId: senderSharingId,
       recipientSharingId: invite.sharingId,
@@ -77,6 +102,7 @@ class SharingService {
       offeredScopes: jsonEncode(
         offeredScopes.map((scope) => scope.name).toList(),
       ),
+      identityGeneration: identity.identityGeneration,
     );
     final response = _asMap(
       jsonDecode(responseJson),
@@ -128,14 +154,18 @@ class SharingService {
   }
 
   Future<SharingInboxRefreshResult> refreshPendingRequests() async {
-    final settings = await _settingsRepository.getSettings();
-    final sharingId = settings.sharingId;
+    final identity = await _currentIdentity();
+    final sharingId = identity.sharingId;
     if (sharingId == null || sharingId.isEmpty) {
       return const SharingInboxRefreshResult();
     }
 
-    await ffi.sharingEnsurePrekey(handle: _handle, sharingId: sharingId);
-    await drainRustStore(_handle);
+    await _sharingApi.sharingEnsurePrekey(
+      handle: _handle,
+      sharingId: sharingId,
+      identityGeneration: identity.identityGeneration,
+    );
+    await _sharingApi.persistState(handle: _handle);
 
     final friends = await _friendsRepository.watchAll().first;
     final requests = await _sharingRequestsDao.getAll();
@@ -165,11 +195,12 @@ class SharingService {
       'pinned_identities': pinnedIdentities,
       'verified_peers': verifiedPeers,
     });
-    final resultsJson = await ffi.sharingProcessPending(
+    final resultsJson = await _sharingApi.sharingProcessPending(
       handle: _handle,
       recipientSharingId: sharingId,
       existingRelationshipsJson: existingRelationshipsJson,
       seenInitIdsJson: jsonEncode(seenInitIds.toList()),
+      identityGeneration: identity.identityGeneration,
     );
     final decoded = jsonDecode(resultsJson);
     if (decoded is! List) {
@@ -290,7 +321,11 @@ class SharingService {
         identityBundleB64: base64Encode(identityBytes),
       );
     }
-    return ffi.sharingFingerprint(identityBundleB64: friend.publicKeyHex);
+    return ffi.sharingFingerprint(
+      identityBundleB64: base64Encode(
+        _decodeLegacyIdentityHex(friend.publicKeyHex),
+      ),
+    );
   }
 
   Future<String> fingerprintForPendingRequest(
@@ -413,22 +448,30 @@ class SharingService {
   }
 
   Future<String?> currentSharingId() async {
-    final settings = await _settingsRepository.getSettings();
-    return settings.sharingId;
+    return (await _currentIdentity()).sharingId;
   }
 
-  Future<String> _ensureSharingReady() async {
-    final settings = await _settingsRepository.getSettings();
-    final sharingId = await ffi.sharingEnable(
+  Future<String> _ensureSharingReady(_SharingIdentity identity) async {
+    final sharingId = await _sharingApi.sharingEnable(
       handle: _handle,
-      currentSharingId: settings.sharingId,
+      currentSharingId: identity.sharingId,
+      identityGeneration: identity.identityGeneration,
     );
-    if (settings.sharingId != sharingId) {
+    if (identity.sharingId != sharingId) {
       await _settingsRepository.updateSharingId(sharingId);
     }
-    await ffi.sharingEnsurePrekey(handle: _handle, sharingId: sharingId);
-    await drainRustStore(_handle);
+    await _sharingApi.sharingEnsurePrekey(
+      handle: _handle,
+      sharingId: sharingId,
+      identityGeneration: identity.identityGeneration,
+    );
+    await _sharingApi.persistState(handle: _handle);
     return sharingId;
+  }
+
+  Future<_SharingIdentity> _currentIdentity() async {
+    final settings = await _settingsRepository.getSettings();
+    return _SharingIdentity.fromSettings(settings);
   }
 
   Future<Uint8List> _pairwiseSecretBytes(Friend friend) async {
@@ -440,6 +483,26 @@ class SharingService {
       return ffi.hexDecode(hexStr: legacySecret);
     }
     throw SharingException('No pairwise secret for friend ${friend.id}');
+  }
+
+  List<int> _decodeLegacyIdentityHex(String hex) {
+    final normalized = hex.trim();
+    if (normalized.isEmpty || normalized.length.isOdd) {
+      throw SharingException('Invalid legacy identity encoding');
+    }
+
+    try {
+      return List<int>.generate(
+        normalized.length ~/ 2,
+        (index) => int.parse(
+          normalized.substring(index * 2, index * 2 + 2),
+          radix: 16,
+        ),
+        growable: false,
+      );
+    } on FormatException {
+      throw SharingException('Invalid legacy identity encoding');
+    }
   }
 
   Future<void> _storePendingRequest(
@@ -534,6 +597,23 @@ class SharingService {
       return value;
     }
     throw SharingException('Invalid $field in sharing response');
+  }
+}
+
+class _SharingIdentity {
+  const _SharingIdentity({
+    required this.sharingId,
+    required this.identityGeneration,
+  });
+
+  final String? sharingId;
+  final int identityGeneration;
+
+  factory _SharingIdentity.fromSettings(SystemSettings settings) {
+    return _SharingIdentity(
+      sharingId: settings.sharingId,
+      identityGeneration: settings.identityGeneration,
+    );
   }
 }
 

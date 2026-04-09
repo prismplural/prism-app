@@ -63,13 +63,6 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
     required ffi.PrismSyncHandle handle,
     required String password,
   }) => Future.value('ok');
-
-  @override
-  Future<void> joinFromUrl({
-    required ffi.PrismSyncHandle handle,
-    required String url,
-    required String password,
-  }) => throw UnimplementedError();
 }
 
 void main() {

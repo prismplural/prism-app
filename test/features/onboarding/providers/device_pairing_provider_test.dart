@@ -80,13 +80,6 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
     required ffi.PrismSyncHandle handle,
     required String password,
   }) => throw UnimplementedError();
-
-  @override
-  Future<void> joinFromUrl({
-    required ffi.PrismSyncHandle handle,
-    required String url,
-    required String password,
-  }) => Future.value();
 }
 
 void main() {
@@ -94,7 +87,6 @@ void main() {
     test('default state starts at enterUrl step', () {
       const state = PairingState();
       expect(state.step, PairingStep.enterUrl);
-      expect(state.url, isNull);
       expect(state.errorMessage, isNull);
       expect(state.errorCode, isNull);
       expect(state.counts, isNull);
@@ -115,7 +107,6 @@ void main() {
       expect(updated.requestQrPayload, [1, 2, 3, 4]);
       expect(updated.requestDeviceId, 'device-abc-123');
       // Other fields remain null/default
-      expect(updated.url, isNull);
       expect(updated.errorMessage, isNull);
       expect(updated.syncIncomplete, isFalse);
     });
@@ -134,10 +125,8 @@ void main() {
 
       final state2 = state1.copyWith(
         step: PairingStep.enterPassword,
-        url: 'qr-approval:base64data',
       );
       expect(state2.step, PairingStep.enterPassword);
-      expect(state2.url, 'qr-approval:base64data');
       // Request fields should carry forward
       expect(state2.requestQrPayload, [0xDE, 0xAD]);
       expect(state2.requestDeviceId, 'dev-001');
@@ -156,24 +145,20 @@ void main() {
 
     test('copyWith can clear nullable fields by passing null', () {
       final state = const PairingState().copyWith(
-        url: 'some-url',
         errorMessage: 'some error',
         errorCode: 'ERR_001',
         requestQrPayload: [1, 2, 3],
         requestDeviceId: 'dev-x',
       );
-      expect(state.url, 'some-url');
       expect(state.errorMessage, 'some error');
       expect(state.errorCode, 'ERR_001');
 
       final cleared = state.copyWith(
-        url: null,
         errorMessage: null,
         errorCode: null,
         requestQrPayload: null,
         requestDeviceId: null,
       );
-      expect(cleared.url, isNull);
       expect(cleared.errorMessage, isNull);
       expect(cleared.errorCode, isNull);
       expect(cleared.requestQrPayload, isNull);
@@ -196,7 +181,6 @@ void main() {
         step: PairingStep.error,
         errorMessage: 'Something went wrong',
         errorCode: 'GENERIC',
-        url: 'stale-url',
         requestQrPayload: [1, 2, 3],
         requestDeviceId: 'old-device',
       );
@@ -205,7 +189,6 @@ void main() {
       // Simulating reset(): rebuild returns default PairingState
       const resetState = PairingState();
       expect(resetState.step, PairingStep.enterUrl);
-      expect(resetState.url, isNull);
       expect(resetState.errorMessage, isNull);
       expect(resetState.errorCode, isNull);
       expect(resetState.requestQrPayload, isNull);

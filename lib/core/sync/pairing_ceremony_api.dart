@@ -24,12 +24,6 @@ abstract class PairingCeremonyApi {
     required ffi.PrismSyncHandle handle,
     required String password,
   });
-
-  Future<void> joinFromUrl({
-    required ffi.PrismSyncHandle handle,
-    required String url,
-    required String password,
-  });
 }
 
 class FrbPairingCeremonyApi extends PairingCeremonyApi {
@@ -67,15 +61,6 @@ class FrbPairingCeremonyApi extends PairingCeremonyApi {
     required String password,
   }) {
     return ffi.completeInitiatorCeremony(handle: handle, password: password);
-  }
-
-  @override
-  Future<void> joinFromUrl({
-    required ffi.PrismSyncHandle handle,
-    required String url,
-    required String password,
-  }) {
-    return ffi.joinFromUrl(handle: handle, url: url, password: password);
   }
 }
 

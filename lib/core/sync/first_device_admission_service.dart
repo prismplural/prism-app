@@ -15,9 +15,7 @@ class FirstDeviceAdmissionService {
     required String relayUrl,
     String? registrationToken,
   }) async {
-    final pairingJson = await ffi.generatePairingRequest(handle: handle);
-    final pairing = jsonDecode(pairingJson) as Map<String, dynamic>;
-    final deviceId = pairing['device_id'] as String;
+    final deviceId = await ffi.preparePendingDeviceIdentity(handle: handle);
     final syncId = _generateSyncId();
 
     final nonceUri = Uri.parse('$relayUrl/v1/sync/$syncId/register-nonce');
