@@ -51,7 +51,6 @@ import 'package:prism_plurality/domain/repositories/friends_repository.dart';
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
 import 'package:prism_plurality/domain/repositories/media_attachment_repository.dart';
-import 'package:prism_plurality/domain/models/media_attachment.dart';
 
 // DAO providers
 final membersDaoProvider = Provider<MembersDao>(
@@ -245,8 +244,3 @@ final mediaAttachmentRepositoryProvider = Provider<MediaAttachmentRepository>(
   ),
 );
 
-final mediaAttachmentsForMessageProvider =
-    StreamProvider.family<List<MediaAttachment>, String>((ref, messageId) {
-  final repo = ref.watch(mediaAttachmentRepositoryProvider);
-  return repo.watchForMessage(messageId);
-});
