@@ -9,3 +9,4 @@ export 'poll_votes_dao.dart';
 export 'pluralkit_sync_dao.dart';
 export 'habits_dao.dart';
 export 'sync_quarantine_dao.dart';
+export 'media_attachments_dao.dart';

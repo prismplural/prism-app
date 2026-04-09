@@ -48,6 +48,10 @@ import 'package:prism_plurality/domain/repositories/front_session_comments_repos
 import 'package:prism_plurality/domain/repositories/conversation_categories_repository.dart';
 import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
+import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
+import 'package:prism_plurality/data/repositories/drift_media_attachment_repository.dart';
+import 'package:prism_plurality/domain/repositories/media_attachment_repository.dart';
+import 'package:prism_plurality/domain/models/media_attachment.dart';
 
 // DAO providers
 final membersDaoProvider = Provider<MembersDao>(
@@ -229,3 +233,20 @@ final friendsRepositoryProvider = Provider<FriendsRepository>(
     _resolveSyncHandle(ref),
   ),
 );
+
+final mediaAttachmentsDaoProvider = Provider<MediaAttachmentsDao>(
+  (ref) => ref.watch(databaseProvider).mediaAttachmentsDao,
+);
+
+final mediaAttachmentRepositoryProvider = Provider<MediaAttachmentRepository>(
+  (ref) => DriftMediaAttachmentRepository(
+    ref.watch(mediaAttachmentsDaoProvider),
+    _resolveSyncHandle(ref),
+  ),
+);
+
+final mediaAttachmentsForMessageProvider =
+    StreamProvider.family<List<MediaAttachment>, String>((ref, messageId) {
+  final repo = ref.watch(mediaAttachmentRepositoryProvider);
+  return repo.watchForMessage(messageId);
+});

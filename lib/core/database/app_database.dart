@@ -18,6 +18,7 @@ import 'package:prism_plurality/core/database/daos/conversation_categories_dao.d
 import 'package:prism_plurality/core/database/daos/reminders_dao.dart';
 import 'package:prism_plurality/core/database/daos/friends_dao.dart';
 import 'package:prism_plurality/core/database/daos/sharing_requests_dao.dart';
+import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/core/database/tables/tables.dart';
 
 part 'app_database.g.dart';
@@ -47,6 +48,7 @@ part 'app_database.g.dart';
     Reminders,
     Friends,
     SharingRequests,
+    MediaAttachments,
   ],
   daos: [
     MembersDao,
@@ -68,13 +70,14 @@ part 'app_database.g.dart';
     RemindersDao,
     FriendsDao,
     SharingRequestsDao,
+    MediaAttachmentsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 35;
+  int get schemaVersion => 36;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -133,6 +136,10 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE system_settings ADD COLUMN identity_generation INTEGER NOT NULL DEFAULT 0',
         );
+      }
+
+      if (from < 36) {
+        await migrator.createTable(mediaAttachments);
       }
     },
     onCreate: (migrator) async {

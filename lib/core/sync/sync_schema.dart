@@ -274,6 +274,27 @@ const String prismSyncSchema = '''
         "last_sync_at": "DateTime",
         "is_deleted": "Bool"
       }
+    },
+    "media_attachments": {
+      "fields": {
+        "message_id": "String",
+        "media_id": "String",
+        "media_type": "String",
+        "encryption_key_b64": "String",
+        "content_hash": "String",
+        "plaintext_hash": "String",
+        "mime_type": "String",
+        "size_bytes": "Int",
+        "width": "Int",
+        "height": "Int",
+        "duration_ms": "Int",
+        "blurhash": "String",
+        "waveform_b64": "String",
+        "thumbnail_media_id": "String",
+        "source_url": "String",
+        "preview_url": "String",
+        "is_deleted": "Bool"
+      }
     }
   }
 }
