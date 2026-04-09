@@ -2,6 +2,22 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.12] - 2026-04-09
+
+### Added
+- Voice note recording and playback in chat — tap mic button to record, send encrypted OGG audio
+- Voice recorder widget with live waveform visualization and elapsed time display
+- Voice playback with play/pause, seek, and speed cycling (1x/1.5x/2x) in message bubbles
+- Microphone permissions for iOS, Android, and macOS (sandbox entitlements included)
+- `prepareVoiceNote` and `uploadVoice` methods on MediaService for encrypted voice upload
+- 59 new tests covering waveform normalization, recording/playback state machines, and voice bubble widget
+
+### Fixed
+- Voice bubbles no longer rebuild all visible bubbles on every playback position tick (uses Riverpod `.select()`)
+- Voice playback AudioPlayer and stream subscriptions now clean up via `ref.onDispose`
+- Amplitude sample collection during recording no longer creates O(n²) list copies
+- Voice note send reorders attachment prep before message creation to prevent orphaned empty bubbles on failure
+
 ## [0.2.11] - 2026-04-03
 
 ### Changed
