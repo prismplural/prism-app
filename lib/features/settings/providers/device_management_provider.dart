@@ -13,12 +13,14 @@ class Device {
     required this.epoch,
     required this.status,
     this.permission,
+    this.mlDsaKeyGeneration = 0,
   });
 
   final String deviceId;
   final int epoch;
   final String status;
   final String? permission;
+  final int mlDsaKeyGeneration;
 
   factory Device.fromJson(Map<String, dynamic> json) {
     return Device(
@@ -26,6 +28,7 @@ class Device {
       epoch: json['epoch'] as int,
       status: json['status'] as String,
       permission: json['permission'] as String?,
+      mlDsaKeyGeneration: (json['ml_dsa_key_generation'] as int?) ?? 0,
     );
   }
 
@@ -93,6 +96,22 @@ class DeviceListNotifier extends AsyncNotifier<List<Device>> {
     );
 
     ref.invalidateSelf();
+  }
+
+  /// Rotate this device's ML-DSA signing key.
+  ///
+  /// Creates a new key at the next generation with a cross-signed continuity
+  /// proof, submits it to the relay, and updates the local registry.
+  /// Returns the new generation number.
+  Future<int> rotateMlDsaKey() async {
+    final handle = ref.read(prismSyncHandleProvider).value;
+    if (handle == null) throw Exception('Sync not configured');
+
+    final resultJson = await ffi.rotateMlDsaKey(handle: handle);
+    final result = json.decode(resultJson) as Map<String, dynamic>;
+
+    ref.invalidateSelf();
+    return result['ml_dsa_key_generation'] as int;
   }
 
   /// Read a base64-encoded credential from secure storage.
