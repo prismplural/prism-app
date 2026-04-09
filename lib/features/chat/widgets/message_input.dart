@@ -2,16 +2,19 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatf
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
+import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
 import 'package:prism_plurality/features/chat/widgets/mention_overlay.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -35,9 +38,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   OverlayEntry? _mentionOverlay;
   String _mentionFilter = '';
   final _mentionOverlayKey = GlobalKey<MentionOverlayState>();
+  Uint8List? _stagedImageBytes;
 
   bool get _canSend =>
-      _controller.text.trim().isNotEmpty &&
+      (_controller.text.trim().isNotEmpty || _stagedImageBytes != null) &&
       ref.read(speakingAsProvider) != null;
 
   @override
@@ -138,33 +142,94 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     setState(() {}); // Update _canSend.
   }
 
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: source,
+      imageQuality: 90,
+    );
+    if (picked != null) {
+      final bytes = await picked.readAsBytes();
+      if (mounted) {
+        setState(() => _stagedImageBytes = bytes);
+      }
+    }
+  }
+
+  void _showAttachmentSheet() {
+    PrismSheet.show(
+      context: context,
+      title: 'Add Attachment',
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PrismListRow(
+            leading: Icon(
+              AppIcons.cameraAlt,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: const Text('Camera'),
+            onTap: () {
+              Navigator.of(context).pop();
+              _pickImage(ImageSource.camera);
+            },
+          ),
+          PrismListRow(
+            leading: Icon(
+              AppIcons.photoLibrary,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            title: const Text('Photo Library'),
+            onTap: () {
+              Navigator.of(context).pop();
+              _pickImage(ImageSource.gallery);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
+    final hasImage = _stagedImageBytes != null;
+    if (text.isEmpty && !hasImage) return;
 
     final speakingAs = ref.read(speakingAsProvider);
     if (speakingAs == null) return;
 
     setState(() => _isSending = true);
 
-    // Capture reply state before the async gap
+    // Capture reply state and staged image before the async gap.
     final replyingTo = ref.read(replyingToProvider(widget.conversationId));
+    final imageBytes = _stagedImageBytes;
 
     try {
-      await ref.read(chatNotifierProvider.notifier).sendMessage(
+      // Send the text message (or empty content placeholder if image-only).
+      final messageId = await ref.read(chatNotifierProvider.notifier).sendMessage(
             conversationId: widget.conversationId,
-            content: text,
+            content: text.isNotEmpty ? text : '',
             authorId: speakingAs,
             replyToId: replyingTo?.id,
             replyToAuthorId: replyingTo?.authorId,
             replyToContent: replyingTo?.content,
           );
+
+      // TODO(media): Process and upload the image attachment when
+      // MediaService infrastructure is available. Use imageBytes + messageId
+      // to create and upload a MediaAttachment record.
+      // ignore: unused_local_variable
+      final _ = (imageBytes, messageId);
+
       _controller.removeListener(_onTextChanged);
       _controller.clear();
       _controller.addListener(_onTextChanged);
       _dismissMentionOverlay();
       _focusNode.requestFocus();
       ref.read(replyingToProvider(widget.conversationId).notifier).clear();
+      if (mounted) {
+        setState(() => _stagedImageBytes = null);
+      }
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
@@ -190,6 +255,18 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // Staged image preview strip
+        AnimatedSize(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          child: _stagedImageBytes != null
+              ? AttachmentPreview(
+                  imageBytes: _stagedImageBytes!,
+                  onRemove: () => setState(() => _stagedImageBytes = null),
+                )
+              : const SizedBox.shrink(),
+        ),
+        // Reply banner
         AnimatedSize(
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
@@ -270,6 +347,18 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _showAttachmentSheet,
+                  child: TintedGlassSurface.circle(
+                    size: inputHeight,
+                    child: Icon(
+                      AppIcons.add,
+                      size: 19,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
