@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/chat/models/conversation_permissions.da
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/media_attachment_providers.dart';
 import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
+import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
 import 'package:prism_plurality/features/chat/widgets/media/image_bubble.dart';
@@ -622,10 +623,51 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       case 'image':
         return _buildImageAttachment(attachment);
       case 'voice':
-        return VoiceBubble(durationMs: attachment.durationMs);
+        return _buildVoiceAttachment(attachment, authorColor);
       default:
         return const ExpiredMedia();
     }
+  }
+
+  Widget _buildVoiceAttachment(MediaAttachment attachment, Color authorColor) {
+    final params = (
+      mediaId: attachment.mediaId,
+      encryptionKeyB64: attachment.encryptionKeyB64,
+      ciphertextHash: attachment.contentHash,
+      plaintextHash: attachment.plaintextHash,
+    );
+    final mediaAsync = ref.watch(mediaAudioFileProvider(params));
+    final playback = ref.watch(voicePlaybackProvider);
+
+    final isThisNote = playback.activeMediaId == attachment.mediaId;
+    final isPlaying = isThisNote && playback.isPlaying;
+    final progress = isThisNote && playback.duration.inMilliseconds > 0
+        ? playback.position.inMilliseconds / playback.duration.inMilliseconds
+        : 0.0;
+
+    return VoiceBubble(
+      durationMs: attachment.durationMs,
+      isPlaying: isPlaying,
+      progress: progress,
+      speed: isThisNote ? playback.speed : 1.0,
+      isLoading: mediaAsync.isLoading,
+      onPlayPause: mediaAsync.value != null
+          ? () => ref
+              .read(voicePlaybackProvider.notifier)
+              .togglePlayPause(attachment.mediaId, mediaAsync.value!)
+          : null,
+      onSeek: mediaAsync.value != null
+          ? (fraction) {
+              final totalMs = attachment.durationMs;
+              ref
+                  .read(voicePlaybackProvider.notifier)
+                  .seek(Duration(milliseconds: (fraction * totalMs).round()));
+            }
+          : null,
+      onSpeedTap: isThisNote
+          ? () => ref.read(voicePlaybackProvider.notifier).cycleSpeed()
+          : null,
+    );
   }
 
   Widget _buildImageAttachment(MediaAttachment attachment) {

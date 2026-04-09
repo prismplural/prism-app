@@ -12,8 +12,11 @@ class VoiceBubble extends StatefulWidget {
     required this.durationMs,
     this.isPlaying = false,
     this.progress = 0.0,
+    this.speed = 1.0,
+    this.isLoading = false,
     this.onPlayPause,
     this.onSeek,
+    this.onSpeedTap,
   });
 
   /// Duration of the voice note in milliseconds.
@@ -25,11 +28,20 @@ class VoiceBubble extends StatefulWidget {
   /// Playback progress from 0.0 to 1.0.
   final double progress;
 
+  /// Current playback speed (1.0, 1.5, or 2.0).
+  final double speed;
+
+  /// Whether the audio file is loading (downloading/decrypting).
+  final bool isLoading;
+
   /// Called when the play/pause button is tapped.
   final VoidCallback? onPlayPause;
 
   /// Called when the user seeks to a position (0.0 to 1.0).
   final ValueChanged<double>? onSeek;
+
+  /// Called when the speed chip is tapped to cycle speed.
+  final VoidCallback? onSpeedTap;
 
   @override
   State<VoiceBubble> createState() => _VoiceBubbleState();
@@ -59,24 +71,34 @@ class _VoiceBubbleState extends State<VoiceBubble> {
           children: [
             // Play/pause button — minimum 44px touch target
             Semantics(
-              label: widget.isPlaying
-                  ? 'Pause voice note, $durationText'
-                  : 'Play voice note, $durationText',
+              label: widget.isLoading
+                  ? 'Loading voice note, $durationText'
+                  : widget.isPlaying
+                      ? 'Pause voice note, $durationText'
+                      : 'Play voice note, $durationText',
               button: true,
               child: SizedBox(
                 width: 44,
                 height: 44,
-                child: IconButton(
-                  icon: Icon(
-                    widget.isPlaying
-                        ? AppIcons.stopRounded
-                        : AppIcons.playArrowRounded,
-                    size: 22,
-                    color: theme.colorScheme.primary,
-                  ),
-                  onPressed: widget.onPlayPause,
-                  padding: EdgeInsets.zero,
-                ),
+                child: widget.isLoading
+                    ? const Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : IconButton(
+                        icon: Icon(
+                          widget.isPlaying
+                              ? AppIcons.stopRounded
+                              : AppIcons.playArrowRounded,
+                          size: 22,
+                          color: theme.colorScheme.primary,
+                        ),
+                        onPressed: widget.onPlayPause,
+                        padding: EdgeInsets.zero,
+                      ),
               ),
             ),
             const SizedBox(width: 4),
@@ -149,7 +171,42 @@ class _VoiceBubbleState extends State<VoiceBubble> {
               ),
             ),
 
-            const SizedBox(width: 8),
+            // Speed indicator chip
+            if (widget.isPlaying || widget.onSpeedTap != null)
+              Semantics(
+                label:
+                    'Playback speed ${widget.speed}x. Double tap to change.',
+                button: true,
+                child: SizedBox(
+                  height: 44,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: widget.onSpeedTap,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${widget.speed == widget.speed.roundToDouble() ? widget.speed.toInt().toString() : widget.speed.toString()}x',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              const SizedBox(width: 8),
           ],
         ),
       ),
