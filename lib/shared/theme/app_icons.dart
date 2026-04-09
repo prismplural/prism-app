@@ -305,6 +305,7 @@ abstract final class AppIcons {
   static final desktop = PhosphorIcons.desktop();
   static final microphone = PhosphorIcons.microphone();
   static final gif = PhosphorIcons.gif();
+  static final playCircle = PhosphorIcons.playCircle();
 
   // ── Polls (regular) ───────────────────────────────────────────────────
 
