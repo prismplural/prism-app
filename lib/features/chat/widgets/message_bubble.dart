@@ -6,7 +6,11 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/chat/providers/media_attachment_providers.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
+import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
+import 'package:prism_plurality/features/chat/widgets/media/image_bubble.dart';
+import 'package:prism_plurality/features/chat/widgets/media/voice_bubble.dart';
 import 'package:prism_plurality/features/chat/widgets/reaction_bar.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -528,6 +532,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                             ),
                           ),
                         ),
+                        ..._buildAttachments(context, theme, authorColor),
                         if (widget.message.reactions.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
@@ -579,6 +584,57 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         slideWidget,
       ],
     );
+  }
+
+  /// Build media attachment widgets for this message.
+  ///
+  /// Returns an empty list when no attachments exist. Each attachment is
+  /// rendered as an [ImageBubble], [VoiceBubble], or [ExpiredMediaPlaceholder]
+  /// based on its type and status.
+  List<Widget> _buildAttachments(
+    BuildContext context,
+    ThemeData theme,
+    Color authorColor,
+  ) {
+    final attachmentsAsync = ref.watch(
+      messageAttachmentsProvider(widget.message.id),
+    );
+
+    final attachments = attachmentsAsync.value;
+    if (attachments == null || attachments.isEmpty) return const [];
+
+    return [
+      for (final attachment in attachments)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: _buildSingleAttachment(attachment, authorColor),
+        ),
+    ];
+  }
+
+  Widget _buildSingleAttachment(MediaAttachment attachment, Color authorColor) {
+    if (attachment.isExpired) {
+      return const ExpiredMediaPlaceholder();
+    }
+
+    switch (attachment.mediaType) {
+      case 'image':
+        return ImageBubble(
+          attachment: attachment,
+          onTap: () {
+            // Full-screen viewer will be added in Batch 8.
+          },
+          accentColor: authorColor,
+        );
+      case 'voice':
+        return VoiceBubble(
+          attachment: attachment,
+          accentColor: authorColor,
+        );
+      default:
+        // Unknown media types show as expired/unavailable for now.
+        return const ExpiredMediaPlaceholder();
+    }
   }
 
   /// Build a TextSpan that renders @[uuid] tokens with member colors.
