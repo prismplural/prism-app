@@ -51,6 +51,8 @@
 	<string>Prism uses the camera to take photos in chat and scan pairing QR codes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Prism uses your photo library to set member avatars and share images in chat.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Prism uses the microphone to record voice notes in chat.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
