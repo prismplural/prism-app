@@ -1,9 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:uuid/uuid.dart';
 
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/domain/models/media_attachment.dart' as media;
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
@@ -215,11 +221,33 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             replyToContent: replyingTo?.content,
           );
 
-      // TODO(media): Process and upload the image attachment when
-      // MediaService infrastructure is available. Use imageBytes + messageId
-      // to create and upload a MediaAttachment record.
-      // ignore: unused_local_variable
-      final _ = (imageBytes, messageId);
+      if (imageBytes != null) {
+        final mediaService = ref.read(mediaServiceProvider);
+        final repo = ref.read(mediaAttachmentRepositoryProvider);
+        final data = await mediaService.prepareImage(imageBytes);
+
+        await repo.create(media.MediaAttachment(
+          id: const Uuid().v4(),
+          messageId: messageId,
+          mediaId: data.mediaId,
+          mediaType: 'image',
+          encryptionKeyB64: base64Encode(data.encryptionKey),
+          contentHash: data.contentHash,
+          plaintextHash: data.plaintextHash,
+          mimeType: data.mimeType,
+          sizeBytes: data.sizeBytes,
+          width: data.width,
+          height: data.height,
+          durationMs: 0,
+          blurhash: data.blurhash,
+          waveformB64: '',
+          thumbnailMediaId: data.thumbnailMediaId,
+          sourceUrl: '',
+          previewUrl: '',
+        ));
+
+        await mediaService.uploadPrepared(data);
+      }
 
       _controller.removeListener(_onTextChanged);
       _controller.clear();

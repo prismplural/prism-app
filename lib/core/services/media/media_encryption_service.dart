@@ -35,6 +35,22 @@ class MediaEncryptionService {
     );
   }
 
+  Future<EncryptedMedia> encryptMediaWithKey(Uint8List plaintext, Uint8List key) async {
+    final plaintextHash = sha256.convert(plaintext).toString();
+    final ciphertext = await ffi.encryptXchacha(
+      key: key,
+      plaintext: plaintext,
+    );
+    final ciphertextHash = sha256.convert(ciphertext).toString();
+
+    return EncryptedMedia(
+      ciphertext: ciphertext,
+      key: key,
+      plaintextHash: plaintextHash,
+      ciphertextHash: ciphertextHash,
+    );
+  }
+
   Future<Uint8List> decryptMedia({
     required Uint8List ciphertext,
     required Uint8List key,

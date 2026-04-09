@@ -60,7 +60,7 @@ class MediaService {
     final thumbnail = await compression.generateThumbnail(imageBytes);
 
     final encryptedImage = await encryption.encryptMedia(compressed.bytes);
-    final encryptedThumbnail = await encryption.encryptMedia(thumbnail);
+    final encryptedThumbnail = await encryption.encryptMediaWithKey(thumbnail, encryptedImage.key);
 
     final mediaId = _uuid.v4();
     final thumbnailMediaId = _uuid.v4();

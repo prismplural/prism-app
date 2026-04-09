@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -30,6 +29,8 @@ class DownloadManager {
 
   final ffi.PrismSyncHandle? handle;
   final MediaEncryptionService encryption;
+
+  Future<Directory>? _cacheDirFuture;
 
   static const _maxConcurrent = 4;
   int _activeDownloads = 0;
@@ -156,15 +157,18 @@ class DownloadManager {
     }
   }
 
-  Future<Directory> _cacheDir() async {
+  Future<Directory> _cacheDir() {
+    return _cacheDirFuture ??= _resolveCacheDir();
+  }
+
+  Future<Directory> _resolveCacheDir() async {
     final cacheBase = await getApplicationCacheDirectory();
     return Directory('${cacheBase.path}/prism_media');
   }
 
   Future<File> _cacheFileFor(String mediaId) async {
     final dir = await _cacheDir();
-    final cacheKey = sha256.convert(mediaId.codeUnits).toString();
-    return File('${dir.path}/$cacheKey');
+    return File('${dir.path}/$mediaId');
   }
 
   void dispose() {

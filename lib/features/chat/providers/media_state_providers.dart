@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,7 +9,7 @@ import 'package:prism_plurality/core/services/media/media_providers.dart';
 
 typedef MediaFileParams = ({
   String mediaId,
-  Uint8List encryptionKey,
+  String encryptionKeyB64,
   String ciphertextHash,
   String plaintextHash,
 });
@@ -33,9 +34,10 @@ final mediaFileProvider =
     FutureProvider.autoDispose.family<Uint8List?, MediaFileParams>(
   (ref, params) {
     final manager = ref.watch(downloadManagerProvider);
+    final encryptionKey = Uint8List.fromList(base64Decode(params.encryptionKeyB64));
     return manager.getMedia(
       mediaId: params.mediaId,
-      encryptionKey: params.encryptionKey,
+      encryptionKey: encryptionKey,
       ciphertextHash: params.ciphertextHash,
       plaintextHash: params.plaintextHash,
     );

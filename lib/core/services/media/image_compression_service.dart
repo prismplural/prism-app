@@ -54,22 +54,18 @@ class ImageCompressionService {
       format: CompressFormat.webp,
     );
 
-    final compressedDecoded = img.decodeImage(compressed);
-    final finalWidth = compressedDecoded?.width ?? targetWidth;
-    final finalHeight = compressedDecoded?.height ?? targetHeight;
-
-    final blurhash = await _computeBlurhash(source);
+    final blurhash = await _computeBlurhashFromImage(decoded);
 
     return CompressedImage(
       bytes: compressed,
-      width: finalWidth,
-      height: finalHeight,
+      width: targetWidth,
+      height: targetHeight,
       blurhash: blurhash,
     );
   }
 
-  Future<Uint8List> generateThumbnail(Uint8List source) async {
-    final decoded = img.decodeImage(source);
+  Future<Uint8List> generateThumbnail(Uint8List source, {img.Image? decoded}) async {
+    decoded ??= img.decodeImage(source);
     if (decoded == null) {
       throw ArgumentError('Unable to decode image');
     }
@@ -100,15 +96,9 @@ class ImageCompressionService {
     );
   }
 
-  static Future<String> _computeBlurhash(Uint8List imageBytes) {
+  static Future<String> _computeBlurhashFromImage(img.Image decoded) {
     return Isolate.run(() {
-      final decoded = img.decodeImage(imageBytes);
-      if (decoded == null) {
-        throw ArgumentError('Unable to decode image for blurhash');
-      }
-
       final small = img.copyResize(decoded, width: 32);
-
       return BlurHash.encode(
         small,
         numCompX: 4,

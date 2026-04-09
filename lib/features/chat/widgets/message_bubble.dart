@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -631,10 +629,9 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   }
 
   Widget _buildImageAttachment(MediaAttachment attachment) {
-    final encryptionKey = base64Decode(attachment.encryptionKeyB64);
     final params = (
       mediaId: attachment.mediaId,
-      encryptionKey: Uint8List.fromList(encryptionKey),
+      encryptionKeyB64: attachment.encryptionKeyB64,
       ciphertextHash: attachment.contentHash,
       plaintextHash: attachment.plaintextHash,
     );

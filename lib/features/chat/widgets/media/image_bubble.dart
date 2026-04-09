@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:blurhash_dart/blurhash_dart.dart';
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/chat/widgets/media/image_viewer.dart';
@@ -46,8 +49,26 @@ class ImageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final effectiveWidth = width ?? 240.0;
-    final effectiveHeight = height ?? 180.0;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxWidth = screenWidth * 0.70;
+    const maxHeight = 300.0;
+
+    // Compute constrained size from source dimensions
+    double effectiveWidth = width ?? 240.0;
+    double effectiveHeight = height ?? 180.0;
+
+    // Scale down to fit max width
+    if (effectiveWidth > maxWidth) {
+      final scale = maxWidth / effectiveWidth;
+      effectiveWidth = maxWidth;
+      effectiveHeight = effectiveHeight * scale;
+    }
+    // Scale down to fit max height
+    if (effectiveHeight > maxHeight) {
+      final scale = maxHeight / effectiveHeight;
+      effectiveHeight = maxHeight;
+      effectiveWidth = effectiveWidth * scale;
+    }
 
     return Semantics(
       label: imageBytes != null
@@ -95,7 +116,17 @@ class ImageBubble extends StatelessWidget {
       return _ErrorPlaceholder(width: w, height: h);
     }
 
-    // Loading state — show placeholder with spinner
+    // Loading state — show BlurHash placeholder if available, else spinner
+    if (blurhash != null && blurhash!.isNotEmpty) {
+      return ExcludeSemantics(
+        child: _BlurhashPlaceholder(
+          blurhash: blurhash!,
+          width: w,
+          height: h,
+        ),
+      );
+    }
+
     return ExcludeSemantics(
       child: Container(
         width: w,
@@ -112,6 +143,77 @@ class ImageBubble extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _BlurhashPlaceholder extends StatefulWidget {
+  const _BlurhashPlaceholder({
+    required this.blurhash,
+    required this.width,
+    required this.height,
+  });
+
+  final String blurhash;
+  final double width;
+  final double height;
+
+  @override
+  State<_BlurhashPlaceholder> createState() => _BlurhashPlaceholderState();
+}
+
+class _BlurhashPlaceholderState extends State<_BlurhashPlaceholder> {
+  ui.Image? _decoded;
+
+  @override
+  void initState() {
+    super.initState();
+    _decode();
+  }
+
+  @override
+  void didUpdateWidget(_BlurhashPlaceholder old) {
+    super.didUpdateWidget(old);
+    if (old.blurhash != widget.blurhash) _decode();
+  }
+
+  Future<void> _decode() async {
+    const pixelW = 32;
+    const pixelH = 32;
+    try {
+      final blurHash = BlurHash.decode(widget.blurhash);
+      final rgbaBytes = blurHash.toImage(pixelW, pixelH).getBytes();
+      final completer = Completer<ui.Image>();
+      ui.decodeImageFromPixels(
+        rgbaBytes,
+        pixelW,
+        pixelH,
+        ui.PixelFormat.rgba8888,
+        completer.complete,
+      );
+      final image = await completer.future;
+      if (mounted) setState(() => _decoded = image);
+    } catch (_) {
+      // BlurHash decode failure — leave blank
+    }
+  }
+
+  @override
+  void dispose() {
+    _decoded?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_decoded != null) {
+      return RawImage(
+        image: _decoded,
+        width: widget.width,
+        height: widget.height,
+        fit: BoxFit.cover,
+      );
+    }
+    return SizedBox(width: widget.width, height: widget.height);
   }
 }
 

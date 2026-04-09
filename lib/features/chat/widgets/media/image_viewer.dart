@@ -1,7 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -56,20 +56,6 @@ class _ImageViewerState extends State<ImageViewer> {
   double _dragOffset = 0.0;
   bool _isDragging = false;
   bool _isSharing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  }
-
-  @override
-  void dispose() {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
-    );
-    super.dispose();
-  }
 
   Future<void> _shareImage() async {
     if (_isSharing) return;
@@ -132,7 +118,7 @@ class _ImageViewerState extends State<ImageViewer> {
             label: 'Close viewer',
             button: true,
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: Icon(AppIcons.arrowBack, color: Colors.white),
               onPressed: () => Navigator.of(context).pop(),
             ),
           ),
