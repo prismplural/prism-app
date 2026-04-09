@@ -18,4 +18,5 @@ export 'fronting_analytics.dart';
 export 'member_group.dart';
 export 'member_group_entry.dart';
 export 'note.dart';
+export 'media_attachment.dart';
 export 'reminder.dart';
