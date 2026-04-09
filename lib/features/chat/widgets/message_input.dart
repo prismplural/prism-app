@@ -282,15 +282,18 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     }
 
     try {
+      // Prepare attachment before creating message so a failed encryption
+      // doesn't leave an orphaned empty message bubble in chat.
+      final mediaService = ref.read(mediaServiceProvider);
+      final data = await mediaService.prepareVoiceNote(audioBytes, durationMs, waveformB64);
+
       final messageId = await ref.read(chatNotifierProvider.notifier).sendMessage(
         conversationId: widget.conversationId,
         content: '',
         authorId: speakingAs,
       );
 
-      final mediaService = ref.read(mediaServiceProvider);
       final repo = ref.read(mediaAttachmentRepositoryProvider);
-      final data = await mediaService.prepareVoiceNote(audioBytes, durationMs, waveformB64);
 
       await repo.create(media.MediaAttachment(
         id: const Uuid().v4(),

@@ -56,6 +56,7 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
   StreamSubscription<RecordingDisposition>? _progressSub;
   String? _tempFilePath;
   static const _uuid = Uuid();
+  final List<double> _samples = [];
 
   @override
   VoiceRecordingState build() {
@@ -66,6 +67,7 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
   void _cleanup() {
     _progressSub?.cancel();
     _progressSub = null;
+    _samples.clear();
     _recorder?.closeRecorder();
     _recorder = null;
     if (_tempFilePath != null) {
@@ -96,10 +98,10 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
       );
 
       _progressSub = _recorder!.onProgress!.listen((event) {
-        final samples = [...state.amplitudeSamples, event.decibels ?? -160.0];
+        _samples.add(event.decibels ?? -160.0);
         state = state.copyWith(
           elapsedMs: event.duration.inMilliseconds,
-          amplitudeSamples: samples,
+          amplitudeSamples: List.unmodifiable(_samples),
         );
       });
 
@@ -128,8 +130,9 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
       _recorder = null;
 
       final bytes = await File(_tempFilePath!).readAsBytes();
+      await _deleteTempFile();
 
-      final samples = state.amplitudeSamples;
+      final samples = _samples;
       if (samples.isEmpty) {
         state = const VoiceRecordingState(
           status: VoiceRecordingStatus.error,
@@ -191,6 +194,7 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
   }
 
   void reset() {
+    _samples.clear();
     _deleteTempFile();
     state = const VoiceRecordingState();
   }
