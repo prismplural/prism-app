@@ -74,6 +74,8 @@ class DeviceManagementScreen extends ConsumerWidget {
                     device: currentDevice,
                     isCurrent: true,
                     onRevoke: null,
+                    onRotateKey: () =>
+                        _confirmRotateKey(context, ref, currentDevice),
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -112,6 +114,54 @@ class DeviceManagementScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  Future<void> _confirmRotateKey(
+    BuildContext context,
+    WidgetRef ref,
+    Device device,
+  ) async {
+    final confirmed = await PrismDialog.show<bool>(
+      context: context,
+      title: 'Rotate Signing Key?',
+      message:
+          'This generates a new post-quantum signing key for this device. '
+          'Other devices will accept the new key automatically. '
+          'The old key remains valid for 30 days.',
+      builder: (dialogContext) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            PrismButton(
+              label: 'Cancel',
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+            ),
+            const SizedBox(width: 8),
+            PrismButton(
+              label: 'Rotate',
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      final newGen =
+          await ref.read(deviceListProvider.notifier).rotateMlDsaKey();
+      if (context.mounted) {
+        PrismToast.success(
+          context,
+          message: 'Key rotated to generation $newGen',
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        PrismToast.error(context, message: 'Key rotation failed: $e');
+      }
+    }
   }
 
   Future<void> _confirmRevoke(
@@ -220,11 +270,13 @@ class _DeviceTile extends StatelessWidget {
     required this.device,
     required this.isCurrent,
     this.onRevoke,
+    this.onRotateKey,
   });
 
   final Device device;
   final bool isCurrent;
   final VoidCallback? onRevoke;
+  final VoidCallback? onRotateKey;
 
   Color _statusColor(BuildContext context) {
     if (device.isActive) return Colors.green;
@@ -246,7 +298,7 @@ class _DeviceTile extends StatelessWidget {
 
     return Semantics(
       label:
-          'Device ${device.shortId}, ${_statusLabel()}${isCurrent ? ', this device' : ''}',
+          'Device ${device.shortId}, ${_statusLabel()}, key generation ${device.mlDsaKeyGeneration}${isCurrent ? ', this device' : ''}',
       child: PrismSurface(
         padding: EdgeInsets.zero,
         margin: const EdgeInsets.symmetric(vertical: 4),
@@ -278,9 +330,20 @@ class _DeviceTile extends StatelessWidget {
                 PrismPill(label: _statusLabel(), color: statusColor),
             ],
           ),
-          subtitle: Text('Epoch ${device.epoch}'),
+          subtitle: Text(
+            'Epoch ${device.epoch} · Key gen ${device.mlDsaKeyGeneration}',
+          ),
           trailing: isCurrent
-              ? null
+              ? (onRotateKey != null
+                  ? PrismIconButton(
+                      icon: AppIcons.refresh,
+                      tooltip: 'Rotate signing key',
+                      color: theme.colorScheme.primary,
+                      size: 36,
+                      iconSize: 18,
+                      onPressed: onRotateKey!,
+                    )
+                  : null)
               : PrismIconButton(
                   icon: AppIcons.removeCircleOutline,
                   tooltip: 'Revoke device',
