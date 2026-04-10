@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/analytics_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/analytics_date_range_picker.dart';
@@ -359,7 +360,7 @@ class _ExpandableMemberDetailState
                       RotationTransition(
                         turns: _chevronTurns,
                         child: Icon(
-                          Icons.keyboard_arrow_down,
+                          AppIcons.expandMore,
                           size: 20,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),

@@ -166,15 +166,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     const SizedBox(height: 12),
                     Text(
                       step.title,
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontFamily: 'Unbounded',
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                        color: isDark
-                            ? AppColors.warmWhite
-                            : AppColors.warmBlack,
-                      ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineLarge
+                          ?.copyWith(
+                            fontSize: 28,
+                            color: isDark
+                                ? AppColors.warmWhite
+                                : AppColors.warmBlack,
+                          ),
                     ),
                     const SizedBox(height: 4),
                     Text(
