@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 /// A confirm-before-send overlay shown when tapping a GIF in the picker.
@@ -53,8 +54,8 @@ class GifPreviewOverlay extends StatelessWidget {
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stack) => Container(
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const Center(
-                      child: Icon(Icons.broken_image, size: 48),
+                    child: Center(
+                      child: Icon(AppIcons.imageBroken, size: 48),
                     ),
                   ),
                 ),
