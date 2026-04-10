@@ -210,12 +210,12 @@ class _HabitSection extends StatelessWidget {
                   vertical: 5,
                 ),
                 child: Text(
-                  title.toUpperCase(),
+                  title,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: Theme.of(
                       context,
                     ).colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                     fontSize: 11,
                   ),
                 ),

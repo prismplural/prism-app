@@ -14,16 +14,27 @@ extension DateTimeFormatting on DateTime {
   String toDayKey() => DateFormat('yyyy-MM-dd').format(this);
 
   /// Returns a human-readable day header ("Today", "Yesterday", or date).
+  ///
+  /// Uses "April 7" for dates in the current year and "April 7, 2025" for
+  /// older dates to save space.
   static String formatDayHeader(String dayKey) {
     final date = DateFormat('yyyy-MM-dd').parse(dayKey);
+    return date.toDayHeaderLabel();
+  }
+
+  /// Returns a human-readable day label ("Today", "Yesterday", or date).
+  ///
+  /// Uses "April 7" for dates in the current year and "April 7, 2025" for
+  /// older dates.
+  String toDayHeaderLabel() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(date.year, date.month, date.day);
-    final diff = today.difference(day).inDays;
+    final day = DateTime(year, month, this.day);
 
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Yesterday';
-    return DateFormat.yMMMd().format(date);
+    if (day == today) return 'Today';
+    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    if (year == now.year) return DateFormat('MMMM d').format(this);
+    return DateFormat('MMMM d, y').format(this);
   }
 
   /// Returns a relative description like "5 minutes ago" or "Yesterday".
