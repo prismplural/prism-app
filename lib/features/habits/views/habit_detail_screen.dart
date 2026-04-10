@@ -61,10 +61,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     final today = ref.watch(currentDateProvider);
 
     final completions = completionsAsync.value ?? [];
-    final isCompletedToday = completions.any((c) =>
-        c.completedAt.year == today.year &&
-        c.completedAt.month == today.month &&
-        c.completedAt.day == today.day);
+    final isCompletedToday = completions.any(
+        (c) => DateUtils.isSameDay(c.completedAt, today));
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -206,6 +204,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                       return _CompletionTile(
                         completion: c,
                         members: members,
+                        today: today,
                         onDismissed: () => ref
                             .read(habitNotifierProvider.notifier)
                             .uncompleteHabit(
@@ -277,8 +276,15 @@ class _HabitHeader extends StatelessWidget {
             ? 'Every ${habit.intervalDays} days'
             : habit.frequency.label;
 
+    final semanticsLabel = [
+      'Habit: ${habit.name}',
+      frequencyText,
+      if (habit.description != null && habit.description!.isNotEmpty)
+        habit.description!,
+    ].join(', ');
+
     return Semantics(
-      label: 'Habit: ${habit.name}, $frequencyText',
+      label: semanticsLabel,
       excludeSemantics: true,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -435,11 +441,13 @@ class _CompletionTile extends StatelessWidget {
   const _CompletionTile({
     required this.completion,
     required this.members,
+    required this.today,
     required this.onDismissed,
   });
 
   final HabitCompletion completion;
   final List<Member> members;
+  final DateTime today;
   final VoidCallback onDismissed;
 
   Member? _findMember() {
@@ -503,8 +511,6 @@ class _CompletionTile extends StatelessWidget {
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
     final dateDay = DateTime(date.year, date.month, date.day);
 
     if (dateDay == today) {
