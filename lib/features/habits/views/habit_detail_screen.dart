@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class HabitDetailScreen extends ConsumerStatefulWidget {
@@ -56,6 +58,13 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
     final statsAsync = ref.watch(habitStatsProvider(
         (habitId: widget.habitId, timeframe: _timeframe)));
     final membersAsync = ref.watch(allMembersProvider);
+    final today = ref.watch(currentDateProvider);
+
+    final completions = completionsAsync.value ?? [];
+    final isCompletedToday = completions.any((c) =>
+        c.completedAt.year == today.year &&
+        c.completedAt.month == today.month &&
+        c.completedAt.day == today.day);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -105,10 +114,16 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: PrismButton(
-                  tone: PrismButtonTone.filled,
-                  label: 'Complete',
-                  icon: AppIcons.check,
-                  semanticLabel: 'Complete habit',
+                  tone: isCompletedToday
+                      ? PrismButtonTone.subtle
+                      : PrismButtonTone.filled,
+                  label: isCompletedToday ? 'Completed' : 'Complete',
+                  icon: isCompletedToday ? AppIcons.checkCircle : AppIcons.check,
+                  enabled: !isCompletedToday &&
+                      (habitAsync.value?.isActive ?? true),
+                  semanticLabel: isCompletedToday
+                      ? 'Habit already completed for this period'
+                      : 'Complete habit',
                   onPressed: () =>
                       _showCompleteSheet(context, habitAsync.value!),
                 ),
@@ -130,7 +145,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             padding: EdgeInsets.only(bottom: navBarInset + 16),
             children: [
               // ── Header ─────────────────────────────────────
-              _HabitHeader(habit: habit),
+              _HabitHeader(habit: habit, habitColor: habitColor),
 
               // ── Timeframe Picker ───────────────────────────
               Padding(
@@ -164,8 +179,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                   habitColor: habitColor,
                 ),
               ),
-
-              const SizedBox(height: 8),
 
               // ── Recent Completions ─────────────────────────
               const PrismSectionHeader(title: 'RECENT COMPLETIONS'),
@@ -248,12 +261,13 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Header — emoji + frequency + description (no duplicate name)
+// Header — emoji + name + frequency + description
 // ─────────────────────────────────────────────────────────────
 
 class _HabitHeader extends StatelessWidget {
-  const _HabitHeader({required this.habit});
+  const _HabitHeader({required this.habit, required this.habitColor});
   final Habit habit;
+  final Color habitColor;
 
   @override
   Widget build(BuildContext context) {
@@ -263,42 +277,61 @@ class _HabitHeader extends StatelessWidget {
             ? 'Every ${habit.intervalDays} days'
             : habit.frequency.label;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        children: [
-          if (habit.icon != null)
-            Text(habit.icon!, style: const TextStyle(fontSize: 40))
-          else
-            Icon(AppIcons.checkCircleOutline,
-                size: 40, color: theme.colorScheme.primary),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(frequencyText,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        )),
-                if (habit.description != null &&
-                    habit.description!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(habit.description!,
-                        style: theme.textTheme.bodySmall),
-                  ),
-              ],
+    return Semantics(
+      label: 'Habit: ${habit.name}, $frequencyText',
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Row(
+          children: [
+            TintedGlassSurface.circle(
+              size: 48,
+              tint: habitColor,
+              child: Center(
+                child: habit.icon != null
+                    ? Text(habit.icon!, style: const TextStyle(fontSize: 24))
+                    : Icon(AppIcons.checkCircleOutline,
+                        size: 24, color: habitColor),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    habit.name,
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    frequencyText,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  if (habit.description != null &&
+                      habit.description!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(habit.description!,
+                          style: theme.textTheme.bodySmall),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// Stats — horizontal pill row
+// Stats — primary stats + optional streak pills
 // ─────────────────────────────────────────────────────────────
 
 class _StatsRow extends StatelessWidget {
@@ -308,35 +341,87 @@ class _StatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final showStreaks =
+        stats.currentStreak > 0 || stats.bestStreak > stats.currentStreak;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          PrismPill(
-            icon: AppIcons.checkCircle,
-            label: '${stats.totalCompletions} done',
-            color: habitColor,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                label:
+                    '${stats.totalCompletions} completions, ${stats.completionRate.toStringAsFixed(0)}% completion rate',
+                excludeSemantics: true,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Completions',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            '${stats.totalCompletions}',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Completion Rate',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Text(
+                            '${stats.completionRate.toStringAsFixed(0)}%',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (showStreaks) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (stats.currentStreak > 0)
+                      PrismPill(
+                        icon: AppIcons.localFireDepartment,
+                        label: '${stats.currentStreak} streak',
+                        color: Colors.orange.shade700,
+                      ),
+                    if (stats.bestStreak > stats.currentStreak)
+                      PrismPill(
+                        icon: AppIcons.emojiEvents,
+                        label: '${stats.bestStreak} best',
+                        color: Colors.amber.shade700,
+                      ),
+                  ],
+                ),
+              ],
+            ],
           ),
-          PrismPill(
-            icon: AppIcons.percent,
-            label: '${stats.completionRate.toStringAsFixed(0)}%',
-            color: habitColor,
-          ),
-          if (stats.currentStreak > 0)
-            PrismPill(
-              icon: AppIcons.localFireDepartment,
-              label: '${stats.currentStreak} streak',
-              color: Colors.orange.shade700,
-            ),
-          if (stats.bestStreak > stats.currentStreak)
-            PrismPill(
-              icon: AppIcons.emojiEvents,
-              label: '${stats.bestStreak} best',
-              color: Colors.amber.shade700,
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -359,11 +444,7 @@ class _CompletionTile extends StatelessWidget {
 
   Member? _findMember() {
     if (completion.completedByMemberId == null) return null;
-    try {
-      return members.firstWhere((m) => m.id == completion.completedByMemberId);
-    } catch (_) {
-      return null;
-    }
+    return members.firstWhereOrNull((m) => m.id == completion.completedByMemberId);
   }
 
   @override
@@ -374,7 +455,7 @@ class _CompletionTile extends StatelessWidget {
       key: ValueKey(completion.id),
       direction: DismissDirection.endToStart,
       background: Container(
-        color: Colors.red,
+        color: Theme.of(context).colorScheme.error,
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 16),
         child: Icon(AppIcons.delete, color: AppColors.warmWhite),
