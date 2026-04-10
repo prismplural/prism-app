@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
@@ -51,6 +52,7 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
   bool _hasVideoError = false;
   bool _hasPreviewError = false;
   bool _isVideoInitialized = false;
+  bool _isVisible = true;
 
   /// Whether the user explicitly started playback (reduced-motion mode).
   bool _manuallyStarted = false;
@@ -74,9 +76,29 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
       case AppLifecycleState.hidden:
         _controller?.pause();
       case AppLifecycleState.resumed:
-        if (_isVideoInitialized && _shouldAutoPlay()) {
+        if (_isVisible && _isVideoInitialized && _shouldAutoPlay()) {
           _controller?.play();
         }
+    }
+  }
+
+  @override
+  void didUpdateWidget(GifBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sourceUrl != widget.sourceUrl) {
+      _controller?.dispose();
+      _controller = null;
+      _isVideoInitialized = false;
+      _hasVideoError = false;
+      _hasPreviewError = false;
+      _manuallyStarted = false;
+      if (widget.gifEnabled && KlipyService.isValidGifUrl(widget.sourceUrl)) {
+        _initVideoPlayer();
+      }
+    } else if (!oldWidget.gifEnabled && widget.gifEnabled) {
+      if (KlipyService.isValidGifUrl(widget.sourceUrl)) {
+        _initVideoPlayer();
+      }
     }
   }
 
@@ -94,9 +116,22 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
   }
 
   bool _shouldAutoPlay() {
-    if (!mounted) return false;
+    if (!mounted || !_isVisible) return false;
     final disableAnimations = MediaQuery.of(context).disableAnimations;
     return !disableAnimations || _manuallyStarted;
+  }
+
+  void _onVisibilityChanged(VisibilityInfo info) {
+    if (!mounted || _controller == null) return;
+    if (info.visibleFraction < 0.1) {
+      _isVisible = false;
+      _controller?.pause();
+    } else if (info.visibleFraction > 0.5) {
+      _isVisible = true;
+      if (_isVideoInitialized && _shouldAutoPlay()) {
+        _controller?.play();
+      }
+    }
   }
 
   Future<void> _initVideoPlayer() async {
@@ -159,28 +194,33 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
     }
 
     // URL validation — show expired state for invalid URLs
-    if (!KlipyService.isValidGifUrl(widget.sourceUrl)) {
+    if (!KlipyService.isValidGifUrl(widget.sourceUrl) ||
+        !KlipyService.isValidGifUrl(widget.previewUrl)) {
       return const ExpiredMedia();
     }
 
-    return Semantics(
-      label: 'GIF: ${widget.contentDescription ?? 'GIF'}',
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          width: effectiveWidth,
-          height: effectiveHeight,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildContent(context, theme, effectiveWidth, effectiveHeight),
-              // "GIF" label overlay in top-left
-              Positioned(
-                top: 6,
-                left: 6,
-                child: _GifLabel(theme: theme),
-              ),
-            ],
+    return VisibilityDetector(
+      key: Key('gif_bubble_${widget.sourceUrl}'),
+      onVisibilityChanged: _onVisibilityChanged,
+      child: Semantics(
+        label: 'GIF: ${widget.contentDescription ?? 'GIF'}',
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: effectiveWidth,
+            height: effectiveHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildContent(context, theme, effectiveWidth, effectiveHeight),
+                // "GIF" label overlay in top-left
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: _GifLabel(theme: theme),
+                ),
+              ],
+            ),
           ),
         ),
       ),
