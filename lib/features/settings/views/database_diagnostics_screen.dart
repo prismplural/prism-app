@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/services/database_health_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/database_diagnostics_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -36,107 +37,101 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
         padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
         children: [
           // ── Record Counts ──────────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Record Counts',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Record Counts',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 12),
-                  _CountRow(
-                    label: 'Members',
-                    countAsync: ref.watch(memberCountProvider),
-                  ),
-                  const Divider(height: 16),
-                  _CountRow(
-                    label: 'Fronting Sessions',
-                    countAsync: ref.watch(sessionCountProvider),
-                  ),
-                  const Divider(height: 16),
-                  _CountRow(
-                    label: 'Conversations',
-                    countAsync: ref.watch(conversationCountProvider),
-                  ),
-                  const Divider(height: 16),
-                  _CountRow(
-                    label: 'Polls',
-                    countAsync: ref.watch(pollCountProvider),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                _CountRow(
+                  label: 'Members',
+                  countAsync: ref.watch(memberCountProvider),
+                ),
+                const Divider(height: 16),
+                _CountRow(
+                  label: 'Fronting Sessions',
+                  countAsync: ref.watch(sessionCountProvider),
+                ),
+                const Divider(height: 16),
+                _CountRow(
+                  label: 'Conversations',
+                  countAsync: ref.watch(conversationCountProvider),
+                ),
+                const Divider(height: 16),
+                _CountRow(
+                  label: 'Polls',
+                  countAsync: ref.watch(pollCountProvider),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
           // ── CRDT / Sync Info ───────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sync Internals',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sync Internals',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
-                    label: 'Node ID',
-                    valueAsync: nodeIdAsync.whenData(
-                      (v) => v ?? 'Unavailable — not yet paired',
-                    ),
-                    copyable: true,
+                ),
+                const SizedBox(height: 12),
+                _InfoRow(
+                  label: 'Node ID',
+                  valueAsync: nodeIdAsync.whenData(
+                    (v) => v ?? 'Unavailable — not yet paired',
                   ),
-                  const Divider(height: 16),
-                  _InfoRow(
-                    label: 'Latest HLC',
-                    valueAsync: hlcAsync.whenData(
-                      (v) => v ?? 'No changes recorded',
-                    ),
+                  copyable: true,
+                ),
+                const Divider(height: 16),
+                _InfoRow(
+                  label: 'Latest HLC',
+                  valueAsync: hlcAsync.whenData(
+                    (v) => v ?? 'No changes recorded',
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
           // ── Database Path ──────────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Database File',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Database File',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                dbPathAsync.when(
+                  loading: () => const PrismLoadingState(),
+                  error: (e, _) => Text('Error: $e'),
+                  data: (path) => SelectableText(
+                    path,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  dbPathAsync.when(
-                    loading: () => const PrismLoadingState(),
-                    error: (e, _) => Text('Error: $e'),
-                    data: (path) => SelectableText(
-                      path,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
