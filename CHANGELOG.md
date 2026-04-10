@@ -2,6 +2,23 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.13] - 2026-04-09
+
+### Added
+- GIF search and sharing in chat via Klipy API (ex-Tenor team, free REST API)
+- GIF picker sheet with masonry grid, debounced search, trending GIFs, and Klipy attribution
+- GIF preview overlay with confirm-before-send to prevent mistaps
+- GIF bubble in message bubbles using hardware-decoded MP4 playback (video_player)
+- Reduced motion support: static preview with play button overlay for GIF bubbles
+- Privacy toggle: disable GIF search in Settings → Chat (syncs via CRDT)
+- URL validation allowlist for Klipy/Tenor CDN domains on synced GIF URLs
+- Visibility-based lifecycle management: off-screen GIF videos pause automatically
+- Schema v38 migration adding `gif_search_enabled` column to system_settings
+- 50 new tests covering Klipy service, providers, picker widget, bubble, migration, and settings
+
+### Fixed
+- GIF search enabled setting now syncs between devices (was missing from sync adapter)
+
 ## [0.2.12] - 2026-04-09
 
 ### Added
