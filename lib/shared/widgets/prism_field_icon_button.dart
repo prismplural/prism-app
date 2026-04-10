@@ -53,7 +53,9 @@ class _PrismFieldIconButtonState extends State<PrismFieldIconButton> {
       button: true,
       enabled: canPress,
       label: widget.semanticLabel ?? widget.tooltip,
-      child: Center(
+      child: SizedBox(
+        width: widget.size,
+        height: widget.size,
         child: AnimatedScale(
           scale: _pressed ? 0.96 : 1,
           duration: Anim.xs,

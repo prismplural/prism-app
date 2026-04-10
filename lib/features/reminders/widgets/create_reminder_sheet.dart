@@ -93,7 +93,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
               children: [
                 PrismTextField(
                   controller: _nameController,
-                  hintText: 'Reminder name',
+                  labelText: 'Reminder name',
                   autofocus: !_isEditing,
                   onChanged: (_) => setState(() {}),
                 ),
@@ -101,7 +101,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
 
                 PrismTextField(
                   controller: _messageController,
-                  hintText: 'Notification message',
+                  labelText: 'Notification message',
                   maxLines: 2,
                 ),
                 const SizedBox(height: 16),
