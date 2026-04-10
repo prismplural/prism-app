@@ -27,6 +27,8 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_comments_section.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 
 /// Full-screen view showing all details of a single fronting session.
 class SessionDetailScreen extends ConsumerWidget {
@@ -160,91 +162,89 @@ class _SleepSessionBody extends StatelessWidget {
     return ListView(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + navBarInset),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      AppIcons.bedtimeRounded,
-                      size: 28,
-                      color: theme.colorScheme.tertiary,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        session.isActive ? 'Sleeping now' : 'Sleep session',
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _InfoRow(
-                  label: 'Started',
-                  value: session.startTime.toDateTimeString(),
-                ),
-                const SizedBox(height: 8),
-                _InfoRow(
-                  label: 'Ended',
-                  value: session.endTime?.toDateTimeString() ?? 'Active',
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 80,
-                      child: Text(
-                        'Duration',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    if (session.isActive)
-                      FrontingDurationText(
-                        startTime: session.startTime,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      )
-                    else
-                      Text(
-                        session.duration.toLongString(),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                _InfoRow(
-                  label: 'Quality',
-                  value: quality == SleepQuality.unknown
-                      ? 'Unrated'
-                      : quality.label,
-                ),
-                if (session.notes != null && session.notes!.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  Text(
-                    'Notes',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+        PrismSurface(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    AppIcons.bedtimeRounded,
+                    size: 28,
+                    color: theme.colorScheme.tertiary,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    session.notes!,
-                    style: theme.textTheme.bodyMedium,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      session.isActive ? 'Sleeping now' : 'Sleep session',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 20),
+              _InfoRow(
+                label: 'Started',
+                value: session.startTime.toDateTimeString(),
+              ),
+              const SizedBox(height: 8),
+              _InfoRow(
+                label: 'Ended',
+                value: session.endTime?.toDateTimeString() ?? 'Active',
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      'Duration',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  if (session.isActive)
+                    FrontingDurationText(
+                      startTime: session.startTime,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    )
+                  else
+                    Text(
+                      session.duration.toLongString(),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _InfoRow(
+                label: 'Quality',
+                value: quality == SleepQuality.unknown
+                    ? 'Unrated'
+                    : quality.label,
+              ),
+              if (session.notes != null && session.notes!.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Notes',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  session.notes!,
+                  style: theme.textTheme.bodyMedium,
+                ),
               ],
-            ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -285,80 +285,76 @@ class _SessionDetailBody extends ConsumerWidget {
         ],
 
         // Time info
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Time',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+        PrismSectionCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Time',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 12),
-                _InfoRow(
-                  label: 'Started',
-                  value: session.startTime.toDateTimeString(),
-                ),
-                const SizedBox(height: 8),
-                _InfoRow(
-                  label: 'Ended',
-                  value: session.endTime?.toDateTimeString() ?? 'Active',
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 80,
-                      child: Text(
-                        'Duration',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+              ),
+              const SizedBox(height: 12),
+              _InfoRow(
+                label: 'Started',
+                value: session.startTime.toDateTimeString(),
+              ),
+              const SizedBox(height: 8),
+              _InfoRow(
+                label: 'Ended',
+                value: session.endTime?.toDateTimeString() ?? 'Active',
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 80,
+                    child: Text(
+                      'Duration',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    if (session.isActive)
-                      FrontingDurationText(
-                        startTime: session.startTime,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      )
-                    else
-                      Text(
-                        session.duration.toLongString(),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                  ),
+                  if (session.isActive)
+                    FrontingDurationText(
+                      startTime: session.startTime,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
-                  ],
-                ),
-              ],
-            ),
+                    )
+                  else
+                    Text(
+                      session.duration.toLongString(),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
 
         // Confidence
         if (session.confidence != null) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Confidence',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Confidence',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 12),
-                  _ConfidenceDisplay(confidence: session.confidence!),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                _ConfidenceDisplay(confidence: session.confidence!),
+              ],
             ),
           ),
           const SizedBox(height: 16),
@@ -370,22 +366,20 @@ class _SessionDetailBody extends ConsumerWidget {
 
         // Notes
         if (session.notes != null && session.notes!.isNotEmpty) ...[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Notes',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Notes',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 8),
-                  Text(session.notes!, style: theme.textTheme.bodyMedium),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                Text(session.notes!, style: theme.textTheme.bodyMedium),
+              ],
             ),
           ),
         ],
@@ -404,27 +398,25 @@ class _FronterSection extends ConsumerWidget {
     final theme = Theme.of(context);
 
     if (session.memberId == null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              Icon(
-                AppIcons.helpOutline,
-                size: 64,
-                color: theme.colorScheme.onSurfaceVariant.withValues(
-                  alpha: 0.5,
-                ),
+      return PrismSurface(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Icon(
+              AppIcons.helpOutline,
+              size: 64,
+              color: theme.colorScheme.onSurfaceVariant.withValues(
+                alpha: 0.5,
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Unknown',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Unknown',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
@@ -432,56 +424,50 @@ class _FronterSection extends ConsumerWidget {
     final memberAsync = ref.watch(memberByIdProvider(session.memberId!));
 
     return memberAsync.when(
-      loading: () => const Card(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: PrismLoadingState(),
-        ),
+      loading: () => const PrismSurface(
+        padding: EdgeInsets.all(32),
+        child: PrismLoadingState(),
       ),
       error: (_, _) => const SizedBox.shrink(),
       data: (member) {
         if (member == null) return const SizedBox.shrink();
 
-        return GestureDetector(
+        return PrismSurface(
           onTap: () => context.go(AppRoutePaths.settingsMember(member.id)),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  MemberAvatar(
-                    avatarImageData: member.avatarImageData,
-                    emoji: member.emoji,
-                    customColorEnabled: member.customColorEnabled,
-                    customColorHex: member.customColorHex,
-                    size: 80,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          member.name,
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (member.pronouns != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            member.pronouns!,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              MemberAvatar(
+                avatarImageData: member.avatarImageData,
+                emoji: member.emoji,
+                customColorEnabled: member.customColorEnabled,
+                customColorHex: member.customColorHex,
+                size: 80,
               ),
-            ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      member.name,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (member.pronouns != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        member.pronouns!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         );
       },
