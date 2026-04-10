@@ -20,6 +20,8 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Placeholder — pending changes count (sync now managed by Rust layer).
 final _pendingChangesCountProvider = FutureProvider<int>((ref) async {
@@ -55,188 +57,181 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
         padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
         children: [
           // ── Danger Zone ─────────────────────────────
-          Card(
-            color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Danger Zone',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.error,
-                    ),
+          PrismSurface(
+            fillColor: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+            borderColor: theme.colorScheme.error.withValues(alpha: 0.3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Danger Zone',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.error,
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrismButton(
-                      label: 'Reset Database',
-                      icon: AppIcons.deleteForever,
-                      tone: PrismButtonTone.destructive,
-                      expanded: true,
-                      onPressed: () => _confirmReset(context),
-                    ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrismButton(
+                    label: 'Reset Database',
+                    icon: AppIcons.deleteForever,
+                    tone: PrismButtonTone.destructive,
+                    expanded: true,
+                    onPressed: () => _confirmReset(context),
                   ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrismButton(
-                      label: 'Export Data',
-                      icon: AppIcons.fileUploadOutlined,
-                      tone: PrismButtonTone.outlined,
-                      expanded: true,
-                      onPressed: () {
-                        PrismToast.show(context, message: 'Coming soon');
-                      },
-                    ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrismButton(
+                    label: 'Export Data',
+                    icon: AppIcons.fileUploadOutlined,
+                    tone: PrismButtonTone.outlined,
+                    expanded: true,
+                    onPressed: () {
+                      PrismToast.show(context, message: 'Coming soon');
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
           // ── Stress Testing ─────────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Stress Testing',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Stress Testing',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Generate large datasets for performance testing',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (_isGenerating && _progress != null) ...[
+                  LinearProgressIndicator(value: _progress!.fraction),
                   const SizedBox(height: 4),
                   Text(
-                    'Generate large datasets for performance testing',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    '${_progress!.phase}... ${_progress!.current}/${_progress!.total}'
+                    '${_currentPreset != null ? ' • ~${_currentPreset!.estimatedSizeMb}MB' : ''}',
+                    style: theme.textTheme.bodySmall,
                   ),
                   const SizedBox(height: 12),
-                  if (_isGenerating && _progress != null) ...[
-                    LinearProgressIndicator(value: _progress!.fraction),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_progress!.phase}... ${_progress!.current}/${_progress!.total}'
-                      '${_currentPreset != null ? ' • ~${_currentPreset!.estimatedSizeMb}MB' : ''}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrismButton(
-                      label: 'Generate Stress Data',
-                      icon: AppIcons.speed,
-                      tone: PrismButtonTone.outlined,
-                      expanded: true,
-                      isLoading: _isGenerating,
-                      enabled: !_isGenerating,
-                      onPressed: () => _showPresetPicker(context),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrismButton(
-                      label: _isClearing ? 'Clearing...' : 'Clear Stress Data',
-                      icon: AppIcons.deleteForever,
-                      tone: PrismButtonTone.destructive,
-                      expanded: true,
-                      isLoading: _isClearing,
-                      enabled: !_isGenerating && !_isClearing,
-                      onPressed: () => _confirmClearStressData(context),
-                    ),
-                  ),
                 ],
-              ),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrismButton(
+                    label: 'Generate Stress Data',
+                    icon: AppIcons.speed,
+                    tone: PrismButtonTone.outlined,
+                    expanded: true,
+                    isLoading: _isGenerating,
+                    enabled: !_isGenerating,
+                    onPressed: () => _showPresetPicker(context),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrismButton(
+                    label: _isClearing ? 'Clearing...' : 'Clear Stress Data',
+                    icon: AppIcons.deleteForever,
+                    tone: PrismButtonTone.destructive,
+                    expanded: true,
+                    isLoading: _isClearing,
+                    enabled: !_isGenerating && !_isClearing,
+                    onPressed: () => _confirmClearStressData(context),
+                  ),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
           // ── CRDT Sync State ─────────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sync State',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sync State',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 12),
-                  _DebugRow(
-                    label: 'Pending changes',
-                    value: pendingAsync.when(
-                      loading: () => '...',
-                      error: (e, _) => 'Error',
-                      data: (count) => '$count',
-                    ),
+                ),
+                const SizedBox(height: 12),
+                _DebugRow(
+                  label: 'Pending changes',
+                  value: pendingAsync.when(
+                    loading: () => '...',
+                    error: (e, _) => 'Error',
+                    data: (count) => '$count',
                   ),
-                  const Divider(height: 16),
-                  _DebugRow(
-                    label: 'Last sync',
-                    value: lastSyncTime != null
-                        ? _formatDateTime(lastSyncTime)
-                        : 'Never',
+                ),
+                const Divider(height: 16),
+                _DebugRow(
+                  label: 'Last sync',
+                  value: lastSyncTime != null
+                      ? _formatDateTime(lastSyncTime)
+                      : 'Never',
+                ),
+                const Divider(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: PrismButton(
+                    label: 'Open Sync Debug Log',
+                    icon: AppIcons.receiptLongOutlined,
+                    tone: PrismButtonTone.outlined,
+                    expanded: true,
+                    onPressed: () =>
+                        context.push(AppRoutePaths.settingsSyncDebug),
                   ),
-                  const Divider(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: PrismButton(
-                      label: 'Open Sync Debug Log',
-                      icon: AppIcons.receiptLongOutlined,
-                      tone: PrismButtonTone.outlined,
-                      expanded: true,
-                      onPressed: () =>
-                          context.push(AppRoutePaths.settingsSyncDebug),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
           // ── Build Info ──────────────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Build Info',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Build Info',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 12),
-                  const _DebugRow(label: 'App version', value: '0.1.0'),
-                  const Divider(height: 16),
-                  const _DebugRow(label: 'Package', value: 'prism_plurality'),
-                ],
-              ),
+                ),
+                const SizedBox(height: 12),
+                const _DebugRow(label: 'App version', value: '0.1.0'),
+                const Divider(height: 16),
+                const _DebugRow(label: 'Package', value: 'prism_plurality'),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
           // ── Tools ────────────────────────────────────
-          Card(
+          PrismSectionCard(
+            padding: EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -264,66 +259,64 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
           const SizedBox(height: 16),
 
           // ── Node ID ─────────────────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Device',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+          PrismSectionCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Device',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(height: 12),
-                  nodeIdAsync.when(
-                    loading: () => const PrismLoadingState(),
-                    error: (e, _) => Text('Error: $e'),
-                    data: (nodeId) {
-                      final displayId =
-                          nodeId ?? 'Unavailable — not yet paired';
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Node ID',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
+                ),
+                const SizedBox(height: 12),
+                nodeIdAsync.when(
+                  loading: () => const PrismLoadingState(),
+                  error: (e, _) => Text('Error: $e'),
+                  data: (nodeId) {
+                    final displayId =
+                        nodeId ?? 'Unavailable — not yet paired';
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Node ID',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
                                 ),
-                                const SizedBox(height: 4),
-                                SelectableText(
-                                  displayId,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontFamily: 'monospace',
-                                  ),
+                              ),
+                              const SizedBox(height: 4),
+                              SelectableText(
+                                displayId,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontFamily: 'monospace',
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          if (nodeId != null)
-                            PrismInlineIconButton(
-                              icon: AppIcons.copy,
-                              iconSize: 18,
-                              tooltip: 'Copy Node ID',
-                              onPressed: () {
-                                Clipboard.setData(ClipboardData(text: nodeId));
-                                PrismToast.show(
-                                  context,
-                                  message: 'Node ID copied to clipboard',
-                                );
-                              },
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
+                        ),
+                        if (nodeId != null)
+                          PrismInlineIconButton(
+                            icon: AppIcons.copy,
+                            iconSize: 18,
+                            tooltip: 'Copy Node ID',
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: nodeId));
+                              PrismToast.show(
+                                context,
+                                message: 'Node ID copied to clipboard',
+                              );
+                            },
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ],
