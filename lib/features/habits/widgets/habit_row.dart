@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -230,19 +230,61 @@ class _HabitRowState extends State<HabitRow> {
               Text(
                 'Task Due',
                 style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.tertiary,
+                  color: theme.colorScheme.onSurface,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const Spacer(),
-              PrismButton(
-                tone: PrismButtonTone.filled,
-                density: PrismControlDensity.compact,
-                label: 'Complete',
-                icon: AppIcons.check,
-                isLoading: _isCompleting,
-                semanticLabel: 'Complete ${widget.habit.name}',
-                onPressed: _handleQuickComplete,
+              Semantics(
+                button: true,
+                enabled: !_isCompleting,
+                label: 'Complete ${widget.habit.name}',
+                child: TintedGlassSurface(
+                  tint: color,
+                  borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _isCompleting ? null : _handleQuickComplete,
+                      borderRadius:
+                          BorderRadius.circular(PrismTokens.radiusPill),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7,
+                        ),
+                        child: _isCompleting
+                            ? SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    AppIcons.check,
+                                    size: 14,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Complete',
+                                    style:
+                                        theme.textTheme.labelMedium?.copyWith(
+                                      color: theme.colorScheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),

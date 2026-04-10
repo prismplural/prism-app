@@ -349,7 +349,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
             child: PrismTextField(
               controller: _titleController,
               autofocus: true,
-              hintText: 'Conversation title',
+              labelText: 'Conversation title',
               textInputAction: TextInputAction.done,
               onSubmitted: (_) =>
                   _saveTitle(conversation.id, conversation.emoji),
@@ -373,7 +373,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                         (conversation.isDirectMessage
                             ? 'Direct Message'
                             : 'Group Chat'),
-                    style: theme.textTheme.headlineSmall,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -545,7 +547,6 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         PrismListRow(
           leading: Icon(AppIcons.archiveOutlined),
           title: const Text('Archive conversation'),
-          padding: EdgeInsets.zero,
           onTap: () => _archive(conversation.id, speakingAsMemberId),
         ),
 
@@ -554,7 +555,6 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           PrismListRow(
             leading: Icon(AppIcons.exitToApp),
             title: const Text('Leave conversation'),
-            padding: EdgeInsets.zero,
             onTap: () async {
               if (speakingAsMemberId == null) return;
 
@@ -585,7 +585,6 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
               'Delete conversation',
               style: TextStyle(color: theme.colorScheme.error),
             ),
-            padding: EdgeInsets.zero,
             onTap: () => _confirmDelete(conversation.id),
           ),
       ],
@@ -620,7 +619,6 @@ class _ParticipantTile extends ConsumerWidget {
       data: (member) {
         if (member == null) {
           return const PrismListRow(
-            padding: EdgeInsets.zero,
             leading: MemberAvatar(
               emoji: '?',
               customColorEnabled: false,
@@ -638,7 +636,6 @@ class _ParticipantTile extends ConsumerWidget {
                     : null));
 
         final tile = PrismListRow(
-          padding: EdgeInsets.zero,
           leading: MemberAvatar(
             avatarImageData: member.avatarImageData,
             emoji: member.emoji,
@@ -681,11 +678,9 @@ class _ParticipantTile extends ConsumerWidget {
         );
       },
       loading: () => const PrismListRow(
-        padding: EdgeInsets.zero,
         title: Text('Loading...'),
       ),
       error: (_, _) => const PrismListRow(
-        padding: EdgeInsets.zero,
         title: Text('Error loading member'),
       ),
     );
