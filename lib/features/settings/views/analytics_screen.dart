@@ -15,6 +15,8 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
 /// Main analytics screen showing fronting statistics.
@@ -96,62 +98,60 @@ class _AnalyticsBody extends ConsumerWidget {
         if (analytics.dailyActivity.isNotEmpty) const SizedBox(height: 16),
 
         // System overview with optional prior-period comparison
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Overview',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+        PrismSectionCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Overview',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _OverviewStat(
+                    label: 'Total Time',
+                    value: _fmt(analytics.totalTrackedTime),
+                    priorLabel: previousPeriod != null
+                        ? '${_fmt(previousPeriod.totalTrackedTime)} last period'
+                        : null,
+                    theme: theme,
                   ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _OverviewStat(
-                      label: 'Total Time',
-                      value: _fmt(analytics.totalTrackedTime),
-                      priorLabel: previousPeriod != null
-                          ? '${_fmt(previousPeriod.totalTrackedTime)} last period'
-                          : null,
-                      theme: theme,
-                    ),
-                    _OverviewStat(
-                      label: 'Gap Time',
-                      value: _fmt(analytics.totalGapTime),
-                      priorLabel: previousPeriod != null
-                          ? '${_fmt(previousPeriod.totalGapTime)} last period'
-                          : null,
-                      theme: theme,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _OverviewStat(
-                      label: 'Switches/Day',
-                      value: analytics.switchesPerDay.toStringAsFixed(1),
-                      priorLabel: previousPeriod != null
-                          ? '${previousPeriod.switchesPerDay.toStringAsFixed(1)} last period'
-                          : null,
-                      theme: theme,
-                    ),
-                    _OverviewStat(
-                      label: 'Unique Fronters',
-                      value: '${analytics.uniqueFronters}',
-                      priorLabel: previousPeriod != null
-                          ? '${previousPeriod.uniqueFronters} last period'
-                          : null,
-                      theme: theme,
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                  _OverviewStat(
+                    label: 'Gap Time',
+                    value: _fmt(analytics.totalGapTime),
+                    priorLabel: previousPeriod != null
+                        ? '${_fmt(previousPeriod.totalGapTime)} last period'
+                        : null,
+                    theme: theme,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _OverviewStat(
+                    label: 'Switches/Day',
+                    value: analytics.switchesPerDay.toStringAsFixed(1),
+                    priorLabel: previousPeriod != null
+                        ? '${previousPeriod.switchesPerDay.toStringAsFixed(1)} last period'
+                        : null,
+                    theme: theme,
+                  ),
+                  _OverviewStat(
+                    label: 'Unique Fronters',
+                    value: '${analytics.uniqueFronters}',
+                    priorLabel: previousPeriod != null
+                        ? '${previousPeriod.uniqueFronters} last period'
+                        : null,
+                    theme: theme,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -289,86 +289,84 @@ class _ExpandableMemberDetailState
         ? AppColors.fromHex(member!.customColorHex!)
         : theme.colorScheme.primary;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    return PrismSurface(
+      onTap: _toggle,
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           // ── Collapsed header ───────────────────────────────────────────
-          InkWell(
-            onTap: _toggle,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-              child: Row(
-                children: [
-                  MemberAvatar(
-                    avatarImageData: member?.avatarImageData,
-                    emoji: member?.emoji ?? '',
-                    customColorEnabled: member?.customColorEnabled ?? false,
-                    customColorHex: member?.customColorHex,
-                    size: 36,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${widget.stat.sessionCount} sessions · '
-                          '${_fmt(widget.stat.totalTime)} total · '
-                          'avg ${_fmt(widget.stat.averageDuration)}',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        // Share-of-total bar
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: LinearProgressIndicator(
-                            value:
-                                (widget.stat.percentageOfTotal / 100)
-                                    .clamp(0.0, 1.0),
-                            backgroundColor: theme
-                                .colorScheme.surfaceContainerHighest,
-                            valueColor:
-                                AlwaysStoppedAnimation(accent.withValues(alpha: 0.7)),
-                            minHeight: 4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+            child: Row(
+              children: [
+                MemberAvatar(
+                  avatarImageData: member?.avatarImageData,
+                  emoji: member?.emoji ?? '',
+                  customColorEnabled: member?.customColorEnabled ?? false,
+                  customColorHex: member?.customColorHex,
+                  size: 36,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${widget.stat.percentageOfTotal.toStringAsFixed(1)}%',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: accent,
-                          fontWeight: FontWeight.w700,
+                        name,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      RotationTransition(
-                        turns: _chevronTurns,
-                        child: Icon(
-                          AppIcons.expandMore,
-                          size: 20,
+                      const SizedBox(height: 2),
+                      Text(
+                        '${widget.stat.sessionCount} sessions · '
+                        '${_fmt(widget.stat.totalTime)} total · '
+                        'avg ${_fmt(widget.stat.averageDuration)}',
+                        style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      // Share-of-total bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(3),
+                        child: LinearProgressIndicator(
+                          value:
+                              (widget.stat.percentageOfTotal / 100)
+                                  .clamp(0.0, 1.0),
+                          backgroundColor: theme
+                              .colorScheme.surfaceContainerHighest,
+                          valueColor:
+                              AlwaysStoppedAnimation(accent.withValues(alpha: 0.7)),
+                          minHeight: 4,
                         ),
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${widget.stat.percentageOfTotal.toStringAsFixed(1)}%',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    RotationTransition(
+                      turns: _chevronTurns,
+                      child: Icon(
+                        AppIcons.expandMore,
+                        size: 20,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
 
