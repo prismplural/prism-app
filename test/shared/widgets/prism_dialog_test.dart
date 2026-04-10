@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 
 void main() {
+  Widget buildApp({required Widget child}) {
+    return ProviderScope(
+      child: MaterialApp(home: child),
+    );
+  }
+
   testWidgets('PrismDialog.confirm renders title, message, and buttons', (
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
+      buildApp(
+        child: Builder(
           builder: (context) => ElevatedButton(
             onPressed: () {
               PrismDialog.confirm(
@@ -41,8 +49,8 @@ void main() {
     bool? result;
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
+      buildApp(
+        child: Builder(
           builder: (context) => ElevatedButton(
             onPressed: () async {
               result = await PrismDialog.confirm(
@@ -72,8 +80,8 @@ void main() {
     bool? result;
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
+      buildApp(
+        child: Builder(
           builder: (context) => ElevatedButton(
             onPressed: () async {
               result = await PrismDialog.confirm(
@@ -101,8 +109,8 @@ void main() {
     var actionTapped = false;
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
+      buildApp(
+        child: Builder(
           builder: (context) => ElevatedButton(
             onPressed: () {
               PrismDialog.show(
@@ -149,8 +157,8 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
+      buildApp(
+        child: Builder(
           builder: (context) => ElevatedButton(
             onPressed: () {
               PrismDialog.show(
@@ -172,5 +180,64 @@ void main() {
     expect(find.text('Custom Dialog'), findsOneWidget);
     expect(find.text('A description'), findsOneWidget);
     expect(find.text('Custom content'), findsOneWidget);
+  });
+
+  testWidgets('PrismDialog.confirm renders icon when provided', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildApp(
+        child: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () {
+              PrismDialog.confirm(
+                context: context,
+                title: 'Delete?',
+                icon: AppIcons.warningAmber,
+                destructive: true,
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(AppIcons.warningAmber), findsOneWidget);
+    expect(find.text('Delete?'), findsOneWidget);
+  });
+
+  testWidgets('PrismDialog.confirm returns false on barrier dismiss', (
+    tester,
+  ) async {
+    bool? result;
+
+    await tester.pumpWidget(
+      buildApp(
+        child: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () async {
+              result = await PrismDialog.confirm(
+                context: context,
+                title: 'Confirm?',
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    // Tap outside the dialog (on the barrier)
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    expect(result, isFalse);
   });
 }

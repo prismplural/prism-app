@@ -1,8 +1,17 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 /// A styled dialog wrapper with consistent Prism design language.
+///
+/// Uses [GlassSurface] for a frosted glass appearance that matches the app's
+/// visual language. Falls back to [TintedGlassSurface] automatically when
+/// visual effects are reduced.
 ///
 /// Use [PrismDialog.show] for custom content or [PrismDialog.confirm] for a
 /// standard confirmation dialog with title, message, and confirm/cancel buttons.
@@ -13,6 +22,8 @@ class PrismDialog extends StatelessWidget {
     this.message,
     required this.child,
     this.actions,
+    this.icon,
+    this.iconColor,
   });
 
   /// Optional title rendered as `titleLarge`.
@@ -27,7 +38,13 @@ class PrismDialog extends StatelessWidget {
   /// Optional action row at the bottom.
   final List<Widget>? actions;
 
-  /// Show a Prism-styled dialog with custom content.
+  /// Optional icon rendered above the title.
+  final IconData? icon;
+
+  /// Color for the icon. Defaults to `colorScheme.primary`.
+  final Color? iconColor;
+
+  /// Show a Prism-styled glass dialog with custom content.
   static Future<T?> show<T>({
     required BuildContext context,
     required WidgetBuilder builder,
@@ -36,22 +53,42 @@ class PrismDialog extends StatelessWidget {
     List<Widget>? actions,
     bool barrierDismissible = true,
   }) {
-    return showDialog<T>(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return showGeneralDialog<T>(
       context: context,
       barrierDismissible: barrierDismissible,
-      builder: (dialogContext) {
-        final content = builder(dialogContext);
-
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
+      barrierLabel: 'Dismiss',
+      barrierColor: AppColors.warmBlack
+          .withValues(alpha: isDark ? 0.25 : 0.35),
+      transitionDuration: const Duration(milliseconds: 200),
+      transitionBuilder: (transitionContext, animation, secondaryAnimation, child) {
+        if (MediaQuery.of(transitionContext).disableAnimations) {
+          return child;
+        }
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
+            child: child,
           ),
-          backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-          child: PrismDialog(
-            title: title,
-            message: message,
-            actions: actions,
-            child: content,
+        );
+      },
+      pageBuilder: (dialogContext, _, _) {
+        final content = builder(dialogContext);
+        return Center(
+          child: _GlassDialogShell(
+            child: PrismDialog(
+              title: title,
+              message: message,
+              actions: actions,
+              child: content,
+            ),
           ),
         );
       },
@@ -63,6 +100,9 @@ class PrismDialog extends StatelessWidget {
   ///
   /// Set [destructive] to `true` to render the confirm button in the
   /// destructive tone (error color).
+  ///
+  /// Provide [icon] to render an icon above the title for contextual emphasis
+  /// (e.g. a warning icon for destructive confirmations).
   static Future<bool> confirm({
     required BuildContext context,
     required String title,
@@ -71,33 +111,59 @@ class PrismDialog extends StatelessWidget {
     String cancelLabel = 'Cancel',
     bool destructive = false,
     bool barrierDismissible = true,
+    IconData? icon,
   }) async {
-    final result = await showDialog<bool>(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final result = await showGeneralDialog<bool>(
       context: context,
       barrierDismissible: barrierDismissible,
-      builder: (dialogContext) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
+      barrierLabel: 'Dismiss',
+      barrierColor: AppColors.warmBlack
+          .withValues(alpha: isDark ? 0.25 : 0.35),
+      transitionDuration: const Duration(milliseconds: 200),
+      transitionBuilder: (transitionContext, animation, secondaryAnimation, child) {
+        if (MediaQuery.of(transitionContext).disableAnimations) {
+          return child;
+        }
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
+            child: child,
           ),
-          backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-          child: PrismDialog(
-            title: title,
-            message: message,
-            actions: [
-              PrismButton(
-                label: cancelLabel,
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-              ),
-              PrismButton(
-                label: confirmLabel,
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                tone: destructive
-                    ? PrismButtonTone.destructive
-                    : PrismButtonTone.filled,
-              ),
-            ],
-            child: const SizedBox.shrink(),
+        );
+      },
+      pageBuilder: (dialogContext, _, _) {
+        return Center(
+          child: _GlassDialogShell(
+            child: PrismDialog(
+              title: title,
+              message: message,
+              icon: icon,
+              iconColor: destructive
+                  ? Theme.of(dialogContext).colorScheme.error
+                  : null,
+              actions: [
+                PrismButton(
+                  label: cancelLabel,
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                ),
+                PrismButton(
+                  label: confirmLabel,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  tone: destructive
+                      ? PrismButtonTone.destructive
+                      : PrismButtonTone.filled,
+                ),
+              ],
+              child: const SizedBox.shrink(),
+            ),
           ),
         );
       },
@@ -116,6 +182,14 @@ class PrismDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (icon != null) ...[
+            Icon(
+              icon,
+              size: 32,
+              color: iconColor ?? theme.colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+          ],
           if (title != null) ...[
             Text(
               title!,
@@ -129,7 +203,7 @@ class PrismDialog extends StatelessWidget {
             Text(
               message!,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
@@ -148,6 +222,37 @@ class PrismDialog extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Glass chrome shell for dialogs.
+///
+/// Uses [GlassSurface] for frosted glass treatment with automatic fallback
+/// to [TintedGlassSurface] when visual effects are reduced.
+class _GlassDialogShell extends ConsumerWidget {
+  const _GlassDialogShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final maxHeight = min(screenHeight * 0.8, 560.0);
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: PrismTokens.dialogMaxWidth,
+        maxHeight: maxHeight,
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: GlassSurface(
+          borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
+          sigma: PrismTokens.glassBlurMedium,
+          child: SingleChildScrollView(child: child),
+        ),
       ),
     );
   }
