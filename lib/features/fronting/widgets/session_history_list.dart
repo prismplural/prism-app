@@ -24,6 +24,7 @@ import 'package:prism_plurality/features/fronting/utils/session_day_grouping.dar
 import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/date_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -132,14 +133,8 @@ class _DayGroupWidget extends StatelessWidget {
         // Centered day header
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-          child: Center(
-            child: Text(
-              DateTimeFormatting.formatDayHeader(group.dayKey),
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+          child: DateChip(
+            date: DateTime.parse(group.dayKey),
           ),
         ),
         // Sessions card

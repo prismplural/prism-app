@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
+/// A frosted-glass pill displaying a date label.
+///
+/// Use this as the single date section header across all list views.
+/// Formats: "Today", "Yesterday", "April 7" (current year), or
+/// "April 7, 2025" (different year).
 class DateChip extends StatelessWidget {
-  const DateChip({super.key, required this.label});
-  final String label;
+  const DateChip({super.key, required this.date});
+
+  final DateTime date;
 
   @override
   Widget build(BuildContext context) {
@@ -13,13 +20,13 @@ class DateChip extends StatelessWidget {
       child: UnconstrainedBox(
         child: TintedGlassSurface(
           borderRadius: BorderRadius.circular(999),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           child: Text(
-            label.toUpperCase(),
+            date.toDayHeaderLabel(),
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
             ),
           ),
         ),
