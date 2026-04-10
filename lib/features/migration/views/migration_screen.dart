@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
@@ -126,58 +128,56 @@ class _IdleView extends StatelessWidget {
         const SizedBox(height: 24),
 
         // Supported data note
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Supported data types',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+        PrismSectionCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Supported data types',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 8),
-                _SupportedItem(icon: AppIcons.person, label: 'Members'),
-                _SupportedItem(
-                  icon: AppIcons.labelOutlined,
-                  label: 'Custom fronts',
-                ),
-                _SupportedItem(
-                  icon: AppIcons.flashOn,
-                  label: 'Fronting history',
-                ),
-                _SupportedItem(
-                  icon: AppIcons.chatBubbleOutline,
-                  label: 'Chat channels & messages',
-                ),
-                _SupportedItem(icon: AppIcons.pollOutlined, label: 'Polls'),
-                _SupportedItem(
-                  icon: AppIcons.colorLens,
-                  label: 'Member colors',
-                ),
-                _SupportedItem(
-                  icon: AppIcons.notes,
-                  label: 'Member descriptions',
-                ),
-                _SupportedItem(
-                  icon: AppIcons.imageOutlined,
-                  label: 'Avatar images',
-                ),
-                _SupportedItem(icon: AppIcons.noteOutlined, label: 'Notes'),
-                _SupportedItem(
-                  icon: AppIcons.textFields,
-                  label: 'Custom fields',
-                ),
-                _SupportedItem(icon: AppIcons.groupOutlined, label: 'Groups'),
-                _SupportedItem(
-                  icon: AppIcons.commentOutlined,
-                  label: 'Comments on front sessions',
-                ),
-                _SupportedItem(icon: AppIcons.alarm, label: 'Reminders'),
-              ],
-            ),
+              ),
+              const SizedBox(height: 8),
+              _SupportedItem(icon: AppIcons.person, label: 'Members'),
+              _SupportedItem(
+                icon: AppIcons.labelOutlined,
+                label: 'Custom fronts',
+              ),
+              _SupportedItem(
+                icon: AppIcons.flashOn,
+                label: 'Fronting history',
+              ),
+              _SupportedItem(
+                icon: AppIcons.chatBubbleOutline,
+                label: 'Chat channels & messages',
+              ),
+              _SupportedItem(icon: AppIcons.pollOutlined, label: 'Polls'),
+              _SupportedItem(
+                icon: AppIcons.colorLens,
+                label: 'Member colors',
+              ),
+              _SupportedItem(
+                icon: AppIcons.notes,
+                label: 'Member descriptions',
+              ),
+              _SupportedItem(
+                icon: AppIcons.imageOutlined,
+                label: 'Avatar images',
+              ),
+              _SupportedItem(icon: AppIcons.noteOutlined, label: 'Notes'),
+              _SupportedItem(
+                icon: AppIcons.textFields,
+                label: 'Custom fields',
+              ),
+              _SupportedItem(icon: AppIcons.groupOutlined, label: 'Groups'),
+              _SupportedItem(
+                icon: AppIcons.commentOutlined,
+                label: 'Comments on front sessions',
+              ),
+              _SupportedItem(icon: AppIcons.alarm, label: 'Reminders'),
+            ],
           ),
         ),
       ],
@@ -208,67 +208,61 @@ class _ImportMethodCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Icon(icon, size: 32, color: theme.colorScheme.primary),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return PrismSurface(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(icon, size: 32, color: theme.colorScheme.primary),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          title,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (recommended) ...[
-                          const SizedBox(width: 8),
-                          Chip(
-                            label: Text(
-                              'Recommended',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSecondaryContainer,
-                              ),
-                            ),
-                            backgroundColor:
-                                theme.colorScheme.secondaryContainer,
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            labelPadding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
                     Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (recommended) ...[
+                      const SizedBox(width: 8),
+                      Chip(
+                        label: Text(
+                          'Recommended',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSecondaryContainer,
+                          ),
+                        ),
+                        backgroundColor:
+                            theme.colorScheme.secondaryContainer,
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        labelPadding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-              ),
-              Icon(
-                AppIcons.chevronRight,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+          Icon(
+            AppIcons.chevronRight,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ],
       ),
     );
   }
@@ -417,19 +411,17 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
           ),
           if (_showHelp) ...[
             const SizedBox(height: 8),
-            Card(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(
+            PrismSurface(
+              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.5,
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  'In Simply Plural, go to Settings \u2192 Account \u2192 '
-                  'Tokens. Create a new token with Read permission and '
-                  'copy it.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                'In Simply Plural, go to Settings \u2192 Account \u2192 '
+                'Tokens. Create a new token with Read permission and '
+                'copy it.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
@@ -643,29 +635,28 @@ class _PreviewView extends StatelessWidget {
         const SizedBox(height: 16),
 
         // Info note
-        Card(
-          color: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Icon(
-                  AppIcons.infoOutline,
-                  size: 20,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Imported data will be added alongside any existing data. '
-                    'Nothing will be overwritten.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+        PrismSurface(
+          fillColor: theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+          borderColor: theme.colorScheme.primary.withValues(alpha: 0.2),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(
+                AppIcons.infoOutline,
+                size: 20,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Imported data will be added alongside any existing data. '
+                  'Nothing will be overwritten.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
 
@@ -675,31 +666,29 @@ class _PreviewView extends StatelessWidget {
             data.repeatedTimers.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Card(
-              color: theme.colorScheme.surfaceContainerHighest.withValues(
+            child: PrismSurface(
+              fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.5,
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Icon(
-                      AppIcons.infoOutline,
-                      size: 20,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Reminders are not available via the API. '
-                        'To import reminders, use a file export instead.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(
+                    AppIcons.infoOutline,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Reminders are not available via the API. '
+                      'To import reminders, use a file export instead.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -899,86 +888,82 @@ class _CompleteView extends StatelessWidget {
         const SizedBox(height: 24),
 
         // Summary card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Summary',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+        PrismSectionCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Summary',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 8),
-                _ResultRow(label: 'Members', count: result.membersImported),
+              ),
+              const SizedBox(height: 8),
+              _ResultRow(label: 'Members', count: result.membersImported),
+              _ResultRow(
+                label: 'Front sessions',
+                count: result.sessionsImported,
+              ),
+              _ResultRow(
+                label: 'Conversations',
+                count: result.conversationsImported,
+              ),
+              _ResultRow(label: 'Messages', count: result.messagesImported),
+              _ResultRow(label: 'Polls', count: result.pollsImported),
+              if (result.notesImported > 0)
+                _ResultRow(label: 'Notes', count: result.notesImported),
+              if (result.commentsImported > 0)
+                _ResultRow(label: 'Comments', count: result.commentsImported),
+              if (result.customFieldsImported > 0)
                 _ResultRow(
-                  label: 'Front sessions',
-                  count: result.sessionsImported,
+                  label: 'Custom fields',
+                  count: result.customFieldsImported,
                 ),
+              if (result.groupsImported > 0)
+                _ResultRow(label: 'Groups', count: result.groupsImported),
+              if (result.remindersImported > 0)
                 _ResultRow(
-                  label: 'Conversations',
-                  count: result.conversationsImported,
+                  label: 'Reminders',
+                  count: result.remindersImported,
                 ),
-                _ResultRow(label: 'Messages', count: result.messagesImported),
-                _ResultRow(label: 'Polls', count: result.pollsImported),
-                if (result.notesImported > 0)
-                  _ResultRow(label: 'Notes', count: result.notesImported),
-                if (result.commentsImported > 0)
-                  _ResultRow(label: 'Comments', count: result.commentsImported),
-                if (result.customFieldsImported > 0)
-                  _ResultRow(
-                    label: 'Custom fields',
-                    count: result.customFieldsImported,
-                  ),
-                if (result.groupsImported > 0)
-                  _ResultRow(label: 'Groups', count: result.groupsImported),
-                if (result.remindersImported > 0)
-                  _ResultRow(
-                    label: 'Reminders',
-                    count: result.remindersImported,
-                  ),
-                if (result.avatarsDownloaded > 0)
-                  _ResultRow(
-                    label: 'Avatars downloaded',
-                    count: result.avatarsDownloaded,
-                  ),
-              ],
-            ),
+              if (result.avatarsDownloaded > 0)
+                _ResultRow(
+                  label: 'Avatars downloaded',
+                  count: result.avatarsDownloaded,
+                ),
+            ],
           ),
         ),
 
         if (result.warnings.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Card(
-            color: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${result.warnings.length} warning(s)',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.error,
-                    ),
+          PrismSurface(
+            fillColor: theme.colorScheme.errorContainer.withValues(alpha: 0.3),
+            borderColor: theme.colorScheme.error.withValues(alpha: 0.3),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${result.warnings.length} warning(s)',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.error,
                   ),
-                  const SizedBox(height: 8),
-                  ...result.warnings.map(
-                    (w) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(
-                        w,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onErrorContainer,
-                        ),
+                ),
+                const SizedBox(height: 8),
+                ...result.warnings.map(
+                  (w) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      w,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onErrorContainer,
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
