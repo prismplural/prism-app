@@ -106,7 +106,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
             autofocus: true,
             enabled: !_isLoading,
             onSubmitted: (_) => _unlock(),
-            hintText: 'Password',
+            labelText: 'Password',
             suffix: PrismFieldIconButton(
               icon: _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
               tooltip: _obscure ? 'Show password' : 'Hide password',
