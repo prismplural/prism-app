@@ -49,7 +49,7 @@ class GifPreviewOverlay extends StatelessWidget {
                 width: displayWidth,
                 height: displayHeight,
                 child: Image.network(
-                  gif.mp4Url,
+                  gif.previewUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stack) => Container(
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,

@@ -110,8 +110,8 @@ class KlipyRateLimitError extends KlipyApiError {
 
 /// HTTP client wrapping the Klipy REST API for GIF search and trending.
 class KlipyService {
-  // API key placeholder — will be replaced with relay proxy before public
-  // release to avoid shipping the key in the client binary.
+  // TODO(security): Replace with relay proxy before public release — this key
+  // ships in the client binary. See gif-search spec for proxy design.
   static const _apiKey = 'PRISM_KLIPY_DEV';
 
   static const _baseUrl = 'https://api.klipy.com';
@@ -162,13 +162,12 @@ class KlipyService {
   static bool isValidGifUrl(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasScheme) return false;
-    if (uri.scheme != 'https' && uri.scheme != 'http') return false;
+    if (uri.scheme != 'https') return false;
     final host = uri.host;
     return host.endsWith('.klipy.com') ||
         host == 'klipy.com' ||
         host.endsWith('.tenor.com') ||
-        host == 'tenor.com' ||
-        host.endsWith('.gstatic.com');
+        host == 'tenor.com';
   }
 
   /// Dispose the underlying HTTP client.

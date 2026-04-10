@@ -653,6 +653,7 @@ DriftSyncEntity _systemSettingsEntity(
         'polls_enabled': r.pollsEnabled,
         'habits_enabled': r.habitsEnabled,
         'sleep_tracking_enabled': r.sleepTrackingEnabled,
+        'gif_search_enabled': r.gifSearchEnabled,
         'quick_switch_threshold_seconds': r.quickSwitchThresholdSeconds,
         // has_completed_onboarding excluded — local-only (see applyFields)
         'chat_logs_front': r.chatLogsFront,
@@ -701,6 +702,7 @@ DriftSyncEntity _systemSettingsEntity(
         pollsEnabled: f.boolField('polls_enabled'),
         habitsEnabled: f.boolField('habits_enabled'),
         sleepTrackingEnabled: f.boolField('sleep_tracking_enabled'),
+        gifSearchEnabled: f.boolField('gif_search_enabled'),
         quickSwitchThresholdSeconds: f.intField(
           'quick_switch_threshold_seconds',
         ),
@@ -752,6 +754,7 @@ DriftSyncEntity _systemSettingsEntity(
         'polls_enabled': row.pollsEnabled,
         'habits_enabled': row.habitsEnabled,
         'sleep_tracking_enabled': row.sleepTrackingEnabled,
+        'gif_search_enabled': row.gifSearchEnabled,
         'quick_switch_threshold_seconds': row.quickSwitchThresholdSeconds,
         // has_completed_onboarding excluded — local-only (see applyFields)
         'chat_logs_front': row.chatLogsFront,

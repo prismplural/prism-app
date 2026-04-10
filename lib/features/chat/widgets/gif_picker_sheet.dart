@@ -37,6 +37,13 @@ class GifPickerSheet extends ConsumerStatefulWidget {
 class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
   final _searchController = TextEditingController();
   Timer? _debounce;
+  int? _lastAnnouncedCount;
+
+  @override
+  void deactivate() {
+    ref.read(gifSearchQueryProvider.notifier).clear();
+    super.deactivate();
+  }
 
   @override
   void dispose() {
@@ -48,7 +55,7 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 300), () {
-      ref.read(gifSearchQueryProvider.notifier).setQuery(value.trim());
+      ref.read(gifSearchQueryProvider.notifier).set(value.trim());
     });
   }
 
@@ -144,14 +151,17 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
                 ),
               ),
               data: (gifs) {
-                // Announce results for screen readers.
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  // ignore: deprecated_member_use
-                  SemanticsService.announce(
-                    '${gifs.length} GIFs found',
-                    TextDirection.ltr,
-                  );
-                });
+                // Announce results for screen readers (only on change).
+                if (gifs.length != _lastAnnouncedCount) {
+                  _lastAnnouncedCount = gifs.length;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    // ignore: deprecated_member_use
+                    SemanticsService.announce(
+                      '${gifs.length} GIFs found',
+                      TextDirection.ltr,
+                    );
+                  });
+                }
 
                 if (gifs.isEmpty) {
                   return EmptyState(

@@ -17,17 +17,18 @@ final klipyServiceProvider = Provider<KlipyService>((ref) {
 // Search query state
 // ---------------------------------------------------------------------------
 
-/// Manages the current search query for the GIF picker.
-class GifSearchNotifier extends Notifier<String> {
+/// Notifier for the GIF search query. Paired with an autoDispose results
+/// provider so reopening the picker starts with a fresh trending grid.
+class GifSearchQueryNotifier extends Notifier<String> {
   @override
   String build() => '';
-
-  void setQuery(String query) => state = query;
+  void set(String value) => state = value;
   void clear() => state = '';
 }
 
 final gifSearchQueryProvider =
-    NotifierProvider<GifSearchNotifier, String>(GifSearchNotifier.new);
+    NotifierProvider<GifSearchQueryNotifier, String>(
+        GifSearchQueryNotifier.new);
 
 // ---------------------------------------------------------------------------
 // Search results
