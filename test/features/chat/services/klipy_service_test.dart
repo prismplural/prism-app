@@ -320,10 +320,10 @@ void main() {
       );
     });
 
-    test('accepts gstatic CDN URL', () {
+    test('rejects gstatic CDN URL (too broad)', () {
       expect(
         KlipyService.isValidGifUrl('https://fonts.gstatic.com/thing.mp4'),
-        isTrue,
+        isFalse,
       );
     });
 

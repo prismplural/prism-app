@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
 import 'package:prism_plurality/features/chat/widgets/media/gif_bubble.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 /// Wraps a widget in MaterialApp + ProviderScope for testing.
 Widget _buildTestWidget(Widget child) {
@@ -16,6 +17,12 @@ Widget _buildTestWidget(Widget child) {
 }
 
 void main() {
+  setUp(() {
+    // Eliminate VisibilityDetector's async timer so it fires synchronously
+    // during pump(), preventing "pending timer" failures.
+    VisibilityDetectorController.instance.updateInterval = Duration.zero;
+  });
+
   // ══════════════════════════════════════════════════════════════════════════
   // Invalid URL → ExpiredMedia
   // ══════════════════════════════════════════════════════════════════════════
@@ -68,6 +75,7 @@ void main() {
           ),
         ),
       );
+      await tester.pump();
 
       // Should show the placeholder "GIF" text (inside the disabled container)
       // but NOT the video player or preview image
@@ -98,10 +106,9 @@ void main() {
       );
       await tester.pump();
 
-      // The Semantics widget wraps both the label and the child tree,
-      // so the merged label includes the "GIF" pill overlay text.
-      final semantics = tester.getSemantics(find.byType(GifBubble));
-      expect(semantics.label, contains('GIF: funny cat'));
+      // Find the Semantics widget directly by its label property
+      final semanticsFinder = find.bySemanticsLabel(RegExp('GIF: funny cat'));
+      expect(semanticsFinder, findsOneWidget);
     });
 
     testWidgets('label falls back to "GIF" when no description',
@@ -118,8 +125,8 @@ void main() {
       );
       await tester.pump();
 
-      final semantics = tester.getSemantics(find.byType(GifBubble));
-      expect(semantics.label, contains('GIF: GIF'));
+      final semanticsFinder = find.bySemanticsLabel(RegExp('GIF: GIF'));
+      expect(semanticsFinder, findsOneWidget);
     });
   });
 
