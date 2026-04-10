@@ -15,6 +15,9 @@ enum BlurPopupTrigger { tap, longPress, manual }
 /// Automatically chooses direction based on available space, or you can force
 /// a direction with [preferredDirection]. Animates open/closed with scale + fade.
 ///
+/// Uses [Overlay] instead of [Navigator.push] so the soft keyboard stays open
+/// when the popup appears — important for chat input scenarios.
+///
 /// Usage:
 /// ```dart
 /// BlurPopupAnchor(
@@ -66,23 +69,42 @@ class BlurPopupAnchor extends StatefulWidget {
   State<BlurPopupAnchor> createState() => BlurPopupAnchorState();
 }
 
-class BlurPopupAnchorState extends State<BlurPopupAnchor> {
+class BlurPopupAnchorState extends State<BlurPopupAnchor>
+    with SingleTickerProviderStateMixin {
   final _anchorKey = GlobalKey();
+  OverlayEntry? _overlayEntry;
+  late final AnimationController _animController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+      reverseDuration: const Duration(milliseconds: 150),
+    );
+  }
+
+  @override
+  void dispose() {
+    _removeOverlay(animate: false);
+    _animController.dispose();
+    super.dispose();
+  }
 
   /// Programmatically show the popup. Useful with [BlurPopupTrigger.manual].
   void show() => _showPopup();
 
   void _showPopup() {
+    if (_overlayEntry != null) return; // already showing
+
     final renderBox =
         _anchorKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
 
-    // Find the overlay's RenderBox to transform coordinates into the
-    // overlay's coordinate space. This is critical on macOS where the
-    // window title bar offsets the overlay from the screen origin.
-    final navigator = Navigator.of(context);
+    final overlay = Overlay.of(context);
     final overlayRenderBox =
-        navigator.overlay?.context.findRenderObject() as RenderBox?;
+        overlay.context.findRenderObject() as RenderBox?;
 
     final anchorSize = renderBox.size;
 
@@ -107,40 +129,69 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor> {
             ? BlurPopupDirection.up
             : BlurPopupDirection.down);
 
-    navigator.push(_BlurPopupRoute(
-      anchorOffset: anchorOffset,
-      anchorSize: anchorSize,
-      screenSize: overlaySize,
-      direction: direction,
-      itemCount: widget.itemCount,
-      itemBuilder: widget.itemBuilder,
-      maxHeight: widget.maxHeight,
-      width: widget.width,
-      borderRadius: widget.borderRadius,
-    ));
+    final curved = CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) {
+        return _BlurPopupOverlay(
+          animation: curved,
+          anchorOffset: anchorOffset,
+          anchorSize: anchorSize,
+          screenSize: overlaySize,
+          direction: direction,
+          itemCount: widget.itemCount,
+          itemBuilder: widget.itemBuilder,
+          maxHeight: widget.maxHeight,
+          width: widget.width,
+          borderRadius: widget.borderRadius,
+          onDismiss: () => _removeOverlay(animate: true),
+        );
+      },
+    );
+
+    overlay.insert(_overlayEntry!);
+    _animController.forward(from: 0);
+  }
+
+  Future<void> _removeOverlay({required bool animate}) async {
+    if (_overlayEntry == null) return;
+    if (animate && mounted) {
+      await _animController.reverse();
+    }
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      key: _anchorKey,
-      onTap: widget.trigger == BlurPopupTrigger.tap ? _showPopup : null,
-      onLongPress:
-          widget.trigger == BlurPopupTrigger.longPress ? _showPopup : null,
-      behavior: widget.trigger == BlurPopupTrigger.manual
-          ? null
-          : HitTestBehavior.opaque,
-      child: widget.child,
+    // TextFieldTapRegion prevents this tap from unfocusing a nearby TextField,
+    // which would dismiss the soft keyboard.
+    return TextFieldTapRegion(
+      child: GestureDetector(
+        key: _anchorKey,
+        onTap: widget.trigger == BlurPopupTrigger.tap ? _showPopup : null,
+        onLongPress:
+            widget.trigger == BlurPopupTrigger.longPress ? _showPopup : null,
+        behavior: widget.trigger == BlurPopupTrigger.manual
+            ? null
+            : HitTestBehavior.opaque,
+        child: widget.child,
+      ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Route
+// Overlay wrapper (barrier + animated content)
 // ---------------------------------------------------------------------------
 
-class _BlurPopupRoute extends PopupRoute<void> {
-  _BlurPopupRoute({
+class _BlurPopupOverlay extends StatelessWidget {
+  const _BlurPopupOverlay({
+    required this.animation,
     required this.anchorOffset,
     required this.anchorSize,
     required this.screenSize,
@@ -150,8 +201,10 @@ class _BlurPopupRoute extends PopupRoute<void> {
     required this.maxHeight,
     required this.width,
     required this.borderRadius,
+    required this.onDismiss,
   });
 
+  final Animation<double> animation;
   final Offset anchorOffset;
   final Size anchorSize;
   final Size screenSize;
@@ -161,76 +214,53 @@ class _BlurPopupRoute extends PopupRoute<void> {
   final double maxHeight;
   final double width;
   final double borderRadius;
-
-  CurvedAnimation? _cachedCurved;
-
-  @override
-  Color? get barrierColor => AppColors.warmBlack.withValues(alpha: 0.15);
+  final VoidCallback onDismiss;
 
   @override
-  bool get barrierDismissible => true;
-
-  @override
-  String? get barrierLabel => 'Dismiss';
-
-  @override
-  Duration get transitionDuration => const Duration(milliseconds: 200);
-
-  @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 150);
-
-  @override
-  void dispose() {
-    _cachedCurved?.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    _cachedCurved ??= CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    );
-    final curved = _cachedCurved!;
-
+  Widget build(BuildContext context) {
     // Scale origin: from the anchor edge.
     final alignment = direction == BlurPopupDirection.up
         ? Alignment.bottomCenter
         : Alignment.topCenter;
 
-    return FadeTransition(
-      opacity: curved,
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.9, end: 1.0).animate(curved),
-        alignment: alignment,
-        child: child,
+    return TextFieldTapRegion(
+      child: Stack(
+        children: [
+          // Barrier — dismisses on tap, tinted overlay.
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: onDismiss,
+              behavior: HitTestBehavior.opaque,
+              child: FadeTransition(
+                opacity: animation,
+                child: ColoredBox(
+                  color: AppColors.warmBlack.withValues(alpha: 0.15),
+                ),
+              ),
+            ),
+          ),
+          // Popup content
+          FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
+              alignment: alignment,
+              child: _BlurPopupContent(
+                anchorOffset: anchorOffset,
+                anchorSize: anchorSize,
+                screenSize: screenSize,
+                direction: direction,
+                itemCount: itemCount,
+                itemBuilder: itemBuilder,
+                maxHeight: maxHeight,
+                width: width,
+                borderRadius: borderRadius,
+                close: onDismiss,
+              ),
+            ),
+          ),
+        ],
       ),
-    );
-  }
-
-  @override
-  Widget buildPage(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-  ) {
-    return _BlurPopupContent(
-      anchorOffset: anchorOffset,
-      anchorSize: anchorSize,
-      screenSize: screenSize,
-      direction: direction,
-      itemCount: itemCount,
-      itemBuilder: itemBuilder,
-      maxHeight: maxHeight,
-      width: width,
-      borderRadius: borderRadius,
-      close: () => Navigator.of(context).pop(),
     );
   }
 }
