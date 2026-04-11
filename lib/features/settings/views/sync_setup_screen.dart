@@ -181,6 +181,7 @@ class _IntroStep extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SafeArea(
+      top: false,
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -299,6 +300,7 @@ class _PasswordStep extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SafeArea(
+      top: false,
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -403,6 +405,7 @@ class _SecretKeyStep extends StatelessWidget {
     final theme = Theme.of(context);
 
     return SafeArea(
+      top: false,
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
