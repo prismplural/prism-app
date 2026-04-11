@@ -265,6 +265,7 @@ cmd_build() {
     fi
 
     local mode_flag=""
+    [ "$mode" = "debug" ]   && mode_flag="--debug"
     [ "$mode" = "release" ] && mode_flag="--release"
     [ "$mode" = "profile" ] && mode_flag="--profile"
 
@@ -274,8 +275,9 @@ cmd_build() {
         timer_start
         # Debug Android APK: compile only for arm64 to skip the armeabi-v7a pass.
         # Release keeps all ABIs for Play Store distribution.
+        # flutter uses its own platform names (android-arm64), not NDK ABI names.
         local arch_flag=""
-        [ "$mode" = "debug" ] && [ "$platform" = "apk" ] && arch_flag="--target-platform android-arm64-v8a"
+        [ "$mode" = "debug" ] && [ "$platform" = "apk" ] && arch_flag="--target-platform android-arm64"
         flutter build "$platform" $mode_flag $arch_flag
         timer_end
         success "$platform build complete"
@@ -301,7 +303,7 @@ case "$command" in
     check)    cmd_check ;;
     codegen)  cmd_codegen ;;
     devices)  cmd_devices ;;
-    clean)    cmd_clean ;;
+    clean)    cmd_clean "$@" ;;
     help|-h)  usage ;;
     *)        echo "Unknown command: $command"; usage; exit 1 ;;
 esac

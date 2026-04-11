@@ -1,9 +1,11 @@
 #!/bin/sh
 # ccache wrapper for clang — used by iOS/macOS CocoaPods builds.
 # Falls back to plain clang if ccache is not installed.
-# Install: brew install ccache
+# Uses xcrun to resolve the active Xcode toolchain, avoiding DEVELOPER_DIR/PATH mismatches.
+# Install ccache: brew install ccache
+CLANG=$(xcrun --find clang 2>/dev/null || echo clang)
 if command -v ccache >/dev/null 2>&1; then
-  exec ccache clang "$@"
+  exec ccache "$CLANG" "$@"
 else
-  exec clang "$@"
+  exec "$CLANG" "$@"
 fi
