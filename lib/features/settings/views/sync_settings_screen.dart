@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
+import 'package:prism_plurality/features/settings/widgets/change_password_sheet.dart';
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -367,6 +368,14 @@ class _ConfiguredView extends ConsumerWidget {
                   ),
                 ],
                 if (syncHealth == SyncHealthState.healthy) ...[
+                  const Divider(height: 1),
+                  PrismSettingsRow(
+                    icon: AppIcons.passwordOutlined,
+                    title: 'Change Password',
+                    subtitle: 'Update your sync encryption password',
+                    enabled: !isSyncActive,
+                    onTap: () => ChangePasswordSheet.show(context),
+                  ),
                   const Divider(height: 1),
                   PrismSettingsRow(
                     icon: AppIcons.key,
