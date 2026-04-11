@@ -1,0 +1,9 @@
+{
+  "@@locale": "en",
+  "cancel": "Cancel",
+  "@cancel": { "description": "Cancel action button label" },
+  "save": "Save",
+  "@save": { "description": "Save action button label" },
+  "delete": "Delete",
+  "@delete": { "description": "Delete action button label" }
+}

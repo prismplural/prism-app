@@ -1,5 +1,6 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -60,6 +61,11 @@ class _PrismAppState extends ConsumerState<PrismApp> {
         // Non-fatal: sync engine may not be configured yet
         debugPrint('onResume failed (non-fatal): $e');
       });
+      // Kick off an explicit sync cycle on resume. `triggerSync` is
+      // fire-and-forget and swallows errors so a failed sync doesn't
+      // crash the UI — the auto-sync driver will retry in the background.
+      // See Appendix B.3 / Bucket 4A of the 2026-04-11 robustness plan.
+      triggerSync(handle);
     }
   }
 
@@ -129,11 +135,15 @@ class _PrismAppState extends ConsumerState<PrismApp> {
         return MaterialApp.router(
           title: 'Prism',
           localizationsDelegates: const [
+            AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [Locale('en')],
+          supportedLocales: const [
+            Locale('en'),
+            Locale('es'),
+          ],
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: switch (brightness) {
