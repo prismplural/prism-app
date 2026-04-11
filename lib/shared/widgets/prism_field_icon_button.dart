@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 
 /// Compact icon button sized for text-field suffixes and inline field actions.
@@ -39,15 +38,8 @@ class _PrismFieldIconButtonState extends State<PrismFieldIconButton> {
     final baseColor = widget.color ?? theme.colorScheme.onSurfaceVariant;
     final canPress = widget.enabled && widget.onPressed != null;
     final iconColor = canPress
-        ? baseColor.withValues(alpha: 0.82)
+        ? baseColor.withValues(alpha: _pressed ? 1.0 : 0.7)
         : baseColor.withValues(alpha: 0.32);
-    final fillColor = canPress
-        ? baseColor.withValues(alpha: _pressed ? 0.16 : 0.09)
-        : baseColor.withValues(alpha: 0.04);
-    final borderColor = canPress
-        ? baseColor.withValues(alpha: _pressed ? 0.18 : 0.1)
-        : baseColor.withValues(alpha: 0.05);
-    final borderRadius = BorderRadius.circular(PrismTokens.radiusSmall);
 
     Widget button = Semantics(
       button: true,
@@ -57,35 +49,17 @@ class _PrismFieldIconButtonState extends State<PrismFieldIconButton> {
         width: widget.size,
         height: widget.size,
         child: AnimatedScale(
-          scale: _pressed ? 0.96 : 1,
+          scale: _pressed ? 0.9 : 1,
           duration: Anim.xs,
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: borderRadius,
-            child: InkWell(
-              onTap: canPress ? widget.onPressed : null,
-              onHighlightChanged: (value) {
-                if (_pressed != value) {
-                  setState(() => _pressed = value);
-                }
-              },
-              borderRadius: borderRadius,
-              child: AnimatedContainer(
-                duration: Anim.xs,
-                curve: Anim.standard,
-                width: widget.size,
-                height: widget.size,
-                decoration: BoxDecoration(
-                  color: fillColor,
-                  borderRadius: borderRadius,
-                  border: Border.all(color: borderColor),
-                ),
-                child: Icon(
-                  widget.icon,
-                  size: widget.iconSize,
-                  color: iconColor,
-                ),
-              ),
+          child: GestureDetector(
+            onTap: canPress ? widget.onPressed : null,
+            onTapDown: (_) { if (canPress) setState(() => _pressed = true); },
+            onTapUp: (_) => setState(() => _pressed = false),
+            onTapCancel: () => setState(() => _pressed = false),
+            child: Icon(
+              widget.icon,
+              size: widget.iconSize,
+              color: iconColor,
             ),
           ),
         ),

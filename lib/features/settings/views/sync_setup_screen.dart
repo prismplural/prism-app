@@ -320,6 +320,7 @@ class _PasswordStep extends StatelessWidget {
           PrismTextField(
             controller: passwordController,
             labelText: 'Password',
+            labelAbove: true,
             obscureText: obscurePassword,
             keyboardType: TextInputType.visiblePassword,
             textInputAction: TextInputAction.next,
@@ -335,6 +336,7 @@ class _PasswordStep extends StatelessWidget {
           PrismTextField(
             controller: confirmPasswordController,
             labelText: 'Confirm password',
+            labelAbove: true,
             obscureText: obscureConfirmPassword,
             keyboardType: TextInputType.visiblePassword,
             textInputAction: TextInputAction.done,
