@@ -45,7 +45,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
 
   Future<void> _pickFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json', 'prism'],
       );

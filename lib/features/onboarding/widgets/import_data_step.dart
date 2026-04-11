@@ -512,7 +512,7 @@ class _PrismExportImportFlowState
 
   Future<void> _pickFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json', 'prism'],
         withData: false,

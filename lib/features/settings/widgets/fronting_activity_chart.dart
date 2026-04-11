@@ -110,13 +110,13 @@ class FrontingActivityChart extends StatelessWidget {
                               );
                               if (idx == 0) {
                                 return SideTitleWidget(
-                                  axisSide: meta.axisSide,
+                                  meta: meta,
                                   child: Text(firstDate, style: style),
                                 );
                               }
                               if (idx == dailyActivity.length - 1) {
                                 return SideTitleWidget(
-                                  axisSide: meta.axisSide,
+                                  meta: meta,
                                   child: Text(lastDate, style: style),
                                 );
                               }
