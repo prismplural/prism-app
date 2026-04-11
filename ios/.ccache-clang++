@@ -1,0 +1,6 @@
+#!/bin/sh
+if type ccache &>/dev/null; then
+  exec ccache "$(xcrun -f clang++)" "$@"
+else
+  exec "$(xcrun -f clang++)" "$@"
+fi
