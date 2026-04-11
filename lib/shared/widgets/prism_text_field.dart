@@ -39,6 +39,7 @@ class PrismTextField extends StatelessWidget {
     this.prefixText,
     this.isDense,
     this.alignLabelWithHint,
+    this.labelAbove = false,
   }) : assert(
          controller == null || initialValue == null,
          'Provide either a controller or an initialValue, not both.',
@@ -77,6 +78,11 @@ class PrismTextField extends StatelessWidget {
   final bool? isDense;
   final bool? alignLabelWithHint;
 
+  /// When true, renders [labelText] as a static label above the field instead
+  /// of a floating Material label inside it. Use for setup flows and forms
+  /// where a persistent label improves scannability.
+  final bool labelAbove;
+
   bool get _isMultiLine =>
       (maxLines != null && maxLines! > 1) ||
       (minLines != null && minLines! > 1);
@@ -99,8 +105,10 @@ class PrismTextField extends StatelessWidget {
       return null;
     }
 
+    // When labelAbove is true, the label is rendered as a separate Text widget
+    // above the field — don't pass it into InputDecoration.
     final decoration = InputDecoration(
-      labelText: labelText,
+      labelText: labelAbove ? null : labelText,
       hintText: hintText,
       helperText: helperText,
       errorText: errorText,
@@ -133,7 +141,7 @@ class PrismTextField extends StatelessWidget {
       isCollapsed: fieldStyle == PrismTextFieldStyle.borderless,
     );
 
-    return TextFormField(
+    final field = TextFormField(
       controller: controller,
       focusNode: focusNode,
       initialValue: initialValue,
@@ -156,5 +164,24 @@ class PrismTextField extends StatelessWidget {
       maxLength: maxLength,
       textAlign: textAlign,
     );
+
+    if (labelAbove && labelText != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            labelText!,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 6),
+          field,
+        ],
+      );
+    }
+
+    return field;
   }
 }
