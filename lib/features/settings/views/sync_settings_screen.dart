@@ -28,6 +28,7 @@ import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.da
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 // ---------------------------------------------------------------------------
 // Sync entity counts provider
@@ -150,7 +151,7 @@ class SyncSettingsScreen extends ConsumerWidget {
         !syncIdAsync.hasValue) {
       return const PrismPageScaffold(
         topBar: PrismTopBar(title: 'Sync', showBackButton: true),
-        body: Center(child: CircularProgressIndicator()),
+        body: PrismLoadingState(),
       );
     }
 

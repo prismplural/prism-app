@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 // ---------------------------------------------------------------------------
 // Single-select variant
@@ -44,7 +45,7 @@ class _InlineExpandableMemberPickerState
     return membersAsync.when(
       loading: () => const SizedBox(
         height: 56,
-        child: Center(child: CircularProgressIndicator()),
+        child: PrismLoadingState(),
       ),
       error: (e, _) => Text('Error: $e'),
       data: (members) => _buildPicker(context, members),
@@ -213,7 +214,7 @@ class _InlineExpandableMultiMemberPickerState
     return membersAsync.when(
       loading: () => const SizedBox(
         height: 56,
-        child: Center(child: CircularProgressIndicator()),
+        child: PrismLoadingState(),
       ),
       error: (e, _) => Text('Error: $e'),
       data: (members) => _buildPicker(context, members),

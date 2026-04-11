@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/sharing/views/accept_invite_sheet.dart';
 import 'package:prism_plurality/features/sharing/views/create_invite_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 /// Main sharing screen showing pending requests and established relationships.
 class SharingScreen extends ConsumerStatefulWidget {
@@ -72,7 +73,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
       ),
       bodyPadding: EdgeInsets.zero,
       body: pendingAsync.isLoading && friends.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const PrismLoadingState()
           : RefreshIndicator(
               onRefresh: () => _refreshInbox(showNoopToast: false),
               child: ListView(

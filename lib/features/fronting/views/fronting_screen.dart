@@ -31,6 +31,7 @@ import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 class FrontingScreen extends ConsumerStatefulWidget {
   const FrontingScreen({super.key});
@@ -179,7 +180,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           return const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator.adaptive()),
+              child: PrismLoadingState(),
             ),
           );
         }),
