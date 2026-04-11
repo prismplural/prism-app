@@ -24,7 +24,6 @@ dependencies:
 
   # Code generation models
   freezed_annotation: ^3.1.0
-  json_annotation: ^4.11.0
 
   # HTTP
   http: ^1.6.0
@@ -62,7 +61,6 @@ dependencies:
   url_launcher: ^6.3.1
 
   # UI
-  flutter_animate: ^4.5.2
   dynamic_color: ^1.8.1
   flutter_colorpicker: ^1.1.0
   emoji_picker_flutter: ^4.4.0
