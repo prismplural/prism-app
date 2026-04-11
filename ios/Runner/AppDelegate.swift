@@ -84,6 +84,30 @@ import UIKit
         result(proof)
       }
     }
+    let fileUtilsChannel = FlutterMethodChannel(
+      name: "com.prism.prism_plurality/file_utils",
+      binaryMessenger: registrar.messenger()
+    )
+    fileUtilsChannel.setMethodCallHandler { call, result in
+      guard call.method == "excludeFromBackup" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard let args = call.arguments as? [String: Any],
+            let path = args["path"] as? String else {
+        result(FlutterError(code: "INVALID_ARGS", message: "path required", details: nil))
+        return
+      }
+      do {
+        var url = URL(fileURLWithPath: path)
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try url.setResourceValues(resourceValues)
+        result(nil)
+      } catch {
+        result(FlutterError(code: "FAILED", message: error.localizedDescription, details: nil))
+      }
+    }
   }
 
   /// Toggle secure display using the iOS secure text field trick.

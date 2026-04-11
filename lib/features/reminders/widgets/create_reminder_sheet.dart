@@ -44,8 +44,9 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     _trigger = r?.trigger ?? ReminderTrigger.scheduled;
     _intervalDays = r?.intervalDays ?? 1;
     _delayHours = r?.delayHours ?? 0;
-    if (r?.timeOfDay != null) {
-      final parts = r!.timeOfDay!.split(':');
+    final timeOfDay = r?.timeOfDay;
+    if (timeOfDay != null) {
+      final parts = timeOfDay.split(':');
       if (parts.length == 2) {
         _timeOfDay = TimeOfDay(
           hour: int.tryParse(parts[0]) ?? 9,

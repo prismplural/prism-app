@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -27,6 +28,7 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final file = await getDatabaseFile();
+    await _excludeFromiCloudBackup(file.path);
     final hexKey = await readDatabaseKeyHex();
 
     // ── Path 1: No DB file on disk ──────────────────────────────────────
@@ -155,5 +157,15 @@ bool _tryOpenPlaintext(String path) {
     }
   } catch (_) {
     return false;
+  }
+}
+
+Future<void> _excludeFromiCloudBackup(String path) async {
+  if (!Platform.isIOS) return;
+  try {
+    const channel = MethodChannel('com.prism.prism_plurality/file_utils');
+    await channel.invokeMethod<void>('excludeFromBackup', {'path': path});
+  } catch (_) {
+    // Non-fatal: if the channel call fails, the file is still encrypted.
   }
 }
