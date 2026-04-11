@@ -28,7 +28,7 @@ Cross-platform rewrite of the existing SwiftUI app, targeting iOS, Android, macO
 | Database | Drift + SQLite |
 | Models | freezed + json_serializable |
 | Navigation | go_router |
-| Crypto | libsodium (XChaCha20-Poly1305, X25519, Argon2id) |
+| Crypto | libsodium (XChaCha20-Poly1305, X25519, Argon2id), pqcrypto (ML-DSA-65, ML-KEM-768 via Rust FFI) |
 | Sync | Custom CRDT with Hybrid Logical Clocks |
 
 ## Getting Started
