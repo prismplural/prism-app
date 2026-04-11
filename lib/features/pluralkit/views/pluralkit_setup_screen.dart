@@ -123,9 +123,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             PrismSurface(
               fillColor: theme.colorScheme.errorContainer,
               borderColor: theme.colorScheme.error.withValues(alpha: 0.3),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
+              padding: const EdgeInsets.all(12),
+              child: Row(
                   children: [
                     Icon(AppIcons.errorOutline,
                         color: theme.colorScheme.onErrorContainer),
@@ -140,7 +139,6 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                     ),
                   ],
                 ),
-              ),
             ),
           ],
 

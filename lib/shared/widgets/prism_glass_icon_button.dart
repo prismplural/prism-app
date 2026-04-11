@@ -45,7 +45,7 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canPress = widget.onPressed != null && !widget.isLoading;
+    final canPress = widget.onPressed != null && widget.enabled && !widget.isLoading;
     final visuallyEnabled = widget.enabled && !widget.isLoading;
 
     Widget button = Semantics(
@@ -81,10 +81,9 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: visuallyEnabled
-                                ? theme.colorScheme.onSurface
-                                : theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.35),
+                            color: widget.accentIcon && widget.tint != null
+                                ? widget.tint!
+                                : theme.colorScheme.onSurface,
                           ),
                         ),
                       )
