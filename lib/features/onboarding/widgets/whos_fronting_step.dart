@@ -3,6 +3,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 class WhosFrontingStep extends ConsumerWidget {
   const WhosFrontingStep({super.key});
@@ -14,12 +15,10 @@ class WhosFrontingStep extends ConsumerWidget {
     final notifier = ref.read(onboardingProvider.notifier);
 
     return membersAsync.when(
-      loading: () => Center(
-        child: CircularProgressIndicator(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? AppColors.warmWhite
-              : AppColors.warmBlack,
-        ),
+      loading: () => PrismLoadingState(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppColors.warmWhite
+            : AppColors.warmBlack,
       ),
       error: (e, _) => Center(
         child: Text(

@@ -296,7 +296,7 @@ class _FrontingStatsSection extends ConsumerWidget {
     return statsAsync.when(
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 8),
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        child: PrismLoadingState(),
       ),
       error: (_, _) => const SizedBox.shrink(),
       data: (stats) {

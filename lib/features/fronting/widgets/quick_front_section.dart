@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 /// Top 4 most-frequently-fronting members as quick-switch buttons.
 class QuickFrontSection extends ConsumerWidget {
@@ -24,7 +25,7 @@ class QuickFrontSection extends ConsumerWidget {
     return membersAsync.when(
       loading: () => const SizedBox(
         height: 100,
-        child: Center(child: CircularProgressIndicator()),
+        child: PrismLoadingState(),
       ),
       error: (e, _) => Text('Error: $e'),
       data: (members) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
@@ -44,7 +45,7 @@ class HeadmatePicker extends ConsumerWidget {
     return membersAsync.when(
       loading: () => const SizedBox(
         height: 56,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        child: PrismLoadingState(),
       ),
       error: (e, _) => Text(
         'Error loading ${ref.read(terminologyProvider).pluralLower}: $e',
