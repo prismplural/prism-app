@@ -149,7 +149,7 @@ tracks what shipped and what's still open.
 ## Performance Docs
 
 - `../docs/flutter-performance-and-size-audit-guide.md`
-- `../docs/flutter-performance-and-size-audit-report-2026-03-21.md`
+- `../docs/flutter-performance-and-size-audit-report-2026-04-08.md` (current; 2026-03-21 superseded)
 
 ## Project Structure
 ```
@@ -320,11 +320,4 @@ collection, flutter_animate, cupertino_icons   # Misc
 Dev: `build_runner`, `freezed`, `json_serializable`, `drift_dev`, `flutter_lints`
 
 ## Known Issues / Remaining Work
-See `AUDIT_REMAINING.md` for tracked issues from the onboarding/sync audit. Key items:
-- `devicePairingProvider` not reset when leaving sync flow (stale pairing state)
-- PluralKit import during onboarding allows duplicate members
-- `hasCompletedOnboarding` synced via CRDT could skip onboarding on Device B
-- Silent data loss on type mismatches in remote change application
-- No global sync error notification (toasts only on sync settings screens)
-- Drift sync tables (`pending_ops`, `applied_ops`, `field_versions`) not cleaned on sync reset
-- Dead code: `_SetupRequestScanner` in setup_device_sheet.dart (~200 lines)
+See `TODOS.md` for tracked work. Audit findings from the onboarding/sync audit are all resolved — see `AUDIT_REMAINING.md` in git history for details.
