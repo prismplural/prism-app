@@ -79,7 +79,7 @@ class ImporterNotifier extends Notifier<MigrationState> {
   /// Let the user pick a file, then parse it.
   Future<void> selectAndParseFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
         withData: false,
