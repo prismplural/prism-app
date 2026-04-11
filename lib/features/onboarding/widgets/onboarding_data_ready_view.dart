@@ -27,7 +27,8 @@ class OnboardingDataReadyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -38,21 +39,19 @@ class OnboardingDataReadyView extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             title,
-            style: TextStyle(
-              color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-              fontSize: 26,
+            style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.w700,
+              color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
             description,
-            style: TextStyle(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: isDark
                   ? AppColors.mutedTextDark
                   : AppColors.mutedTextLight,
-              fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
@@ -72,12 +71,11 @@ class OnboardingDataReadyView extends StatelessWidget {
                 children: [
                   Text(
                     summaryLabel,
-                    style: TextStyle(
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
                       color: isDark
                           ? AppColors.mutedTextDark
                           : AppColors.mutedTextLight,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -123,7 +121,8 @@ class _CountRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -131,19 +130,17 @@ class _CountRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: isDark
                     ? AppColors.mutedTextDark
                     : AppColors.mutedTextLight,
-                fontSize: 14,
               ),
             ),
           ),
           Text(
             '$count',
-            style: TextStyle(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-              fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
           ),

@@ -79,7 +79,8 @@ class _SourcePicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -87,11 +88,10 @@ class _SourcePicker extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'You can import your existing data or skip this step to start fresh.',
-            style: TextStyle(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: isDark
                   ? AppColors.mutedTextDark
                   : AppColors.mutedTextLight,
-              fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
@@ -133,11 +133,10 @@ class _SourcePicker extends StatelessWidget {
           const SizedBox(height: 32),
           Text(
             'You can always import data later from Settings.',
-            style: TextStyle(
+            style: theme.textTheme.bodySmall?.copyWith(
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.5)
                   : AppColors.warmBlack.withValues(alpha: 0.5),
-              fontSize: 13,
             ),
             textAlign: TextAlign.center,
           ),
@@ -171,8 +170,9 @@ class _SourceCardState extends State<_SourceCard> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
@@ -221,22 +221,20 @@ class _SourceCardState extends State<_SourceCard> {
                   children: [
                     Text(
                       widget.title,
-                      style: TextStyle(
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
                         color: isDark
                             ? AppColors.warmWhite
                             : AppColors.warmBlack,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       widget.description,
-                      style: TextStyle(
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: isDark
                             ? AppColors.mutedTextDark
                             : AppColors.mutedTextLight,
-                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -286,8 +284,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -314,12 +313,11 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               children: [
                 Text(
                   'How to get your token:',
-                  style: TextStyle(
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
                     color: isDark
                         ? AppColors.warmWhite.withValues(alpha: 0.9)
                         : AppColors.warmBlack.withValues(alpha: 0.9),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -415,7 +413,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             const SizedBox(height: 12),
             Text(
               _errorMessage!,
-              style: TextStyle(color: Colors.red.shade300, fontSize: 14),
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.error),
               textAlign: TextAlign.center,
             ),
           ],
@@ -670,8 +668,9 @@ class _PrismExportImportFlowState
   }
 
   Widget _buildIdle() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -688,10 +687,9 @@ class _PrismExportImportFlowState
             children: [
               Text(
                 'How to export from Prism:',
-                style: TextStyle(
-                  color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w600,
-                  fontSize: 15,
+                  color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                 ),
               ),
               const SizedBox(height: 8),
@@ -721,8 +719,9 @@ class _PrismExportImportFlowState
   }
 
   Widget _buildPassword() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -734,19 +733,17 @@ class _PrismExportImportFlowState
         const SizedBox(height: 16),
         Text(
           'Encrypted Export',
-          style: TextStyle(
-            color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-            fontSize: 22,
+          style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
           ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
           'Enter the export password to unlock this Prism backup.',
-          style: TextStyle(
+          style: theme.textTheme.bodyMedium?.copyWith(
             color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
-            fontSize: 14,
           ),
           textAlign: TextAlign.center,
         ),
@@ -802,8 +799,9 @@ class _PrismExportImportFlowState
   }
 
   Widget _buildPreview() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     final preview = _preview!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -821,22 +819,20 @@ class _PrismExportImportFlowState
             children: [
               Text(
                 'Ready to import',
-                style: TextStyle(
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.9)
                       : AppColors.warmBlack.withValues(alpha: 0.9),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'This will restore your exported Prism system and finish setup on this device.',
-                style: TextStyle(
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: isDark
                       ? AppColors.mutedTextDark
                       : AppColors.mutedTextLight,
-                  fontSize: 13,
                 ),
               ),
               const SizedBox(height: 12),
@@ -945,8 +941,9 @@ class _SimplyPluralImportFlowState
     extends ConsumerState<_SimplyPluralImportFlow> {
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     final migration = ref.watch(importerProvider);
 
@@ -978,12 +975,11 @@ class _SimplyPluralImportFlowState
                 children: [
                   Text(
                     'How to export from Simply Plural:',
-                    style: TextStyle(
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
                       color: isDark
                           ? AppColors.warmWhite.withValues(alpha: 0.9)
                           : AppColors.warmBlack.withValues(alpha: 0.9),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1043,12 +1039,11 @@ class _SimplyPluralImportFlowState
                 children: [
                   Text(
                     'Found data:',
-                    style: TextStyle(
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
                       color: isDark
                           ? AppColors.warmWhite.withValues(alpha: 0.9)
                           : AppColors.warmBlack.withValues(alpha: 0.9),
-                      fontWeight: FontWeight.w600,
-                      fontSize: 15,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -1179,7 +1174,8 @@ class _BackLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final linkColor = isDark
         ? AppColors.mutedTextDark
         : AppColors.mutedTextLight;
@@ -1192,7 +1188,7 @@ class _BackLink extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             'Other import options',
-            style: TextStyle(color: linkColor, fontSize: 14),
+            style: theme.textTheme.bodyMedium?.copyWith(color: linkColor),
           ),
         ],
       ),
@@ -1222,7 +1218,8 @@ class _ActionButtonState extends State<_ActionButton> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final buttonTextColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     return GestureDetector(
       onTapDown: widget.isLoading
@@ -1259,10 +1256,9 @@ class _ActionButtonState extends State<_ActionButton> {
                   )
                 : Text(
                     widget.label,
-                    style: TextStyle(
-                      color: buttonTextColor,
+                    style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w600,
-                      fontSize: 16,
+                      color: buttonTextColor,
                     ),
                   ),
           ),
@@ -1280,8 +1276,9 @@ class _InstructionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
@@ -1296,10 +1293,9 @@ class _InstructionRow extends StatelessWidget {
             child: Center(
               child: Text(
                 number,
-                style: TextStyle(
-                  color: primary,
-                  fontSize: 12,
+                style: theme.textTheme.labelSmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: primary,
                 ),
               ),
             ),
@@ -1308,11 +1304,10 @@ class _InstructionRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.8)
                     : AppColors.warmBlack.withValues(alpha: 0.8),
-                fontSize: 14,
               ),
             ),
           ),
@@ -1330,7 +1325,8 @@ class _PreviewRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1338,18 +1334,16 @@ class _PreviewRow extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.8)
                   : AppColors.warmBlack.withValues(alpha: 0.8),
-              fontSize: 14,
             ),
           ),
           Text(
             '$count',
-            style: TextStyle(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-              fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),
