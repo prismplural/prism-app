@@ -162,24 +162,10 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
         children: [
           PrismSheetTopBar(
             title: 'New Poll',
-            trailing: _isCreating
-                ? SizedBox(
-                    width: PrismTokens.topBarActionSize,
-                    height: PrismTokens.topBarActionSize,
-                    child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  )
-                : PrismGlassIconButton(
+            trailing: PrismGlassIconButton(
                     icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,
+                    isLoading: _isCreating,
                     tint: _canCreate ? theme.colorScheme.primary : null,
                     accentIcon: _canCreate,
                     onPressed: _canCreate ? _createPoll : null,
