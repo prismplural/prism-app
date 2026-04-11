@@ -34,8 +34,12 @@ void main() async {
     ),
   );
 
-  // TODO: Enable when background tasks are implemented.
-  // The callbackDispatcher is currently a stub that no-ops on all task names.
+  // TODO(background-sync): workmanager initialization is intentionally disabled.
+  // callbackDispatcher in pluralkit_background_service.dart is a no-op stub.
+  // Before enabling, a lightweight background entry point is needed that can
+  // bootstrap the Rust sync engine in a background isolate without the full
+  // Riverpod provider graph. Design and track this in a docs/plans/ file before
+  // implementing.
   // if (Platform.isIOS || Platform.isAndroid) {
   //   WidgetsBinding.instance.addPostFrameCallback((_) {
   //     Workmanager().initialize(callbackDispatcher);

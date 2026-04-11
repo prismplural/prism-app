@@ -53,6 +53,8 @@
 	<string>Prism uses your photo library to set member avatars and share images in chat.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Prism uses the microphone to record voice notes in chat.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Prism uses Face ID to unlock the app with your PIN lock setting.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

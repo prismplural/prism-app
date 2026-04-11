@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
@@ -347,24 +348,22 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
           );
           totalOps++;
         } catch (e) {
-          // ignore: avoid_print
-          print('[BOOTSTRAP] Failed to push $tableName row: $e');
+          if (kDebugMode) debugPrint('[BOOTSTRAP] Failed to push $tableName row: $e');
         }
       }
     }
 
-    // ignore: avoid_print
-    print('[BOOTSTRAP] Pushed $totalOps existing records to sync engine');
+    if (kDebugMode) {
+      debugPrint('[BOOTSTRAP] Pushed $totalOps existing records to sync engine');
+    }
 
     // Trigger an immediate sync to push the bootstrap data to the relay
     state = state.copyWith(currentProgress: SyncSetupProgress.syncing);
     try {
       final result = await ffi.syncNow(handle: handle);
-      // ignore: avoid_print
-      print('[BOOTSTRAP] syncNow result: $result');
+      if (kDebugMode) debugPrint('[BOOTSTRAP] syncNow result: $result');
     } catch (e) {
-      // ignore: avoid_print
-      print('[BOOTSTRAP] syncNow failed: $e');
+      if (kDebugMode) debugPrint('[BOOTSTRAP] syncNow failed: $e');
     }
   }
 }

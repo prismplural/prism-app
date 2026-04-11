@@ -26,6 +26,11 @@ enum BlurPopupTrigger { tap, longPress, manual }
 ///   child: MyTriggerWidget(),
 /// )
 /// ```
+///
+/// Accessibility: callers are responsible for ensuring items built by
+/// [itemBuilder] are semantically labelled (via [Semantics.label] or
+/// [Tooltip.message]) so screen readers can announce popup actions.
+/// The dim barrier is excluded from the semantic tree automatically.
 class BlurPopupAnchor extends StatefulWidget {
   const BlurPopupAnchor({
     super.key,
@@ -233,8 +238,10 @@ class _BlurPopupOverlay extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               child: FadeTransition(
                 opacity: animation,
-                child: ColoredBox(
-                  color: AppColors.warmBlack.withValues(alpha: 0.15),
+                child: ExcludeSemantics(
+                  child: ColoredBox(
+                    color: AppColors.warmBlack.withValues(alpha: 0.15),
+                  ),
                 ),
               ),
             ),

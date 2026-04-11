@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 
 /// Compact icon button sized for text-field suffixes and inline field actions.
+///
+/// Defaults to a 32 dp hit target ([size] = 32), matched to text-field suffix
+/// affordances. When used outside a text field, wrap in [Padding] to reach the
+/// 44/48 dp platform-recommended touch target size.
 class PrismFieldIconButton extends StatefulWidget {
   const PrismFieldIconButton({
     super.key,

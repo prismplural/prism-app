@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
@@ -38,6 +39,8 @@ final gifSearchQueryProvider =
 /// otherwise. Auto-disposes when no longer watched.
 final gifSearchResultsProvider =
     FutureProvider.autoDispose<List<KlipyGif>>((ref) async {
+  // GIF feature disabled in release builds until relay proxy ships.
+  if (kReleaseMode) return const [];
   final query = ref.watch(gifSearchQueryProvider);
   final service = ref.watch(klipyServiceProvider);
 

@@ -23,6 +23,8 @@ class GifPickerSheet extends ConsumerStatefulWidget {
   /// Show the GIF picker and return the selected [KlipyGif], or null if
   /// dismissed.
   static Future<KlipyGif?> show(BuildContext context) {
+    // GIF feature disabled in release builds until relay proxy ships.
+    if (kReleaseMode) return Future.value(null);
     return PrismSheet.showFullScreen<KlipyGif>(
       context: context,
       builder: (context, scrollController) =>
