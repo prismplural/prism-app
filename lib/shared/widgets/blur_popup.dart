@@ -42,6 +42,7 @@ class BlurPopupAnchor extends StatefulWidget {
     this.maxHeight = 280,
     this.width = 220,
     this.borderRadius = 16,
+    this.semanticLabel,
   });
 
   /// The trigger widget that opens the popup when tapped.
@@ -69,6 +70,10 @@ class BlurPopupAnchor extends StatefulWidget {
 
   /// Corner radius.
   final double borderRadius;
+
+  /// Accessibility label announced by screen readers when the trigger is
+  /// interactive ([BlurPopupTrigger.tap] or [BlurPopupTrigger.longPress]).
+  final String? semanticLabel;
 
   @override
   State<BlurPopupAnchor> createState() => BlurPopupAnchorState();
@@ -175,16 +180,20 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
   Widget build(BuildContext context) {
     // TextFieldTapRegion prevents this tap from unfocusing a nearby TextField,
     // which would dismiss the soft keyboard.
-    return TextFieldTapRegion(
-      child: GestureDetector(
-        key: _anchorKey,
-        onTap: widget.trigger == BlurPopupTrigger.tap ? _showPopup : null,
-        onLongPress:
-            widget.trigger == BlurPopupTrigger.longPress ? _showPopup : null,
-        behavior: widget.trigger == BlurPopupTrigger.manual
-            ? null
-            : HitTestBehavior.opaque,
-        child: widget.child,
+    return Semantics(
+      button: widget.trigger != BlurPopupTrigger.manual,
+      label: widget.semanticLabel,
+      child: TextFieldTapRegion(
+        child: GestureDetector(
+          key: _anchorKey,
+          onTap: widget.trigger == BlurPopupTrigger.tap ? _showPopup : null,
+          onLongPress:
+              widget.trigger == BlurPopupTrigger.longPress ? _showPopup : null,
+          behavior: widget.trigger == BlurPopupTrigger.manual
+              ? null
+              : HitTestBehavior.opaque,
+          child: widget.child,
+        ),
       ),
     );
   }
