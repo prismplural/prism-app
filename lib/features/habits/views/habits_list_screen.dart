@@ -8,6 +8,7 @@ import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/habits/utils/habit_due.dart';
 import 'package:prism_plurality/features/habits/widgets/habit_row.dart';
+import 'package:prism_plurality/features/habits/widgets/today_habits_container.dart';
 import 'package:prism_plurality/features/habits/views/add_edit_habit_sheet.dart';
 import 'package:prism_plurality/features/habits/views/complete_habit_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -51,20 +52,30 @@ class HabitsListScreen extends ConsumerWidget {
             (weeklyByHabit[c.habitId] ??= []).add(c);
           }
 
-          final today = <Habit>[];
+          final due = <Habit>[];
+          final complete = <Habit>[];
           final upcoming = <Habit>[];
           final inactive = <Habit>[];
 
+          final now = ref.watch(currentDateProvider);
           for (final habit in habits) {
             if (!habit.isActive) {
               inactive.add(habit);
-            } else if (isHabitDueToday(
+              continue;
+            }
+            final isDue = isHabitDueToday(
               habit: habit,
               todayCompletions: todayCompletions,
               allCompletions: allCompletions,
-              now: DateTime.now(),
-            )) {
-              today.add(habit);
+              now: now,
+            );
+            final completedToday = completedHabitIds.contains(habit.id);
+            // Completed always wins — a completed-and-still-due habit lives
+            // in the Complete section, not Due.
+            if (completedToday) {
+              complete.add(habit);
+            } else if (isDue) {
+              due.add(habit);
             } else {
               upcoming.add(habit);
             }
@@ -99,16 +110,15 @@ class HabitsListScreen extends ConsumerWidget {
                   ),
                 )
               else ...[
-                if (today.isNotEmpty)
-                  _HabitSection(
-                    title: 'Today',
-                    habits: today,
-                    completions: todayCompletions,
-                    completedHabitIds: completedHabitIds,
+                if (due.isNotEmpty || complete.isNotEmpty)
+                  TodayHabitsContainer(
+                    due: due,
+                    complete: complete,
+                    todayCompletions: todayCompletions,
                     weeklyByHabit: weeklyByHabit,
-                    isDueSection: true,
                     onTap: (h) => context.go(AppRoutePaths.habit(h.id)),
-                    onQuickComplete: (h) => _showCompleteSheet(context, ref, h),
+                    onQuickComplete: (h) =>
+                        _showCompleteSheet(context, ref, h),
                   ),
                 if (upcoming.isNotEmpty)
                   _HabitSection(
@@ -158,11 +168,19 @@ class HabitsListScreen extends ConsumerWidget {
     final alreadyCompleted = completions.any((c) => c.habitId == habit.id);
 
     if (alreadyCompleted) {
-      // Uncomplete: find the completion and remove it
-      final completion = completions.firstWhere((c) => c.habitId == habit.id);
-      ref
-          .read(habitNotifierProvider.notifier)
-          .uncompleteHabit(habitId: habit.id, completionId: completion.id);
+      // Uncomplete: remove ALL completion rows for this habit on the current
+      // day. In normal use there is at most one, but duplicates are possible
+      // from rapid taps, sync merges, or imports — clearing them all keeps
+      // the habit from appearing to re-complete itself on the next stream
+      // emission. Await so the TodayHabitsContainer's rapid-tap debounce can
+      // gate duplicate calls end-to-end.
+      final habitCompletions =
+          completions.where((c) => c.habitId == habit.id).toList();
+      for (final completion in habitCompletions) {
+        await ref
+            .read(habitNotifierProvider.notifier)
+            .uncompleteHabit(habitId: habit.id, completionId: completion.id);
+      }
       return;
     }
 
@@ -183,7 +201,6 @@ class _HabitSection extends StatelessWidget {
     required this.weeklyByHabit,
     required this.onTap,
     required this.onQuickComplete,
-    this.isDueSection = false,
   });
 
   final String title;
@@ -191,7 +208,6 @@ class _HabitSection extends StatelessWidget {
   final List<HabitCompletion> completions;
   final Set<String> completedHabitIds;
   final Map<String, List<HabitCompletion>> weeklyByHabit;
-  final bool isDueSection;
   final void Function(Habit) onTap;
   final Future<void> Function(Habit) onQuickComplete;
 
@@ -228,12 +244,9 @@ class _HabitSection extends StatelessWidget {
           itemBuilder: (context, index) {
             final habit = habits[index];
             final isCompleted = completedHabitIds.contains(habit.id);
-            final showsBanner = isDueSection && !isCompleted;
             return PrismSectionCard(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              padding: showsBanner
-                  ? const EdgeInsets.only(top: 6)
-                  : const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               tone: isCompleted
                   ? PrismSurfaceTone.subtle
                   : PrismSurfaceTone.strong,
@@ -242,8 +255,7 @@ class _HabitSection extends StatelessWidget {
                 habit: habit,
                 todayCompletions: completions,
                 weeklyCompletions: weeklyByHabit[habit.id] ?? const [],
-                isDueToday: isDueSection,
-                isCompletedToday: completedHabitIds.contains(habit.id),
+                isCompletedToday: isCompleted,
                 onQuickComplete: () => onQuickComplete(habit),
               ),
             );

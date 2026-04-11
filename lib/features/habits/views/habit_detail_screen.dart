@@ -10,23 +10,24 @@ import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/habits/views/add_edit_habit_sheet.dart';
 import 'package:prism_plurality/features/habits/views/complete_habit_sheet.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
-import 'package:prism_plurality/shared/widgets/empty_state.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/glass_surface.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
+import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
+import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
-import 'package:prism_plurality/shared/widgets/app_shell.dart';
-import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
-import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
-import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
-import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 class HabitDetailScreen extends ConsumerStatefulWidget {
   const HabitDetailScreen({super.key, required this.habitId});
@@ -105,29 +106,6 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             : null,
       ),
       bodyPadding: EdgeInsets.zero,
-      // ── Floating Complete Button ──────────────────────────
-      bottomBar: habitAsync.value != null
-          ? SafeArea(
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: PrismButton(
-                  tone: isCompletedToday
-                      ? PrismButtonTone.subtle
-                      : PrismButtonTone.filled,
-                  label: isCompletedToday ? 'Completed' : 'Complete',
-                  icon: isCompletedToday ? AppIcons.checkCircle : AppIcons.check,
-                  enabled: !isCompletedToday &&
-                      (habitAsync.value?.isActive ?? true),
-                  semanticLabel: isCompletedToday
-                      ? 'Habit already completed for this period'
-                      : 'Complete habit',
-                  onPressed: () =>
-                      _showCompleteSheet(context, habitAsync.value!),
-                ),
-              ),
-            )
-          : null,
       body: habitAsync.when(
         loading: () => const PrismLoadingState(),
         error: (e, _) => Center(child: Text('Error: $e')),
@@ -139,82 +117,114 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
           final members = membersAsync.value ?? [];
 
           final navBarInset = NavBarInset.of(context);
-          return ListView(
-            padding: EdgeInsets.only(bottom: navBarInset + 16),
-            children: [
-              // ── Header ─────────────────────────────────────
-              _HabitHeader(habit: habit, habitColor: habitColor),
+          // Reserve room at the bottom of the scroll view for the floating
+          // Complete pill: navBarInset + 16 (pill bottom offset) + ~52 pill
+          // height + 16 breathing room.
+          final bottomReserve = navBarInset + 84;
 
-              // ── Timeframe Picker ───────────────────────────
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: PrismSegmentedControl<StatisticsTimeframe>(
-                  segments: StatisticsTimeframe.values
-                      .map((t) => PrismSegment(
-                            value: t,
-                            label: t.label,
-                          ))
-                      .toList(),
-                  selected: _timeframe,
-                  onChanged: (value) =>
-                      setState(() => _timeframe = value),
-                ),
-              ),
+          final scrollView = SingleChildScrollView(
+            physics: const _OverflowAwareBouncingPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            padding: EdgeInsets.only(bottom: bottomReserve),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Header ─────────────────────────────────────
+                _HabitHeader(habit: habit, habitColor: habitColor),
 
-              // ── Stats Row ──────────────────────────────────
-              statsAsync.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: PrismLoadingState(),
+                // ── Timeframe Picker ───────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                  child: PrismSegmentedControl<StatisticsTimeframe>(
+                    segments: StatisticsTimeframe.values
+                        .map((t) => PrismSegment(
+                              value: t,
+                              label: t.label,
+                            ))
+                        .toList(),
+                    selected: _timeframe,
+                    onChanged: (value) =>
+                        setState(() => _timeframe = value),
+                  ),
                 ),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Error loading stats: $e'),
-                ),
-                data: (stats) => _StatsRow(
-                  stats: stats,
-                  habitColor: habitColor,
-                ),
-              ),
 
-              // ── Recent Completions ─────────────────────────
-              const PrismSectionHeader(title: 'RECENT COMPLETIONS'),
-              completionsAsync.when(
-                loading: () => const SizedBox.shrink(),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Error: $e'),
+                // ── Stats Row ──────────────────────────────────
+                statsAsync.when(
+                  loading: () => const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: PrismLoadingState(),
+                  ),
+                  error: (e, _) => Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Error loading stats: $e'),
+                  ),
+                  data: (stats) => _StatsRow(
+                    stats: stats,
+                    habitColor: habitColor,
+                  ),
                 ),
-                data: (completions) {
-                  if (completions.isEmpty) {
-                    return EmptyState(
-                      icon: Icon(AppIcons.checkCircleOutline),
-                      title: 'No completions yet',
-                      subtitle:
-                          'Complete this habit to start tracking progress.',
-                    );
-                  }
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: completions.length.clamp(0, 20),
-                    itemBuilder: (context, index) {
-                      final c = completions[index];
-                      return _CompletionTile(
-                        completion: c,
-                        members: members,
-                        today: today,
-                        onDismissed: () => ref
-                            .read(habitNotifierProvider.notifier)
-                            .uncompleteHabit(
-                              habitId: widget.habitId,
-                              completionId: c.id,
-                            ),
+
+                // ── Recent Completions ─────────────────────────
+                const PrismSectionHeader(
+                  title: 'Recent completions',
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                ),
+                completionsAsync.when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (e, _) => Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text('Error: $e'),
+                  ),
+                  data: (completions) {
+                    if (completions.isEmpty) {
+                      return EmptyState(
+                        icon: Icon(AppIcons.checkCircleOutline),
+                        title: 'No completions yet',
+                        subtitle:
+                            'Complete this habit to start tracking progress.',
                       );
-                    },
-                  );
-                },
+                    }
+                    // Plain Column — no nested scroll view, no
+                    // lazy building. 20 items max.
+                    return Column(
+                      children: [
+                        for (final c in completions.take(20))
+                          _CompletionTile(
+                            completion: c,
+                            members: members,
+                            today: today,
+                            onDismissed: () => ref
+                                .read(habitNotifierProvider.notifier)
+                                .uncompleteHabit(
+                                  habitId: widget.habitId,
+                                  completionId: c.id,
+                                ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+
+          return Stack(
+            children: [
+              scrollView,
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: navBarInset + 16,
+                child: Center(
+                  child: _FloatingCompleteButton(
+                    habit: habit,
+                    habitColor: habitColor,
+                    isCompletedToday: isCompletedToday,
+                    onPressed: () => _showCompleteSheet(context, habit),
+                  ),
+                ),
               ),
             ],
           );
@@ -525,5 +535,107 @@ class _CompletionTile extends StatelessWidget {
     final hour = date.hour > 12 ? date.hour - 12 : date.hour;
     final period = date.hour >= 12 ? 'PM' : 'AM';
     return '${hour == 0 ? 12 : hour}:${date.minute.toString().padLeft(2, '0')} $period';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Scroll physics — bouncy iOS feel when content actually overflows,
+// and a hard refusal to scroll when the page fits in the viewport.
+// ─────────────────────────────────────────────────────────────
+
+/// Delegates to [BouncingScrollPhysics] for the native iOS feel when content
+/// actually overflows, but refuses user scroll offsets when there is nothing
+/// to scroll to. The net effect: no bounce when the page fits, normal iOS
+/// bounce behavior when completions push the content past the viewport.
+class _OverflowAwareBouncingPhysics extends ScrollPhysics {
+  const _OverflowAwareBouncingPhysics({super.parent});
+
+  @override
+  _OverflowAwareBouncingPhysics applyTo(ScrollPhysics? ancestor) {
+    return _OverflowAwareBouncingPhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  bool shouldAcceptUserOffset(ScrollMetrics position) {
+    return position.maxScrollExtent > 0.0;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Floating Complete button — pill-shaped glass surface that
+// floats above the scroll view. Content scrolls under it with
+// real backdrop blur via GlassSurface.
+// ─────────────────────────────────────────────────────────────
+
+class _FloatingCompleteButton extends ConsumerWidget {
+  const _FloatingCompleteButton({
+    required this.habit,
+    required this.habitColor,
+    required this.isCompletedToday,
+    required this.onPressed,
+  });
+
+  final Habit habit;
+  final Color habitColor;
+  final bool isCompletedToday;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final enabled = !isCompletedToday && habit.isActive;
+    // Tint with the habit color when the button is the active CTA; drop
+    // the tint once the habit is already complete for the period so the
+    // pill reads as inert glass.
+    final tint = isCompletedToday ? null : habitColor;
+
+    final pillRadius = BorderRadius.circular(PrismTokens.radiusPill);
+
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: isCompletedToday
+          ? 'Habit already completed for this period'
+          : 'Complete habit',
+      child: GlassSurface(
+        borderRadius: pillRadius,
+        tint: tint,
+        padding: EdgeInsets.zero,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: enabled ? onPressed : null,
+            borderRadius: pillRadius,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isCompletedToday ? AppIcons.checkCircle : AppIcons.check,
+                    size: 18,
+                    color: enabled
+                        ? theme.colorScheme.onSurface
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isCompletedToday ? 'Completed' : 'Complete',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: enabled
+                          ? theme.colorScheme.onSurface
+                          : theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

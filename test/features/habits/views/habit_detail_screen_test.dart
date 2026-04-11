@@ -9,7 +9,6 @@ import 'package:prism_plurality/domain/repositories/habit_repository.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/habits/views/habit_detail_screen.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 void main() {
   final today = DateTime(2026, 4, 10);
@@ -76,16 +75,38 @@ void main() {
     expect(find.text('Drink Water'), findsOneWidget);
   });
 
-  testWidgets('shows Complete button when not completed today', (tester) async {
+  // The floating complete pill's Semantics widget holds the accessibility
+  // label; `enabled` flips depending on whether the habit is already
+  // completed for the period.
+  Finder findCompleteButtonSemantics(String label) => find.byWidgetPredicate(
+        (w) => w is Semantics && w.properties.label == label,
+      );
+
+  testWidgets('shows Complete button when not completed today',
+      (tester) async {
     await tester.pumpWidget(buildSubject(completions: []));
     await tester.pumpAndSettle();
 
-    // "Complete" text is present
+    // Floating pill copy reads 'Complete' when active.
     expect(find.text('Complete'), findsOneWidget);
 
-    // The PrismButton has enabled: true
-    final button = tester.widget<PrismButton>(find.byType(PrismButton));
-    expect(button.enabled, isTrue);
+    // Semantics reports enabled: true.
+    final semantics = tester.widget<Semantics>(
+      findCompleteButtonSemantics('Complete habit'),
+    );
+    expect(semantics.properties.enabled, isTrue);
+
+    // The button lives inside a Stack overlay in the body — NOT in the
+    // Scaffold's bottomNavigationBar.
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+    expect(scaffold.bottomNavigationBar, isNull);
+    expect(
+      find.ancestor(
+        of: find.text('Complete'),
+        matching: find.byType(Stack),
+      ),
+      findsWidgets,
+    );
   });
 
   testWidgets('shows Completed button disabled when completed today',
@@ -95,12 +116,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // "Completed" text is present
+    // Floating pill copy reads 'Completed' when already done for the period.
     expect(find.text('Completed'), findsOneWidget);
 
-    // The PrismButton has enabled: false
-    final button = tester.widget<PrismButton>(find.byType(PrismButton));
-    expect(button.enabled, isFalse);
+    // Semantics reports enabled: false with the inert label.
+    final semantics = tester.widget<Semantics>(
+      findCompleteButtonSemantics(
+        'Habit already completed for this period',
+      ),
+    );
+    expect(semantics.properties.enabled, isFalse);
+
+    // Still no Scaffold.bottomNavigationBar — button is the floating pill.
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
+    expect(scaffold.bottomNavigationBar, isNull);
   });
 
   testWidgets('shows stats count and rate', (tester) async {
