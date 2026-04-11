@@ -150,6 +150,29 @@ class _SetupDeviceSheetContentState
     });
 
     try {
+      // Upload the ephemeral snapshot BEFORE sending credentials. The joiner
+      // can't register or try to bootstrap until it receives the credentials
+      // from completeInitiatorCeremony, so uploading first guarantees the
+      // snapshot is on the relay by the time the joiner's bootstrap_from_snapshot
+      // runs. Otherwise the joiner races ahead, finds no snapshot, and ends
+      // up with zero records (and silently fails "Get Started" because the
+      // completeOnboarding guard requires at least one member to exist).
+      //
+      // The snapshot is encrypted with the current (pre-rekey) epoch key,
+      // which matches what the credential bundle will ship to the joiner.
+      //
+      // Fatal on failure: if the snapshot doesn't land on the relay we must
+      // NOT release credentials. Otherwise the joiner registers, finds no
+      // snapshot, falls through to an empty syncNow (first-device data is
+      // still local-only), and ends up with zero records — the exact bug
+      // this fix is meant to prevent. Let the error propagate to the outer
+      // catch so the initiator flow shows an error state instead of a
+      // confusing "synced but empty" success.
+      await ffi.uploadPairingSnapshot(
+        handle: widget.handle,
+        ttlSecs: BigInt.from(86400),
+      );
+
       final pairingApi = ref.read(pairingCeremonyApiProvider);
       await pairingApi.completeInitiatorCeremony(
         handle: widget.handle,
@@ -158,16 +181,6 @@ class _SetupDeviceSheetContentState
 
       // Drain store after completion (may mutate epoch / credentials)
       await drainRustStore(widget.handle);
-
-      // Upload ephemeral snapshot for the joiner device
-      try {
-        await ffi.uploadPairingSnapshot(
-          handle: widget.handle,
-          ttlSecs: BigInt.from(86400),
-        );
-      } catch (e) {
-        debugPrint('[PAIRING] Snapshot upload failed (non-fatal): $e');
-      }
 
       if (!mounted) return;
       setState(() {
