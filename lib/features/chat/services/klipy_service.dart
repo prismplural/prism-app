@@ -127,6 +127,10 @@ class KlipyService {
 
   /// Fetch trending GIFs.
   Future<List<KlipyGif>> trending({int limit = _defaultLimit}) async {
+    // TODO(security): Replace with relay proxy before public release.
+    // Key ships in the client binary — disabled in release builds until proxy ships.
+    assert(!kReleaseMode, 'KlipyService.trending() must not be called in release builds');
+    if (kReleaseMode) return const [];
     final uri = Uri.parse('$_baseUrl/api/v1/$_apiKey/gifs/trending').replace(
       queryParameters: {
         'per_page': limit.toString(),
@@ -143,6 +147,8 @@ class KlipyService {
     String query, {
     int limit = _defaultLimit,
   }) async {
+    assert(!kReleaseMode, 'KlipyService.search() must not be called in release builds');
+    if (kReleaseMode) return const [];
     if (query.trim().isEmpty) return trending(limit: limit);
 
     final uri = Uri.parse('$_baseUrl/api/v1/$_apiKey/gifs/search').replace(

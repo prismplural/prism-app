@@ -67,70 +67,77 @@ class _InlineExpandableMemberPickerState
         mainAxisSize: MainAxisSize.min,
         children: [
           // Collapsed header
-          InkWell(
-            onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-              child: Row(
-                children: [
-                  if (selected != null) ...[
-                    MemberAvatar(
-                      avatarImageData: selected.avatarImageData,
-                      emoji: selected.emoji,
-                      customColorEnabled: selected.customColorEnabled,
-                      customColorHex: selected.customColorHex,
-                      size: 44,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            selected.name,
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          if (widget.showPronouns &&
-                              selected.pronouns != null) ...[
+          Semantics(
+            button: true,
+            expanded: _expanded,
+            label: selected?.name ?? 'Select member',
+            child: InkWell(
+              onTap: () => setState(() => _expanded = !_expanded),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                child: Row(
+                  children: [
+                    if (selected != null) ...[
+                      MemberAvatar(
+                        avatarImageData: selected.avatarImageData,
+                        emoji: selected.emoji,
+                        customColorEnabled: selected.customColorEnabled,
+                        customColorHex: selected.customColorHex,
+                        size: 44,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              selected.pronouns!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
+                              selected.name,
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            if (widget.showPronouns &&
+                                selected.pronouns != null) ...[
+                              Text(
+                                selected.pronouns!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      const MemberAvatar(
+                        emoji: '\u2754',
+                        size: 44,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Select a member',
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
                                     color: Theme.of(context)
                                         .colorScheme
                                         .onSurfaceVariant,
                                   ),
-                            ),
-                          ],
-                        ],
+                        ),
                       ),
-                    ),
-                  ] else ...[
-                    const MemberAvatar(
-                      emoji: '\u2754',
-                      size: 44,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Select a member',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
-                      ),
+                    ],
+                    AnimatedRotation(
+                      turns: _expanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(AppIcons.expandMore),
                     ),
                   ],
-                  AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(AppIcons.expandMore),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

@@ -4,6 +4,10 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 
 /// Lightweight icon button for inline row, header, and editor actions.
+///
+/// Defaults to a 32 dp hit target ([size] = 32). This is below the recommended
+/// 44 dp (iOS) / 48 dp (Android) minimum. In non-constrained layouts, wrap in
+/// [Padding] with at least 6 dp on all sides to reach the platform minimum.
 class PrismInlineIconButton extends StatefulWidget {
   const PrismInlineIconButton({
     super.key,
