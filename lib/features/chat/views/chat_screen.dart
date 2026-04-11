@@ -81,9 +81,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 AppIcons.markEmailReadOutlined,
                 size: 20,
               ),
-              title: const Text(
+              title: Text(
                 'Mark as Read',
-                style: TextStyle(fontSize: 14),
+                style: popupTheme.textTheme.bodyMedium,
               ),
               onTap: () {
                 close();
@@ -104,7 +104,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
               title: Text(
                 isMuted ? 'Unmute' : 'Mute',
-                style: const TextStyle(fontSize: 14),
+                style: popupTheme.textTheme.bodyMedium,
               ),
               onTap: () {
                 close();
@@ -124,8 +124,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
               title: Text(
                 'Delete',
-                style: TextStyle(
-                  fontSize: 14,
+                style: popupTheme.textTheme.bodyMedium?.copyWith(
                   color: popupTheme.colorScheme.error,
                 ),
               ),

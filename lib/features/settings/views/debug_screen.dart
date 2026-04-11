@@ -390,11 +390,13 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Select Preset',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Builder(
+                builder: (context) => Text(
+                  'Select Preset',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               ),
             ),
             for (final p in presets)
