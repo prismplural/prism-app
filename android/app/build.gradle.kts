@@ -32,6 +32,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            ndk {
+                // Only compile for arm64 in debug builds — skips armeabi-v7a,
+                // cutting Rust FFI + native plugin compilation time ~40%.
+                // Release builds have no filter so Play Store gets all ABIs.
+                abiFilters += "arm64-v8a"
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

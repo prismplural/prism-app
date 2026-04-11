@@ -30,11 +30,11 @@ usage() {
     echo -e "  ${GREEN}check${RESET}     Codegen + analyze + test (full pre-flight)"
     echo -e "  ${GREEN}codegen${RESET}   Run build_runner codegen"
     echo -e "  ${GREEN}devices${RESET}   List connected devices"
-    echo -e "  ${GREEN}clean${RESET}     Clean build artifacts"
+    echo -e "  ${GREEN}clean${RESET}     Clean build artifacts (--mac/--android/--iphone/--all; default: all)"
     echo ""
     echo -e "${BOLD}Targets (for run/build):${RESET}"
     echo -e "  ${GREEN}--mac${RESET}       macOS desktop"
-    echo -e "  ${GREEN}--android${RESET}   Pixel 6 Pro"
+    echo -e "  ${GREEN}--android${RESET}   Pixel 6 Pro (debug: arm64 only; use --release for multi-arch APK)"
     echo -e "  ${GREEN}--iphone${RESET}   Skylar's iPhone"
     echo -e "  ${GREEN}--all${RESET}       All three targets (parallel)"
     echo ""
@@ -136,13 +136,52 @@ cmd_check() {
 }
 
 cmd_clean() {
-    step "Cleaning"
+    local do_ios=false do_mac=false do_android=false
+
+    if [ $# -eq 0 ]; then
+        do_ios=true; do_mac=true; do_android=true
+    else
+        for arg in "$@"; do
+            case "$arg" in
+                --iphone)   do_ios=true ;;
+                --mac)      do_mac=true ;;
+                --android)  do_android=true ;;
+                --all)      do_ios=true; do_mac=true; do_android=true ;;
+                *)          echo "Unknown option: $arg"; usage; exit 1 ;;
+            esac
+        done
+    fi
+
+    step "Cleaning Flutter"
     flutter clean
+
+    if $do_ios || $do_mac; then
+        step "Cleaning Pods"
+        $do_ios && rm -rf ios/Pods
+        $do_mac && rm -rf macos/Pods
+    fi
+
+    if $do_android; then
+        step "Cleaning Gradle"
+        (cd android && ./gradlew --stop 2>/dev/null || true)
+        rm -rf android/.gradle
+    fi
+
     success "Clean complete"
 }
 
 cmd_devices() {
     flutter devices
+}
+
+ensure_pods() {
+    local platform="$1"  # ios or macos
+    local pods_dir="${platform}/Pods"
+    if [ ! -d "$pods_dir" ]; then
+        step "Installing $platform Pods"
+        flutter pub get
+        (cd "$platform" && pod install --silent)
+    fi
 }
 
 cmd_run() {
@@ -176,9 +215,9 @@ cmd_run() {
     if [ ${#targets[@]} -eq 1 ]; then
         local name=""
         case "${targets[0]}" in
-            "$MACOS_DEVICE")    name="macOS" ;;
+            "$MACOS_DEVICE")    name="macOS";  ensure_pods "macos" ;;
             "$ANDROID_DEVICE")  name="Pixel 6 Pro" ;;
-            "$IPHONE_DEVICE")   name="iPhone" ;;
+            "$IPHONE_DEVICE")   name="iPhone"; ensure_pods "ios" ;;
         esac
         step "Running on $name ($mode)"
         if $live; then
@@ -193,9 +232,9 @@ cmd_run() {
     for device in "${targets[@]}"; do
         local name=""
         case "$device" in
-            "$MACOS_DEVICE")    name="macOS" ;;
+            "$MACOS_DEVICE")    name="macOS";  ensure_pods "macos" ;;
             "$ANDROID_DEVICE")  name="Pixel 6 Pro" ;;
-            "$IPHONE_DEVICE")   name="iPhone" ;;
+            "$IPHONE_DEVICE")   name="iPhone"; ensure_pods "ios" ;;
         esac
         step "Running on $name ($mode)"
         flutter run -d "$device" $mode_flag &
@@ -230,9 +269,14 @@ cmd_build() {
     [ "$mode" = "profile" ] && mode_flag="--profile"
 
     for platform in "${targets[@]}"; do
+        [[ "$platform" == "ios" || "$platform" == "macos" ]] && ensure_pods "$platform"
         step "Building $platform ($mode)"
         timer_start
-        flutter build "$platform" $mode_flag
+        # Debug Android APK: compile only for arm64 to skip the armeabi-v7a pass.
+        # Release keeps all ABIs for Play Store distribution.
+        local arch_flag=""
+        [ "$mode" = "debug" ] && [ "$platform" = "apk" ] && arch_flag="--target-platform android-arm64-v8a"
+        flutter build "$platform" $mode_flag $arch_flag
         timer_end
         success "$platform build complete"
     done
