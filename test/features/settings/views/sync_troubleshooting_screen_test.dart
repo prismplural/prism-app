@@ -21,9 +21,13 @@ void main() {
       ),
     );
 
-    await tester.scrollUntilVisible(find.textContaining('Re-pair Device'), 300);
+    await tester.scrollUntilVisible(
+      find.text('Re-pair Device'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
 
-    await tester.tap(find.textContaining('Re-pair Device'));
+    await tester.tap(find.text('Re-pair Device'));
     await tester.pumpAndSettle();
 
     expect(find.text('Re-pair Device?'), findsOneWidget);

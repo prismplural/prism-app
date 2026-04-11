@@ -270,7 +270,7 @@ void main() {
     test('field type "color" maps to CustomFieldType.color', () {
       final data = _makeExportData(
         customFields: [
-          const SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 'color'),
+          const SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 1),
         ],
       );
 
@@ -284,7 +284,7 @@ void main() {
     test('field type "date" maps to CustomFieldType.date', () {
       final data = _makeExportData(
         customFields: [
-          const SpCustomFieldDef(id: 'cf1', name: 'Birthday', type: 'date'),
+          const SpCustomFieldDef(id: 'cf1', name: 'Birthday', type: 2),
         ],
       );
 
@@ -297,7 +297,7 @@ void main() {
     test('unknown type maps to CustomFieldType.text', () {
       final data = _makeExportData(
         customFields: [
-          const SpCustomFieldDef(id: 'cf1', name: 'Other', type: 'number'),
+          const SpCustomFieldDef(id: 'cf1', name: 'Other', type: 99),
         ],
       );
 
@@ -318,7 +318,7 @@ void main() {
           ),
         ],
         customFields: [
-          const SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 'color'),
+          const SpCustomFieldDef(id: 'cf1', name: 'Fav Color', type: 1),
         ],
       );
 

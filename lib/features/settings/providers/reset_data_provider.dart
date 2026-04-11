@@ -342,6 +342,8 @@ class ResetDataNotifier extends Notifier<void> {
       await db.customStatement('DELETE FROM notes');
       await db.customStatement('DELETE FROM reminders');
       await db.customStatement('DELETE FROM friends');
+      await db.customStatement('DELETE FROM sharing_requests');
+      await db.customStatement('DELETE FROM media_attachments');
       await db.customStatement('DELETE FROM members');
       await db.customStatement('DELETE FROM plural_kit_sync_state');
       await db.customStatement('DELETE FROM system_settings');

@@ -39,6 +39,8 @@ const _allUserDataTables = [
   'conversation_categories',
   'reminders',
   'friends',
+  'sharing_requests',
+  'media_attachments',
 ];
 
 void main() {
@@ -655,6 +657,30 @@ class _ResetHarness {
             publicKeyHex: const Value('aabbcc'),
             grantedScopes: const Value('[]'),
             createdAt: Value(now),
+          ),
+        );
+
+    // ── Sharing requests ───────────────────────────────────────────────
+    await db
+        .into(db.sharingRequests)
+        .insert(
+          SharingRequestsCompanion(
+            initId: const Value('req-1'),
+            senderSharingId: const Value('sender-1'),
+            displayName: const Value('Test Sender'),
+            trustDecision: const Value('pending'),
+            receivedAt: Value(now),
+          ),
+        );
+
+    // ── Media attachments ─────────────────────────────────────────────
+    await db
+        .into(db.mediaAttachments)
+        .insert(
+          const MediaAttachmentsCompanion(
+            id: Value('media-1'),
+            messageId: Value('msg-1'),
+            mediaType: Value('image'),
           ),
         );
 

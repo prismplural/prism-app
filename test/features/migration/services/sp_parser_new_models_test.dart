@@ -165,27 +165,27 @@ void main() {
       final field = SpCustomFieldDef.fromJson({
         '_id': 'f1',
         'name': 'Favorite Color',
-        'type': 'color',
+        'type': 1,
       });
 
       expect(field.id, 'f1');
       expect(field.name, 'Favorite Color');
-      expect(field.type, 'color');
+      expect(field.type, 1);
     });
 
-    test('defaults type to "text" when missing', () {
+    test('defaults type to 0 when missing', () {
       final field = SpCustomFieldDef.fromJson({
         '_id': 'f1',
         'name': 'Notes',
       });
 
-      expect(field.type, 'text');
+      expect(field.type, 0);
     });
 
     test('defaults name to "Field" when missing', () {
       final field = SpCustomFieldDef.fromJson({
         '_id': 'f1',
-        'type': 'text',
+        'type': 0,
       });
 
       expect(field.name, 'Field');
