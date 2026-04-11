@@ -39,5 +39,14 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    # Route C/C++ compilation through ccache for faster incremental pod builds.
+    # The wrapper scripts fall back to plain clang if ccache is not installed.
+    # To enable: brew install ccache
+    target.build_configurations.each do |config|
+      ccache_clang = File.expand_path('../.ccache-clang', __FILE__)
+      ccache_clangpp = File.expand_path('../.ccache-clang++', __FILE__)
+      config.build_settings['CC'] = ccache_clang
+      config.build_settings['CXX'] = ccache_clangpp
+    end
   end
 end
