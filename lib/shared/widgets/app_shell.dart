@@ -165,6 +165,7 @@ class _AppShellState extends ConsumerState<AppShell>
       _backgroundedAt = DateTime.now();
     } else if (state == AppLifecycleState.resumed) {
       _checkLockOnResume();
+      ref.invalidate(currentDateProvider);
     }
   }
 
