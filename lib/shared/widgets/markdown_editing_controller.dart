@@ -11,6 +11,11 @@ class MarkdownEditingController extends TextEditingController {
   TextStyle _baseStyle = const TextStyle();
   bool _themeReady = false;
 
+  // Cache: parsed spans are expensive to build on every keystroke.
+  // Invalidated when text changes or when updateTheme() is called.
+  String? _cachedText;
+  List<TextSpan>? _cachedChildren;
+
   MarkdownEditingController({super.text});
 
   void updateTheme(BuildContext context) {
@@ -19,6 +24,8 @@ class MarkdownEditingController extends TextEditingController {
     _markerColor = colorScheme.onSurfaceVariant.withAlpha(102);
     _baseStyle = TextStyle(color: _onSurface);
     _themeReady = true;
+    _cachedText = null;
+    _cachedChildren = null;
   }
 
   @override
@@ -33,6 +40,11 @@ class MarkdownEditingController extends TextEditingController {
         style: style,
         withComposing: withComposing,
       );
+    }
+
+    // Return cached result if text hasn't changed since last parse.
+    if (_cachedText == text && _cachedChildren != null) {
+      return TextSpan(style: style, children: _cachedChildren);
     }
 
     final mergedStyle = style?.merge(_baseStyle) ?? _baseStyle;
@@ -90,6 +102,8 @@ class MarkdownEditingController extends TextEditingController {
       _parseInlineMarkdown(line, mergedStyle, spans);
     }
 
+    _cachedText = text;
+    _cachedChildren = List.unmodifiable(spans);
     return TextSpan(style: style, children: spans);
   }
 
