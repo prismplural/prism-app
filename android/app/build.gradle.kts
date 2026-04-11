@@ -36,8 +36,11 @@ android {
             ndk {
                 // Only compile for arm64 in debug builds — skips armeabi-v7a,
                 // cutting Rust FFI + native plugin compilation time ~40%.
-                // Release builds have no filter so Play Store gets all ABIs.
-                abiFilters += "arm64-v8a"
+                // clear() + add() (not +=) ensures Flutter's Gradle plugin cannot
+                // re-add other ABIs. Release builds have no filter (Play Store
+                // needs all ABIs).
+                abiFilters.clear()
+                abiFilters.add("arm64-v8a")
             }
         }
         release {
