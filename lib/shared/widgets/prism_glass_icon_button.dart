@@ -15,6 +15,7 @@ class PrismGlassIconButton extends StatefulWidget {
     this.iconSize = 20,
     this.tint,
     this.enabled = true,
+    this.isLoading = false,
     this.accentIcon = false,
   });
 
@@ -27,6 +28,9 @@ class PrismGlassIconButton extends StatefulWidget {
   final double iconSize;
   final Color? tint;
   final bool enabled;
+
+  /// When true, shows a loading spinner instead of the icon.
+  final bool isLoading;
 
   /// When true, the icon uses the [tint] color instead of [onSurface].
   final bool accentIcon;
@@ -41,8 +45,8 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final canPress = widget.onPressed != null;
-    final visuallyEnabled = widget.enabled;
+    final canPress = widget.onPressed != null && !widget.isLoading;
+    final visuallyEnabled = widget.enabled && !widget.isLoading;
 
     Widget button = Semantics(
       button: true,
@@ -70,15 +74,30 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
               child: SizedBox(
                 width: widget.size,
                 height: widget.size,
-                child: Icon(
-                  widget.icon,
-                  size: widget.iconSize,
-                  color: visuallyEnabled
-                      ? (widget.accentIcon && widget.tint != null
-                          ? widget.tint!
-                          : theme.colorScheme.onSurface)
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.35),
-                ),
+                child: widget.isLoading
+                    ? Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: visuallyEnabled
+                                ? theme.colorScheme.onSurface
+                                : theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.35),
+                          ),
+                        ),
+                      )
+                    : Icon(
+                        widget.icon,
+                        size: widget.iconSize,
+                        color: visuallyEnabled
+                            ? (widget.accentIcon && widget.tint != null
+                                ? widget.tint!
+                                : theme.colorScheme.onSurface)
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.35),
+                      ),
               ),
             ),
           ),
