@@ -5,24 +5,27 @@ import 'package:flutter/material.dart';
 /// Replaces repeated `Center(child: CircularProgressIndicator())` patterns.
 /// Use [PrismLoadingState.sliver] inside [CustomScrollView].
 class PrismLoadingState extends StatelessWidget {
-  const PrismLoadingState({super.key});
+  const PrismLoadingState({super.key, this.color});
 
   /// A loading indicator wrapped in [SliverFillRemaining] for scroll views.
-  const factory PrismLoadingState.sliver({Key? key}) = _SliverLoadingState;
+  const factory PrismLoadingState.sliver({Key? key, Color? color}) =
+      _SliverLoadingState;
+
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
+    return Center(child: CircularProgressIndicator(color: color));
   }
 }
 
 class _SliverLoadingState extends PrismLoadingState {
-  const _SliverLoadingState({super.key});
+  const _SliverLoadingState({super.key, super.color});
 
   @override
   Widget build(BuildContext context) {
-    return const SliverFillRemaining(
-      child: Center(child: CircularProgressIndicator()),
+    return SliverFillRemaining(
+      child: Center(child: CircularProgressIndicator(color: color)),
     );
   }
 }
