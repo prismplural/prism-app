@@ -14,8 +14,9 @@ class AddMembersStep extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     final membersAsync = ref.watch(allMembersProvider);
     final members = membersAsync.value ?? [];
 
@@ -47,7 +48,7 @@ class AddMembersStep extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Text(
                         "Skylar's Defaults",
-                        style: TextStyle(
+                        style: theme.textTheme.titleSmall?.copyWith(
                           color: primary,
                           fontWeight: FontWeight.w600,
                         ),
@@ -64,11 +65,10 @@ class AddMembersStep extends ConsumerWidget {
                 ? Center(
                     child: Text(
                       'No members yet.\nTap "Add Member" or use the defaults.',
-                      style: TextStyle(
+                      style: theme.textTheme.labelLarge?.copyWith(
                         color: isDark
                             ? AppColors.mutedTextDark
                             : AppColors.mutedTextLight,
-                        fontSize: 15,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -130,23 +130,21 @@ class AddMembersStep extends ConsumerWidget {
                                   children: [
                                     Text(
                                       member.name,
-                                      style: TextStyle(
+                                      style: theme.textTheme.titleSmall?.copyWith(
                                         color: isDark
                                             ? AppColors.warmWhite
                                             : AppColors.warmBlack,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 16,
                                       ),
                                     ),
                                     if (member.pronouns != null &&
                                         member.pronouns!.isNotEmpty)
                                       Text(
                                         member.pronouns!,
-                                        style: TextStyle(
+                                        style: theme.textTheme.bodySmall?.copyWith(
                                           color: isDark
                                               ? AppColors.mutedTextDark
                                               : AppColors.mutedTextLight,
-                                          fontSize: 13,
                                         ),
                                       ),
                                   ],
@@ -204,10 +202,9 @@ class AddMembersStep extends ConsumerWidget {
                   const SizedBox(width: 8),
                   Text(
                     'Add Member',
-                    style: TextStyle(
+                    style: theme.textTheme.titleSmall?.copyWith(
                       color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                       fontWeight: FontWeight.w600,
-                      fontSize: 16,
                     ),
                   ),
                 ],
@@ -256,8 +253,9 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     return Column(
       children: [
         const PrismSheetTopBar(title: 'Add Member'),
@@ -327,12 +325,11 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                     child: Center(
                       child: Text(
                         'Add',
-                        style: TextStyle(
+                        style: theme.textTheme.titleSmall?.copyWith(
                           color: isDark
                               ? AppColors.warmWhite
                               : AppColors.warmBlack,
                           fontWeight: FontWeight.w600,
-                          fontSize: 16,
                         ),
                       ),
                     ),

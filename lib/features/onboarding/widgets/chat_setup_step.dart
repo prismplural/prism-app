@@ -32,11 +32,11 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
-
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -44,9 +44,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
         children: [
           Text(
             'Suggested Channels',
-            style: TextStyle(
+            style: theme.textTheme.labelLarge?.copyWith(
               color: isDark ? AppColors.warmWhite.withValues(alpha: 0.8) : AppColors.warmBlack.withValues(alpha: 0.8),
-              fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -80,9 +79,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                       Expanded(
                         child: Text(
                           entry.key,
-                          style: TextStyle(
+                          style: theme.textTheme.titleSmall?.copyWith(
                             color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-                            fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -115,9 +113,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
           // Custom channel section
           Text(
             'Custom Channel',
-            style: TextStyle(
+            style: theme.textTheme.labelLarge?.copyWith(
               color: isDark ? AppColors.warmWhite.withValues(alpha: 0.8) : AppColors.warmBlack.withValues(alpha: 0.8),
-              fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -191,9 +188,8 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                             Expanded(
                               child: Text(
                                 entry.key,
-                                style: TextStyle(
+                                style: theme.textTheme.labelLarge?.copyWith(
                                   color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-                                  fontSize: 15,
                                 ),
                               ),
                             ),
