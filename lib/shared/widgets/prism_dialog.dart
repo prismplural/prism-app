@@ -152,6 +152,7 @@ class PrismDialog extends StatelessWidget {
               actions: [
                 PrismButton(
                   label: cancelLabel,
+                  tone: PrismButtonTone.outlined,
                   onPressed: () => Navigator.of(dialogContext).pop(false),
                 ),
                 PrismButton(
@@ -177,7 +178,7 @@ class PrismDialog extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: const EdgeInsets.all(PrismTokens.pageHorizontalPadding),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -206,11 +207,11 @@ class PrismDialog extends StatelessWidget {
                 color: theme.colorScheme.onSurface,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
           ],
           child,
           if (actions != null && actions!.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -238,12 +239,13 @@ class _GlassDialogShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final maxHeight = min(screenHeight * 0.8, 560.0);
+    final size = MediaQuery.sizeOf(context);
+    final maxWidth = min(size.width - 48.0, PrismTokens.dialogMaxWidth);
+    final maxHeight = min(size.height * 0.8, 560.0);
 
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxWidth: PrismTokens.dialogMaxWidth,
+        maxWidth: maxWidth,
         maxHeight: maxHeight,
       ),
       child: Material(
