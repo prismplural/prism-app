@@ -189,11 +189,13 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   }
 
   /// Poll for SAS words from the relay after the initiator scans the QR.
+  /// Keeps the QR visible (showingRequest) while polling — only transitions
+  /// to showingSas once the initiator has actually scanned and posted
+  /// PairingInit.
   Future<void> _waitForSas(ffi.PrismSyncHandle handle, int myGeneration) async {
     try {
       final pairingApi = ref.read(pairingCeremonyApiProvider);
       if (_generation != myGeneration) return;
-      state = state.copyWith(step: PairingStep.waitingForSas);
 
       final sasJsonString = await pairingApi.getJoinerSas(handle: handle);
 
