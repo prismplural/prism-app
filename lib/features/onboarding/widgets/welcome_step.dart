@@ -11,7 +11,7 @@ class WelcomeStep extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -22,7 +22,7 @@ class WelcomeStep extends StatelessWidget {
                 'Not even we can read your data. Everything stays on your device unless you choose to sync.',
             isDark: isDark,
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           _FeatureRow(
             icon: AppIcons.duotoneSync,
             title: 'Sync across devices',
@@ -30,7 +30,7 @@ class WelcomeStep extends StatelessWidget {
                 'End-to-end encrypted. The server only sees noise.',
             isDark: isDark,
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           _FeatureRow(
             icon: AppIcons.duotoneTheme,
             title: 'Built for you',

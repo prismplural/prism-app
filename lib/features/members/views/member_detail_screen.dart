@@ -12,7 +12,6 @@ import 'package:prism_plurality/features/members/providers/member_stats_provider
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';

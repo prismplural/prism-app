@@ -19,11 +19,11 @@ void main() {
     });
 
     test('constructor accepts all named parameters', () {
-      final state = VoicePlaybackState(
+      const state = VoicePlaybackState(
         activeMediaId: 'media-123',
         isPlaying: true,
-        position: const Duration(seconds: 10),
-        duration: const Duration(seconds: 60),
+        position: Duration(seconds: 10),
+        duration: Duration(seconds: 60),
         speed: 1.5,
       );
 
@@ -36,11 +36,11 @@ void main() {
 
     group('copyWith', () {
       test('preserves all fields when called with no arguments', () {
-        final original = VoicePlaybackState(
+        const original = VoicePlaybackState(
           activeMediaId: 'media-abc',
           isPlaying: true,
-          position: const Duration(seconds: 5),
-          duration: const Duration(minutes: 2),
+          position: Duration(seconds: 5),
+          duration: Duration(minutes: 2),
           speed: 2.0,
         );
 
@@ -54,11 +54,11 @@ void main() {
       });
 
       test('overrides only the specified fields', () {
-        final original = VoicePlaybackState(
+        const original = VoicePlaybackState(
           activeMediaId: 'media-abc',
           isPlaying: true,
-          position: const Duration(seconds: 5),
-          duration: const Duration(minutes: 2),
+          position: Duration(seconds: 5),
+          duration: Duration(minutes: 2),
           speed: 2.0,
         );
 
@@ -72,7 +72,7 @@ void main() {
       });
 
       test('can update activeMediaId to a different value', () {
-        final original = VoicePlaybackState(activeMediaId: 'old-id');
+        const original = VoicePlaybackState(activeMediaId: 'old-id');
 
         final copied = original.copyWith(activeMediaId: 'new-id');
 
@@ -84,7 +84,7 @@ void main() {
         // is indistinguishable from not passing it at all. This is a known
         // limitation — the stop() method works around it by constructing a
         // fresh const VoicePlaybackState() instead.
-        final original = VoicePlaybackState(activeMediaId: 'media-123');
+        const original = VoicePlaybackState(activeMediaId: 'media-123');
 
         final copied = original.copyWith(activeMediaId: null);
 
@@ -137,7 +137,7 @@ void main() {
       container.read(voicePlaybackProvider);
 
       // Dispose should complete without error
-      expect(() => container.dispose(), returnsNormally);
+      expect(container.dispose, returnsNormally);
     });
 
     test('multiple build/dispose cycles do not throw', () {
@@ -145,7 +145,7 @@ void main() {
       for (var i = 0; i < 3; i++) {
         final container = ProviderContainer();
         container.read(voicePlaybackProvider);
-        expect(() => container.dispose(), returnsNormally);
+        expect(container.dispose, returnsNormally);
       }
     });
 
@@ -243,7 +243,7 @@ void main() {
 
         final notifier = container.read(voicePlaybackProvider.notifier);
 
-        expect(() => notifier.cycleSpeed(), returnsNormally);
+        expect(notifier.cycleSpeed, returnsNormally);
         expect(container.read(voicePlaybackProvider).speed, 1.5);
       });
     });
@@ -296,7 +296,7 @@ void main() {
 
         final notifier = container.read(voicePlaybackProvider.notifier);
 
-        expect(() => notifier.stop(), returnsNormally);
+        expect(notifier.stop, returnsNormally);
       });
 
       test('stop resets speed even after cycling', () {

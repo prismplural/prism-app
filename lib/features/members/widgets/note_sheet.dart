@@ -157,7 +157,7 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
         onPopInvokedWithResult: (didPop, _) async {
           if (didPop) return;
           final shouldDiscard = await _confirmDiscard();
-          if (shouldDiscard && mounted) {
+          if (shouldDiscard && context.mounted) {
             Navigator.of(context).pop();
           }
         },

@@ -180,19 +180,19 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                   text: 'Supports pull, push, or bidirectional sync. '
                       'Choose your preferred direction above.',
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 _InfoRow(
                   icon: AppIcons.lockOutline,
                   text: 'Your token is stored securely in the device '
                       'keychain and never leaves your device.',
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 _InfoRow(
                   icon: AppIcons.people,
                   text: 'Members are matched by PluralKit UUID. '
                       'Existing members are updated, new ones are created.',
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 _InfoRow(
                   icon: AppIcons.swapVert,
                   text: 'Switches are imported as fronting sessions. '

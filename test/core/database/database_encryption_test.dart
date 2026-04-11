@@ -84,7 +84,7 @@ void main() {
       }
     });
 
-    String _generateHexKey() {
+    String generateHexKey() {
       final rng = Random.secure();
       final bytes = Uint8List(32);
       for (var i = 0; i < 32; i++) {
@@ -95,7 +95,7 @@ void main() {
 
     test('fresh encrypted DB can round-trip data', () {
       final dbPath = '${tempDir.path}/test.db';
-      final hexKey = _generateHexKey();
+      final hexKey = generateHexKey();
 
       // Create encrypted DB and write data
       final db = raw.sqlite3.open(dbPath);
@@ -114,7 +114,7 @@ void main() {
 
     test('encrypted DB is not readable without key', () {
       final dbPath = '${tempDir.path}/test.db';
-      final hexKey = _generateHexKey();
+      final hexKey = generateHexKey();
 
       // Create encrypted DB
       final db = raw.sqlite3.open(dbPath);
@@ -134,8 +134,8 @@ void main() {
 
     test('encrypted DB is not readable with wrong key', () {
       final dbPath = '${tempDir.path}/test.db';
-      final hexKey = _generateHexKey();
-      final wrongKey = _generateHexKey();
+      final hexKey = generateHexKey();
+      final wrongKey = generateHexKey();
 
       // Create encrypted DB with key A
       final db = raw.sqlite3.open(dbPath);
@@ -155,7 +155,7 @@ void main() {
 
     test('plaintext DB can be migrated to encrypted', () async {
       final dbPath = '${tempDir.path}/test.db';
-      final hexKey = _generateHexKey();
+      final hexKey = generateHexKey();
       final dbFile = File(dbPath);
 
       // Create plaintext DB with data
@@ -189,7 +189,7 @@ void main() {
 
     test('migration of nonexistent file returns true', () async {
       final dbFile = File('${tempDir.path}/nonexistent.db');
-      final hexKey = _generateHexKey();
+      final hexKey = generateHexKey();
 
       final result = await migratePlaintextToEncrypted(
         dbFile: dbFile,
@@ -200,7 +200,7 @@ void main() {
 
     test('_tryOpenEncrypted-style probe succeeds with correct key', () {
       final dbPath = '${tempDir.path}/test.db';
-      final hexKey = _generateHexKey();
+      final hexKey = generateHexKey();
 
       // Create encrypted DB
       final db = raw.sqlite3.open(dbPath);
@@ -247,7 +247,7 @@ void main() {
 
     test('_tryOpenPlaintext-style probe fails on encrypted DB', () {
       final dbPath = '${tempDir.path}/test.db';
-      final hexKey = _generateHexKey();
+      final hexKey = generateHexKey();
 
       // Create encrypted DB
       final db = raw.sqlite3.open(dbPath);

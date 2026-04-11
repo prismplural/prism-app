@@ -57,7 +57,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       final sessions = ref.read(unifiedHistoryProvider).value;
       if (sessions != null && sessions.length >= currentLimit) {
         ref.read(sessionLimitProvider.notifier).loadMore();
-        SemanticsService.announce('Loading older sessions', TextDirection.ltr);
+        SemanticsService.sendAnnouncement(View.of(context), 'Loading older sessions', TextDirection.ltr);
       }
     }
   }

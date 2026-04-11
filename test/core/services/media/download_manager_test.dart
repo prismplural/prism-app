@@ -1,4 +1,3 @@
-import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/media/download_manager.dart';

@@ -12,21 +12,21 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
 // Fakes
 // ---------------------------------------------------------------------------
 
-class _Call {
+class Call {
   final String method;
   final List<dynamic> args;
-  _Call(this.method, this.args);
+  Call(this.method, this.args);
 }
 
 class FakePluralKitClient implements PluralKitClient {
-  final List<_Call> calls = [];
+  final List<Call> calls = [];
   int _idCounter = 0;
 
   @override
   Future<PKMember> createMember(Map<String, dynamic> data) async {
     _idCounter++;
     final id = 'pk${_idCounter.toString().padLeft(3, '0')}';
-    calls.add(_Call('createMember', [data]));
+    calls.add(Call('createMember', [data]));
     return PKMember(
       id: id,
       uuid: 'uuid-$id',
@@ -36,14 +36,14 @@ class FakePluralKitClient implements PluralKitClient {
 
   @override
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) async {
-    calls.add(_Call('updateMember', [id, data]));
+    calls.add(Call('updateMember', [id, data]));
     return PKMember(id: id, uuid: 'uuid-$id', name: data['name'] as String? ?? '');
   }
 
   @override
   Future<PKSwitch> createSwitch(List<String> memberIds,
       {DateTime? timestamp}) async {
-    calls.add(_Call('createSwitch', [memberIds]));
+    calls.add(Call('createSwitch', [memberIds]));
     return PKSwitch(
       id: 'sw-1',
       timestamp: timestamp ?? DateTime.now(),
@@ -67,12 +67,12 @@ class FakePluralKitClient implements PluralKitClient {
 }
 
 class FakeMemberRepository implements MemberRepository {
-  final List<_Call> calls = [];
+  final List<Call> calls = [];
   final Map<String, domain.Member> _members = {};
 
   @override
   Future<void> updateMember(domain.Member member) async {
-    calls.add(_Call('updateMember', [member]));
+    calls.add(Call('updateMember', [member]));
     _members[member.id] = member;
   }
 

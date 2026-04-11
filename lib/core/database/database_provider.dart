@@ -135,7 +135,7 @@ bool _tryOpenEncrypted(String path, String hexKey) {
       db.select('SELECT count(*) FROM sqlite_master;');
       return true;
     } finally {
-      db.dispose();
+      db.close();
     }
   } catch (_) {
     return false;
@@ -151,7 +151,7 @@ bool _tryOpenPlaintext(String path) {
       db.select('SELECT count(*) FROM sqlite_master;');
       return true;
     } finally {
-      db.dispose();
+      db.close();
     }
   } catch (_) {
     return false;
