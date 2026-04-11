@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 import 'package:prism_plurality/features/settings/services/stress_data_generator.dart';
@@ -213,14 +214,49 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Build Info',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Build Info',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    PrismInlineIconButton(
+                      icon: AppIcons.copy,
+                      iconSize: 18,
+                      tooltip: 'Copy build info',
+                      onPressed: () {
+                        const text =
+                            'Prism ${BuildInfo.appVersion}\n'
+                            'git: ${BuildInfo.gitDescribe}\n'
+                            'branch: ${BuildInfo.gitBranch}\n'
+                            'built: ${BuildInfo.builtAt}';
+                        Clipboard.setData(const ClipboardData(text: text));
+                        PrismToast.show(
+                          context,
+                          message: 'Build info copied',
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                const _DebugRow(label: 'App version', value: '0.1.0'),
+                const _DebugRow(
+                  label: 'App version',
+                  value: BuildInfo.appVersion,
+                ),
+                const Divider(height: 16),
+                _DebugRow(
+                  label: 'Git',
+                  value: BuildInfo.gitDescribe,
+                  warn: BuildInfo.isDirty || BuildInfo.isLocalDev,
+                ),
+                const Divider(height: 16),
+                const _DebugRow(label: 'Branch', value: BuildInfo.gitBranch),
+                const Divider(height: 16),
+                const _DebugRow(label: 'Built', value: BuildInfo.builtAt),
                 const Divider(height: 16),
                 const _DebugRow(label: 'Package', value: 'prism_plurality'),
               ],
@@ -515,10 +551,20 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 }
 
 class _DebugRow extends StatelessWidget {
-  const _DebugRow({required this.label, required this.value});
+  const _DebugRow({
+    required this.label,
+    required this.value,
+    this.warn = false,
+  });
 
   final String label;
   final String value;
+
+  /// Tint the value in the warning color to flag values that should not be
+  /// trusted in production (e.g. a dirty working-tree build, or a value
+  /// that fell back to the `dev` default because the build wrapper wasn't
+  /// used).
+  final bool warn;
 
   @override
   Widget build(BuildContext context) {
@@ -527,11 +573,17 @@ class _DebugRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: theme.textTheme.bodyMedium),
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontFamily: 'monospace',
-            color: theme.colorScheme.onSurfaceVariant,
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontFamily: 'monospace',
+              color: warn
+                  ? theme.colorScheme.error
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
