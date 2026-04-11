@@ -198,24 +198,10 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
         children: [
           PrismSheetTopBar(
             title: widget.isEditing ? terms.editText : terms.newText,
-            trailing: _saving
-                ? SizedBox(
-                    width: PrismTokens.topBarActionSize,
-                    height: PrismTokens.topBarActionSize,
-                    child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  )
-                : PrismGlassIconButton(
+            trailing: PrismGlassIconButton(
                     icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,
+                    isLoading: _saving,
                     tint: canSave ? theme.colorScheme.primary : null,
                     accentIcon: canSave,
                     onPressed: canSave ? _save : null,

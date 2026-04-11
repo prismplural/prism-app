@@ -46,24 +46,13 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
           PrismSheetTopBar(
             title: _invite != null ? 'Share Your Code' : 'Enable Sharing',
             trailing: _invite == null
-                ? (_generating
-                      ? const SizedBox(
-                          width: PrismTokens.topBarActionSize,
-                          height: PrismTokens.topBarActionSize,
-                          child: Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        )
-                      : PrismGlassIconButton(
+                ? PrismGlassIconButton(
                           icon: AppIcons.check,
                           size: PrismTokens.topBarActionSize,
+                          isLoading: _generating,
                           accentIcon: true,
                           onPressed: _generate,
-                        ))
+                        )
                 : null,
           ),
           const SizedBox(height: 8),
