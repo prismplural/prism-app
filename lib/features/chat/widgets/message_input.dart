@@ -95,7 +95,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       _showMentionOverlay();
     } else {
       // Update filter by rebuilding overlay.
-      _mentionOverlay!.markNeedsBuild();
+      _mentionOverlay?.markNeedsBuild();
     }
   }
 
