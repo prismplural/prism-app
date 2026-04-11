@@ -193,7 +193,7 @@ SPEC CHECKSUMS:
   local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
   Mantle: c5aa8794a29a022dfbbfc9799af95f477a69b62d
   mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
-  prism_sync: b03d6c0a3d8c67103452f3982a1441871abf5f59
+  prism_sync: 97b164793f88ed99724f02790c4eae66f9eead6e
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageWebPCoder: 0e06e365080397465cc73a7a9b472d8a3bd0f377
   share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
