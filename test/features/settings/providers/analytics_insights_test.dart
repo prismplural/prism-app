@@ -128,10 +128,10 @@ void main() {
     });
 
     test('co-fronting pair fires coFrontingHighlight', () {
-      final pair = CoFrontingPair(
+      const pair = CoFrontingPair(
           memberIdA: 'a',
           memberIdB: 'b',
-          totalTime: const Duration(hours: 5));
+          totalTime: Duration(hours: 5));
       final current = makeAnalytics(topCoFrontingPairs: [pair]);
       final insights = computeInsights(current, null);
       expect(
@@ -166,10 +166,10 @@ void main() {
 
     test('max 3 insights returned even when 5 conditions trigger', () {
       // Gap alert + quiet member + session drift + co-fronting + time shift
-      final pair = CoFrontingPair(
+      const pair = CoFrontingPair(
           memberIdA: 'a',
           memberIdB: 'c',
-          totalTime: const Duration(hours: 3));
+          totalTime: Duration(hours: 3));
       final current = makeAnalytics(
         totalGapTime: const Duration(minutes: 12000),
         rangeSpan: const Duration(days: 30),
@@ -191,10 +191,10 @@ void main() {
     });
 
     test('results sorted by signalStrength descending', () {
-      final pair = CoFrontingPair(
+      const pair = CoFrontingPair(
           memberIdA: 'a',
           memberIdB: 'b',
-          totalTime: const Duration(hours: 2));
+          totalTime: Duration(hours: 2));
       final current = makeAnalytics(
         totalGapTime: const Duration(minutes: 12000),
         rangeSpan: const Duration(days: 30),

@@ -121,7 +121,7 @@ class _GroupDetailBody extends ConsumerWidget {
               data: (entries) {
                 if (entries.isEmpty) {
                   return Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     child: EmptyState(
                       icon: Icon(AppIcons.personAddOutlined),
                       title: 'No members',

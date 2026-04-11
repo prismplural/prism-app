@@ -12,7 +12,7 @@ final allGroupsProvider = StreamProvider<List<MemberGroup>>((ref) {
 });
 
 /// Watches member counts for all groups in a single query.
-/// Returns Map<groupId, memberCount>.
+/// Returns `Map<groupId, memberCount>`.
 final groupMemberCountsProvider = StreamProvider<Map<String, int>>((ref) {
   final repo = ref.watch(memberGroupsRepositoryProvider);
   return repo.watchMemberCountsByGroup();

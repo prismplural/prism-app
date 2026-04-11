@@ -159,7 +159,7 @@ Future<bool> migratePlaintextToEncrypted({
     } catch (_) {
       // WAL checkpoint may fail if there's no WAL — that's fine.
     } finally {
-      checkpointDb.dispose();
+      checkpointDb.close();
     }
 
     // Open the plaintext database and encrypt it using PRAGMA rekey.
@@ -173,7 +173,7 @@ Future<bool> migratePlaintextToEncrypted({
       // Encrypt the database in-place with PRAGMA rekey
       db.execute("PRAGMA rekey = \"x'$hexKey'\";");
     } finally {
-      db.dispose();
+      db.close();
     }
 
     // Verify we can open the now-encrypted database with the key
@@ -184,7 +184,7 @@ Future<bool> migratePlaintextToEncrypted({
       final tableCount = result.first.values.first as int;
       debugPrint('[DB_ENCRYPT] Verification passed: $tableCount tables found');
     } finally {
-      verifyDb.dispose();
+      verifyDb.close();
     }
 
     // Remove WAL/SHM files (encrypted DB starts with a clean journal)
@@ -220,7 +220,7 @@ Future<bool> migratePlaintextToEncrypted({
         try {
           final testDb = raw.sqlite3.open(dbFile.path);
           testDb.execute('SELECT count(*) FROM sqlite_master;');
-          testDb.dispose();
+          testDb.close();
           originalOk = true;
         } catch (_) {
           originalOk = false;

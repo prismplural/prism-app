@@ -3,6 +3,7 @@
 /// Extracted from [AppShell]'s `_checkInitialLock` and `_checkLockOnResume`
 /// so the fail-closed logic (`?? true`) is unit-testable without widget
 /// infrastructure.
+library;
 
 /// Determines whether the app should be locked at startup.
 ///
