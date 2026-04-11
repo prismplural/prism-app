@@ -3,21 +3,25 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/domain/models/habit_completion.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
-import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
-import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-/// A single habit row with completion circle, name, frequency, streak,
-/// weekly progress pill, and optional "Task Due" banner.
-class HabitRow extends StatefulWidget {
+/// A single habit row with completion circle, name, optional weekly
+/// progress pill, and optional streak pill.
+///
+/// The "due today" visual state is owned by the containing
+/// `TodayHabitsContainer` — this row no longer shows a per-row "Task Due"
+/// banner, frequency pill, or "Complete" status pill. Instead, the leading
+/// circle is a tinted tap target that fills with the habit's color + a
+/// white check when the habit is completed today, and the container dims
+/// the whole chip via `AnimatedOpacity`.
+class HabitRow extends StatelessWidget {
   const HabitRow({
     super.key,
     required this.habit,
     required this.todayCompletions,
     this.weeklyCompletions = const [],
-    this.isDueToday = false,
     this.isCompletedToday = false,
     this.onTap,
     this.onQuickComplete,
@@ -26,25 +30,16 @@ class HabitRow extends StatefulWidget {
   final Habit habit;
   final List<HabitCompletion> todayCompletions;
   final List<HabitCompletion> weeklyCompletions;
-  final bool isDueToday;
   final bool isCompletedToday;
   final VoidCallback? onTap;
   final Future<void> Function()? onQuickComplete;
 
-  @override
-  State<HabitRow> createState() => _HabitRowState();
-}
-
-class _HabitRowState extends State<HabitRow> {
-  bool _isCompleting = false;
-
   bool get _isCompletedToday =>
-      widget.isCompletedToday ||
-      widget.todayCompletions.any((c) => c.habitId == widget.habit.id);
+      isCompletedToday || todayCompletions.any((c) => c.habitId == habit.id);
 
   Color _habitColor(BuildContext context) {
-    if (widget.habit.colorHex != null && widget.habit.colorHex!.isNotEmpty) {
-      final hex = widget.habit.colorHex!.replaceFirst('#', '');
+    if (habit.colorHex != null && habit.colorHex!.isNotEmpty) {
+      final hex = habit.colorHex!.replaceFirst('#', '');
       final value = int.tryParse(hex, radix: 16);
       if (value != null) {
         return Color(0xFF000000 | value);
@@ -55,40 +50,17 @@ class _HabitRowState extends State<HabitRow> {
 
   /// For weekly-frequency habits, calculate completed/total days this week.
   (int completed, int total)? _weeklyProgress() {
-    final habit = widget.habit;
     if (habit.frequency != HabitFrequency.weekly) return null;
     if (habit.weeklyDays == null || habit.weeklyDays!.isEmpty) return null;
 
     final total = habit.weeklyDays!.length;
     // weeklyCompletions is already filtered to this habit by the parent.
     final completedDays = <int>{};
-    for (final c in widget.weeklyCompletions) {
+    for (final c in weeklyCompletions) {
       completedDays.add(c.completedAt.weekday % 7); // 0=Sun
     }
     final completed = habit.weeklyDays!.where(completedDays.contains).length;
     return (completed, total);
-  }
-
-  bool get _showBanner => widget.isDueToday && !_isCompletedToday;
-
-  @override
-  void didUpdateWidget(HabitRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Reset loading state when completion status changes (stream rebuild).
-    if (_isCompleting &&
-        widget.isCompletedToday != oldWidget.isCompletedToday) {
-      _isCompleting = false;
-    }
-  }
-
-  Future<void> _handleQuickComplete() async {
-    if (_isCompleting || widget.onQuickComplete == null) return;
-    setState(() => _isCompleting = true);
-    try {
-      await widget.onQuickComplete!();
-    } finally {
-      if (mounted) setState(() => _isCompleting = false);
-    }
   }
 
   @override
@@ -97,199 +69,114 @@ class _HabitRowState extends State<HabitRow> {
     final color = _habitColor(context);
     final completed = _isCompletedToday;
     final weeklyProgress = _weeklyProgress();
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final circleDuration =
+        reduceMotion ? Duration.zero : const Duration(milliseconds: 240);
 
-    final row = PrismListRow(
+    // Build the subtitle pill list. Frequency is no longer shown — only
+    // weekly progress (if weekly-frequency) and streak (if > 0). If
+    // neither is present, the subtitle is null and the title vertically
+    // centers within the row.
+    final pills = <Widget>[];
+    if (weeklyProgress != null) {
+      pills.add(
+        Semantics(
+          label:
+              '${weeklyProgress.$1} of ${weeklyProgress.$2} days completed this week',
+          child: PrismPill(
+            icon: AppIcons.check,
+            label: '${weeklyProgress.$1}/${weeklyProgress.$2}',
+            color: color,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          ),
+        ),
+      );
+    }
+    if (habit.currentStreak > 0) {
+      if (pills.isNotEmpty) pills.add(const SizedBox(width: 8));
+      pills.add(
+        PrismPill(
+          icon: AppIcons.localFireDepartment,
+          label: '${habit.currentStreak}',
+          color: Colors.orange.shade700,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        ),
+      );
+    }
+    final Widget? subtitle = pills.isEmpty
+        ? null
+        : Row(mainAxisSize: MainAxisSize.min, children: pills);
+
+    return PrismListRow(
+      onTap: onTap,
       leading: Semantics(
         button: true,
+        enabled: onQuickComplete != null,
         label: completed
-            ? '${widget.habit.name}, completed'
-            : 'Complete ${widget.habit.name}',
+            ? '${habit.name}, completed'
+            : 'Complete ${habit.name}',
         child: GestureDetector(
-          onTap: widget.onQuickComplete,
+          behavior: HitTestBehavior.opaque,
+          onTap: onQuickComplete,
           child: SizedBox(
             width: 48,
             height: 48,
-            child: Stack(
-              children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.transparent,
-                      border: Border.all(color: color, width: 2.5),
-                    ),
-                    child: widget.habit.icon != null
-                        ? Center(
-                            child: Text(
-                              widget.habit.icon!,
-                              style: const TextStyle(fontSize: 20),
-                            ),
-                          )
-                        : Icon(
-                            AppIcons.circleOutlined,
-                            size: 20,
-                            color: color.withValues(alpha: 0.4),
-                          ),
-                  ),
+            child: Center(
+              child: AnimatedContainer(
+                duration: circleDuration,
+                curve: Curves.easeOut,
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  // Tinted fill for incomplete ("tap to finish" affordance),
+                  // full fill for completed. No border in either state —
+                  // the 240ms AnimatedContainer smoothly animates the
+                  // alpha from 0.15 tint to full color.
+                  color: completed ? color : color.withValues(alpha: 0.15),
                 ),
-                if (completed)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.green,
-                        border: Border.all(
-                          color: theme.scaffoldBackgroundColor,
-                          width: 2,
-                        ),
-                      ),
-                      child: Icon(
-                        AppIcons.check,
-                        size: 12,
-                        color: AppColors.warmWhite,
-                      ),
+                child: AnimatedSwitcher(
+                  duration: circleDuration,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: ScaleTransition(
+                      scale: animation,
+                      child: child,
                     ),
                   ),
-              ],
+                  child: completed
+                      ? Icon(
+                          AppIcons.check,
+                          key: const ValueKey('habit-row-check'),
+                          size: 22,
+                          color: AppColors.warmWhite,
+                        )
+                      : habit.icon != null
+                          ? Center(
+                              key: ValueKey('habit-row-icon-${habit.icon}'),
+                              child: Text(
+                                habit.icon!,
+                                style: const TextStyle(fontSize: 20),
+                              ),
+                            )
+                          : Icon(
+                              AppIcons.circleOutlined,
+                              key: const ValueKey('habit-row-outline'),
+                              size: 20,
+                              color: color.withValues(alpha: 0.6),
+                            ),
+                ),
+              ),
             ),
           ),
         ),
       ),
-      title: Text(widget.habit.name),
-      subtitle: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PrismPill(
-            icon: AppIcons.calendarToday,
-            label:
-                widget.habit.frequency == HabitFrequency.interval &&
-                    widget.habit.intervalDays != null
-                ? 'Every ${widget.habit.intervalDays} days'
-                : widget.habit.frequency.label,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          ),
-          if (completed) ...[
-            const SizedBox(width: 8),
-            PrismPill(
-              icon: AppIcons.checkCircle,
-              label: 'Complete',
-              color: Colors.green,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            ),
-          ],
-          if (weeklyProgress != null) ...[
-            const SizedBox(width: 8),
-            Semantics(
-              label:
-                  '${weeklyProgress.$1} of ${weeklyProgress.$2} days completed this week',
-              child: PrismPill(
-                icon: AppIcons.check,
-                label: '${weeklyProgress.$1}/${weeklyProgress.$2}',
-                color: color,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              ),
-            ),
-          ],
-          if (widget.habit.currentStreak > 0) ...[
-            const SizedBox(width: 8),
-            PrismPill(
-              icon: AppIcons.localFireDepartment,
-              label: '${widget.habit.currentStreak}',
-              color: Colors.orange.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            ),
-          ],
-        ],
-      ),
+      title: Text(habit.name),
+      subtitle: subtitle,
       trailing: Icon(
         AppIcons.chevronRightRounded,
         color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
       ),
-    );
-
-    if (!_showBanner) return row;
-
-    // Task Due banner with tinted background to stand out from the card.
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        row,
-        TintedGlassSurface(
-          borderWidth: 0,
-          tint: color,
-          borderRadius: BorderRadius.zero,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              Text(
-                'Task Due',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Semantics(
-                button: true,
-                enabled: !_isCompleting,
-                label: 'Complete ${widget.habit.name}',
-                child: TintedGlassSurface(
-                  tint: color,
-                  borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: _isCompleting ? null : _handleQuickComplete,
-                      borderRadius:
-                          BorderRadius.circular(PrismTokens.radiusPill),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 7,
-                        ),
-                        child: _isCompleting
-                            ? SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                              )
-                            : Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    AppIcons.check,
-                                    size: 14,
-                                    color: theme.colorScheme.onSurface,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Complete',
-                                    style:
-                                        theme.textTheme.labelMedium?.copyWith(
-                                      color: theme.colorScheme.onSurface,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
