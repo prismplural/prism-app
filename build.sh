@@ -81,6 +81,37 @@ timer_end() {
 }
 
 # ─────────────────────────────────────────────────────────────────────
+# Build info injection
+# ─────────────────────────────────────────────────────────────────────
+#
+# Populate BUILD_INFO_DEFINES with --dart-define flags so BuildInfo
+# (lib/core/services/build_info.dart) can surface the git revision,
+# branch, pubspec version, and timestamp in the debug screen.
+#
+# Echoed as a single word-splittable string: callers pass it unquoted
+# ($BUILD_INFO_DEFINES) so bash splits each flag into its own argv slot.
+# None of the values we inject contain whitespace, so this is safe.
+compute_build_info() {
+    local git_rev git_describe git_branch built_at app_version
+    git_rev=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    git_describe=$(git describe --always --dirty 2>/dev/null || echo "unknown")
+    git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    app_version=$(grep '^version:' pubspec.yaml 2>/dev/null \
+        | awk '{print $2}' \
+        | tr -d '"' \
+        | head -1)
+    [ -z "$app_version" ] && app_version="unknown"
+
+    BUILD_INFO_DEFINES="--dart-define=APP_VERSION=${app_version}"
+    BUILD_INFO_DEFINES="${BUILD_INFO_DEFINES} --dart-define=GIT_REV=${git_rev}"
+    BUILD_INFO_DEFINES="${BUILD_INFO_DEFINES} --dart-define=GIT_DESCRIBE=${git_describe}"
+    BUILD_INFO_DEFINES="${BUILD_INFO_DEFINES} --dart-define=GIT_BRANCH=${git_branch}"
+    BUILD_INFO_DEFINES="${BUILD_INFO_DEFINES} --dart-define=BUILT_AT=${built_at}"
+    export BUILD_INFO_DEFINES
+}
+
+# ─────────────────────────────────────────────────────────────────────
 # Commands
 # ─────────────────────────────────────────────────────────────────────
 
@@ -211,6 +242,8 @@ cmd_run() {
     [ "$mode" = "release" ] && mode_flag="--release"
     [ "$mode" = "profile" ] && mode_flag="--profile"
 
+    compute_build_info
+
     # Single target: run in foreground so hot reload (r/R) works
     if [ ${#targets[@]} -eq 1 ]; then
         local name=""
@@ -224,7 +257,7 @@ cmd_run() {
             echo -e "  ${DIM}r${RESET} hot reload  ${DIM}R${RESET} hot restart  ${DIM}q${RESET} quit"
             echo ""
         fi
-        exec flutter run -d "${targets[0]}" $mode_flag
+        exec flutter run -d "${targets[0]}" $mode_flag $BUILD_INFO_DEFINES
     fi
 
     # Multiple targets: background all, but warn about hot reload
@@ -237,7 +270,7 @@ cmd_run() {
             "$IPHONE_DEVICE")   name="iPhone"; ensure_pods "ios" ;;
         esac
         step "Running on $name ($mode)"
-        flutter run -d "$device" $mode_flag &
+        flutter run -d "$device" $mode_flag $BUILD_INFO_DEFINES &
     done
 
     wait
@@ -269,6 +302,8 @@ cmd_build() {
     [ "$mode" = "release" ] && mode_flag="--release"
     [ "$mode" = "profile" ] && mode_flag="--profile"
 
+    compute_build_info
+
     for platform in "${targets[@]}"; do
         [[ "$platform" == "ios" || "$platform" == "macos" ]] && ensure_pods "$platform"
         step "Building $platform ($mode)"
@@ -278,7 +313,7 @@ cmd_build() {
         # flutter uses its own platform names (android-arm64), not NDK ABI names.
         local arch_flag=""
         [ "$mode" = "debug" ] && [ "$platform" = "apk" ] && arch_flag="--target-platform android-arm64"
-        flutter build "$platform" $mode_flag $arch_flag
+        flutter build "$platform" $mode_flag $arch_flag $BUILD_INFO_DEFINES
         timer_end
         success "$platform build complete"
     done
