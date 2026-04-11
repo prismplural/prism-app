@@ -36,8 +36,9 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
   Widget build(BuildContext context) {
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -47,12 +48,11 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           // Terminology section
           Text(
             'Terminology',
-            style: TextStyle(
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.8)
                   : AppColors.warmBlack.withValues(alpha: 0.8),
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 10),
@@ -83,7 +83,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                       term == SystemTerminology.custom
                           ? 'Custom'
                           : term.pluralForm,
-                      style: TextStyle(
+                      style: theme.textTheme.labelLarge?.copyWith(
                         color: isSelected
                             ? primary
                             : isDark
@@ -91,7 +91,6 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                                 : AppColors.warmBlack.withValues(alpha: 0.8),
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.normal,
-                        fontSize: 15,
                       ),
                     ),
                   ),
@@ -131,12 +130,11 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           // Accent color section
           Text(
             'Accent Color',
-            style: TextStyle(
+            style: theme.textTheme.labelLarge?.copyWith(
+              fontWeight: FontWeight.w600,
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.8)
                   : AppColors.warmBlack.withValues(alpha: 0.8),
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 10),
@@ -195,21 +193,19 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                     children: [
                       Text(
                         'Per-Member Colors',
-                        style: TextStyle(
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
                           color: isDark
                               ? AppColors.warmWhite
                               : AppColors.warmBlack,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
                         ),
                       ),
                       Text(
                         'Let each member have their own accent color',
-                        style: TextStyle(
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: isDark
                               ? AppColors.mutedTextDark
                               : AppColors.mutedTextLight,
-                          fontSize: 13,
                         ),
                       ),
                     ],
@@ -234,6 +230,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
     required ValueChanged<String> onChanged,
     required bool isDark,
   }) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
         color: isDark
@@ -243,9 +240,8 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
       ),
       child: PrismTextField(
         controller: controller,
-        style: TextStyle(
+        style: theme.textTheme.bodyMedium?.copyWith(
           color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-          fontSize: 14,
         ),
         hintText: hint,
         hintStyle: TextStyle(
