@@ -106,9 +106,8 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
                       Expanded(
                         child: Text(
                           'Some data is still syncing and will appear shortly.',
-                          style: TextStyle(
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.amber.withValues(alpha: 0.9),
-                            fontSize: 13,
                           ),
                         ),
                       ),
@@ -164,11 +163,10 @@ class _JoinPromptView extends StatelessWidget {
           const SizedBox(height: 20),
           Icon(AppIcons.devices, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Join your sync group',
-            style: TextStyle(
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.warmWhite,
-              fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -176,9 +174,8 @@ class _JoinPromptView extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Create a pairing request on this device and have an existing device approve it.',
-            style: TextStyle(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
-              fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
@@ -191,9 +188,8 @@ class _JoinPromptView extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Show a QR code for your existing device to scan and approve.',
-            style: TextStyle(
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.5),
-              fontSize: 12,
             ),
             textAlign: TextAlign.center,
           ),
@@ -233,11 +229,10 @@ class _ShowingRequestView extends StatelessWidget {
           const SizedBox(height: 20),
           Icon(AppIcons.qrCode, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Show this to your existing device',
-            style: TextStyle(
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.warmWhite,
-              fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -245,9 +240,8 @@ class _ShowingRequestView extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'On your existing device, open "Set Up Another Device" and scan this code.',
-            style: TextStyle(
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
-              fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
@@ -281,9 +275,8 @@ class _ShowingRequestView extends StatelessWidget {
               const SizedBox(width: 12),
               Text(
                 'Waiting for other device to scan...',
-                style: TextStyle(
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.warmWhite.withValues(alpha: 0.7),
-                  fontSize: 14,
                 ),
               ),
             ],
@@ -301,27 +294,29 @@ class _WaitingForSasView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final theme = Theme.of(context);
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(48),
+        padding: const EdgeInsets.all(48),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: AppColors.warmWhite),
-            SizedBox(height: 24),
+            const CircularProgressIndicator(color: AppColors.warmWhite),
+            const SizedBox(height: 24),
             Text(
               'Waiting for security verification...',
-              style: TextStyle(
+              style: theme.textTheme.titleMedium?.copyWith(
                 color: AppColors.warmWhite,
-                fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'The other device is connecting. Security codes will appear shortly.',
-              style: TextStyle(color: Color(0x99FFFFFF), fontSize: 13),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.warmWhite.withValues(alpha: 0.6),
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -348,6 +343,7 @@ class _SasVerificationView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final words = sasWords.split(' ');
 
     return SingleChildScrollView(
@@ -357,11 +353,10 @@ class _SasVerificationView extends StatelessWidget {
         children: [
           Icon(AppIcons.shieldOutlined, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Verify Security Code',
-            style: TextStyle(
+            style: theme.textTheme.titleLarge?.copyWith(
               color: AppColors.warmWhite,
-              fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -369,9 +364,8 @@ class _SasVerificationView extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Confirm these words match the ones shown on your existing device.',
-            style: TextStyle(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
-              fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
@@ -408,10 +402,9 @@ class _SasVerificationView extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   sasDecimal,
-                  style: TextStyle(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: AppColors.warmWhite.withValues(alpha: 0.5),
                     fontFamily: 'monospace',
-                    fontSize: 14,
                     letterSpacing: 2,
                   ),
                 ),
@@ -459,6 +452,7 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -471,11 +465,10 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
           const SizedBox(height: 24),
           Icon(AppIcons.lockOutline, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Enter your password',
-            style: TextStyle(
+            style: theme.textTheme.titleLarge?.copyWith(
               color: AppColors.warmWhite,
-              fontSize: 22,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -483,9 +476,8 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
           const SizedBox(height: 8),
           Text(
             'Enter your sync password to finish enrolling this device.',
-            style: TextStyle(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
-              fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
@@ -545,27 +537,29 @@ class _ConnectingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final theme = Theme.of(context);
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(48),
+        padding: const EdgeInsets.all(48),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: AppColors.warmWhite),
-            SizedBox(height: 24),
+            const CircularProgressIndicator(color: AppColors.warmWhite),
+            const SizedBox(height: 24),
             Text(
               'Pairing and syncing...',
-              style: TextStyle(
+              style: theme.textTheme.titleMedium?.copyWith(
                 color: AppColors.warmWhite,
-                fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'This may take a moment while the device is enrolled.',
-              style: TextStyle(color: Color(0x99FFFFFF), fontSize: 13),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.warmWhite.withValues(alpha: 0.6),
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -587,6 +581,7 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -595,11 +590,10 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 8),
           Icon(AppIcons.errorOutline, color: Colors.redAccent, size: 56),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Pairing failed',
-            style: TextStyle(
+            style: theme.textTheme.headlineSmall?.copyWith(
               color: AppColors.warmWhite,
-              fontSize: 26,
               fontWeight: FontWeight.w700,
             ),
             textAlign: TextAlign.center,
@@ -607,9 +601,8 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             message,
-            style: TextStyle(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.75),
-              fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
@@ -662,6 +655,7 @@ class _BackLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return GestureDetector(
       onTap: onTap,
       child: Padding(
@@ -677,9 +671,8 @@ class _BackLink extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: TextStyle(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.warmWhite.withValues(alpha: 0.8),
-                fontSize: 14,
               ),
             ),
           ],
