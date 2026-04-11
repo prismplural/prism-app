@@ -35,6 +35,7 @@ class _SecretKeySetupScreenState extends ConsumerState<SecretKeySetupScreen> {
         topBar: const PrismTopBar(title: 'Secret Key Unavailable'),
         bodyPadding: EdgeInsets.zero,
         body: SafeArea(
+          top: false,
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -75,6 +76,7 @@ class _SecretKeySetupScreenState extends ConsumerState<SecretKeySetupScreen> {
       topBar: const PrismTopBar(title: 'Your Secret Key'),
       bodyPadding: EdgeInsets.zero,
       body: SafeArea(
+        top: false,
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
