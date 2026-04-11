@@ -11,7 +11,7 @@ class PrismPopupMenu<T> extends StatelessWidget {
     required this.items,
     this.onSelected,
     IconData? icon,
-    this.tooltip,
+    this.tooltip = 'More options',
     this.iconSize = 20.0,
   }) : icon = icon ?? AppIcons.moreVert;
 
