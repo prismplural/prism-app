@@ -17,6 +17,7 @@ import 'package:prism_plurality/features/onboarding/widgets/whos_fronting_step.d
 import 'package:prism_plurality/features/onboarding/widgets/complete_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/sync_device_step.dart';
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
+import 'package:prism_plurality/features/onboarding/utils/onboarding_step_l10n.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -166,7 +167,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      step.title,
+                      step.localizedTitle(context),
                       style: Theme.of(context)
                           .textTheme
                           .headlineLarge
@@ -179,7 +180,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      step.subtitle,
+                      step.localizedSubtitle(context),
                       style: TextStyle(
                         fontSize: 15,
                         color: isDark

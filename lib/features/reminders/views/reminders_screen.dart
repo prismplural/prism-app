@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/reminder.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
 import 'package:prism_plurality/features/reminders/widgets/create_reminder_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -26,7 +27,7 @@ class RemindersScreen extends ConsumerWidget {
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Reminders',
+        title: context.l10n.remindersTitle,
         showBackButton: showBackButton,
         actions: [
           PrismTopBarAction(
@@ -38,14 +39,14 @@ class RemindersScreen extends ConsumerWidget {
       bodyPadding: EdgeInsets.zero,
       body: remindersAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(context.l10n.remindersLoadError(e.toString()))),
         data: (reminders) {
           if (reminders.isEmpty) {
             return EmptyState(
               icon: Icon(AppIcons.notificationsNoneRounded),
-              title: 'No reminders',
-              subtitle: 'Create reminders for fronting changes or scheduled times',
-              actionLabel: 'Add Reminder',
+              title: context.l10n.remindersEmptyTitle,
+              subtitle: context.l10n.remindersEmptySubtitle,
+              actionLabel: context.l10n.remindersEmptyAction,
               onAction: () => _showCreateSheet(context),
             );
           }
@@ -101,9 +102,9 @@ class _ReminderTile extends ConsumerWidget {
         // requires a tap-able button, which PrismToast does not support.
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Deleted "${reminder.name}"'),
+            content: Text(context.l10n.remindersDeletedSnackbar(reminder.name)),
             action: SnackBarAction(
-              label: 'Undo',
+              label: context.l10n.remindersUndoAction,
               onPressed: () {
                 notifier.createReminder(
                   name: reminder.name,
@@ -140,7 +141,7 @@ class _ReminderTile extends ConsumerWidget {
               ),
             ),
             subtitle: Text(
-              _subtitleText(reminder),
+              _subtitleText(context, reminder),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
@@ -162,21 +163,22 @@ class _ReminderTile extends ConsumerWidget {
     );
   }
 
-  String _subtitleText(Reminder r) {
+  String _subtitleText(BuildContext context, Reminder r) {
+    final l10n = context.l10n;
     if (r.trigger == ReminderTrigger.onFrontChange) {
       final delay = r.delayHours ?? 0;
-      if (delay == 0) return 'On front change';
-      return 'On front change (${delay}h delay)';
+      if (delay == 0) return l10n.remindersSubtitleOnFrontChange;
+      return l10n.remindersSubtitleOnFrontChangeDelay(delay);
     }
     final parts = <String>[];
     if (r.timeOfDay != null) parts.add(r.timeOfDay!);
     if (r.intervalDays != null) {
       if (r.intervalDays == 1) {
-        parts.add('Daily');
+        parts.add(l10n.remindersSubtitleDaily);
       } else {
-        parts.add('Every ${r.intervalDays} days');
+        parts.add(l10n.remindersSubtitleEveryNDays(r.intervalDays!));
       }
     }
-    return parts.isEmpty ? 'Scheduled' : parts.join(' · ');
+    return parts.isEmpty ? l10n.remindersScheduled : parts.join(' · ');
   }
 }

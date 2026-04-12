@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -33,12 +34,12 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
   Widget build(BuildContext context) {
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Data Browser',
+        title: context.l10n.settingsDataBrowserTitle,
         showBackButton: true,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.refresh,
-            tooltip: 'Reload data',
+            tooltip: context.l10n.settingsDataBrowserReloadTooltip,
             onPressed: () => setState(() => _refreshKey++),
           ),
         ],
@@ -51,17 +52,17 @@ class _DataBrowserScreenState extends ConsumerState<DataBrowserScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: PrismSegmentedControl<_DataTable>(
               segments: [
-                const PrismSegment(value: _DataTable.members, label: 'Members'),
-                const PrismSegment(
+                PrismSegment(value: _DataTable.members, label: context.l10n.settingsDataBrowserTabMembers),
+                PrismSegment(
                   value: _DataTable.sessions,
-                  label: 'Sessions',
+                  label: context.l10n.settingsDataBrowserTabSessions,
                 ),
-                const PrismSegment(
+                PrismSegment(
                   value: _DataTable.conversations,
-                  label: 'Chats',
+                  label: context.l10n.settingsDataBrowserTabChats,
                 ),
-                const PrismSegment(value: _DataTable.messages, label: 'Msgs'),
-                const PrismSegment(value: _DataTable.polls, label: 'Polls'),
+                PrismSegment(value: _DataTable.messages, label: context.l10n.settingsDataBrowserTabMessages),
+                PrismSegment(value: _DataTable.polls, label: context.l10n.settingsDataBrowserTabPolls),
               ],
               selected: _selectedTable,
               onChanged: (value) {
@@ -119,10 +120,10 @@ class _MembersTableState extends ConsumerState<_MembersTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text('Error: $_error'));
+    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return const Center(child: Text('No members'));
+    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoMembers));
     return ListView.builder(
       itemCount: data.length,
       itemBuilder: (context, index) {
@@ -183,22 +184,22 @@ class _SessionsTableState extends ConsumerState<_SessionsTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text('Error: $_error'));
+    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return const Center(child: Text('No sessions'));
+    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoSessions));
     return ListView.builder(
       itemCount: data.length,
       itemBuilder: (context, index) {
         final s = data[index];
         return _ExpandableRecord(
           primaryField: s.startTime.toIso8601String().substring(0, 16),
-          secondaryField: s.isActive ? 'Active' : 'Ended',
+          secondaryField: s.isActive ? context.l10n.settingsDataBrowserSessionActive : context.l10n.settingsDataBrowserSessionEnded,
           id: s.id,
           fields: {
             'id': s.id,
             'startTime': s.startTime.toIso8601String(),
-            'endTime': s.endTime?.toIso8601String() ?? 'null (active)',
+            'endTime': s.endTime?.toIso8601String() ?? context.l10n.settingsDataBrowserSessionEndTimeActive,
             'memberId': s.memberId ?? 'null',
             'coFronterIds': s.coFronterIds.join(', '),
             'notes': s.notes ?? '',
@@ -244,17 +245,17 @@ class _ConversationsTableState extends ConsumerState<_ConversationsTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text('Error: $_error'));
+    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return const Center(child: Text('No conversations'));
+    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoConversations));
     return ListView.builder(
       itemCount: data.length,
       itemBuilder: (context, index) {
         final c = data[index];
         return _ExpandableRecord(
-          primaryField: c.title ?? 'Untitled',
-          secondaryField: '${c.participantIds.length} participants',
+          primaryField: c.title ?? context.l10n.settingsDataBrowserUntitled,
+          secondaryField: context.l10n.settingsDataBrowserParticipantCount(c.participantIds.length),
           id: c.id,
           fields: {
             'id': c.id,
@@ -303,10 +304,10 @@ class _MessagesTableState extends ConsumerState<_MessagesTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text('Error: $_error'));
+    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return const Center(child: Text('No messages'));
+    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoMessages));
     final msgRepo = ref.read(chatMessageRepositoryProvider);
     return ListView.builder(
       itemCount: data.length,
@@ -376,7 +377,7 @@ class _MessagesForConversationState extends State<_MessagesForConversation> {
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
               child: Text(
-                'No messages in this conversation.',
+                context.l10n.settingsDataBrowserNoMessagesInConversation,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -388,7 +389,7 @@ class _MessagesForConversationState extends State<_MessagesForConversation> {
               primaryField: msg.content.length > 50
                   ? '${msg.content.substring(0, 50)}...'
                   : msg.content,
-              secondaryField: msg.isSystemMessage ? 'System' : '',
+              secondaryField: msg.isSystemMessage ? context.l10n.settingsDataBrowserSystemMessage : '',
               id: msg.id,
               margin: EdgeInsets.zero,
               fields: {
@@ -406,11 +407,11 @@ class _MessagesForConversationState extends State<_MessagesForConversation> {
 
     final String subtitle;
     if (_error != null) {
-      subtitle = 'Error loading — tap to retry';
+      subtitle = context.l10n.settingsDataBrowserLoadError;
     } else if (messages != null) {
-      subtitle = '${messages.length} messages';
+      subtitle = context.l10n.settingsDataBrowserMessageCount(messages.length);
     } else {
-      subtitle = 'Tap to load messages';
+      subtitle = context.l10n.settingsDataBrowserTapToLoad;
     }
 
     return PrismExpandableSection(
@@ -430,7 +431,7 @@ class _MessagesForConversationState extends State<_MessagesForConversation> {
         ),
       ),
       title: Text(
-        widget.conversation.title ?? 'Untitled',
+        widget.conversation.title ?? context.l10n.settingsDataBrowserUntitled,
         style: theme.textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w600,
         ),
@@ -481,17 +482,17 @@ class _PollsTableState extends ConsumerState<_PollsTable> {
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) return Center(child: Text('Error: $_error'));
+    if (_error != null) return Center(child: Text(context.l10n.settingsDataBrowserError(_error.toString())));
     final data = _data;
     if (data == null) return const PrismLoadingState();
-    if (data.isEmpty) return const Center(child: Text('No polls'));
+    if (data.isEmpty) return Center(child: Text(context.l10n.settingsDataBrowserNoPolls));
     return ListView.builder(
       itemCount: data.length,
       itemBuilder: (context, index) {
         final p = data[index];
         return _ExpandableRecord(
           primaryField: p.question,
-          secondaryField: p.isClosed ? 'Closed' : 'Active',
+          secondaryField: p.isClosed ? context.l10n.settingsDataBrowserPollClosed : context.l10n.settingsDataBrowserPollActive,
           id: p.id,
           fields: {
             'id': p.id,

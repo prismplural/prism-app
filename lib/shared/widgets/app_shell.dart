@@ -976,8 +976,9 @@ class _NavBarItem extends StatelessWidget {
     final itemIcon = isSelected
         ? (tab?.activeIcon ?? activeIcon!)
         : (tab?.icon ?? icon!);
-    final itemLabel =
-        tab?.displayLabel(terminologyPlural: terminologyPlural) ?? label!;
+    final itemLabel = tab != null
+        ? tab!.localizedLabel(context, terminologyPlural: terminologyPlural)
+        : label!;
 
     Widget iconWidget = Icon(
       itemIcon,
@@ -1206,9 +1207,7 @@ class _SidebarItemState extends State<_SidebarItem> {
     return Semantics(
       selected: widget.isSelected,
       button: true,
-      label: widget.tab.displayLabel(
-        terminologyPlural: widget.terminologyPlural,
-      ),
+      label: widget.tab.localizedLabel(context, terminologyPlural: widget.terminologyPlural),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovering = true),
@@ -1239,9 +1238,7 @@ class _SidebarItemState extends State<_SidebarItem> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  widget.tab.displayLabel(
-                    terminologyPlural: widget.terminologyPlural,
-                  ),
+                  widget.tab.localizedLabel(context, terminologyPlural: widget.terminologyPlural),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: widget.isSelected

@@ -4,18 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
-
-/// Labels and descriptions for each terminology option.
-const _terminologyLabels = <SystemTerminology, (String, String)>{
-  SystemTerminology.members: ('Members', 'member'),
-  SystemTerminology.headmates: ('Headmates', 'headmate'),
-  SystemTerminology.alters: ('Alters', 'alter'),
-  SystemTerminology.parts: ('Parts', 'part'),
-  SystemTerminology.facets: ('Facets', 'facet'),
-  SystemTerminology.custom: ('Custom', 'custom term'),
-};
 
 /// Widget for selecting the system's preferred terminology for members.
 ///
@@ -102,6 +93,39 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
         );
   }
 
+  /// Returns (plural label, singular label) for each terminology option.
+  (String, String) _labelsForTerminology(
+    BuildContext context,
+    SystemTerminology t,
+  ) {
+    return switch (t) {
+      SystemTerminology.members => (
+          context.l10n.settingsTerminologyOptionMembers,
+          context.l10n.settingsTerminologyOptionMembersSingular,
+        ),
+      SystemTerminology.headmates => (
+          context.l10n.settingsTerminologyOptionHeadmates,
+          context.l10n.settingsTerminologyOptionHeadmatesSingular,
+        ),
+      SystemTerminology.alters => (
+          context.l10n.settingsTerminologyOptionAlters,
+          context.l10n.settingsTerminologyOptionAltersSingular,
+        ),
+      SystemTerminology.parts => (
+          context.l10n.settingsTerminologyOptionParts,
+          context.l10n.settingsTerminologyOptionPartsSingular,
+        ),
+      SystemTerminology.facets => (
+          context.l10n.settingsTerminologyOptionFacets,
+          context.l10n.settingsTerminologyOptionFacetsSingular,
+        ),
+      SystemTerminology.custom => (
+          context.l10n.settingsTerminologyOptionCustom,
+          context.l10n.settingsTerminologyOptionCustomSingular,
+        ),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -112,10 +136,10 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
       children: [
         PrismSelect<SystemTerminology>(
           value: _selected,
-          labelText: 'Terminology',
+          labelText: context.l10n.settingsTerminologyPickerLabel,
           isDense: true,
           items: SystemTerminology.values.map((t) {
-            final (label, singular) = _terminologyLabels[t]!;
+            final (label, singular) = _labelsForTerminology(context, t);
             return PrismSelectItem(
               value: t,
               label: label,
@@ -131,8 +155,8 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
           const SizedBox(height: 12),
           PrismTextField(
             controller: _customController,
-            labelText: 'Custom term (singular)',
-            hintText: 'e.g. fragment',
+            labelText: context.l10n.settingsTerminologyCustomSingularLabel,
+            hintText: context.l10n.settingsTerminologyCustomSingularHint,
             isDense: true,
             onSubmitted: (_) => _onCustomSubmitted(),
             onChanged: (_) => _onCustomSubmitted(),
@@ -141,10 +165,10 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
           const SizedBox(height: 12),
           PrismTextField(
             controller: _customPluralController,
-            labelText: 'Custom term (plural)',
+            labelText: context.l10n.settingsTerminologyCustomPluralLabel,
             hintText: _customController.text.isNotEmpty
                 ? '${_customController.text}s'
-                : 'e.g. fragments',
+                : context.l10n.settingsTerminologyCustomPluralHint,
             isDense: true,
             onSubmitted: (_) => _onCustomSubmitted(),
             onChanged: (_) => _onCustomSubmitted(),
@@ -167,14 +191,14 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Preview',
+                context.l10n.settingsTerminologyPreviewLabel,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                '"${terms.addButtonText}" \u2022 "${terms.plural}" \u2022 "${terms.selectText}"',
+                '"${context.l10n.terminologyAddButton(terms.singular)}" \u2022 "${terms.plural}" \u2022 "${context.l10n.terminologySelectPrompt(terms.singularLower)}"',
                 style: theme.textTheme.bodySmall,
               ),
             ],

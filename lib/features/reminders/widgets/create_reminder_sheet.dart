@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/reminder.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -73,7 +74,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: _isEditing ? 'Edit Reminder' : 'New Reminder',
+            title: _isEditing ? context.l10n.remindersEditTitle : context.l10n.remindersNewTitle,
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
@@ -94,7 +95,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
               children: [
                 PrismTextField(
                   controller: _nameController,
-                  labelText: 'Reminder name',
+                  labelText: context.l10n.remindersNameLabel,
                   autofocus: !_isEditing,
                   onChanged: (_) => setState(() {}),
                 ),
@@ -102,23 +103,23 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
 
                 PrismTextField(
                   controller: _messageController,
-                  labelText: 'Notification message',
+                  labelText: context.l10n.remindersMessageLabel,
                   maxLines: 2,
                 ),
                 const SizedBox(height: 16),
 
                 // Trigger type
-                Text('Trigger', style: theme.textTheme.labelLarge),
+                Text(context.l10n.remindersTriggerLabel, style: theme.textTheme.labelLarge),
                 const SizedBox(height: 8),
                 PrismSegmentedControl<ReminderTrigger>(
                   segments: [
-                    const PrismSegment(
+                    PrismSegment(
                       value: ReminderTrigger.scheduled,
-                      label: 'Scheduled',
+                      label: context.l10n.remindersScheduled,
                     ),
-                    const PrismSegment(
+                    PrismSegment(
                       value: ReminderTrigger.onFrontChange,
-                      label: 'Front Change',
+                      label: context.l10n.remindersTriggerFrontChange,
                     ),
                   ],
                   selected: _trigger,
@@ -130,17 +131,17 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                 if (_trigger == ReminderTrigger.scheduled) ...[
                   // Interval picker
                   _LabeledRow(
-                    label: 'Repeat every',
+                    label: context.l10n.remindersRepeatEveryLabel,
                     child: PrismSelect<int>.compact(
                       value: _intervalDays ?? 1,
                       menuWidth: 180,
-                      items: const [
-                        PrismSelectItem(value: 1, label: '1 day'),
-                        PrismSelectItem(value: 2, label: '2 days'),
-                        PrismSelectItem(value: 3, label: '3 days'),
-                        PrismSelectItem(value: 7, label: '7 days'),
-                        PrismSelectItem(value: 14, label: '14 days'),
-                        PrismSelectItem(value: 30, label: '30 days'),
+                      items: [
+                        PrismSelectItem(value: 1, label: context.l10n.remindersIntervalDays(1)),
+                        PrismSelectItem(value: 2, label: context.l10n.remindersIntervalDays(2)),
+                        PrismSelectItem(value: 3, label: context.l10n.remindersIntervalDays(3)),
+                        PrismSelectItem(value: 7, label: context.l10n.remindersIntervalDays(7)),
+                        PrismSelectItem(value: 14, label: context.l10n.remindersIntervalDays(14)),
+                        PrismSelectItem(value: 30, label: context.l10n.remindersIntervalDays(30)),
                       ],
                       onChanged: (v) => setState(() => _intervalDays = v),
                     ),
@@ -148,7 +149,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                   const SizedBox(height: 12),
                   // Time picker
                   _LabeledRow(
-                    label: 'Time',
+                    label: context.l10n.remindersTimeLabel,
                     child: PrismButton(
                       label: _timeOfDay?.format(context) ?? '9:00 AM',
                       tone: PrismButtonTone.subtle,
@@ -167,17 +168,17 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                 ] else ...[
                   // Delay picker for front change
                   _LabeledRow(
-                    label: 'Delay after front change',
+                    label: context.l10n.remindersDelayLabel,
                     child: PrismSelect<int>.compact(
                       value: _delayHours ?? 0,
                       menuWidth: 180,
-                      items: const [
-                        PrismSelectItem(value: 0, label: 'Immediately'),
-                        PrismSelectItem(value: 1, label: '1 hour'),
-                        PrismSelectItem(value: 2, label: '2 hours'),
-                        PrismSelectItem(value: 4, label: '4 hours'),
-                        PrismSelectItem(value: 8, label: '8 hours'),
-                        PrismSelectItem(value: 12, label: '12 hours'),
+                      items: [
+                        PrismSelectItem(value: 0, label: context.l10n.remindersImmediately),
+                        PrismSelectItem(value: 1, label: context.l10n.remindersDelayHours(1)),
+                        PrismSelectItem(value: 2, label: context.l10n.remindersDelayHours(2)),
+                        PrismSelectItem(value: 4, label: context.l10n.remindersDelayHours(4)),
+                        PrismSelectItem(value: 8, label: context.l10n.remindersDelayHours(8)),
+                        PrismSelectItem(value: 12, label: context.l10n.remindersDelayHours(12)),
                       ],
                       onChanged: (v) => setState(() => _delayHours = v),
                     ),
@@ -187,7 +188,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                 if (_isEditing) ...[
                   const SizedBox(height: 24),
                   PrismButton(
-                    label: 'Delete',
+                    label: context.l10n.delete,
                     tone: PrismButtonTone.destructive,
                     onPressed: () {
                       ref

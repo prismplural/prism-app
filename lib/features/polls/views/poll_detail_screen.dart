@@ -147,7 +147,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     if (votingAs == null) {
       PrismToast.show(
         context,
-        message: '${ref.read(terminologyProvider).selectText} ${context.l10n.pollsDetailSelectToVoteAs}',
+        message: context.l10n.pollsVotingAsSelectPrompt(ref.read(terminologyProvider).singularLower),
       );
       return;
     }

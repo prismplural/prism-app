@@ -194,7 +194,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: widget.isEditing ? terms.editText : terms.newText,
+            title: widget.isEditing
+                ? context.l10n.terminologyEditItem(terms.singular)
+                : context.l10n.terminologyNewItem(terms.singular),
             trailing: PrismGlassIconButton(
                     icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 abstract final class AppRoutePaths {
@@ -35,6 +36,7 @@ abstract final class AppRoutePaths {
   static const settingsDatabase = '/settings/database';
   static const settingsAbout = '/settings/about';
   static const settingsDebug = '/settings/debug';
+  static const settingsComponentGallery = '/settings/component-gallery';
   static const settingsSyncDebug = '/settings/sync-debug';
   static const settingsErrors = '/settings/errors';
   static const settingsPluralkit = '/settings/pluralkit';
@@ -117,6 +119,26 @@ class AppShellTab {
       return terminologyPlural;
     }
     return label;
+  }
+
+  /// Localized display label using [context] for l10n.
+  /// For the Members tab, uses [terminologyPlural] (the user's custom term) if provided.
+  String localizedLabel(BuildContext context, {String? terminologyPlural}) {
+    if (id == AppShellTabId.members && terminologyPlural != null) {
+      return terminologyPlural;
+    }
+    final l10n = context.l10n;
+    return switch (id) {
+      AppShellTabId.home => l10n.navHome,
+      AppShellTabId.chat => l10n.navChat,
+      AppShellTabId.habits => l10n.navHabits,
+      AppShellTabId.polls => l10n.navPolls,
+      AppShellTabId.settings => l10n.navSettings,
+      AppShellTabId.members => l10n.navMembers,
+      AppShellTabId.reminders => l10n.navReminders,
+      AppShellTabId.notes => l10n.navNotes,
+      AppShellTabId.statistics => l10n.navStatistics,
+    };
   }
 
   bool isEnabled(

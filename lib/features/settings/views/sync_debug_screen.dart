@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -26,23 +27,23 @@ class SyncDebugScreen extends ConsumerWidget {
           .join('\n');
       await Clipboard.setData(ClipboardData(text: lines));
       if (!context.mounted) return;
-      PrismToast.show(context, message: 'Sync event log copied');
+      PrismToast.show(context, message: context.l10n.settingsSyncDebugCopiedToast);
     }
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Sync Event Log',
-        subtitle: '${events.length} events',
+        title: context.l10n.settingsSyncDebugTitle,
+        subtitle: context.l10n.settingsSyncDebugEventCount(events.length),
         showBackButton: true,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.copyAll,
-            tooltip: 'Copy log',
+            tooltip: context.l10n.settingsSyncDebugCopyLogTooltip,
             onPressed: events.isEmpty ? null : copyLog,
           ),
           PrismTopBarAction(
             icon: AppIcons.deleteOutline,
-            tooltip: 'Clear log',
+            tooltip: context.l10n.settingsSyncDebugClearLogTooltip,
             onPressed: events.isEmpty
                 ? null
                 : () => ref.read(syncEventLogProvider.notifier).clear(),
@@ -89,14 +90,14 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No sync events recorded',
+              context.l10n.settingsSyncDebugEmptyTitle,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Sync events will appear here as they happen.',
+              context.l10n.settingsSyncDebugEmptyBody,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,

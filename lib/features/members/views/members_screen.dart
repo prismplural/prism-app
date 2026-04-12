@@ -161,13 +161,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _openSearch(List<Member> members) async {
+    final terms = ref.read(terminologyProvider);
     final result = await showSearch<String?>(
       context: context,
       delegate: MemberSearchDelegate(
         members: members,
-        searchHint: ref.read(terminologyProvider).searchHint,
-        emptyLabel:
-            'No ${ref.read(terminologyProvider).pluralLower} found',
+        searchHint: context.l10n.terminologySearchHint(terms.pluralLower),
+        emptyLabel: context.l10n.terminologyNoFound(terms.pluralLower),
       ),
     );
     if (result != null && mounted) {
@@ -182,7 +182,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   ) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete ${ref.read(terminologyProvider).singular}',
+      title: context.l10n.terminologyDeleteItem(ref.read(terminologyProvider).singular),
       message: 'Are you sure you want to delete $memberName? This action cannot be undone.',
       confirmLabel: context.l10n.delete,
       destructive: true,
@@ -264,7 +264,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         actions: [
           PrismTopBarAction(
             icon: AppIcons.search,
-            tooltip: terms.searchHint,
+            tooltip: context.l10n.terminologySearchHint(terms.pluralLower),
             onPressed: () {
               final members = membersAsync.value;
               if (members != null) _openSearch(members);
@@ -272,7 +272,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           ),
           PrismTopBarAction(
             icon: AppIcons.add,
-            tooltip: terms.addButtonText,
+            tooltip: context.l10n.terminologyAddButton(terms.singular),
             onPressed: _openAddSheet,
           ),
           PrismTopBarAction(
@@ -293,7 +293,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'Error loading ${terms.pluralLower}: $e',
+              context.l10n.terminologyLoadError(terms.pluralLower, e.toString()),
               textAlign: TextAlign.center,
             ),
           ),
@@ -303,11 +303,10 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             return EmptyState(
               icon: Icon(AppIcons.peopleOutline),
               title: _showInactive
-                  ? terms.emptyTitle
-                  : terms.emptyActiveTitle,
-              subtitle:
-                  'Add your first system ${terms.singularLower} to get started',
-              actionLabel: terms.addButtonText,
+                  ? context.l10n.terminologyEmptyTitle(terms.pluralLower)
+                  : context.l10n.terminologyEmptyActiveTitle(terms.pluralLower),
+              subtitle: context.l10n.terminologyAddFirstSubtitle(terms.singularLower),
+              actionLabel: context.l10n.terminologyAddButton(terms.singular),
               onAction: _openAddSheet,
             );
           }
