@@ -230,12 +230,10 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       }
     }
 
-    return GestureDetector(
+    final dateField = GestureDetector(
       onTap: () => _pickDate(context, precision),
       child: InputDecorator(
         decoration: InputDecoration(
-          labelText: widget.field.name,
-          border: const OutlineInputBorder(),
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -272,6 +270,25 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
                 ),
         ),
       ),
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.field.name,
+          style: theme.textTheme.labelLarge!.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Semantics(
+          label: widget.field.name,
+          button: true,
+          child: dateField,
+        ),
+      ],
     );
   }
 

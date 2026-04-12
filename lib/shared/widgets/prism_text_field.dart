@@ -98,6 +98,8 @@ class PrismTextField extends StatelessWidget {
     }
 
     final decoration = InputDecoration(
+      labelText: labelText,
+      floatingLabelBehavior: FloatingLabelBehavior.never,
       hintText: hintText,
       helperText: helperText,
       errorText: errorText,
@@ -173,11 +175,13 @@ class PrismTextField extends StatelessWidget {
       color: theme.colorScheme.onSurfaceVariant,
     );
 
-    if (labelText!.contains('*')) {
-      final idx = labelText!.indexOf('*');
+    // Only treat trailing " *" or "*" as a required indicator
+    final requiredPattern = RegExp(r'\s?\*$');
+    if (requiredPattern.hasMatch(labelText!)) {
+      final base = labelText!.replaceAll(requiredPattern, '');
       return Text.rich(
         TextSpan(children: [
-          TextSpan(text: labelText!.substring(0, idx), style: style),
+          TextSpan(text: base, style: style),
           TextSpan(
             text: ' *',
             style: style.copyWith(color: theme.colorScheme.primary),
