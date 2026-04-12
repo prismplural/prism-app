@@ -1,15 +1,26 @@
-import 'dart:typed_data';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
+import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
+import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
 
 enum OnboardingStep {
   welcome,
+  pinSetup,        // 6-digit PIN creation
+  recoveryPhrase,  // Show 12-word backup
+  confirmPhrase,   // Verify 3 words
+  biometricSetup,  // Face ID / Touch ID opt-in
   syncDevice,
   importedDataReady,
   importData,
@@ -23,6 +34,10 @@ enum OnboardingStep {
 
   String get title => switch (this) {
     welcome => 'Welcome to Prism',
+    pinSetup => 'Set your PIN',
+    recoveryPhrase => 'Save your recovery phrase',
+    confirmPhrase => 'Verify your phrase',
+    biometricSetup => 'Enable biometrics',
     syncDevice => 'Sync From Device',
     importedDataReady => 'Data Ready',
     importData => 'Already have data?',
@@ -37,6 +52,10 @@ enum OnboardingStep {
 
   String get subtitle => switch (this) {
     welcome => 'Your system, your way.',
+    pinSetup => 'Protects your app and sync.',
+    recoveryPhrase => 'Write these 12 words somewhere safe.',
+    confirmPhrase => 'Confirm you saved your phrase.',
+    biometricSetup => 'Use Face ID or Touch ID to unlock.',
     syncDevice => 'Pair with an existing device',
     importedDataReady => 'Your imported system is ready to use',
     importData => 'Bring your system with you.',
@@ -51,6 +70,10 @@ enum OnboardingStep {
 
   IconData get icon => switch (this) {
     welcome => AppIcons.duotoneStar,
+    pinSetup => AppIcons.duotoneLock,
+    recoveryPhrase => AppIcons.duotoneKey,
+    confirmPhrase => AppIcons.duotoneEncryption,
+    biometricSetup => AppIcons.fingerprint,
     syncDevice => AppIcons.duotoneSync,
     importedDataReady => AppIcons.duotoneSuccess,
     importData => AppIcons.duotoneImport,
@@ -87,6 +110,12 @@ class OnboardingState {
   /// The channel key that cannot be removed (locale-aware "All Members" name).
   /// Null until ChatSetupStep seeds the localized defaults on first render.
   final String? allMembersChannelKey;
+  /// The 12-word mnemonic words generated during PIN setup. Ephemeral —
+  /// kept in memory only until confirmPhrase is completed.
+  final List<String> mnemonicWords;
+  /// The raw DEK bytes exported after initialize(). Used for biometric
+  /// enrollment in BiometricSetupStep. Cleared after biometric step.
+  final Uint8List? dekBytes;
 
   const OnboardingState({
     this.currentStep = OnboardingStep.welcome,
@@ -108,6 +137,8 @@ class OnboardingState {
     this.terminologyUseEnglish = false,
     this.isSyncPath = false,
     this.allMembersChannelKey,
+    this.mnemonicWords = const [],
+    this.dekBytes,
   });
 
   static const _sentinel = Object();
@@ -133,6 +164,8 @@ class OnboardingState {
     bool? isSyncPath,
     bool clearFronterId = false,
     String? allMembersChannelKey,
+    List<String>? mnemonicWords,
+    Object? dekBytes = _sentinel,
   }) {
     return OnboardingState(
       currentStep: currentStep ?? this.currentStep,
@@ -164,6 +197,8 @@ class OnboardingState {
           terminologyUseEnglish ?? this.terminologyUseEnglish,
       isSyncPath: isSyncPath ?? this.isSyncPath,
       allMembersChannelKey: allMembersChannelKey ?? this.allMembersChannelKey,
+      mnemonicWords: mnemonicWords ?? this.mnemonicWords,
+      dekBytes: dekBytes == _sentinel ? this.dekBytes : dekBytes as Uint8List?,
     );
   }
 }
@@ -203,6 +238,126 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // PIN / recovery phrase / biometric step handlers
+  // ---------------------------------------------------------------------------
+
+  /// Called when the user confirms their 6-digit PIN in [PinSetupStep].
+  ///
+  /// This is the master key-derivation step:
+  /// 1. Generates a fresh BIP39 mnemonic via FFI.
+  /// 2. Converts the mnemonic to secret-key bytes.
+  /// 3. Calls `ffi.initialize()` — derives MEK, wraps DEK, creates device keys.
+  /// 4. Drains Rust's MemorySecureStore to the platform keychain.
+  /// 5. Writes the mnemonic to the keychain explicitly (Rust never does this).
+  /// 6. Caches the runtime DEK (`kRuntimeDekKey`) for Signal-style fast unlock.
+  /// 7. Stores the PIN hash via [PinLockService].
+  /// 8. Advances to [OnboardingStep.recoveryPhrase].
+  Future<void> onPinConfirmed(String pin) async {
+    try {
+      // 1. Get or create the sync handle (we need it for FFI calls).
+      //    In new-device onboarding, no handle exists yet. We create one
+      //    using the default relay URL — createSyncGroup will be called later.
+      final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
+      ffi.PrismSyncHandle handle;
+      final existingHandle = ref.read(prismSyncHandleProvider).value;
+      if (existingHandle != null) {
+        handle = existingHandle;
+      } else {
+        handle = await handleNotifier.createHandle(
+          relayUrl: AppConstants.defaultRelayUrl,
+        );
+      }
+
+      // 2. Generate mnemonic (returns the 12-word string).
+      final mnemonic = await ffi.generateSecretKey();
+      final mnemonicWords = mnemonic.split(' ');
+
+      // 3. Convert mnemonic phrase to secret-key bytes.
+      final secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonic);
+
+      // 4. Initialize the key hierarchy: PIN is the password, secretKey
+      //    is the BIP39 entropy. This derives MEK → DEK → device keys.
+      await ffi.initialize(
+        handle: handle,
+        password: pin,
+        secretKey: secretKeyBytes,
+      );
+
+      // 5. Drain Rust's MemorySecureStore to the platform keychain
+      //    (writes wrapped_dek, dek_salt, device_secret, device_id, etc.).
+      await drainRustStore(handle);
+
+      // 6. Write mnemonic to keychain explicitly. Rust initialize() does NOT
+      //    write it — we are the only writer. The key format matches
+      //    attemptUnlock() which reads `prism_sync.mnemonic` as
+      //    base64(utf8(mnemonic_string)).
+      await secureStorage.write(
+        key: 'prism_sync.mnemonic',
+        value: base64Encode(utf8.encode(mnemonic)),
+      );
+
+      // 7. Export raw DEK and cache it (Signal-style: bypasses Argon2id on
+      //    next launch). Also derives and caches the database key.
+      await cacheRuntimeKeys(handle);
+      final dekBytes = await ffi.exportDek(handle: handle);
+
+      // 8. Store the PIN hash via PinLockService.
+      final pinService = ref.read(pinLockServiceProvider);
+      await pinService.storePin(pin);
+
+      // 9. Also use the PIN as the sync auth password — record it in the
+      //    pendingMnemonicProvider so the secret-key screen can show it if
+      //    needed (not required here, but keeps state consistent).
+      ref.read(pendingMnemonicProvider.notifier).set(mnemonic);
+
+      // 10. Store words and DEK in ephemeral state, advance step.
+      state = state.copyWith(
+        mnemonicWords: mnemonicWords,
+        dekBytes: dekBytes,
+        currentStep: OnboardingStep.recoveryPhrase,
+      );
+    } catch (e, st) {
+      ErrorReportingService.instance.report(
+        'onPinConfirmed failed: $e',
+        severity: ErrorSeverity.error,
+        stackTrace: st,
+      );
+      if (kDebugMode) debugPrint('[ONBOARDING] onPinConfirmed error: $e');
+      rethrow;
+    }
+  }
+
+  /// Called when the user taps Continue on the recovery-phrase display.
+  void onPhraseViewed() {
+    state = state.copyWith(currentStep: OnboardingStep.confirmPhrase);
+  }
+
+  /// Called when the user successfully verifies 3 words from their phrase.
+  void onPhraseConfirmed() {
+    state = state.copyWith(currentStep: OnboardingStep.biometricSetup);
+  }
+
+  /// Called when the user successfully enrolls biometrics.
+  void onBiometricEnrolled() {
+    // Clear sensitive ephemeral fields and advance.
+    state = state.copyWith(
+      mnemonicWords: [],
+      dekBytes: null,
+      currentStep: OnboardingStep.importData,
+    );
+  }
+
+  /// Called when the user skips the biometric enrollment step.
+  void onBiometricSkipped() {
+    // Clear sensitive ephemeral fields and advance.
+    state = state.copyWith(
+      mnemonicWords: [],
+      dekBytes: null,
+      currentStep: OnboardingStep.importData,
+    );
+  }
+
   bool _shouldSkip(OnboardingStep step) {
     if (step == OnboardingStep.syncDevice && !state.isSyncPath) return true;
     if (step == OnboardingStep.importedDataReady &&
@@ -210,6 +365,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       return true;
     }
     if (step == OnboardingStep.chatSetup && !state.chatEnabled) return true;
+    // biometricSetup can only be skipped if needed (user can see it regardless)
     return false;
   }
 
@@ -244,6 +400,12 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   bool get canProceed {
     return switch (state.currentStep) {
       OnboardingStep.welcome => true,
+      // PIN/recovery/biometric steps manage their own progression —
+      // the bottom "Continue" button is hidden for these steps.
+      OnboardingStep.pinSetup => false,
+      OnboardingStep.recoveryPhrase => false,
+      OnboardingStep.confirmPhrase => false,
+      OnboardingStep.biometricSetup => false,
       OnboardingStep.syncDevice => false, // Managed by SyncDeviceStep itself
       OnboardingStep.importedDataReady => false,
       OnboardingStep.importData => true,

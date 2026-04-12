@@ -5473,6 +5473,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingWhosFrontingSubtitle => 'Tap whoever\'s here right now.';
 
   @override
+  String get onboardingPinSetupTitle => 'Set your PIN';
+
+  @override
+  String get onboardingPinSetupSubtitle => 'Protects your app and sync.';
+
+  @override
+  String get onboardingRecoveryPhraseTitle => 'Save your recovery phrase';
+
+  @override
+  String get onboardingRecoveryPhraseSubtitle =>
+      'Write these 12 words somewhere safe.';
+
+  @override
+  String get onboardingConfirmPhraseTitle => 'Verify your phrase';
+
+  @override
+  String get onboardingConfirmPhraseSubtitle => 'Confirm you saved your phrase.';
+
+  @override
+  String get onboardingBiometricSetupTitle => 'Enable biometrics';
+
+  @override
+  String get onboardingBiometricSetupSubtitle =>
+      'Use Face ID or Touch ID to unlock.';
+
+  @override
   String get onboardingCompleteTitle => 'Ready when you are';
 
   @override
