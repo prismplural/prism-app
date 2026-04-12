@@ -257,20 +257,20 @@ abstract class AppLocalizations {
   /// Member picker placeholder when no member is selected
   ///
   /// In en, this message translates to:
-  /// **'Select member'**
-  String get selectMember;
+  /// **'Select {term}'**
+  String selectMember(String term);
 
   /// Member picker placeholder for multi-select
   ///
   /// In en, this message translates to:
-  /// **'Select members'**
-  String get selectMembers;
+  /// **'Select {termPlural}'**
+  String selectMembers(String termPlural);
 
   /// Member picker hint text
   ///
   /// In en, this message translates to:
-  /// **'Select a member'**
-  String get selectAMember;
+  /// **'Select a {termLower}'**
+  String selectAMember(String termLower);
 
   /// Error message with detail
   ///
@@ -311,14 +311,14 @@ abstract class AppLocalizations {
   /// Search hint in member search
   ///
   /// In en, this message translates to:
-  /// **'Search members...'**
-  String get searchMembers;
+  /// **'Search {termPlural}...'**
+  String searchMembers(String termPlural);
 
   /// Empty state in member search
   ///
   /// In en, this message translates to:
-  /// **'No members found'**
-  String get noMembersFound;
+  /// **'No {termPlural} found'**
+  String noMembersFound(String termPlural);
 
   /// Tooltip for 'more options' menu button
   ///
@@ -497,8 +497,8 @@ abstract class AppLocalizations {
   /// Appearance settings section: Per-Member Colors
   ///
   /// In en, this message translates to:
-  /// **'Per-Member Colors'**
-  String get appearancePerMemberColors;
+  /// **'Per-{term} Colors'**
+  String appearancePerMemberColors(String term);
 
   /// Appearance settings section: Sync
   ///
@@ -1571,8 +1571,8 @@ abstract class AppLocalizations {
   /// Statistics row: total members
   ///
   /// In en, this message translates to:
-  /// **'Total members'**
-  String get statisticsTotalMembers;
+  /// **'Total {termPlural}'**
+  String statisticsTotalMembers(String termPlural);
 
   /// Statistics row: total sessions
   ///
@@ -3785,8 +3785,8 @@ abstract class AppLocalizations {
   /// Toast shown when a member is added to a group
   ///
   /// In en, this message translates to:
-  /// **'Member added'**
-  String get memberAdded;
+  /// **'{term} added'**
+  String memberAdded(String term);
 
   /// Toast shown when a member starts fronting
   ///
@@ -3821,20 +3821,20 @@ abstract class AppLocalizations {
   /// Dialog title when confirming removal of a member from a group
   ///
   /// In en, this message translates to:
-  /// **'Remove member'**
-  String get memberRemoveFromGroupTitle;
+  /// **'Remove {term}'**
+  String memberRemoveFromGroupTitle(String term);
 
   /// Dialog message when removing a member from a group
   ///
   /// In en, this message translates to:
-  /// **'Remove {name} from this group? The member will not be deleted.'**
-  String memberRemoveFromGroupMessage(String name);
+  /// **'Remove {name} from this group? The {termLower} will not be deleted.'**
+  String memberRemoveFromGroupMessage(String name, String termLower);
 
   /// Empty state when there are no members in a group
   ///
   /// In en, this message translates to:
-  /// **'No members yet'**
-  String get memberEmptyList;
+  /// **'No {termPlural} yet'**
+  String memberEmptyList(String termPlural);
 
   /// Empty state title on the groups screen
   ///
@@ -3845,20 +3845,20 @@ abstract class AppLocalizations {
   /// Empty state subtitle on the groups screen
   ///
   /// In en, this message translates to:
-  /// **'Create groups to organize your system members'**
-  String get memberGroupEmptySubtitle;
+  /// **'Create groups to organize your system {termPlural}'**
+  String memberGroupEmptySubtitle(String termPlural);
 
   /// Empty state title inside a group detail screen
   ///
   /// In en, this message translates to:
-  /// **'No members'**
-  String get memberGroupNoMembers;
+  /// **'No {termPlural}'**
+  String memberGroupNoMembers(String termPlural);
 
   /// Empty state subtitle inside a group detail screen
   ///
   /// In en, this message translates to:
-  /// **'Add members to this group'**
-  String get memberGroupNoMembersSubtitle;
+  /// **'Add {termPlural} to this group'**
+  String memberGroupNoMembersSubtitle(String termPlural);
 
   /// Label for the inactive/archived filter chip in system management screen
   ///
@@ -4061,8 +4061,8 @@ abstract class AppLocalizations {
   /// Toolbar chip label when no headmate is assigned to a note
   ///
   /// In en, this message translates to:
-  /// **'Add headmate'**
-  String get memberNoteAddHeadmate;
+  /// **'Add {termLower}'**
+  String memberNoteAddHeadmate(String termLower);
 
   /// Confirmation dialog title when discarding unsaved note changes
   ///

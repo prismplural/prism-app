@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Screen displaying system statistics: member counts, session data,
@@ -47,7 +48,7 @@ class StatisticsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 _StatRow(
-                  label: context.l10n.statisticsTotalMembers,
+                  label: context.l10n.statisticsTotalMembers(watchTerminology(context, ref).pluralLower),
                   valueAsync: memberCountAsync.whenData((c) => '$c'),
                 ),
                 membersAsync.when(

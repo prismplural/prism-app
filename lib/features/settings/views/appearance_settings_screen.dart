@@ -114,7 +114,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
             ),
             FontSettingsSection(settings: settings),
             PrismSection(
-              title: context.l10n.appearancePerMemberColors,
+              title: context.l10n.appearancePerMemberColors(watchTerminology(context, ref).singular),
               child: PrismSectionCard(
                 child: PrismSwitchRow(
                   title:
