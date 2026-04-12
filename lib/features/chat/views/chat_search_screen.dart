@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/chat/widgets/search_result_tile.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class ChatSearchScreen extends ConsumerStatefulWidget {
   const ChatSearchScreen({super.key});
@@ -73,7 +74,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                       icon: AppIcons.arrowBackIosNewRounded,
                       iconSize: 18,
                       onPressed: () => context.pop(),
-                      tooltip: 'Back',
+                      tooltip: context.l10n.back,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -93,7 +94,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                               child: PrismTextField(
                                 controller: _controller,
                                 autofocus: true,
-                                hintText: 'Search messages...',
+                                hintText: context.l10n.chatSearchPlaceholder,
                                 fieldStyle: PrismTextFieldStyle.borderless,
                                 isDense: true,
                                 contentPadding:
@@ -147,7 +148,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Find messages across your conversations',
+                      context.l10n.chatSearchHint,
                       style: theme.textTheme.bodyLarge?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -161,7 +162,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
               hasScrollBody: false,
               child: Center(
                 child: Text(
-                  'Keep typing to search...',
+                  context.l10n.chatSearchKeepTyping,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -186,14 +187,14 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            "No messages found for '$query'",
+                            context.l10n.chatSearchNoResults(query),
                             style: theme.textTheme.bodyLarge?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Try fewer or different words',
+                            context.l10n.chatSearchTryDifferent,
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurfaceVariant,
                             ),
@@ -226,7 +227,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
               ),
               error: (error, _) => SliverFillRemaining(
                 hasScrollBody: false,
-                child: Center(child: Text('Error: $error')),
+                child: Center(child: Text(context.l10n.chatSearchError(error))),
               ),
             ),
         ],

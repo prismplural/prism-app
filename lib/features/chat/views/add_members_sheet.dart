@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Modal bottom sheet for adding members to an existing conversation.
 ///
@@ -74,7 +75,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Failed to add members: $e');
+        PrismToast.error(context, message: context.l10n.chatAddMembersFailed(e));
         setState(() => _isAdding = false);
       }
     }
@@ -90,7 +91,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: 'Add Members',
+            title: context.l10n.chatAddMembersTitle,
             trailing: _isAdding
                 ? SizedBox(
                     width: PrismTokens.topBarActionSize,
@@ -128,7 +129,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
                   return Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'All active members are already in this conversation.',
+                      context.l10n.chatAddMembersAllAdded,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -183,7 +184,7 @@ class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
               error: (error, _) => Padding(
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'Error loading members: $error',
+                  context.l10n.chatAddMembersFailed(error),
                   style: TextStyle(color: theme.colorScheme.error),
                 ),
               ),

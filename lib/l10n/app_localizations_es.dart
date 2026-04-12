@@ -2455,4 +2455,468 @@ class AppLocalizationsEs extends AppLocalizations {
   String memberCustomFieldEnterHint(String fieldName) {
     return 'Ingresar $fieldName';
   }
+
+  @override
+  String get chatTitle => 'Mensajes';
+
+  @override
+  String get chatNewConversation => 'Nueva conversación';
+
+  @override
+  String get chatManageCategories => 'Gestionar categorías';
+
+  @override
+  String get chatSearchMessages => 'Buscar mensajes';
+
+  @override
+  String get chatNoConversations => 'Sin conversaciones';
+
+  @override
+  String get chatNoConversationsSubtitle => 'Empieza a chatear con tu sistema';
+
+  @override
+  String get chatErrorLoadingConversations => 'Error al cargar conversaciones';
+
+  @override
+  String get chatUncategorized => 'Sin categoría';
+
+  @override
+  String get chatMarkAsRead => 'Marcar como leído';
+
+  @override
+  String get chatMute => 'Silenciar';
+
+  @override
+  String get chatUnmute => 'Activar';
+
+  @override
+  String get chatDeleteConversationTitle => 'Eliminar conversación';
+
+  @override
+  String get chatDeleteConversationMessage =>
+      '¿Seguro que quieres eliminar esta conversación? Todos los mensajes se eliminarán permanentemente.';
+
+  @override
+  String get chatDeleteConversationFullMessage =>
+      '¿Seguro que quieres eliminar esta conversación? Todos los mensajes se eliminarán permanentemente. Esto no se puede deshacer.';
+
+  @override
+  String get chatBadgeMentionsOnly => 'Notificación: solo menciones';
+
+  @override
+  String get chatBadgeAllMessages => 'Notificación: todos los mensajes';
+
+  @override
+  String get chatHideArchived => 'Ocultar archivados';
+
+  @override
+  String get chatShowArchived => 'Mostrar archivados';
+
+  @override
+  String get chatConversationNotFound => 'Conversación no encontrada';
+
+  @override
+  String get chatConversationInfo => 'Información de la conversación';
+
+  @override
+  String get chatNoMessages => 'Aún no hay mensajes';
+
+  @override
+  String get chatStartConversation => '¡Inicia la conversación!';
+
+  @override
+  String chatErrorLoadingMessages(Object error) {
+    return 'Error al cargar mensajes: $error';
+  }
+
+  @override
+  String get chatLoadingOlderMessages => 'Cargando mensajes anteriores';
+
+  @override
+  String get chatConversationFallback => 'Conversación';
+
+  @override
+  String get chatSearchPlaceholder => 'Buscar mensajes...';
+
+  @override
+  String get chatSearchHint => 'Busca mensajes en todas tus conversaciones';
+
+  @override
+  String get chatSearchKeepTyping => 'Sigue escribiendo para buscar...';
+
+  @override
+  String chatSearchNoResults(String query) {
+    return 'No se encontraron mensajes para \'$query\'';
+  }
+
+  @override
+  String get chatSearchTryDifferent => 'Prueba con menos palabras o diferentes';
+
+  @override
+  String chatSearchError(Object error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get chatMessagePlaceholder => 'Mensaje';
+
+  @override
+  String get chatSendMessage => 'Enviar mensaje';
+
+  @override
+  String get chatSendMessageDisabled => 'Enviar mensaje, desactivado';
+
+  @override
+  String get chatRecordVoiceNote => 'Grabar nota de voz';
+
+  @override
+  String chatSpeakingAs(String name) {
+    return 'Hablando como $name. Toca dos veces para cambiar.';
+  }
+
+  @override
+  String get chatChooseSpeakingMember => 'Elegir integrante';
+
+  @override
+  String get chatCancelReply => 'Cancelar respuesta';
+
+  @override
+  String get chatAddAttachment => 'Agregar archivo adjunto';
+
+  @override
+  String get chatCamera => 'Cámara';
+
+  @override
+  String get chatPhotoLibrary => 'Biblioteca de fotos';
+
+  @override
+  String get chatContextReply => 'Responder';
+
+  @override
+  String get chatContextCopyText => 'Copiar texto';
+
+  @override
+  String get chatContextEditMessage => 'Editar mensaje';
+
+  @override
+  String get chatContextDelete => 'Eliminar';
+
+  @override
+  String get chatCopied => 'Copiado';
+
+  @override
+  String get chatEditMessageTitle => 'Editar mensaje';
+
+  @override
+  String get chatMessageContentHint => 'Contenido del mensaje';
+
+  @override
+  String get chatDeleteMessageTitle => 'Eliminar mensaje';
+
+  @override
+  String get chatDeleteMessageMessage =>
+      'Este mensaje se eliminará permanentemente.';
+
+  @override
+  String get chatReplyQuoteDeleted => 'Mensaje original eliminado';
+
+  @override
+  String chatReplyQuoteSemantics(String authorName, String content) {
+    return 'Respondiendo a $authorName: $content. Toca dos veces para ir al mensaje.';
+  }
+
+  @override
+  String get chatReplyQuoteDeletedSemantics => 'Mensaje original eliminado';
+
+  @override
+  String get chatMessageEdited => 'editado';
+
+  @override
+  String get chatInfoTitle => 'Info';
+
+  @override
+  String get chatInfoConversationTitle => 'Título de la conversación';
+
+  @override
+  String chatInfoCreatedAt(String date) {
+    return 'Creado el $date';
+  }
+
+  @override
+  String chatInfoParticipants(int count) {
+    return 'Participantes ($count)';
+  }
+
+  @override
+  String get chatInfoAddMembers => 'Agregar integrantes';
+
+  @override
+  String get chatInfoOwner => 'Propietario';
+
+  @override
+  String get chatInfoAdmin => 'Admin';
+
+  @override
+  String get chatInfoUnknownMember => 'Integrante desconocido';
+
+  @override
+  String get chatInfoErrorLoadingMember => 'Error al cargar integrante';
+
+  @override
+  String get chatInfoCategory => 'Categoría';
+
+  @override
+  String get chatInfoCategoryNone => 'Ninguna';
+
+  @override
+  String chatInfoCategorySemantics(String name) {
+    return 'Categoría: $name';
+  }
+
+  @override
+  String get chatInfoDirectMessage => 'Mensaje directo';
+
+  @override
+  String get chatInfoGroupChat => 'Chat grupal';
+
+  @override
+  String chatInfoCannotManage(String memberName) {
+    return '$memberName no puede gestionar esta conversación';
+  }
+
+  @override
+  String get chatInfoArchiveConversation => 'Archivar conversación';
+
+  @override
+  String get chatInfoLeaveConversation => 'Salir de la conversación';
+
+  @override
+  String get chatInfoDeleteConversation => 'Eliminar conversación';
+
+  @override
+  String get chatInfoConversationArchived => 'Conversación archivada';
+
+  @override
+  String chatInfoFailedSaveTitle(Object error) {
+    return 'Error al guardar el título: $error';
+  }
+
+  @override
+  String chatInfoFailedSaveEmoji(Object error) {
+    return 'Error al guardar el emoji: $error';
+  }
+
+  @override
+  String get chatLeaveConversationTitle => 'Salir de la conversación';
+
+  @override
+  String get chatLeaveConversationMessage =>
+      '¿Salir de esta conversación? Tus mensajes anteriores permanecerán.';
+
+  @override
+  String get chatLeaveConversationConfirm => 'Salir';
+
+  @override
+  String get chatSelectNewOwner =>
+      'Selecciona el nuevo propietario de la conversación';
+
+  @override
+  String get chatAddMembersTitle => 'Agregar integrantes';
+
+  @override
+  String get chatAddMembersAllAdded =>
+      'Todos los integrantes activos ya están en esta conversación.';
+
+  @override
+  String chatAddMembersFailed(Object error) {
+    return 'Error al agregar integrantes: $error';
+  }
+
+  @override
+  String get chatCreateTitle => 'Nueva conversación';
+
+  @override
+  String get chatCreateGroupTab => 'Grupo';
+
+  @override
+  String get chatCreateDirectMessageTab => 'Mensaje directo';
+
+  @override
+  String get chatCreateGroupName => 'Nombre del grupo';
+
+  @override
+  String get chatCreateGroupNameHint => 'p. ej., Discusión del sistema';
+
+  @override
+  String get chatCreateSelectParticipants => 'Seleccionar participantes (2+)';
+
+  @override
+  String chatCreateMessageAs(String name) {
+    return 'Mensaje como $name con:';
+  }
+
+  @override
+  String get chatCreateSelectAll => 'Seleccionar todo';
+
+  @override
+  String get chatCreateDeselectAll => 'Deseleccionar todo';
+
+  @override
+  String get chatCreateNoMembers =>
+      'No hay integrantes disponibles. Crea integrantes primero.';
+
+  @override
+  String get chatCreateFronting => 'Fronting';
+
+  @override
+  String chatCreateFronterDeselectedWarning(String name) {
+    return '$name está en frente actualmente pero no está en este chat. No podrás ver ni enviar mensajes.';
+  }
+
+  @override
+  String chatCreateFailed(Object error) {
+    return 'Error al crear la conversación: $error';
+  }
+
+  @override
+  String get chatCategoriesTitle => 'Gestionar categorías';
+
+  @override
+  String get chatCategoriesNone => 'Aún no hay categorías';
+
+  @override
+  String get chatCategoriesNewHint => 'Nombre de nueva categoría';
+
+  @override
+  String get chatCategoriesCategoryNameHint => 'Nombre de categoría';
+
+  @override
+  String get chatCategoriesAddTooltip => 'Agregar categoría';
+
+  @override
+  String chatCategoriesDeleteTitle(String name) {
+    return '¿Eliminar \"$name\"?';
+  }
+
+  @override
+  String get chatCategoriesDeleteMessage =>
+      'Las conversaciones en esta categoría quedarán sin categoría.';
+
+  @override
+  String chatCategoriesCreateFailed(Object error) {
+    return 'Error al crear la categoría: $error';
+  }
+
+  @override
+  String chatCategoriesRenameFailed(Object error) {
+    return 'Error al renombrar la categoría: $error';
+  }
+
+  @override
+  String chatCategoriesDeleteFailed(Object error) {
+    return 'Error al eliminar la categoría: $error';
+  }
+
+  @override
+  String get chatNoMembersAvailable => 'No hay integrantes disponibles';
+
+  @override
+  String get chatErrorLoadingMembersShort => 'Error al cargar integrantes';
+
+  @override
+  String get chatGifsTitle => 'GIFs';
+
+  @override
+  String get chatGifsSearchHint => 'Buscar GIFs';
+
+  @override
+  String get chatGifsPoweredBy => 'Funciona con KLIPY';
+
+  @override
+  String get chatGifsLoadFailed => 'Error al cargar GIFs';
+
+  @override
+  String get chatGifsNotFound => 'No se encontraron GIFs';
+
+  @override
+  String get chatGifsNotFoundSubtitle =>
+      'Prueba con otros términos de búsqueda';
+
+  @override
+  String chatGifsFound(int count) {
+    return '$count GIFs encontrados';
+  }
+
+  @override
+  String get chatGifSendButton => 'Enviar';
+
+  @override
+  String chatGifPreviewSemantics(String description) {
+    return 'Vista previa del GIF: $description. Botón Enviar abajo.';
+  }
+
+  @override
+  String chatGifCellSemantics(String description) {
+    return 'GIF: $description';
+  }
+
+  @override
+  String get chatGifCellSemanticsDefault => 'GIF: resultado de búsqueda';
+
+  @override
+  String get chatMediaNoLongerAvailable => 'Contenido multimedia no disponible';
+
+  @override
+  String get chatAttachedImagePreview => 'Vista previa de imagen adjunta';
+
+  @override
+  String get chatRemoveAttachment => 'Eliminar archivo adjunto';
+
+  @override
+  String chatVoiceNoteSemantics(String duration) {
+    return 'Nota de voz del mensaje, $duration';
+  }
+
+  @override
+  String chatVoiceNoteLoading(String duration) {
+    return 'Cargando nota de voz, $duration';
+  }
+
+  @override
+  String chatVoiceNotePause(String duration) {
+    return 'Pausar nota de voz, $duration';
+  }
+
+  @override
+  String chatVoiceNotePlay(String duration) {
+    return 'Reproducir nota de voz, $duration';
+  }
+
+  @override
+  String chatVoiceNoteSpeed(String speed) {
+    return 'Velocidad de reproducción ${speed}x. Toca dos veces para cambiar.';
+  }
+
+  @override
+  String get chatVoiceRecorderCancel => 'Cancelar grabación';
+
+  @override
+  String get chatVoiceRecorderSend => 'Enviar nota de voz';
+
+  @override
+  String chatImageViewerSemantics(String caption) {
+    return 'Visor de imagen a pantalla completa. $caption. Pellizca para hacer zoom, desliza hacia abajo para cerrar.';
+  }
+
+  @override
+  String get chatImageViewerClose => 'Cerrar visor';
+
+  @override
+  String get chatImageViewerShare => 'Compartir imagen';
+
+  @override
+  String get chatConversationNoTitle => 'Conversación';
+
+  @override
+  String get chatTileNoMessages => 'Aún no hay mensajes';
 }

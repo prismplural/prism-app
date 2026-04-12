@@ -9,6 +9,7 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_preview_overlay.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -77,7 +78,7 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
     return SafeArea(
       child: Column(
         children: [
-          const PrismSheetTopBar(title: 'GIFs'),
+          PrismSheetTopBar(title: context.l10n.chatGifsTitle),
           // Search field
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -93,7 +94,7 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
                     size: 20,
                     color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
-                  hintText: 'Search for GIFs',
+                  hintText: context.l10n.chatGifsSearchHint,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -105,7 +106,7 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              'Powered by KLIPY',
+              context.l10n.chatGifsPoweredBy,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
@@ -130,7 +131,7 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Failed to load GIFs',
+                        context.l10n.chatGifsLoadFailed,
                         style: theme.textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
@@ -143,7 +144,7 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
                       ),
                       const SizedBox(height: 16),
                       PrismButton(
-                        label: 'Retry',
+                        label: context.l10n.tryAgain,
                         icon: AppIcons.refresh,
                         tone: PrismButtonTone.filled,
                         onPressed: () =>
@@ -160,7 +161,7 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     // ignore: deprecated_member_use
                     SemanticsService.announce(
-                      '${gifs.length} GIFs found',
+                      context.l10n.chatGifsFound(gifs.length),
                       TextDirection.ltr,
                     );
                   });
@@ -169,8 +170,8 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
                 if (gifs.isEmpty) {
                   return EmptyState(
                     icon: Icon(AppIcons.search),
-                    title: 'No GIFs found',
-                    subtitle: 'Try different search terms',
+                    title: context.l10n.chatGifsNotFound,
+                    subtitle: context.l10n.chatGifsNotFoundSubtitle,
                   );
                 }
 
@@ -216,8 +217,8 @@ class _GifCell extends StatelessWidget {
 
     return Semantics(
       label: gif.contentDescription.isNotEmpty
-          ? 'GIF: ${gif.contentDescription}'
-          : 'GIF: search result',
+          ? context.l10n.chatGifCellSemantics(gif.contentDescription)
+          : context.l10n.chatGifCellSemanticsDefault,
       button: true,
       child: GestureDetector(
         onTap: onTap,

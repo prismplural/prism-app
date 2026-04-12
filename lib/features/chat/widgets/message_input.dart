@@ -29,6 +29,7 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Message composition widget with inline "speaking as" avatar and text input.
 class MessageInput extends ConsumerStatefulWidget {
@@ -177,7 +178,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
 
     PrismSheet.show(
       context: context,
-      title: 'Add Attachment',
+      title: context.l10n.chatAddAttachment,
       builder: (context) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -186,7 +187,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
               AppIcons.cameraAlt,
               color: Theme.of(context).colorScheme.primary,
             ),
-            title: const Text('Camera'),
+            title: Text(context.l10n.chatCamera),
             onTap: () {
               Navigator.of(context).pop();
               _pickImage(ImageSource.camera);
@@ -197,7 +198,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
               AppIcons.photoLibrary,
               color: Theme.of(context).colorScheme.primary,
             ),
-            title: const Text('Photo Library'),
+            title: Text(context.l10n.chatPhotoLibrary),
             onTap: () {
               Navigator.of(context).pop();
               _pickImage(ImageSource.gallery);
@@ -209,7 +210,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                 AppIcons.gif,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              title: const Text('GIF'),
+              title: Text(context.l10n.chatGifsTitle),
               onTap: () {
                 Navigator.of(context).pop();
                 _showGifPicker();
@@ -439,8 +440,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
               children: [
                 Semantics(
                   label: currentMember != null
-                      ? 'Speaking as ${currentMember.name}. Double tap to change.'
-                      : 'Choose speaking member',
+                      ? context.l10n.chatSpeakingAs(currentMember.name)
+                      : context.l10n.chatChooseSpeakingMember,
                   button: true,
                   child: BlurPopupAnchor(
                   preferredDirection: BlurPopupDirection.up,
@@ -674,7 +675,7 @@ class _GlassTextField extends StatelessWidget {
         height: 1.2,
       ),
       decoration: InputDecoration(
-        hintText: 'Message',
+        hintText: context.l10n.chatMessagePlaceholder,
         hintStyle: theme.textTheme.bodyLarge?.copyWith(
           color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.72),
           fontSize: 15.5,
@@ -765,7 +766,7 @@ class _SendButtonState extends State<_SendButton> {
     final primary = theme.colorScheme.primary;
 
     return Semantics(
-      label: widget.canSend ? 'Send message' : 'Send message, disabled',
+      label: widget.canSend ? context.l10n.chatSendMessage : context.l10n.chatSendMessageDisabled,
       button: true,
       enabled: widget.canSend,
       child: GestureDetector(
@@ -846,7 +847,7 @@ class _MicButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Semantics(
-      label: 'Record voice note',
+      label: context.l10n.chatRecordVoiceNote,
       button: true,
       child: GestureDetector(
         onTap: onPressed,
@@ -906,7 +907,7 @@ class _ReplyBanner extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  author?.name ?? 'Unknown',
+                  author?.name ?? context.l10n.unknown,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: authorColor,
                     fontWeight: FontWeight.w600,
@@ -928,7 +929,7 @@ class _ReplyBanner extends StatelessWidget {
           PrismIconButton(
             icon: AppIcons.close,
             iconSize: 18,
-            tooltip: 'Cancel reply',
+            tooltip: context.l10n.chatCancelReply,
             onPressed: onDismiss,
           ),
         ],

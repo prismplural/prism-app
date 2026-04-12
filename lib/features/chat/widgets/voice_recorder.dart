@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -53,7 +54,16 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
           _ => l10n.voiceRecordingFailed,
         };
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+          SnackBar(
+            content: Text(msg),
+            behavior: SnackBarBehavior.floating,
+            action: next.errorType == VoiceRecordingError.permissionBlocked
+                ? SnackBarAction(
+                    label: l10n.openSettings,
+                    onPressed: openAppSettings,
+                  )
+                : null,
+          ),
         );
         ref.read(voiceRecordingProvider.notifier).reset();
         widget.onCancel();
@@ -165,7 +175,7 @@ class _CancelButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Semantics(
-      label: 'Cancel recording',
+      label: context.l10n.chatVoiceRecorderCancel,
       button: true,
       child: GestureDetector(
         onTap: enabled ? onPressed : null,
@@ -216,7 +226,7 @@ class _VoiceSendButtonState extends State<_VoiceSendButton> {
     final primary = theme.colorScheme.primary;
 
     return Semantics(
-      label: 'Send voice note',
+      label: context.l10n.chatVoiceRecorderSend,
       button: true,
       enabled: widget.canSend,
       child: GestureDetector(

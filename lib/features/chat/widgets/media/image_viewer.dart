@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Full-screen image viewer shown when tapping an image in chat.
@@ -106,8 +107,7 @@ class _ImageViewerState extends State<ImageViewer> {
         : 1.0;
 
     return Semantics(
-      label:
-          'Full screen image viewer. ${captionText ?? ""}. Pinch to zoom, swipe down to close.',
+      label: context.l10n.chatImageViewerSemantics(captionText ?? ''),
       child: Scaffold(
         backgroundColor: Colors.black.withValues(alpha: opacity),
         extendBodyBehindAppBar: true,
@@ -115,7 +115,7 @@ class _ImageViewerState extends State<ImageViewer> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           leading: Semantics(
-            label: 'Close viewer',
+            label: context.l10n.chatImageViewerClose,
             button: true,
             child: IconButton(
               icon: Icon(AppIcons.arrowBack, color: Colors.white),
@@ -124,7 +124,7 @@ class _ImageViewerState extends State<ImageViewer> {
           ),
           actions: [
             Semantics(
-              label: 'Share image',
+              label: context.l10n.chatImageViewerShare,
               button: true,
               child: IconButton(
                 icon: _isSharing

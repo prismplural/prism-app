@@ -21,6 +21,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Full-screen sheet for viewing and managing conversation details.
 ///
@@ -82,7 +83,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           );
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Failed to save title: $e');
+        PrismToast.error(context, message: context.l10n.chatInfoFailedSaveTitle(e));
       }
     } finally {
       if (mounted) {
@@ -109,7 +110,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           );
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Failed to save emoji: $e');
+        PrismToast.error(context, message: context.l10n.chatInfoFailedSaveEmoji(e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -125,7 +126,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         .read(chatNotifierProvider.notifier)
         .archiveConversation(conversationId, speakingAsMemberId);
     if (mounted) {
-      PrismToast.success(context, message: 'Conversation archived');
+      PrismToast.success(context, message: context.l10n.chatInfoConversationArchived);
       Navigator.of(context).pop();
     }
   }
@@ -159,9 +160,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
 
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Leave Conversation',
-      message: 'Leave this conversation? Your past messages will remain.',
-      confirmLabel: 'Leave',
+      title: context.l10n.chatLeaveConversationTitle,
+      message: context.l10n.chatLeaveConversationMessage,
+      confirmLabel: context.l10n.chatLeaveConversationConfirm,
       destructive: true,
     );
 
@@ -176,11 +177,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   Future<void> _confirmDelete(String conversationId) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete Conversation',
-      message:
-          'Are you sure you want to delete this conversation? '
-          'All messages will be permanently removed. This cannot be undone.',
-      confirmLabel: 'Delete',
+      title: context.l10n.chatDeleteConversationTitle,
+      message: context.l10n.chatDeleteConversationFullMessage,
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
 
@@ -211,11 +210,11 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
       error: (e, _) => SafeArea(child: Center(child: Text('Error: $e'))),
       data: (conversation) {
         if (conversation == null) {
-          return const SafeArea(
+          return SafeArea(
             child: Column(
               children: [
-                PrismSheetTopBar(title: 'Info'),
-                Expanded(child: Center(child: Text('Conversation not found'))),
+                PrismSheetTopBar(title: context.l10n.chatInfoTitle),
+                Expanded(child: Center(child: Text(context.l10n.chatConversationNotFound))),
               ],
             ),
           );
@@ -232,7 +231,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           child: Column(
             children: [
               PrismSheetTopBar(
-                title: conversation.title ?? 'Conversation Info',
+                title: conversation.title ?? context.l10n.chatConversationInfo,
                 trailing: _saving
                     ? const SizedBox(
                         width: 20,
@@ -290,7 +289,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '${speakingAsMember?.name ?? 'Current member'} can\'t manage this conversation',
+                                context.l10n.chatInfoCannotManage(speakingAsMember?.name ?? context.l10n.unknown),
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -349,7 +348,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
             child: PrismTextField(
               controller: _titleController,
               autofocus: true,
-              labelText: 'Conversation title',
+              labelText: context.l10n.chatInfoConversationTitle,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) =>
                   _saveTitle(conversation.id, conversation.emoji),
@@ -371,8 +370,8 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                   child: Text(
                     conversation.title ??
                         (conversation.isDirectMessage
-                            ? 'Direct Message'
-                            : 'Group Chat'),
+                            ? context.l10n.chatInfoDirectMessage
+                            : context.l10n.chatInfoGroupChat),
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -393,7 +392,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
 
         const SizedBox(height: 4),
         Text(
-          'Created ${conversation.createdAt.toDateString()}',
+          context.l10n.chatInfoCreatedAt(conversation.createdAt.toDateString()),
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -424,7 +423,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         Row(
           children: [
             Text(
-              'Participants (${conversation.participantIds.length})',
+              context.l10n.chatInfoParticipants(conversation.participantIds.length),
               style: theme.textTheme.titleSmall,
             ),
             const Spacer(),
@@ -433,7 +432,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                 icon: AppIcons.personAdd,
                 size: 32,
                 iconSize: 18,
-                tooltip: 'Add members',
+                tooltip: context.l10n.chatInfoAddMembers,
                 onPressed: () => AddMembersSheet.show(context, conversation),
               ),
           ],
@@ -546,7 +545,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         // Archive
         PrismListRow(
           leading: Icon(AppIcons.archiveOutlined),
-          title: const Text('Archive conversation'),
+          title: Text(context.l10n.chatInfoArchiveConversation),
           onTap: () => _archive(conversation.id, speakingAsMemberId),
         ),
 
@@ -554,7 +553,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         if (permissions.canLeave)
           PrismListRow(
             leading: Icon(AppIcons.exitToApp),
-            title: const Text('Leave conversation'),
+            title: Text(context.l10n.chatInfoLeaveConversation),
             onTap: () async {
               if (speakingAsMemberId == null) return;
 
@@ -582,7 +581,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
               color: theme.colorScheme.error,
             ),
             title: Text(
-              'Delete conversation',
+              context.l10n.chatInfoDeleteConversation,
               style: TextStyle(color: theme.colorScheme.error),
             ),
             onTap: () => _confirmDelete(conversation.id),
@@ -618,13 +617,13 @@ class _ParticipantTile extends ConsumerWidget {
     return memberAsync.when(
       data: (member) {
         if (member == null) {
-          return const PrismListRow(
-            leading: MemberAvatar(
+          return PrismListRow(
+            leading: const MemberAvatar(
               emoji: '?',
               customColorEnabled: false,
               size: 40,
             ),
-            title: Text('Unknown Member'),
+            title: Text(context.l10n.chatInfoUnknownMember),
           );
         }
 
@@ -648,11 +647,11 @@ class _ParticipantTile extends ConsumerWidget {
               Flexible(child: Text(member.name)),
               if (isOwner) ...[
                 const SizedBox(width: 8),
-                _RoleChip(label: 'Owner', theme: theme),
+                _RoleChip(label: context.l10n.chatInfoOwner, theme: theme),
               ],
               if (member.isAdmin && !isOwner) ...[
                 const SizedBox(width: 8),
-                _RoleChip(label: 'Admin', theme: theme),
+                _RoleChip(label: context.l10n.chatInfoAdmin, theme: theme),
               ],
             ],
           ),
@@ -677,11 +676,11 @@ class _ParticipantTile extends ConsumerWidget {
           child: tile,
         );
       },
-      loading: () => const PrismListRow(
-        title: Text('Loading...'),
+      loading: () => PrismListRow(
+        title: Text(context.l10n.loading),
       ),
-      error: (_, _) => const PrismListRow(
-        title: Text('Error loading member'),
+      error: (_, _) => PrismListRow(
+        title: Text(context.l10n.chatInfoErrorLoadingMember),
       ),
     );
   }
@@ -729,21 +728,22 @@ class _CategoryPicker extends ConsumerWidget {
 
     if (categories.isEmpty) return const SizedBox.shrink();
 
+    final noneLabel = context.l10n.chatInfoCategoryNone;
     final currentName = currentCategoryId != null
         ? categories
                   .where((c) => c.id == currentCategoryId)
                   .map((c) => c.name)
                   .firstOrNull ??
-              'None'
-        : 'None';
+              noneLabel
+        : noneLabel;
 
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Semantics(
         button: true,
-        label: 'Category: $currentName',
+        label: context.l10n.chatInfoCategorySemantics(currentName),
         child: PrismListRow(
-          title: const Text('Category'),
+          title: Text(context.l10n.chatInfoCategory),
           subtitle: Text(currentName),
           trailing: Icon(AppIcons.chevronRightRounded),
           onTap: () =>
@@ -765,7 +765,7 @@ class _CategoryPicker extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           PrismListRow(
-            title: const Text('None'),
+            title: Text(context.l10n.chatInfoCategoryNone),
             trailing: currentCategoryId == null
                 ? Icon(AppIcons.checkRounded)
                 : null,

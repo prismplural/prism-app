@@ -30,6 +30,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Individual message widget with author info, bubble, reactions.
 class MessageBubble extends ConsumerStatefulWidget {
@@ -102,7 +103,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     if (!widget.message.isSystemMessage) {
       actions.add(_ContextAction(
         icon: AppIcons.replyRounded,
-        label: 'Reply',
+        label: context.l10n.chatContextReply,
         onTap: (close) {
           close();
           widget.onReply?.call(widget.message);
@@ -112,12 +113,12 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
     actions.add(_ContextAction(
       icon: AppIcons.copyOutlined,
-      label: 'Copy Text',
+      label: context.l10n.chatContextCopyText,
       onTap: (close) {
         Clipboard.setData(ClipboardData(text: widget.message.content));
         Haptics.light();
         close();
-        PrismToast.show(context, message: 'Copied');
+        PrismToast.show(context, message: context.l10n.chatCopied);
       },
     ));
 
@@ -126,7 +127,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       if (perms.canEditMessage(widget.message.authorId)) {
         actions.add(_ContextAction(
           icon: AppIcons.editOutlined,
-          label: 'Edit Message',
+          label: context.l10n.chatContextEditMessage,
           onTap: (close) {
             close();
             _showEditDialog(context);
@@ -136,7 +137,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       if (perms.canDeleteMessage(widget.message.authorId)) {
         actions.add(_ContextAction(
           icon: AppIcons.deleteOutline,
-          label: 'Delete',
+          label: context.l10n.chatContextDelete,
           isDestructive: true,
           onTap: (close) {
             close();
@@ -149,7 +150,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       if (isOwn) {
         actions.add(_ContextAction(
           icon: AppIcons.editOutlined,
-          label: 'Edit Message',
+          label: context.l10n.chatContextEditMessage,
           onTap: (close) {
             close();
             _showEditDialog(context);
@@ -157,7 +158,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         ));
         actions.add(_ContextAction(
           icon: AppIcons.deleteOutline,
-          label: 'Delete',
+          label: context.l10n.chatContextDelete,
           isDestructive: true,
           onTap: (close) {
             close();
@@ -236,7 +237,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     var isSaving = false;
     PrismDialog.show(
       context: context,
-      title: 'Edit Message',
+      title: context.l10n.chatEditMessageTitle,
       builder: (dialogContext) => StatefulBuilder(
         builder: (builderContext, setDialogState) => Column(
           mainAxisSize: MainAxisSize.min,
@@ -246,20 +247,20 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
               controller: controller,
               autofocus: true,
               maxLines: 4,
-              hintText: 'Message content',
+              hintText: context.l10n.chatMessageContentHint,
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 PrismButton(
-                  label: 'Cancel',
+                  label: context.l10n.cancel,
                   enabled: !isSaving,
                   onPressed: () => Navigator.of(dialogContext).pop(),
                 ),
                 const SizedBox(width: 8),
                 PrismButton(
-                  label: 'Save',
+                  label: context.l10n.save,
                   tone: PrismButtonTone.filled,
                   isLoading: isSaving,
                   enabled: !isSaving,
@@ -296,9 +297,9 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   Future<void> _confirmDelete(BuildContext context) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete Message',
-      message: 'This message will be permanently deleted.',
-      confirmLabel: 'Delete',
+      title: context.l10n.chatDeleteMessageTitle,
+      message: context.l10n.chatDeleteMessageMessage,
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {
@@ -476,7 +477,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                             child: _ReplyQuote(
                               authorName: widget.authorMap?[widget.message.replyToAuthorId]?.name
                                   ?? widget.message.replyToAuthorId
-                                  ?? 'Unknown',
+                                  ?? context.l10n.unknown,
                               content: widget.message.replyToContent ?? '',
                               authorColor: _replyAuthorColor(widget.message.replyToAuthorId, theme),
                               isDeleted: widget.message.replyToContent == null,
@@ -492,7 +493,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                               runSpacing: 2,
                               children: [
                                 Text(
-                                  author?.name ?? 'Unknown',
+                                  author?.name ?? context.l10n.unknown,
                                   style: theme.textTheme.bodyLarge?.copyWith(
                                     color: authorColor,
                                     fontWeight: FontWeight.w700,
@@ -511,7 +512,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                                 ),
                                 if (widget.message.editedAt != null)
                                   Text(
-                                    'edited',
+                                    context.l10n.chatMessageEdited,
                                     style: theme.textTheme.labelMedium?.copyWith(
                                       color: metaTextColor.withValues(alpha: 0.7),
                                       fontStyle: FontStyle.italic,
@@ -751,7 +752,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
       final memberId = match.group(1)!;
       final member = authorMap?[memberId];
-      final name = member?.name ?? 'Unknown';
+      final name = member?.name ?? context.l10n.unknown;
       final mentionColor =
           (member != null && member.customColorEnabled && member.customColorHex != null)
               ? AppColors.fromHex(member.customColorHex!)
@@ -836,8 +837,8 @@ class _ReplyQuote extends StatelessWidget {
     final theme = Theme.of(context);
     return Semantics(
       label: isDeleted
-          ? 'Original message deleted'
-          : 'Replying to $authorName: $content. Double-tap to scroll to message.',
+          ? context.l10n.chatReplyQuoteDeletedSemantics
+          : context.l10n.chatReplyQuoteSemantics(authorName, content),
       button: onTap != null && !isDeleted,
       child: GestureDetector(
         onTap: isDeleted ? null : onTap,
@@ -859,7 +860,7 @@ class _ReplyQuote extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: isDeleted
                     ? Text(
-                        'Original message deleted',
+                        context.l10n.chatReplyQuoteDeleted,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant
                               .withValues(alpha: 0.6),

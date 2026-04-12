@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Full chat view for a single conversation.
 class ConversationScreen extends ConsumerStatefulWidget {
@@ -57,7 +58,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
       if (messages != null && messages.length >= currentLimit) {
         ref.read(messageLimitProvider(widget.conversationId).notifier).loadMore();
         // ignore: deprecated_member_use
-        SemanticsService.announce('Loading older messages', TextDirection.ltr);
+        SemanticsService.announce(context.l10n.chatLoadingOlderMessages, TextDirection.ltr);
       }
     }
   }
@@ -144,9 +145,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     return conversationAsync.when(
       data: (conversation) {
         if (conversation == null) {
-          return const PrismPageScaffold(
-            topBar: PrismTopBar(title: 'Chat', showBackButton: true),
-            body: Center(child: Text('Conversation not found')),
+          return PrismPageScaffold(
+            topBar: PrismTopBar(title: context.l10n.chatTitle, showBackButton: true),
+            body: Center(child: Text(context.l10n.chatConversationNotFound)),
           );
         }
 
@@ -163,17 +164,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
         return Scaffold(
           appBar: PrismGlassAppBar(
-            title: _conversationTitle(ref, conversation),
+            title: _conversationTitle(context, ref, conversation),
             leading: PrismGlassIconButton(
               icon: AppIcons.arrowBackIosNewRounded,
               iconSize: 18,
-              tooltip: 'Back',
+              tooltip: context.l10n.back,
               onPressed: () => context.pop(),
             ),
             trailing: PrismGlassIconButton(
               icon: AppIcons.infoOutlineRounded,
               iconSize: 20,
-              tooltip: 'Conversation info',
+              tooltip: context.l10n.chatConversationInfo,
               onPressed: () =>
                   ConversationInfoSheet.show(context, widget.conversationId),
             ),
@@ -203,7 +204,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'No messages yet',
+                              context.l10n.chatNoMessages,
                               style: Theme.of(context).textTheme.bodyLarge
                                   ?.copyWith(
                                     color: Theme.of(
@@ -213,7 +214,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Start the conversation!',
+                              context.l10n.chatStartConversation,
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: Theme.of(
@@ -321,7 +322,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           color: Theme.of(context).colorScheme.error,
                         ),
                         const SizedBox(height: 8),
-                        Text('Error loading messages: $error'),
+                        Text(context.l10n.chatErrorLoadingMessages(error)),
                       ],
                     ),
                   ),
@@ -335,20 +336,20 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           ),
         );
       },
-      loading: () => const PrismPageScaffold(
-        topBar: PrismTopBar(title: 'Chat', showBackButton: true),
-        body: PrismLoadingState(),
+      loading: () => PrismPageScaffold(
+        topBar: PrismTopBar(title: context.l10n.chatTitle, showBackButton: true),
+        body: const PrismLoadingState(),
       ),
       error: (error, _) => PrismPageScaffold(
-        topBar: const PrismTopBar(title: 'Chat', showBackButton: true),
-        body: Center(child: Text('Error: $error')),
+        topBar: PrismTopBar(title: context.l10n.chatTitle, showBackButton: true),
+        body: Center(child: Text(context.l10n.chatSearchError(error))),
       ),
     );
   }
 
 }
 
-String _conversationTitle(WidgetRef ref, Conversation conversation) {
+String _conversationTitle(BuildContext context, WidgetRef ref, Conversation conversation) {
   final speakingAs = ref.watch(speakingAsProvider);
 
   if (conversation.title != null && conversation.title!.isNotEmpty) {
@@ -363,12 +364,12 @@ String _conversationTitle(WidgetRef ref, Conversation conversation) {
     data: (participantMap) {
       final names = conversation.participantIds
           .where((id) => id != speakingAs)
-          .map((id) => participantMap[id]?.name ?? 'Unknown')
+          .map((id) => participantMap[id]?.name ?? context.l10n.unknown)
           .toList();
-      return names.isEmpty ? 'Conversation' : names.join(', ');
+      return names.isEmpty ? context.l10n.chatConversationNoTitle : names.join(', ');
     },
-    loading: () => 'Loading...',
-    error: (_, _) => 'Conversation',
+    loading: () => context.l10n.loading,
+    error: (_, _) => context.l10n.chatConversationNoTitle,
   );
 }
 

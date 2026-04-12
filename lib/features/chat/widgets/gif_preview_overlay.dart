@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
@@ -38,8 +39,7 @@ class GifPreviewOverlay extends StatelessWidget {
     }
 
     return Semantics(
-      label:
-          'GIF preview: ${gif.contentDescription}. Send button below.',
+      label: context.l10n.chatGifPreviewSemantics(gif.contentDescription),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -63,7 +63,7 @@ class GifPreviewOverlay extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             PrismButton(
-              label: 'Send',
+              label: context.l10n.chatGifSendButton,
               tone: PrismButtonTone.filled,
               onPressed: () => Navigator.of(context).pop(gif),
             ),

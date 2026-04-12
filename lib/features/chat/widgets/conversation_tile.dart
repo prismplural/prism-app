@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// List tile for a conversation in the conversation list.
@@ -169,7 +170,7 @@ class ConversationTile extends ConsumerWidget {
 
     if (tileData.lastMessage == null) {
       return Text(
-        'No messages yet',
+        context.l10n.chatTileNoMessages,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: theme.textTheme.bodySmall?.copyWith(

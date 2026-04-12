@@ -3259,5 +3259,681 @@
         "type": "String"
       }
     }
+  },
+
+  "chatTitle": "Chat",
+  "@chatTitle": {
+    "description": "Chat tab title"
+  },
+  "chatNewConversation": "New Conversation",
+  "@chatNewConversation": {
+    "description": "Button to create a new conversation"
+  },
+  "chatManageCategories": "Manage categories",
+  "@chatManageCategories": {
+    "description": "Tooltip for manage categories button"
+  },
+  "chatSearchMessages": "Search messages",
+  "@chatSearchMessages": {
+    "description": "Tooltip for search messages button"
+  },
+  "chatNoConversations": "No conversations",
+  "@chatNoConversations": {
+    "description": "Empty state title when there are no conversations"
+  },
+  "chatNoConversationsSubtitle": "Start chatting with your system",
+  "@chatNoConversationsSubtitle": {
+    "description": "Empty state subtitle when there are no conversations"
+  },
+  "chatErrorLoadingConversations": "Error loading conversations",
+  "@chatErrorLoadingConversations": {
+    "description": "Error message when conversations fail to load"
+  },
+  "chatUncategorized": "Uncategorized",
+  "@chatUncategorized": {
+    "description": "Label for conversations without a category"
+  },
+  "chatMarkAsRead": "Mark as Read",
+  "@chatMarkAsRead": {
+    "description": "Context menu action to mark a conversation as read"
+  },
+  "chatMute": "Mute",
+  "@chatMute": {
+    "description": "Context menu action to mute a conversation"
+  },
+  "chatUnmute": "Unmute",
+  "@chatUnmute": {
+    "description": "Context menu action to unmute a conversation"
+  },
+  "chatDeleteConversationTitle": "Delete Conversation",
+  "@chatDeleteConversationTitle": {
+    "description": "Dialog title when deleting a conversation"
+  },
+  "chatDeleteConversationMessage": "Are you sure you want to delete this conversation? All messages will be permanently removed.",
+  "@chatDeleteConversationMessage": {
+    "description": "Dialog message when deleting a conversation from the list"
+  },
+  "chatDeleteConversationFullMessage": "Are you sure you want to delete this conversation? All messages will be permanently removed. This cannot be undone.",
+  "@chatDeleteConversationFullMessage": {
+    "description": "Full dialog message when deleting a conversation from info sheet"
+  },
+  "chatBadgeMentionsOnly": "Badge: mentions only",
+  "@chatBadgeMentionsOnly": {
+    "description": "Tooltip for badge mode: mentions only"
+  },
+  "chatBadgeAllMessages": "Badge: all messages",
+  "@chatBadgeAllMessages": {
+    "description": "Tooltip for badge mode: all messages"
+  },
+  "chatHideArchived": "Hide archived",
+  "@chatHideArchived": {
+    "description": "Tooltip to hide archived conversations"
+  },
+  "chatShowArchived": "Show archived",
+  "@chatShowArchived": {
+    "description": "Tooltip to show archived conversations"
+  },
+  "chatConversationNotFound": "Conversation not found",
+  "@chatConversationNotFound": {
+    "description": "Message when a conversation cannot be found"
+  },
+  "chatConversationInfo": "Conversation info",
+  "@chatConversationInfo": {
+    "description": "Tooltip for the conversation info button"
+  },
+  "chatNoMessages": "No messages yet",
+  "@chatNoMessages": {
+    "description": "Empty state when a conversation has no messages"
+  },
+  "chatStartConversation": "Start the conversation!",
+  "@chatStartConversation": {
+    "description": "Empty state subtitle encouraging user to send first message"
+  },
+  "chatErrorLoadingMessages": "Error loading messages: {error}",
+  "@chatErrorLoadingMessages": {
+    "description": "Error message when messages fail to load",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "chatLoadingOlderMessages": "Loading older messages",
+  "@chatLoadingOlderMessages": {
+    "description": "Accessibility announcement when loading older messages"
+  },
+  "chatConversationFallback": "Conversation",
+  "@chatConversationFallback": {
+    "description": "Fallback title for a conversation with no title"
+  },
+  "chatSearchPlaceholder": "Search messages...",
+  "@chatSearchPlaceholder": {
+    "description": "Placeholder text in the chat search field"
+  },
+  "chatSearchHint": "Find messages across your conversations",
+  "@chatSearchHint": {
+    "description": "Hint shown when the search field is empty"
+  },
+  "chatSearchKeepTyping": "Keep typing to search...",
+  "@chatSearchKeepTyping": {
+    "description": "Hint shown when the query is too short"
+  },
+  "chatSearchNoResults": "No messages found for '{query}'",
+  "@chatSearchNoResults": {
+    "description": "Message when search returns no results",
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "chatSearchTryDifferent": "Try fewer or different words",
+  "@chatSearchTryDifferent": {
+    "description": "Suggestion when search returns no results"
+  },
+  "chatSearchError": "Error: {error}",
+  "@chatSearchError": {
+    "description": "Error message in search results",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "chatMessagePlaceholder": "Message",
+  "@chatMessagePlaceholder": {
+    "description": "Placeholder text in the message input field"
+  },
+  "chatSendMessage": "Send message",
+  "@chatSendMessage": {
+    "description": "Semantics label for the send message button when enabled"
+  },
+  "chatSendMessageDisabled": "Send message, disabled",
+  "@chatSendMessageDisabled": {
+    "description": "Semantics label for the send message button when disabled"
+  },
+  "chatRecordVoiceNote": "Record voice note",
+  "@chatRecordVoiceNote": {
+    "description": "Semantics label for the record voice note button"
+  },
+  "chatSpeakingAs": "Speaking as {name}. Double tap to change.",
+  "@chatSpeakingAs": {
+    "description": "Semantics label for the speaking-as avatar button",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatChooseSpeakingMember": "Choose speaking member",
+  "@chatChooseSpeakingMember": {
+    "description": "Semantics label for the speaking-as button when no member is selected"
+  },
+  "chatCancelReply": "Cancel reply",
+  "@chatCancelReply": {
+    "description": "Tooltip/semantics for dismiss reply banner button"
+  },
+  "chatAddAttachment": "Add Attachment",
+  "@chatAddAttachment": {
+    "description": "Title of the attachment picker sheet"
+  },
+  "chatCamera": "Camera",
+  "@chatCamera": {
+    "description": "Attachment picker option: take photo with camera"
+  },
+  "chatPhotoLibrary": "Photo Library",
+  "@chatPhotoLibrary": {
+    "description": "Attachment picker option: choose from photo library"
+  },
+  "chatContextReply": "Reply",
+  "@chatContextReply": {
+    "description": "Context menu action: reply to a message"
+  },
+  "chatContextCopyText": "Copy Text",
+  "@chatContextCopyText": {
+    "description": "Context menu action: copy message text"
+  },
+  "chatContextEditMessage": "Edit Message",
+  "@chatContextEditMessage": {
+    "description": "Context menu action: edit a message"
+  },
+  "chatContextDelete": "Delete",
+  "@chatContextDelete": {
+    "description": "Context menu action: delete a message"
+  },
+  "chatCopied": "Copied",
+  "@chatCopied": {
+    "description": "Toast shown after copying message text"
+  },
+  "chatEditMessageTitle": "Edit Message",
+  "@chatEditMessageTitle": {
+    "description": "Dialog title for editing a message"
+  },
+  "chatMessageContentHint": "Message content",
+  "@chatMessageContentHint": {
+    "description": "Hint text in the edit message dialog"
+  },
+  "chatDeleteMessageTitle": "Delete Message",
+  "@chatDeleteMessageTitle": {
+    "description": "Dialog title when deleting a message"
+  },
+  "chatDeleteMessageMessage": "This message will be permanently deleted.",
+  "@chatDeleteMessageMessage": {
+    "description": "Dialog message when deleting a message"
+  },
+  "chatReplyQuoteDeleted": "Original message deleted",
+  "@chatReplyQuoteDeleted": {
+    "description": "Text shown in reply quote when original message is deleted"
+  },
+  "chatReplyQuoteSemantics": "Replying to {authorName}: {content}. Double-tap to scroll to message.",
+  "@chatReplyQuoteSemantics": {
+    "description": "Semantics label for reply quote chip",
+    "placeholders": {
+      "authorName": {
+        "type": "String"
+      },
+      "content": {
+        "type": "String"
+      }
+    }
+  },
+  "chatReplyQuoteDeletedSemantics": "Original message deleted",
+  "@chatReplyQuoteDeletedSemantics": {
+    "description": "Semantics label for reply quote chip when original is deleted"
+  },
+  "chatMessageEdited": "edited",
+  "@chatMessageEdited": {
+  "description": "Label shown on edited messages"
+  },
+  "chatInfoTitle": "Info",
+  "@chatInfoTitle": {
+    "description": "Sheet title for conversation info when no title is set"
+  },
+  "chatInfoConversationTitle": "Conversation title",
+  "@chatInfoConversationTitle": {
+    "description": "Label for conversation title field in info sheet"
+  },
+  "chatInfoCreatedAt": "Created {date}",
+  "@chatInfoCreatedAt": {
+    "description": "Date the conversation was created",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "chatInfoParticipants": "Participants ({count})",
+  "@chatInfoParticipants": {
+    "description": "Section header for participants list",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatInfoAddMembers": "Add members",
+  "@chatInfoAddMembers": {
+    "description": "Tooltip for add members button in conversation info"
+  },
+  "chatInfoOwner": "Owner",
+  "@chatInfoOwner": {
+    "description": "Role chip label for conversation owner"
+  },
+  "chatInfoAdmin": "Admin",
+  "@chatInfoAdmin": {
+    "description": "Role chip label for admin member"
+  },
+  "chatInfoUnknownMember": "Unknown Member",
+  "@chatInfoUnknownMember": {
+    "description": "Placeholder name for a member that could not be loaded"
+  },
+  "chatInfoErrorLoadingMember": "Error loading member",
+  "@chatInfoErrorLoadingMember": {
+    "description": "Error text when a participant member fails to load"
+  },
+  "chatInfoCategory": "Category",
+  "@chatInfoCategory": {
+    "description": "Label for the category picker row in conversation info"
+  },
+  "chatInfoCategoryNone": "None",
+  "@chatInfoCategoryNone": {
+    "description": "Category picker option: no category"
+  },
+  "chatInfoCategorySemantics": "Category: {name}",
+  "@chatInfoCategorySemantics": {
+    "description": "Semantics label for category picker",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatInfoDirectMessage": "Direct Message",
+  "@chatInfoDirectMessage": {
+    "description": "Label shown when conversation is a DM and has no title"
+  },
+  "chatInfoGroupChat": "Group Chat",
+  "@chatInfoGroupChat": {
+    "description": "Label shown when a group conversation has no title"
+  },
+  "chatInfoCannotManage": "{memberName} can't manage this conversation",
+  "@chatInfoCannotManage": {
+    "description": "Permission banner shown when the speaking member cannot manage the conversation",
+    "placeholders": {
+      "memberName": {
+        "type": "String"
+      }
+    }
+  },
+  "chatInfoArchiveConversation": "Archive conversation",
+  "@chatInfoArchiveConversation": {
+    "description": "Action row to archive a conversation"
+  },
+  "chatInfoLeaveConversation": "Leave conversation",
+  "@chatInfoLeaveConversation": {
+    "description": "Action row to leave a conversation"
+  },
+  "chatInfoDeleteConversation": "Delete conversation",
+  "@chatInfoDeleteConversation": {
+    "description": "Action row to delete a conversation (destructive)"
+  },
+  "chatInfoConversationArchived": "Conversation archived",
+  "@chatInfoConversationArchived": {
+    "description": "Toast shown after archiving a conversation"
+  },
+  "chatInfoFailedSaveTitle": "Failed to save title: {error}",
+  "@chatInfoFailedSaveTitle": {
+    "description": "Toast when saving conversation title fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "chatInfoFailedSaveEmoji": "Failed to save emoji: {error}",
+  "@chatInfoFailedSaveEmoji": {
+    "description": "Toast when saving conversation emoji fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "chatLeaveConversationTitle": "Leave Conversation",
+  "@chatLeaveConversationTitle": {
+    "description": "Dialog title when leaving a conversation"
+  },
+  "chatLeaveConversationMessage": "Leave this conversation? Your past messages will remain.",
+  "@chatLeaveConversationMessage": {
+    "description": "Dialog message when leaving a conversation"
+  },
+  "chatLeaveConversationConfirm": "Leave",
+  "@chatLeaveConversationConfirm": {
+    "description": "Confirm button label when leaving a conversation"
+  },
+  "chatSelectNewOwner": "Select new conversation owner",
+  "@chatSelectNewOwner": {
+    "description": "Dialog title for selecting a new conversation owner before leaving"
+  },
+  "chatAddMembersTitle": "Add Members",
+  "@chatAddMembersTitle": {
+    "description": "Sheet title for adding members to a conversation"
+  },
+  "chatAddMembersAllAdded": "All active members are already in this conversation.",
+  "@chatAddMembersAllAdded": {
+    "description": "Message when all members are already participants"
+  },
+  "chatAddMembersFailed": "Failed to add members: {error}",
+  "@chatAddMembersFailed": {
+    "description": "Toast when adding members fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "chatCreateTitle": "New Conversation",
+  "@chatCreateTitle": {
+    "description": "Sheet title for creating a new conversation"
+  },
+  "chatCreateGroupTab": "Group",
+  "@chatCreateGroupTab": {
+    "description": "Segmented control option: group conversation"
+  },
+  "chatCreateDirectMessageTab": "Direct Message",
+  "@chatCreateDirectMessageTab": {
+    "description": "Segmented control option: direct message"
+  },
+  "chatCreateGroupName": "Group Name",
+  "@chatCreateGroupName": {
+    "description": "Label for the group name text field"
+  },
+  "chatCreateGroupNameHint": "e.g., System Discussion",
+  "@chatCreateGroupNameHint": {
+    "description": "Hint text for the group name text field"
+  },
+  "chatCreateSelectParticipants": "Select participants (2+)",
+  "@chatCreateSelectParticipants": {
+    "description": "Header for participant selection in group chat creation"
+  },
+  "chatCreateMessageAs": "Message as {name} with:",
+  "@chatCreateMessageAs": {
+    "description": "Header for DM participant selection, showing current fronter",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCreateSelectAll": "Select All",
+  "@chatCreateSelectAll": {
+    "description": "Button to select all members"
+  },
+  "chatCreateDeselectAll": "Deselect All",
+  "@chatCreateDeselectAll": {
+    "description": "Button to deselect all members"
+  },
+  "chatCreateNoMembers": "No members available. Create members first.",
+  "@chatCreateNoMembers": {
+    "description": "Message shown when no members exist for participant selection"
+  },
+  "chatCreateFronting": "Fronting",
+  "@chatCreateFronting": {
+    "description": "Chip label marking the currently fronting member"
+  },
+  "chatCreateFronterDeselectedWarning": "{name} is currently fronting but not in this chat. You won't be able to see or send messages.",
+  "@chatCreateFronterDeselectedWarning": {
+    "description": "Warning when the currently fronting member is not selected",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCreateFailed": "Failed to create conversation: {error}",
+  "@chatCreateFailed": {
+    "description": "Toast when creating a conversation fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "chatCategoriesTitle": "Manage Categories",
+  "@chatCategoriesTitle": {
+    "description": "Sheet title for category management"
+  },
+  "chatCategoriesNone": "No categories yet",
+  "@chatCategoriesNone": {
+    "description": "Empty state when no categories exist"
+  },
+  "chatCategoriesNewHint": "New category name",
+  "@chatCategoriesNewHint": {
+    "description": "Hint text for new category name field"
+  },
+  "chatCategoriesCategoryNameHint": "Category name",
+  "@chatCategoriesCategoryNameHint": {
+    "description": "Hint text for category name edit field"
+  },
+  "chatCategoriesAddTooltip": "Add category",
+  "@chatCategoriesAddTooltip": {
+    "description": "Tooltip for add category button"
+  },
+  "chatCategoriesDeleteTitle": "Delete \"{name}\"?",
+  "@chatCategoriesDeleteTitle": {
+    "description": "Dialog title when deleting a category",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatCategoriesDeleteMessage": "Conversations in this category will become uncategorized.",
+  "@chatCategoriesDeleteMessage": {
+    "description": "Dialog message when deleting a category"
+  },
+  "chatCategoriesCreateFailed": "Failed to create category: {error}",
+  "@chatCategoriesCreateFailed": {
+    "description": "Toast when creating a category fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "chatCategoriesRenameFailed": "Failed to rename category: {error}",
+  "@chatCategoriesRenameFailed": {
+    "description": "Toast when renaming a category fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "chatCategoriesDeleteFailed": "Failed to delete category: {error}",
+  "@chatCategoriesDeleteFailed": {
+    "description": "Toast when deleting a category fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "chatNoMembersAvailable": "No members available",
+  "@chatNoMembersAvailable": {
+    "description": "Text shown in speaking-as picker when no members exist"
+  },
+  "chatErrorLoadingMembersShort": "Error loading members",
+  "@chatErrorLoadingMembersShort": {
+    "description": "Short error text in speaking-as picker"
+  },
+  "chatGifsTitle": "GIFs",
+  "@chatGifsTitle": {
+    "description": "Sheet title for GIF picker"
+  },
+  "chatGifsSearchHint": "Search for GIFs",
+  "@chatGifsSearchHint": {
+    "description": "Hint text in GIF search field"
+  },
+  "chatGifsPoweredBy": "Powered by KLIPY",
+  "@chatGifsPoweredBy": {
+    "description": "Attribution text in GIF picker"
+  },
+  "chatGifsLoadFailed": "Failed to load GIFs",
+  "@chatGifsLoadFailed": {
+    "description": "Error message when GIFs fail to load"
+  },
+  "chatGifsNotFound": "No GIFs found",
+  "@chatGifsNotFound": {
+    "description": "Empty state when GIF search returns no results"
+  },
+  "chatGifsNotFoundSubtitle": "Try different search terms",
+  "@chatGifsNotFoundSubtitle": {
+    "description": "Subtitle for empty GIF search results"
+  },
+  "chatGifsFound": "{count} GIFs found",
+  "@chatGifsFound": {
+    "description": "Accessibility announcement for GIF search result count",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "chatGifSendButton": "Send",
+  "@chatGifSendButton": {
+    "description": "Send button in GIF preview overlay"
+  },
+  "chatGifPreviewSemantics": "GIF preview: {description}. Send button below.",
+  "@chatGifPreviewSemantics": {
+    "description": "Semantics label for GIF preview overlay",
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGifCellSemantics": "GIF: {description}",
+  "@chatGifCellSemantics": {
+    "description": "Semantics label for a GIF cell with content description",
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "chatGifCellSemanticsDefault": "GIF: search result",
+  "@chatGifCellSemanticsDefault": {
+    "description": "Semantics label for a GIF cell with no content description"
+  },
+  "chatMediaNoLongerAvailable": "Media no longer available",
+  "@chatMediaNoLongerAvailable": {
+    "description": "Text and semantics label for expired/unavailable media placeholder"
+  },
+  "chatAttachedImagePreview": "Attached image preview",
+  "@chatAttachedImagePreview": {
+    "description": "Semantics label for attachment thumbnail in compose area"
+  },
+  "chatRemoveAttachment": "Remove attachment",
+  "@chatRemoveAttachment": {
+    "description": "Semantics label for remove attachment button"
+  },
+  "chatVoiceNoteSemantics": "Voice note from message, {duration}",
+  "@chatVoiceNoteSemantics": {
+    "description": "Semantics label for voice note bubble",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "chatVoiceNoteLoading": "Loading voice note, {duration}",
+  "@chatVoiceNoteLoading": {
+    "description": "Semantics label for voice note while loading",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "chatVoiceNotePause": "Pause voice note, {duration}",
+  "@chatVoiceNotePause": {
+    "description": "Semantics label for voice note pause button",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "chatVoiceNotePlay": "Play voice note, {duration}",
+  "@chatVoiceNotePlay": {
+    "description": "Semantics label for voice note play button",
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "chatVoiceNoteSpeed": "Playback speed {speed}x. Double tap to change.",
+  "@chatVoiceNoteSpeed": {
+    "description": "Semantics label for the speed chip on a voice note",
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "chatVoiceRecorderCancel": "Cancel recording",
+  "@chatVoiceRecorderCancel": {
+    "description": "Semantics label for cancel recording button"
+  },
+  "chatVoiceRecorderSend": "Send voice note",
+  "@chatVoiceRecorderSend": {
+    "description": "Semantics label for send voice note button"
+  },
+  "chatImageViewerSemantics": "Full screen image viewer. {caption}. Pinch to zoom, swipe down to close.",
+  "@chatImageViewerSemantics": {
+    "description": "Semantics label for full-screen image viewer",
+    "placeholders": {
+      "caption": {
+        "type": "String"
+      }
+    }
+  },
+  "chatImageViewerClose": "Close viewer",
+  "@chatImageViewerClose": {
+    "description": "Semantics label for image viewer close button"
+  },
+  "chatImageViewerShare": "Share image",
+  "@chatImageViewerShare": {
+    "description": "Semantics label for image viewer share button"
+  },
+  "chatConversationNoTitle": "Conversation",
+  "@chatConversationNoTitle": {
+    "description": "Fallback text for a conversation with no participants other than self"
+  },
+  "chatTileNoMessages": "No messages yet",
+  "@chatTileNoMessages": {
+    "description": "Preview text for a conversation with no messages"
   }
 }

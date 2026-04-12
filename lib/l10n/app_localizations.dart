@@ -4345,6 +4345,804 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter {fieldName}'**
   String memberCustomFieldEnterHint(String fieldName);
+
+  /// Chat tab title
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get chatTitle;
+
+  /// Button to create a new conversation
+  ///
+  /// In en, this message translates to:
+  /// **'New Conversation'**
+  String get chatNewConversation;
+
+  /// Tooltip for manage categories button
+  ///
+  /// In en, this message translates to:
+  /// **'Manage categories'**
+  String get chatManageCategories;
+
+  /// Tooltip for search messages button
+  ///
+  /// In en, this message translates to:
+  /// **'Search messages'**
+  String get chatSearchMessages;
+
+  /// Empty state title when there are no conversations
+  ///
+  /// In en, this message translates to:
+  /// **'No conversations'**
+  String get chatNoConversations;
+
+  /// Empty state subtitle when there are no conversations
+  ///
+  /// In en, this message translates to:
+  /// **'Start chatting with your system'**
+  String get chatNoConversationsSubtitle;
+
+  /// Error message when conversations fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading conversations'**
+  String get chatErrorLoadingConversations;
+
+  /// Label for conversations without a category
+  ///
+  /// In en, this message translates to:
+  /// **'Uncategorized'**
+  String get chatUncategorized;
+
+  /// Context menu action to mark a conversation as read
+  ///
+  /// In en, this message translates to:
+  /// **'Mark as Read'**
+  String get chatMarkAsRead;
+
+  /// Context menu action to mute a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Mute'**
+  String get chatMute;
+
+  /// Context menu action to unmute a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Unmute'**
+  String get chatUnmute;
+
+  /// Dialog title when deleting a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Conversation'**
+  String get chatDeleteConversationTitle;
+
+  /// Dialog message when deleting a conversation from the list
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this conversation? All messages will be permanently removed.'**
+  String get chatDeleteConversationMessage;
+
+  /// Full dialog message when deleting a conversation from info sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this conversation? All messages will be permanently removed. This cannot be undone.'**
+  String get chatDeleteConversationFullMessage;
+
+  /// Tooltip for badge mode: mentions only
+  ///
+  /// In en, this message translates to:
+  /// **'Badge: mentions only'**
+  String get chatBadgeMentionsOnly;
+
+  /// Tooltip for badge mode: all messages
+  ///
+  /// In en, this message translates to:
+  /// **'Badge: all messages'**
+  String get chatBadgeAllMessages;
+
+  /// Tooltip to hide archived conversations
+  ///
+  /// In en, this message translates to:
+  /// **'Hide archived'**
+  String get chatHideArchived;
+
+  /// Tooltip to show archived conversations
+  ///
+  /// In en, this message translates to:
+  /// **'Show archived'**
+  String get chatShowArchived;
+
+  /// Message when a conversation cannot be found
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation not found'**
+  String get chatConversationNotFound;
+
+  /// Tooltip for the conversation info button
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation info'**
+  String get chatConversationInfo;
+
+  /// Empty state when a conversation has no messages
+  ///
+  /// In en, this message translates to:
+  /// **'No messages yet'**
+  String get chatNoMessages;
+
+  /// Empty state subtitle encouraging user to send first message
+  ///
+  /// In en, this message translates to:
+  /// **'Start the conversation!'**
+  String get chatStartConversation;
+
+  /// Error message when messages fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading messages: {error}'**
+  String chatErrorLoadingMessages(Object error);
+
+  /// Accessibility announcement when loading older messages
+  ///
+  /// In en, this message translates to:
+  /// **'Loading older messages'**
+  String get chatLoadingOlderMessages;
+
+  /// Fallback title for a conversation with no title
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation'**
+  String get chatConversationFallback;
+
+  /// Placeholder text in the chat search field
+  ///
+  /// In en, this message translates to:
+  /// **'Search messages...'**
+  String get chatSearchPlaceholder;
+
+  /// Hint shown when the search field is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Find messages across your conversations'**
+  String get chatSearchHint;
+
+  /// Hint shown when the query is too short
+  ///
+  /// In en, this message translates to:
+  /// **'Keep typing to search...'**
+  String get chatSearchKeepTyping;
+
+  /// Message when search returns no results
+  ///
+  /// In en, this message translates to:
+  /// **'No messages found for \'{query}\''**
+  String chatSearchNoResults(String query);
+
+  /// Suggestion when search returns no results
+  ///
+  /// In en, this message translates to:
+  /// **'Try fewer or different words'**
+  String get chatSearchTryDifferent;
+
+  /// Error message in search results
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String chatSearchError(Object error);
+
+  /// Placeholder text in the message input field
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get chatMessagePlaceholder;
+
+  /// Semantics label for the send message button when enabled
+  ///
+  /// In en, this message translates to:
+  /// **'Send message'**
+  String get chatSendMessage;
+
+  /// Semantics label for the send message button when disabled
+  ///
+  /// In en, this message translates to:
+  /// **'Send message, disabled'**
+  String get chatSendMessageDisabled;
+
+  /// Semantics label for the record voice note button
+  ///
+  /// In en, this message translates to:
+  /// **'Record voice note'**
+  String get chatRecordVoiceNote;
+
+  /// Semantics label for the speaking-as avatar button
+  ///
+  /// In en, this message translates to:
+  /// **'Speaking as {name}. Double tap to change.'**
+  String chatSpeakingAs(String name);
+
+  /// Semantics label for the speaking-as button when no member is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Choose speaking member'**
+  String get chatChooseSpeakingMember;
+
+  /// Tooltip/semantics for dismiss reply banner button
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel reply'**
+  String get chatCancelReply;
+
+  /// Title of the attachment picker sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Add Attachment'**
+  String get chatAddAttachment;
+
+  /// Attachment picker option: take photo with camera
+  ///
+  /// In en, this message translates to:
+  /// **'Camera'**
+  String get chatCamera;
+
+  /// Attachment picker option: choose from photo library
+  ///
+  /// In en, this message translates to:
+  /// **'Photo Library'**
+  String get chatPhotoLibrary;
+
+  /// Context menu action: reply to a message
+  ///
+  /// In en, this message translates to:
+  /// **'Reply'**
+  String get chatContextReply;
+
+  /// Context menu action: copy message text
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Text'**
+  String get chatContextCopyText;
+
+  /// Context menu action: edit a message
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Message'**
+  String get chatContextEditMessage;
+
+  /// Context menu action: delete a message
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get chatContextDelete;
+
+  /// Toast shown after copying message text
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get chatCopied;
+
+  /// Dialog title for editing a message
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Message'**
+  String get chatEditMessageTitle;
+
+  /// Hint text in the edit message dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Message content'**
+  String get chatMessageContentHint;
+
+  /// Dialog title when deleting a message
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Message'**
+  String get chatDeleteMessageTitle;
+
+  /// Dialog message when deleting a message
+  ///
+  /// In en, this message translates to:
+  /// **'This message will be permanently deleted.'**
+  String get chatDeleteMessageMessage;
+
+  /// Text shown in reply quote when original message is deleted
+  ///
+  /// In en, this message translates to:
+  /// **'Original message deleted'**
+  String get chatReplyQuoteDeleted;
+
+  /// Semantics label for reply quote chip
+  ///
+  /// In en, this message translates to:
+  /// **'Replying to {authorName}: {content}. Double-tap to scroll to message.'**
+  String chatReplyQuoteSemantics(String authorName, String content);
+
+  /// Semantics label for reply quote chip when original is deleted
+  ///
+  /// In en, this message translates to:
+  /// **'Original message deleted'**
+  String get chatReplyQuoteDeletedSemantics;
+
+  /// Label shown on edited messages
+  ///
+  /// In en, this message translates to:
+  /// **'edited'**
+  String get chatMessageEdited;
+
+  /// Sheet title for conversation info when no title is set
+  ///
+  /// In en, this message translates to:
+  /// **'Info'**
+  String get chatInfoTitle;
+
+  /// Label for conversation title field in info sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation title'**
+  String get chatInfoConversationTitle;
+
+  /// Date the conversation was created
+  ///
+  /// In en, this message translates to:
+  /// **'Created {date}'**
+  String chatInfoCreatedAt(String date);
+
+  /// Section header for participants list
+  ///
+  /// In en, this message translates to:
+  /// **'Participants ({count})'**
+  String chatInfoParticipants(int count);
+
+  /// Tooltip for add members button in conversation info
+  ///
+  /// In en, this message translates to:
+  /// **'Add members'**
+  String get chatInfoAddMembers;
+
+  /// Role chip label for conversation owner
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get chatInfoOwner;
+
+  /// Role chip label for admin member
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get chatInfoAdmin;
+
+  /// Placeholder name for a member that could not be loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown Member'**
+  String get chatInfoUnknownMember;
+
+  /// Error text when a participant member fails to load
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading member'**
+  String get chatInfoErrorLoadingMember;
+
+  /// Label for the category picker row in conversation info
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get chatInfoCategory;
+
+  /// Category picker option: no category
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get chatInfoCategoryNone;
+
+  /// Semantics label for category picker
+  ///
+  /// In en, this message translates to:
+  /// **'Category: {name}'**
+  String chatInfoCategorySemantics(String name);
+
+  /// Label shown when conversation is a DM and has no title
+  ///
+  /// In en, this message translates to:
+  /// **'Direct Message'**
+  String get chatInfoDirectMessage;
+
+  /// Label shown when a group conversation has no title
+  ///
+  /// In en, this message translates to:
+  /// **'Group Chat'**
+  String get chatInfoGroupChat;
+
+  /// Permission banner shown when the speaking member cannot manage the conversation
+  ///
+  /// In en, this message translates to:
+  /// **'{memberName} can\'t manage this conversation'**
+  String chatInfoCannotManage(String memberName);
+
+  /// Action row to archive a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Archive conversation'**
+  String get chatInfoArchiveConversation;
+
+  /// Action row to leave a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Leave conversation'**
+  String get chatInfoLeaveConversation;
+
+  /// Action row to delete a conversation (destructive)
+  ///
+  /// In en, this message translates to:
+  /// **'Delete conversation'**
+  String get chatInfoDeleteConversation;
+
+  /// Toast shown after archiving a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation archived'**
+  String get chatInfoConversationArchived;
+
+  /// Toast when saving conversation title fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save title: {error}'**
+  String chatInfoFailedSaveTitle(Object error);
+
+  /// Toast when saving conversation emoji fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save emoji: {error}'**
+  String chatInfoFailedSaveEmoji(Object error);
+
+  /// Dialog title when leaving a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Leave Conversation'**
+  String get chatLeaveConversationTitle;
+
+  /// Dialog message when leaving a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Leave this conversation? Your past messages will remain.'**
+  String get chatLeaveConversationMessage;
+
+  /// Confirm button label when leaving a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Leave'**
+  String get chatLeaveConversationConfirm;
+
+  /// Dialog title for selecting a new conversation owner before leaving
+  ///
+  /// In en, this message translates to:
+  /// **'Select new conversation owner'**
+  String get chatSelectNewOwner;
+
+  /// Sheet title for adding members to a conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Add Members'**
+  String get chatAddMembersTitle;
+
+  /// Message when all members are already participants
+  ///
+  /// In en, this message translates to:
+  /// **'All active members are already in this conversation.'**
+  String get chatAddMembersAllAdded;
+
+  /// Toast when adding members fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to add members: {error}'**
+  String chatAddMembersFailed(Object error);
+
+  /// Sheet title for creating a new conversation
+  ///
+  /// In en, this message translates to:
+  /// **'New Conversation'**
+  String get chatCreateTitle;
+
+  /// Segmented control option: group conversation
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get chatCreateGroupTab;
+
+  /// Segmented control option: direct message
+  ///
+  /// In en, this message translates to:
+  /// **'Direct Message'**
+  String get chatCreateDirectMessageTab;
+
+  /// Label for the group name text field
+  ///
+  /// In en, this message translates to:
+  /// **'Group Name'**
+  String get chatCreateGroupName;
+
+  /// Hint text for the group name text field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., System Discussion'**
+  String get chatCreateGroupNameHint;
+
+  /// Header for participant selection in group chat creation
+  ///
+  /// In en, this message translates to:
+  /// **'Select participants (2+)'**
+  String get chatCreateSelectParticipants;
+
+  /// Header for DM participant selection, showing current fronter
+  ///
+  /// In en, this message translates to:
+  /// **'Message as {name} with:'**
+  String chatCreateMessageAs(String name);
+
+  /// Button to select all members
+  ///
+  /// In en, this message translates to:
+  /// **'Select All'**
+  String get chatCreateSelectAll;
+
+  /// Button to deselect all members
+  ///
+  /// In en, this message translates to:
+  /// **'Deselect All'**
+  String get chatCreateDeselectAll;
+
+  /// Message shown when no members exist for participant selection
+  ///
+  /// In en, this message translates to:
+  /// **'No members available. Create members first.'**
+  String get chatCreateNoMembers;
+
+  /// Chip label marking the currently fronting member
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting'**
+  String get chatCreateFronting;
+
+  /// Warning when the currently fronting member is not selected
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is currently fronting but not in this chat. You won\'t be able to see or send messages.'**
+  String chatCreateFronterDeselectedWarning(String name);
+
+  /// Toast when creating a conversation fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create conversation: {error}'**
+  String chatCreateFailed(Object error);
+
+  /// Sheet title for category management
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Categories'**
+  String get chatCategoriesTitle;
+
+  /// Empty state when no categories exist
+  ///
+  /// In en, this message translates to:
+  /// **'No categories yet'**
+  String get chatCategoriesNone;
+
+  /// Hint text for new category name field
+  ///
+  /// In en, this message translates to:
+  /// **'New category name'**
+  String get chatCategoriesNewHint;
+
+  /// Hint text for category name edit field
+  ///
+  /// In en, this message translates to:
+  /// **'Category name'**
+  String get chatCategoriesCategoryNameHint;
+
+  /// Tooltip for add category button
+  ///
+  /// In en, this message translates to:
+  /// **'Add category'**
+  String get chatCategoriesAddTooltip;
+
+  /// Dialog title when deleting a category
+  ///
+  /// In en, this message translates to:
+  /// **'Delete \"{name}\"?'**
+  String chatCategoriesDeleteTitle(String name);
+
+  /// Dialog message when deleting a category
+  ///
+  /// In en, this message translates to:
+  /// **'Conversations in this category will become uncategorized.'**
+  String get chatCategoriesDeleteMessage;
+
+  /// Toast when creating a category fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create category: {error}'**
+  String chatCategoriesCreateFailed(Object error);
+
+  /// Toast when renaming a category fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to rename category: {error}'**
+  String chatCategoriesRenameFailed(Object error);
+
+  /// Toast when deleting a category fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete category: {error}'**
+  String chatCategoriesDeleteFailed(Object error);
+
+  /// Text shown in speaking-as picker when no members exist
+  ///
+  /// In en, this message translates to:
+  /// **'No members available'**
+  String get chatNoMembersAvailable;
+
+  /// Short error text in speaking-as picker
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading members'**
+  String get chatErrorLoadingMembersShort;
+
+  /// Sheet title for GIF picker
+  ///
+  /// In en, this message translates to:
+  /// **'GIFs'**
+  String get chatGifsTitle;
+
+  /// Hint text in GIF search field
+  ///
+  /// In en, this message translates to:
+  /// **'Search for GIFs'**
+  String get chatGifsSearchHint;
+
+  /// Attribution text in GIF picker
+  ///
+  /// In en, this message translates to:
+  /// **'Powered by KLIPY'**
+  String get chatGifsPoweredBy;
+
+  /// Error message when GIFs fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load GIFs'**
+  String get chatGifsLoadFailed;
+
+  /// Empty state when GIF search returns no results
+  ///
+  /// In en, this message translates to:
+  /// **'No GIFs found'**
+  String get chatGifsNotFound;
+
+  /// Subtitle for empty GIF search results
+  ///
+  /// In en, this message translates to:
+  /// **'Try different search terms'**
+  String get chatGifsNotFoundSubtitle;
+
+  /// Accessibility announcement for GIF search result count
+  ///
+  /// In en, this message translates to:
+  /// **'{count} GIFs found'**
+  String chatGifsFound(int count);
+
+  /// Send button in GIF preview overlay
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get chatGifSendButton;
+
+  /// Semantics label for GIF preview overlay
+  ///
+  /// In en, this message translates to:
+  /// **'GIF preview: {description}. Send button below.'**
+  String chatGifPreviewSemantics(String description);
+
+  /// Semantics label for a GIF cell with content description
+  ///
+  /// In en, this message translates to:
+  /// **'GIF: {description}'**
+  String chatGifCellSemantics(String description);
+
+  /// Semantics label for a GIF cell with no content description
+  ///
+  /// In en, this message translates to:
+  /// **'GIF: search result'**
+  String get chatGifCellSemanticsDefault;
+
+  /// Text and semantics label for expired/unavailable media placeholder
+  ///
+  /// In en, this message translates to:
+  /// **'Media no longer available'**
+  String get chatMediaNoLongerAvailable;
+
+  /// Semantics label for attachment thumbnail in compose area
+  ///
+  /// In en, this message translates to:
+  /// **'Attached image preview'**
+  String get chatAttachedImagePreview;
+
+  /// Semantics label for remove attachment button
+  ///
+  /// In en, this message translates to:
+  /// **'Remove attachment'**
+  String get chatRemoveAttachment;
+
+  /// Semantics label for voice note bubble
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note from message, {duration}'**
+  String chatVoiceNoteSemantics(String duration);
+
+  /// Semantics label for voice note while loading
+  ///
+  /// In en, this message translates to:
+  /// **'Loading voice note, {duration}'**
+  String chatVoiceNoteLoading(String duration);
+
+  /// Semantics label for voice note pause button
+  ///
+  /// In en, this message translates to:
+  /// **'Pause voice note, {duration}'**
+  String chatVoiceNotePause(String duration);
+
+  /// Semantics label for voice note play button
+  ///
+  /// In en, this message translates to:
+  /// **'Play voice note, {duration}'**
+  String chatVoiceNotePlay(String duration);
+
+  /// Semantics label for the speed chip on a voice note
+  ///
+  /// In en, this message translates to:
+  /// **'Playback speed {speed}x. Double tap to change.'**
+  String chatVoiceNoteSpeed(String speed);
+
+  /// Semantics label for cancel recording button
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel recording'**
+  String get chatVoiceRecorderCancel;
+
+  /// Semantics label for send voice note button
+  ///
+  /// In en, this message translates to:
+  /// **'Send voice note'**
+  String get chatVoiceRecorderSend;
+
+  /// Semantics label for full-screen image viewer
+  ///
+  /// In en, this message translates to:
+  /// **'Full screen image viewer. {caption}. Pinch to zoom, swipe down to close.'**
+  String chatImageViewerSemantics(String caption);
+
+  /// Semantics label for image viewer close button
+  ///
+  /// In en, this message translates to:
+  /// **'Close viewer'**
+  String get chatImageViewerClose;
+
+  /// Semantics label for image viewer share button
+  ///
+  /// In en, this message translates to:
+  /// **'Share image'**
+  String get chatImageViewerShare;
+
+  /// Fallback text for a conversation with no participants other than self
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation'**
+  String get chatConversationNoTitle;
+
+  /// Preview text for a conversation with no messages
+  ///
+  /// In en, this message translates to:
+  /// **'No messages yet'**
+  String get chatTileNoMessages;
 }
 
 class _AppLocalizationsDelegate

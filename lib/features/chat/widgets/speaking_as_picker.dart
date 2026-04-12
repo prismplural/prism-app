@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
@@ -26,7 +27,7 @@ class SpeakingAsPicker extends ConsumerWidget {
               vertical: 8,
             ),
             child: Text(
-              'No members available',
+              context.l10n.chatNoMembersAvailable,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -86,7 +87,7 @@ class SpeakingAsPicker extends ConsumerWidget {
       error: (error, _) => Padding(
         padding: const EdgeInsets.all(8),
         child: Text(
-          'Error loading members',
+          context.l10n.chatErrorLoadingMembersShort,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.error,
           ),
