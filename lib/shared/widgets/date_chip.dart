@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -22,7 +23,7 @@ class DateChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           child: Text(
-            date.toDayHeaderLabel(),
+            date.toDayHeaderLabel(context.dateLocale),
             style: theme.textTheme.labelMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
               fontWeight: FontWeight.w600,

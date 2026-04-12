@@ -62,7 +62,7 @@ class _ActiveSleepCard extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              context.l10n.frontingSleepSince(session.startTime.toTimeString()),
+              context.l10n.frontingSleepSince(session.startTime.toTimeString(context.dateLocale)),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
