@@ -8,6 +8,11 @@ extension AppLocalizationsX on BuildContext {
   /// Will throw if called above MaterialApp (error widgets, builder: overlay).
   AppLocalizations get l10n => AppLocalizations.of(this);
 
-  /// Safe locale string for DateFormat — e.g. 'en' or 'es'.
-  String get dateLocale => Localizations.localeOf(this).toString();
+  /// Locale string for DateFormat/NumberFormat — uses the platform's regional
+  /// format locale (e.g. 'en_CR', 'es_US') rather than the app's resolved
+  /// language locale. This correctly handles mixed configurations where the
+  /// user has English UI but a non-English region (different date order,
+  /// decimal separator, currency symbol, etc.).
+  String get dateLocale =>
+      WidgetsBinding.instance.platformDispatcher.locale.toString();
 }
