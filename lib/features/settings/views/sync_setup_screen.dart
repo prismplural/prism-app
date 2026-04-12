@@ -6,7 +6,6 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/features/settings/providers/sync_setup_provider.dart';
 import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_content.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -22,15 +21,11 @@ class SyncSetupScreen extends ConsumerStatefulWidget {
 }
 
 class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
   final _relayUrlController = TextEditingController();
   final _registrationTokenController = TextEditingController();
+  final _pinController = TextEditingController();
   bool _showRelayField = false;
   bool _hasSavedKey = false;
-  bool _obscurePassword = true;
-  bool _obscureConfirmPassword = true;
-  String? _passwordError;
   String? _relayUrlError;
 
   @override
@@ -43,10 +38,9 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
 
   @override
   void dispose() {
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     _relayUrlController.dispose();
     _registrationTokenController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -56,7 +50,6 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
 
     final title = switch (setupState.step) {
       SyncSetupStep.intro => context.l10n.syncSetupIntroTitle,
-      SyncSetupStep.password => context.l10n.syncSetupPasswordTitle,
       SyncSetupStep.secretKey => context.l10n.syncSetupSecretKeyTitle,
     };
 
@@ -101,22 +94,8 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
                       .read(syncSetupProvider.notifier)
                       .setRegistrationToken(token.isNotEmpty ? token : null);
                 }
-                ref.read(syncSetupProvider.notifier).proceedToPassword();
+                ref.read(syncSetupProvider.notifier).proceedToSecretKey();
               },
-            ),
-            SyncSetupStep.password => _PasswordStep(
-              key: const ValueKey('password'),
-              passwordController: _passwordController,
-              confirmPasswordController: _confirmPasswordController,
-              obscurePassword: _obscurePassword,
-              obscureConfirmPassword: _obscureConfirmPassword,
-              error: _passwordError ?? setupState.error,
-              onTogglePasswordVisibility: () =>
-                  setState(() => _obscurePassword = !_obscurePassword),
-              onToggleConfirmPasswordVisibility: () => setState(
-                () => _obscureConfirmPassword = !_obscureConfirmPassword,
-              ),
-              onContinue: _validateAndProceedToSecretKey,
             ),
             SyncSetupStep.secretKey => _SecretKeyStep(
               key: const ValueKey('secretKey'),
@@ -125,6 +104,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
               isProcessing: setupState.isProcessing,
               currentProgress: setupState.currentProgress,
               error: setupState.error,
+              pinController: _pinController,
               onHasSavedChanged: (v) => setState(() => _hasSavedKey = v),
               onComplete: _completeSetup,
             ),
@@ -134,25 +114,10 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     );
   }
 
-  Future<void> _validateAndProceedToSecretKey() async {
-    final password = _passwordController.text;
-    final confirm = _confirmPasswordController.text;
-
-    if (password.length < 8) {
-      setState(() => _passwordError = context.l10n.syncSetupPasswordTooShort);
-      return;
-    }
-    if (password != confirm) {
-      setState(() => _passwordError = context.l10n.syncSetupPasswordMismatch);
-      return;
-    }
-
-    setState(() => _passwordError = null);
-    await ref.read(syncSetupProvider.notifier).proceedToSecretKey(password);
-  }
-
   Future<void> _completeSetup() async {
-    final success = await ref.read(syncSetupProvider.notifier).complete();
+    final pin = _pinController.text.trim();
+    final success =
+        await ref.read(syncSetupProvider.notifier).complete(pin);
     if (success && mounted) {
       context.pop();
     }
@@ -272,104 +237,6 @@ class _IntroStep extends StatelessWidget {
   }
 }
 
-class _PasswordStep extends StatelessWidget {
-  const _PasswordStep({
-    super.key,
-    required this.passwordController,
-    required this.confirmPasswordController,
-    required this.obscurePassword,
-    required this.obscureConfirmPassword,
-    required this.error,
-    required this.onTogglePasswordVisibility,
-    required this.onToggleConfirmPasswordVisibility,
-    required this.onContinue,
-  });
-
-  final TextEditingController passwordController;
-  final TextEditingController confirmPasswordController;
-  final bool obscurePassword;
-  final bool obscureConfirmPassword;
-  final String? error;
-  final VoidCallback onTogglePasswordVisibility;
-  final VoidCallback onToggleConfirmPasswordVisibility;
-  final Future<void> Function() onContinue;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return SafeArea(
-      top: false,
-      child: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          const SizedBox(height: 32),
-          Text(
-            context.l10n.syncSetupPasswordIntro,
-            style: theme.textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            context.l10n.syncSetupPasswordHelp,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 32),
-          PrismTextField(
-            controller: passwordController,
-            labelText: context.l10n.syncSetupPasswordLabel,
-            obscureText: obscurePassword,
-            keyboardType: TextInputType.visiblePassword,
-            textInputAction: TextInputAction.next,
-            suffix: PrismFieldIconButton(
-              icon: obscurePassword
-                  ? AppIcons.visibilityOff
-                  : AppIcons.visibility,
-              tooltip: obscurePassword ? context.l10n.syncShowPassword : context.l10n.syncHidePassword,
-              onPressed: onTogglePasswordVisibility,
-            ),
-          ),
-          const SizedBox(height: 16),
-          PrismTextField(
-            controller: confirmPasswordController,
-            labelText: context.l10n.syncSetupConfirmPasswordLabel,
-            obscureText: obscureConfirmPassword,
-            keyboardType: TextInputType.visiblePassword,
-            textInputAction: TextInputAction.done,
-            suffix: PrismFieldIconButton(
-              icon: obscureConfirmPassword
-                  ? AppIcons.visibilityOff
-                  : AppIcons.visibility,
-              tooltip: obscureConfirmPassword
-                  ? context.l10n.syncShowPassword
-                  : context.l10n.syncHidePassword,
-              onPressed: onToggleConfirmPasswordVisibility,
-            ),
-            onSubmitted: (_) => onContinue(),
-          ),
-          if (error != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              error!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.error,
-              ),
-            ),
-          ],
-          const SizedBox(height: 32),
-          PrismButton(
-            label: context.l10n.syncSetupContinueButton,
-            icon: AppIcons.arrowForward,
-            tone: PrismButtonTone.filled,
-            onPressed: onContinue,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SecretKeyStep extends StatelessWidget {
   const _SecretKeyStep({
     super.key,
@@ -378,6 +245,7 @@ class _SecretKeyStep extends StatelessWidget {
     required this.isProcessing,
     required this.currentProgress,
     required this.error,
+    required this.pinController,
     required this.onHasSavedChanged,
     required this.onComplete,
   });
@@ -387,6 +255,7 @@ class _SecretKeyStep extends StatelessWidget {
   final bool isProcessing;
   final SyncSetupProgress? currentProgress;
   final String? error;
+  final TextEditingController pinController;
   final ValueChanged<bool> onHasSavedChanged;
   final VoidCallback onComplete;
 
@@ -412,6 +281,16 @@ class _SecretKeyStep extends StatelessWidget {
             mnemonic: mnemonic,
             hasSaved: hasSaved,
             onHasSavedChanged: onHasSavedChanged,
+          ),
+          const SizedBox(height: 24),
+          PrismTextField(
+            controller: pinController,
+            labelText: context.l10n.syncSetupPinLabel,
+            obscureText: true,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            enabled: !isProcessing,
+            onSubmitted: hasSaved ? (_) => onComplete() : null,
           ),
           if (error != null) ...[
             const SizedBox(height: 12),
