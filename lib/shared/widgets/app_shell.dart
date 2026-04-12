@@ -13,7 +13,7 @@ import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
-import 'package:prism_plurality/features/settings/widgets/sync_password_sheet.dart';
+import 'package:prism_plurality/features/settings/widgets/sync_pin_sheet.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -414,7 +414,10 @@ class _AppShellState extends ConsumerState<AppShell>
       final isShowing = ref.read(syncPasswordSheetVisibleProvider);
       if (isShowing) return;
       ref.read(syncPasswordSheetVisibleProvider.notifier).setValue(true);
-      SyncPasswordSheet.show(context).whenComplete(() {
+      // Show the PIN sheet. For devices set up before the PIN migration,
+      // SyncPinSheet falls through to SyncPasswordSheet via the legacy
+      // attemptUnlock path (which accepts the user's password as the PIN).
+      SyncPinSheet.show(context).whenComplete(() {
         ref.read(syncPasswordSheetVisibleProvider.notifier).setValue(false);
       });
     });
