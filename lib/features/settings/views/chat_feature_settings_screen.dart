@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Settings subview for the Chat feature.
 class ChatFeatureSettingsScreen extends ConsumerWidget {
@@ -22,7 +23,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Chat', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.featureChatTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -30,21 +31,21 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              'Internal messaging between system members.',
+              context.l10n.featureChatDescription,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           PrismSection(
-            title: 'General',
+            title: context.l10n.featureChatGeneral,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
                 icon: AppIcons.chatOutlined,
                 iconColor: Colors.blue,
-                title: 'Enable Chat',
-                subtitle: 'In-system messaging between members',
+                title: context.l10n.featureChatEnable,
+                subtitle: context.l10n.featureChatEnableSubtitle,
                 value: chatEnabled,
                 onChanged: (value) => ref
                     .read(settingsNotifierProvider.notifier)
@@ -54,7 +55,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
           ),
           if (chatEnabled)
             PrismSection(
-              title: 'Options',
+              title: context.l10n.featureChatOptions,
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: Column(
@@ -62,9 +63,8 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                     PrismSwitchRow(
                       icon: AppIcons.swapHorizRounded,
                       iconColor: Colors.blue,
-                      title: 'Log Front on Switch',
-                      subtitle:
-                          'Changing who\'s speaking in chat also logs a front',
+                      title: context.l10n.featureChatLogFront,
+                      subtitle: context.l10n.featureChatLogFrontSubtitle,
                       value: chatLogsFront,
                       onChanged: (value) => ref
                           .read(settingsNotifierProvider.notifier)
@@ -73,8 +73,8 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                     PrismSwitchRow(
                       icon: AppIcons.gif,
                       iconColor: Colors.deepPurple,
-                      title: 'GIF Search',
-                      subtitle: 'Search and send GIFs in chat',
+                      title: context.l10n.featureChatGifSearch,
+                      subtitle: context.l10n.featureChatGifSearchSubtitle,
                       value: gifSearchEnabled,
                       onChanged: (value) => ref
                           .read(settingsNotifierProvider.notifier)

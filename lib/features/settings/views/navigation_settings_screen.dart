@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -46,14 +47,14 @@ class NavigationSettingsScreen extends ConsumerWidget {
 
     // Build the unified flat list: primary header + primary items + overflow header + overflow items
     final List<_UnifiedEntry> entries = [
-      const _UnifiedEntry.header('Nav Bar'),
+      _UnifiedEntry.header(context.l10n.navigationNavBar),
       for (final tab in primaryTabs) _UnifiedEntry.item(tab),
-      const _UnifiedEntry.header('More Menu'),
+      _UnifiedEntry.header(context.l10n.navigationMoreMenu),
       for (final tab in overflowTabs) _UnifiedEntry.item(tab),
     ];
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Navigation', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.navigationSettingsTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
@@ -63,9 +64,9 @@ class NavigationSettingsScreen extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: PrismSectionCard(
               child: SwitchListTile.adaptive(
-                title: const Text('Sync navigation layout'),
+                title: Text(context.l10n.syncNavigationLayoutTitle),
                 subtitle: Text(
-                  'Share tab arrangement across devices',
+                  context.l10n.syncNavigationLayoutSubtitle,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -133,7 +134,7 @@ class NavigationSettingsScreen extends ConsumerWidget {
           // Available tabs to add
           if (availableTabs.isNotEmpty)
             PrismSection(
-              title: 'Available',
+              title: context.l10n.navigationAvailable,
               child: PrismSectionCard(
                 child: Column(
                   children: [
@@ -157,7 +158,7 @@ class NavigationSettingsScreen extends ConsumerWidget {
           // Disabled features
           if (disabledTabs.isNotEmpty)
             PrismSection(
-              title: 'Disabled Features',
+              title: context.l10n.navigationDisabledFeatures,
               child: PrismSectionCard(
                 child: Column(
                   children: [
@@ -183,10 +184,12 @@ class NavigationSettingsScreen extends ConsumerWidget {
   // --- Unified list helpers ---
 
   /// Find the index of the overflow header in the entries list.
+  /// Note: we search by position (second header) rather than by string value
+  /// to remain locale-independent.
   int _overflowHeaderIndex(List<_UnifiedEntry> entries) {
-    return entries.indexWhere(
-      (e) => e.isHeader && e.headerTitle == 'More Menu',
-    );
+    final headers = entries.where((e) => e.isHeader).toList();
+    if (headers.length < 2) return entries.length;
+    return entries.indexOf(headers[1]);
   }
 
   /// Whether the item at [index] is in the primary section (before overflow header).
@@ -253,9 +256,7 @@ class NavigationSettingsScreen extends ConsumerWidget {
 
   /// Derive primary and overflow tab lists from the unified entries and persist.
   void _saveFromEntries(WidgetRef ref, List<_UnifiedEntry> entries) {
-    final overflowIdx = entries.indexWhere(
-      (e) => e.isHeader && e.headerTitle == 'More Menu',
-    );
+    final overflowIdx = _overflowHeaderIndex(entries);
 
     final primaryItems = <AppShellTab>[];
     final overflowItems = <AppShellTab>[];
@@ -405,7 +406,7 @@ class _NavItem extends StatelessWidget {
                 icon: AppIcons.arrowUpward,
                 iconSize: 18,
                 color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                tooltip: 'Move to nav bar',
+                tooltip: context.l10n.navigationMoveToNavBar,
                 onPressed: onMoveToPrimary,
               ),
             if (onMoveToOverflow != null)
@@ -413,7 +414,7 @@ class _NavItem extends StatelessWidget {
                 icon: AppIcons.arrowDownward,
                 iconSize: 18,
                 color: theme.colorScheme.primary.withValues(alpha: 0.7),
-                tooltip: 'Move to More menu',
+                tooltip: context.l10n.navigationMoveToMoreMenu,
                 onPressed: onMoveToOverflow,
               ),
             if (onRemove != null)
@@ -421,7 +422,7 @@ class _NavItem extends StatelessWidget {
                 icon: AppIcons.removeCircleOutline,
                 color: theme.colorScheme.error.withValues(alpha: 0.7),
                 onPressed: onRemove,
-                tooltip: 'Remove from navigation',
+                tooltip: context.l10n.navigationRemove,
               ),
           ],
           if (!isLocked)
@@ -466,14 +467,14 @@ class _AvailableItem extends StatelessWidget {
           PrismInlineIconButton(
             icon: AppIcons.addCircleOutline,
             color: theme.colorScheme.primary,
-            tooltip: 'Add to nav bar',
+            tooltip: context.l10n.navigationAddToNavBar,
             onPressed: onAddToBar,
           ),
           PrismInlineIconButton(
             icon: AppIcons.moreVert,
             iconSize: 20,
             color: theme.colorScheme.primary.withValues(alpha: 0.7),
-            tooltip: 'Add to More menu',
+            tooltip: context.l10n.navigationAddToMoreMenu,
             onPressed: onAddToOverflow,
           ),
         ],
@@ -509,7 +510,7 @@ class _DisabledItem extends StatelessWidget {
         ),
       ),
       trailing: Text(
-        'Enable in Features',
+        context.l10n.navigationEnableInFeatures,
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.primary.withValues(alpha: 0.7),
         ),

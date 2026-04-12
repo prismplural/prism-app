@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Settings subview for the Reminders feature.
 class RemindersFeatureSettingsScreen extends ConsumerWidget {
@@ -22,7 +23,7 @@ class RemindersFeatureSettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Reminders', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.featureRemindersTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -30,21 +31,21 @@ class RemindersFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              'Get reminded on a schedule or when fronters change. Disabling hides reminders from navigation but keeps existing ones.',
+              context.l10n.featureRemindersDescription,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           PrismSection(
-            title: 'General',
+            title: context.l10n.featureRemindersGeneral,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
                 icon: AppIcons.alarm,
                 iconColor: Colors.amber,
-                title: 'Enable Reminders',
-                subtitle: 'Scheduled and front-change reminders',
+                title: context.l10n.featureRemindersEnable,
+                subtitle: context.l10n.featureRemindersEnableSubtitle,
                 value: remindersEnabled,
                 onChanged: (value) => ref
                     .read(settingsNotifierProvider.notifier)
@@ -54,14 +55,14 @@ class RemindersFeatureSettingsScreen extends ConsumerWidget {
           ),
           if (remindersEnabled)
             PrismSection(
-              title: 'Options',
+              title: context.l10n.featureRemindersOptions,
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: PrismSettingsRow(
                   icon: AppIcons.editNotificationsOutlined,
                   iconColor: Colors.amber,
-                  title: 'Manage Reminders',
-                  subtitle: 'Create and edit your reminders',
+                  title: context.l10n.featureRemindersManage,
+                  subtitle: context.l10n.featureRemindersManageSubtitle,
                   onTap: () => context.go('/settings/reminders'),
                 ),
               ),

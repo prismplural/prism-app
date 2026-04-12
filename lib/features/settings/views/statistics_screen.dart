@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Screen displaying system statistics: member counts, session data,
 /// most frequent fronters, and average session duration.
@@ -27,7 +28,7 @@ class StatisticsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Statistics', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.statisticsTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
@@ -39,14 +40,14 @@ class StatisticsScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Overview',
+                  context.l10n.statisticsOverview,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 16),
                 _StatRow(
-                  label: 'Total members',
+                  label: context.l10n.statisticsTotalMembers,
                   valueAsync: memberCountAsync.whenData((c) => '$c'),
                 ),
                 membersAsync.when(
@@ -58,7 +59,7 @@ class StatisticsScreen extends ConsumerWidget {
                     return Padding(
                       padding: const EdgeInsets.only(left: 16),
                       child: Text(
-                        '$active active, $inactive inactive',
+                        context.l10n.statisticsActiveMembersBreakdown(active, inactive),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -68,18 +69,18 @@ class StatisticsScreen extends ConsumerWidget {
                 ),
                 const Divider(height: 16),
                 _StatRow(
-                  label: 'Total sessions',
+                  label: context.l10n.statisticsTotalSessions,
                   valueAsync: sessionCountAsync.whenData((c) => '$c'),
                 ),
                 const Divider(height: 16),
                 _StatRow(
-                  label: 'Conversations',
+                  label: context.l10n.statisticsConversations,
                   valueAsync:
                       conversationsAsync.whenData((c) => '$c'),
                 ),
                 const Divider(height: 16),
                 _StatRow(
-                  label: 'Polls',
+                  label: context.l10n.statisticsPolls,
                   valueAsync: pollsAsync.whenData((p) => '$p'),
                 ),
               ],
@@ -95,7 +96,7 @@ class StatisticsScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Most Frequent Fronters',
+                  context.l10n.statisticsMostFrequentFronters,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -115,7 +116,7 @@ class StatisticsScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Average Session Duration',
+                  context.l10n.statisticsAverageSessionDuration,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -129,7 +130,7 @@ class StatisticsScreen extends ConsumerWidget {
                         sessions.where((s) => s.endTime != null).toList();
                     if (completed.isEmpty) {
                       return Text(
-                        'No completed sessions yet',
+                        context.l10n.statisticsNoCompletedSessions,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -171,7 +172,7 @@ class StatisticsScreen extends ConsumerWidget {
       data: (topFronters) {
         if (topFronters.isEmpty) {
           return Text(
-            'No fronting data yet',
+            context.l10n.statisticsNoFrontingData,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -277,7 +278,7 @@ class _TopFronterRow extends StatelessWidget {
             child: Text(name, style: theme.textTheme.bodyMedium),
           ),
           Text(
-            '$sessionCount sessions',
+            context.l10n.statisticsSessions(sessionCount),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

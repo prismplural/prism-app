@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Full screen for sync debugging and troubleshooting.
 ///
@@ -52,15 +53,15 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
         ? AppIcons.cloudDoneOutlined
         : AppIcons.cloudSyncOutlined;
     final connectionTitle = !isConfigured
-        ? 'Not configured'
+        ? context.l10n.syncTroubleshootingNotConfigured
         : hasActiveHandle
-        ? 'Connected'
-        : 'Configured locally';
+        ? context.l10n.syncTroubleshootingConnected
+        : context.l10n.syncTroubleshootingConfiguredLocally;
     final connectionSubtitle = !isConfigured
-        ? 'This device does not currently have sync set up.'
+        ? context.l10n.syncTroubleshootingNotConfiguredSubtitle
         : hasActiveHandle
-        ? 'Sync engine is active and ready'
-        : 'Settings are stored. The engine will reconnect on the next sync.';
+        ? context.l10n.syncTroubleshootingConnectedSubtitle
+        : context.l10n.syncTroubleshootingConfiguredLocallySubtitle;
 
     final canSyncNow = isConfigured && hasActiveHandle && !syncStatus.isSyncing;
     VoidCallback? syncNowCallback;
@@ -70,8 +71,8 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     }
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(
-        title: 'Sync Troubleshooting',
+      topBar: PrismTopBar(
+        title: context.l10n.syncTroubleshootingTitle,
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -80,7 +81,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
           padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
           children: [
             // -- Connection Status --
-            const _SectionHeader(title: 'Connection Status'),
+            _SectionHeader(title: context.l10n.syncTroubleshootingConnectionStatus),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Card(
@@ -118,14 +119,14 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             ),
 
             // -- Last Sync Time --
-            const _SectionHeader(title: 'Last Sync'),
+            _SectionHeader(title: context.l10n.syncTroubleshootingLastSync),
             PrismListRow(
               leading: Icon(AppIcons.schedule),
-              title: const Text('Last successful sync'),
+              title: Text(context.l10n.syncTroubleshootingLastSuccessful),
               subtitle: Text(
                 syncStatus.lastSyncAt != null
                     ? _formatDateTime(syncStatus.lastSyncAt!)
-                    : 'Never synced',
+                    : context.l10n.syncTroubleshootingNeverSynced,
               ),
             ),
 
@@ -136,7 +137,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                   AppIcons.errorOutline,
                   color: theme.colorScheme.error,
                 ),
-                title: const Text('Last sync error'),
+                title: Text(context.l10n.syncTroubleshootingLastError),
                 subtitle: Text(syncStatus.lastError!),
               ),
               Padding(
@@ -170,19 +171,19 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             // -- Current State --
             PrismListRow(
               leading: Icon(AppIcons.infoOutline),
-              title: const Text('Current sync state'),
-              subtitle: Text(syncStatus.isSyncing ? 'Syncing…' : 'Idle'),
+              title: Text(context.l10n.syncTroubleshootingCurrentState),
+              subtitle: Text(syncStatus.isSyncing ? context.l10n.syncTroubleshootingSyncing : context.l10n.syncTroubleshootingIdle),
             ),
             if (syncStatus.pendingOps > 0)
               PrismListRow(
                 leading: Icon(AppIcons.pendingOutlined),
-                title: const Text('Pending operations'),
-                subtitle: Text('${syncStatus.pendingOps} ops waiting to sync'),
+                title: Text(context.l10n.syncTroubleshootingPendingOps),
+                subtitle: Text(context.l10n.syncTroubleshootingPendingOpsValue(syncStatus.pendingOps)),
               ),
             if (syncId != null && syncId.isNotEmpty)
               PrismListRow(
                 leading: Icon(AppIcons.tag),
-                title: const Text('Sync ID'),
+                title: Text(context.l10n.syncTroubleshootingSyncId),
                 subtitle: Text(
                   syncId,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -193,7 +194,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             if (relayUrl != null && relayUrl.isNotEmpty)
               PrismListRow(
                 leading: Icon(AppIcons.link),
-                title: const Text('Relay URL'),
+                title: Text(context.l10n.syncTroubleshootingRelayUrl),
                 subtitle: Text(
                   relayUrl,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -205,14 +206,14 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             const Divider(height: 32, indent: 16, endIndent: 16),
 
             // -- Actions --
-            const _SectionHeader(title: 'Actions'),
+            _SectionHeader(title: context.l10n.syncTroubleshootingActions),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: PrismButton(
                 onPressed: syncNowCallback ?? () {},
                 enabled: syncNowCallback != null,
                 icon: AppIcons.sync,
-                label: 'Force Sync',
+                label: context.l10n.syncTroubleshootingForceSync,
                 tone: PrismButtonTone.filled,
               ),
             ),
@@ -221,7 +222,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               child: PrismButton(
                 onPressed: () => context.push(AppRoutePaths.settingsSyncDebug),
                 icon: AppIcons.receiptLongOutlined,
-                label: 'Open Sync Event Log',
+                label: context.l10n.syncTroubleshootingOpenEventLog,
                 tone: PrismButtonTone.outlined,
               ),
             ),
@@ -231,7 +232,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                 onPressed: () => _confirmReset(context, ref),
                 enabled: isConfigured || hasActiveHandle,
                 icon: AppIcons.restartAlt,
-                label: 'Reset Sync System',
+                label: context.l10n.syncTroubleshootingResetSync,
                 tone: PrismButtonTone.destructive,
               ),
             ),
@@ -241,48 +242,38 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                 onPressed: () => _confirmRepair(context, ref),
                 enabled: isConfigured || hasActiveHandle,
                 icon: AppIcons.personOffOutlined,
-                label: 'Re-pair Device',
+                label: context.l10n.syncTroubleshootingRepair,
                 tone: PrismButtonTone.destructive,
               ),
             ),
             const Divider(height: 32, indent: 16, endIndent: 16),
 
             // -- Common Issues --
-            const _SectionHeader(title: 'Common Issues'),
+            _SectionHeader(title: context.l10n.syncTroubleshootingCommonIssues),
             _TroubleshootingTile(
               icon: AppIcons.syncProblem,
-              title: 'Sync not working?',
-              description:
-                  'Check that your relay URL and sync ID are correctly configured '
-                  'in Sync settings. Both devices must use the same sync ID.',
+              title: context.l10n.syncTroubleshootingIssue1Title,
+              description: context.l10n.syncTroubleshootingIssue1Description,
             ),
             _TroubleshootingTile(
               icon: AppIcons.copyAll,
-              title: 'Duplicate data?',
-              description:
-                  'Try resetting the sync system using the button above. This '
-                  'wipes local sync setup and lets you pair again cleanly.',
+              title: context.l10n.syncTroubleshootingIssue2Title,
+              description: context.l10n.syncTroubleshootingIssue2Description,
             ),
             _TroubleshootingTile(
               icon: AppIcons.wifiOff,
-              title: 'Connection errors?',
-              description:
-                  'Verify that your device has network access and that the relay '
-                  'server is online. Check the relay URL for typos.',
+              title: context.l10n.syncTroubleshootingIssue3Title,
+              description: context.l10n.syncTroubleshootingIssue3Description,
             ),
             _TroubleshootingTile(
               icon: AppIcons.speed,
-              title: 'Sync is slow?',
-              description:
-                  'Initial sync may take longer with large datasets. Subsequent '
-                  'syncs are incremental and should be faster.',
+              title: context.l10n.syncTroubleshootingIssue4Title,
+              description: context.l10n.syncTroubleshootingIssue4Description,
             ),
             _TroubleshootingTile(
               icon: AppIcons.personOffOutlined,
-              title: 'Device Identity Mismatch',
-              description:
-                  'If pairing failed mid-way, your device identity may be inconsistent. '
-                  'Use "Re-pair Device" to generate a fresh identity and pair again.',
+              title: context.l10n.syncTroubleshootingIssue5Title,
+              description: context.l10n.syncTroubleshootingIssue5Description,
             ),
           ],
         ),
@@ -298,11 +289,11 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     try {
       await ffi.syncNow(handle: handle);
       if (context.mounted) {
-        PrismToast.show(context, message: 'Sync finished');
+        PrismToast.show(context, message: context.l10n.syncTroubleshootingFinished);
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context, message: 'Sync failed: $e');
+        PrismToast.error(context, message: context.l10n.syncTroubleshootingFailed(e));
       }
     }
   }
@@ -310,12 +301,9 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
   void _confirmReset(BuildContext context, WidgetRef ref) {
     PrismDialog.confirm(
       context: context,
-      title: 'Reset sync system?',
-      message:
-          'This keeps your local app data, but wipes sync keys, relay '
-          'configuration, device identity, and sync history from this device. '
-          'You will need to set up sync again afterward.',
-      confirmLabel: 'Reset',
+      title: context.l10n.syncTroubleshootingResetTitle,
+      message: context.l10n.syncTroubleshootingResetMessage,
+      confirmLabel: context.l10n.syncTroubleshootingResetConfirm,
       destructive: true,
     ).then((confirmed) async {
       if (!confirmed) return;
@@ -323,7 +311,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
           .read(resetDataNotifierProvider.notifier)
           .reset(ResetCategory.sync);
       if (!context.mounted) return;
-      PrismToast.show(context, message: 'Sync system reset');
+      PrismToast.show(context, message: context.l10n.syncTroubleshootingResetSuccess);
     });
   }
 
@@ -337,23 +325,20 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
           ),
           backgroundColor: Theme.of(dialogContext).colorScheme.surface,
           child: PrismDialog(
-            title: 'Re-pair Device?',
-            message:
-                'This will clear your sync credentials and require you to '
-                'pair again. Any local changes not yet synced will be lost.\n\n'
-                'We recommend exporting your data first as a safety net.',
+            title: context.l10n.syncTroubleshootingRepairTitle,
+            message: context.l10n.syncTroubleshootingRepairMessage,
             actions: [
               PrismButton(
-                label: 'Cancel',
+                label: context.l10n.cancel,
                 onPressed: () => Navigator.of(dialogContext).pop(),
               ),
               PrismButton(
-                label: 'Re-pair Now',
+                label: context.l10n.syncTroubleshootingRepairNow,
                 onPressed: () => Navigator.of(dialogContext).pop('repair'),
                 tone: PrismButtonTone.destructive,
               ),
               PrismButton(
-                label: 'Export Data First',
+                label: context.l10n.syncTroubleshootingExportFirst,
                 onPressed: () => Navigator.of(dialogContext).pop('export'),
                 tone: PrismButtonTone.filled,
               ),
@@ -373,7 +358,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
           .read(resetDataNotifierProvider.notifier)
           .reset(ResetCategory.sync);
       if (!context.mounted) return;
-      PrismToast.show(context, message: 'Sync credentials cleared');
+      PrismToast.show(context, message: context.l10n.syncTroubleshootingCredentialsCleared);
       context.go(AppRoutePaths.syncSetup);
     });
   }

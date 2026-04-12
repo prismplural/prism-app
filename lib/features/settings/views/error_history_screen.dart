@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Displays the in-memory error history with severity-coded entries.
 class ErrorHistoryScreen extends ConsumerWidget {
@@ -24,12 +25,12 @@ class ErrorHistoryScreen extends ConsumerWidget {
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Error History',
+        title: context.l10n.errorHistoryTitle,
         showBackButton: true,
         trailing: errors.isNotEmpty
             ? PrismTopBarAction(
                 icon: AppIcons.deleteOutline,
-                tooltip: 'Clear History',
+                tooltip: context.l10n.errorHistoryClear,
                 onPressed: () {
                   ref.read(errorHistoryProvider.notifier).clear();
                 },
@@ -68,14 +69,14 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'No errors recorded',
+            context.l10n.errorHistoryEmpty,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Errors will appear here when they occur',
+            context.l10n.errorHistoryEmptySubtitle,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -101,7 +102,7 @@ class _ErrorTileState extends State<_ErrorTile> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dateFormat = DateFormat('MMM d, h:mm:ss a');
+    final dateFormat = DateFormat('MMM d, h:mm:ss a', context.dateLocale);
 
     return Column(
       children: [
@@ -124,7 +125,7 @@ class _ErrorTileState extends State<_ErrorTile> {
               PrismInlineIconButton(
                 icon: AppIcons.copy,
                 iconSize: 18,
-                tooltip: 'Copy error details',
+                tooltip: context.l10n.errorHistoryCopyTooltip,
                 onPressed: () => _copyError(context),
               ),
               if (widget.error.stackTrace != null)
@@ -174,7 +175,7 @@ class _ErrorTileState extends State<_ErrorTile> {
     }
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
-    PrismToast.show(context, message: 'Error details copied');
+    PrismToast.show(context, message: context.l10n.errorHistoryCopied);
   }
 
   Widget _severityIcon(ErrorSeverity severity, ThemeData theme) {

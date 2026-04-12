@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
@@ -54,9 +55,9 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     final setupState = ref.watch(syncSetupProvider);
 
     final title = switch (setupState.step) {
-      SyncSetupStep.intro => 'Set Up Sync',
-      SyncSetupStep.password => 'Create Password',
-      SyncSetupStep.secretKey => 'Your Secret Key',
+      SyncSetupStep.intro => context.l10n.syncSetupIntroTitle,
+      SyncSetupStep.password => context.l10n.syncSetupPasswordTitle,
+      SyncSetupStep.secretKey => context.l10n.syncSetupSecretKeyTitle,
     };
 
     return PopScope(
@@ -88,7 +89,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
                     if (!url.startsWith('https://')) {
                       setState(
                         () => _relayUrlError =
-                            'Relay URL must start with https://',
+                            context.l10n.syncSetupRelayUrlError,
                       );
                       return;
                     }
@@ -138,11 +139,11 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     final confirm = _confirmPasswordController.text;
 
     if (password.length < 8) {
-      setState(() => _passwordError = 'Password must be at least 8 characters');
+      setState(() => _passwordError = context.l10n.syncSetupPasswordTooShort);
       return;
     }
     if (password != confirm) {
-      setState(() => _passwordError = 'Passwords do not match');
+      setState(() => _passwordError = context.l10n.syncSetupPasswordMismatch);
       return;
     }
 
@@ -193,15 +194,13 @@ class _IntroStep extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Text(
-            'Keep your data in sync across all your devices.',
+            context.l10n.syncSetupIntroHeadline,
             style: theme.textTheme.headlineSmall,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Text(
-            'Everything is end-to-end encrypted — the server never sees '
-            'your data. You\'ll create a password and receive a recovery '
-            'key to keep safe.',
+            context.l10n.syncSetupIntroBody,
             style: theme.textTheme.bodyLarge?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -220,7 +219,7 @@ class _IntroStep extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Self-hosted relay?',
+                  context.l10n.syncSetupSelfHosted,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -232,7 +231,7 @@ class _IntroStep extends StatelessWidget {
             const SizedBox(height: 12),
             PrismTextField(
               controller: relayUrlController,
-              labelText: 'Relay URL',
+              labelText: context.l10n.syncSetupRelayUrlLabel,
               hintText: AppConstants.defaultRelayUrl,
               keyboardType: TextInputType.url,
             ),
@@ -248,13 +247,13 @@ class _IntroStep extends StatelessWidget {
             const SizedBox(height: 12),
             PrismTextField(
               controller: registrationTokenController,
-              labelText: 'Registration token',
-              hintText: 'Optional',
+              labelText: context.l10n.syncSetupRegistrationToken,
+              hintText: context.l10n.syncSetupRegistrationTokenHint,
               obscureText: true,
             ),
             const SizedBox(height: 4),
             Text(
-              'Required if your relay has registration gating enabled.',
+              context.l10n.syncSetupRegistrationTokenHelp,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -262,7 +261,7 @@ class _IntroStep extends StatelessWidget {
           ],
           const SizedBox(height: 32),
           PrismButton(
-            label: 'Set up sync',
+            label: context.l10n.syncSetupButton,
             icon: AppIcons.arrowForward,
             tone: PrismButtonTone.filled,
             onPressed: onContinue,
@@ -306,12 +305,12 @@ class _PasswordStep extends StatelessWidget {
         children: [
           const SizedBox(height: 32),
           Text(
-            'Create a password to protect your encryption keys.',
+            context.l10n.syncSetupPasswordIntro,
             style: theme.textTheme.bodyLarge,
           ),
           const SizedBox(height: 8),
           Text(
-            'You\'ll need this password each time you set up a new device.',
+            context.l10n.syncSetupPasswordHelp,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -319,7 +318,7 @@ class _PasswordStep extends StatelessWidget {
           const SizedBox(height: 32),
           PrismTextField(
             controller: passwordController,
-            labelText: 'Password',
+            labelText: context.l10n.syncSetupPasswordLabel,
             obscureText: obscurePassword,
             keyboardType: TextInputType.visiblePassword,
             textInputAction: TextInputAction.next,
@@ -327,14 +326,14 @@ class _PasswordStep extends StatelessWidget {
               icon: obscurePassword
                   ? AppIcons.visibilityOff
                   : AppIcons.visibility,
-              tooltip: obscurePassword ? 'Show password' : 'Hide password',
+              tooltip: obscurePassword ? context.l10n.syncShowPassword : context.l10n.syncHidePassword,
               onPressed: onTogglePasswordVisibility,
             ),
           ),
           const SizedBox(height: 16),
           PrismTextField(
             controller: confirmPasswordController,
-            labelText: 'Confirm password',
+            labelText: context.l10n.syncSetupConfirmPasswordLabel,
             obscureText: obscureConfirmPassword,
             keyboardType: TextInputType.visiblePassword,
             textInputAction: TextInputAction.done,
@@ -343,8 +342,8 @@ class _PasswordStep extends StatelessWidget {
                   ? AppIcons.visibilityOff
                   : AppIcons.visibility,
               tooltip: obscureConfirmPassword
-                  ? 'Show password'
-                  : 'Hide password',
+                  ? context.l10n.syncShowPassword
+                  : context.l10n.syncHidePassword,
               onPressed: onToggleConfirmPasswordVisibility,
             ),
             onSubmitted: (_) => onContinue(),
@@ -360,7 +359,7 @@ class _PasswordStep extends StatelessWidget {
           ],
           const SizedBox(height: 32),
           PrismButton(
-            label: 'Continue',
+            label: context.l10n.syncSetupContinueButton,
             icon: AppIcons.arrowForward,
             tone: PrismButtonTone.filled,
             onPressed: onContinue,
@@ -391,12 +390,12 @@ class _SecretKeyStep extends StatelessWidget {
   final ValueChanged<bool> onHasSavedChanged;
   final VoidCallback onComplete;
 
-  String? get _progressLabel => switch (currentProgress) {
-    SyncSetupProgress.creatingGroup => 'Creating sync group...',
-    SyncSetupProgress.configuringEngine => 'Configuring encryption...',
-    SyncSetupProgress.cachingKeys => 'Securing keys...',
-    SyncSetupProgress.bootstrappingData => 'Uploading your data...',
-    SyncSetupProgress.syncing => 'Syncing...',
+  String? _progressLabel(BuildContext context) => switch (currentProgress) {
+    SyncSetupProgress.creatingGroup => context.l10n.syncSetupProgressCreatingGroup,
+    SyncSetupProgress.configuringEngine => context.l10n.syncSetupProgressConfiguringEngine,
+    SyncSetupProgress.cachingKeys => context.l10n.syncSetupProgressCachingKeys,
+    SyncSetupProgress.bootstrappingData => context.l10n.syncSetupProgressBootstrapping,
+    SyncSetupProgress.syncing => context.l10n.syncSetupProgressSyncing,
     null => null,
   };
 
@@ -425,17 +424,17 @@ class _SecretKeyStep extends StatelessWidget {
           ],
           const SizedBox(height: 16),
           PrismButton(
-            label: 'Complete setup',
+            label: context.l10n.syncSetupCompleteButton,
             icon: AppIcons.check,
             tone: PrismButtonTone.filled,
             enabled: hasSaved,
             isLoading: isProcessing,
             onPressed: onComplete,
           ),
-          if (isProcessing && _progressLabel != null) ...[
+          if (isProcessing && _progressLabel(context) != null) ...[
             const SizedBox(height: 16),
             Text(
-              _progressLabel!,
+              _progressLabel(context)!,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

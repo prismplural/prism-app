@@ -29,6 +29,7 @@ import 'package:prism_plurality/features/settings/widgets/change_password_sheet.
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -136,12 +137,12 @@ class SyncSettingsScreen extends ConsumerWidget {
 
     if (syncHealth == SyncHealthState.disconnected) {
       return PrismPageScaffold(
-        topBar: const PrismTopBar(title: 'Sync', showBackButton: true),
+        topBar: PrismTopBar(title: context.l10n.syncTitle, showBackButton: true),
         body: _StateMessageView(
           icon: AppIcons.syncDisabled,
-          title: 'Sync was disconnected',
-          message: 'Set up sync again to reconnect your devices.',
-          actionLabel: 'Set Up Sync',
+          title: context.l10n.syncDisconnectedTitle,
+          message: context.l10n.syncDisconnectedMessage,
+          actionLabel: context.l10n.syncSetUpSyncButton,
           onAction: () => context.push(AppRoutePaths.syncSetup),
         ),
       );
@@ -150,9 +151,9 @@ class SyncSettingsScreen extends ConsumerWidget {
     if ((relayUrlAsync.isLoading || syncIdAsync.isLoading) &&
         !relayUrlAsync.hasValue &&
         !syncIdAsync.hasValue) {
-      return const PrismPageScaffold(
-        topBar: PrismTopBar(title: 'Sync', showBackButton: true),
-        body: PrismLoadingState(),
+      return PrismPageScaffold(
+        topBar: PrismTopBar(title: context.l10n.syncTitle, showBackButton: true),
+        body: const PrismLoadingState(),
       );
     }
 
@@ -164,12 +165,12 @@ class SyncSettingsScreen extends ConsumerWidget {
 
     if (loadError != null && !isConfigured) {
       return PrismPageScaffold(
-        topBar: const PrismTopBar(title: 'Sync', showBackButton: true),
+        topBar: PrismTopBar(title: context.l10n.syncTitle, showBackButton: true),
         body: _StateMessageView(
           icon: AppIcons.syncProblem,
-          title: 'Unable to load sync settings',
+          title: context.l10n.syncUnableToLoad,
           message: '$loadError',
-          actionLabel: 'Try again',
+          actionLabel: context.l10n.tryAgain,
           onAction: () {
             ref.invalidate(relayUrlProvider);
             ref.invalidate(syncIdProvider);
@@ -179,7 +180,7 @@ class SyncSettingsScreen extends ConsumerWidget {
     }
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Sync', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.syncTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: isConfigured
           ? SyncToastListener(
@@ -210,14 +211,13 @@ class _SetupView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Sync is not set up',
+              context.l10n.syncNotSetUp,
               style: theme.textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Set up end-to-end encrypted sync to keep your data '
-              'in sync across all your devices.',
+              context.l10n.syncNotSetUpDescription,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -225,7 +225,7 @@ class _SetupView extends StatelessWidget {
             ),
             const SizedBox(height: 32),
             PrismButton(
-              label: 'Set Up Sync',
+              label: context.l10n.syncSetupButton,
               icon: AppIcons.lockOutline,
               tone: PrismButtonTone.filled,
               onPressed: () => context.push(AppRoutePaths.syncSetup),
@@ -334,10 +334,10 @@ class _ConfiguredView extends ConsumerWidget {
               children: [
                 PrismSettingsRow(
                   icon: AppIcons.sync,
-                  title: 'Sync now',
+                  title: context.l10n.syncNowTitle,
                   subtitle: isSyncActive
-                      ? 'Syncing…'
-                      : 'Check for changes and push local updates',
+                      ? context.l10n.syncInProgress
+                      : context.l10n.syncNowSubtitle,
                   showChevron: false,
                   enabled: canSyncNow,
                   trailing: isSyncActive
@@ -355,15 +355,15 @@ class _ConfiguredView extends ConsumerWidget {
                   const Divider(height: 1),
                   PrismSettingsRow(
                     icon: AppIcons.devices,
-                    title: 'Set up another device',
-                    subtitle: 'Generate a pairing QR code',
+                    title: context.l10n.syncSetUpAnotherDevice,
+                    subtitle: context.l10n.syncSetUpAnotherDeviceSubtitle,
                     onTap: () => SetupDeviceSheet.show(context, ref),
                   ),
                   const Divider(height: 1),
                   PrismSettingsRow(
                     icon: AppIcons.devicesOther,
-                    title: 'Manage Devices',
-                    subtitle: 'View and revoke linked devices',
+                    title: context.l10n.syncManageDevices,
+                    subtitle: context.l10n.syncManageDevicesSubtitle,
                     onTap: () => context.push(AppRoutePaths.settingsDevices),
                   ),
                 ],
@@ -371,16 +371,16 @@ class _ConfiguredView extends ConsumerWidget {
                   const Divider(height: 1),
                   PrismSettingsRow(
                     icon: AppIcons.passwordOutlined,
-                    title: 'Change Password',
-                    subtitle: 'Update your sync encryption password',
+                    title: context.l10n.syncChangePassword,
+                    subtitle: context.l10n.syncChangePasswordSubtitle,
                     enabled: !isSyncActive,
                     onTap: () => ChangePasswordSheet.show(context),
                   ),
                   const Divider(height: 1),
                   PrismSettingsRow(
                     icon: AppIcons.key,
-                    title: 'View Secret Key',
-                    subtitle: 'Show your 12-word recovery phrase',
+                    title: context.l10n.syncViewSecretKey,
+                    subtitle: context.l10n.syncViewSecretKeySubtitle,
                     onTap: () => _showSecretKey(context),
                   ),
                 ],
@@ -391,9 +391,8 @@ class _ConfiguredView extends ConsumerWidget {
 
         // Sync preferences — centralises sync-behaviour toggles from other screens
         PrismSection(
-          title: 'Sync Preferences',
-          description:
-              'Control what settings are shared across your devices via sync.',
+          title: context.l10n.syncPreferencesSection,
+          description: context.l10n.syncPreferencesDescription,
           child: PrismSectionCard(
             padding: EdgeInsets.zero,
             child: Column(
@@ -409,10 +408,8 @@ class _ConfiguredView extends ConsumerWidget {
         // Quarantine section — only visible when there are stuck records
         if (syncStatus.hasQuarantinedItems)
           PrismSection(
-            title: 'Sync Issues',
-            description:
-                'These records could not be applied due to data type '
-                'mismatches. Clearing them removes the warning indicator.',
+            title: context.l10n.syncIssuesSection,
+            description: context.l10n.syncIssuesDescription,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: Column(
@@ -427,7 +424,7 @@ class _ConfiguredView extends ConsumerWidget {
                       quarantinedAsync.value!.isNotEmpty)
                     const Divider(height: 1),
                   PrismListRow(
-                    title: const Text('Clear all'),
+                    title: Text(context.l10n.syncClearAll),
                     destructive: true,
                     onTap: () async {
                       await ref.read(syncQuarantineServiceProvider).clearAll();
@@ -444,19 +441,19 @@ class _ConfiguredView extends ConsumerWidget {
 
         // Connection details — always visible, no toggle
         PrismSection(
-          title: 'Details',
+          title: context.l10n.syncDetailsSection,
           child: PrismSectionCard(
             child: Column(
               children: [
                 _SyncEntityCountRows(),
                 const Divider(height: 1),
-                _DetailRow(label: 'Relay', value: relayUrl),
+                _DetailRow(label: context.l10n.syncRelayLabel, value: relayUrl),
                 const Divider(height: 1),
-                _DetailRow(label: 'Sync ID', value: syncId),
+                _DetailRow(label: context.l10n.syncIdLabel, value: syncId),
                 const Divider(height: 1),
                 _DetailRow(
-                  label: 'Node ID',
-                  value: nodeId ?? 'Not initialised',
+                  label: context.l10n.syncNodeIdLabel,
+                  value: nodeId ?? context.l10n.syncNodeIdNotInitialised,
                 ),
                 if (syncStatus.lastError != null) ...[
                   const Divider(height: 1),
@@ -474,7 +471,7 @@ class _ConfiguredView extends ConsumerWidget {
                 const Divider(height: 1),
                 PrismSettingsRow(
                   icon: AppIcons.buildCircleOutlined,
-                  title: 'Troubleshooting',
+                  title: context.l10n.syncTroubleshootingLink,
                   onTap: () =>
                       context.push(AppRoutePaths.settingsSyncTroubleshooting),
                 ),
@@ -501,11 +498,11 @@ class _ConfiguredView extends ConsumerWidget {
       }
       await ffi.syncNow(handle: handle);
       if (context.mounted) {
-        PrismToast.show(context, message: 'Sync finished');
+        PrismToast.show(context, message: context.l10n.syncFinished);
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context, message: 'Sync failed: $e');
+        PrismToast.error(context, message: context.l10n.syncFailed(e));
       }
     }
   }
@@ -563,7 +560,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
         if (!mounted) return;
         setState(() {
           _isLoading = false;
-          _error = 'Secret Key not found in keychain.';
+          _error = context.l10n.syncSecretKeyNotFound;
         });
         return;
       }
@@ -586,7 +583,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
         if (!mounted) return;
         setState(() {
           _isLoading = false;
-          _error = 'Sync engine not available.';
+          _error = context.l10n.syncEngineNotAvailable;
         });
         return;
       }
@@ -602,7 +599,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
         if (!mounted) return;
         setState(() {
           _isLoading = false;
-          _error = 'Incorrect password. Please try again.';
+          _error = context.l10n.syncIncorrectPassword;
         });
         return;
       }
@@ -616,7 +613,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'An error occurred: $e';
+        _error = context.l10n.syncAnErrorOccurred(e);
       });
     }
   }
@@ -630,7 +627,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: _mnemonic != null ? 'Secret Key' : 'Verify Password',
+            title: _mnemonic != null ? context.l10n.syncSecretKeyTitle : context.l10n.syncVerifyPasswordTitle,
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -661,7 +658,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Enter your sync password to reveal your 12-word recovery phrase.',
+                          context.l10n.syncVerifyPasswordPrompt,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.6,
@@ -676,14 +673,14 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
                           autofocus: true,
                           enabled: !_isLoading,
                           onSubmitted: (_) => _verifyAndReveal(),
-                          hintText: 'Sync password',
+                          hintText: context.l10n.syncPasswordHint,
                           suffix: PrismFieldIconButton(
                             icon: _obscure
                                 ? AppIcons.visibilityOff
                                 : AppIcons.visibility,
                             tooltip: _obscure
-                                ? 'Show password'
-                                : 'Hide password',
+                                ? context.l10n.syncShowPassword
+                                : context.l10n.syncHidePassword,
                             onPressed: () =>
                                 setState(() => _obscure = !_obscure),
                           ),
@@ -691,7 +688,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
                         ),
                         const SizedBox(height: 16),
                         PrismButton(
-                          label: 'Reveal Secret Key',
+                          label: context.l10n.syncRevealSecretKey,
                           onPressed: _verifyAndReveal,
                           isLoading: _isLoading,
                         ),
@@ -713,8 +710,8 @@ class _SyncThemeToggle extends ConsumerWidget {
     return PrismSwitchRow(
       icon: AppIcons.paletteOutlined,
       iconColor: Colors.deepPurple,
-      title: 'Sync theme across devices',
-      subtitle: 'Share brightness, style, and accent color via sync',
+      title: context.l10n.appearanceSyncThemeTitle,
+      subtitle: context.l10n.appearanceSyncThemeSubtitle,
       value: value,
       onChanged: (v) =>
           ref.read(settingsNotifierProvider.notifier).updateSyncThemeEnabled(v),
@@ -730,8 +727,8 @@ class _SyncNavigationToggle extends ConsumerWidget {
     return PrismSwitchRow(
       icon: AppIcons.tabOutlined,
       iconColor: Colors.teal,
-      title: 'Sync navigation layout',
-      subtitle: 'Share tab arrangement across devices',
+      title: context.l10n.syncNavigationLayoutTitle,
+      subtitle: context.l10n.syncNavigationLayoutSubtitle,
       value: value,
       onChanged: (v) => ref
           .read(settingsNotifierProvider.notifier)
@@ -775,18 +772,18 @@ class _SyncEntityCountRows extends ConsumerWidget {
       data: (counts) => Column(
         children: [
           _DetailRow(
-            label: 'Synced last 24h',
-            value: '${counts.last24h} entities',
+            label: context.l10n.syncLast24h,
+            value: context.l10n.syncEntitiesCount(counts.last24h),
           ),
           const Divider(height: 1),
-          _DetailRow(label: 'Total synced', value: '${counts.total} entities'),
+          _DetailRow(label: context.l10n.syncTotal, value: context.l10n.syncEntitiesCount(counts.total)),
         ],
       ),
-      loading: () => const Column(
+      loading: () => Column(
         children: [
-          _DetailRow(label: 'Synced last 24h', value: '...'),
-          Divider(height: 1),
-          _DetailRow(label: 'Total synced', value: '...'),
+          _DetailRow(label: context.l10n.syncLast24h, value: '...'),
+          const Divider(height: 1),
+          _DetailRow(label: context.l10n.syncTotal, value: '...'),
         ],
       ),
       error: (_, _) => const SizedBox.shrink(),
@@ -830,34 +827,34 @@ class _StatusCard extends StatelessWidget {
     if (syncStatus.lastError != null) {
       statusColor = theme.colorScheme.error;
       statusIcon = AppIcons.syncProblem;
-      statusText = 'Sync error';
+      statusText = context.l10n.syncStatusError;
       statusDetail = syncStatus.lastError!;
     } else if (syncStatus.isSyncing) {
       statusColor = theme.colorScheme.primary;
       statusIcon = AppIcons.sync;
-      statusText = 'Syncing';
-      statusDetail = 'Sync in progress…';
+      statusText = context.l10n.syncStatusSyncing;
+      statusDetail = context.l10n.syncStatusSyncInProgress;
     } else if (syncStatus.lastSyncAt != null &&
         syncStatus.hasQuarantinedItems) {
       statusColor = Colors.amber.shade700;
       statusIcon = AppIcons.cloudDone;
-      statusText = 'Synced with issues';
-      statusDetail = _formatTime(syncStatus.lastSyncAt!);
+      statusText = context.l10n.syncStatusSyncedWithIssues;
+      statusDetail = _formatTime(syncStatus.lastSyncAt!, context);
     } else if (syncStatus.lastSyncAt != null) {
       statusColor = Colors.green;
       statusIcon = AppIcons.cloudDone;
-      statusText = 'Last synced';
-      statusDetail = _formatTime(syncStatus.lastSyncAt!);
+      statusText = context.l10n.syncStatusLastSynced;
+      statusDetail = _formatTime(syncStatus.lastSyncAt!, context);
     } else if (hasActiveHandle) {
       statusColor = theme.colorScheme.primary;
       statusIcon = AppIcons.cloudQueue;
-      statusText = 'Ready to sync';
-      statusDetail = 'Waiting for changes.';
+      statusText = context.l10n.syncStatusReadyToSync;
+      statusDetail = context.l10n.syncStatusWaiting;
     } else {
       statusColor = theme.colorScheme.outline;
       statusIcon = AppIcons.cloudOff;
-      statusText = 'Needs reconnect';
-      statusDetail = 'Tap Sync Now to reconnect.';
+      statusText = context.l10n.syncStatusNeedsReconnect;
+      statusDetail = context.l10n.syncStatusTapToReconnect;
     }
 
     return Padding(
@@ -913,8 +910,8 @@ class _StatusCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           wsConnected
-                              ? 'Real-time connected'
-                              : 'Real-time disconnected',
+                              ? context.l10n.syncRealTimeConnected
+                              : context.l10n.syncRealTimeDisconnected,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: wsConnected
                                 ? Colors.green
@@ -933,11 +930,11 @@ class _StatusCard extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime time) {
+  String _formatTime(DateTime time, BuildContext context) {
     final diff = DateTime.now().difference(time);
-    if (diff.inSeconds < 60) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inSeconds < 60) return context.l10n.syncJustNow;
+    if (diff.inMinutes < 60) return context.l10n.syncMinutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return context.l10n.syncHoursAgo(diff.inHours);
+    return context.l10n.syncDaysAgo(diff.inDays);
   }
 }

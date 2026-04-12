@@ -14,16 +14,17 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-/// Reminder interval options in minutes.
-const _reminderIntervals = <int, String>{
-  15: '15 minutes',
-  30: '30 minutes',
-  60: '1 hour',
-  120: '2 hours',
-  240: '4 hours',
-  480: '8 hours',
+/// Reminder interval options in minutes — built dynamically with l10n.
+Map<int, String> _reminderIntervals(BuildContext context) => {
+  15: context.l10n.notificationsInterval15m,
+  30: context.l10n.notificationsInterval30m,
+  60: context.l10n.notificationsInterval1h,
+  120: context.l10n.notificationsInterval2h,
+  240: context.l10n.notificationsInterval4h,
+  480: context.l10n.notificationsInterval8h,
 };
 
 /// Screen for configuring fronting reminder notifications.
@@ -44,7 +45,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
     final hasPermission = permissionAsync.value ?? false;
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Notifications', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.notificationsTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -61,8 +62,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   PrismSwitchRow(
-                    title: 'Fronting reminders',
-                    subtitle: 'Get reminded to log fronting changes',
+                    title: context.l10n.notificationsFrontingRemindersTitle,
+                    subtitle: context.l10n.notificationsFrontingRemindersSubtitle,
                     value: frontingRemindersEnabled,
                     onChanged: (value) {
                       ref
@@ -73,17 +74,17 @@ class NotificationSettingsScreen extends ConsumerWidget {
                   if (frontingRemindersEnabled) ...[
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     PrismListRow(
-                      title: const Text('Reminder interval'),
-                      subtitle: const Text('How often to send reminders'),
+                      title: Text(context.l10n.notificationsReminderIntervalTitle),
+                      subtitle: Text(context.l10n.notificationsReminderIntervalSubtitle),
                       trailing: PrismSelect<int>.compact(
                         value:
-                            _reminderIntervals.containsKey(
+                            _reminderIntervals(context).containsKey(
                               frontingReminderInterval,
                             )
                             ? frontingReminderInterval
                             : 60,
                         menuWidth: 180,
-                        items: _reminderIntervals.entries
+                        items: _reminderIntervals(context).entries
                             .map(
                               (e) =>
                                   PrismSelectItem(value: e.key, label: e.value),
@@ -114,10 +115,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             child: Text(
-              'Fronting reminders send periodic notifications to help you '
-              'stay aware of who is fronting. This can be useful for '
-              'logging switches and maintaining awareness throughout '
-              'the day.',
+              context.l10n.notificationsAboutText,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -145,13 +143,13 @@ class _ChatBadgeSection extends ConsumerWidget {
         memberAsync.whenOrNull(data: (m) => m?.name) ?? 'current member';
 
     return PrismSection(
-      title: 'Chat Notifications',
+      title: context.l10n.notificationsChatSection,
       child: PrismSectionCard(
         child: PrismSwitchRow(
-          title: 'Badge for all messages',
+          title: context.l10n.notificationsBadgeAllMessages,
           subtitle: isMentionsOnly
-              ? 'Only @mentions will badge for $memberName'
-              : 'All new messages will badge for $memberName',
+              ? context.l10n.notificationsBadgeMentionsOnly(memberName)
+              : context.l10n.notificationsBadgeAllFor(memberName),
           value: !isMentionsOnly,
           onChanged: (value) {
             final newPrefs = Map<String, String>.from(badgePrefs);
@@ -179,8 +177,8 @@ class _NotificationPermissionTile extends ConsumerWidget {
     final permissionAsync = ref.watch(notificationPermissionProvider);
 
     return permissionAsync.when(
-      loading: () => const PrismListRow(
-        title: Text('Permission status'),
+      loading: () => PrismListRow(
+        title: Text(context.l10n.notificationsPermissionStatus),
         trailing: SizedBox(
           width: 16,
           height: 16,
@@ -192,7 +190,7 @@ class _NotificationPermissionTile extends ConsumerWidget {
           AppIcons.errorOutline,
           color: Theme.of(context).colorScheme.error,
         ),
-        title: const Text('Could not check permissions'),
+        title: Text(context.l10n.notificationsCouldNotCheck),
       ),
       data: (granted) {
         if (granted) {
@@ -201,8 +199,8 @@ class _NotificationPermissionTile extends ConsumerWidget {
               AppIcons.checkCircle,
               color: Theme.of(context).colorScheme.primary,
             ),
-            title: const Text('Notifications enabled'),
-            subtitle: const Text('Permission granted'),
+            title: Text(context.l10n.notificationsEnabled),
+            subtitle: Text(context.l10n.notificationsPermissionGranted),
           );
         }
 
@@ -211,10 +209,10 @@ class _NotificationPermissionTile extends ConsumerWidget {
             AppIcons.warningAmberRounded,
             color: Theme.of(context).colorScheme.error,
           ),
-          title: const Text('Notifications not enabled'),
-          subtitle: const Text('Permission required for reminders'),
+          title: Text(context.l10n.notificationsNotEnabled),
+          subtitle: Text(context.l10n.notificationsPermissionRequired),
           trailing: PrismButton(
-            label: 'Request',
+            label: context.l10n.notificationsRequest,
             onPressed: () async {
               final service = ref.read(frontingNotificationServiceProvider);
               await service.requestPermission();

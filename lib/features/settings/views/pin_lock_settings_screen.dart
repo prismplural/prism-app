@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
@@ -86,15 +87,15 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     final biometricAvailable = biometricAvailableAsync.value ?? false;
 
     if (!settingsLoaded) {
-      return const PrismPageScaffold(
-        topBar: PrismTopBar(title: 'Privacy & Security', showBackButton: true),
-        body: Center(child: CircularProgressIndicator()),
+      return PrismPageScaffold(
+        topBar: PrismTopBar(title: context.l10n.privacySecurityTitle, showBackButton: true),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(
-        title: 'Privacy & Security',
+      topBar: PrismTopBar(
+        title: context.l10n.privacySecurityTitle,
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -103,15 +104,15 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
         children: [
           // PIN toggle
           PrismSection(
-            title: 'PIN Lock',
+            title: context.l10n.pinLockSection,
             child: PrismSectionCard(
               child: Column(
                 children: [
                   PrismSwitchRow(
                     icon: AppIcons.lockOutline,
                     iconColor: Colors.indigo,
-                    title: 'Enable PIN Lock',
-                    subtitle: 'Require a PIN to open the app',
+                    title: context.l10n.pinLockEnableTitle,
+                    subtitle: context.l10n.pinLockEnableSubtitle,
                     value: isPinEnabled && pinSet,
                     onChanged: (value) {
                       if (value) {
@@ -131,15 +132,15 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
             Opacity(
               opacity: isPinEnabled && pinSet ? 1.0 : 0.5,
               child: PrismSection(
-                title: 'Biometric',
+                title: context.l10n.pinLockBiometricSection,
                 child: PrismSectionCard(
                   child: PrismSwitchRow(
                     icon: AppIcons.fingerprint,
                     iconColor: Colors.teal,
-                    title: 'Biometric Unlock',
+                    title: context.l10n.pinLockBiometricTitle,
                     subtitle: isPinEnabled && pinSet
-                        ? 'Use Face ID or fingerprint to unlock'
-                        : 'Enable PIN Lock to use biometric unlock',
+                        ? context.l10n.pinLockBiometricSubtitle
+                        : context.l10n.pinLockBiometricDisabledSubtitle,
                     value: biometricLockEnabled,
                     enabled: isPinEnabled && pinSet,
                     onChanged: (value) {
@@ -155,7 +156,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
           // Auto-lock delay
           if (isPinEnabled && pinSet)
             PrismSection(
-              title: 'Auto-Lock',
+              title: context.l10n.pinLockAutoLockSection,
               child: PrismSectionCard(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -168,7 +169,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 6, bottom: 8),
                         child: Text(
-                          'Lock after leaving the app',
+                          context.l10n.pinLockAfterLeaving,
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: Theme.of(
@@ -181,12 +182,12 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final entry in const {
-                            0: 'Instant',
-                            15: '15s',
-                            60: '1m',
-                            300: '5m',
-                            900: '15m',
+                          for (final entry in {
+                            0: context.l10n.pinLockInstant,
+                            15: context.l10n.pinLock15s,
+                            60: context.l10n.pinLock1m,
+                            300: context.l10n.pinLock5m,
+                            900: context.l10n.pinLock15m,
                           }.entries)
                             PrismChip(
                               label: entry.value,
@@ -206,13 +207,13 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
           // Change PIN / Remove PIN buttons
           if (isPinEnabled && pinSet)
             PrismSection(
-              title: 'Manage',
+              title: context.l10n.pinLockManageSection,
               child: PrismSectionCard(
                 child: Column(
                   children: [
                     PrismListRow(
                       leading: Icon(AppIcons.pinOutlined),
-                      title: const Text('Change PIN'),
+                      title: Text(context.l10n.pinLockChange),
                       trailing: Icon(AppIcons.chevronRightRounded, size: 20),
                       onTap: _changePinFlow,
                     ),
@@ -223,7 +224,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
                         color: Theme.of(context).colorScheme.error,
                       ),
                       title: Text(
-                        'Remove PIN',
+                        context.l10n.pinLockRemove,
                         style: TextStyle(
                           color: Theme.of(context).colorScheme.error,
                         ),
@@ -334,19 +335,19 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
     super.dispose();
   }
 
-  String get _title {
+  String _title(BuildContext context) {
     return switch (widget.mode) {
-      PinInputMode.set => 'Set PIN',
-      PinInputMode.confirm => 'Confirm PIN',
-      PinInputMode.unlock => 'Enter PIN',
+      PinInputMode.set => context.l10n.pinLockSetTitle,
+      PinInputMode.confirm => context.l10n.pinLockConfirmTitle,
+      PinInputMode.unlock => context.l10n.pinLockEnterTitle,
     };
   }
 
-  String get _subtitle {
+  String _subtitle(BuildContext context) {
     return switch (widget.mode) {
-      PinInputMode.set => 'Choose a $_pinLength-digit PIN',
-      PinInputMode.confirm => 'Re-enter your PIN to confirm',
-      PinInputMode.unlock => 'Enter your PIN to unlock',
+      PinInputMode.set => context.l10n.pinLockSetSubtitle,
+      PinInputMode.confirm => context.l10n.pinLockConfirmSubtitle,
+      PinInputMode.unlock => context.l10n.pinLockUnlockSubtitle,
     };
   }
 
@@ -401,21 +402,21 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
                 child: PrismInlineIconButton(
                   icon: AppIcons.arrowBack,
                   iconSize: 20,
-                  tooltip: 'Back',
+                  tooltip: context.l10n.back,
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
             ),
             const Spacer(flex: 2),
             Text(
-              _title,
+              _title(context),
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              _subtitle,
+              _subtitle(context),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

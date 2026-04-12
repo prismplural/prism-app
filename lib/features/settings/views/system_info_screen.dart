@@ -19,6 +19,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class SystemInfoScreen extends ConsumerStatefulWidget {
   const SystemInfoScreen({super.key});
@@ -98,14 +99,14 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     final terms = ref.watch(terminologyProvider);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(
-        title: 'System Information',
+      topBar: PrismTopBar(
+        title: context.l10n.systemInfoTitle,
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
       body: settingsAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(context.l10n.errorWithDetail(e))),
         data: (settings) {
           final members = membersAsync.whenOrNull(data: (m) => m) ?? [];
           final Uint8List? avatarData = settings.systemAvatarData;
@@ -133,7 +134,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                               children: [
                                 PrismListRow(
                                   leading: Icon(AppIcons.photoLibrary),
-                                  title: const Text('Change avatar'),
+                                  title: Text(context.l10n.systemInfoChangeAvatar),
                                   onTap: () {
                                     Navigator.of(ctx).pop();
                                     _pickAvatar();
@@ -145,7 +146,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                                     color: theme.colorScheme.error,
                                   ),
                                   title: Text(
-                                    'Remove avatar',
+                                    context.l10n.systemInfoRemoveAvatar,
                                     style: TextStyle(
                                       color: theme.colorScheme.error,
                                     ),
@@ -194,7 +195,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           Expanded(
                             child: PrismTextField(
                               controller: _systemNameController,
-                              hintText: 'System name',
+                              hintText: context.l10n.systemInfoSystemNameHint,
                               autofocus: true,
                               onSubmitted: (_) => _saveSystemName(),
                             ),
@@ -203,7 +204,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           PrismInlineIconButton(
                             icon: AppIcons.check,
                             iconSize: 20,
-                            tooltip: 'Save system name',
+                            tooltip: context.l10n.systemInfoSaveSystemName,
                             onPressed: _saveSystemName,
                           ),
                           PrismInlineIconButton(
@@ -212,7 +213,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.5,
                             ),
-                            tooltip: 'Cancel editing',
+                            tooltip: context.l10n.systemInfoCancelEditing,
                             onPressed: () =>
                                 setState(() => _editingSystemName = false),
                           ),
@@ -228,14 +229,14 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Name',
+                                    context.l10n.systemInfoNameLabel,
                                     style: theme.textTheme.labelSmall?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    settings.systemName ?? 'My System',
+                                    settings.systemName ?? context.l10n.settingsFallbackSystemName,
                                     style: theme.textTheme.titleMedium
                                         ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
@@ -269,7 +270,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           Expanded(
                             child: PrismTextField(
                               controller: _descriptionController,
-                              hintText: 'System description',
+                              hintText: context.l10n.systemInfoDescriptionHint,
                               autofocus: true,
                               maxLines: 3,
                               minLines: 1,
@@ -281,7 +282,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           PrismInlineIconButton(
                             icon: AppIcons.check,
                             iconSize: 20,
-                            tooltip: 'Save description',
+                            tooltip: context.l10n.systemInfoSaveDescription,
                             onPressed: _saveDescription,
                           ),
                           PrismInlineIconButton(
@@ -290,7 +291,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             color: theme.colorScheme.onSurface.withValues(
                               alpha: 0.5,
                             ),
-                            tooltip: 'Cancel editing',
+                            tooltip: context.l10n.systemInfoCancelEditing,
                             onPressed: () =>
                                 setState(() => _editingDescription = false),
                           ),
@@ -306,14 +307,14 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Description',
+                                    context.l10n.systemInfoDescriptionLabel,
                                     style: theme.textTheme.labelSmall?.copyWith(
                                       color: theme.colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    description ?? 'Add a description...',
+                                    description ?? context.l10n.systemInfoAddDescription,
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: description != null
                                           ? theme.colorScheme.onSurface

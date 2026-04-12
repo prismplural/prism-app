@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Settings subview for the Polls feature.
 class PollsFeatureSettingsScreen extends ConsumerWidget {
@@ -20,7 +21,7 @@ class PollsFeatureSettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Polls', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.featurePollsTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -28,7 +29,7 @@ class PollsFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              'Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.',
+              context.l10n.featurePollsDescription,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -41,8 +42,8 @@ class PollsFeatureSettingsScreen extends ConsumerWidget {
               child: PrismSwitchRow(
                 icon: AppIcons.pollOutlined,
                 iconColor: Colors.purple,
-                title: 'Enable Polls',
-                subtitle: 'Create polls for system decisions',
+                title: context.l10n.featurePollsEnable,
+                subtitle: context.l10n.featurePollsEnableSubtitle,
                 value: pollsEnabled,
                 onChanged: (value) => ref
                     .read(settingsNotifierProvider.notifier)

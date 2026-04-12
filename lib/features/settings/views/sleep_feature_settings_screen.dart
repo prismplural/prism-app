@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Settings subview for the Sleep feature.
 class SleepFeatureSettingsScreen extends ConsumerStatefulWidget {
@@ -30,8 +31,8 @@ class _SleepFeatureSettingsScreenState
   void _showDefaultQualityPicker(BuildContext context) {
     PrismDialog.show<void>(
       context: context,
-      title: 'Default Quality',
-      message: 'Choose the default quality rating for new sleep sessions.',
+      title: context.l10n.featureSleepDefaultQualityTitle,
+      message: context.l10n.featureSleepDefaultQualityMessage,
       builder: (ctx) {
         return RadioGroup<SleepQuality>(
           groupValue: _defaultQuality,
@@ -63,7 +64,7 @@ class _SleepFeatureSettingsScreenState
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Sleep', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.featureSleepTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -71,23 +72,21 @@ class _SleepFeatureSettingsScreenState
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              'Sleep sessions help you track rest patterns alongside '
-              'fronting sessions. You can start a sleep session from the '
-              'moon icon on the fronting screen.',
+              context.l10n.featureSleepDescription,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           PrismSection(
-            title: 'General',
+            title: context.l10n.featureSleepGeneral,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
                 icon: AppIcons.bedtimeOutlined,
                 iconColor: Colors.indigo,
-                title: 'Enable Sleep',
-                subtitle: 'Log and monitor sleep sessions',
+                title: context.l10n.featureSleepEnable,
+                subtitle: context.l10n.featureSleepEnableSubtitle,
                 value: sleepEnabled,
                 onChanged: (value) => ref
                     .read(settingsNotifierProvider.notifier)
@@ -97,13 +96,13 @@ class _SleepFeatureSettingsScreenState
           ),
           if (sleepEnabled)
             PrismSection(
-              title: 'Options',
+              title: context.l10n.featureSleepOptions,
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: PrismSettingsRow(
                   icon: AppIcons.starOutline,
                   iconColor: Colors.indigo,
-                  title: 'Default Quality',
+                  title: context.l10n.featureSleepDefaultQuality,
                   subtitle: _defaultQuality.label,
                   onTap: () => _showDefaultQualityPicker(context),
                 ),
