@@ -1,3 +1,4 @@
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -55,6 +56,7 @@ abstract class SharingSyncApi {
 
   Future<void> persistPasswordChangeState({
     required ffi.PrismSyncHandle handle,
+    required AppDatabase db,
   });
 
   Future<void> persistState({required ffi.PrismSyncHandle handle});
@@ -146,8 +148,9 @@ class PrismSyncSharingApi extends SharingSyncApi {
   @override
   Future<void> persistPasswordChangeState({
     required ffi.PrismSyncHandle handle,
+    required AppDatabase db,
   }) async {
-    await cacheRuntimeKeys(handle);
+    await cacheRuntimeKeys(handle, db);
     await drainRustStore(handle);
   }
 

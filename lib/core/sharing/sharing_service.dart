@@ -64,6 +64,7 @@ class SharingService {
     required String oldPassword,
     required String newPassword,
     required List<int> secretKey,
+    required AppDatabase db,
   }) async {
     final identity = await _currentIdentity();
     final nextGeneration = await _sharingApi.changePassword(
@@ -75,7 +76,7 @@ class SharingService {
       currentIdentityGeneration: identity.identityGeneration,
     );
     await _settingsRepository.updateIdentityGeneration(nextGeneration);
-    await _sharingApi.persistPasswordChangeState(handle: _handle);
+    await _sharingApi.persistPasswordChangeState(handle: _handle, db: db);
     return nextGeneration;
   }
 

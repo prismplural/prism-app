@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
 
+import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 
 // ---------------------------------------------------------------------------
@@ -46,6 +48,29 @@ Future<String?> readDatabaseKeyHex() async {
     return null;
   }
   return hex;
+}
+
+/// Read the staging database encryption key from secure storage.
+///
+/// This slot is written by `rotateDatabaseToKey` before issuing PRAGMA rekey,
+/// then deleted after the primary slot is updated. If it exists on startup, it
+/// means the app crashed between the PRAGMA rekey and the primary slot write.
+Future<String?> readStagingDatabaseKeyHex() async {
+  final hex = await _storage.read(key: '${kDatabaseKeyStorageKey}_staging');
+  if (hex != null && !validateHexKey(hex)) {
+    debugPrint('[DB_ENCRYPT] Invalid staging key (${hex.length} chars) — ignoring');
+    return null;
+  }
+  return hex;
+}
+
+/// Promote the staging key to the primary slot and clean up the staging slot.
+///
+/// Called during startup crash recovery when a staging slot is found.
+Future<void> promoteStagingDatabaseKey(String stagingHexKey) async {
+  await _storage.write(key: kDatabaseKeyStorageKey, value: stagingHexKey);
+  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+  debugPrint('[DB_ENCRYPT] Promoted staging key to primary slot');
 }
 
 /// Cache the database encryption key in secure storage.
@@ -97,6 +122,35 @@ Future<String> ensureLocalDatabaseKey() async {
 /// BEFORE calling this — otherwise next launch has no key for an encrypted DB.
 Future<void> clearDatabaseEncryptionState() async {
   await _storage.delete(key: kDatabaseKeyStorageKey);
+  // Also clear any leftover staging slot.
+  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+}
+
+/// Rotate the DB encryption key using PRAGMA rekey on an open Drift connection.
+///
+/// Takes raw bytes — hex-encodes internally (prevents injection).
+/// Uses a staging keychain slot for crash recovery: if we crash after
+/// PRAGMA rekey but before the primary keychain slot is written, the next
+/// startup will read the staging slot and use it.
+///
+/// [db] must be the open Drift [AppDatabase] instance.
+/// [newKey] must be exactly 32 bytes.
+Future<void> rotateDatabaseToKey({
+  required AppDatabase db,
+  required Uint8List newKey,
+}) async {
+  assert(newKey.length == 32);
+  final newHexKey =
+      newKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  // Write staging slot first — crash recovery: if we crash after PRAGMA rekey
+  // but before the primary keychain write, startup reads the staging slot.
+  await _storage.write(
+    key: '${kDatabaseKeyStorageKey}_staging',
+    value: newHexKey,
+  );
+  await db.customStatement("PRAGMA rekey = \"x'$newHexKey'\";");
+  await _storage.write(key: kDatabaseKeyStorageKey, value: newHexKey);
+  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
 }
 
 // ---------------------------------------------------------------------------

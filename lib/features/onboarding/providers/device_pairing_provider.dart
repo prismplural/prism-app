@@ -408,7 +408,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     await drainRustStore(handle);
 
     // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
-    await cacheRuntimeKeys(handle);
+    await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
     final counts = await _countLocalData();
     if (kDebugMode) {

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -239,6 +240,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         oldPassword: _verifiedCurrentPassword!,
         newPassword: newPw,
         secretKey: _secretKeyBytes!,
+        db: ref.read(databaseProvider),
       );
 
       if (!mounted) return;
