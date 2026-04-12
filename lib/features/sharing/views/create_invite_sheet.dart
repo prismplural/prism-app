@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/sharing/share_invite.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
@@ -44,7 +45,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: _invite != null ? 'Share Your Code' : 'Enable Sharing',
+            title: _invite != null ? context.l10n.sharingShareYourCode : context.l10n.sharingEnableSharing,
             trailing: _invite == null
                 ? PrismGlassIconButton(
                           icon: AppIcons.check,
@@ -81,15 +82,14 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                 ],
                 if (_invite == null) ...[
                   Text(
-                    'Sharing uses a stable code instead of an inline key exchange. '
-                    'Anyone with this code can send you a sharing request.',
+                    context.l10n.sharingDescription,
                     style: theme.textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 16),
                   PrismTextField(
                     controller: _nameController,
-                    labelText: 'Display name (optional)',
-                    hintText: 'Shown to the person opening your code',
+                    labelText: context.l10n.sharingDisplayNameOptionalLabel,
+                    hintText: context.l10n.sharingDisplayNameOptionalHint,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _generate(),
                   ),
@@ -103,7 +103,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                             Icon(AppIcons.link, size: 20),
                             const SizedBox(width: 8),
                             Text(
-                              'Sharing Code',
+                              context.l10n.sharingSharingCodeTitle,
                               style: theme.textTheme.titleSmall,
                             ),
                           ],
@@ -125,7 +125,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'This code stays valid until you turn sharing off.',
+                          context.l10n.sharingCodeValidNote,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -138,7 +138,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                     children: [
                       Expanded(
                         child: PrismButton(
-                          label: 'Copy',
+                          label: context.l10n.sharingCopy,
                           icon: AppIcons.copy,
                           onPressed: _copyToClipboard,
                           tone: PrismButtonTone.subtle,
@@ -147,7 +147,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: PrismButton(
-                          label: 'Done',
+                          label: context.l10n.done,
                           onPressed: () => Navigator.of(context).pop(),
                           tone: PrismButtonTone.filled,
                         ),
@@ -174,7 +174,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
       final sharingService = ref.read(sharingServiceProvider);
       if (sharingService == null) {
         setState(() {
-          _error = 'Sync is not configured';
+          _error = context.l10n.sharingSyncNotConfigured;
           _generating = false;
         });
         return;
@@ -188,7 +188,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Failed to enable sharing: $e';
+        _error = context.l10n.sharingFailedToEnable(e);
         _generating = false;
       });
     }
@@ -199,7 +199,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
     SensitiveClipboard.copy(_invite!.toShareString());
     PrismToast.show(
       context,
-      message: 'Sharing code copied (auto-clears in 15s)',
+      message: context.l10n.sharingCodeCopied,
     );
   }
 }

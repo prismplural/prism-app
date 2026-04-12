@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/sharing/share_invite.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
@@ -50,7 +51,7 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Use Sharing Code', style: theme.textTheme.titleLarge),
+            Text(context.l10n.sharingUseSharingCode, style: theme.textTheme.titleLarge),
             const SizedBox(height: 16),
             if (_error != null) ...[
               PrismSurface(
@@ -66,8 +67,8 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
             ],
             PrismTextField(
               controller: _inviteController,
-              labelText: 'Sharing code',
-              hintText: 'Paste the code you received',
+              labelText: context.l10n.sharingSharingCodeLabel,
+              hintText: context.l10n.sharingSharingCodeHint,
               maxLines: 4,
               minLines: 3,
               textInputAction: TextInputAction.newline,
@@ -84,8 +85,8 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
                     Expanded(
                       child: Text(
                         _parsedInvite!.displayName != null
-                            ? 'Connecting with ${_parsedInvite!.displayName}'
-                            : 'Ready to send a sharing request',
+                            ? context.l10n.sharingConnectingWith(_parsedInvite!.displayName!)
+                            : context.l10n.sharingReadyToSend,
                         style: theme.textTheme.bodyMedium,
                       ),
                     ),
@@ -95,14 +96,14 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
             const SizedBox(height: 16),
             PrismTextField(
               controller: _nameController,
-              labelText: 'Your display name',
-              hintText: 'How they will see you',
+              labelText: context.l10n.sharingYourDisplayName,
+              hintText: context.l10n.sharingDisplayNameHint,
               textInputAction: TextInputAction.done,
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
             Text(
-              'What to share',
+              context.l10n.sharingWhatToShare,
               style: theme.textTheme.titleSmall?.copyWith(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -132,7 +133,7 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
               children: [
                 Expanded(
                   child: PrismButton(
-                    label: 'Cancel',
+                    label: context.l10n.cancel,
                     onPressed: () => Navigator.of(context).pop(),
                     tone: PrismButtonTone.subtle,
                   ),
@@ -140,7 +141,7 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: PrismButton(
-                    label: _submitting ? 'Sending…' : 'Send Request',
+                    label: _submitting ? context.l10n.sharingSending : context.l10n.sharingSendRequest,
                     icon: AppIcons.personAdd,
                     enabled:
                         !_submitting &&
@@ -178,7 +179,7 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
     } catch (e) {
       setState(() {
         _parsedInvite = null;
-        _error = 'Invalid sharing code';
+        _error = context.l10n.sharingInvalidCode;
       });
     }
   }
@@ -196,7 +197,7 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
       final sharingService = ref.read(sharingServiceProvider);
       if (sharingService == null) {
         setState(() {
-          _error = 'Sync is not configured';
+          _error = context.l10n.sharingSyncNotConfigured;
           _submitting = false;
         });
         return;
@@ -212,7 +213,7 @@ class _AcceptInviteSheetState extends ConsumerState<AcceptInviteSheet> {
       Navigator.of(context).pop(true);
     } catch (e) {
       setState(() {
-        _error = 'Failed to send sharing request: $e';
+        _error = context.l10n.sharingFailedToSend(e);
         _submitting = false;
       });
     }

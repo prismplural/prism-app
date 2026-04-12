@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -51,17 +52,17 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
     final confirm = _confirmController.text;
 
     if (password.isEmpty) {
-      setState(() => _passwordError = 'Password cannot be empty');
+      setState(() => _passwordError = context.l10n.dataManagementPasswordEmpty);
       return;
     }
     if (password.length < 12) {
       setState(
-        () => _passwordError = 'Password must be at least 12 characters',
+        () => _passwordError = context.l10n.dataManagementPasswordTooShort,
       );
       return;
     }
     if (password != confirm) {
-      setState(() => _passwordError = 'Passwords do not match');
+      setState(() => _passwordError = context.l10n.dataManagementPasswordMismatch);
       return;
     }
 
@@ -72,11 +73,9 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
   Future<void> _confirmPlaintextExport() async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Export without encryption?',
-      message:
-          'This will create a plain JSON file that anyone who opens it can read. '
-          'Use encrypted export unless you specifically need an insecure backup.',
-      confirmLabel: 'Export Unencrypted',
+      title: context.l10n.dataManagementExportWithoutEncryptionTitle,
+      message: context.l10n.dataManagementExportWithoutEncryptionMessage,
+      confirmLabel: context.l10n.dataManagementExportUnencryptedConfirm,
     );
 
     if (confirmed) {
@@ -136,7 +135,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
 
     return Column(
       children: [
-        const PrismSheetTopBar(title: 'Export Data'),
+        PrismSheetTopBar(title: context.l10n.dataManagementExportTitle),
         const Divider(height: 1),
         Expanded(
           child: SingleChildScrollView(
@@ -175,14 +174,14 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Export Your Data',
+          context.l10n.dataManagementExportYourData,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Create a password-protected backup of all your data including members, fronting sessions, messages, polls, and settings.',
+          context.l10n.dataManagementExportDescription,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -192,7 +191,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         PrismButton(
           onPressed: _onExportPressed,
           icon: AppIcons.download,
-          label: 'Export Data',
+          label: context.l10n.dataManagementExportButton,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),
@@ -219,14 +218,14 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Encrypt Export',
+          context.l10n.dataManagementEncryptExport,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Set a password to encrypt your export file. You will need this password to import the data later.',
+          context.l10n.dataManagementEncryptDescription,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -251,7 +250,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Unencrypted exports are plain JSON. Anyone who opens the file can read its contents.',
+                  context.l10n.dataManagementUnencryptedWarning,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onErrorContainer,
                   ),
@@ -265,13 +264,13 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           controller: _passwordController,
           obscureText: _obscurePassword,
           autofocus: true,
-          labelText: 'Password',
-          hintText: 'Use a passphrase of 15+ words for best protection',
+          labelText: context.l10n.dataManagementPasswordLabel,
+          hintText: context.l10n.dataManagementPasswordHint,
           suffix: PrismFieldIconButton(
             icon: _obscurePassword
                 ? AppIcons.visibilityOff
                 : AppIcons.visibility,
-            tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+            tooltip: _obscurePassword ? context.l10n.dataManagementShowPassword : context.l10n.dataManagementHidePassword,
             onPressed: () =>
                 setState(() => _obscurePassword = !_obscurePassword),
           ),
@@ -285,13 +284,13 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         PrismTextField(
           controller: _confirmController,
           obscureText: _obscureConfirm,
-          labelText: 'Confirm Password',
+          labelText: context.l10n.dataManagementConfirmPasswordLabel,
           errorText: _passwordError,
           suffix: PrismFieldIconButton(
             icon: _obscureConfirm
                 ? AppIcons.visibilityOff
                 : AppIcons.visibility,
-            tooltip: _obscureConfirm ? 'Show password' : 'Hide password',
+            tooltip: _obscureConfirm ? context.l10n.dataManagementShowPassword : context.l10n.dataManagementHidePassword,
             onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
           ),
           onSubmitted: (_) => _onPasswordSubmit(),
@@ -302,7 +301,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             Expanded(
               child: PrismButton(
                 onPressed: _confirmPlaintextExport,
-                label: 'Export Unencrypted',
+                label: context.l10n.dataManagementExportUnencrypted,
                 tone: PrismButtonTone.outlined,
               ),
             ),
@@ -311,7 +310,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
               child: PrismButton(
                 onPressed: _onPasswordSubmit,
                 icon: AppIcons.lock,
-                label: 'Encrypt',
+                label: context.l10n.dataManagementEncrypt,
                 tone: PrismButtonTone.filled,
               ),
             ),
@@ -328,10 +327,10 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         const SizedBox(height: 16),
         const CircularProgressIndicator(),
         const SizedBox(height: 24),
-        Text('Exporting your data...', style: theme.textTheme.titleMedium),
+        Text(context.l10n.dataManagementExporting, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
-          'This may take a moment.',
+          context.l10n.dataManagementMayTakeMoment,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -348,14 +347,14 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         Icon(AppIcons.errorOutline, size: 48, color: Colors.red),
         const SizedBox(height: 16),
         Text(
-          'Export Failed',
+          context.l10n.dataManagementExportFailed,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          _errorMessage ?? 'An unknown error occurred.',
+          _errorMessage ?? context.l10n.migrationUnknownError,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.error,
@@ -367,7 +366,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
             Expanded(
               child: PrismButton(
                 onPressed: () => Navigator.pop(context),
-                label: 'Close',
+                label: context.l10n.close,
                 tone: PrismButtonTone.outlined,
               ),
             ),
@@ -378,7 +377,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
                   _state = _ExportState.idle;
                   _errorMessage = null;
                 }),
-                label: 'Retry',
+                label: context.l10n.dataManagementRetry,
                 tone: PrismButtonTone.filled,
               ),
             ),
@@ -395,7 +394,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         Icon(AppIcons.checkCircleOutline, size: 48, color: Colors.green),
         const SizedBox(height: 16),
         Text(
-          'Export Complete',
+          context.l10n.dataManagementExportComplete,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -411,7 +410,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         const SizedBox(height: 24),
         PrismButton(
           onPressed: () => Navigator.pop(context),
-          label: 'Done',
+          label: context.l10n.done,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),
