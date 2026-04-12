@@ -14,6 +14,8 @@ class SystemSettingsTable extends Table {
       integer().withDefault(const Constant(0))(); // enum index
   TextColumn get customTerminology => text().nullable()();
   TextColumn get customPluralTerminology => text().nullable()();
+  BoolColumn get terminologyUseEnglish =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get sharingId => text().nullable()();
   BoolColumn get frontingRemindersEnabled =>
       boolean().withDefault(const Constant(false))();

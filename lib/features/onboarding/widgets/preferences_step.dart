@@ -34,6 +34,99 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
     super.dispose();
   }
 
+  // ---------------------------------------------------------------------------
+  // Hardcoded English term labels (used in non-English mode English section)
+  // ---------------------------------------------------------------------------
+
+  static String _englishPlural(SystemTerminology term) => switch (term) {
+        SystemTerminology.members => 'Members',
+        SystemTerminology.headmates => 'Headmates',
+        SystemTerminology.alters => 'Alters',
+        SystemTerminology.parts => 'Parts',
+        SystemTerminology.facets => 'Facets',
+        SystemTerminology.custom => 'Custom',
+      };
+
+  // ---------------------------------------------------------------------------
+  // Build helpers
+  // ---------------------------------------------------------------------------
+
+  Widget _termTile({
+    required BuildContext context,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool isDark,
+    required Color primary,
+    required ThemeData theme,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isSelected
+              ? primary.withValues(alpha: 0.2)
+              : isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.1)
+                  : AppColors.parchmentElevated,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: isSelected
+                  ? primary
+                  : isDark
+                      ? AppColors.warmWhite.withValues(alpha: 0.8)
+                      : AppColors.warmBlack.withValues(alpha: 0.8),
+              fontWeight:
+                  isSelected ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _termGrid({
+    required BuildContext context,
+    required List<SystemTerminology> terms,
+    required bool useEnglish,
+    required OnboardingState onboarding,
+    required OnboardingNotifier notifier,
+    required bool isDark,
+    required Color primary,
+    required ThemeData theme,
+  }) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 3,
+      children: terms.map((term) {
+        final isSelected = onboarding.selectedTerminology == term &&
+            onboarding.terminologyUseEnglish == useEnglish;
+        final label = useEnglish
+            ? _englishPlural(term)
+            : (term == SystemTerminology.custom
+                ? context.l10n.onboardingPreferencesCustomTerminology
+                : resolveTerminology(context.l10n, term).plural);
+        return _termTile(
+          context: context,
+          label: label,
+          isSelected: isSelected,
+          onTap: () => notifier.setTerminology(term, useEnglish: useEnglish),
+          isDark: isDark,
+          primary: primary,
+          theme: theme,
+        );
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final onboarding = ref.watch(onboardingProvider);
@@ -41,13 +134,24 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
+    final locale = Localizations.localeOf(context);
+    final isEnglish = locale.languageCode == 'en';
+
+    // Standard terms (custom handled separately)
+    const standardTerms = [
+      SystemTerminology.members,
+      SystemTerminology.headmates,
+      SystemTerminology.alters,
+      SystemTerminology.parts,
+      SystemTerminology.facets,
+    ];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Terminology section
+          // Terminology section label
           Text(
             context.l10n.onboardingPreferencesTerminology,
             style: theme.textTheme.labelLarge?.copyWith(
@@ -59,47 +163,76 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           ),
           const SizedBox(height: 10),
 
-          // 2x3 grid
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 3,
-            children: SystemTerminology.values.map((term) {
-              final isSelected = onboarding.selectedTerminology == term;
-              return GestureDetector(
-                onTap: () => notifier.setTerminology(term),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? primary.withValues(alpha: 0.2)
-                        : isDark
-                            ? AppColors.warmWhite.withValues(alpha: 0.1)
-                            : AppColors.parchmentElevated,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Text(
-                      term == SystemTerminology.custom
-                          ? context.l10n.onboardingPreferencesCustomTerminology
-                          : resolveTerminology(context.l10n, term).plural,
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: isSelected
-                            ? primary
-                            : isDark
-                                ? AppColors.warmWhite.withValues(alpha: 0.8)
-                                : AppColors.warmBlack.withValues(alpha: 0.8),
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ),
+          if (isEnglish)
+            // English locale: single 2×3 grid (5 terms + custom)
+            _termGrid(
+              context: context,
+              terms: [...standardTerms, SystemTerminology.custom],
+              useEnglish: false,
+              onboarding: onboarding,
+              notifier: notifier,
+              isDark: isDark,
+              primary: primary,
+              theme: theme,
+            )
+          else ...[
+            // Non-English locale: localized section
+            _termGrid(
+              context: context,
+              terms: standardTerms,
+              useEnglish: false,
+              onboarding: onboarding,
+              notifier: notifier,
+              isDark: isDark,
+              primary: primary,
+              theme: theme,
+            ),
+            const SizedBox(height: 12),
+
+            // "In English" section header
+            Text(
+              context.l10n.terminologyEnglishOptionsLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+                color: isDark
+                    ? AppColors.warmWhite.withValues(alpha: 0.55)
+                    : AppColors.warmBlack.withValues(alpha: 0.55),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // English section
+            _termGrid(
+              context: context,
+              terms: standardTerms,
+              useEnglish: true,
+              onboarding: onboarding,
+              notifier: notifier,
+              isDark: isDark,
+              primary: primary,
+              theme: theme,
+            ),
+            const SizedBox(height: 8),
+
+            // Custom tile (always localized, always last)
+            SizedBox(
+              height: 44,
+              child: _termTile(
+                context: context,
+                label: context.l10n.onboardingPreferencesCustomTerminology,
+                isSelected: onboarding.selectedTerminology ==
+                    SystemTerminology.custom,
+                onTap: () => notifier.setTerminology(
+                  SystemTerminology.custom,
+                  useEnglish: false,
                 ),
-              );
-            }).toList(),
-          ),
+                isDark: isDark,
+                primary: primary,
+                theme: theme,
+              ),
+            ),
+          ],
 
           // Custom terminology fields
           if (onboarding.selectedTerminology == SystemTerminology.custom) ...[

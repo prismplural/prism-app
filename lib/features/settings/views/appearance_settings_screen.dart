@@ -150,6 +150,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               child: PrismSectionCard(
                 child: TerminologyPicker(
                   current: settings.terminology,
+                  currentUseEnglish: settings.terminologyUseEnglish,
                   customTerminology: settings.customTerminology,
                   customPluralTerminology: settings.customPluralTerminology,
                 ),

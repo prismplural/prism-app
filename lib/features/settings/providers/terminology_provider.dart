@@ -46,25 +46,31 @@ class Terminology {
 /// This is locale-independent. To get display strings, pass this to
 /// [resolveTerminology], or use [watchTerminology] / [readTerminology].
 final terminologySettingProvider = Provider<
-    ({SystemTerminology term, String? customSingular, String? customPlural})>((
-  ref,
-) {
+    ({
+      SystemTerminology term,
+      String? customSingular,
+      String? customPlural,
+      bool useEnglish,
+    })>((ref) {
   final settingsAsync = ref.watch(systemSettingsProvider);
   return settingsAsync.when(
     data: (s) => (
       term: s.terminology,
       customSingular: s.customTerminology,
       customPlural: s.customPluralTerminology,
+      useEnglish: s.terminologyUseEnglish,
     ),
     loading: () => (
       term: SystemTerminology.headmates,
       customSingular: null,
       customPlural: null,
+      useEnglish: false,
     ),
     error: (_, _) => (
       term: SystemTerminology.headmates,
       customSingular: null,
       customPlural: null,
+      useEnglish: false,
     ),
   );
 });
@@ -86,7 +92,12 @@ Terminology resolveTerminology(
   SystemTerminology term, {
   String? customSingular,
   String? customPlural,
+  bool useEnglish = false,
 }) {
+  if (useEnglish) {
+    return _resolveEnglish(term,
+        customSingular: customSingular, customPlural: customPlural);
+  }
   return switch (term) {
     SystemTerminology.members => Terminology(
       singular: l10n.settingsTerminologyOptionMembersSingular,
@@ -108,6 +119,29 @@ Terminology resolveTerminology(
       singular: l10n.settingsTerminologyOptionFacetsSingular,
       plural: l10n.settingsTerminologyOptionFacets,
     ),
+    SystemTerminology.custom => _resolveCustom(customSingular, customPlural),
+  };
+}
+
+/// Always returns English strings regardless of device locale.
+/// Used when [terminologyUseEnglish] is true — the user explicitly chose
+/// an English term while in a non-English UI (e.g. "Headmate" in Spanish mode).
+Terminology _resolveEnglish(
+  SystemTerminology term, {
+  String? customSingular,
+  String? customPlural,
+}) {
+  return switch (term) {
+    SystemTerminology.members =>
+      const Terminology(singular: 'Member', plural: 'Members'),
+    SystemTerminology.headmates =>
+      const Terminology(singular: 'Headmate', plural: 'Headmates'),
+    SystemTerminology.alters =>
+      const Terminology(singular: 'Alter', plural: 'Alters'),
+    SystemTerminology.parts =>
+      const Terminology(singular: 'Part', plural: 'Parts'),
+    SystemTerminology.facets =>
+      const Terminology(singular: 'Facet', plural: 'Facets'),
     SystemTerminology.custom => _resolveCustom(customSingular, customPlural),
   };
 }
@@ -146,6 +180,7 @@ Terminology watchTerminology(BuildContext context, WidgetRef ref) {
     s.term,
     customSingular: s.customSingular,
     customPlural: s.customPlural,
+    useEnglish: s.useEnglish,
   );
 }
 
@@ -167,5 +202,6 @@ Terminology readTerminology(BuildContext context, WidgetRef ref) {
     s.term,
     customSingular: s.customSingular,
     customPlural: s.customPlural,
+    useEnglish: s.useEnglish,
   );
 }

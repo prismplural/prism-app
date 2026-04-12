@@ -9254,6 +9254,12 @@ abstract class AppLocalizations {
   /// **'Preview'**
   String get settingsTerminologyPreviewLabel;
 
+  /// Section header in terminology picker for English-language options, shown to users with a non-English device language
+  ///
+  /// In en, this message translates to:
+  /// **'In English'**
+  String get terminologyEnglishOptionsLabel;
+
   /// Bottom navigation tab label for the Home (fronting) tab
   ///
   /// In en, this message translates to:

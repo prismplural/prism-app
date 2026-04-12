@@ -205,11 +205,13 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     required int terminology,
     String? customTerminology,
     String? customPluralTerminology,
+    bool useEnglish = false,
   }) => _updateField(
     SystemSettingsTableCompanion(
       terminology: Value(terminology),
       customTerminology: Value(customTerminology),
       customPluralTerminology: Value(customPluralTerminology),
+      terminologyUseEnglish: Value(useEnglish),
     ),
   );
 

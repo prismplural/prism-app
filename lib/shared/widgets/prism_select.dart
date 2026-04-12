@@ -19,6 +19,7 @@ class PrismSelectItem<T> {
     this.leading,
     this.trailing,
     this.enabled = true,
+    this.isHeader = false,
     this.semanticLabel,
     this.fieldLabel,
     this.fieldSubtitle,
@@ -26,6 +27,10 @@ class PrismSelectItem<T> {
   });
 
   final T value;
+
+  /// If true, renders as a non-interactive section header instead of a list row.
+  /// The [value] is ignored for selection purposes — headers are never selected.
+  final bool isHeader;
   final String label;
   final String? subtitle;
   final Widget? leading;
@@ -110,13 +115,14 @@ class _PrismSelectState<T> extends State<PrismSelect<T>> {
 
   PrismSelectItem<T>? get _selectedItem {
     for (final item in widget.items) {
-      if (item.value == widget.value) return item;
+      if (!item.isHeader && item.value == widget.value) return item;
     }
     return null;
   }
 
   bool get _canOpen =>
-      widget.enabled && widget.items.any((item) => item.enabled);
+      widget.enabled &&
+      widget.items.any((item) => !item.isHeader && item.enabled);
 
   void _openPopup() {
     if (!_canOpen) return;
@@ -438,6 +444,21 @@ class _SelectMenuItem<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    if (item.isHeader) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        child: Text(
+          item.label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
+    }
+
     final trailingChildren = <Widget>[
       if (item.trailing != null) item.trailing!,
       if (isSelected)

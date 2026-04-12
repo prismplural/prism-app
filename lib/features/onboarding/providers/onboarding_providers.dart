@@ -82,6 +82,7 @@ class OnboardingState {
   final OnboardingDataCounts? importedDataCounts;
   final String? customTermSingular;
   final String? customTermPlural;
+  final bool terminologyUseEnglish;
   final bool isSyncPath;
 
   const OnboardingState({
@@ -104,6 +105,7 @@ class OnboardingState {
     this.importedDataCounts,
     this.customTermSingular,
     this.customTermPlural,
+    this.terminologyUseEnglish = false,
     this.isSyncPath = false,
   });
 
@@ -126,6 +128,7 @@ class OnboardingState {
     Object? importedDataCounts = _sentinel,
     Object? customTermSingular = _sentinel,
     Object? customTermPlural = _sentinel,
+    bool? terminologyUseEnglish,
     bool? isSyncPath,
     bool clearFronterId = false,
   }) {
@@ -155,6 +158,8 @@ class OnboardingState {
       customTermPlural: customTermPlural == _sentinel
           ? this.customTermPlural
           : customTermPlural as String?,
+      terminologyUseEnglish:
+          terminologyUseEnglish ?? this.terminologyUseEnglish,
       isSyncPath: isSyncPath ?? this.isSyncPath,
     );
   }
@@ -358,8 +363,11 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     state = state.copyWith(customChannelName: name);
   }
 
-  void setTerminology(SystemTerminology terminology) {
-    state = state.copyWith(selectedTerminology: terminology);
+  void setTerminology(SystemTerminology terminology, {bool useEnglish = false}) {
+    state = state.copyWith(
+      selectedTerminology: terminology,
+      terminologyUseEnglish: useEnglish,
+    );
   }
 
   void setCustomTermSingular(String value) {

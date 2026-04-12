@@ -17,6 +17,7 @@ class SystemSettingsMapper {
       terminology: domain.SystemTerminology.values[row.terminology],
       customTerminology: row.customTerminology,
       customPluralTerminology: row.customPluralTerminology,
+      terminologyUseEnglish: row.terminologyUseEnglish,
       frontingRemindersEnabled: row.frontingRemindersEnabled,
       frontingReminderIntervalMinutes: row.frontingReminderIntervalMinutes,
       themeMode: domain.AppThemeMode.values[row.themeMode],
@@ -65,6 +66,7 @@ class SystemSettingsMapper {
       terminology: Value(model.terminology.index),
       customTerminology: Value(model.customTerminology),
       customPluralTerminology: Value(model.customPluralTerminology),
+      terminologyUseEnglish: Value(model.terminologyUseEnglish),
       frontingRemindersEnabled: Value(model.frontingRemindersEnabled),
       frontingReminderIntervalMinutes: Value(
         model.frontingReminderIntervalMinutes,

@@ -3502,6 +3502,21 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _terminologyUseEnglishMeta =
+      const VerificationMeta('terminologyUseEnglish');
+  @override
+  late final GeneratedColumn<bool> terminologyUseEnglish =
+      GeneratedColumn<bool>(
+        'terminology_use_english',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("terminology_use_english" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _sharingIdMeta = const VerificationMeta(
     'sharingId',
   );
@@ -3964,6 +3979,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     terminology,
     customTerminology,
     customPluralTerminology,
+    terminologyUseEnglish,
     sharingId,
     frontingRemindersEnabled,
     frontingReminderIntervalMinutes,
@@ -4071,6 +4087,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         customPluralTerminology.isAcceptableOrUnknown(
           data['custom_plural_terminology']!,
           _customPluralTerminologyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('terminology_use_english')) {
+      context.handle(
+        _terminologyUseEnglishMeta,
+        terminologyUseEnglish.isAcceptableOrUnknown(
+          data['terminology_use_english']!,
+          _terminologyUseEnglishMeta,
         ),
       );
     }
@@ -4400,6 +4425,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}custom_plural_terminology'],
       ),
+      terminologyUseEnglish: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}terminology_use_english'],
+      )!,
       sharingId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}sharing_id'],
@@ -4555,6 +4584,7 @@ class SystemSettingsData extends DataClass
   final int terminology;
   final String? customTerminology;
   final String? customPluralTerminology;
+  final bool terminologyUseEnglish;
   final String? sharingId;
   final bool frontingRemindersEnabled;
   final int frontingReminderIntervalMinutes;
@@ -4598,6 +4628,7 @@ class SystemSettingsData extends DataClass
     required this.terminology,
     this.customTerminology,
     this.customPluralTerminology,
+    required this.terminologyUseEnglish,
     this.sharingId,
     required this.frontingRemindersEnabled,
     required this.frontingReminderIntervalMinutes,
@@ -4652,6 +4683,7 @@ class SystemSettingsData extends DataClass
         customPluralTerminology,
       );
     }
+    map['terminology_use_english'] = Variable<bool>(terminologyUseEnglish);
     if (!nullToAbsent || sharingId != null) {
       map['sharing_id'] = Variable<String>(sharingId);
     }
@@ -4717,6 +4749,7 @@ class SystemSettingsData extends DataClass
       customPluralTerminology: customPluralTerminology == null && nullToAbsent
           ? const Value.absent()
           : Value(customPluralTerminology),
+      terminologyUseEnglish: Value(terminologyUseEnglish),
       sharingId: sharingId == null && nullToAbsent
           ? const Value.absent()
           : Value(sharingId),
@@ -4779,6 +4812,9 @@ class SystemSettingsData extends DataClass
       ),
       customPluralTerminology: serializer.fromJson<String?>(
         json['customPluralTerminology'],
+      ),
+      terminologyUseEnglish: serializer.fromJson<bool>(
+        json['terminologyUseEnglish'],
       ),
       sharingId: serializer.fromJson<String?>(json['sharingId']),
       frontingRemindersEnabled: serializer.fromJson<bool>(
@@ -4858,6 +4894,7 @@ class SystemSettingsData extends DataClass
       'customPluralTerminology': serializer.toJson<String?>(
         customPluralTerminology,
       ),
+      'terminologyUseEnglish': serializer.toJson<bool>(terminologyUseEnglish),
       'sharingId': serializer.toJson<String?>(sharingId),
       'frontingRemindersEnabled': serializer.toJson<bool>(
         frontingRemindersEnabled,
@@ -4912,6 +4949,7 @@ class SystemSettingsData extends DataClass
     int? terminology,
     Value<String?> customTerminology = const Value.absent(),
     Value<String?> customPluralTerminology = const Value.absent(),
+    bool? terminologyUseEnglish,
     Value<String?> sharingId = const Value.absent(),
     bool? frontingRemindersEnabled,
     int? frontingReminderIntervalMinutes,
@@ -4959,6 +4997,7 @@ class SystemSettingsData extends DataClass
     customPluralTerminology: customPluralTerminology.present
         ? customPluralTerminology.value
         : this.customPluralTerminology,
+    terminologyUseEnglish: terminologyUseEnglish ?? this.terminologyUseEnglish,
     sharingId: sharingId.present ? sharingId.value : this.sharingId,
     frontingRemindersEnabled:
         frontingRemindersEnabled ?? this.frontingRemindersEnabled,
@@ -5027,6 +5066,9 @@ class SystemSettingsData extends DataClass
       customPluralTerminology: data.customPluralTerminology.present
           ? data.customPluralTerminology.value
           : this.customPluralTerminology,
+      terminologyUseEnglish: data.terminologyUseEnglish.present
+          ? data.terminologyUseEnglish.value
+          : this.terminologyUseEnglish,
       sharingId: data.sharingId.present ? data.sharingId.value : this.sharingId,
       frontingRemindersEnabled: data.frontingRemindersEnabled.present
           ? data.frontingRemindersEnabled.value
@@ -5136,6 +5178,7 @@ class SystemSettingsData extends DataClass
           ..write('terminology: $terminology, ')
           ..write('customTerminology: $customTerminology, ')
           ..write('customPluralTerminology: $customPluralTerminology, ')
+          ..write('terminologyUseEnglish: $terminologyUseEnglish, ')
           ..write('sharingId: $sharingId, ')
           ..write('frontingRemindersEnabled: $frontingRemindersEnabled, ')
           ..write(
@@ -5186,6 +5229,7 @@ class SystemSettingsData extends DataClass
     terminology,
     customTerminology,
     customPluralTerminology,
+    terminologyUseEnglish,
     sharingId,
     frontingRemindersEnabled,
     frontingReminderIntervalMinutes,
@@ -5233,6 +5277,7 @@ class SystemSettingsData extends DataClass
           other.terminology == this.terminology &&
           other.customTerminology == this.customTerminology &&
           other.customPluralTerminology == this.customPluralTerminology &&
+          other.terminologyUseEnglish == this.terminologyUseEnglish &&
           other.sharingId == this.sharingId &&
           other.frontingRemindersEnabled == this.frontingRemindersEnabled &&
           other.frontingReminderIntervalMinutes ==
@@ -5283,6 +5328,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> terminology;
   final Value<String?> customTerminology;
   final Value<String?> customPluralTerminology;
+  final Value<bool> terminologyUseEnglish;
   final Value<String?> sharingId;
   final Value<bool> frontingRemindersEnabled;
   final Value<int> frontingReminderIntervalMinutes;
@@ -5327,6 +5373,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.terminology = const Value.absent(),
     this.customTerminology = const Value.absent(),
     this.customPluralTerminology = const Value.absent(),
+    this.terminologyUseEnglish = const Value.absent(),
     this.sharingId = const Value.absent(),
     this.frontingRemindersEnabled = const Value.absent(),
     this.frontingReminderIntervalMinutes = const Value.absent(),
@@ -5372,6 +5419,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.terminology = const Value.absent(),
     this.customTerminology = const Value.absent(),
     this.customPluralTerminology = const Value.absent(),
+    this.terminologyUseEnglish = const Value.absent(),
     this.sharingId = const Value.absent(),
     this.frontingRemindersEnabled = const Value.absent(),
     this.frontingReminderIntervalMinutes = const Value.absent(),
@@ -5417,6 +5465,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? terminology,
     Expression<String>? customTerminology,
     Expression<String>? customPluralTerminology,
+    Expression<bool>? terminologyUseEnglish,
     Expression<String>? sharingId,
     Expression<bool>? frontingRemindersEnabled,
     Expression<int>? frontingReminderIntervalMinutes,
@@ -5464,6 +5513,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (customTerminology != null) 'custom_terminology': customTerminology,
       if (customPluralTerminology != null)
         'custom_plural_terminology': customPluralTerminology,
+      if (terminologyUseEnglish != null)
+        'terminology_use_english': terminologyUseEnglish,
       if (sharingId != null) 'sharing_id': sharingId,
       if (frontingRemindersEnabled != null)
         'fronting_reminders_enabled': frontingRemindersEnabled,
@@ -5524,6 +5575,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? terminology,
     Value<String?>? customTerminology,
     Value<String?>? customPluralTerminology,
+    Value<bool>? terminologyUseEnglish,
     Value<String?>? sharingId,
     Value<bool>? frontingRemindersEnabled,
     Value<int>? frontingReminderIntervalMinutes,
@@ -5571,6 +5623,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       customTerminology: customTerminology ?? this.customTerminology,
       customPluralTerminology:
           customPluralTerminology ?? this.customPluralTerminology,
+      terminologyUseEnglish:
+          terminologyUseEnglish ?? this.terminologyUseEnglish,
       sharingId: sharingId ?? this.sharingId,
       frontingRemindersEnabled:
           frontingRemindersEnabled ?? this.frontingRemindersEnabled,
@@ -5645,6 +5699,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     if (customPluralTerminology.present) {
       map['custom_plural_terminology'] = Variable<String>(
         customPluralTerminology.value,
+      );
+    }
+    if (terminologyUseEnglish.present) {
+      map['terminology_use_english'] = Variable<bool>(
+        terminologyUseEnglish.value,
       );
     }
     if (sharingId.present) {
@@ -5790,6 +5849,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('terminology: $terminology, ')
           ..write('customTerminology: $customTerminology, ')
           ..write('customPluralTerminology: $customPluralTerminology, ')
+          ..write('terminologyUseEnglish: $terminologyUseEnglish, ')
           ..write('sharingId: $sharingId, ')
           ..write('frontingRemindersEnabled: $frontingRemindersEnabled, ')
           ..write(
@@ -18957,6 +19017,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> terminology,
       Value<String?> customTerminology,
       Value<String?> customPluralTerminology,
+      Value<bool> terminologyUseEnglish,
       Value<String?> sharingId,
       Value<bool> frontingRemindersEnabled,
       Value<int> frontingReminderIntervalMinutes,
@@ -19003,6 +19064,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> terminology,
       Value<String?> customTerminology,
       Value<String?> customPluralTerminology,
+      Value<bool> terminologyUseEnglish,
       Value<String?> sharingId,
       Value<bool> frontingRemindersEnabled,
       Value<int> frontingReminderIntervalMinutes,
@@ -19086,6 +19148,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<String> get customPluralTerminology => $composableBuilder(
     column: $table.customPluralTerminology,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get terminologyUseEnglish => $composableBuilder(
+    column: $table.terminologyUseEnglish,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19309,6 +19376,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get terminologyUseEnglish => $composableBuilder(
+    column: $table.terminologyUseEnglish,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get sharingId => $composableBuilder(
     column: $table.sharingId,
     builder: (column) => ColumnOrderings(column),
@@ -19528,6 +19600,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get terminologyUseEnglish => $composableBuilder(
+    column: $table.terminologyUseEnglish,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get sharingId =>
       $composableBuilder(column: $table.sharingId, builder: (column) => column);
 
@@ -19743,6 +19820,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> terminology = const Value.absent(),
                 Value<String?> customTerminology = const Value.absent(),
                 Value<String?> customPluralTerminology = const Value.absent(),
+                Value<bool> terminologyUseEnglish = const Value.absent(),
                 Value<String?> sharingId = const Value.absent(),
                 Value<bool> frontingRemindersEnabled = const Value.absent(),
                 Value<int> frontingReminderIntervalMinutes =
@@ -19788,6 +19866,7 @@ class $$SystemSettingsTableTableTableManager
                 terminology: terminology,
                 customTerminology: customTerminology,
                 customPluralTerminology: customPluralTerminology,
+                terminologyUseEnglish: terminologyUseEnglish,
                 sharingId: sharingId,
                 frontingRemindersEnabled: frontingRemindersEnabled,
                 frontingReminderIntervalMinutes:
@@ -19835,6 +19914,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> terminology = const Value.absent(),
                 Value<String?> customTerminology = const Value.absent(),
                 Value<String?> customPluralTerminology = const Value.absent(),
+                Value<bool> terminologyUseEnglish = const Value.absent(),
                 Value<String?> sharingId = const Value.absent(),
                 Value<bool> frontingRemindersEnabled = const Value.absent(),
                 Value<int> frontingReminderIntervalMinutes =
@@ -19880,6 +19960,7 @@ class $$SystemSettingsTableTableTableManager
                 terminology: terminology,
                 customTerminology: customTerminology,
                 customPluralTerminology: customPluralTerminology,
+                terminologyUseEnglish: terminologyUseEnglish,
                 sharingId: sharingId,
                 frontingRemindersEnabled: frontingRemindersEnabled,
                 frontingReminderIntervalMinutes:

@@ -47,6 +47,7 @@ abstract class SystemSettingsRepository {
     required domain.SystemTerminology terminology,
     String? customTerminology,
     String? customPluralTerminology,
+    bool useEnglish = false,
   });
   Future<void> updateFrontingReminders({
     required bool enabled,
