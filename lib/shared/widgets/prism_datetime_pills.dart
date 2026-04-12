@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
@@ -89,7 +90,7 @@ class PrismDateTimePills extends StatelessWidget {
           )
         else
           _PlaceholderPill(
-            text: placeholder ?? 'Tap to set',
+            text: placeholder ?? context.l10n.tapToSet,
             onTap: () async {
               final date = await showPrismDatePicker(
                 context: context,

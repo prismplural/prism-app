@@ -115,6 +115,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete'**
   String get delete;
+
+  /// Edit action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get edit;
+
+  /// Add action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get add;
+
+  /// Done action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
+  /// Close/dismiss action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get close;
+
+  /// Confirm action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirm;
+
+  /// Back navigation button label
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get back;
+
+  /// Options menu button label
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get options;
+
+  /// Activate action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Activate'**
+  String get activate;
+
+  /// Deactivate action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate'**
+  String get deactivate;
+
+  /// Generic loading state label
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get loading;
+
+  /// Empty search results label
+  ///
+  /// In en, this message translates to:
+  /// **'No results'**
+  String get noResults;
+
+  /// Retry action button label
+  ///
+  /// In en, this message translates to:
+  /// **'Try Again'**
+  String get tryAgain;
+
+  /// Search placeholder/label
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get search;
+
+  /// Generic error label
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get error;
+
+  /// Suggestions section header in empty state widget
+  ///
+  /// In en, this message translates to:
+  /// **'Suggestions:'**
+  String get suggestions;
+
+  /// Unknown member option in headmate picker
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get unknown;
+
+  /// Placeholder text on datetime pill when no date is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to set'**
+  String get tapToSet;
+
+  /// Semantics label for the floating navigation bar
+  ///
+  /// In en, this message translates to:
+  /// **'Navigation bar'**
+  String get navigationBar;
+
+  /// Semantics label for the desktop sidebar navigation
+  ///
+  /// In en, this message translates to:
+  /// **'Main navigation'**
+  String get mainNavigation;
+
+  /// Semantics label for the nav bar More/close trigger when expanded
+  ///
+  /// In en, this message translates to:
+  /// **'Close menu'**
+  String get closeMenu;
+
+  /// Semantics label for the nav bar More trigger when collapsed
+  ///
+  /// In en, this message translates to:
+  /// **'More tabs'**
+  String get moreTabs;
+
+  /// Semantics label for a nav bar tab with unread messages
+  ///
+  /// In en, this message translates to:
+  /// **'{label}, {count} unread'**
+  String navUnreadCount(String label, int count);
+
+  /// Error message shown in headmate picker when members fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading {members}: {error}'**
+  String errorLoadingMembers(String members, Object error);
 }
 
 class _AppLocalizationsDelegate
