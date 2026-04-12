@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -322,7 +323,7 @@ class _ToastOverlayState extends State<_ToastOverlay>
                             ),
                             const SizedBox(width: 10),
                             Tooltip(
-                              message: 'Dismiss notification',
+                              message: context.l10n.dismissNotification,
                               child: Material(
                                 color: Colors.transparent,
                                 child: InkWell(

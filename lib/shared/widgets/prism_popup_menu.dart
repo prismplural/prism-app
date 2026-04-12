@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// A styled popup menu with consistent item layout.
@@ -11,7 +12,7 @@ class PrismPopupMenu<T> extends StatelessWidget {
     required this.items,
     this.onSelected,
     IconData? icon,
-    this.tooltip = 'More options',
+    this.tooltip,
     this.iconSize = 20.0,
   }) : icon = icon ?? AppIcons.moreVert;
 
@@ -24,7 +25,7 @@ class PrismPopupMenu<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<T>(
-      tooltip: tooltip,
+      tooltip: tooltip ?? context.l10n.moreOptions,
       icon: Icon(icon, size: iconSize),
       onSelected: onSelected,
       itemBuilder: (_) => [

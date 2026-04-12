@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
@@ -58,7 +59,7 @@ class PrismDialog extends StatelessWidget {
     return showGeneralDialog<T>(
       context: context,
       barrierDismissible: barrierDismissible,
-      barrierLabel: 'Dismiss',
+      barrierLabel: context.l10n.dismiss,
       barrierColor: AppColors.warmBlack
           .withValues(alpha: isDark ? 0.25 : 0.35),
       transitionDuration: const Duration(milliseconds: 200),
@@ -118,7 +119,7 @@ class PrismDialog extends StatelessWidget {
     final result = await showGeneralDialog<bool>(
       context: context,
       barrierDismissible: barrierDismissible,
-      barrierLabel: 'Dismiss',
+      barrierLabel: context.l10n.dismiss,
       barrierColor: AppColors.warmBlack
           .withValues(alpha: isDark ? 0.25 : 0.35),
       transitionDuration: const Duration(milliseconds: 200),

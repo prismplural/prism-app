@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
@@ -150,7 +151,7 @@ class _PrismListRowState extends State<PrismListRow> {
     return Semantics(
       button: true,
       enabled: widget.enabled,
-      hint: widget.destructive ? 'Destructive action' : null,
+      hint: widget.destructive ? context.l10n.destructiveAction : null,
       child: row,
     );
   }

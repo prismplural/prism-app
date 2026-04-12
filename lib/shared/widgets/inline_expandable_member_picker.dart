@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
@@ -47,7 +48,7 @@ class _InlineExpandableMemberPickerState
         height: 56,
         child: PrismLoadingState(),
       ),
-      error: (e, _) => Text('Error: $e'),
+      error: (e, _) => Text(context.l10n.errorWithDetail(e)),
       data: (members) => _buildPicker(context, members),
     );
   }
@@ -70,7 +71,7 @@ class _InlineExpandableMemberPickerState
           Semantics(
             button: true,
             expanded: _expanded,
-            label: selected?.name ?? 'Select member',
+            label: selected?.name ?? context.l10n.selectMember,
             child: InkWell(
               onTap: () => setState(() => _expanded = !_expanded),
               borderRadius: BorderRadius.circular(12),
@@ -121,7 +122,7 @@ class _InlineExpandableMemberPickerState
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Select a member',
+                          context.l10n.selectAMember,
                           style:
                               Theme.of(context).textTheme.titleSmall?.copyWith(
                                     color: Theme.of(context)
@@ -148,7 +149,7 @@ class _InlineExpandableMemberPickerState
             if (widget.includeUnknown)
               _MemberRow(
                 avatar: const MemberAvatar(emoji: '\u2754', size: 40),
-                name: 'Unknown',
+                name: context.l10n.unknown,
                 pronouns: null,
                 showPronouns: false,
                 isSelected: widget.selectedMemberId == null,
@@ -223,7 +224,7 @@ class _InlineExpandableMultiMemberPickerState
         height: 56,
         child: PrismLoadingState(),
       ),
-      error: (e, _) => Text('Error: $e'),
+      error: (e, _) => Text(context.l10n.errorWithDetail(e)),
       data: (members) => _buildPicker(context, members),
     );
   }
@@ -300,7 +301,7 @@ class _InlineExpandableMultiMemberPickerState
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            'Select members',
+            context.l10n.selectMembers,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

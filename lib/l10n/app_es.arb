@@ -25,5 +25,17 @@
   "closeMenu": "Cerrar menú",
   "moreTabs": "Más pestañas",
   "navUnreadCount": "{label}, {count} sin leer",
-  "errorLoadingMembers": "Error al cargar {members}: {error}"
+  "errorLoadingMembers": "Error al cargar {members}: {error}",
+  "selectMember": "Seleccionar integrante",
+  "selectMembers": "Seleccionar integrantes",
+  "selectAMember": "Seleccionar un integrante",
+  "errorWithDetail": "Error: {detail}",
+  "segmentedControl": "Control segmentado",
+  "dismissNotification": "Descartar notificación",
+  "searchEmoji": "Buscar emoji...",
+  "dismiss": "Descartar",
+  "destructiveAction": "Acción destructiva",
+  "searchMembers": "Buscar integrantes...",
+  "noMembersFound": "No se encontraron integrantes",
+  "moreOptions": "Más opciones"
 }

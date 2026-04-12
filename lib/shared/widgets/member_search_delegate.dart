@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
@@ -12,16 +13,16 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 class MemberSearchDelegate extends SearchDelegate<String?> {
   MemberSearchDelegate({
     required this.members,
-    this.searchHint = 'Search members...',
-    this.emptyLabel = 'No members found',
+    this.searchHint,
+    this.emptyLabel,
   });
 
   final List<Member> members;
-  final String searchHint;
-  final String emptyLabel;
+  final String? searchHint;
+  final String? emptyLabel;
 
   @override
-  String get searchFieldLabel => searchHint;
+  String get searchFieldLabel => searchHint ?? '';
 
   @override
   List<Widget>? buildActions(BuildContext context) {
@@ -61,6 +62,7 @@ class MemberSearchDelegate extends SearchDelegate<String?> {
 
   Widget _buildList(BuildContext context) {
     final filtered = _filteredMembers();
+    final l10n = AppLocalizations.of(context);
 
     if (filtered.isEmpty) {
       return Center(
@@ -77,7 +79,7 @@ class MemberSearchDelegate extends SearchDelegate<String?> {
             ),
             const SizedBox(height: 8),
             Text(
-              emptyLabel,
+              emptyLabel ?? l10n.noMembersFound,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
