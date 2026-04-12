@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -21,40 +22,39 @@ class ImportExportScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Import & Export', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.dataManagementImportExportTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
         children: [
           PrismSection(
-            title: 'Export',
+            title: context.l10n.dataManagementExportSectionTitle,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSettingsRow(
                 icon: AppIcons.uploadOutlined,
                 iconColor: Colors.blue,
-                title: 'Export Data',
-                subtitle: 'Create a password-protected backup',
+                title: context.l10n.dataManagementExportRowTitle,
+                subtitle: context.l10n.dataManagementExportRowSubtitle,
                 onTap: () => _showExportSheet(context),
               ),
             ),
           ),
           PrismSection(
-            title: 'Import',
+            title: context.l10n.dataManagementImportSectionTitle,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSettingsRow(
                 icon: AppIcons.downloadOutlined,
                 iconColor: Colors.green,
-                title: 'Import Data',
-                subtitle:
-                    'Restore data from a Prism export file (.json or .prism)',
+                title: context.l10n.dataManagementImportRowTitle,
+                subtitle: context.l10n.dataManagementImportRowSubtitle,
                 onTap: () => _showImportSheet(context),
               ),
             ),
           ),
           PrismSection(
-            title: 'Import from Other Apps',
+            title: context.l10n.dataManagementImportFromOtherApps,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: Column(
@@ -62,16 +62,16 @@ class ImportExportScreen extends ConsumerWidget {
                   PrismSettingsRow(
                     icon: AppIcons.cloudSync,
                     iconColor: Colors.deepPurple,
-                    title: 'PluralKit',
-                    subtitle: 'Import members & fronting via API token',
+                    title: context.l10n.pluralkitTitle,
+                    subtitle: context.l10n.dataManagementPluralKitRowSubtitle,
                     onTap: () => context.push(AppRoutePaths.settingsPluralkit),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
                     icon: AppIcons.swapHoriz,
                     iconColor: Colors.purple,
-                    title: 'Simply Plural',
-                    subtitle: 'Import from a Simply Plural export file',
+                    title: context.l10n.dataManagementSimplyPluralRowTitle,
+                    subtitle: context.l10n.dataManagementSimplyPluralRowSubtitle,
                     onTap: () => context.push(AppRoutePaths.settingsMigration),
                   ),
                 ],

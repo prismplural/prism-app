@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Card displaying the results of the last PluralKit sync.
@@ -20,7 +21,7 @@ class PkSyncSummaryCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Last Sync Summary',
+              context.l10n.pluralkitLastSyncSummary,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -28,7 +29,7 @@ class PkSyncSummaryCard extends StatelessWidget {
             const SizedBox(height: 12),
             if (summary.totalChanges == 0)
               Text(
-                'Everything is up to date.',
+                context.l10n.pluralkitUpToDate,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -37,31 +38,31 @@ class PkSyncSummaryCard extends StatelessWidget {
               if (summary.membersPulled > 0)
                 _SummaryRow(
                   icon: AppIcons.download,
-                  label: '${summary.membersPulled} member${summary.membersPulled == 1 ? '' : 's'} pulled',
+                  label: context.l10n.pluralkitMembersPulled(summary.membersPulled),
                   color: theme.colorScheme.primary,
                 ),
               if (summary.membersPushed > 0)
                 _SummaryRow(
                   icon: AppIcons.upload,
-                  label: '${summary.membersPushed} member${summary.membersPushed == 1 ? '' : 's'} pushed',
+                  label: context.l10n.pluralkitMembersPushed(summary.membersPushed),
                   color: theme.colorScheme.tertiary,
                 ),
               if (summary.switchesPulled > 0)
                 _SummaryRow(
                   icon: AppIcons.download,
-                  label: '${summary.switchesPulled} switch${summary.switchesPulled == 1 ? '' : 'es'} pulled',
+                  label: context.l10n.pluralkitSwitchesPulled(summary.switchesPulled),
                   color: theme.colorScheme.primary,
                 ),
               if (summary.switchesPushed > 0)
                 _SummaryRow(
                   icon: AppIcons.upload,
-                  label: '${summary.switchesPushed} switch${summary.switchesPushed == 1 ? '' : 'es'} pushed',
+                  label: context.l10n.pluralkitSwitchesPushed(summary.switchesPushed),
                   color: theme.colorScheme.tertiary,
                 ),
               if (summary.membersSkipped > 0)
                 _SummaryRow(
                   icon: AppIcons.skipNext,
-                  label: '${summary.membersSkipped} member${summary.membersSkipped == 1 ? '' : 's'} unchanged',
+                  label: context.l10n.pluralkitMembersUnchanged(summary.membersSkipped),
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
             ],
