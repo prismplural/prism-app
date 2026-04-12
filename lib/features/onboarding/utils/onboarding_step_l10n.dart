@@ -10,6 +10,10 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 extension OnboardingStepL10n on OnboardingStep {
   String localizedTitle(BuildContext context) => switch (this) {
     OnboardingStep.welcome => context.l10n.onboardingWelcomeTitle,
+    OnboardingStep.pinSetup => context.l10n.onboardingPinSetupTitle,
+    OnboardingStep.recoveryPhrase => context.l10n.onboardingRecoveryPhraseTitle,
+    OnboardingStep.confirmPhrase => context.l10n.onboardingConfirmPhraseTitle,
+    OnboardingStep.biometricSetup => context.l10n.onboardingBiometricSetupTitle,
     OnboardingStep.syncDevice => context.l10n.onboardingSyncDeviceTitle,
     OnboardingStep.importedDataReady =>
       context.l10n.onboardingImportedDataReadyTitle,
@@ -25,6 +29,10 @@ extension OnboardingStepL10n on OnboardingStep {
 
   String localizedSubtitle(BuildContext context) => switch (this) {
     OnboardingStep.welcome => context.l10n.onboardingWelcomeSubtitle,
+    OnboardingStep.pinSetup => context.l10n.onboardingPinSetupSubtitle,
+    OnboardingStep.recoveryPhrase => context.l10n.onboardingRecoveryPhraseSubtitle,
+    OnboardingStep.confirmPhrase => context.l10n.onboardingConfirmPhraseSubtitle,
+    OnboardingStep.biometricSetup => context.l10n.onboardingBiometricSetupSubtitle,
     OnboardingStep.syncDevice => context.l10n.onboardingSyncDeviceSubtitle,
     OnboardingStep.importedDataReady =>
       context.l10n.onboardingImportedDataReadySubtitle,
