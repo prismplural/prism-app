@@ -500,6 +500,18 @@ abstract class AppLocalizations {
   /// **'Per-{term} Colors'**
   String appearancePerMemberColors(String term);
 
+  /// Toggle row title: enable per-member accent colors
+  ///
+  /// In en, this message translates to:
+  /// **'Per-{term} accent colors'**
+  String appearancePerMemberColorsSwitchTitle(String term);
+
+  /// Toggle row subtitle: explain per-member accent colors
+  ///
+  /// In en, this message translates to:
+  /// **'Allow each {term} to have their own color'**
+  String appearancePerMemberColorsSwitchSubtitle(String term);
+
   /// Appearance settings section: Sync
   ///
   /// In en, this message translates to:
@@ -5833,6 +5845,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Channel name'**
   String get onboardingChatChannelNameHint;
+
+  /// Default onboarding channel: group chat visible to all members (cannot be removed)
+  ///
+  /// In en, this message translates to:
+  /// **'All Members'**
+  String get onboardingChatChannelAllMembers;
+
+  /// Default onboarding channel suggestion: a place to vent
+  ///
+  /// In en, this message translates to:
+  /// **'Venting'**
+  String get onboardingChatChannelVenting;
+
+  /// Default onboarding channel suggestion: planning channel
+  ///
+  /// In en, this message translates to:
+  /// **'Planning'**
+  String get onboardingChatChannelPlanning;
+
+  /// Default onboarding channel suggestion: journal channel
+  ///
+  /// In en, this message translates to:
+  /// **'Journal'**
+  String get onboardingChatChannelJournal;
+
+  /// Default onboarding channel suggestion: updates channel
+  ///
+  /// In en, this message translates to:
+  /// **'Updates'**
+  String get onboardingChatChannelUpdates;
+
+  /// Default onboarding channel suggestion: random/miscellaneous channel
+  ///
+  /// In en, this message translates to:
+  /// **'Random'**
+  String get onboardingChatChannelRandom;
 
   /// Section header for terminology section in preferences step
   ///

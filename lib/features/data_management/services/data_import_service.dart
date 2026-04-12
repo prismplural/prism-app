@@ -517,6 +517,7 @@ class DataImportService {
                 : SystemTerminology.headmates,
             customTerminology: s.customTerminology,
             customPluralTerminology: s.customPluralTerminology,
+            terminologyUseEnglish: s.terminologyUseEnglish,
             frontingRemindersEnabled: s.frontingRemindersEnabled,
             frontingReminderIntervalMinutes: s.frontingReminderIntervalMinutes,
             themeMode:

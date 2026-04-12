@@ -216,7 +216,12 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
-    final currentValue = (term: _selected, useEnglish: _useEnglish);
+    final isEnglish =
+        Localizations.localeOf(context).languageCode == 'en';
+    // In English locale all items use useEnglish:false — normalize so the
+    // selection always matches an item even if the user previously picked an
+    // English-labelled term while in a non-English locale.
+    final currentValue = (term: _selected, useEnglish: isEnglish ? false : _useEnglish);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

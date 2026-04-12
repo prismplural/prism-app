@@ -319,6 +319,24 @@
       }
     }
   },
+  "appearancePerMemberColorsSwitchTitle": "Per-{term} accent colors",
+  "@appearancePerMemberColorsSwitchTitle": {
+    "description": "Toggle row title: enable per-member accent colors",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
+  "appearancePerMemberColorsSwitchSubtitle": "Allow each {term} to have their own color",
+  "@appearancePerMemberColorsSwitchSubtitle": {
+    "description": "Toggle row subtitle: explain per-member accent colors",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
   "appearanceSyncSection": "Sync",
   "@appearanceSyncSection": {
     "description": "Appearance settings section: Sync"
@@ -4509,6 +4527,30 @@
   "onboardingChatChannelNameHint": "Channel name",
   "@onboardingChatChannelNameHint": {
     "description": "Hint text for the custom channel name field"
+  },
+  "onboardingChatChannelAllMembers": "All Members",
+  "@onboardingChatChannelAllMembers": {
+    "description": "Default onboarding channel: group chat visible to all members (cannot be removed)"
+  },
+  "onboardingChatChannelVenting": "Venting",
+  "@onboardingChatChannelVenting": {
+    "description": "Default onboarding channel suggestion: a place to vent"
+  },
+  "onboardingChatChannelPlanning": "Planning",
+  "@onboardingChatChannelPlanning": {
+    "description": "Default onboarding channel suggestion: planning channel"
+  },
+  "onboardingChatChannelJournal": "Journal",
+  "@onboardingChatChannelJournal": {
+    "description": "Default onboarding channel suggestion: journal channel"
+  },
+  "onboardingChatChannelUpdates": "Updates",
+  "@onboardingChatChannelUpdates": {
+    "description": "Default onboarding channel suggestion: updates channel"
+  },
+  "onboardingChatChannelRandom": "Random",
+  "@onboardingChatChannelRandom": {
+    "description": "Default onboarding channel suggestion: random/miscellaneous channel"
   },
   "onboardingPreferencesTerminology": "Terminology",
   "@onboardingPreferencesTerminology": {

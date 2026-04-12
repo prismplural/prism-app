@@ -16,14 +16,29 @@ class ChatSetupStep extends ConsumerStatefulWidget {
 class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
   final _customChannelController = TextEditingController();
 
-  static const _suggestedChannels = {
-    'All Members': '\u{1F465}',
-    'Venting': '\u{1F62E}\u200D\u{1F4A8}',
-    'Planning': '\u{1F4CB}',
-    'Journal': '\u{1F4D3}',
-    'Updates': '\u{1F4E2}',
-    'Random': '\u{1F3B2}',
+  Map<String, String> _buildSuggestedChannels(AppLocalizations l10n) => {
+    l10n.onboardingChatChannelAllMembers: '\u{1F465}',
+    l10n.onboardingChatChannelVenting: '\u{1F62E}\u200D\u{1F4A8}',
+    l10n.onboardingChatChannelPlanning: '\u{1F4CB}',
+    l10n.onboardingChatChannelJournal: '\u{1F4D3}',
+    l10n.onboardingChatChannelUpdates: '\u{1F4E2}',
+    l10n.onboardingChatChannelRandom: '\u{1F3B2}',
   };
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Seed localized default channels on first render. Uses a post-frame
+    // callback to avoid calling the notifier during the build phase.
+    final l10n = context.l10n;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(onboardingProvider.notifier).seedDefaultChannels(
+        allMembersName: l10n.onboardingChatChannelAllMembers,
+        ventingName: l10n.onboardingChatChannelVenting,
+      );
+    });
+  }
 
   @override
   void dispose() {
@@ -38,6 +53,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
     final primary = theme.colorScheme.primary;
     final onboarding = ref.watch(onboardingProvider);
     final notifier = ref.read(onboardingProvider.notifier);
+    final suggestedChannels = _buildSuggestedChannels(context.l10n);
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -53,10 +69,10 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
           const SizedBox(height: 10),
 
           // Suggested channels
-          ..._suggestedChannels.entries.map((entry) {
+          ...suggestedChannels.entries.map((entry) {
             final isSelected =
                 onboarding.selectedChannels.containsKey(entry.key);
-            final isAllMembers = entry.key == 'All Members';
+            final isAllMembers = entry.key == onboarding.allMembersChannelKey;
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -167,11 +183,11 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
 
           // Show custom channels added
           if (onboarding.selectedChannels.keys
-              .where((k) => !_suggestedChannels.containsKey(k))
+              .where((k) => !suggestedChannels.containsKey(k))
               .isNotEmpty) ...[
             const SizedBox(height: 12),
             ...onboarding.selectedChannels.entries
-                .where((e) => !_suggestedChannels.containsKey(e.key))
+                .where((e) => !suggestedChannels.containsKey(e.key))
                 .map((entry) => Padding(
                       padding: const EdgeInsets.only(bottom: 6),
                       child: Container(

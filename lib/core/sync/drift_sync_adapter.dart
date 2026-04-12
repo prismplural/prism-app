@@ -644,6 +644,7 @@ DriftSyncEntity _systemSettingsEntity(
         'terminology': r.terminology,
         'custom_terminology': r.customTerminology,
         'custom_plural_terminology': r.customPluralTerminology,
+        'terminology_use_english': r.terminologyUseEnglish,
         'fronting_reminders_enabled': r.frontingRemindersEnabled,
         'fronting_reminder_interval_minutes': r.frontingReminderIntervalMinutes,
         'theme_mode': r.themeMode,
@@ -691,6 +692,7 @@ DriftSyncEntity _systemSettingsEntity(
         customPluralTerminology: f.stringFieldNullable(
           'custom_plural_terminology',
         ),
+        terminologyUseEnglish: f.boolField('terminology_use_english'),
         frontingRemindersEnabled: f.boolField('fronting_reminders_enabled'),
         frontingReminderIntervalMinutes: f.intField(
           'fronting_reminder_interval_minutes',
@@ -744,6 +746,7 @@ DriftSyncEntity _systemSettingsEntity(
         'terminology': row.terminology,
         'custom_terminology': row.customTerminology,
         'custom_plural_terminology': row.customPluralTerminology,
+        'terminology_use_english': row.terminologyUseEnglish,
         'fronting_reminders_enabled': row.frontingRemindersEnabled,
         'fronting_reminder_interval_minutes':
             row.frontingReminderIntervalMinutes,

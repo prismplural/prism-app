@@ -84,14 +84,14 @@ class OnboardingState {
   final String? customTermPlural;
   final bool terminologyUseEnglish;
   final bool isSyncPath;
+  /// The channel key that cannot be removed (locale-aware "All Members" name).
+  /// Null until ChatSetupStep seeds the localized defaults on first render.
+  final String? allMembersChannelKey;
 
   const OnboardingState({
     this.currentStep = OnboardingStep.welcome,
     this.systemName = '',
-    this.selectedChannels = const {
-      'All Members': '\u{1F465}',
-      'Venting': '\u{1F62E}\u200D\u{1F4A8}',
-    },
+    this.selectedChannels = const {},
     this.customChannelName = '',
     this.selectedTerminology = SystemTerminology.headmates,
     this.accentColorHex = '#AF8EE9',
@@ -107,6 +107,7 @@ class OnboardingState {
     this.customTermPlural,
     this.terminologyUseEnglish = false,
     this.isSyncPath = false,
+    this.allMembersChannelKey,
   });
 
   static const _sentinel = Object();
@@ -131,6 +132,7 @@ class OnboardingState {
     bool? terminologyUseEnglish,
     bool? isSyncPath,
     bool clearFronterId = false,
+    String? allMembersChannelKey,
   }) {
     return OnboardingState(
       currentStep: currentStep ?? this.currentStep,
@@ -161,6 +163,7 @@ class OnboardingState {
       terminologyUseEnglish:
           terminologyUseEnglish ?? this.terminologyUseEnglish,
       isSyncPath: isSyncPath ?? this.isSyncPath,
+      allMembersChannelKey: allMembersChannelKey ?? this.allMembersChannelKey,
     );
   }
 }
@@ -339,11 +342,26 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     }
   }
 
+  void seedDefaultChannels({
+    required String allMembersName,
+    required String ventingName,
+  }) {
+    // Only seed if channels haven't been initialized yet.
+    if (state.allMembersChannelKey != null) return;
+    state = state.copyWith(
+      selectedChannels: {
+        allMembersName: '\u{1F465}',
+        ventingName: '\u{1F62E}\u200D\u{1F4A8}',
+      },
+      allMembersChannelKey: allMembersName,
+    );
+  }
+
   void toggleChannel(String name, String emoji) {
     final updated = Map<String, String>.from(state.selectedChannels);
     if (updated.containsKey(name)) {
-      // Don't allow removing "All Members"
-      if (name != 'All Members') {
+      // Don't allow removing the protected "All Members" channel.
+      if (name != state.allMembersChannelKey) {
         updated.remove(name);
       }
     } else {
