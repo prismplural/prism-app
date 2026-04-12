@@ -2,6 +2,34 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.2.14] - 2026-04-11
+
+### Added
+- Habits: Today container redesign with compact HabitChip widget, split Due/Complete sections, collapsed all-done state with mauve accent wash
+- Habits detail: floating glass Complete button with backdrop blur, clamping scroll physics, tighter section header spacing
+- Password change UI in sync settings
+- Internationalization infrastructure (gen_l10n, AppLocalizations wiring, en/es string extraction)
+
+### Fixed
+- Sync: retry loop was dead code — SyncEngine converted network errors into Ok(result) so retries never fired. Now inspects result.error_kind and retries transient errors (3×2s)
+- Sync: epoch keys never persisted across app restart — Dart seed allow-list excluded dynamic epoch_key_* entries. Now scans keychain via readAll() and restores all epoch keys on startup
+- Sync: push used stored op epoch instead of current group epoch, causing relay rejection after rekey. Now reads sync_metadata.current_epoch at push time
+- Sync: drain-after-revoke credential resurrection — defense-in-depth with monotonic generation token, per-write shouldAbort checks, and post-revoke re-cleanup timer
+- Sync: device_revoked metadata lost when engine wrapped relay errors — error_code and remote_wipe now propagated through SyncResult end-to-end
+- Sync: local engine/storage errors misclassified as retryable Network — now classified as Protocol (non-retryable)
+- Chat: missing foundation.dart import for kReleaseMode in GIF picker
+- iOS: export compliance declaration, exclude DB from iCloud backup
+- Android: explicit minSdk declaration
+- Accessibility: habits midnight invalidation on resume, blur popup semantics, popup menu tooltip defaults
+- Performance: cached parsed markdown spans in MarkdownEditingController for notes
+
+### Changed
+- Sync: reqwest client now uses connect_timeout(10s), pool_idle_timeout(90s), tcp_keepalive(60s)
+- Sync: triggerSync() wired to app onResume lifecycle (was defined but never called)
+- Sync: event-driven drain on SyncCompleted/EpochRotated events with 500ms trailing debounce
+- Sync: SecureStore trait extended with snapshot() method for dynamic key enumeration
+- App store submission audit and remediation (privacy manifests, security config)
+
 ## [0.2.13] - 2026-04-09
 
 ### Added
