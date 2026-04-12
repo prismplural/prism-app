@@ -189,12 +189,12 @@ class _SleepSessionBody extends StatelessWidget {
               const SizedBox(height: 20),
               _InfoRow(
                 label: context.l10n.frontingInfoStarted,
-                value: session.startTime.toDateTimeString(),
+                value: session.startTime.toDateTimeString(context.dateLocale),
               ),
               const SizedBox(height: 8),
               _InfoRow(
                 label: context.l10n.frontingInfoEnded,
-                value: session.endTime?.toDateTimeString() ?? context.l10n.frontingInfoActive,
+                value: session.endTime?.toDateTimeString(context.dateLocale) ?? context.l10n.frontingInfoActive,
               ),
               const SizedBox(height: 8),
               Row(
@@ -300,12 +300,12 @@ class _SessionDetailBody extends ConsumerWidget {
               const SizedBox(height: 12),
               _InfoRow(
                 label: context.l10n.frontingInfoStarted,
-                value: session.startTime.toDateTimeString(),
+                value: session.startTime.toDateTimeString(context.dateLocale),
               ),
               const SizedBox(height: 8),
               _InfoRow(
                 label: context.l10n.frontingInfoEnded,
-                value: session.endTime?.toDateTimeString() ?? context.l10n.frontingInfoActive,
+                value: session.endTime?.toDateTimeString(context.dateLocale) ?? context.l10n.frontingInfoActive,
               ),
               const SizedBox(height: 8),
               Row(

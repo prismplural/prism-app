@@ -392,7 +392,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
 
         const SizedBox(height: 4),
         Text(
-          context.l10n.chatInfoCreatedAt(conversation.createdAt.toDateString()),
+          context.l10n.chatInfoCreatedAt(conversation.createdAt.toDateString(context.dateLocale)),
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
