@@ -5102,6 +5102,12 @@ abstract class AppLocalizations {
   /// **'Playback speed {speed}x. Double tap to change.'**
   String chatVoiceNoteSpeed(String speed);
 
+  /// Semantics label for voice note error state with retry
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load voice note. Tap to retry.'**
+  String get chatVoiceNoteError;
+
   /// Semantics label for cancel recording button
   ///
   /// In en, this message translates to:

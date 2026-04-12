@@ -661,6 +661,9 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     final speed = ref.watch(
       voicePlaybackProvider.select((s) => s.activeMediaId == mediaId ? s.speed : 1.0),
     );
+    final hasPlaybackError = ref.watch(
+      voicePlaybackProvider.select((s) => s.activeMediaId == mediaId && s.error != null),
+    );
 
     return VoiceBubble(
       durationMs: attachment.durationMs,
@@ -668,10 +671,14 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       progress: progress,
       speed: speed,
       isLoading: mediaAsync.isLoading,
+      hasError: mediaAsync.hasError || hasPlaybackError,
       onPlayPause: mediaAsync.value != null
           ? () => ref
               .read(voicePlaybackProvider.notifier)
               .togglePlayPause(attachment.mediaId, mediaAsync.value!)
+          : null,
+      onRetry: mediaAsync.hasError
+          ? () => ref.invalidate(mediaAudioFileProvider(params))
           : null,
       onSeek: mediaAsync.value != null
           ? (fraction) {

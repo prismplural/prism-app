@@ -49,8 +49,9 @@ class DownloadManager {
     required Uint8List encryptionKey,
     required String ciphertextHash,
     required String plaintextHash,
+    String fileExtension = '',
   }) async {
-    final cacheFile = await _cacheFileFor(mediaId);
+    final cacheFile = await _cacheFileFor(mediaId, fileExtension);
     if (cacheFile.existsSync()) {
       _emitProgress(mediaId, DownloadState.completed);
       return cacheFile.readAsBytes();
@@ -64,10 +65,12 @@ class DownloadManager {
         throw StateError('Sync handle not available');
       }
 
-      final ciphertext = await ffi.downloadMedia(
-        handle: handle!,
-        mediaId: mediaId,
-      );
+      final ciphertext = await ffi
+          .downloadMedia(
+            handle: handle!,
+            mediaId: mediaId,
+          )
+          .timeout(const Duration(seconds: 30));
 
       _emitProgress(mediaId, DownloadState.decrypting);
 
@@ -97,15 +100,20 @@ class DownloadManager {
     required String ciphertextHash,
     required String plaintextHash,
   }) async {
+    // Audio files need a .m4a extension so iOS AVPlayer can detect the format.
+    // Android's ExoPlayer does byte-header detection and doesn't need it, but
+    // using an extension is correct on both platforms.
+    const ext = '.m4a';
     final bytes = await getMedia(
       mediaId: mediaId,
       encryptionKey: encryptionKey,
       ciphertextHash: ciphertextHash,
       plaintextHash: plaintextHash,
+      fileExtension: ext,
     );
     if (bytes == null) return null;
 
-    return _cacheFileFor(mediaId);
+    return _cacheFileFor(mediaId, ext);
   }
 
   Future<void> clearCache() async {
@@ -162,13 +170,16 @@ class DownloadManager {
   }
 
   Future<Directory> _resolveCacheDir() async {
-    final cacheBase = await getApplicationCacheDirectory();
+    // Use applicationSupportDirectory (not cacheDir) so iOS applies
+    // NSFileProtectionCompleteUntilFirstUserAuthentication and the media
+    // files are excluded from unencrypted iTunes/Finder backups.
+    final cacheBase = await getApplicationSupportDirectory();
     return Directory('${cacheBase.path}/prism_media');
   }
 
-  Future<File> _cacheFileFor(String mediaId) async {
+  Future<File> _cacheFileFor(String mediaId, [String fileExtension = '']) async {
     final dir = await _cacheDir();
-    return File('${dir.path}/$mediaId');
+    return File('${dir.path}/$mediaId$fileExtension');
   }
 
   void dispose() {

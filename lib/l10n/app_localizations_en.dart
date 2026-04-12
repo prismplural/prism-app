@@ -2888,6 +2888,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get chatVoiceNoteError => 'Failed to load voice note. Tap to retry.';
+
+  @override
   String get chatVoiceRecorderCancel => 'Cancel recording';
 
   @override

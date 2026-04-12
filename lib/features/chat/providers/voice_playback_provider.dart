@@ -11,6 +11,7 @@ class VoicePlaybackState {
     this.position = Duration.zero,
     this.duration = Duration.zero,
     this.speed = 1.0,
+    this.error,
   });
 
   final String? activeMediaId;
@@ -19,12 +20,16 @@ class VoicePlaybackState {
   final Duration duration;
   final double speed;
 
+  /// Non-null when the most recent play attempt failed for [activeMediaId].
+  final String? error;
+
   VoicePlaybackState copyWith({
     String? activeMediaId,
     bool? isPlaying,
     Duration? position,
     Duration? duration,
     double? speed,
+    String? error,
   }) {
     return VoicePlaybackState(
       activeMediaId: activeMediaId ?? this.activeMediaId,
@@ -32,6 +37,7 @@ class VoicePlaybackState {
       position: position ?? this.position,
       duration: duration ?? this.duration,
       speed: speed ?? this.speed,
+      error: error ?? this.error,
     );
   }
 }
@@ -41,6 +47,7 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<PlayerState>? _stateSub;
   StreamSubscription<Duration?>? _durationSub;
+  StreamSubscription<dynamic>? _errorSub;
 
   @override
   VoicePlaybackState build() {
@@ -56,48 +63,67 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
       return;
     }
 
-    if (state.activeMediaId == mediaId && !state.isPlaying) {
-      // Resume current note.
+    if (state.activeMediaId == mediaId && !state.isPlaying && state.error == null) {
+      // Resume current note (no error — player is still set up).
       await _player?.play();
       state = state.copyWith(isPlaying: true);
       return;
     }
 
-    // Load a different note (or first play).
+    // Load a different note, first play, or retry after error.
     _disposePlayer();
 
-    _player = AudioPlayer();
-    await _player!.setAudioSource(AudioSource.file(audioFile.path));
-    await _player!.setSpeed(state.speed);
-
-    _positionSub = _player!.positionStream.listen((pos) {
-      state = state.copyWith(position: pos);
-    });
-
-    _stateSub = _player!.playerStateStream.listen((ps) {
-      if (ps.processingState == ProcessingState.completed) {
-        _player?.seek(Duration.zero);
-        _player?.pause();
-        state = state.copyWith(isPlaying: false, position: Duration.zero);
-      } else {
-        state = state.copyWith(isPlaying: ps.playing);
-      }
-    });
-
-    _durationSub = _player!.durationStream.listen((dur) {
-      if (dur != null) {
-        state = state.copyWith(duration: dur);
-      }
-    });
-
-    state = state.copyWith(
+    // Clear error and mark loading state before the async work.
+    state = VoicePlaybackState(
       activeMediaId: mediaId,
       isPlaying: true,
       position: Duration.zero,
       duration: Duration.zero,
+      speed: state.speed,
     );
 
-    await _player!.play();
+    try {
+      _player = AudioPlayer();
+
+      _errorSub = _player!.playbackEventStream.listen(
+        null,
+        onError: (Object e) {
+          _disposePlayer();
+          if (state.activeMediaId == mediaId) {
+            state = state.copyWith(isPlaying: false, error: e.toString());
+          }
+        },
+        cancelOnError: false,
+      );
+
+      await _player!.setAudioSource(AudioSource.file(audioFile.path));
+      await _player!.setSpeed(state.speed);
+
+      _positionSub = _player!.positionStream.listen((pos) {
+        state = state.copyWith(position: pos);
+      });
+
+      _stateSub = _player!.playerStateStream.listen((ps) {
+        if (ps.processingState == ProcessingState.completed) {
+          _player?.seek(Duration.zero);
+          _player?.pause();
+          state = state.copyWith(isPlaying: false, position: Duration.zero);
+        } else {
+          state = state.copyWith(isPlaying: ps.playing);
+        }
+      });
+
+      _durationSub = _player!.durationStream.listen((dur) {
+        if (dur != null) {
+          state = state.copyWith(duration: dur);
+        }
+      });
+
+      await _player!.play();
+    } catch (e) {
+      _disposePlayer();
+      state = state.copyWith(isPlaying: false, error: e.toString());
+    }
   }
 
   void seek(Duration position) {
@@ -130,6 +156,8 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
     _stateSub = null;
     _durationSub?.cancel();
     _durationSub = null;
+    _errorSub?.cancel();
+    _errorSub = null;
     _player?.dispose();
     _player = null;
   }
