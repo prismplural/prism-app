@@ -38,7 +38,6 @@ class PrismTextField extends StatelessWidget {
     this.textAlign = TextAlign.start,
     this.prefixText,
     this.isDense,
-    this.alignLabelWithHint,
   }) : assert(
          controller == null || initialValue == null,
          'Provide either a controller or an initialValue, not both.',
@@ -75,7 +74,6 @@ class PrismTextField extends StatelessWidget {
   final TextAlign textAlign;
   final String? prefixText;
   final bool? isDense;
-  final bool? alignLabelWithHint;
 
   bool get _isMultiLine =>
       (maxLines != null && maxLines! > 1) ||
@@ -100,7 +98,6 @@ class PrismTextField extends StatelessWidget {
     }
 
     final decoration = InputDecoration(
-      labelText: labelText,
       hintText: hintText,
       helperText: helperText,
       errorText: errorText,
@@ -110,7 +107,6 @@ class PrismTextField extends StatelessWidget {
       contentPadding: contentPadding,
       prefixText: prefixText,
       isDense: isDense,
-      alignLabelWithHint: alignLabelWithHint,
       border: fieldStyle == PrismTextFieldStyle.borderless
           ? InputBorder.none
           : multiLineBorder(inputTheme.border),
@@ -133,7 +129,7 @@ class PrismTextField extends StatelessWidget {
       isCollapsed: fieldStyle == PrismTextFieldStyle.borderless,
     );
 
-    return TextFormField(
+    final textFormField = TextFormField(
       controller: controller,
       focusNode: focusNode,
       initialValue: initialValue,
@@ -156,5 +152,39 @@ class PrismTextField extends StatelessWidget {
       maxLength: maxLength,
       textAlign: textAlign,
     );
+
+    if (labelText != null && fieldStyle != PrismTextFieldStyle.borderless) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildLabel(context),
+          const SizedBox(height: 4),
+          textFormField,
+        ],
+      );
+    }
+    return textFormField;
+  }
+
+  Widget _buildLabel(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.labelLarge!.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+
+    if (labelText!.contains('*')) {
+      final idx = labelText!.indexOf('*');
+      return Text.rich(
+        TextSpan(children: [
+          TextSpan(text: labelText!.substring(0, idx), style: style),
+          TextSpan(
+            text: ' *',
+            style: style.copyWith(color: theme.colorScheme.primary),
+          ),
+        ]),
+      );
+    }
+    return Text(labelText!, style: style);
   }
 }

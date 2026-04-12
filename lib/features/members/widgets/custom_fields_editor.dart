@@ -231,48 +231,57 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       }
     }
 
-    return GestureDetector(
-      onTap: () => _pickDate(context, precision),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: widget.field.name,
-          border: const OutlineInputBorder(),
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (currentValue.isNotEmpty)
-                PrismFieldIconButton(
-                  icon: AppIcons.clear,
-                  color: theme.colorScheme.onSurfaceVariant,
-                  onPressed: () {
-                    _textController.text = '';
-                    if (widget.existingValue != null) {
-                      ref
-                          .read(customFieldValueNotifierProvider.notifier)
-                          .deleteValue(widget.existingValue!.id);
-                    }
-                    setState(() {});
-                  },
-                  tooltip: 'Clear date',
-                ),
-              Icon(
-                AppIcons.calendarToday,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
+    final labelStyle = theme.textTheme.labelLarge!.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.field.name, style: labelStyle),
+        const SizedBox(height: 4),
+        GestureDetector(
+          onTap: () => _pickDate(context, precision),
+          child: InputDecorator(
+            decoration: InputDecoration(
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (currentValue.isNotEmpty)
+                    PrismFieldIconButton(
+                      icon: AppIcons.clear,
+                      color: theme.colorScheme.onSurfaceVariant,
+                      onPressed: () {
+                        _textController.text = '';
+                        if (widget.existingValue != null) {
+                          ref
+                              .read(customFieldValueNotifierProvider.notifier)
+                              .deleteValue(widget.existingValue!.id);
+                        }
+                        setState(() {});
+                      },
+                      tooltip: 'Clear date',
+                    ),
+                  Icon(
+                    AppIcons.calendarToday,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 12),
+                ],
               ),
-              const SizedBox(width: 12),
-            ],
+            ),
+            child: Text(
+              displayText.isNotEmpty ? displayText : 'Select date',
+              style: displayText.isNotEmpty
+                  ? theme.textTheme.bodyLarge
+                  : theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+            ),
           ),
         ),
-        child: Text(
-          displayText.isNotEmpty ? displayText : 'Select date',
-          style: displayText.isNotEmpty
-              ? theme.textTheme.bodyLarge
-              : theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-        ),
-      ),
+      ],
     );
   }
 

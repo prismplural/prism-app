@@ -230,7 +230,7 @@ class _SelectField<T> extends StatelessWidget {
     final fieldSubtitle = selectedItem?.fieldSubtitle ?? selectedItem?.subtitle;
     final fieldLeading = selectedItem?.fieldLeading ?? selectedItem?.leading;
 
-    return Semantics(
+    final field = Semantics(
       button: true,
       enabled: onTap != null,
       label: semanticLabel ?? labelText ?? fieldLabel ?? hintText,
@@ -242,7 +242,6 @@ class _SelectField<T> extends StatelessWidget {
           child: InputDecorator(
             isEmpty: selectedItem == null,
             decoration: InputDecoration(
-              labelText: labelText,
               hintText: hintText,
               helperText: helperText,
               errorText: errorText,
@@ -276,6 +275,22 @@ class _SelectField<T> extends StatelessWidget {
         ),
       ),
     );
+
+    if (labelText != null) {
+      final labelStyle = theme.textTheme.labelLarge!.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      );
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(labelText!, style: labelStyle),
+          const SizedBox(height: 4),
+          field,
+        ],
+      );
+    }
+    return field;
   }
 
   Widget _buildCompact(BuildContext context) {

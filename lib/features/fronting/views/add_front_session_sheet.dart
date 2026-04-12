@@ -369,7 +369,6 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                 focusNode: _notesFocus,
                 labelText: context.l10n.frontingNotes,
                 hintText: context.l10n.frontingNotesHint,
-                alignLabelWithHint: true,
                 maxLines: 6,
                 minLines: 3,
                 textCapitalization: TextCapitalization.sentences,
