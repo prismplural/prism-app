@@ -1139,6 +1139,327 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get continueLabel => 'Continue';
+
+  @override
+  String devicesEpochKeyGen(int epoch, int gen) {
+    return 'Epoch $epoch · Key gen $gen';
+  }
+
+  @override
+  String get devicesRotateKeyTooltip => 'Rotate signing key';
+
+  @override
+  String get devicesRevokeTooltip => 'Revoke device';
+
+  @override
+  String get devicesIdCopied => 'Device ID copied';
+
+  @override
+  String get syncTroubleshootingTitle => 'Sync Troubleshooting';
+
+  @override
+  String get syncTroubleshootingConnectionStatus => 'Connection Status';
+
+  @override
+  String get syncTroubleshootingNotConfigured => 'Not configured';
+
+  @override
+  String get syncTroubleshootingConnected => 'Connected';
+
+  @override
+  String get syncTroubleshootingConfiguredLocally => 'Configured locally';
+
+  @override
+  String get syncTroubleshootingNotConfiguredSubtitle =>
+      'This device does not currently have sync set up.';
+
+  @override
+  String get syncTroubleshootingConnectedSubtitle =>
+      'Sync engine is active and ready';
+
+  @override
+  String get syncTroubleshootingConfiguredLocallySubtitle =>
+      'Settings are stored. The engine will reconnect on the next sync.';
+
+  @override
+  String get syncTroubleshootingLastSync => 'Last Sync';
+
+  @override
+  String get syncTroubleshootingLastSuccessful => 'Last successful sync';
+
+  @override
+  String get syncTroubleshootingNeverSynced => 'Never synced';
+
+  @override
+  String get syncTroubleshootingLastError => 'Last sync error';
+
+  @override
+  String get syncTroubleshootingCurrentState => 'Current sync state';
+
+  @override
+  String get syncTroubleshootingSyncing => 'Syncing…';
+
+  @override
+  String get syncTroubleshootingIdle => 'Idle';
+
+  @override
+  String get syncTroubleshootingPendingOps => 'Pending operations';
+
+  @override
+  String syncTroubleshootingPendingOpsValue(int count) {
+    return '$count ops waiting to sync';
+  }
+
+  @override
+  String get syncTroubleshootingSyncId => 'Sync ID';
+
+  @override
+  String get syncTroubleshootingRelayUrl => 'Relay URL';
+
+  @override
+  String get syncTroubleshootingActions => 'Actions';
+
+  @override
+  String get syncTroubleshootingForceSync => 'Force Sync';
+
+  @override
+  String get syncTroubleshootingOpenEventLog => 'Open Sync Event Log';
+
+  @override
+  String get syncTroubleshootingResetSync => 'Reset Sync System';
+
+  @override
+  String get syncTroubleshootingRepair => 'Re-pair Device';
+
+  @override
+  String get syncTroubleshootingCommonIssues => 'Common Issues';
+
+  @override
+  String get syncTroubleshootingIssue1Title => 'Sync not working?';
+
+  @override
+  String get syncTroubleshootingIssue1Description =>
+      'Check that your relay URL and sync ID are correctly configured in Sync settings. Both devices must use the same sync ID.';
+
+  @override
+  String get syncTroubleshootingIssue2Title => 'Duplicate data?';
+
+  @override
+  String get syncTroubleshootingIssue2Description =>
+      'Try resetting the sync system using the button above. This wipes local sync setup and lets you pair again cleanly.';
+
+  @override
+  String get syncTroubleshootingIssue3Title => 'Connection errors?';
+
+  @override
+  String get syncTroubleshootingIssue3Description =>
+      'Verify that your device has network access and that the relay server is online. Check the relay URL for typos.';
+
+  @override
+  String get syncTroubleshootingIssue4Title => 'Sync is slow?';
+
+  @override
+  String get syncTroubleshootingIssue4Description =>
+      'Initial sync may take longer with large datasets. Subsequent syncs are incremental and should be faster.';
+
+  @override
+  String get syncTroubleshootingIssue5Title => 'Device Identity Mismatch';
+
+  @override
+  String get syncTroubleshootingIssue5Description =>
+      'If pairing failed mid-way, your device identity may be inconsistent. Use \"Re-pair Device\" to generate a fresh identity and pair again.';
+
+  @override
+  String get syncTroubleshootingFinished => 'Sync finished';
+
+  @override
+  String syncTroubleshootingFailed(Object error) {
+    return 'Sync failed: $error';
+  }
+
+  @override
+  String get syncTroubleshootingResetTitle => 'Reset sync system?';
+
+  @override
+  String get syncTroubleshootingResetMessage =>
+      'This keeps your local app data, but wipes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.';
+
+  @override
+  String get syncTroubleshootingResetConfirm => 'Reset';
+
+  @override
+  String get syncTroubleshootingResetSuccess => 'Sync system reset';
+
+  @override
+  String get syncTroubleshootingRepairTitle => 'Re-pair Device?';
+
+  @override
+  String get syncTroubleshootingRepairMessage =>
+      'This will clear your sync credentials and require you to pair again. Any local changes not yet synced will be lost.\n\nWe recommend exporting your data first as a safety net.';
+
+  @override
+  String get syncTroubleshootingRepairNow => 'Re-pair Now';
+
+  @override
+  String get syncTroubleshootingExportFirst => 'Export Data First';
+
+  @override
+  String get syncTroubleshootingCredentialsCleared =>
+      'Sync credentials cleared';
+
+  @override
+  String get featureChatDescription =>
+      'Internal messaging between system members.';
+
+  @override
+  String get featureChatGeneral => 'General';
+
+  @override
+  String get featureChatEnable => 'Enable Chat';
+
+  @override
+  String get featureChatEnableSubtitle => 'In-system messaging between members';
+
+  @override
+  String get featureChatOptions => 'Options';
+
+  @override
+  String get featureChatLogFront => 'Log Front on Switch';
+
+  @override
+  String get featureChatLogFrontSubtitle =>
+      'Changing who\'s speaking in chat also logs a front';
+
+  @override
+  String get featureChatGifSearch => 'GIF Search';
+
+  @override
+  String get featureChatGifSearchSubtitle => 'Search and send GIFs in chat';
+
+  @override
+  String get featureFrontingDescription =>
+      'Configure how fronting sessions work.';
+
+  @override
+  String get featureFrontingOptions => 'Options';
+
+  @override
+  String get featureFrontingQuickSwitch => 'Quick Switch';
+
+  @override
+  String get featureFrontingQuickSwitchOff => 'Off';
+
+  @override
+  String featureFrontingQuickSwitchSeconds(int seconds) {
+    return '${seconds}s correction window';
+  }
+
+  @override
+  String featureFrontingQuickSwitchMinutes(int minutes) {
+    return '${minutes}m correction window';
+  }
+
+  @override
+  String get featureFrontingQuickSwitchTitle => 'Quick Switch Window';
+
+  @override
+  String get featureFrontingQuickSwitchMessage =>
+      'If you switch fronters within this window, it corrects the current session instead of creating a new one.';
+
+  @override
+  String get featureHabitsDescription =>
+      'Track recurring tasks and build streaks with your system members.';
+
+  @override
+  String get featureHabitsGeneral => 'General';
+
+  @override
+  String get featureHabitsEnable => 'Enable Habits';
+
+  @override
+  String get featureHabitsEnableSubtitle => 'Track daily routines and goals';
+
+  @override
+  String get featureHabitsOptions => 'Options';
+
+  @override
+  String get featureHabitsDueBadge => 'Due Habits Badge';
+
+  @override
+  String get featureHabitsDueBadgeSubtitle =>
+      'Show count of due habits on the tab icon';
+
+  @override
+  String get featureSleepDescription =>
+      'Sleep sessions help you track rest patterns alongside fronting sessions. You can start a sleep session from the moon icon on the fronting screen.';
+
+  @override
+  String get featureSleepGeneral => 'General';
+
+  @override
+  String get featureSleepEnable => 'Enable Sleep';
+
+  @override
+  String get featureSleepEnableSubtitle => 'Log and monitor sleep sessions';
+
+  @override
+  String get featureSleepOptions => 'Options';
+
+  @override
+  String get featureSleepDefaultQuality => 'Default Quality';
+
+  @override
+  String get featureSleepDefaultQualityTitle => 'Default Quality';
+
+  @override
+  String get featureSleepDefaultQualityMessage =>
+      'Choose the default quality rating for new sleep sessions.';
+
+  @override
+  String get featurePollsDescription =>
+      'Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.';
+
+  @override
+  String get featurePollsEnable => 'Enable Polls';
+
+  @override
+  String get featurePollsEnableSubtitle => 'Create polls for system decisions';
+
+  @override
+  String get featureNotesDescription =>
+      'A personal journal for system members. Disabling hides notes from navigation but keeps existing entries.';
+
+  @override
+  String get featureNotesEnable => 'Enable Notes';
+
+  @override
+  String get featureNotesEnableSubtitle => 'Write notes and journal entries';
+
+  @override
+  String get featureRemindersDescription =>
+      'Get reminded on a schedule or when fronters change. Disabling hides reminders from navigation but keeps existing ones.';
+
+  @override
+  String get featureRemindersGeneral => 'General';
+
+  @override
+  String get featureRemindersEnable => 'Enable Reminders';
+
+  @override
+  String get featureRemindersEnableSubtitle =>
+      'Scheduled and front-change reminders';
+
+  @override
+  String get featureRemindersOptions => 'Options';
+
+  @override
+  String get featureRemindersManage => 'Manage Reminders';
+
+  @override
+  String get featureRemindersManageSubtitle => 'Create and edit your reminders';
+
+  @override
   String get voiceMicPermissionDenied =>
       'Microphone permission is required to record voice notes.';
 

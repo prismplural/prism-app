@@ -2180,6 +2180,582 @@ abstract class AppLocalizations {
   /// **'Device {shortId}, {status}, key generation {gen}, this device'**
   String devicesSemanticLabelCurrent(String shortId, String status, int gen);
 
+  /// Button label: continue to next step
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueLabel;
+
+  /// Device tile subtitle: epoch and key generation
+  ///
+  /// In en, this message translates to:
+  /// **'Epoch {epoch} · Key gen {gen}'**
+  String devicesEpochKeyGen(int epoch, int gen);
+
+  /// Tooltip on rotate key button
+  ///
+  /// In en, this message translates to:
+  /// **'Rotate signing key'**
+  String get devicesRotateKeyTooltip;
+
+  /// Tooltip on revoke button
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke device'**
+  String get devicesRevokeTooltip;
+
+  /// Toast when device ID is copied to clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Device ID copied'**
+  String get devicesIdCopied;
+
+  /// Title of the sync troubleshooting screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Troubleshooting'**
+  String get syncTroubleshootingTitle;
+
+  /// Section header: connection status
+  ///
+  /// In en, this message translates to:
+  /// **'Connection Status'**
+  String get syncTroubleshootingConnectionStatus;
+
+  /// Connection state: not configured
+  ///
+  /// In en, this message translates to:
+  /// **'Not configured'**
+  String get syncTroubleshootingNotConfigured;
+
+  /// Connection state: connected
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get syncTroubleshootingConnected;
+
+  /// Connection state: configured locally but engine not active
+  ///
+  /// In en, this message translates to:
+  /// **'Configured locally'**
+  String get syncTroubleshootingConfiguredLocally;
+
+  /// Subtitle when sync is not configured
+  ///
+  /// In en, this message translates to:
+  /// **'This device does not currently have sync set up.'**
+  String get syncTroubleshootingNotConfiguredSubtitle;
+
+  /// Subtitle when sync is connected
+  ///
+  /// In en, this message translates to:
+  /// **'Sync engine is active and ready'**
+  String get syncTroubleshootingConnectedSubtitle;
+
+  /// Subtitle when configured locally but not active
+  ///
+  /// In en, this message translates to:
+  /// **'Settings are stored. The engine will reconnect on the next sync.'**
+  String get syncTroubleshootingConfiguredLocallySubtitle;
+
+  /// Section header: last sync time
+  ///
+  /// In en, this message translates to:
+  /// **'Last Sync'**
+  String get syncTroubleshootingLastSync;
+
+  /// Row title: last successful sync
+  ///
+  /// In en, this message translates to:
+  /// **'Last successful sync'**
+  String get syncTroubleshootingLastSuccessful;
+
+  /// Subtitle when never synced
+  ///
+  /// In en, this message translates to:
+  /// **'Never synced'**
+  String get syncTroubleshootingNeverSynced;
+
+  /// Row title: last sync error
+  ///
+  /// In en, this message translates to:
+  /// **'Last sync error'**
+  String get syncTroubleshootingLastError;
+
+  /// Row title: current sync state
+  ///
+  /// In en, this message translates to:
+  /// **'Current sync state'**
+  String get syncTroubleshootingCurrentState;
+
+  /// Sync state: syncing
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing…'**
+  String get syncTroubleshootingSyncing;
+
+  /// Sync state: idle
+  ///
+  /// In en, this message translates to:
+  /// **'Idle'**
+  String get syncTroubleshootingIdle;
+
+  /// Row title: pending operations
+  ///
+  /// In en, this message translates to:
+  /// **'Pending operations'**
+  String get syncTroubleshootingPendingOps;
+
+  /// Subtitle for pending ops count
+  ///
+  /// In en, this message translates to:
+  /// **'{count} ops waiting to sync'**
+  String syncTroubleshootingPendingOpsValue(int count);
+
+  /// Row title: sync ID
+  ///
+  /// In en, this message translates to:
+  /// **'Sync ID'**
+  String get syncTroubleshootingSyncId;
+
+  /// Row title: relay URL
+  ///
+  /// In en, this message translates to:
+  /// **'Relay URL'**
+  String get syncTroubleshootingRelayUrl;
+
+  /// Section header: actions
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get syncTroubleshootingActions;
+
+  /// Button: force sync now
+  ///
+  /// In en, this message translates to:
+  /// **'Force Sync'**
+  String get syncTroubleshootingForceSync;
+
+  /// Button: open sync event log
+  ///
+  /// In en, this message translates to:
+  /// **'Open Sync Event Log'**
+  String get syncTroubleshootingOpenEventLog;
+
+  /// Button: reset sync system
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Sync System'**
+  String get syncTroubleshootingResetSync;
+
+  /// Button: re-pair device
+  ///
+  /// In en, this message translates to:
+  /// **'Re-pair Device'**
+  String get syncTroubleshootingRepair;
+
+  /// Section header: common issues
+  ///
+  /// In en, this message translates to:
+  /// **'Common Issues'**
+  String get syncTroubleshootingCommonIssues;
+
+  /// Common issue 1 title
+  ///
+  /// In en, this message translates to:
+  /// **'Sync not working?'**
+  String get syncTroubleshootingIssue1Title;
+
+  /// Common issue 1 description
+  ///
+  /// In en, this message translates to:
+  /// **'Check that your relay URL and sync ID are correctly configured in Sync settings. Both devices must use the same sync ID.'**
+  String get syncTroubleshootingIssue1Description;
+
+  /// Common issue 2 title
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate data?'**
+  String get syncTroubleshootingIssue2Title;
+
+  /// Common issue 2 description
+  ///
+  /// In en, this message translates to:
+  /// **'Try resetting the sync system using the button above. This wipes local sync setup and lets you pair again cleanly.'**
+  String get syncTroubleshootingIssue2Description;
+
+  /// Common issue 3 title
+  ///
+  /// In en, this message translates to:
+  /// **'Connection errors?'**
+  String get syncTroubleshootingIssue3Title;
+
+  /// Common issue 3 description
+  ///
+  /// In en, this message translates to:
+  /// **'Verify that your device has network access and that the relay server is online. Check the relay URL for typos.'**
+  String get syncTroubleshootingIssue3Description;
+
+  /// Common issue 4 title
+  ///
+  /// In en, this message translates to:
+  /// **'Sync is slow?'**
+  String get syncTroubleshootingIssue4Title;
+
+  /// Common issue 4 description
+  ///
+  /// In en, this message translates to:
+  /// **'Initial sync may take longer with large datasets. Subsequent syncs are incremental and should be faster.'**
+  String get syncTroubleshootingIssue4Description;
+
+  /// Common issue 5 title
+  ///
+  /// In en, this message translates to:
+  /// **'Device Identity Mismatch'**
+  String get syncTroubleshootingIssue5Title;
+
+  /// Common issue 5 description
+  ///
+  /// In en, this message translates to:
+  /// **'If pairing failed mid-way, your device identity may be inconsistent. Use \"Re-pair Device\" to generate a fresh identity and pair again.'**
+  String get syncTroubleshootingIssue5Description;
+
+  /// Toast when sync finishes
+  ///
+  /// In en, this message translates to:
+  /// **'Sync finished'**
+  String get syncTroubleshootingFinished;
+
+  /// Toast when sync fails
+  ///
+  /// In en, this message translates to:
+  /// **'Sync failed: {error}'**
+  String syncTroubleshootingFailed(Object error);
+
+  /// Dialog title for sync reset
+  ///
+  /// In en, this message translates to:
+  /// **'Reset sync system?'**
+  String get syncTroubleshootingResetTitle;
+
+  /// Dialog message for sync reset
+  ///
+  /// In en, this message translates to:
+  /// **'This keeps your local app data, but wipes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.'**
+  String get syncTroubleshootingResetMessage;
+
+  /// Button: confirm sync reset
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get syncTroubleshootingResetConfirm;
+
+  /// Toast after sync reset
+  ///
+  /// In en, this message translates to:
+  /// **'Sync system reset'**
+  String get syncTroubleshootingResetSuccess;
+
+  /// Dialog title for re-pair
+  ///
+  /// In en, this message translates to:
+  /// **'Re-pair Device?'**
+  String get syncTroubleshootingRepairTitle;
+
+  /// Dialog message for re-pair
+  ///
+  /// In en, this message translates to:
+  /// **'This will clear your sync credentials and require you to pair again. Any local changes not yet synced will be lost.\n\nWe recommend exporting your data first as a safety net.'**
+  String get syncTroubleshootingRepairMessage;
+
+  /// Button: re-pair now
+  ///
+  /// In en, this message translates to:
+  /// **'Re-pair Now'**
+  String get syncTroubleshootingRepairNow;
+
+  /// Button: export data first before re-pair
+  ///
+  /// In en, this message translates to:
+  /// **'Export Data First'**
+  String get syncTroubleshootingExportFirst;
+
+  /// Toast after credentials cleared
+  ///
+  /// In en, this message translates to:
+  /// **'Sync credentials cleared'**
+  String get syncTroubleshootingCredentialsCleared;
+
+  /// Description text on chat feature settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Internal messaging between system members.'**
+  String get featureChatDescription;
+
+  /// Section title: general settings on chat feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get featureChatGeneral;
+
+  /// Toggle title: enable chat
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Chat'**
+  String get featureChatEnable;
+
+  /// Toggle subtitle: enable chat
+  ///
+  /// In en, this message translates to:
+  /// **'In-system messaging between members'**
+  String get featureChatEnableSubtitle;
+
+  /// Section title: options on chat feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get featureChatOptions;
+
+  /// Toggle title: log front on speaker switch
+  ///
+  /// In en, this message translates to:
+  /// **'Log Front on Switch'**
+  String get featureChatLogFront;
+
+  /// Toggle subtitle: log front on speaker switch
+  ///
+  /// In en, this message translates to:
+  /// **'Changing who\'s speaking in chat also logs a front'**
+  String get featureChatLogFrontSubtitle;
+
+  /// Toggle title: GIF search
+  ///
+  /// In en, this message translates to:
+  /// **'GIF Search'**
+  String get featureChatGifSearch;
+
+  /// Toggle subtitle: GIF search
+  ///
+  /// In en, this message translates to:
+  /// **'Search and send GIFs in chat'**
+  String get featureChatGifSearchSubtitle;
+
+  /// Description text on fronting feature settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Configure how fronting sessions work.'**
+  String get featureFrontingDescription;
+
+  /// Section title: options on fronting feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get featureFrontingOptions;
+
+  /// Row title: quick switch setting
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Switch'**
+  String get featureFrontingQuickSwitch;
+
+  /// Quick switch label when off
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get featureFrontingQuickSwitchOff;
+
+  /// Quick switch label for seconds
+  ///
+  /// In en, this message translates to:
+  /// **'{seconds}s correction window'**
+  String featureFrontingQuickSwitchSeconds(int seconds);
+
+  /// Quick switch label for minutes
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m correction window'**
+  String featureFrontingQuickSwitchMinutes(int minutes);
+
+  /// Dialog title for quick switch picker
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Switch Window'**
+  String get featureFrontingQuickSwitchTitle;
+
+  /// Dialog message for quick switch picker
+  ///
+  /// In en, this message translates to:
+  /// **'If you switch fronters within this window, it corrects the current session instead of creating a new one.'**
+  String get featureFrontingQuickSwitchMessage;
+
+  /// Description text on habits feature settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Track recurring tasks and build streaks with your system members.'**
+  String get featureHabitsDescription;
+
+  /// Section title: general on habits feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get featureHabitsGeneral;
+
+  /// Toggle title: enable habits
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Habits'**
+  String get featureHabitsEnable;
+
+  /// Toggle subtitle: enable habits
+  ///
+  /// In en, this message translates to:
+  /// **'Track daily routines and goals'**
+  String get featureHabitsEnableSubtitle;
+
+  /// Section title: options on habits feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get featureHabitsOptions;
+
+  /// Toggle title: due habits badge
+  ///
+  /// In en, this message translates to:
+  /// **'Due Habits Badge'**
+  String get featureHabitsDueBadge;
+
+  /// Toggle subtitle: due habits badge
+  ///
+  /// In en, this message translates to:
+  /// **'Show count of due habits on the tab icon'**
+  String get featureHabitsDueBadgeSubtitle;
+
+  /// Description text on sleep feature settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep sessions help you track rest patterns alongside fronting sessions. You can start a sleep session from the moon icon on the fronting screen.'**
+  String get featureSleepDescription;
+
+  /// Section title: general on sleep feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get featureSleepGeneral;
+
+  /// Toggle title: enable sleep
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Sleep'**
+  String get featureSleepEnable;
+
+  /// Toggle subtitle: enable sleep
+  ///
+  /// In en, this message translates to:
+  /// **'Log and monitor sleep sessions'**
+  String get featureSleepEnableSubtitle;
+
+  /// Section title: options on sleep feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get featureSleepOptions;
+
+  /// Row title: default sleep quality
+  ///
+  /// In en, this message translates to:
+  /// **'Default Quality'**
+  String get featureSleepDefaultQuality;
+
+  /// Dialog title for default quality picker
+  ///
+  /// In en, this message translates to:
+  /// **'Default Quality'**
+  String get featureSleepDefaultQualityTitle;
+
+  /// Dialog message for default quality picker
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the default quality rating for new sleep sessions.'**
+  String get featureSleepDefaultQualityMessage;
+
+  /// Description text on polls feature settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.'**
+  String get featurePollsDescription;
+
+  /// Toggle title: enable polls
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Polls'**
+  String get featurePollsEnable;
+
+  /// Toggle subtitle: enable polls
+  ///
+  /// In en, this message translates to:
+  /// **'Create polls for system decisions'**
+  String get featurePollsEnableSubtitle;
+
+  /// Description text on notes feature settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'A personal journal for system members. Disabling hides notes from navigation but keeps existing entries.'**
+  String get featureNotesDescription;
+
+  /// Toggle title: enable notes
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Notes'**
+  String get featureNotesEnable;
+
+  /// Toggle subtitle: enable notes
+  ///
+  /// In en, this message translates to:
+  /// **'Write notes and journal entries'**
+  String get featureNotesEnableSubtitle;
+
+  /// Description text on reminders feature settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Get reminded on a schedule or when fronters change. Disabling hides reminders from navigation but keeps existing ones.'**
+  String get featureRemindersDescription;
+
+  /// Section title: general on reminders feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get featureRemindersGeneral;
+
+  /// Toggle title: enable reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Reminders'**
+  String get featureRemindersEnable;
+
+  /// Toggle subtitle: enable reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled and front-change reminders'**
+  String get featureRemindersEnableSubtitle;
+
+  /// Section title: options on reminders feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get featureRemindersOptions;
+
+  /// Row title: manage reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Reminders'**
+  String get featureRemindersManage;
+
+  /// Row subtitle: manage reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Create and edit your reminders'**
+  String get featureRemindersManageSubtitle;
+
   /// Error shown when the user dismisses the microphone permission prompt
   ///
   /// In en, this message translates to:

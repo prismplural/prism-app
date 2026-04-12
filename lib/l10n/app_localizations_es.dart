@@ -1159,6 +1159,340 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get continueLabel => 'Continuar';
+
+  @override
+  String devicesEpochKeyGen(int epoch, int gen) {
+    return 'Época $epoch · Gen clave $gen';
+  }
+
+  @override
+  String get devicesRotateKeyTooltip => 'Rotar clave de firma';
+
+  @override
+  String get devicesRevokeTooltip => 'Revocar dispositivo';
+
+  @override
+  String get devicesIdCopied => 'ID del dispositivo copiado';
+
+  @override
+  String get syncTroubleshootingTitle =>
+      'Resolución de Problemas de Sincronización';
+
+  @override
+  String get syncTroubleshootingConnectionStatus => 'Estado de Conexión';
+
+  @override
+  String get syncTroubleshootingNotConfigured => 'No configurado';
+
+  @override
+  String get syncTroubleshootingConnected => 'Conectado';
+
+  @override
+  String get syncTroubleshootingConfiguredLocally => 'Configurado localmente';
+
+  @override
+  String get syncTroubleshootingNotConfiguredSubtitle =>
+      'Este dispositivo no tiene sincronización configurada actualmente.';
+
+  @override
+  String get syncTroubleshootingConnectedSubtitle =>
+      'El motor de sincronización está activo y listo';
+
+  @override
+  String get syncTroubleshootingConfiguredLocallySubtitle =>
+      'La configuración está almacenada. El motor se reconectará en la próxima sincronización.';
+
+  @override
+  String get syncTroubleshootingLastSync => 'Última Sincronización';
+
+  @override
+  String get syncTroubleshootingLastSuccessful =>
+      'Última sincronización exitosa';
+
+  @override
+  String get syncTroubleshootingNeverSynced => 'Nunca sincronizado';
+
+  @override
+  String get syncTroubleshootingLastError => 'Último error de sincronización';
+
+  @override
+  String get syncTroubleshootingCurrentState =>
+      'Estado de sincronización actual';
+
+  @override
+  String get syncTroubleshootingSyncing => 'Sincronizando…';
+
+  @override
+  String get syncTroubleshootingIdle => 'Inactivo';
+
+  @override
+  String get syncTroubleshootingPendingOps => 'Operaciones pendientes';
+
+  @override
+  String syncTroubleshootingPendingOpsValue(int count) {
+    return '$count operaciones esperando sincronización';
+  }
+
+  @override
+  String get syncTroubleshootingSyncId => 'ID de Sincronización';
+
+  @override
+  String get syncTroubleshootingRelayUrl => 'URL del Relay';
+
+  @override
+  String get syncTroubleshootingActions => 'Acciones';
+
+  @override
+  String get syncTroubleshootingForceSync => 'Forzar Sincronización';
+
+  @override
+  String get syncTroubleshootingOpenEventLog => 'Abrir Registro de Eventos';
+
+  @override
+  String get syncTroubleshootingResetSync =>
+      'Restablecer Sistema de Sincronización';
+
+  @override
+  String get syncTroubleshootingRepair => 'Reemparejar Dispositivo';
+
+  @override
+  String get syncTroubleshootingCommonIssues => 'Problemas Comunes';
+
+  @override
+  String get syncTroubleshootingIssue1Title =>
+      '¿La sincronización no funciona?';
+
+  @override
+  String get syncTroubleshootingIssue1Description =>
+      'Comprueba que la URL del relay y el ID de sincronización estén correctamente configurados. Ambos dispositivos deben usar el mismo ID de sincronización.';
+
+  @override
+  String get syncTroubleshootingIssue2Title => '¿Datos duplicados?';
+
+  @override
+  String get syncTroubleshootingIssue2Description =>
+      'Intenta restablecer el sistema de sincronización con el botón de arriba. Esto borra la configuración local y te permite emparejar de nuevo.';
+
+  @override
+  String get syncTroubleshootingIssue3Title => '¿Errores de conexión?';
+
+  @override
+  String get syncTroubleshootingIssue3Description =>
+      'Verifica que el dispositivo tenga acceso a la red y que el servidor relay esté en línea. Revisa la URL del relay.';
+
+  @override
+  String get syncTroubleshootingIssue4Title => '¿Sincronización lenta?';
+
+  @override
+  String get syncTroubleshootingIssue4Description =>
+      'La sincronización inicial puede tardar más con grandes conjuntos de datos. Las sincronizaciones posteriores son incrementales y más rápidas.';
+
+  @override
+  String get syncTroubleshootingIssue5Title =>
+      'Discrepancia de Identidad del Dispositivo';
+
+  @override
+  String get syncTroubleshootingIssue5Description =>
+      'Si el emparejamiento falló a la mitad, la identidad del dispositivo puede ser inconsistente. Usa \'Reemparejar Dispositivo\' para generar una identidad nueva.';
+
+  @override
+  String get syncTroubleshootingFinished => 'Sincronización completada';
+
+  @override
+  String syncTroubleshootingFailed(Object error) {
+    return 'Error de sincronización: $error';
+  }
+
+  @override
+  String get syncTroubleshootingResetTitle =>
+      '¿Restablecer sistema de sincronización?';
+
+  @override
+  String get syncTroubleshootingResetMessage =>
+      'Esto conserva los datos locales, pero borra claves de sincronización, configuración del relay, identidad del dispositivo e historial de sincronización. Deberás configurar la sincronización de nuevo.';
+
+  @override
+  String get syncTroubleshootingResetConfirm => 'Restablecer';
+
+  @override
+  String get syncTroubleshootingResetSuccess =>
+      'Sistema de sincronización restablecido';
+
+  @override
+  String get syncTroubleshootingRepairTitle => '¿Reemparejar Dispositivo?';
+
+  @override
+  String get syncTroubleshootingRepairMessage =>
+      'Esto borrará tus credenciales de sincronización y requerirá que emparej es de nuevo. Los cambios locales no sincronizados se perderán.\n\nRecomendamos exportar los datos primero como medida de seguridad.';
+
+  @override
+  String get syncTroubleshootingRepairNow => 'Reemparejar ahora';
+
+  @override
+  String get syncTroubleshootingExportFirst => 'Exportar datos primero';
+
+  @override
+  String get syncTroubleshootingCredentialsCleared =>
+      'Credenciales de sincronización borradas';
+
+  @override
+  String get featureChatDescription =>
+      'Mensajería interna entre los miembros del sistema.';
+
+  @override
+  String get featureChatGeneral => 'General';
+
+  @override
+  String get featureChatEnable => 'Activar Chat';
+
+  @override
+  String get featureChatEnableSubtitle => 'Mensajería interna entre miembros';
+
+  @override
+  String get featureChatOptions => 'Opciones';
+
+  @override
+  String get featureChatLogFront => 'Registrar Frente al Cambiar';
+
+  @override
+  String get featureChatLogFrontSubtitle =>
+      'Cambiar quién habla en el chat también registra un frente';
+
+  @override
+  String get featureChatGifSearch => 'Búsqueda de GIF';
+
+  @override
+  String get featureChatGifSearchSubtitle => 'Buscar y enviar GIFs en el chat';
+
+  @override
+  String get featureFrontingDescription =>
+      'Configura cómo funcionan las sesiones de frente.';
+
+  @override
+  String get featureFrontingOptions => 'Opciones';
+
+  @override
+  String get featureFrontingQuickSwitch => 'Cambio Rápido';
+
+  @override
+  String get featureFrontingQuickSwitchOff => 'Desactivado';
+
+  @override
+  String featureFrontingQuickSwitchSeconds(int seconds) {
+    return 'Ventana de corrección de ${seconds}s';
+  }
+
+  @override
+  String featureFrontingQuickSwitchMinutes(int minutes) {
+    return 'Ventana de corrección de ${minutes}m';
+  }
+
+  @override
+  String get featureFrontingQuickSwitchTitle => 'Ventana de Cambio Rápido';
+
+  @override
+  String get featureFrontingQuickSwitchMessage =>
+      'Si cambias de frente dentro de esta ventana, corrige la sesión actual en lugar de crear una nueva.';
+
+  @override
+  String get featureHabitsDescription =>
+      'Realiza un seguimiento de tareas recurrentes y construye rachas con los miembros del sistema.';
+
+  @override
+  String get featureHabitsGeneral => 'General';
+
+  @override
+  String get featureHabitsEnable => 'Activar Hábitos';
+
+  @override
+  String get featureHabitsEnableSubtitle =>
+      'Seguimiento de rutinas y objetivos diarios';
+
+  @override
+  String get featureHabitsOptions => 'Opciones';
+
+  @override
+  String get featureHabitsDueBadge => 'Insignia de Hábitos Pendientes';
+
+  @override
+  String get featureHabitsDueBadgeSubtitle =>
+      'Mostrar el número de hábitos pendientes en el icono de la pestaña';
+
+  @override
+  String get featureSleepDescription =>
+      'Las sesiones de sueño ayudan a seguir los patrones de descanso junto con las sesiones de frente. Puedes iniciar una sesión de sueño desde el icono de luna en la pantalla de frente.';
+
+  @override
+  String get featureSleepGeneral => 'General';
+
+  @override
+  String get featureSleepEnable => 'Activar Sueño';
+
+  @override
+  String get featureSleepEnableSubtitle =>
+      'Registrar y monitorear sesiones de sueño';
+
+  @override
+  String get featureSleepOptions => 'Opciones';
+
+  @override
+  String get featureSleepDefaultQuality => 'Calidad Predeterminada';
+
+  @override
+  String get featureSleepDefaultQualityTitle => 'Calidad Predeterminada';
+
+  @override
+  String get featureSleepDefaultQualityMessage =>
+      'Elige la calificación de calidad predeterminada para las nuevas sesiones de sueño.';
+
+  @override
+  String get featurePollsDescription =>
+      'Permite que tu sistema vote en decisiones juntos. Desactivar oculta las encuestas de la navegación pero conserva los datos existentes.';
+
+  @override
+  String get featurePollsEnable => 'Activar Encuestas';
+
+  @override
+  String get featurePollsEnableSubtitle =>
+      'Crear encuestas para decisiones del sistema';
+
+  @override
+  String get featureNotesDescription =>
+      'Un diario personal para los miembros del sistema. Desactivar oculta las notas de la navegación pero conserva las entradas existentes.';
+
+  @override
+  String get featureNotesEnable => 'Activar Notas';
+
+  @override
+  String get featureNotesEnableSubtitle =>
+      'Escribir notas y entradas de diario';
+
+  @override
+  String get featureRemindersDescription =>
+      'Recibe recordatorios en horarios programados o cuando los frentes cambien. Desactivar oculta los recordatorios de la navegación pero conserva los existentes.';
+
+  @override
+  String get featureRemindersGeneral => 'General';
+
+  @override
+  String get featureRemindersEnable => 'Activar Recordatorios';
+
+  @override
+  String get featureRemindersEnableSubtitle =>
+      'Recordatorios programados y de cambio de frente';
+
+  @override
+  String get featureRemindersOptions => 'Opciones';
+
+  @override
+  String get featureRemindersManage => 'Gestionar Recordatorios';
+
+  @override
+  String get featureRemindersManageSubtitle =>
+      'Crear y editar tus recordatorios';
+
+  @override
   String get voiceMicPermissionDenied =>
       'Se necesita permiso de micrófono para grabar notas de voz.';
 

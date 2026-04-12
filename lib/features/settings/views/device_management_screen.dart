@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class DeviceManagementScreen extends ConsumerWidget {
   const DeviceManagementScreen({super.key});
@@ -25,7 +26,7 @@ class DeviceManagementScreen extends ConsumerWidget {
     final currentDeviceId = ref.watch(nodeIdProvider).value;
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Manage Devices', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.devicesTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: devicesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -42,7 +43,7 @@ class DeviceManagementScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Failed to load devices',
+                  context.l10n.devicesFailedToLoad,
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
@@ -69,7 +70,7 @@ class DeviceManagementScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               children: [
                 if (currentDevice != null) ...[
-                  const _SectionHeader(title: 'This Device'),
+                  _SectionHeader(title: context.l10n.devicesThisDevice),
                   _DeviceTile(
                     device: currentDevice,
                     isCurrent: true,
@@ -80,7 +81,7 @@ class DeviceManagementScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                 ],
                 _SectionHeader(
-                  title: 'Other Devices',
+                  title: context.l10n.devicesOtherDevices,
                   trailing: Text(
                     '${otherDevices.length}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -95,9 +96,8 @@ class DeviceManagementScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(top: 32),
                     child: EmptyState(
                       icon: Icon(AppIcons.devices, size: 48),
-                      title: 'No other devices',
-                      subtitle:
-                          'Only this device is registered in the sync group.',
+                      title: context.l10n.devicesNoOtherDevices,
+                      subtitle: context.l10n.devicesNoOtherDevicesSubtitle,
                     ),
                   )
                 else
@@ -123,22 +123,19 @@ class DeviceManagementScreen extends ConsumerWidget {
   ) async {
     final confirmed = await PrismDialog.show<bool>(
       context: context,
-      title: 'Rotate Signing Key?',
-      message:
-          'This generates a new post-quantum signing key for this device. '
-          'Other devices will accept the new key automatically. '
-          'The old key remains valid for 30 days.',
+      title: context.l10n.devicesRotateKeyTitle,
+      message: context.l10n.devicesRotateKeyMessage,
       builder: (dialogContext) {
         return Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             PrismButton(
-              label: 'Cancel',
+              label: context.l10n.cancel,
               onPressed: () => Navigator.of(dialogContext).pop(false),
             ),
             const SizedBox(width: 8),
             PrismButton(
-              label: 'Rotate',
+              label: context.l10n.devicesRotate,
               onPressed: () => Navigator.of(dialogContext).pop(true),
             ),
           ],
@@ -154,12 +151,12 @@ class DeviceManagementScreen extends ConsumerWidget {
       if (context.mounted) {
         PrismToast.success(
           context,
-          message: 'Key rotated to generation $newGen',
+          message: context.l10n.devicesKeyRotated(newGen),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context, message: 'Key rotation failed: $e');
+        PrismToast.error(context, message: context.l10n.devicesKeyRotationFailed(e));
       }
     }
   }
@@ -171,10 +168,8 @@ class DeviceManagementScreen extends ConsumerWidget {
   ) async {
     final result = await PrismDialog.show<({bool confirmed, bool wipe})>(
       context: context,
-      title: 'Revoke Device?',
-      message:
-          'Device ${device.shortId} will be removed from the sync '
-          'group and can no longer sync. This cannot be undone.',
+      title: context.l10n.devicesRevokeTitle,
+      message: context.l10n.devicesRevokeMessage(device.shortId),
       builder: (dialogContext) {
         var requestWipe = false;
 
@@ -184,11 +179,8 @@ class DeviceManagementScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 PrismSwitchRow(
-                  title: 'Request remote data wipe',
-                  subtitle:
-                      'Asks the device to erase its sync data. This is a '
-                      'request \u2014 if the device is offline or '
-                      'compromised, it may not be honored.',
+                  title: context.l10n.devicesRequestWipeTitle,
+                  subtitle: context.l10n.devicesRequestWipeSubtitle,
                   value: requestWipe,
                   onChanged: (value) => setState(() => requestWipe = value),
                 ),
@@ -197,12 +189,12 @@ class DeviceManagementScreen extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     PrismButton(
-                      label: 'Cancel',
+                      label: context.l10n.cancel,
                       onPressed: () => Navigator.of(dialogContext).pop(null),
                     ),
                     const SizedBox(width: 8),
                     PrismButton(
-                      label: 'Revoke',
+                      label: context.l10n.devicesRevoke,
                       onPressed: () => Navigator.of(
                         dialogContext,
                       ).pop((confirmed: true, wipe: requestWipe)),
@@ -226,12 +218,12 @@ class DeviceManagementScreen extends ConsumerWidget {
       if (context.mounted) {
         PrismToast.success(
           context,
-          message: 'Device ${device.shortId} revoked',
+          message: context.l10n.devicesRevoked(device.shortId),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context, message: 'Failed to revoke: $e');
+        PrismToast.error(context, message: context.l10n.devicesFailedToRevoke(e));
       }
     }
   }
@@ -284,10 +276,10 @@ class _DeviceTile extends StatelessWidget {
     return Theme.of(context).colorScheme.outline;
   }
 
-  String _statusLabel() {
-    if (device.isActive) return 'Active';
-    if (device.isStale) return 'Stale';
-    if (device.isRevoked) return 'Revoked';
+  String _statusLabel(BuildContext context) {
+    if (device.isActive) return context.l10n.devicesStatusActive;
+    if (device.isStale) return context.l10n.devicesStatusStale;
+    if (device.isRevoked) return context.l10n.devicesStatusRevoked;
     return device.status;
   }
 
@@ -295,10 +287,12 @@ class _DeviceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final statusColor = _statusColor(context);
+    final statusLabel = _statusLabel(context);
 
     return Semantics(
-      label:
-          'Device ${device.shortId}, ${_statusLabel()}, key generation ${device.mlDsaKeyGeneration}${isCurrent ? ', this device' : ''}',
+      label: isCurrent
+          ? context.l10n.devicesSemanticLabelCurrent(device.shortId, statusLabel, device.mlDsaKeyGeneration)
+          : context.l10n.devicesSemanticLabel(device.shortId, statusLabel, device.mlDsaKeyGeneration),
       child: PrismSurface(
         padding: EdgeInsets.zero,
         margin: const EdgeInsets.symmetric(vertical: 4),
@@ -322,22 +316,22 @@ class _DeviceTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               if (isCurrent)
-                const PrismPill(
-                  label: 'This Device',
+                PrismPill(
+                  label: context.l10n.devicesThisDevice,
                   tone: PrismPillTone.accent,
                 )
               else
-                PrismPill(label: _statusLabel(), color: statusColor),
+                PrismPill(label: statusLabel, color: statusColor),
             ],
           ),
           subtitle: Text(
-            'Epoch ${device.epoch} · Key gen ${device.mlDsaKeyGeneration}',
+            context.l10n.devicesEpochKeyGen(device.epoch, device.mlDsaKeyGeneration),
           ),
           trailing: isCurrent
               ? (onRotateKey != null
                   ? PrismIconButton(
                       icon: AppIcons.refresh,
-                      tooltip: 'Rotate signing key',
+                      tooltip: context.l10n.devicesRotateKeyTooltip,
                       color: theme.colorScheme.primary,
                       size: 36,
                       iconSize: 18,
@@ -346,7 +340,7 @@ class _DeviceTile extends StatelessWidget {
                   : null)
               : PrismIconButton(
                   icon: AppIcons.removeCircleOutline,
-                  tooltip: 'Revoke device',
+                  tooltip: context.l10n.devicesRevokeTooltip,
                   color: theme.colorScheme.error,
                   size: 36,
                   iconSize: 18,
@@ -354,7 +348,7 @@ class _DeviceTile extends StatelessWidget {
                 ),
           onLongPress: () {
             Clipboard.setData(ClipboardData(text: device.deviceId));
-            PrismToast.show(context, message: 'Device ID copied');
+            PrismToast.show(context, message: context.l10n.devicesIdCopied);
           },
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -31,16 +32,16 @@ class AppearanceSettingsScreen extends ConsumerWidget {
     final settingsAsync = ref.watch(systemSettingsProvider);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Appearance', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.appearanceTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: settingsAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(context.l10n.errorWithDetail(e))),
         data: (settings) => ListView(
           padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
           children: [
             PrismSection(
-              title: 'Brightness',
+              title: context.l10n.appearanceBrightness,
               child: PrismSegmentedControl<ThemeBrightness>(
                 segments: ThemeBrightness.values
                     .map(
@@ -59,7 +60,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               ),
             ),
             PrismSection(
-              title: 'Style',
+              title: context.l10n.appearanceStyle,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -89,7 +90,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                   if (settings.themeStyle == ThemeStyle.materialYou) ...[
                     const SizedBox(height: 12),
                     Text(
-                      'Uses your system color palette',
+                      context.l10n.appearanceUsesSystemPalette,
                       style: Theme.of(context).textTheme.bodySmall
                           ?.copyWith(
                             color: Theme.of(
@@ -102,7 +103,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               ),
             ),
             PrismSection(
-              title: 'Accent Color',
+              title: context.l10n.appearanceAccentColor,
               child: PrismSectionCard(
                 child: AccentColorPicker(
                   currentHex: settings.accentColorHex,
@@ -113,7 +114,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
             ),
             FontSettingsSection(settings: settings),
             PrismSection(
-              title: 'Per-Member Colors',
+              title: context.l10n.appearancePerMemberColors,
               child: PrismSectionCard(
                 child: PrismSwitchRow(
                   title:
@@ -130,12 +131,11 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               ),
             ),
             PrismSection(
-              title: 'Sync',
+              title: context.l10n.appearanceSyncSection,
               child: PrismSectionCard(
                 child: PrismSwitchRow(
-                  title: 'Sync theme across devices',
-                  subtitle:
-                    'Share brightness, style, and accent color via sync',
+                  title: context.l10n.appearanceSyncThemeTitle,
+                  subtitle: context.l10n.appearanceSyncThemeSubtitle,
                   value: settings.syncThemeEnabled,
                   onChanged: (value) {
                     ref
@@ -146,7 +146,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               ),
             ),
             PrismSection(
-              title: 'Terminology',
+              title: context.l10n.appearanceTerminology,
               child: PrismSectionCard(
                 child: TerminologyPicker(
                   current: settings.terminology,
@@ -156,7 +156,7 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               ),
             ),
             PrismSection(
-              title: 'Preview',
+              title: context.l10n.appearancePreview,
               child: _PreviewCard(settings: settings),
             ),
           ],
@@ -196,7 +196,7 @@ class _PreviewCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'she/her',
+                    context.l10n.appearanceSamplePronouns,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -204,7 +204,7 @@ class _PreviewCard extends ConsumerWidget {
                 ],
               ),
             ),
-            const PrismPill(label: 'Fronting'),
+            PrismPill(label: context.l10n.appearanceFronting),
           ],
         ),
       ),

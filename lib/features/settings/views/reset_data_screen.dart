@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -18,16 +19,14 @@ class ResetDataScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Reset Data', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.resetDataTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
         children: [
           PrismSection(
-            title: 'Categories',
-            description:
-                'Reset specific categories of data on this device. '
-                'Sync System reset wipes sync setup without deleting your app data.',
+            title: context.l10n.resetDataCategoriesSection,
+            description: context.l10n.resetDataCategoriesDescription,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: Column(
@@ -48,7 +47,7 @@ class ResetDataScreen extends ConsumerWidget {
             ),
           ),
           PrismSection(
-            title: 'Danger Zone',
+            title: context.l10n.resetDataDangerZone,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: Column(
@@ -106,32 +105,27 @@ class ResetDataScreen extends ConsumerWidget {
     final isSync = category == ResetCategory.sync;
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Reset ${category.label}?',
+      title: context.l10n.resetDataConfirmTitle(category.label),
       message: isAll
-          ? 'This will permanently delete all your data including members, '
-                'fronting sessions, messages, polls, habits, sleep data, and settings. '
-                'This action cannot be undone.'
+          ? context.l10n.resetDataConfirmAll
           : isSync
-          ? 'This keeps your local app data, but removes sync keys, relay '
-                'configuration, device identity, and sync history from this device. '
-                'You will need to set up sync again afterward.'
-          : 'This will permanently delete all ${category.label.toLowerCase()} data '
-                'on this device. This action cannot be undone.',
+          ? context.l10n.resetDataConfirmSync
+          : context.l10n.resetDataConfirmCategory(category.label.toLowerCase()),
       confirmLabel: isAll
-          ? 'Reset Everything'
+          ? context.l10n.resetDataConfirmEverything
           : isSync
-          ? 'Reset Sync'
-          : 'Reset',
+          ? context.l10n.resetDataConfirmSync2
+          : context.l10n.delete,
       destructive: true,
     );
     if (!confirmed || !context.mounted) return;
     try {
       await ref.read(resetDataNotifierProvider.notifier).reset(category);
       if (!context.mounted) return;
-      PrismToast.show(context, message: '${category.label} reset successfully');
+      PrismToast.show(context, message: context.l10n.resetDataSuccess(category.label));
     } catch (e) {
       if (!context.mounted) return;
-      PrismToast.error(context, message: 'Failed to reset: $e');
+      PrismToast.error(context, message: context.l10n.resetDataFailed(e));
     }
   }
 }

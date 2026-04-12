@@ -4,11 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -39,7 +41,7 @@ class SettingsScreen extends ConsumerWidget {
         children: [
           settingsAsync.when(
             loading: () => const PrismLoadingState(),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => Center(child: Text(context.l10n.errorWithDetail(e))),
             data: (settings) => ListView(
               padding: EdgeInsets.only(
                 top: topInset + 32,
@@ -50,12 +52,12 @@ class SettingsScreen extends ConsumerWidget {
                 _buildSystemCard(context, settings, membersAsync, terms),
                 const SizedBox(height: 8),
                 _buildSection(
-                  title: 'System',
+                  title: context.l10n.settingsSectionSystem,
                   rows: [
                     _SettingsLink(
                       icon: AppIcons.infoOutline,
                       iconColor: Colors.purple,
-                      title: 'System Information',
+                      title: context.l10n.settingsSystemInformation,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsSystemInfo),
                     ),
@@ -68,71 +70,80 @@ class SettingsScreen extends ConsumerWidget {
                     _SettingsLink(
                       icon: AppIcons.workspacesOutlined,
                       iconColor: Colors.cyan,
-                      title: 'Groups',
+                      title: context.l10n.settingsGroups,
                       onTap: () => context.push(AppRoutePaths.settingsGroups),
                     ),
                     _SettingsLink(
                       icon: AppIcons.tuneOutlined,
                       iconColor: Colors.deepPurple,
-                      title: 'Custom Fields',
+                      title: context.l10n.settingsCustomFields,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsCustomFields),
                     ),
                     _SettingsLink(
                       icon: AppIcons.barChartOutlined,
                       iconColor: Colors.green,
-                      title: 'Statistics',
+                      title: context.l10n.settingsStatistics,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsAnalytics),
                     ),
                   ],
                 ),
                 _buildSection(
-                  title: 'App',
+                  title: context.l10n.settingsSectionApp,
                   rows: [
                     _SettingsLink(
                       icon: AppIcons.paletteOutlined,
                       iconColor: Colors.pink,
-                      title: 'Appearance',
+                      title: context.l10n.settingsAppearance,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsAppearance),
                     ),
                     _SettingsLink(
                       icon: AppIcons.tabOutlined,
                       iconColor: Colors.teal,
-                      title: 'Navigation',
+                      title: context.l10n.settingsNavigation,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsNavigation),
                     ),
                     _SettingsLink(
                       icon: AppIcons.toggleOnOutlined,
                       iconColor: Colors.deepOrange,
-                      title: 'Features',
+                      title: context.l10n.settingsFeatures,
                       onTap: () => context.push(AppRoutePaths.settingsFeatures),
                     ),
                     _SettingsLink(
                       icon: AppIcons.lockOutline,
                       iconColor: Colors.indigo,
-                      title: 'Privacy & Security',
+                      title: context.l10n.settingsPrivacySecurity,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsPinLock),
                     ),
                     _SettingsLink(
                       icon: AppIcons.notificationsOutlined,
                       iconColor: Colors.orange,
-                      title: 'Notifications',
+                      title: context.l10n.settingsNotifications,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsNotifications),
+                    ),
+                    ListTile(
+                      title: Text(context.l10n.settingsLanguageTitle),
+                      subtitle: Text(context.l10n.settingsLanguageSubtitle),
+                      leading: Icon(PhosphorIcons.translate()),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                     ),
                   ],
                 ),
                 _buildSection(
-                  title: 'Data',
+                  title: context.l10n.settingsSectionData,
                   rows: [
                     _SettingsLink(
                       icon: AppIcons.sync,
                       iconColor: Colors.teal,
-                      title: 'Sync',
+                      title: context.l10n.settingsSync,
                       statusDot: syncStatus.lastError != null
                           ? Colors.red
                           : syncStatus.hasQuarantinedItems
@@ -147,45 +158,45 @@ class SettingsScreen extends ConsumerWidget {
                       _SettingsLink(
                         icon: AppIcons.shareOutlined,
                         iconColor: Colors.cyan,
-                        title: 'Sharing',
+                        title: context.l10n.settingsSharing,
                         onTap: () =>
                             context.push(AppRoutePaths.settingsSharing),
                       ),
                     _SettingsLink(
                       icon: AppIcons.importExport,
                       iconColor: Colors.amber,
-                      title: 'Import & Export',
+                      title: context.l10n.settingsImportExport,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsImportExport),
                     ),
                     _SettingsLink(
                       icon: AppIcons.restartAlt,
                       iconColor: Colors.red,
-                      title: 'Reset Data',
+                      title: context.l10n.settingsResetData,
                       onTap: () => context.push(AppRoutePaths.settingsReset),
                     ),
                   ],
                 ),
                 _buildSection(
-                  title: 'About',
+                  title: context.l10n.settingsSectionAbout,
                   rows: [
                     _SettingsLink(
                       icon: AppIcons.infoOutline,
                       iconColor: Colors.purple,
-                      title: 'About',
+                      title: context.l10n.settingsAbout,
                       onTap: () => context.push(AppRoutePaths.settingsAbout),
                     ),
                     _SettingsLink(
                       icon: AppIcons.enhancedEncryptionOutlined,
                       iconColor: Colors.blueGrey,
-                      title: 'Encryption & Privacy',
+                      title: context.l10n.settingsEncryptionPrivacy,
                       onTap: () =>
                           context.push(AppRoutePaths.settingsEncryptionInfo),
                     ),
                     _SettingsLink(
                       icon: AppIcons.bugReportOutlined,
                       iconColor: Colors.orange,
-                      title: 'Debug',
+                      title: context.l10n.settingsDebug,
                       onTap: () => context.push(AppRoutePaths.settingsDebug),
                     ),
                   ],
@@ -286,7 +297,7 @@ class SettingsScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          settings.systemName ?? 'My System',
+                          settings.systemName ?? context.l10n.settingsFallbackSystemName,
                           style: theme.textTheme.headlineMedium?.copyWith(
                             fontFamily: theme.textTheme.headlineLarge?.fontFamily,
                             fontWeight: FontWeight.bold,

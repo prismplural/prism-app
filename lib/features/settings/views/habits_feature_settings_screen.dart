@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Settings subview for the Habits feature.
 class HabitsFeatureSettingsScreen extends ConsumerWidget {
@@ -21,7 +22,7 @@ class HabitsFeatureSettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Habits', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.featureHabitsTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -29,21 +30,21 @@ class HabitsFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              'Track recurring tasks and build streaks with your system members.',
+              context.l10n.featureHabitsDescription,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           PrismSection(
-            title: 'General',
+            title: context.l10n.featureHabitsGeneral,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
                 icon: AppIcons.checkCircleOutline,
                 iconColor: Colors.green,
-                title: 'Enable Habits',
-                subtitle: 'Track daily routines and goals',
+                title: context.l10n.featureHabitsEnable,
+                subtitle: context.l10n.featureHabitsEnableSubtitle,
                 value: habitsEnabled,
                 onChanged: (value) => ref
                     .read(settingsNotifierProvider.notifier)
@@ -53,14 +54,14 @@ class HabitsFeatureSettingsScreen extends ConsumerWidget {
           ),
           if (habitsEnabled)
             PrismSection(
-              title: 'Options',
+              title: context.l10n.featureHabitsOptions,
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: PrismSwitchRow(
                   icon: AppIcons.pinOutlined,
                   iconColor: Colors.green,
-                  title: 'Due Habits Badge',
-                  subtitle: 'Show count of due habits on the tab icon',
+                  title: context.l10n.featureHabitsDueBadge,
+                  subtitle: context.l10n.featureHabitsDueBadgeSubtitle,
                   value: habitsBadgeEnabled,
                   onChanged: (value) => ref
                       .read(settingsNotifierProvider.notifier)

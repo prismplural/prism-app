@@ -23,6 +23,7 @@ import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Placeholder — pending changes count (sync now managed by Rust layer).
 final _pendingChangesCountProvider = FutureProvider<int>((ref) async {
@@ -52,7 +53,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     final lastSyncTime = ref.watch(lastSyncTimeProvider);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Debug', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.debugTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
@@ -65,7 +66,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Danger Zone',
+                  context.l10n.debugDangerZone,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.error,
@@ -75,7 +76,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: PrismButton(
-                    label: 'Reset Database',
+                    label: context.l10n.debugResetDatabase,
                     icon: AppIcons.deleteForever,
                     tone: PrismButtonTone.destructive,
                     expanded: true,
@@ -86,12 +87,12 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: PrismButton(
-                    label: 'Export Data',
+                    label: context.l10n.debugExportData,
                     icon: AppIcons.fileUploadOutlined,
                     tone: PrismButtonTone.outlined,
                     expanded: true,
                     onPressed: () {
-                      PrismToast.show(context, message: 'Coming soon');
+                      PrismToast.show(context, message: context.l10n.debugComingSoon);
                     },
                   ),
                 ),
@@ -108,14 +109,14 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Stress Testing',
+                  context.l10n.debugStressTestingTitle,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Generate large datasets for performance testing',
+                  context.l10n.debugStressTestingDescription,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -134,7 +135,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: PrismButton(
-                    label: 'Generate Stress Data',
+                    label: context.l10n.debugGenerateStressData,
                     icon: AppIcons.speed,
                     tone: PrismButtonTone.outlined,
                     expanded: true,
@@ -147,7 +148,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: PrismButton(
-                    label: _isClearing ? 'Clearing...' : 'Clear Stress Data',
+                    label: _isClearing ? context.l10n.debugClearingStressData : context.l10n.debugClearStressData,
                     icon: AppIcons.deleteForever,
                     tone: PrismButtonTone.destructive,
                     expanded: true,
@@ -169,14 +170,14 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Sync State',
+                  context.l10n.debugSyncState,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 12),
                 _DebugRow(
-                  label: 'Pending changes',
+                  label: context.l10n.debugPendingChanges,
                   value: pendingAsync.when(
                     loading: () => '...',
                     error: (e, _) => 'Error',
@@ -185,16 +186,16 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 ),
                 const Divider(height: 16),
                 _DebugRow(
-                  label: 'Last sync',
+                  label: context.l10n.debugLastSync,
                   value: lastSyncTime != null
                       ? _formatDateTime(lastSyncTime)
-                      : 'Never',
+                      : context.l10n.debugNeverSynced,
                 ),
                 const Divider(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: PrismButton(
-                    label: 'Open Sync Debug Log',
+                    label: context.l10n.debugOpenSyncLog,
                     icon: AppIcons.receiptLongOutlined,
                     tone: PrismButtonTone.outlined,
                     expanded: true,
@@ -218,7 +219,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Build Info',
+                      context.l10n.debugBuildInfo,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
@@ -226,7 +227,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                     PrismInlineIconButton(
                       icon: AppIcons.copy,
                       iconSize: 18,
-                      tooltip: 'Copy build info',
+                      tooltip: context.l10n.debugCopyBuildInfo,
                       onPressed: () {
                         const text =
                             'Prism ${BuildInfo.appVersion}\n'
@@ -236,29 +237,29 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                         Clipboard.setData(const ClipboardData(text: text));
                         PrismToast.show(
                           context,
-                          message: 'Build info copied',
+                          message: context.l10n.debugBuildInfoCopied,
                         );
                       },
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                const _DebugRow(
-                  label: 'App version',
+                _DebugRow(
+                  label: context.l10n.debugAppVersion,
                   value: BuildInfo.appVersion,
                 ),
                 const Divider(height: 16),
                 _DebugRow(
-                  label: 'Git',
+                  label: context.l10n.debugGit,
                   value: BuildInfo.gitDescribe,
                   warn: BuildInfo.isDirty || BuildInfo.isLocalDev,
                 ),
                 const Divider(height: 16),
-                const _DebugRow(label: 'Branch', value: BuildInfo.gitBranch),
+                _DebugRow(label: context.l10n.debugBranch, value: BuildInfo.gitBranch),
                 const Divider(height: 16),
-                const _DebugRow(label: 'Built', value: BuildInfo.builtAt),
+                _DebugRow(label: context.l10n.debugBuilt, value: BuildInfo.builtAt),
                 const Divider(height: 16),
-                const _DebugRow(label: 'Package', value: 'prism_plurality'),
+                _DebugRow(label: context.l10n.debugPackage, value: 'prism_plurality'),
               ],
             ),
           ),
@@ -274,7 +275,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                   child: Text(
-                    'Tools',
+                    context.l10n.debugTools,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -282,8 +283,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 ),
                 PrismListRow(
                   leading: Icon(AppIcons.healing),
-                  title: const Text('Timeline Sanitization'),
-                  subtitle: const Text('Scan for and fix timeline issues'),
+                  title: Text(context.l10n.debugTimelineSanitization),
+                  subtitle: Text(context.l10n.debugTimelineSanitizationSubtitle),
                   trailing: Icon(AppIcons.chevronRight),
                   onTap: () =>
                       context.push(AppRoutePaths.settingsTimelineSanitization),
@@ -301,7 +302,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Device',
+                  context.l10n.debugDevice,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -309,10 +310,10 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 const SizedBox(height: 12),
                 nodeIdAsync.when(
                   loading: () => const PrismLoadingState(),
-                  error: (e, _) => Text('Error: $e'),
+                  error: (e, _) => Text(context.l10n.errorWithDetail(e)),
                   data: (nodeId) {
                     final displayId =
-                        nodeId ?? 'Unavailable — not yet paired';
+                        nodeId ?? context.l10n.debugNodeIdUnavailable;
                     return Row(
                       children: [
                         Expanded(
@@ -320,7 +321,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Node ID',
+                                context.l10n.debugNodeId,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -339,12 +340,12 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                           PrismInlineIconButton(
                             icon: AppIcons.copy,
                             iconSize: 18,
-                            tooltip: 'Copy Node ID',
+                            tooltip: context.l10n.debugCopyNodeId,
                             onPressed: () {
                               Clipboard.setData(ClipboardData(text: nodeId));
                               PrismToast.show(
                                 context,
-                                message: 'Node ID copied to clipboard',
+                                message: context.l10n.debugNodeIdCopied,
                               );
                             },
                           ),
@@ -371,11 +372,9 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     // First confirmation.
     final first = await PrismDialog.confirm(
       context: context,
-      title: 'Reset Database',
-      message:
-          'Are you sure you want to delete all data? '
-          'This action cannot be undone.',
-      confirmLabel: 'Continue',
+      title: context.l10n.debugResetDatabaseConfirm1Title,
+      message: context.l10n.debugResetDatabaseConfirm1Message,
+      confirmLabel: context.l10n.continueLabel,
       destructive: true,
     );
 
@@ -384,11 +383,9 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     // Second confirmation.
     final second = await PrismDialog.confirm(
       context: context,
-      title: 'Really delete all data?',
-      message:
-          'This will permanently erase all members, sessions, '
-          'conversations, messages, and polls. There is no undo.',
-      confirmLabel: 'Delete Everything',
+      title: context.l10n.debugResetDatabaseConfirm2Title,
+      message: context.l10n.debugResetDatabaseConfirm2Message,
+      confirmLabel: context.l10n.debugDeleteEverything,
       destructive: true,
     );
 
@@ -399,10 +396,10 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
           .read(resetDataNotifierProvider.notifier)
           .reset(ResetCategory.all);
       if (!context.mounted) return;
-      PrismToast.show(context, message: 'Database reset successfully');
+      PrismToast.show(context, message: context.l10n.debugDatabaseResetSuccess);
     } catch (e) {
       if (!context.mounted) return;
-      PrismToast.error(context, message: 'Failed to reset: $e');
+      PrismToast.error(context, message: context.l10n.debugFailedToReset(e));
     }
   }
 
@@ -430,7 +427,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
               padding: const EdgeInsets.all(16),
               child: Builder(
                 builder: (context) => Text(
-                  'Select Preset',
+                  context.l10n.debugSelectPreset,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -461,10 +458,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     if (hasExisting) {
       final confirmed = await PrismDialog.confirm(
         context: context,
-        title: 'Database Not Empty',
-        message:
-            'Your database already has data. Stress data will be '
-            'added alongside it. Continue?',
+        title: context.l10n.debugDatabaseNotEmpty,
+        message: context.l10n.debugDatabaseNotEmptyMessage,
       );
       if (!confirmed || !mounted) return;
     }
@@ -492,12 +487,12 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
       if (context.mounted) {
         PrismToast.show(
           context,
-          message: '${preset.label} stress data generated',
+          message: context.l10n.debugStressGenerated(preset.label),
         );
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.show(context, message: 'Generation failed: $e');
+        PrismToast.show(context, message: context.l10n.debugGenerationFailed(e));
       }
     } finally {
       if (mounted) {
@@ -517,7 +512,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 
     if (!hasStress) {
       if (context.mounted) {
-        PrismToast.show(context, message: 'No stress data to clear');
+        PrismToast.show(context, message: context.l10n.debugNoStressData);
       }
       return;
     }
@@ -526,10 +521,8 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Clear Stress Data',
-      message:
-          'This will delete all generated stress test data. '
-          'Your real data will not be affected.',
+      title: context.l10n.debugClearStressDataTitle,
+      message: context.l10n.debugClearStressDataMessage,
     );
 
     if (!confirmed || !mounted) return;
@@ -538,11 +531,11 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     try {
       await generator.clearStressData();
       if (context.mounted) {
-        PrismToast.show(context, message: 'Stress data cleared');
+        PrismToast.show(context, message: context.l10n.debugStressDataCleared);
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.show(context, message: 'Failed to clear stress data: $e');
+        PrismToast.show(context, message: context.l10n.debugFailedToClearStress(e));
       }
     } finally {
       if (mounted) setState(() => _isClearing = false);

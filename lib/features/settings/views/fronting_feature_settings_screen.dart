@@ -10,15 +10,16 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Settings subview for the Fronting feature.
 class FrontingFeatureSettingsScreen extends ConsumerWidget {
   const FrontingFeatureSettingsScreen({super.key});
 
-  static String _quickSwitchLabel(int seconds) {
-    if (seconds == 0) return 'Off';
-    if (seconds < 60) return '${seconds}s correction window';
-    return '${seconds ~/ 60}m correction window';
+  static String _quickSwitchLabel(BuildContext context, int seconds) {
+    if (seconds == 0) return context.l10n.featureFrontingQuickSwitchOff;
+    if (seconds < 60) return context.l10n.featureFrontingQuickSwitchSeconds(seconds);
+    return context.l10n.featureFrontingQuickSwitchMinutes(seconds ~/ 60);
   }
 
   static void _showQuickSwitchPicker(
@@ -26,17 +27,16 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
     WidgetRef ref,
     int current,
   ) {
-    const options = [
-      (0, 'Off'),
+    final options = [
+      (0, context.l10n.featureFrontingQuickSwitchOff),
       (15, '15 seconds'),
       (30, '30 seconds'),
       (60, '1 minute'),
     ];
     PrismDialog.show<void>(
       context: context,
-      title: 'Quick Switch Window',
-      message: 'If you switch fronters within this window, it corrects '
-          'the current session instead of creating a new one.',
+      title: context.l10n.featureFrontingQuickSwitchTitle,
+      message: context.l10n.featureFrontingQuickSwitchMessage,
       builder: (ctx) {
         return RadioGroup<int>(
           groupValue: current,
@@ -70,7 +70,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Fronting', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.featureFrontingTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -78,21 +78,22 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              'Configure how fronting sessions work.',
+              context.l10n.featureFrontingDescription,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           PrismSection(
-            title: 'Options',
+            title: context.l10n.featureFrontingOptions,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
               child: PrismSettingsRow(
                 icon: AppIcons.speed,
                 iconColor: Colors.purple,
-                title: 'Quick Switch',
+                title: context.l10n.featureFrontingQuickSwitch,
                 subtitle: _quickSwitchLabel(
+                  context,
                   quickSwitchThreshold,
                 ),
                 onTap: () => _showQuickSwitchPicker(

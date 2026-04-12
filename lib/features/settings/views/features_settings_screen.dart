@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Screen for enabling/disabling app features.
@@ -22,7 +23,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Features', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.featuresTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
         padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
@@ -37,7 +38,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     context,
                     icon: AppIcons.chatOutlined,
                     iconColor: Colors.blue,
-                    title: 'Chat',
+                    title: context.l10n.featureChatTitle,
                     enabled: flags.chat,
                     onTap: () => context.go('/settings/features/chat'),
                   ),
@@ -45,7 +46,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                   PrismSettingsRow(
                     icon: AppIcons.frontHandOutlined,
                     iconColor: Colors.purple,
-                    title: 'Fronting',
+                    title: context.l10n.featureFrontingTitle,
                     onTap: () => context.go('/settings/features/fronting'),
                   ),
                   const Divider(height: 1, indent: 60, endIndent: 12),
@@ -53,7 +54,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     context,
                     icon: AppIcons.checkCircleOutline,
                     iconColor: Colors.green,
-                    title: 'Habits',
+                    title: context.l10n.featureHabitsTitle,
                     enabled: flags.habits,
                     onTap: () => context.go('/settings/features/habits'),
                   ),
@@ -62,7 +63,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     context,
                     icon: AppIcons.bedtimeOutlined,
                     iconColor: Colors.indigo,
-                    title: 'Sleep',
+                    title: context.l10n.featureSleepTitle,
                     enabled: flags.sleep,
                     onTap: () => context.go('/settings/features/sleep'),
                   ),
@@ -71,7 +72,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     context,
                     icon: AppIcons.pollOutlined,
                     iconColor: Colors.purple,
-                    title: 'Polls',
+                    title: context.l10n.featurePollsTitle,
                     enabled: flags.polls,
                     onTap: () => context.go('/settings/features/polls'),
                   ),
@@ -80,7 +81,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     context,
                     icon: AppIcons.stickyNote2Outlined,
                     iconColor: Colors.teal,
-                    title: 'Notes',
+                    title: context.l10n.featureNotesTitle,
                     enabled: flags.notes,
                     onTap: () => context.go('/settings/features/notes'),
                   ),
@@ -89,7 +90,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
                     context,
                     icon: AppIcons.alarm,
                     iconColor: Colors.amber,
-                    title: 'Reminders',
+                    title: context.l10n.featureRemindersTitle,
                     enabled: flags.reminders,
                     onTap: () => context.go('/settings/features/reminders'),
                   ),
@@ -100,7 +101,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
             child: Text(
-              'Disabling a feature hides it from navigation without deleting any data.',
+              context.l10n.featuresDisablingHint,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -129,7 +130,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
       title: title,
       showChevron: false,
       trailing: Semantics(
-        label: enabled ? 'Enabled' : 'Disabled',
+        label: enabled ? context.l10n.featuresEnabled : context.l10n.featuresDisabled,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
