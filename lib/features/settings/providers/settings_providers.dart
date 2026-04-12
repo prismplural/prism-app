@@ -38,12 +38,14 @@ class SettingsNotifier extends Notifier<void> {
     SystemTerminology terminology, {
     String? customTerminology,
     String? customPluralTerminology,
+    bool useEnglish = false,
   }) async {
     final repo = ref.read(systemSettingsRepositoryProvider);
     await repo.updateTerminologyFields(
       terminology: terminology,
       customTerminology: customTerminology,
       customPluralTerminology: customPluralTerminology,
+      useEnglish: useEnglish,
     );
   }
 

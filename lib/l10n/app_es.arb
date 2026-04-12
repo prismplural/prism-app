@@ -1527,6 +1527,7 @@
   "settingsTerminologyCustomPluralLabel": "Término personalizado (plural)",
   "settingsTerminologyCustomPluralHint": "p. ej. fragmentos",
   "settingsTerminologyPreviewLabel": "Vista previa",
+  "terminologyEnglishOptionsLabel": "En inglés",
 
   "navHome": "Inicio",
   "navChat": "Chat",

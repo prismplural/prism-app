@@ -223,16 +223,19 @@ class DriftSystemSettingsRepository
     required domain.SystemTerminology terminology,
     String? customTerminology,
     String? customPluralTerminology,
+    bool useEnglish = false,
   }) async {
     await _dao.updateTerminologyFields(
       terminology: terminology.index,
       customTerminology: customTerminology,
       customPluralTerminology: customPluralTerminology,
+      useEnglish: useEnglish,
     );
     await syncRecordUpdate(_table, _settingsEntityId, {
       'terminology': terminology.index,
       'custom_terminology': customTerminology,
       'custom_plural_terminology': customPluralTerminology,
+      'terminology_use_english': useEnglish ? 1 : 0,
     });
   }
 

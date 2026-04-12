@@ -5445,6 +5445,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsTerminologyPreviewLabel => 'Vista previa';
 
   @override
+  String get terminologyEnglishOptionsLabel => 'En inglés';
+
+  @override
   String get navHome => 'Inicio';
 
   @override

@@ -6323,6 +6323,9 @@
   "settingsTerminologyPreviewLabel": "Preview",
   "@settingsTerminologyPreviewLabel": { "description": "Label above the live terminology preview box" },
 
+  "terminologyEnglishOptionsLabel": "In English",
+  "@terminologyEnglishOptionsLabel": { "description": "Section header in terminology picker for English-language options, shown to users with a non-English device language" },
+
   "navHome": "Home",
   "@navHome": { "description": "Bottom navigation tab label for the Home (fronting) tab" },
   "navChat": "Chat",

@@ -189,11 +189,13 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
     required SystemTerminology terminology,
     String? customTerminology,
     String? customPluralTerminology,
+    bool useEnglish = false,
   }) async => updateSettings(
     settings.copyWith(
       terminology: terminology,
       customTerminology: customTerminology,
       customPluralTerminology: customPluralTerminology,
+      terminologyUseEnglish: useEnglish,
     ),
   );
   @override

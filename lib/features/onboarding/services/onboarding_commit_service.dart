@@ -60,6 +60,7 @@ class OnboardingCommitService {
           terminology: onboarding.selectedTerminology,
           customTerminology: onboarding.customTermSingular,
           customPluralTerminology: onboarding.customTermPlural,
+          terminologyUseEnglish: onboarding.terminologyUseEnglish,
           accentColorHex: onboarding.accentColorHex,
           perMemberAccentColors: onboarding.usePerMemberColors,
           chatEnabled: onboarding.chatEnabled,

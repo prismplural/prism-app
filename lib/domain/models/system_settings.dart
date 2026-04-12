@@ -124,6 +124,7 @@ abstract class SystemSettings with _$SystemSettings {
     // Sharing identity generation — incremented on DEK rotation
     @Default(0) int identityGeneration,
     @Default(false) bool chatLogsFront,
+    @Default(false) bool terminologyUseEnglish,
     @Default(false) bool hasCompletedOnboarding,
     @Default(false) bool syncThemeEnabled,
     @Default(true) bool habitsBadgeEnabled,
