@@ -82,6 +82,7 @@ const String prismSyncSchema = '''
         "terminology": "Int",
         "custom_terminology": "String",
         "custom_plural_terminology": "String",
+        "terminology_use_english": "Bool",
         "fronting_reminders_enabled": "Bool",
         "fronting_reminder_interval_minutes": "Int",
         "theme_mode": "Int",

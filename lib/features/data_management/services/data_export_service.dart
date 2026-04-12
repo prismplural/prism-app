@@ -376,6 +376,7 @@ class DataExportService {
     terminology: s.terminology.index,
     customTerminology: s.customTerminology,
     customPluralTerminology: s.customPluralTerminology,
+    terminologyUseEnglish: s.terminologyUseEnglish,
     frontingRemindersEnabled: s.frontingRemindersEnabled,
     frontingReminderIntervalMinutes: s.frontingReminderIntervalMinutes,
     themeMode: s.themeMode.index,

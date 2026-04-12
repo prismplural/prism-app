@@ -20,6 +20,7 @@ void main() {
         terminology: 0,
         customTerminology: null,
         customPluralTerminology: null,
+        terminologyUseEnglish: false,
         frontingRemindersEnabled: false,
         frontingReminderIntervalMinutes: 60,
         themeMode: 0,

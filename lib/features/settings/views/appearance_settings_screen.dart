@@ -117,10 +117,12 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               title: context.l10n.appearancePerMemberColors(watchTerminology(context, ref).singular),
               child: PrismSectionCard(
                 child: PrismSwitchRow(
-                  title:
-                    'Per-${watchTerminology(context, ref).singularLower} accent colors',
-                  subtitle:
-                    'Allow each ${watchTerminology(context, ref).singularLower} to have their own color',
+                  title: context.l10n.appearancePerMemberColorsSwitchTitle(
+                    watchTerminology(context, ref).singularLower,
+                  ),
+                  subtitle: context.l10n.appearancePerMemberColorsSwitchSubtitle(
+                    watchTerminology(context, ref).singularLower,
+                  ),
                   value: settings.perMemberAccentColors,
                   onChanged: (value) {
                     ref

@@ -228,6 +228,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String appearancePerMemberColorsSwitchTitle(String term) {
+    return 'Per-$term accent colors';
+  }
+
+  @override
+  String appearancePerMemberColorsSwitchSubtitle(String term) {
+    return 'Allow each $term to have their own color';
+  }
+
+  @override
   String get appearanceSyncSection => 'Sync';
 
   @override
@@ -3329,6 +3339,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingChatChannelNameHint => 'Channel name';
+
+  @override
+  String get onboardingChatChannelAllMembers => 'All Members';
+
+  @override
+  String get onboardingChatChannelVenting => 'Venting';
+
+  @override
+  String get onboardingChatChannelPlanning => 'Planning';
+
+  @override
+  String get onboardingChatChannelJournal => 'Journal';
+
+  @override
+  String get onboardingChatChannelUpdates => 'Updates';
+
+  @override
+  String get onboardingChatChannelRandom => 'Random';
 
   @override
   String get onboardingPreferencesTerminology => 'Terminology';

@@ -696,6 +696,7 @@ class V3SystemSettings {
     this.terminology = 0,
     this.customTerminology,
     this.customPluralTerminology,
+    this.terminologyUseEnglish = false,
     this.frontingRemindersEnabled = false,
     this.frontingReminderIntervalMinutes = 60,
     this.themeMode = 0,
@@ -736,6 +737,7 @@ class V3SystemSettings {
   final int terminology;
   final String? customTerminology;
   final String? customPluralTerminology;
+  final bool terminologyUseEnglish;
   final bool frontingRemindersEnabled;
   final int frontingReminderIntervalMinutes;
   final int themeMode;
@@ -777,6 +779,7 @@ class V3SystemSettings {
     if (customTerminology != null) 'customTerminology': customTerminology,
     if (customPluralTerminology != null)
       'customPluralTerminology': customPluralTerminology,
+    'terminologyUseEnglish': terminologyUseEnglish,
     'frontingRemindersEnabled': frontingRemindersEnabled,
     'frontingReminderIntervalMinutes': frontingReminderIntervalMinutes,
     'themeMode': themeMode,
@@ -822,6 +825,7 @@ class V3SystemSettings {
     terminology: json['terminology'] as int? ?? 0,
     customTerminology: json['customTerminology'] as String?,
     customPluralTerminology: json['customPluralTerminology'] as String?,
+    terminologyUseEnglish: json['terminologyUseEnglish'] as bool? ?? false,
     frontingRemindersEnabled:
         json['frontingRemindersEnabled'] as bool? ?? false,
     frontingReminderIntervalMinutes:
