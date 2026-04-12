@@ -20,7 +20,7 @@ class NotesFeatureSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notesEnabled = ref.watch(notesEnabledProvider);
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.featureNotesTitle, showBackButton: true),

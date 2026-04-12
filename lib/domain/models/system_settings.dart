@@ -95,29 +95,6 @@ enum SystemTerminology {
   facets,
   custom;
 
-  /// The default singular form for this terminology option.
-  String get singularForm {
-    return switch (this) {
-      SystemTerminology.members => 'Member',
-      SystemTerminology.headmates => 'Headmate',
-      SystemTerminology.alters => 'Alter',
-      SystemTerminology.parts => 'Part',
-      SystemTerminology.facets => 'Facet',
-      SystemTerminology.custom => 'Member', // fallback; overridden by provider
-    };
-  }
-
-  /// The default plural form for this terminology option.
-  String get pluralForm {
-    return switch (this) {
-      SystemTerminology.members => 'Members',
-      SystemTerminology.headmates => 'Headmates',
-      SystemTerminology.alters => 'Alters',
-      SystemTerminology.parts => 'Parts',
-      SystemTerminology.facets => 'Facets',
-      SystemTerminology.custom => 'Members', // fallback; overridden by provider
-    };
-  }
 }
 
 @freezed

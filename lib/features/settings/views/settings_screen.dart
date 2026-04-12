@@ -29,7 +29,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(systemSettingsProvider);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
     final membersAsync = ref.watch(activeMembersProvider);
     final syncStatus = ref.watch(syncStatusProvider);
     final theme = Theme.of(context);

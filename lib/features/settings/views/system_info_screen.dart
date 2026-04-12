@@ -96,7 +96,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(systemSettingsProvider);
     final membersAsync = ref.watch(activeMembersProvider);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(

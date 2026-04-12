@@ -279,7 +279,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
 
   @override
   Widget build(BuildContext context) {
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     // Build menu items for the blur popup.
     final menuItems = <_MenuItem>[];

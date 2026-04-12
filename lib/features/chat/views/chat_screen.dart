@@ -46,7 +46,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final members = ref.read(activeMembersProvider).value;
     if (members == null || members.isEmpty) return;
 
-    final terms = ref.read(terminologyProvider);
+    final terms = readTerminology(context, ref);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref

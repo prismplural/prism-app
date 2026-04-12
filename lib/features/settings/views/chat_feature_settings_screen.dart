@@ -22,7 +22,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final chatLogsFront = ref.watch(chatLogsFrontProvider);
     final gifSearchEnabled = ref.watch(gifSearchEnabledProvider);
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.featureChatTitle, showBackButton: true),

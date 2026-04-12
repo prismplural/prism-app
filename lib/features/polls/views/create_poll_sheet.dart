@@ -274,7 +274,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 ),
                 PrismSwitchRow(
                   title: context.l10n.pollsAllowMultipleVotes,
-                  subtitle: context.l10n.pollsAllowMultipleVotesSubtitle(ref.watch(terminologyProvider).plural),
+                  subtitle: context.l10n.pollsAllowMultipleVotesSubtitle(watchTerminology(context, ref).plural),
                   value: _allowsMultipleVotes,
                   onChanged: (v) => setState(() => _allowsMultipleVotes = v),
                 ),

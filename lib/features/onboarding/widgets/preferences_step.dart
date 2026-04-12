@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class PreferencesStep extends ConsumerStatefulWidget {
@@ -83,7 +84,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                     child: Text(
                       term == SystemTerminology.custom
                           ? context.l10n.onboardingPreferencesCustomTerminology
-                          : term.pluralForm,
+                          : resolveTerminology(context.l10n, term).plural,
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: isSelected
                             ? primary

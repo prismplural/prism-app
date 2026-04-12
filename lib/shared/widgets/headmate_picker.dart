@@ -49,13 +49,13 @@ class HeadmatePicker extends ConsumerWidget {
         child: PrismLoadingState(),
       ),
       error: (e, _) => Text(
-        context.l10n.errorLoadingMembers(ref.read(terminologyProvider).pluralLower, e),
+        context.l10n.errorLoadingMembers(readTerminology(context, ref).pluralLower, e),
       ),
       data: (members) {
         final filtered = members
             .where((m) => !excludeIds.contains(m.id))
             .toList();
-        final effectiveLabel = label ?? ref.watch(terminologyProvider).singular;
+        final effectiveLabel = label ?? watchTerminology(context, ref).singular;
         const unknownLeading = Text('\u2753', style: TextStyle(fontSize: 18));
 
         return PrismSelect<String?>(

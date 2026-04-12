@@ -21,7 +21,7 @@ class HabitsFeatureSettingsScreen extends ConsumerWidget {
     final habitsEnabled = ref.watch(habitsEnabledProvider);
     final habitsBadgeEnabled = ref.watch(habitsBadgeEnabledProvider);
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.featureHabitsTitle, showBackButton: true),

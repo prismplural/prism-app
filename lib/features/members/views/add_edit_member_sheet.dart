@@ -175,7 +175,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       if (mounted) {
         PrismToast.error(context,
             message: context.l10n.memberErrorSaving(
-                ref.read(terminologyProvider).singularLower, e));
+                readTerminology(context, ref).singularLower, e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -185,7 +185,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
     final l10n = context.l10n;
 
     final canSave = _nameController.text.trim().isNotEmpty;
