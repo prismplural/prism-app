@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -51,7 +52,7 @@ class SessionHistoryList extends ConsumerWidget {
       error: (e, _) => SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Error loading history: $e'),
+          child: Text(context.l10n.frontingErrorLoadingHistory(e)),
         ),
       ),
       data: (sessions) {
@@ -71,7 +72,7 @@ class SessionHistoryList extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'No session history yet',
+                      context.l10n.frontingNoSessionHistory,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(
                           context,
@@ -435,9 +436,9 @@ class _InlineSleepTile extends ConsumerWidget {
   Future<void> _showDeleteDialog(BuildContext context, WidgetRef ref) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete Sleep Session',
-      message: 'Are you sure you want to delete this sleep session?',
-      confirmLabel: 'Delete',
+      title: context.l10n.frontingDeleteSleepTitle,
+      message: context.l10n.frontingDeleteSleepMessage,
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {
@@ -470,8 +471,8 @@ class _InlineSleepTile extends ConsumerWidget {
           );
 
     return Semantics(
-      label:
-          'Sleep session, ${displaySession.displayDuration.toShortString()}, $timeRange',
+      label: context.l10n.frontingSleepSessionSemantics(
+            displaySession.displayDuration.toShortString(), timeRange),
       child: Container(
         color: theme.colorScheme.tertiaryContainer,
         child: Material(
@@ -495,7 +496,7 @@ class _InlineSleepTile extends ConsumerWidget {
                       AppIcons.duotoneSleep,
                       size: 20,
                       color: theme.colorScheme.tertiary,
-                      semanticLabel: 'Sleep',
+                      semanticLabel: context.l10n.frontingSleepping,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -504,7 +505,7 @@ class _InlineSleepTile extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Sleep',
+                          context.l10n.frontingSleepping,
                           style: theme.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),

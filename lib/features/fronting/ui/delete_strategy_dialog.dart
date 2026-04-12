@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -15,7 +16,7 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
 }) async {
   return PrismDialog.show<FrontingDeleteStrategy>(
     context: context,
-    title: 'What should happen to this time?',
+    title: context.l10n.frontingDeleteStrategyTitle,
     builder: (ctx) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -60,7 +61,7 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        'Recommended',
+                        ctx.l10n.frontingDeleteStrategyRecommended,
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: theme.colorScheme.onPrimaryContainer,
                         ),
@@ -76,7 +77,7 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
           Align(
             alignment: Alignment.centerRight,
             child: PrismButton(
-              label: 'Cancel',
+              label: ctx.l10n.cancel,
               onPressed: () => Navigator.of(ctx).pop(null),
             ),
           ),

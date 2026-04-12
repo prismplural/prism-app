@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
@@ -119,9 +120,8 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
               if (rows.isEmpty && sleepSessions.isEmpty) {
                 return EmptyState(
                   icon: Icon(AppIcons.timelineRounded),
-                  title: 'No fronting history',
-                  subtitle:
-                      'Start a fronting session to see it appear on the timeline.',
+                  title: context.l10n.frontingTimelineNoHistory,
+                  subtitle: context.l10n.frontingTimelineNoHistorySubtitle,
                 );
               }
               return LayoutBuilder(

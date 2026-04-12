@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -51,14 +52,14 @@ class SessionDetailScreen extends ConsumerWidget {
             : [
                 PrismTopBarAction(
                   icon: AppIcons.editOutlined,
-                  tooltip: 'Edit',
+                  tooltip: context.l10n.frontingSessionDetailEditTooltip,
                   onPressed: isSleep
                       ? () => _editSleep(context, session)
                       : () => context.go(AppRoutePaths.sessionEdit(sessionId)),
                 ),
                 PrismTopBarAction(
                   icon: AppIcons.deleteOutline,
-                  tooltip: 'Delete',
+                  tooltip: context.l10n.frontingSessionDetailDeleteTooltip,
                   onPressed: isSleep
                       ? () => _confirmSleepDelete(context, ref, session)
                       : () => _confirmDelete(context, ref),
@@ -134,9 +135,9 @@ class SessionDetailScreen extends ConsumerWidget {
   ) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete Sleep Session',
-      message: 'Are you sure you want to delete this sleep session?',
-      confirmLabel: 'Delete',
+      title: context.l10n.frontingDeleteSleepTitle,
+      message: context.l10n.frontingDeleteSleepMessage,
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (!confirmed || !context.mounted) return;
@@ -177,7 +178,7 @@ class _SleepSessionBody extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      session.isActive ? 'Sleeping now' : 'Sleep session',
+                      session.isActive ? context.l10n.frontingSleepingNow : context.l10n.frontingSleepSession,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -187,13 +188,13 @@ class _SleepSessionBody extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               _InfoRow(
-                label: 'Started',
+                label: context.l10n.frontingInfoStarted,
                 value: session.startTime.toDateTimeString(),
               ),
               const SizedBox(height: 8),
               _InfoRow(
-                label: 'Ended',
-                value: session.endTime?.toDateTimeString() ?? 'Active',
+                label: context.l10n.frontingInfoEnded,
+                value: session.endTime?.toDateTimeString() ?? context.l10n.frontingInfoActive,
               ),
               const SizedBox(height: 8),
               Row(
@@ -201,7 +202,7 @@ class _SleepSessionBody extends StatelessWidget {
                   SizedBox(
                     width: 80,
                     child: Text(
-                      'Duration',
+                      context.l10n.frontingInfoDuration,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -225,15 +226,15 @@ class _SleepSessionBody extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _InfoRow(
-                label: 'Quality',
+                label: context.l10n.frontingInfoQuality,
                 value: quality == SleepQuality.unknown
-                    ? 'Unrated'
+                    ? context.l10n.frontingInfoQualityUnrated
                     : quality.label,
               ),
               if (session.notes != null && session.notes!.isNotEmpty) ...[
                 const SizedBox(height: 20),
                 Text(
-                  'Notes',
+                  context.l10n.frontingNotesSection,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -274,7 +275,7 @@ class _SessionDetailBody extends ConsumerWidget {
         // Co-fronters
         if (session.coFronterIds.isNotEmpty) ...[
           Text(
-            'Co-Fronters',
+            context.l10n.frontingCoFrontersSection,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -291,20 +292,20 @@ class _SessionDetailBody extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Time',
+                context.l10n.frontingTimeSection,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
               _InfoRow(
-                label: 'Started',
+                label: context.l10n.frontingInfoStarted,
                 value: session.startTime.toDateTimeString(),
               ),
               const SizedBox(height: 8),
               _InfoRow(
-                label: 'Ended',
-                value: session.endTime?.toDateTimeString() ?? 'Active',
+                label: context.l10n.frontingInfoEnded,
+                value: session.endTime?.toDateTimeString() ?? context.l10n.frontingInfoActive,
               ),
               const SizedBox(height: 8),
               Row(
@@ -312,7 +313,7 @@ class _SessionDetailBody extends ConsumerWidget {
                   SizedBox(
                     width: 80,
                     child: Text(
-                      'Duration',
+                      context.l10n.frontingInfoDuration,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -347,7 +348,7 @@ class _SessionDetailBody extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Confidence',
+                  context.l10n.frontingConfidenceSection,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -372,7 +373,7 @@ class _SessionDetailBody extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Notes',
+                  context.l10n.frontingNotesSection,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -411,7 +412,7 @@ class _FronterSection extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'Unknown',
+              context.l10n.unknown,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -547,17 +548,17 @@ class _ConfidenceDisplay extends StatelessWidget {
 
   final FrontConfidence confidence;
 
-  static const _labels = {
-    FrontConfidence.unsure: 'Unsure',
-    FrontConfidence.strong: 'Strong',
-    FrontConfidence.certain: 'Certain',
-  };
-
   int get _level => confidence.index + 1;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final labels = {
+      FrontConfidence.unsure: l10n.frontingConfidenceUnsure,
+      FrontConfidence.strong: l10n.frontingConfidenceStrong,
+      FrontConfidence.certain: l10n.frontingConfidenceCertain,
+    };
 
     return Row(
       children: [
@@ -576,7 +577,7 @@ class _ConfidenceDisplay extends StatelessWidget {
         }),
         const SizedBox(width: 8),
         Text(
-          _labels[confidence]!,
+          labels[confidence]!,
           style: theme.textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w500,
           ),

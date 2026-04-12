@@ -3,6 +3,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -57,7 +58,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       final sessions = ref.read(unifiedHistoryProvider).value;
       if (sessions != null && sessions.length >= currentLimit) {
         ref.read(sessionLimitProvider.notifier).loadMore();
-        SemanticsService.sendAnnouncement(View.of(context), 'Loading older sessions', TextDirection.ltr);
+        SemanticsService.sendAnnouncement(View.of(context), context.l10n.frontingLoadingOlderSessions, TextDirection.ltr);
       }
     }
   }
@@ -118,7 +119,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       icon: isTimelineView
           ? AppIcons.viewListRounded
           : AppIcons.timelineRounded,
-      tooltip: isTimelineView ? 'List view' : 'Timeline view',
+      tooltip: isTimelineView ? context.l10n.frontingListView : context.l10n.frontingTimelineView,
       onPressed: () => ref
           .read(timelineViewActiveProvider.notifier)
           .toggle(),
@@ -249,10 +250,9 @@ class _TimelineIssueBanner extends ConsumerWidget {
       child: InfoBanner(
         icon: AppIcons.warningAmberRounded,
         iconColor: theme.colorScheme.error,
-        title: 'Timeline issues found',
-        message:
-            '$issueCount timeline issue${issueCount > 1 ? 's' : ''} found. Tap to review.',
-        buttonText: 'Review',
+        title: context.l10n.frontingTimelineIssuesFound,
+        message: context.l10n.frontingTimelineIssuesBannerMessage(issueCount),
+        buttonText: context.l10n.frontingTimelineIssuesReview,
         onButtonPressed: () =>
             context.push('/settings/timeline-sanitization'),
       ),
@@ -288,7 +288,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       menuItems.add(
         _MenuItem(
           icon: AppIcons.wbSunnyRounded,
-          label: 'Wake Up As...',
+          label: context.l10n.frontingMenuWakeUpAs,
           onTap: (close) {
             close();
             _showWakeUpPicker(context, ref);
@@ -300,7 +300,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     menuItems.addAll([
       _MenuItem(
         icon: AppIcons.personOutline,
-        label: 'Log Front',
+        label: context.l10n.frontingMenuLogFront,
         onTap: (close) {
           close();
           _openAddSessionSheet(context);
@@ -321,7 +321,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       ),
       _MenuItem(
         icon: AppIcons.pollOutlined,
-        label: 'New Poll',
+        label: context.l10n.frontingMenuNewPoll,
         onTap: (close) {
           close();
           PrismSheet.showFullScreen(
@@ -334,7 +334,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       ),
       _MenuItem(
         icon: AppIcons.bedtimeRounded,
-        label: 'Start Sleep',
+        label: context.l10n.frontingMenuStartSleep,
         enabled: !isSleeping,
         onTap: (close) {
           close();
@@ -382,7 +382,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       },
       child: PrismTopBarAction(
         icon: AppIcons.add,
-        tooltip: 'Add fronting entry',
+        tooltip: context.l10n.frontingAddEntry,
         onPressed: () => _openAddSessionSheet(context),
         onLongPress: () => _popupKey.currentState?.show(),
       ),
@@ -398,7 +398,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
 
     PrismDialog.show<void>(
       context: context,
-      title: 'Wake Up As...',
+      title: context.l10n.frontingWakeUpAsTitle,
       builder: (ctx) {
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -423,7 +423,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
                     } catch (e) {
                       if (context.mounted) {
                         PrismToast.error(context,
-                            message: 'Error waking up: $e');
+                            message: context.l10n.frontingErrorWakingUp(e));
                       }
                     }
                   },

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -33,7 +34,7 @@ class TimelineControls extends ConsumerWidget {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Jump to date',
+                  context.l10n.frontingTimelineJumpToDate,
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -47,7 +48,7 @@ class TimelineControls extends ConsumerWidget {
           // Today button
           PrismIconButton(
             icon: AppIcons.todayRounded,
-            tooltip: 'Jump to now',
+            tooltip: context.l10n.frontingTimelineJumpToNow,
             onPressed: () {
               ref.read(timelineJumpTargetProvider.notifier).jumpTo(
                     DateTime.now(),
@@ -61,7 +62,7 @@ class TimelineControls extends ConsumerWidget {
           // Zoom out
           PrismIconButton(
             icon: AppIcons.removeRounded,
-            tooltip: 'Zoom out',
+            tooltip: context.l10n.frontingTimelineZoomOut,
             onPressed: notifier.zoomOut,
             size: 36,
             iconSize: 18,
@@ -72,7 +73,7 @@ class TimelineControls extends ConsumerWidget {
           // Zoom in
           PrismIconButton(
             icon: AppIcons.addRounded,
-            tooltip: 'Zoom in',
+            tooltip: context.l10n.frontingTimelineZoomIn,
             onPressed: notifier.zoomIn,
             size: 36,
             iconSize: 18,

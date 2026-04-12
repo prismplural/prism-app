@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
@@ -20,10 +21,8 @@ Future<GapResolution?> showGapResolutionDialog(
 
   return PrismDialog.show<GapResolution>(
     context: context,
-    title: 'Gap${gaps.length > 1 ? 's' : ''} detected',
-    message: 'This edit would create '
-        '${gaps.length == 1 ? 'a gap' : '${gaps.length} gaps'} '
-        'totaling ${totalDuration.toShortString()}.',
+    title: context.l10n.frontingGapDetectedTitle(gaps.length),
+    message: context.l10n.frontingGapDetectedMessage(gaps.length, totalDuration.toShortString()),
     builder: (ctx) {
       final theme = Theme.of(ctx);
       return Column(
@@ -53,20 +52,16 @@ Future<GapResolution?> showGapResolutionDialog(
           PrismListRow(
             padding: EdgeInsets.zero,
             leading: Icon(AppIcons.autoFixHigh),
-            title: const Text('Fill with unknown fronter'),
-            subtitle: const Text(
-              'Create unknown sessions to cover the gaps.',
-            ),
+            title: Text(ctx.l10n.frontingGapFillWithUnknown),
+            subtitle: Text(ctx.l10n.frontingGapFillWithUnknownSubtitle),
             onTap: () =>
                 Navigator.of(ctx).pop(GapResolution.fillWithUnknown),
           ),
           PrismListRow(
             padding: EdgeInsets.zero,
             leading: Icon(AppIcons.check),
-            title: const Text('Leave gaps'),
-            subtitle: const Text(
-              'Save without filling the gaps.',
-            ),
+            title: Text(ctx.l10n.frontingGapLeaveGaps),
+            subtitle: Text(ctx.l10n.frontingGapLeaveGapsSubtitle),
             onTap: () => Navigator.of(ctx).pop(GapResolution.leaveGap),
           ),
         ],

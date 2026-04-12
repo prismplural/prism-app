@@ -2773,6 +2773,942 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not start recording.'**
   String get voiceRecordingFailed;
+
+  /// Tooltip to switch to list view on the fronting screen
+  ///
+  /// In en, this message translates to:
+  /// **'List view'**
+  String get frontingListView;
+
+  /// Tooltip to switch to timeline view on the fronting screen
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline view'**
+  String get frontingTimelineView;
+
+  /// Tooltip for the add button on the fronting screen
+  ///
+  /// In en, this message translates to:
+  /// **'Add fronting entry'**
+  String get frontingAddEntry;
+
+  /// Accessibility announcement when loading older sessions on scroll
+  ///
+  /// In en, this message translates to:
+  /// **'Loading older sessions'**
+  String get frontingLoadingOlderSessions;
+
+  /// Info banner title when timeline validation issues are detected
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline issues found'**
+  String get frontingTimelineIssuesFound;
+
+  /// Info banner message showing timeline issue count
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 timeline issue found. Tap to review.} other{{count} timeline issues found. Tap to review.}}'**
+  String frontingTimelineIssuesBannerMessage(int count);
+
+  /// Button label in timeline issues banner
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get frontingTimelineIssuesReview;
+
+  /// Menu item to wake up and start fronting as a specific member
+  ///
+  /// In en, this message translates to:
+  /// **'Wake Up As...'**
+  String get frontingMenuWakeUpAs;
+
+  /// Menu item to log a new fronting entry
+  ///
+  /// In en, this message translates to:
+  /// **'Log Front'**
+  String get frontingMenuLogFront;
+
+  /// Menu item to create a new poll
+  ///
+  /// In en, this message translates to:
+  /// **'New Poll'**
+  String get frontingMenuNewPoll;
+
+  /// Menu item to start a sleep session
+  ///
+  /// In en, this message translates to:
+  /// **'Start Sleep'**
+  String get frontingMenuStartSleep;
+
+  /// Dialog title for selecting a member to front after waking up
+  ///
+  /// In en, this message translates to:
+  /// **'Wake Up As...'**
+  String get frontingWakeUpAsTitle;
+
+  /// Error toast when waking up fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error waking up: {error}'**
+  String frontingErrorWakingUp(Object error);
+
+  /// Empty state text when there is no fronting history
+  ///
+  /// In en, this message translates to:
+  /// **'No session history yet'**
+  String get frontingNoSessionHistory;
+
+  /// Error shown in session history list when history fails to load
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading history: {error}'**
+  String frontingErrorLoadingHistory(Object error);
+
+  /// Confirmation dialog title for deleting a sleep session
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Sleep Session'**
+  String get frontingDeleteSleepTitle;
+
+  /// Confirmation dialog message for deleting a sleep session
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this sleep session?'**
+  String get frontingDeleteSleepMessage;
+
+  /// Label for a sleep session in the history list
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep'**
+  String get frontingSleepping;
+
+  /// Semantics label for a sleep session tile
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep session, {duration}, {timeRange}'**
+  String frontingSleepSessionSemantics(String duration, String timeRange);
+
+  /// Title on empty system view when no members exist
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to Prism'**
+  String get frontingWelcomeTitle;
+
+  /// Subtitle on empty system view (uses terminology term for member)
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first system {member} to get started'**
+  String frontingWelcomeSubtitle(String member);
+
+  /// Semantics label for a quick-front avatar button
+  ///
+  /// In en, this message translates to:
+  /// **'Quick front {name}'**
+  String frontingQuickFrontLabel(String name);
+
+  /// Semantics long-press hint on quick front button
+  ///
+  /// In en, this message translates to:
+  /// **'Hold to start fronting'**
+  String get frontingQuickFrontHoldHint;
+
+  /// Sheet title when creating a new fronting session (non-co-front mode)
+  ///
+  /// In en, this message translates to:
+  /// **'New Session'**
+  String get frontingNewSession;
+
+  /// Sheet title when adding a co-fronter to the active session
+  ///
+  /// In en, this message translates to:
+  /// **'Add Co-Fronter'**
+  String get frontingAddCoFronterTitle;
+
+  /// Section header when selecting the primary fronter
+  ///
+  /// In en, this message translates to:
+  /// **'Select Fronter'**
+  String get frontingSelectFronter;
+
+  /// Section header when selecting a member in co-front mode
+  ///
+  /// In en, this message translates to:
+  /// **'Select Member'**
+  String get frontingSelectMember;
+
+  /// Toggle label to switch between new session and co-front mode
+  ///
+  /// In en, this message translates to:
+  /// **'Co-front'**
+  String get frontingCoFrontToggle;
+
+  /// Section header for co-fronter selection in add session sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Co-Fronters'**
+  String get frontingCoFronters;
+
+  /// Empty state when no other members are available to add as co-fronters
+  ///
+  /// In en, this message translates to:
+  /// **'No other members available'**
+  String get frontingNoOtherMembers;
+
+  /// Hint text shown in co-front mode on the add session sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Tap a member to add them as a co-fronter to the current session.'**
+  String get frontingCoFrontHint;
+
+  /// Section header for confidence level picker
+  ///
+  /// In en, this message translates to:
+  /// **'Confidence Level'**
+  String get frontingConfidenceLevel;
+
+  /// Confidence level: unsure
+  ///
+  /// In en, this message translates to:
+  /// **'Unsure'**
+  String get frontingConfidenceUnsure;
+
+  /// Confidence level: strong
+  ///
+  /// In en, this message translates to:
+  /// **'Strong'**
+  String get frontingConfidenceStrong;
+
+  /// Confidence level: certain
+  ///
+  /// In en, this message translates to:
+  /// **'Certain'**
+  String get frontingConfidenceCertain;
+
+  /// Label for the notes field in add/edit session sheets
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get frontingNotes;
+
+  /// Hint text for notes field in add session sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Optional notes about this session...'**
+  String get frontingNotesHint;
+
+  /// Hint text for notes field in edit session screen
+  ///
+  /// In en, this message translates to:
+  /// **'Optional notes...'**
+  String get frontingNotesHintEdit;
+
+  /// Hint text in member search field on add session sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Search members...'**
+  String get frontingSearchMembersHint;
+
+  /// Empty state when search yields no members
+  ///
+  /// In en, this message translates to:
+  /// **'No members matching \"{query}\"'**
+  String frontingNoMembersMatching(String query);
+
+  /// Badge label shown on a member avatar who is already fronting
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting'**
+  String get frontingFronting;
+
+  /// Error toast when adding a co-fronter fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error adding co-fronter: {error}'**
+  String frontingErrorAddingCoFronter(Object error);
+
+  /// Error toast when creating a fronting session fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error creating session: {error}'**
+  String frontingErrorCreatingSession(Object error);
+
+  /// Header title on the add co-fronters bottom sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Add Co-Fronters'**
+  String get frontingAddCoFrontersTitle;
+
+  /// Error toast when adding co-fronters fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error adding co-fronters: {error}'**
+  String frontingErrorAddingCoFronters(Object error);
+
+  /// Title on the edit fronting session screen
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Session'**
+  String get frontingEditSessionTitle;
+
+  /// Semantics label for save button on edit session screen
+  ///
+  /// In en, this message translates to:
+  /// **'Save session'**
+  String get frontingSaveSession;
+
+  /// Message shown when the requested session is not found
+  ///
+  /// In en, this message translates to:
+  /// **'Session not found'**
+  String get frontingSessionNotFound;
+
+  /// Toggle label for marking a session as still active
+  ///
+  /// In en, this message translates to:
+  /// **'Still Active'**
+  String get frontingStillActive;
+
+  /// Label for the start date/time field in session edit screen
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get frontingStart;
+
+  /// Label for the end date/time field in session edit screen
+  ///
+  /// In en, this message translates to:
+  /// **'End'**
+  String get frontingEnd;
+
+  /// Section header for the fronter picker in edit session screen
+  ///
+  /// In en, this message translates to:
+  /// **'Fronter'**
+  String get frontingFronter;
+
+  /// Dialog title warning about a very short session
+  ///
+  /// In en, this message translates to:
+  /// **'Short Session'**
+  String get frontingShortSessionTitle;
+
+  /// Dialog message warning about a very short session
+  ///
+  /// In en, this message translates to:
+  /// **'This session is less than a minute long. Save anyway?'**
+  String get frontingShortSessionMessage;
+
+  /// Dialog title warning about a duplicate session
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate Session'**
+  String get frontingDuplicateSessionTitle;
+
+  /// Dialog message warning about duplicate sessions
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{This session appears to be a duplicate of 1 other session. Save anyway?} other{This session appears to be a duplicate of {count} other sessions. Save anyway?}}'**
+  String frontingDuplicateSessionMessage(int count);
+
+  /// Confirm button label on duplicate session dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Save anyway'**
+  String get frontingSaveAnyway;
+
+  /// Error toast when saving a session fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving session: {error}'**
+  String frontingErrorSavingSession(Object error);
+
+  /// Tooltip on edit button in session detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get frontingSessionDetailEditTooltip;
+
+  /// Tooltip on delete button in session detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get frontingSessionDetailDeleteTooltip;
+
+  /// Title on sleep session detail when session is still active
+  ///
+  /// In en, this message translates to:
+  /// **'Sleeping now'**
+  String get frontingSleepingNow;
+
+  /// Title on sleep session detail when session has ended
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep session'**
+  String get frontingSleepSession;
+
+  /// Label for the started time row in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Started'**
+  String get frontingInfoStarted;
+
+  /// Label for the ended time row in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Ended'**
+  String get frontingInfoEnded;
+
+  /// Label for the duration row in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Duration'**
+  String get frontingInfoDuration;
+
+  /// Value shown in session detail ended row when session is still active
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get frontingInfoActive;
+
+  /// Label for the quality row in sleep session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Quality'**
+  String get frontingInfoQuality;
+
+  /// Value shown when sleep quality has not been rated
+  ///
+  /// In en, this message translates to:
+  /// **'Unrated'**
+  String get frontingInfoQualityUnrated;
+
+  /// Section header for time info in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get frontingTimeSection;
+
+  /// Section header for confidence in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Confidence'**
+  String get frontingConfidenceSection;
+
+  /// Section header for notes in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get frontingNotesSection;
+
+  /// Section header for co-fronters in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Co-Fronters'**
+  String get frontingCoFrontersSection;
+
+  /// Headline on the active sleep mode card
+  ///
+  /// In en, this message translates to:
+  /// **'Sleeping'**
+  String get frontingSleepingLabel;
+
+  /// Subtitle on sleep mode card showing when sleep started
+  ///
+  /// In en, this message translates to:
+  /// **'Since {time}'**
+  String frontingSleepSince(String time);
+
+  /// Button label on sleep mode card to end sleep
+  ///
+  /// In en, this message translates to:
+  /// **'Wake Up'**
+  String get frontingWakeUp;
+
+  /// Sleep quality label when no rating has been given
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep Quality: Unrated'**
+  String get frontingSleepQualityUnrated;
+
+  /// Sleep quality label with a rating
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep Quality: {label}'**
+  String frontingSleepQualityRated(String label);
+
+  /// Semantics label for a star rating button on sleep mode card
+  ///
+  /// In en, this message translates to:
+  /// **'Rate sleep as {label}'**
+  String frontingRateSleepAs(String label);
+
+  /// Sheet title for starting a sleep session
+  ///
+  /// In en, this message translates to:
+  /// **'Start Sleep'**
+  String get frontingStartSleepTitle;
+
+  /// Button label to start sleep
+  ///
+  /// In en, this message translates to:
+  /// **'Start'**
+  String get frontingStartButton;
+
+  /// Hint text for notes field in start sleep sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Optional notes about this sleep...'**
+  String get frontingStartSleepNotesHint;
+
+  /// Error toast when starting a sleep session fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error starting sleep: {error}'**
+  String frontingErrorStartingSleep(Object error);
+
+  /// Sheet title for editing a sleep session
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Sleep'**
+  String get frontingEditSleepTitle;
+
+  /// Section label inside the edit sleep sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep session'**
+  String get frontingEditSleepLabel;
+
+  /// Toggle label for marking a sleep session as still active
+  ///
+  /// In en, this message translates to:
+  /// **'Still Sleeping'**
+  String get frontingStillSleeping;
+
+  /// Subtitle on the Still Sleeping toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Leave the session open-ended'**
+  String get frontingStillSleepingSubtitle;
+
+  /// Label for the sleep quality dropdown in edit sleep sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep quality'**
+  String get frontingSleepQualityLabel;
+
+  /// Hint text for notes field in edit sleep sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Optional notes about this sleep...'**
+  String get frontingEditSleepNotesHint;
+
+  /// Error toast when end time is not after start time
+  ///
+  /// In en, this message translates to:
+  /// **'End time must be after start time.'**
+  String get frontingEndTimeMustBeAfterStart;
+
+  /// Error toast when saving a sleep session fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving sleep session: {error}'**
+  String frontingErrorSavingSleepSession(Object error);
+
+  /// Section header for comments in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get frontingCommentsTitle;
+
+  /// Tooltip on the add comment button in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'Add comment'**
+  String get frontingAddCommentTooltip;
+
+  /// Empty state for comments section in session detail
+  ///
+  /// In en, this message translates to:
+  /// **'No comments yet'**
+  String get frontingNoCommentsYet;
+
+  /// Sheet title when adding a new comment
+  ///
+  /// In en, this message translates to:
+  /// **'Add Comment'**
+  String get frontingAddCommentTitle;
+
+  /// Sheet title when editing an existing comment
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Comment'**
+  String get frontingEditCommentTitle;
+
+  /// Hint text for comment body field
+  ///
+  /// In en, this message translates to:
+  /// **'Write your comment...'**
+  String get frontingCommentHint;
+
+  /// Confirmation dialog title for deleting a comment
+  ///
+  /// In en, this message translates to:
+  /// **'Delete comment?'**
+  String get frontingDeleteCommentTitle;
+
+  /// Confirmation dialog message for deleting a comment
+  ///
+  /// In en, this message translates to:
+  /// **'This action cannot be undone.'**
+  String get frontingDeleteCommentMessage;
+
+  /// Label for the jump-to-date control in timeline view
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to date'**
+  String get frontingTimelineJumpToDate;
+
+  /// Tooltip for the today button in timeline controls
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to now'**
+  String get frontingTimelineJumpToNow;
+
+  /// Tooltip for zoom out button in timeline controls
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom out'**
+  String get frontingTimelineZoomOut;
+
+  /// Tooltip for zoom in button in timeline controls
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in'**
+  String get frontingTimelineZoomIn;
+
+  /// Empty state title in timeline view
+  ///
+  /// In en, this message translates to:
+  /// **'No fronting history'**
+  String get frontingTimelineNoHistory;
+
+  /// Empty state subtitle in timeline view
+  ///
+  /// In en, this message translates to:
+  /// **'Start a fronting session to see it appear on the timeline.'**
+  String get frontingTimelineNoHistorySubtitle;
+
+  /// Screen title for the timeline sanitization screen
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline Sanitization'**
+  String get frontingSanitizationTitle;
+
+  /// Text shown while the sanitization scan is running
+  ///
+  /// In en, this message translates to:
+  /// **'Scanning timeline…'**
+  String get frontingSanitizationScanning;
+
+  /// Title on the initial state of sanitization screen
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline Sanitization'**
+  String get frontingSanitizationIntroTitle;
+
+  /// Description on the initial state of sanitization screen
+  ///
+  /// In en, this message translates to:
+  /// **'Scan your fronting history for overlapping, duplicate, or invalid sessions, then apply automatic fixes.'**
+  String get frontingSanitizationIntroBody;
+
+  /// Button to start a sanitization scan
+  ///
+  /// In en, this message translates to:
+  /// **'Scan Timeline'**
+  String get frontingSanitizationScanButton;
+
+  /// Empty state title when no issues are found
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline looks clean!'**
+  String get frontingSanitizationCleanTitle;
+
+  /// Empty state subtitle when no issues are found
+  ///
+  /// In en, this message translates to:
+  /// **'No overlaps, duplicates, or invalid sessions found.'**
+  String get frontingSanitizationCleanSubtitle;
+
+  /// Button to run a new scan after viewing results
+  ///
+  /// In en, this message translates to:
+  /// **'Scan Again'**
+  String get frontingSanitizationScanAgain;
+
+  /// Summary banner showing total issues found
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Found 1 issue in your timeline.} other{Found {count} issues in your timeline.}}'**
+  String frontingSanitizationIssuesFound(int count);
+
+  /// Banner showing number of fixes applied
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 fix applied successfully.} other{{count} fixes applied successfully.}}'**
+  String frontingSanitizationFixesApplied(int count);
+
+  /// Error toast when a scan fails
+  ///
+  /// In en, this message translates to:
+  /// **'Scan failed: {error}'**
+  String frontingSanitizationScanFailed(Object error);
+
+  /// Error toast when applying a fix fails
+  ///
+  /// In en, this message translates to:
+  /// **'Fix failed: {error}'**
+  String frontingSanitizationFixFailed(Object error);
+
+  /// Error toast when fix options cannot be loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load fix options: {error}'**
+  String frontingSanitizationLoadFixFailed(Object error);
+
+  /// Sheet title for fix options
+  ///
+  /// In en, this message translates to:
+  /// **'Fix Options'**
+  String get frontingSanitizationFixOptionsTitle;
+
+  /// Message shown when no automated fix plans are available
+  ///
+  /// In en, this message translates to:
+  /// **'No automated fixes available for this issue.\nPlease review and resolve it manually.'**
+  String get frontingSanitizationNoAutoFix;
+
+  /// Button label to show fix preview
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get frontingSanitizationPreview;
+
+  /// Button label to hide fix preview
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Preview'**
+  String get frontingSanitizationHidePreview;
+
+  /// Button label to apply a fix plan
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get frontingSanitizationApply;
+
+  /// Issue type chip label: overlap
+  ///
+  /// In en, this message translates to:
+  /// **'Overlap'**
+  String get frontingIssueTypeOverlap;
+
+  /// Issue type chip label: gap
+  ///
+  /// In en, this message translates to:
+  /// **'Gap'**
+  String get frontingIssueTypeGap;
+
+  /// Issue type chip label: duplicate
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get frontingIssueTypeDuplicate;
+
+  /// Issue type chip label: mergeable adjacent
+  ///
+  /// In en, this message translates to:
+  /// **'Mergeable'**
+  String get frontingIssueTypeMergeable;
+
+  /// Issue type chip label: invalid range
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid Range'**
+  String get frontingIssueTypeInvalidRange;
+
+  /// Issue type chip label: future session
+  ///
+  /// In en, this message translates to:
+  /// **'Future Session'**
+  String get frontingIssueTypeFutureSession;
+
+  /// Section header for overlapping issues in sanitization results
+  ///
+  /// In en, this message translates to:
+  /// **'Overlapping Sessions'**
+  String get frontingIssueSectionOverlap;
+
+  /// Section header for gap issues in sanitization results
+  ///
+  /// In en, this message translates to:
+  /// **'Gaps'**
+  String get frontingIssueSectionGap;
+
+  /// Section header for duplicate issues in sanitization results
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicates'**
+  String get frontingIssueSectionDuplicate;
+
+  /// Section header for mergeable adjacent issues in sanitization results
+  ///
+  /// In en, this message translates to:
+  /// **'Mergeable Adjacent'**
+  String get frontingIssueSectionMergeable;
+
+  /// Section header for invalid range issues in sanitization results
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid Ranges'**
+  String get frontingIssueSectionInvalidRange;
+
+  /// Section header for future session issues in sanitization results
+  ///
+  /// In en, this message translates to:
+  /// **'Future Sessions'**
+  String get frontingIssueSectionFutureSession;
+
+  /// Session count shown on a validation issue tile
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 session} other{{count} sessions}}'**
+  String frontingIssueSessionCount(int count);
+
+  /// Dialog title when choosing a delete strategy for a session
+  ///
+  /// In en, this message translates to:
+  /// **'What should happen to this time?'**
+  String get frontingDeleteStrategyTitle;
+
+  /// Badge shown on the recommended delete strategy
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get frontingDeleteStrategyRecommended;
+
+  /// Dialog title when editing would create timeline gaps
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Gap detected} other{Gaps detected}}'**
+  String frontingGapDetectedTitle(int count);
+
+  /// Dialog message when editing would create timeline gaps
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{This edit would create a gap totaling {total}.} other{This edit would create {count} gaps totaling {total}.}}'**
+  String frontingGapDetectedMessage(int count, String total);
+
+  /// Gap resolution option: fill with unknown fronter
+  ///
+  /// In en, this message translates to:
+  /// **'Fill with unknown fronter'**
+  String get frontingGapFillWithUnknown;
+
+  /// Subtitle for fill-with-unknown gap resolution option
+  ///
+  /// In en, this message translates to:
+  /// **'Create unknown sessions to cover the gaps.'**
+  String get frontingGapFillWithUnknownSubtitle;
+
+  /// Gap resolution option: leave the gaps as-is
+  ///
+  /// In en, this message translates to:
+  /// **'Leave gaps'**
+  String get frontingGapLeaveGaps;
+
+  /// Subtitle for leave-gaps resolution option
+  ///
+  /// In en, this message translates to:
+  /// **'Save without filling the gaps.'**
+  String get frontingGapLeaveGapsSubtitle;
+
+  /// Dialog title when the edited session overlaps others
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Overlap with 1 session} other{Overlap with {count} sessions}}'**
+  String frontingOverlapTitle(int count);
+
+  /// Overlap resolution option: trim conflicting sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Trim overlapping sessions'**
+  String get frontingOverlapTrimOption;
+
+  /// Subtitle for trim overlap resolution option
+  ///
+  /// In en, this message translates to:
+  /// **'Shorten or remove sessions that conflict with your edit.'**
+  String get frontingOverlapTrimSubtitle;
+
+  /// Overlap resolution option: create co-fronting session
+  ///
+  /// In en, this message translates to:
+  /// **'Create co-fronting session'**
+  String get frontingOverlapCoFrontOption;
+
+  /// Subtitle for co-fronting overlap resolution option
+  ///
+  /// In en, this message translates to:
+  /// **'Split the overlapping time into shared co-fronting segments.'**
+  String get frontingOverlapCoFrontSubtitle;
+
+  /// Confirmation dialog title when trimming would delete a session entirely
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Session'**
+  String get frontingOverlapRemoveSessionTitle;
+
+  /// Confirmation dialog message when trim would delete a session
+  ///
+  /// In en, this message translates to:
+  /// **'This would remove a session entirely. Continue?'**
+  String get frontingOverlapRemoveSessionMessage;
+
+  /// Confirm button on the remove-session confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get frontingOverlapContinue;
+
+  /// Section title for the timing mode setting
+  ///
+  /// In en, this message translates to:
+  /// **'Timing Mode'**
+  String get frontingTimingModeTitle;
+
+  /// Timing mode option: Flexible
+  ///
+  /// In en, this message translates to:
+  /// **'Flexible'**
+  String get frontingTimingModeFlexible;
+
+  /// Timing mode option: Strict
+  ///
+  /// In en, this message translates to:
+  /// **'Strict'**
+  String get frontingTimingModeStrict;
+
+  /// Description shown when Flexible timing mode is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Small gaps (under 5 minutes) are allowed between sessions.'**
+  String get frontingTimingModeFlexibleSubtitle;
+
+  /// Description shown when Strict timing mode is selected
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions must be continuous with no gaps in the timeline.'**
+  String get frontingTimingModeStrictSubtitle;
 }
 
 class _AppLocalizationsDelegate

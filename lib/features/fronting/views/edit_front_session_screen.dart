@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
@@ -104,9 +105,9 @@ class _EditFrontSessionScreenState
       if (!mounted) return;
       final proceed = await PrismDialog.confirm(
         context: context,
-        title: 'Short Session',
-        message: 'This session is less than a minute long. Save anyway?',
-        confirmLabel: 'Save',
+        title: context.l10n.frontingShortSessionTitle,
+        message: context.l10n.frontingShortSessionMessage,
+        confirmLabel: context.l10n.save,
       );
       if (!proceed || !mounted) return;
     }
@@ -206,13 +207,9 @@ class _EditFrontSessionScreenState
     if (validation.duplicates.isNotEmpty && mounted) {
       final proceed = await PrismDialog.confirm(
         context: context,
-        title: 'Duplicate Session',
-        message:
-            'This session appears to be a duplicate of '
-            '${validation.duplicates.length} other '
-            '${validation.duplicates.length == 1 ? 'session' : 'sessions'}. '
-            'Save anyway?',
-        confirmLabel: 'Save anyway',
+        title: context.l10n.frontingDuplicateSessionTitle,
+        message: context.l10n.frontingDuplicateSessionMessage(validation.duplicates.length),
+        confirmLabel: context.l10n.frontingSaveAnyway,
       );
       if (!proceed || !mounted) return;
     }
@@ -241,13 +238,13 @@ class _EditFrontSessionScreenState
         },
         failure: (error) {
           if (mounted) {
-            PrismToast.error(context, message: 'Error saving session: $error');
+            PrismToast.error(context, message: context.l10n.frontingErrorSavingSession(error));
           }
         },
       );
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error saving session: $e');
+        PrismToast.error(context, message: context.l10n.frontingErrorSavingSession(e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -262,12 +259,12 @@ class _EditFrontSessionScreenState
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Edit Session',
+        title: context.l10n.frontingEditSessionTitle,
         showBackButton: true,
         trailing: PrismGlassIconButton(
           icon: AppIcons.check,
           onPressed: _saving ? null : _save,
-          semanticLabel: 'Save session',
+          semanticLabel: context.l10n.frontingSaveSession,
         ),
       ),
       bodyPadding: EdgeInsets.zero,
@@ -276,7 +273,7 @@ class _EditFrontSessionScreenState
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (session) {
           if (session == null) {
-            return const Center(child: Text('Session not found'));
+            return Center(child: Text(context.l10n.frontingSessionNotFound));
           }
 
           if (session.isSleep) {
@@ -302,7 +299,7 @@ class _EditFrontSessionScreenState
             children: [
               // Start time
               PrismDateTimePills(
-                label: 'Start',
+                label: context.l10n.frontingStart,
                 dateTime: _startTime,
                 firstDate: DateTime(2020),
                 lastDate: DateTime.now(),
@@ -312,7 +309,7 @@ class _EditFrontSessionScreenState
 
               // End time / Still active toggle
               PrismSwitchRow(
-                title: 'Still Active',
+                title: context.l10n.frontingStillActive,
                 value: _isActive,
                 onChanged: (v) => setState(() {
                   _isActive = v;
@@ -322,7 +319,7 @@ class _EditFrontSessionScreenState
               if (!_isActive) ...[
                 const SizedBox(height: 8),
                 PrismDateTimePills(
-                  label: 'End',
+                  label: context.l10n.frontingEnd,
                   dateTime: _endTime,
                   firstDate: _startTime,
                   lastDate: DateTime.now(),
@@ -338,7 +335,7 @@ class _EditFrontSessionScreenState
 
               // Member picker
               Text(
-                'Fronter',
+                context.l10n.frontingFronter,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -357,7 +354,7 @@ class _EditFrontSessionScreenState
 
               // Co-fronter editor
               Text(
-                'Co-Fronters',
+                context.l10n.frontingCoFrontersSection,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -402,7 +399,7 @@ class _EditFrontSessionScreenState
 
               // Confidence picker
               Text(
-                'Confidence Level',
+                context.l10n.frontingConfidenceLevel,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -417,8 +414,8 @@ class _EditFrontSessionScreenState
               // Notes
               PrismTextField(
                 controller: _notesController,
-                labelText: 'Notes',
-                hintText: 'Optional notes...',
+                labelText: context.l10n.frontingNotes,
+                hintText: context.l10n.frontingNotesHintEdit,
                 alignLabelWithHint: true,
                 maxLines: 4,
                 minLines: 2,
@@ -451,7 +448,7 @@ class _MemberSelector extends StatelessWidget {
       runSpacing: 8,
       children: [
         PrismChip(
-          label: 'Unknown',
+          label: context.l10n.unknown,
           selected: selectedId == null,
           onTap: () => onSelect(null),
           avatar: Icon(AppIcons.helpOutline, size: 16),
@@ -475,17 +472,17 @@ class _ConfidenceEditor extends StatelessWidget {
   final FrontConfidence? selected;
   final ValueChanged<FrontConfidence?> onSelect;
 
-  static const _labels = {
-    FrontConfidence.unsure: 'Unsure',
-    FrontConfidence.strong: 'Strong',
-    FrontConfidence.certain: 'Certain',
-  };
-
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final labels = {
+      FrontConfidence.unsure: l10n.frontingConfidenceUnsure,
+      FrontConfidence.strong: l10n.frontingConfidenceStrong,
+      FrontConfidence.certain: l10n.frontingConfidenceCertain,
+    };
     return PrismSegmentedControl<FrontConfidence>(
       segments: FrontConfidence.values.map((c) {
-        return PrismSegment(value: c, label: _labels[c]!);
+        return PrismSegment(value: c, label: labels[c]!);
       }).toList(),
       selected: selected ?? FrontConfidence.unsure,
       onChanged: onSelect,

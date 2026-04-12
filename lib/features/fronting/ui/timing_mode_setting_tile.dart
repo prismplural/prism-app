@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -15,10 +16,8 @@ class TimingModeSettingTile extends ConsumerWidget {
     final timingMode = ref.watch(timingModeProvider);
 
     final subtitle = switch (timingMode) {
-      FrontingTimingMode.flexible =>
-        'Small gaps (under 5 minutes) are allowed between sessions.',
-      FrontingTimingMode.strict =>
-        'Sessions must be continuous with no gaps in the timeline.',
+      FrontingTimingMode.flexible => context.l10n.frontingTimingModeFlexibleSubtitle,
+      FrontingTimingMode.strict => context.l10n.frontingTimingModeStrictSubtitle,
     };
 
     return Padding(
@@ -27,7 +26,7 @@ class TimingModeSettingTile extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Timing Mode',
+            context.l10n.frontingTimingModeTitle,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -37,13 +36,13 @@ class TimingModeSettingTile extends ConsumerWidget {
             width: double.infinity,
             child: PrismSegmentedControl<FrontingTimingMode>(
               segments: [
-                const PrismSegment(
+                PrismSegment(
                   value: FrontingTimingMode.flexible,
-                  label: 'Flexible',
+                  label: context.l10n.frontingTimingModeFlexible,
                 ),
-                const PrismSegment(
+                PrismSegment(
                   value: FrontingTimingMode.strict,
-                  label: 'Strict',
+                  label: context.l10n.frontingTimingModeStrict,
                 ),
               ],
               selected: timingMode,
