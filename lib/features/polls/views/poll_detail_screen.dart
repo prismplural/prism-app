@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Detail screen for a single poll with voting and results.
 class PollDetailScreen extends ConsumerWidget {
@@ -46,14 +47,14 @@ class PollDetailScreen extends ConsumerWidget {
       error: (e, _) => PrismPageScaffold(
         topBar: const PrismTopBar(title: '', showBackButton: true),
         bodyPadding: EdgeInsets.zero,
-        body: Center(child: Text('Error loading poll: $e')),
+        body: Center(child: Text(context.l10n.pollsDetailLoadError(e))),
       ),
       data: (poll) {
         if (poll == null) {
-          return const PrismPageScaffold(
-            topBar: PrismTopBar(title: '', showBackButton: true),
+          return PrismPageScaffold(
+            topBar: const PrismTopBar(title: '', showBackButton: true),
             bodyPadding: EdgeInsets.zero,
-            body: Center(child: Text('Poll not found')),
+            body: Center(child: Text(context.l10n.pollsDetailNotFound)),
           );
         }
 
@@ -146,7 +147,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     if (votingAs == null) {
       PrismToast.show(
         context,
-        message: '${ref.read(terminologyProvider).selectText} to vote as',
+        message: '${ref.read(terminologyProvider).selectText} ${context.l10n.pollsDetailSelectToVoteAs}',
       );
       return;
     }
@@ -182,7 +183,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
       }
 
       if (mounted) {
-        PrismToast.show(context, message: 'Vote submitted');
+        PrismToast.show(context, message: context.l10n.pollsDetailVoteSubmitted);
         setState(() {
           _isSubmitting = false;
           _selectedOptionId = null;
@@ -193,7 +194,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        PrismToast.error(context, message: 'Failed to vote: $e');
+        PrismToast.error(context, message: context.l10n.pollsDetailVoteError(e));
       }
     }
   }
@@ -201,11 +202,9 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   Future<void> _confirmClose() async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Close poll?',
-      message:
-          'No more votes can be cast once the poll is closed. '
-          'This cannot be undone.',
-      confirmLabel: 'Close Poll',
+      title: context.l10n.pollsDetailClosePollTitle,
+      message: context.l10n.pollsDetailClosePollMessage,
+      confirmLabel: context.l10n.pollsDetailClosePollConfirm,
       destructive: true,
     );
     if (confirmed) {
@@ -217,11 +216,9 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   Future<void> _confirmDelete() async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete poll?',
-      message:
-          'This will permanently delete the poll and all votes. '
-          'This action cannot be undone.',
-      confirmLabel: 'Delete',
+      title: context.l10n.pollsDetailDeleteTitle,
+      message: context.l10n.pollsDetailDeleteMessage,
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {
@@ -245,14 +242,14 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
           if (!_isClosed)
             PrismTopBarAction(
               icon: AppIcons.lockOutline,
-              tooltip: 'Close poll',
+              tooltip: context.l10n.pollsDetailClosePollTooltip,
               onPressed: _confirmClose,
             ),
           PrismPopupMenu<String>(
             items: [
               PrismMenuItem(
                 value: 'delete',
-                label: 'Delete',
+                label: context.l10n.delete,
                 icon: AppIcons.deleteOutline,
                 destructive: true,
               ),
@@ -260,7 +257,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
             onSelected: (action) {
               if (action == 'delete') _confirmDelete();
             },
-            tooltip: 'More options',
+            tooltip: context.l10n.pollsDetailMoreOptions,
           ),
         ],
       ),
@@ -307,21 +304,21 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                   _MetadataChip(
                     icon: AppIcons.schedule,
                     label: _isClosed
-                        ? 'Expired'
-                        : 'Expires ${_formatDate(widget.poll.expiresAt!)}',
+                        ? context.l10n.pollsDetailExpired
+                        : context.l10n.pollsDetailExpiresLabel(_formatDate(widget.poll.expiresAt!)),
                   ),
                 if (widget.poll.isAnonymous)
                   _MetadataChip(
                     icon: AppIcons.visibilityOffOutlined,
-                    label: 'Anonymous',
+                    label: context.l10n.pollsAnonymous,
                   ),
                 if (widget.poll.allowsMultipleVotes)
                   _MetadataChip(
                     icon: AppIcons.checkBoxOutlined,
-                    label: 'Multi-vote',
+                    label: context.l10n.pollsMultiVote,
                   ),
                 if (_isClosed)
-                  _MetadataChip(icon: AppIcons.lockOutline, label: 'Closed'),
+                  _MetadataChip(icon: AppIcons.lockOutline, label: context.l10n.pollsClosed),
               ],
             ),
 
@@ -329,13 +326,13 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
 
             // Voting-as picker
             if (!_isClosed) ...[
-              Text('Vote as', style: theme.textTheme.titleSmall),
+              Text(context.l10n.pollsDetailVoteAs, style: theme.textTheme.titleSmall),
               const SizedBox(height: 8),
               membersAsync.when(
                 data: (members) {
                   if (members.isEmpty) {
                     return Text(
-                      'No members available',
+                      context.l10n.pollsDetailNoMembers,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -382,7 +379,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
 
             // Options / voting UI
             Text(
-              _isClosed ? 'Results' : 'Options',
+              _isClosed ? context.l10n.pollsDetailResultsLabel : context.l10n.pollsDetailOptionsLabel,
               style: theme.textTheme.titleSmall,
             ),
             const SizedBox(height: 8),
@@ -425,7 +422,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
             if (!_isClosed) ...[
               const SizedBox(height: 16),
               PrismButton(
-                label: 'Submit Vote',
+                label: context.l10n.pollsDetailSubmitVote,
                 tone: PrismButtonTone.filled,
                 expanded: true,
                 enabled:
@@ -569,7 +566,7 @@ class _OptionTile extends ConsumerWidget {
                 const SizedBox(height: 8),
                 PrismTextField(
                   controller: otherTextController,
-                  hintText: 'Enter your response...',
+                  hintText: context.l10n.pollsDetailOtherResponseHint,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,

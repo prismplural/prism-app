@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class AddMembersStep extends ConsumerWidget {
   const AddMembersStep({super.key});
@@ -47,7 +48,7 @@ class AddMembersStep extends ConsumerWidget {
                       Icon(AppIcons.autoAwesome, color: primary, size: 18),
                       const SizedBox(width: 8),
                       Text(
-                        "Skylar's Defaults",
+                        context.l10n.onboardingAddMembersSkylarsDefaults,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: primary,
                           fontWeight: FontWeight.w600,
@@ -64,7 +65,7 @@ class AddMembersStep extends ConsumerWidget {
             child: members.isEmpty
                 ? Center(
                     child: Text(
-                      'No members yet.\nTap "Add Member" or use the defaults.',
+                      context.l10n.onboardingAddMembersNoMembers,
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: isDark
                             ? AppColors.mutedTextDark
@@ -159,7 +160,7 @@ class AddMembersStep extends ConsumerWidget {
                                         alpha: 0.7,
                                       ),
                                 iconSize: 20,
-                                tooltip: 'Remove member',
+                                tooltip: context.l10n.onboardingAddMembersRemoveMember,
                                 onPressed: () {
                                   ref
                                       .read(onboardingProvider.notifier)
@@ -201,7 +202,7 @@ class AddMembersStep extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Add Member',
+                    context.l10n.onboardingAddMembersAddMember,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                       fontWeight: FontWeight.w600,
@@ -258,7 +259,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     final primary = theme.colorScheme.primary;
     return Column(
       children: [
-        const PrismSheetTopBar(title: 'Add Member'),
+        PrismSheetTopBar(title: context.l10n.onboardingAddMemberSheetTitle),
         Expanded(
           child: SingleChildScrollView(
             controller: widget.scrollController,
@@ -269,23 +270,23 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
               children: [
                 // Emoji
                 _buildField(
-                  'Emoji',
+                  context.l10n.onboardingAddMemberFieldEmoji,
                   _emojiController,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
 
                 // Name (required)
-                _buildField('Name *', _nameController, autofocus: true),
+                _buildField(context.l10n.onboardingAddMemberFieldName, _nameController, autofocus: true),
                 const SizedBox(height: 12),
 
                 // Pronouns quick-select
                 Row(
                   children: [
-                    for (final (label, value) in const [
-                      ('She/Her', 'she/her'),
-                      ('He/Him', 'he/him'),
-                      ('They/Them', 'they/them'),
+                    for (final (label, value) in [
+                      (context.l10n.onboardingAddMemberPronounSheHer, 'she/her'),
+                      (context.l10n.onboardingAddMemberPronounHeHim, 'he/him'),
+                      (context.l10n.onboardingAddMemberPronounTheyThem, 'they/them'),
                     ]) ...[
                       PrismChip(
                         label: label,
@@ -298,19 +299,19 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _buildField('Pronouns (custom)', _pronounsController),
+                _buildField(context.l10n.onboardingAddMemberFieldPronounsCustom, _pronounsController),
                 const SizedBox(height: 12),
 
                 // Age (optional)
                 _buildField(
-                  'Age (optional)',
+                  context.l10n.onboardingAddMemberFieldAge,
                   _ageController,
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 12),
 
                 // Bio (optional)
-                _buildField('Bio (optional)', _bioController, maxLines: 3),
+                _buildField(context.l10n.onboardingAddMemberFieldBio, _bioController, maxLines: 3),
                 const SizedBox(height: 20),
 
                 // Save button
@@ -324,7 +325,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                     ),
                     child: Center(
                       child: Text(
-                        'Add',
+                        context.l10n.onboardingAddMemberSaveButton,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: isDark
                               ? AppColors.warmWhite

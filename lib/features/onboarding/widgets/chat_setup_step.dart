@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class ChatSetupStep extends ConsumerStatefulWidget {
   const ChatSetupStep({super.key});
@@ -43,7 +44,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Suggested Channels',
+            context.l10n.onboardingChatSuggestedChannels,
             style: theme.textTheme.labelLarge?.copyWith(
               color: isDark ? AppColors.warmWhite.withValues(alpha: 0.8) : AppColors.warmBlack.withValues(alpha: 0.8),
               fontWeight: FontWeight.w600,
@@ -112,7 +113,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
 
           // Custom channel section
           Text(
-            'Custom Channel',
+            context.l10n.onboardingChatCustomChannel,
             style: theme.textTheme.labelLarge?.copyWith(
               color: isDark ? AppColors.warmWhite.withValues(alpha: 0.8) : AppColors.warmBlack.withValues(alpha: 0.8),
               fontWeight: FontWeight.w600,
@@ -130,7 +131,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                   child: PrismTextField(
                     controller: _customChannelController,
                     style: TextStyle(color: isDark ? AppColors.warmWhite : AppColors.warmBlack),
-                    hintText: 'Channel name',
+                    hintText: context.l10n.onboardingChatChannelNameHint,
                     hintStyle: TextStyle(
                       color: isDark ? AppColors.warmWhite.withValues(alpha: 0.35) : AppColors.warmBlack.withValues(alpha: 0.35),
                     ),

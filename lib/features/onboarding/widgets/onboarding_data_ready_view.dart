@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class OnboardingDataReadyView extends StatelessWidget {
   const OnboardingDataReadyView({
@@ -80,18 +81,18 @@ class OnboardingDataReadyView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _CountRow(label: 'Members', count: counts!.members),
+                  _CountRow(label: context.l10n.onboardingDataReadyMembers, count: counts!.members),
                   _CountRow(
-                    label: 'Fronting sessions',
+                    label: context.l10n.onboardingDataReadyFrontingSessions,
                     count: counts!.frontingSessions,
                   ),
                   _CountRow(
-                    label: 'Conversations',
+                    label: context.l10n.onboardingDataReadyConversations,
                     count: counts!.conversations,
                   ),
-                  _CountRow(label: 'Messages', count: counts!.messages),
-                  _CountRow(label: 'Habits', count: counts!.habits),
-                  _CountRow(label: 'Notes', count: counts!.notes),
+                  _CountRow(label: context.l10n.onboardingDataReadyMessages, count: counts!.messages),
+                  _CountRow(label: context.l10n.onboardingDataReadyHabits, count: counts!.habits),
+                  _CountRow(label: context.l10n.onboardingDataReadyNotes, count: counts!.notes),
                 ],
               ),
             ),

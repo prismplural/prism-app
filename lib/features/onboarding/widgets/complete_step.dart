@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class CompleteStep extends StatelessWidget {
   const CompleteStep({super.key});
@@ -17,25 +18,22 @@ class CompleteStep extends StatelessWidget {
         children: [
           _NextStepRow(
             icon: AppIcons.duotoneFronting,
-            title: 'Track fronting',
-            description:
-                "Log who's here and look back at patterns over time.",
+            title: context.l10n.onboardingCompleteTrackFrontingTitle,
+            description: context.l10n.onboardingCompleteTrackFrontingDescription,
             isDark: isDark,
           ),
           const SizedBox(height: 16),
           _NextStepRow(
             icon: AppIcons.duotoneChat,
-            title: 'Talk to each other',
-            description:
-                'Leave messages for whoever fronts next, or chat in real time.',
+            title: context.l10n.onboardingCompleteChatTitle,
+            description: context.l10n.onboardingCompleteChatDescription,
             isDark: isDark,
           ),
           const SizedBox(height: 16),
           _NextStepRow(
             icon: AppIcons.duotonePolls,
-            title: 'Decide together',
-            description:
-                'Polls, votes \u2014 the democracy your system deserves.',
+            title: context.l10n.onboardingCompletePollsTitle,
+            description: context.l10n.onboardingCompletePollsDescription,
             isDark: isDark,
           ),
         ],

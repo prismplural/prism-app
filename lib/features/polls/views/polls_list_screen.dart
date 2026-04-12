@@ -21,6 +21,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 enum _PollFilter { active, closed, all }
 
@@ -72,7 +73,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
           slivers: [
             SliverPinnedTopBar(
               child: PrismTopBar(
-                title: 'Polls',
+                title: context.l10n.pollsListTitle,
                 actions: [
                   BlurPopupAnchor(
                       preferredDirection: BlurPopupDirection.down,
@@ -86,13 +87,13 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                         final (icon, label) = switch (filter) {
                           _PollFilter.active => (
                             AppIcons.howToVoteOutlined,
-                            'Active',
+                            context.l10n.pollsFilterActive,
                           ),
                           _PollFilter.closed => (
                             AppIcons.checkCircleOutline,
-                            'Closed',
+                            context.l10n.pollsFilterClosed,
                           ),
-                          _PollFilter.all => (AppIcons.pollOutlined, 'All'),
+                          _PollFilter.all => (AppIcons.pollOutlined, context.l10n.pollsFilterAll),
                         };
                         return PrismListRow(
                           dense: true,
@@ -140,7 +141,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                     ),
                   PrismTopBarAction(
                     icon: AppIcons.add,
-                    tooltip: 'Create poll',
+                    tooltip: context.l10n.pollsCreateTooltip,
                     onPressed: () => _showCreateSheet(context),
                   ),
                 ],
@@ -155,18 +156,18 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                   final (icon, title, subtitle) = switch (_filter) {
                     _PollFilter.active => (
                       Icon(AppIcons.howToVoteOutlined),
-                      'No active polls',
-                      'Create a poll to get your system voting',
+                      context.l10n.pollsEmptyActiveTitle,
+                      context.l10n.pollsEmptyActiveSubtitle,
                     ),
                     _PollFilter.closed => (
                       Icon(AppIcons.checkCircleOutline),
-                      'No closed polls',
-                      'Closed and expired polls will appear here',
+                      context.l10n.pollsEmptyClosedTitle,
+                      context.l10n.pollsEmptyClosedSubtitle,
                     ),
                     _PollFilter.all => (
                       Icon(AppIcons.pollOutlined),
-                      'No polls yet',
-                      'Create your first poll to get started',
+                      context.l10n.pollsEmptyAllTitle,
+                      context.l10n.pollsEmptyAllSubtitle,
                     ),
                   };
 
@@ -177,7 +178,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                       title: title,
                       subtitle: subtitle,
                       actionLabel: _filter == _PollFilter.all
-                          ? 'Create Poll'
+                          ? context.l10n.pollsEmptyCreateLabel
                           : null,
                       onAction: _filter == _PollFilter.all
                           ? () => _showCreateSheet(context)
@@ -209,7 +210,7 @@ class _PollsListScreenState extends ConsumerState<PollsListScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Error loading polls',
+                        context.l10n.pollsLoadError,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: theme.colorScheme.error,
                         ),
@@ -282,7 +283,7 @@ class _PollCard extends StatelessWidget {
                     ),
                   ),
                   if (isClosed)
-                    PrismPill(label: isExpired ? 'Expired' : 'Closed'),
+                    PrismPill(label: isExpired ? context.l10n.pollsExpired : context.l10n.pollsClosed),
                 ],
               ),
               const SizedBox(height: 8),
@@ -297,7 +298,7 @@ class _PollCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '$totalVotes ${totalVotes == 1 ? 'vote' : 'votes'}',
+                    context.l10n.pollsVoteCount(totalVotes),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -310,7 +311,7 @@ class _PollCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '${poll.optionCount} options',
+                    context.l10n.pollsOptionCount(poll.optionCount),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -324,7 +325,7 @@ class _PollCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      _formatCountdown(poll.expiresAt!),
+                      _formatCountdown(context, poll.expiresAt!),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -342,12 +343,12 @@ class _PollCard extends StatelessWidget {
                     if (poll.isAnonymous)
                       _InfoChip(
                         icon: AppIcons.visibilityOffOutlined,
-                        label: 'Anonymous',
+                        label: context.l10n.pollsAnonymous,
                       ),
                     if (poll.allowsMultipleVotes)
                       _InfoChip(
                         icon: AppIcons.checkBoxOutlined,
-                        label: 'Multi-vote',
+                        label: context.l10n.pollsMultiVote,
                       ),
                   ],
                 ),
@@ -359,13 +360,13 @@ class _PollCard extends StatelessWidget {
     );
   }
 
-  String _formatCountdown(DateTime expiresAt) {
+  String _formatCountdown(BuildContext context, DateTime expiresAt) {
     final diff = expiresAt.difference(DateTime.now());
-    if (diff.isNegative) return 'Expired';
-    if (diff.inDays > 0) return '${diff.inDays}d left';
-    if (diff.inHours > 0) return '${diff.inHours}h left';
-    if (diff.inMinutes > 0) return '${diff.inMinutes}m left';
-    return 'Ending soon';
+    if (diff.isNegative) return context.l10n.pollsExpired;
+    if (diff.inDays > 0) return context.l10n.pollsCountdownDays(diff.inDays);
+    if (diff.inHours > 0) return context.l10n.pollsCountdownHours(diff.inHours);
+    if (diff.inMinutes > 0) return context.l10n.pollsCountdownMinutes(diff.inMinutes);
+    return context.l10n.pollsCountdownEndingSoon;
   }
 }
 
