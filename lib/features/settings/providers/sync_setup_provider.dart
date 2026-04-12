@@ -207,7 +207,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       await drainRustStore(handle);
 
       // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
-      await cacheRuntimeKeys(handle);
+      await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
       // Bootstrap: push all existing data as record_create ops so the
       // relay has it for other devices to pull.
