@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
@@ -90,7 +91,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
   Future<void> _verifyCurrent() async {
     final password = _currentController.text;
     if (password.isEmpty) {
-      setState(() => _currentError = 'Enter your current password.');
+      setState(() => _currentError = context.l10n.settingsChangePasswordCurrentRequired);
       return;
     }
 
@@ -107,8 +108,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
       if (mnemonicB64 == null) {
         setState(() {
           _isLoading = false;
-          _currentError =
-              'Secret Key not found on this device. Re-pair to restore it.';
+          _currentError = context.l10n.settingsChangePasswordNoSecretKey;
         });
         return;
       }
@@ -131,7 +131,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         secretKeyBytes.fillRange(0, secretKeyBytes.length, 0);
         setState(() {
           _isLoading = false;
-          _currentError = 'Sync engine not available.';
+          _currentError = context.l10n.settingsChangePasswordEngineUnavailable;
         });
         return;
       }
@@ -153,8 +153,8 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         setState(() {
           _isLoading = false;
           _currentError = isWrongPassword
-              ? 'Incorrect password. Please try again.'
-              : 'Verification failed: $msg';
+              ? context.l10n.settingsChangePasswordIncorrect
+              : context.l10n.settingsChangePasswordVerifyFailed(msg);
         });
         return;
       }
@@ -175,7 +175,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _currentError = 'An error occurred: $e';
+        _currentError = context.l10n.settingsChangePasswordGenericError(e.toString());
       });
     }
   }
@@ -188,7 +188,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
     if (_secretKeyBytes == null || _verifiedCurrentPassword == null) {
       setState(() {
         _step = _Step.verify;
-        _currentError = 'Session expired — please verify again.';
+        _currentError = context.l10n.settingsChangePasswordSessionExpired;
       });
       return;
     }
@@ -200,11 +200,11 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
     String? confirmErr;
 
     if (newPw.isEmpty) {
-      newErr = 'Enter a new password.';
+      newErr = context.l10n.settingsChangePasswordNewRequired;
     } else if (newPw == _verifiedCurrentPassword) {
-      newErr = 'Your sync password is already set to that.';
+      newErr = context.l10n.settingsChangePasswordSamePassword;
     } else if (newPw != confirmPw) {
-      confirmErr = "Passwords don't match.";
+      confirmErr = context.l10n.settingsChangePasswordMismatch;
     }
 
     if (newErr != null || confirmErr != null) {
@@ -228,7 +228,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         if (!mounted) return;
         setState(() {
           _isLoading = false;
-          _submitError = 'Sync engine not available.';
+          _submitError = context.l10n.settingsChangePasswordEngineUnavailable;
         });
         return;
       }
@@ -251,8 +251,8 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
 
       final msg = e.toString();
       final errorText = msg.contains('generation')
-          ? 'Another device recently changed settings \u2014 please try again.'
-          : 'Failed to change password: $msg';
+          ? context.l10n.settingsChangePasswordGenerationConflict
+          : context.l10n.settingsChangePasswordFailed(msg);
 
       setState(() {
         _isLoading = false;
@@ -284,7 +284,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
     return SafeArea(
       child: Column(
         children: [
-          PrismSheetTopBar(title: 'Change Password'),
+          PrismSheetTopBar(title: context.l10n.settingsChangePasswordTitle),
           Expanded(
             child: SingleChildScrollView(
               controller: widget.scrollController,
@@ -308,7 +308,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
       children: [
         const SizedBox(height: 8),
         Text(
-          'Enter your current sync password to continue.',
+          context.l10n.settingsChangePasswordVerifyBody,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
@@ -317,7 +317,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         const SizedBox(height: 24),
         PrismTextField(
           controller: _currentController,
-          labelText: 'Current password',
+          labelText: context.l10n.settingsChangePasswordCurrentLabel,
           obscureText: _obscureCurrent,
           autofocus: true,
           enabled: !_isLoading,
@@ -325,14 +325,16 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
           errorText: _currentError,
           suffix: PrismFieldIconButton(
             icon: _obscureCurrent ? AppIcons.visibilityOff : AppIcons.visibility,
-            tooltip: _obscureCurrent ? 'Show password' : 'Hide password',
+            tooltip: _obscureCurrent
+                ? context.l10n.settingsChangePasswordShowPassword
+                : context.l10n.settingsChangePasswordHidePassword,
             onPressed: () =>
                 setState(() => _obscureCurrent = !_obscureCurrent),
           ),
         ),
         const SizedBox(height: 20),
         PrismButton(
-          label: 'Continue',
+          label: context.l10n.settingsChangePasswordContinue,
           onPressed: _verifyCurrent,
           isLoading: _isLoading,
         ),
@@ -352,7 +354,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Your other devices will need to enter the new password when they next open Prism.',
+          context.l10n.settingsChangePasswordWarnBody,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
@@ -360,13 +362,13 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         ),
         const SizedBox(height: 32),
         PrismButton(
-          label: 'Change Password',
+          label: context.l10n.settingsChangePasswordAction,
           tone: PrismButtonTone.filled,
           onPressed: () => setState(() => _step = _Step.newPassword),
         ),
         const SizedBox(height: 12),
         PrismButton(
-          label: 'Cancel',
+          label: context.l10n.cancel,
           tone: PrismButtonTone.subtle,
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -380,7 +382,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
       children: [
         const SizedBox(height: 8),
         Text(
-          'Choose a new sync password.',
+          context.l10n.settingsChangePasswordNewBody,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
@@ -389,7 +391,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         const SizedBox(height: 24),
         PrismTextField(
           controller: _newController,
-          labelText: 'New password',
+          labelText: context.l10n.settingsChangePasswordNewLabel,
           obscureText: _obscureNew,
           autofocus: true,
           enabled: !_isLoading,
@@ -398,14 +400,16 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
           errorText: _newError,
           suffix: PrismFieldIconButton(
             icon: _obscureNew ? AppIcons.visibilityOff : AppIcons.visibility,
-            tooltip: _obscureNew ? 'Show password' : 'Hide password',
+            tooltip: _obscureNew
+                ? context.l10n.settingsChangePasswordShowPassword
+                : context.l10n.settingsChangePasswordHidePassword,
             onPressed: () => setState(() => _obscureNew = !_obscureNew),
           ),
         ),
         const SizedBox(height: 16),
         PrismTextField(
           controller: _confirmController,
-          labelText: 'Confirm new password',
+          labelText: context.l10n.settingsChangePasswordConfirmLabel,
           obscureText: _obscureConfirm,
           enabled: !_isLoading,
           focusNode: _confirmFocusNode,
@@ -414,7 +418,9 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
           suffix: PrismFieldIconButton(
             icon:
                 _obscureConfirm ? AppIcons.visibilityOff : AppIcons.visibility,
-            tooltip: _obscureConfirm ? 'Show password' : 'Hide password',
+            tooltip: _obscureConfirm
+                ? context.l10n.settingsChangePasswordShowPassword
+                : context.l10n.settingsChangePasswordHidePassword,
             onPressed: () =>
                 setState(() => _obscureConfirm = !_obscureConfirm),
           ),
@@ -431,7 +437,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         ],
         const SizedBox(height: 20),
         PrismButton(
-          label: 'Change Password',
+          label: context.l10n.settingsChangePasswordAction,
           onPressed: _changePassword,
           isLoading: _isLoading,
         ),
@@ -451,7 +457,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Password changed',
+          context.l10n.settingsChangePasswordSuccessTitle,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -459,7 +465,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Your sync password has been updated on this device.',
+          context.l10n.settingsChangePasswordSuccessBody,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
           ),
@@ -467,7 +473,7 @@ class _ChangePasswordSheetState extends ConsumerState<ChangePasswordSheet> {
         ),
         const SizedBox(height: 32),
         PrismButton(
-          label: 'Done',
+          label: context.l10n.done,
           tone: PrismButtonTone.filled,
           onPressed: () => Navigator.of(context).pop(),
         ),

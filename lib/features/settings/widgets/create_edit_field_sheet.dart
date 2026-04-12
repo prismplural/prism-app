@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -91,7 +92,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       }
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error saving field: $e');
+        PrismToast.error(context, message: context.l10n.settingsCreateEditFieldSaveError(e.toString()));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -107,7 +108,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: widget.isEditing ? 'Edit Field' : 'New Field',
+            title: widget.isEditing ? context.l10n.settingsCreateEditFieldEditTitle : context.l10n.settingsCreateEditFieldNewTitle,
             trailing: _saving
                 ? SizedBox(
                     width: PrismTokens.topBarActionSize,
@@ -139,8 +140,8 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
               children: [
                 PrismTextField(
                   controller: _nameController,
-                  labelText: 'Field Name',
-                  hintText: 'e.g. Birthday, Favorite Color',
+                  labelText: context.l10n.settingsCreateEditFieldNameLabel,
+                  hintText: context.l10n.settingsCreateEditFieldNameHint,
                   autofocus: !widget.isEditing,
                   textCapitalization: TextCapitalization.words,
                   onChanged: (_) => setState(() {}),
@@ -149,7 +150,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
 
                 // Type picker
                 Text(
-                  'Type',
+                  context.l10n.settingsCreateEditFieldTypeHeading,
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -172,7 +173,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Type cannot be changed after creation.',
+                    context.l10n.settingsCreateEditFieldTypeImmutable,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -200,7 +201,7 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                 if (_selectedType == CustomFieldType.date) ...[
                   const SizedBox(height: 24),
                   Text(
-                    'Date Precision',
+                    context.l10n.settingsCreateEditFieldDatePrecisionHeading,
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),

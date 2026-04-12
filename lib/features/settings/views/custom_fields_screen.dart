@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/custom_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/create_edit_field_sheet.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -27,12 +28,12 @@ class CustomFieldsScreen extends ConsumerWidget {
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Custom Fields',
+        title: context.l10n.settingsCustomFieldsTitle,
         showBackButton: true,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.add,
-            tooltip: 'Add field',
+            tooltip: context.l10n.settingsCustomFieldsAddTooltip,
             onPressed: () => _openCreateSheet(context),
           ),
         ],
@@ -40,15 +41,14 @@ class CustomFieldsScreen extends ConsumerWidget {
       bodyPadding: EdgeInsets.zero,
       body: fieldsAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(child: Text(context.l10n.settingsCustomFieldsError(e.toString()))),
         data: (fields) {
           if (fields.isEmpty) {
             return EmptyState(
               icon: Icon(AppIcons.tuneOutlined, size: 48),
-              title: 'No custom fields',
-              subtitle:
-                  'Add fields to track custom attributes for each member',
-              actionLabel: 'Add Field',
+              title: context.l10n.settingsCustomFieldsEmptyTitle,
+              subtitle: context.l10n.settingsCustomFieldsEmptySubtitle,
+              actionLabel: context.l10n.settingsCustomFieldsAddAction,
               onAction: () => _openCreateSheet(context),
             );
           }
@@ -103,17 +103,16 @@ class _FieldsList extends ConsumerWidget {
   ) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete Field',
-      message:
-          'Are you sure you want to delete "${field.name}"? This will delete the field and all its values.',
-      confirmLabel: 'Delete',
+      title: context.l10n.settingsCustomFieldsDeleteTitle,
+      message: context.l10n.settingsCustomFieldsDeleteConfirm(field.name),
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {
       Haptics.heavy();
       ref.read(customFieldNotifierProvider.notifier).deleteField(field.id);
       if (context.mounted) {
-        PrismToast.show(context, message: '${field.name} deleted');
+        PrismToast.show(context, message: context.l10n.settingsCustomFieldsDeletedToast(field.name));
       }
     }
   }

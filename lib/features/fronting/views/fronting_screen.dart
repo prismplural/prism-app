@@ -308,7 +308,7 @@ class _AddButtonState extends ConsumerState<_AddButton> {
       ),
       _MenuItem(
         icon: AppIcons.personAddOutlined,
-        label: terms.addButtonText,
+        label: context.l10n.terminologyAddButton(terms.singular),
         onTap: (close) {
           close();
           PrismSheet.showFullScreen(

@@ -47,7 +47,7 @@ class EmptySystemView extends ConsumerWidget {
             PrismButton(
               onPressed: () => _openAddMemberSheet(context),
               icon: AppIcons.add,
-              label: terms.addButtonText,
+              label: context.l10n.terminologyAddButton(terms.singular),
               tone: PrismButtonTone.filled,
             ),
           ],

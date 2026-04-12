@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
@@ -31,21 +32,21 @@ class AboutSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Text(
-          'Prism',
+          context.l10n.settingsAboutAppName,
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Plural system management',
+          context.l10n.settingsAboutTagline,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
         const SizedBox(height: 4),
         Text(
-          'Version 0.1.0',
+          context.l10n.settingsAboutVersion('0.1.0'),
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -54,9 +55,7 @@ class AboutSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            'A privacy-focused app for managing plural systems. '
-            'Track fronting, communicate between headmates, and '
-            'keep your system organized.',
+            context.l10n.settingsAboutDescription,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -69,26 +68,26 @@ class AboutSection extends StatelessWidget {
           children: [
             PrismChip(
               avatar: Icon(AppIcons.code, size: 18),
-              label: 'GitHub',
+              label: context.l10n.settingsAboutGitHub,
               selected: false,
               onTap: () {
-                PrismToast.show(context, message: 'GitHub link coming soon');
+                PrismToast.show(context, message: context.l10n.settingsAboutGitHubComingSoon);
               },
             ),
             PrismChip(
               avatar: Icon(AppIcons.privacyTipOutlined, size: 18),
-              label: 'Privacy',
+              label: context.l10n.settingsAboutPrivacy,
               selected: false,
               onTap: () {
-                PrismToast.show(context, message: 'Privacy policy coming soon');
+                PrismToast.show(context, message: context.l10n.settingsAboutPrivacyComingSoon);
               },
             ),
             PrismChip(
               avatar: Icon(AppIcons.feedbackOutlined, size: 18),
-              label: 'Feedback',
+              label: context.l10n.settingsAboutFeedback,
               selected: false,
               onTap: () {
-                PrismToast.show(context, message: 'Feedback form coming soon');
+                PrismToast.show(context, message: context.l10n.settingsAboutFeedbackComingSoon);
               },
             ),
           ],

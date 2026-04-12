@@ -71,7 +71,7 @@ class _SystemManagementScreenState
   Future<void> _bulkDelete(List<Member> members) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete Selected ${ref.read(terminologyProvider).plural}',
+      title: context.l10n.terminologyDeleteSelected(ref.read(terminologyProvider).plural),
       message:
           'Are you sure you want to delete ${_selectedIds.length} '
           '${ref.read(terminologyProvider).singularLower}(s)? This action cannot be undone.',
@@ -103,7 +103,7 @@ class _SystemManagementScreenState
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: ref.watch(terminologyProvider).manageText,
+        title: context.l10n.terminologyManage(ref.watch(terminologyProvider).plural),
         showBackButton: true,
         trailing: _selectionMode
             ? PrismTopBarAction(

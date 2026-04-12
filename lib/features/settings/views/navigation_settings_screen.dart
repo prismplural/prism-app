@@ -390,7 +390,7 @@ class _NavItem extends StatelessWidget {
     return PrismListRow(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Icon(tab.icon, color: theme.colorScheme.primary),
-      title: Text(tab.displayLabel(terminologyPlural: terminologyPlural)),
+      title: Text(tab.localizedLabel(context, terminologyPlural: terminologyPlural)),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -460,7 +460,7 @@ class _AvailableItem extends StatelessWidget {
     return PrismListRow(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       leading: Icon(tab.icon, color: theme.colorScheme.onSurfaceVariant),
-      title: Text(tab.displayLabel(terminologyPlural: terminologyPlural)),
+      title: Text(tab.localizedLabel(context, terminologyPlural: terminologyPlural)),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -504,7 +504,7 @@ class _DisabledItem extends StatelessWidget {
         color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
       ),
       title: Text(
-        tab.displayLabel(terminologyPlural: terminologyPlural),
+        tab.localizedLabel(context, terminologyPlural: terminologyPlural),
         style: TextStyle(
           color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
         ),
