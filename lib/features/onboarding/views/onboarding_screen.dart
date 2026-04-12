@@ -16,6 +16,10 @@ import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_read
 import 'package:prism_plurality/features/onboarding/widgets/whos_fronting_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/complete_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/sync_device_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/pin_setup_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/recovery_phrase_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/confirm_phrase_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/biometric_setup_step.dart';
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
 import 'package:prism_plurality/features/onboarding/utils/onboarding_step_l10n.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -35,9 +39,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     with SingleTickerProviderStateMixin {
   bool _isCompleting = false;
 
-  /// Steps that have progress capsules (all except complete).
+  /// Steps that have progress capsules (all except complete and full-screen steps).
   static const _progressSteps = [
     OnboardingStep.welcome,
+    OnboardingStep.pinSetup,
+    OnboardingStep.recoveryPhrase,
+    OnboardingStep.confirmPhrase,
+    OnboardingStep.biometricSetup,
     OnboardingStep.importData,
     OnboardingStep.systemName,
     OnboardingStep.addMembers,
@@ -58,7 +66,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final isCompleteStep = step == OnboardingStep.complete;
     final isFullScreenStep =
         step == OnboardingStep.syncDevice ||
-        step == OnboardingStep.importedDataReady;
+        step == OnboardingStep.importedDataReady ||
+        step == OnboardingStep.pinSetup ||
+        step == OnboardingStep.recoveryPhrase ||
+        step == OnboardingStep.confirmPhrase ||
+        step == OnboardingStep.biometricSetup;
 
     // Check if user has existing data (re-running onboarding)
     final hasExistingData = ref.watch(hasCompletedOnboardingProvider);
@@ -248,8 +260,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
 
   Widget _buildStepContent(OnboardingState onboarding) {
     final step = onboarding.currentStep;
+    final n = ref.read(onboardingProvider.notifier);
     return switch (step) {
       OnboardingStep.welcome => const WelcomeStep(key: ValueKey('welcome')),
+      OnboardingStep.pinSetup => PinSetupStep(
+        key: const ValueKey('pin-setup'),
+        onPinConfirmed: n.onPinConfirmed,
+      ),
+      OnboardingStep.recoveryPhrase => RecoveryPhraseStep(
+        key: const ValueKey('recovery-phrase'),
+        words: onboarding.mnemonicWords,
+        onContinue: n.onPhraseViewed,
+      ),
+      OnboardingStep.confirmPhrase => ConfirmPhraseStep(
+        key: const ValueKey('confirm-phrase'),
+        words: onboarding.mnemonicWords,
+        onConfirmed: n.onPhraseConfirmed,
+      ),
+      OnboardingStep.biometricSetup => BiometricSetupStep(
+        key: const ValueKey('biometric-setup'),
+        dekBytes: onboarding.dekBytes,
+        onEnrolled: n.onBiometricEnrolled,
+        onSkipped: n.onBiometricSkipped,
+      ),
       OnboardingStep.syncDevice => SyncDeviceStep(
         key: const ValueKey('sync-device'),
         onBack: () {
