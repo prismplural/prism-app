@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -48,7 +49,7 @@ class HeadmatePicker extends ConsumerWidget {
         child: PrismLoadingState(),
       ),
       error: (e, _) => Text(
-        'Error loading ${ref.read(terminologyProvider).pluralLower}: $e',
+        context.l10n.errorLoadingMembers(ref.read(terminologyProvider).pluralLower, e),
       ),
       data: (members) {
         final filtered = members
@@ -62,9 +63,9 @@ class HeadmatePicker extends ConsumerWidget {
           labelText: effectiveLabel,
           items: [
             if (includeUnknown)
-              const PrismSelectItem<String?>(
+              PrismSelectItem<String?>(
                 value: null,
-                label: 'Unknown',
+                label: context.l10n.unknown,
                 leading: unknownLeading,
                 fieldLeading: unknownLeading,
               ),

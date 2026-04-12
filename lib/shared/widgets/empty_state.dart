@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
@@ -148,7 +149,7 @@ class _SuggestionsBox extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Suggestions:',
+            context.l10n.suggestions,
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w600,
             ),

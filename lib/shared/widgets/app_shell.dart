@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
@@ -582,7 +583,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
 
         return Semantics(
           container: true,
-          label: 'Navigation bar',
+          label: context.l10n.navigationBar,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(radius),
             child: BackdropFilter.grouped(
@@ -815,7 +816,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
 
     return Semantics(
       container: true,
-      label: 'Navigation bar',
+      label: context.l10n.navigationBar,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(_collapsedRadius),
         child: BackdropFilter.grouped(
@@ -917,7 +918,7 @@ class _MoreTrigger extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: expanded ? 'Close menu' : 'More tabs',
+      label: expanded ? context.l10n.closeMenu : context.l10n.moreTabs,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
@@ -999,7 +1000,7 @@ class _NavBarItem extends StatelessWidget {
     }
 
     final semanticLabel = tab?.id == AppShellTabId.chat && chatUnreadCount > 0
-        ? '$itemLabel, $chatUnreadCount unread'
+        ? context.l10n.navUnreadCount(itemLabel, chatUnreadCount)
         : itemLabel;
 
     return Semantics(
@@ -1081,7 +1082,7 @@ class _FloatingSidebar extends ConsumerWidget {
 
     return Semantics(
       container: true,
-      label: 'Main navigation',
+      label: context.l10n.mainNavigation,
       child: SafeArea(
         right: false,
         bottom: false,
