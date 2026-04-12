@@ -284,7 +284,7 @@ class _SelectField<T> extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(labelText!, style: labelStyle),
+          ExcludeSemantics(child: Text(labelText!, style: labelStyle)),
           const SizedBox(height: 4),
           field,
         ],
