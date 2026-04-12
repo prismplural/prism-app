@@ -72,7 +72,7 @@ class SessionDetailScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (session) {
           if (session == null) {
-            return const Center(child: Text('Session not found'));
+            return Center(child: Text(context.l10n.frontingSessionNotFound));
           }
           if (session.isSleep) {
             return _SleepSessionBody(session: session);
@@ -486,9 +486,9 @@ class _CoFronterTile extends ConsumerWidget {
     final memberAsync = ref.watch(memberByIdProvider(memberId));
 
     return memberAsync.when(
-      loading: () => const PrismListRow(
-        leading: SizedBox(width: 40, height: 40),
-        title: Text('Loading...'),
+      loading: () => PrismListRow(
+        leading: const SizedBox(width: 40, height: 40),
+        title: Text(context.l10n.loading),
       ),
       error: (_, _) => const SizedBox.shrink(),
       data: (member) {
