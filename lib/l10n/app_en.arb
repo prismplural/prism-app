@@ -1438,14 +1438,6 @@
   "@devicesRotateKey": {
     "description": "Tooltip for rotate signing key button"
   },
-  "devicesRevokeDevice": "Revoke device",
-  "@devicesRevokeDevice": {
-    "description": "Tooltip for revoke device button"
-  },
-  "devicesDeviceCopied": "Device ID copied",
-  "@devicesDeviceCopied": {
-    "description": "Toast after copying device ID"
-  },
   "devicesRotateKeyTitle": "Rotate Signing Key?",
   "@devicesRotateKeyTitle": {
     "description": "Dialog title for key rotation"
@@ -2060,8 +2052,8 @@
   "@frontingDeleteSleepMessage": {
     "description": "Confirmation dialog message for deleting a sleep session"
   },
-  "frontingSleepping": "Sleep",
-  "@frontingSleepping": {
+  "frontingSleeping": "Sleep",
+  "@frontingSleeping": {
     "description": "Label for a sleep session in the history list"
   },
   "frontingSleepSessionSemantics": "Sleep session, {duration}, {timeRange}",

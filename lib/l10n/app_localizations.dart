@@ -2084,18 +2084,6 @@ abstract class AppLocalizations {
   /// **'Rotate signing key'**
   String get devicesRotateKey;
 
-  /// Tooltip for revoke device button
-  ///
-  /// In en, this message translates to:
-  /// **'Revoke device'**
-  String get devicesRevokeDevice;
-
-  /// Toast after copying device ID
-  ///
-  /// In en, this message translates to:
-  /// **'Device ID copied'**
-  String get devicesDeviceCopied;
-
   /// Dialog title for key rotation
   ///
   /// In en, this message translates to:
@@ -2886,7 +2874,7 @@ abstract class AppLocalizations {
   ///
   /// In en, this message translates to:
   /// **'Sleep'**
-  String get frontingSleepping;
+  String get frontingSleeping;
 
   /// Semantics label for a sleep session tile
   ///
