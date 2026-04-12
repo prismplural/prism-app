@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/habits/widgets/habit_chip.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// The "today" presentation for the habits list, owning both the mauve
 /// Due container and the Complete section below it.
@@ -140,8 +141,8 @@ class _TodayHabitsContainerState extends ConsumerState<TodayHabitsContainer> {
       slivers.add(
         SliverMainAxisGroup(
           slivers: [
-            const SliverToBoxAdapter(
-              child: _SectionPillHeader(title: 'Complete'),
+            SliverToBoxAdapter(
+              child: _SectionPillHeader(title: context.l10n.habitsSectionComplete),
             ),
             SliverList.builder(
               itemCount: sortedComplete.length,
@@ -222,7 +223,7 @@ class _DueContainer extends ConsumerWidget {
     final primary = theme.colorScheme.primary;
 
     final semanticsLabel =
-        allDoneMode ? 'Today, all habits complete' : 'Today';
+        allDoneMode ? context.l10n.habitsTodayAllDoneSemantics : context.l10n.habitsTodaySemantics;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -331,7 +332,7 @@ class _FullDueContent extends StatelessWidget {
             children: [
               Flexible(
                 child: Text(
-                  'Today',
+                  context.l10n.habitsTodayHeader,
                   style: headerStyle,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -382,7 +383,7 @@ class _CollapsedAllDone extends StatelessWidget {
         children: [
           Flexible(
             child: Text(
-              'Today',
+              context.l10n.habitsTodayHeader,
               style: headerStyle,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
@@ -393,7 +394,7 @@ class _CollapsedAllDone extends StatelessWidget {
           const SizedBox(width: 10),
           Flexible(
             child: Text(
-              'all done',
+              context.l10n.habitsTodayAllDone,
               style: progressStyle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

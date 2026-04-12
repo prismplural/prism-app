@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// A single habit row with completion circle, name, optional weekly
 /// progress pill, and optional streak pill.
@@ -81,8 +82,7 @@ class HabitRow extends StatelessWidget {
     if (weeklyProgress != null) {
       pills.add(
         Semantics(
-          label:
-              '${weeklyProgress.$1} of ${weeklyProgress.$2} days completed this week',
+          label: context.l10n.habitsWeeklyProgressSemantics(weeklyProgress.$1, weeklyProgress.$2),
           child: PrismPill(
             icon: AppIcons.check,
             label: '${weeklyProgress.$1}/${weeklyProgress.$2}',
@@ -113,8 +113,8 @@ class HabitRow extends StatelessWidget {
         button: true,
         enabled: onQuickComplete != null,
         label: completed
-            ? '${habit.name}, completed'
-            : 'Complete ${habit.name}',
+            ? context.l10n.habitsChipCompletedSemantics(habit.name)
+            : context.l10n.habitsChipCompleteSemantics(habit.name),
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onQuickComplete,

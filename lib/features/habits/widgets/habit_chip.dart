@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// A compact one-line habit chip used by the Today section split.
 ///
@@ -88,8 +89,7 @@ class HabitChip extends StatelessWidget {
     if (weeklyProgress != null) {
       pills.add(
         Semantics(
-          label:
-              '${weeklyProgress.$1} of ${weeklyProgress.$2} days completed this week',
+          label: context.l10n.habitsWeeklyProgressSemantics(weeklyProgress.$1, weeklyProgress.$2),
           child: PrismPill(
             icon: AppIcons.check,
             label: '${weeklyProgress.$1}/${weeklyProgress.$2}',
@@ -193,8 +193,9 @@ class HabitLeadingCircle extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: onQuickComplete != null,
-      label:
-          completed ? '${habit.name}, completed' : 'Complete ${habit.name}',
+      label: completed
+          ? context.l10n.habitsChipCompletedSemantics(habit.name)
+          : context.l10n.habitsChipCompleteSemantics(habit.name),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onQuickComplete,

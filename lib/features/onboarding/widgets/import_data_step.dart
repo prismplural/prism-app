@@ -17,6 +17,7 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart'
     as sp_importer;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Import Data step — lets user choose between PluralKit, Simply Plural,
 /// or skipping entirely (default: no import selected).
@@ -87,7 +88,7 @@ class _SourcePicker extends StatelessWidget {
         children: [
           const SizedBox(height: 8),
           Text(
-            'You can import your existing data or skip this step to start fresh.',
+            context.l10n.onboardingImportDataSourcePickerIntro,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: isDark
                   ? AppColors.mutedTextDark
@@ -99,40 +100,37 @@ class _SourcePicker extends StatelessWidget {
           _SourceCard(
             icon: AppIcons.devices,
             color: Colors.teal,
-            title: 'Sync with Existing Device',
-            description:
-                'Scan a pairing QR code to sync data from another device',
+            title: context.l10n.onboardingImportSyncWithDevice,
+            description: context.l10n.onboardingImportSyncWithDeviceDescription,
             onTap: onSyncDevice,
           ),
           const SizedBox(height: 16),
           _SourceCard(
             icon: AppIcons.sync,
             color: Colors.cyan,
-            title: 'PluralKit',
-            description:
-                'Import members and fronting history from PluralKit via API token',
+            title: context.l10n.onboardingImportPluralKit,
+            description: context.l10n.onboardingImportPluralKitDescription,
             onTap: () => onSelect(_ImportSource.pluralKit),
           ),
           const SizedBox(height: 16),
           _SourceCard(
             icon: AppIcons.inventoryOutlined,
             color: Colors.green,
-            title: 'Prism Export',
-            description:
-                'Import from a Prism .json or encrypted .prism export file',
+            title: context.l10n.onboardingImportPrismExport,
+            description: context.l10n.onboardingImportPrismExportDescription,
             onTap: () => onSelect(_ImportSource.prismExport),
           ),
           const SizedBox(height: 16),
           _SourceCard(
             icon: AppIcons.fileUploadOutlined,
             color: Colors.deepPurple,
-            title: 'Simply Plural',
-            description: 'Import from a Simply Plural JSON export file',
+            title: context.l10n.onboardingImportSimplyPlural,
+            description: context.l10n.onboardingImportSimplyPluralDescription,
             onTap: () => onSelect(_ImportSource.simplyPlural),
           ),
           const SizedBox(height: 32),
           Text(
-            'You can always import data later from Settings.',
+            context.l10n.onboardingImportLaterHint,
             style: theme.textTheme.bodySmall?.copyWith(
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.5)
@@ -312,7 +310,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'How to get your token:',
+                  context.l10n.onboardingPluralKitHowToGetToken,
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: isDark
@@ -321,14 +319,14 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const _InstructionRow(number: '1', text: 'Open Discord'),
-                const _InstructionRow(
+                _InstructionRow(number: '1', text: context.l10n.onboardingPluralKitStep1),
+                _InstructionRow(
                   number: '2',
-                  text: 'DM PluralKit bot: pk;token',
+                  text: context.l10n.onboardingPluralKitStep2,
                 ),
-                const _InstructionRow(
+                _InstructionRow(
                   number: '3',
-                  text: 'Copy the token and paste below',
+                  text: context.l10n.onboardingPluralKitStep3,
                 ),
               ],
             ),
@@ -349,7 +347,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               style: TextStyle(
                 color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
               ),
-              hintText: 'Paste your PluralKit token',
+              hintText: context.l10n.onboardingPluralKitTokenHint,
               hintStyle: TextStyle(
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.35)
@@ -367,7 +365,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.75)
                     : AppColors.warmBlack.withValues(alpha: 0.75),
-                tooltip: _obscureToken ? 'Show token' : 'Hide token',
+                tooltip: _obscureToken ? context.l10n.showToken : context.l10n.hideToken,
                 onPressed: () => setState(() => _obscureToken = !_obscureToken),
               ),
             ),
@@ -388,7 +386,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Imported $_importedCount members from PluralKit!',
+                      context.l10n.onboardingPluralKitImportSuccess(_importedCount),
                       style: TextStyle(
                         color: isDark
                             ? AppColors.warmWhite
@@ -402,7 +400,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             )
           else
             _ActionButton(
-              label: 'Import Members',
+              label: context.l10n.onboardingPluralKitImportButton,
               color: primary,
               isLoading: _isImporting,
               onPressed: _handleImport,
@@ -425,7 +423,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   Future<void> _handleImport() async {
     final token = _tokenController.text.trim();
     if (token.isEmpty) {
-      setState(() => _errorMessage = 'Please enter your PluralKit token.');
+      setState(() => _errorMessage = context.l10n.onboardingPluralKitErrorEnterToken);
       return;
     }
 
@@ -444,7 +442,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         await pkNotifier.clearToken();
         setState(() {
           _isImporting = false;
-          _errorMessage = 'Could not connect. Please check your token.';
+          _errorMessage = context.l10n.onboardingPluralKitErrorCouldNotConnect;
         });
         return;
       }
@@ -470,7 +468,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
     } catch (e) {
       setState(() {
         _isImporting = false;
-        _errorMessage = 'Import failed: $e';
+        _errorMessage = context.l10n.onboardingImportError(e);
       });
     }
   }
@@ -556,7 +554,7 @@ class _PrismExportImportFlowState
       if (!mounted) return;
       setState(() {
         _step = _PrismExportStep.error;
-        _errorMessage = 'Failed to read file: $e';
+        _errorMessage = context.l10n.onboardingImportReadFileFailed(e);
       });
     }
   }
@@ -564,7 +562,7 @@ class _PrismExportImportFlowState
   void _unlockFile() {
     final password = _passwordController.text;
     if (password.isEmpty) {
-      setState(() => _passwordError = 'Password cannot be empty');
+      setState(() => _passwordError = context.l10n.onboardingImportPasswordEmpty);
       return;
     }
 
@@ -588,8 +586,8 @@ class _PrismExportImportFlowState
       final message = e.toString();
       setState(() {
         _passwordError = message.contains('mac check')
-            ? 'Incorrect password'
-            : 'Decryption failed: $message';
+            ? context.l10n.onboardingImportIncorrectPassword
+            : context.l10n.onboardingImportDecryptionFailed(message);
       });
     }
   }
@@ -625,7 +623,7 @@ class _PrismExportImportFlowState
       if (!mounted) return;
       setState(() {
         _step = _PrismExportStep.error;
-        _errorMessage = 'Import failed: $e';
+        _errorMessage = context.l10n.onboardingImportError(e);
       });
     }
   }
@@ -686,31 +684,31 @@ class _PrismExportImportFlowState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'How to export from Prism:',
+                context.l10n.onboardingPrismExportHowToExport,
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                 ),
               ),
               const SizedBox(height: 8),
-              const _InstructionRow(
+              _InstructionRow(
                 number: '1',
-                text: 'Open Prism on your other device',
+                text: context.l10n.onboardingPrismExportStep1,
               ),
-              const _InstructionRow(
+              _InstructionRow(
                 number: '2',
-                text: 'Go to Settings → Import & Export → Export Data',
+                text: context.l10n.onboardingPrismExportStep2,
               ),
-              const _InstructionRow(
+              _InstructionRow(
                 number: '3',
-                text: 'Save the .json or .prism file and select it below',
+                text: context.l10n.onboardingPrismExportStep3,
               ),
             ],
           ),
         ),
         const SizedBox(height: 24),
         _ActionButton(
-          label: 'Select Export File',
+          label: context.l10n.onboardingPrismExportSelectFile,
           color: primary,
           onPressed: _pickFile,
         ),
@@ -732,7 +730,7 @@ class _PrismExportImportFlowState
         ),
         const SizedBox(height: 16),
         Text(
-          'Encrypted Export',
+          context.l10n.onboardingPrismExportEncryptedTitle,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
             color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
@@ -741,7 +739,7 @@ class _PrismExportImportFlowState
         ),
         const SizedBox(height: 8),
         Text(
-          'Enter the export password to unlock this Prism backup.',
+          context.l10n.onboardingPrismExportEncryptedDescription,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
           ),
@@ -763,7 +761,7 @@ class _PrismExportImportFlowState
             ),
             autofocus: true,
             onSubmitted: (_) => _unlockFile(),
-            hintText: 'Export password',
+            hintText: context.l10n.onboardingPrismExportPasswordHint,
             hintStyle: TextStyle(
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.35)
@@ -782,7 +780,7 @@ class _PrismExportImportFlowState
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.75)
                   : AppColors.warmBlack.withValues(alpha: 0.75),
-              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+              tooltip: _obscurePassword ? context.l10n.showPassword : context.l10n.hidePassword,
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
             ),
@@ -790,7 +788,7 @@ class _PrismExportImportFlowState
         ),
         const SizedBox(height: 24),
         _ActionButton(
-          label: 'Unlock Export',
+          label: context.l10n.onboardingPrismExportUnlockButton,
           color: primary,
           onPressed: _unlockFile,
         ),
@@ -818,7 +816,7 @@ class _PrismExportImportFlowState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Ready to import',
+                context.l10n.onboardingPrismExportReadyToImport,
                 style: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: isDark
@@ -828,7 +826,7 @@ class _PrismExportImportFlowState
               ),
               const SizedBox(height: 8),
               Text(
-                'This will restore your exported Prism system and finish setup on this device.',
+                context.l10n.onboardingPrismExportPreviewDescription,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: isDark
                       ? AppColors.mutedTextDark
@@ -836,28 +834,28 @@ class _PrismExportImportFlowState
                 ),
               ),
               const SizedBox(height: 12),
-              _PreviewRow(label: 'Members', count: preview.headmates),
+              _PreviewRow(label: context.l10n.onboardingImportPreviewMembers, count: preview.headmates),
               _PreviewRow(
-                label: 'Fronting sessions',
+                label: context.l10n.onboardingImportPreviewFrontingSessions,
                 count: preview.frontSessions,
               ),
-              _PreviewRow(label: 'Conversations', count: preview.conversations),
-              _PreviewRow(label: 'Messages', count: preview.messages),
-              _PreviewRow(label: 'Habits', count: preview.habits),
-              _PreviewRow(label: 'Notes', count: preview.notes),
+              _PreviewRow(label: context.l10n.onboardingImportPreviewConversations, count: preview.conversations),
+              _PreviewRow(label: context.l10n.onboardingImportPreviewMessages, count: preview.messages),
+              _PreviewRow(label: context.l10n.onboardingImportPreviewHabits, count: preview.habits),
+              _PreviewRow(label: context.l10n.onboardingImportPreviewNotes, count: preview.notes),
               Divider(
                 color: isDark
                     ? const Color(0x22FFFFFF)
                     : const Color(0x22000000),
                 height: 24,
               ),
-              _PreviewRow(label: 'Total records', count: preview.totalRecords),
+              _PreviewRow(label: context.l10n.onboardingImportPreviewTotalRecords, count: preview.totalRecords),
             ],
           ),
         ),
         const SizedBox(height: 16),
         _ActionButton(
-          label: 'Import and Continue',
+          label: context.l10n.onboardingPrismExportImportButton,
           color: primary,
           onPressed: _startImport,
         ),
@@ -876,7 +874,7 @@ class _PrismExportImportFlowState
             CircularProgressIndicator(color: textColor),
             const SizedBox(height: 16),
             Text(
-              'Importing your Prism export...',
+              context.l10n.onboardingPrismExportImporting,
               style: TextStyle(color: textColor),
               textAlign: TextAlign.center,
             ),
@@ -914,7 +912,7 @@ class _PrismExportImportFlowState
         ),
         const SizedBox(height: 12),
         _ActionButton(
-          label: 'Try Again',
+          label: context.l10n.tryAgain,
           color: Colors.redAccent,
           onPressed: _reset,
         ),
@@ -974,7 +972,7 @@ class _SimplyPluralImportFlowState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'How to export from Simply Plural:',
+                    context.l10n.onboardingSimplyPluralHowToExport,
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: isDark
@@ -983,24 +981,24 @@ class _SimplyPluralImportFlowState
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const _InstructionRow(
+                  _InstructionRow(
                     number: '1',
-                    text: 'Open Simply Plural app',
+                    text: context.l10n.onboardingSimplyPluralStep1,
                   ),
-                  const _InstructionRow(
+                  _InstructionRow(
                     number: '2',
-                    text: 'Go to Settings → Export Data',
+                    text: context.l10n.onboardingSimplyPluralStep2,
                   ),
-                  const _InstructionRow(
+                  _InstructionRow(
                     number: '3',
-                    text: 'Save the JSON file and select it below',
+                    text: context.l10n.onboardingSimplyPluralStep3,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             _ActionButton(
-              label: 'Select Export File',
+              label: context.l10n.onboardingSimplyPluralSelectFile,
               color: primary,
               onPressed: () {
                 ref.read(importerProvider.notifier).selectAndParseFile();
@@ -1017,7 +1015,7 @@ class _SimplyPluralImportFlowState
                   children: [
                     CircularProgressIndicator(color: textColor),
                     const SizedBox(height: 16),
-                    Text('Reading file...', style: TextStyle(color: textColor)),
+                    Text(context.l10n.onboardingSimplyPluralReadingFile, style: TextStyle(color: textColor)),
                   ],
                 ),
               ),
@@ -1038,7 +1036,7 @@ class _SimplyPluralImportFlowState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Found data:',
+                    context.l10n.onboardingSimplyPluralFoundData,
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                       color: isDark
@@ -1048,21 +1046,21 @@ class _SimplyPluralImportFlowState
                   ),
                   const SizedBox(height: 12),
                   _PreviewRow(
-                    label: 'Members',
+                    label: context.l10n.onboardingImportPreviewMembers,
                     count:
                         migration.exportData!.members.length +
                         migration.exportData!.customFronts.length,
                   ),
                   _PreviewRow(
-                    label: 'Fronting sessions',
+                    label: context.l10n.onboardingImportPreviewFrontingSessions,
                     count: migration.exportData!.frontHistory.length,
                   ),
                   _PreviewRow(
-                    label: 'Conversations',
+                    label: context.l10n.onboardingImportPreviewConversations,
                     count: migration.exportData!.channels.length,
                   ),
                   _PreviewRow(
-                    label: 'Messages',
+                    label: context.l10n.onboardingImportPreviewMessages,
                     count: migration.exportData!.messages.length,
                   ),
                 ],
@@ -1070,7 +1068,7 @@ class _SimplyPluralImportFlowState
             ),
             const SizedBox(height: 16),
             _ActionButton(
-              label: 'Import Data',
+              label: context.l10n.onboardingSimplyPluralImportButton,
               color: primary,
               onPressed: () {
                 ref.read(importerProvider.notifier).executeImport();
@@ -1115,7 +1113,7 @@ class _SimplyPluralImportFlowState
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Import complete! Your data is ready.',
+                      context.l10n.onboardingSimplyPluralImportComplete,
                       style: TextStyle(
                         color: textColor,
                         fontWeight: FontWeight.w600,
@@ -1150,7 +1148,7 @@ class _SimplyPluralImportFlowState
             ),
             const SizedBox(height: 12),
             _ActionButton(
-              label: 'Try Again',
+              label: context.l10n.tryAgain,
               color: primary,
               onPressed: () {
                 ref.read(importerProvider.notifier).reset();
@@ -1187,7 +1185,7 @@ class _BackLink extends StatelessWidget {
           Icon(AppIcons.arrowBackIos, size: 14, color: linkColor),
           const SizedBox(width: 4),
           Text(
-            'Other import options',
+            context.l10n.onboardingImportOtherOptions,
             style: theme.textTheme.bodyMedium?.copyWith(color: linkColor),
           ),
         ],

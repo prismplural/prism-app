@@ -28,6 +28,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class HabitDetailScreen extends ConsumerStatefulWidget {
   const HabitDetailScreen({super.key, required this.habitId});
@@ -73,19 +74,19 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
             ? PrismPopupMenu<String>(
                 items: [
                   PrismMenuItem(
-                      value: 'edit', label: 'Edit', icon: AppIcons.edit),
+                      value: 'edit', label: context.l10n.edit, icon: AppIcons.edit),
                   PrismMenuItem(
                     value: 'toggle',
                     label: habitAsync.value!.isActive
-                        ? 'Deactivate'
-                        : 'Activate',
+                        ? context.l10n.deactivate
+                        : context.l10n.activate,
                     icon: habitAsync.value!.isActive
                         ? AppIcons.visibilityOff
                         : AppIcons.visibility,
                   ),
                   PrismMenuItem(
                       value: 'delete',
-                      label: 'Delete',
+                      label: context.l10n.delete,
                       icon: AppIcons.deleteOutline,
                       destructive: true),
                 ],
@@ -101,7 +102,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                       await _confirmDelete(context);
                   }
                 },
-                tooltip: 'More options',
+                tooltip: context.l10n.habitsDetailMoreOptions,
               )
             : null,
       ),
@@ -167,9 +168,9 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                 ),
 
                 // ── Recent Completions ─────────────────────────
-                const PrismSectionHeader(
-                  title: 'Recent completions',
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+                PrismSectionHeader(
+                  title: context.l10n.habitsDetailSectionRecentCompletions,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 ),
                 completionsAsync.when(
                   loading: () => const SizedBox.shrink(),
@@ -181,9 +182,8 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                     if (completions.isEmpty) {
                       return EmptyState(
                         icon: Icon(AppIcons.checkCircleOutline),
-                        title: 'No completions yet',
-                        subtitle:
-                            'Complete this habit to start tracking progress.',
+                        title: context.l10n.habitsDetailNoCompletions,
+                        subtitle: context.l10n.habitsDetailNoCompletionsSubtitle,
                       );
                     }
                     // Plain Column — no nested scroll view, no
@@ -254,10 +254,9 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
   Future<void> _confirmDelete(BuildContext context) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete Habit',
-      message:
-          'This will permanently delete this habit and all its completions. This action cannot be undone.',
-      confirmLabel: 'Delete',
+      title: context.l10n.habitsDetailDeleteTitle,
+      message: context.l10n.habitsDetailDeleteMessage,
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed && context.mounted) {
@@ -283,7 +282,7 @@ class _HabitHeader extends StatelessWidget {
     final theme = Theme.of(context);
     final frequencyText =
         habit.frequency == HabitFrequency.interval && habit.intervalDays != null
-            ? 'Every ${habit.intervalDays} days'
+            ? context.l10n.habitsDetailFrequencyEveryNDays(habit.intervalDays!)
             : habit.frequency.label;
 
     final semanticsLabel = [
@@ -370,8 +369,10 @@ class _StatsRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Semantics(
-                label:
-                    '${stats.totalCompletions} completions, ${stats.completionRate.toStringAsFixed(0)}% completion rate',
+                label: context.l10n.habitsStatsSemanticsLabel(
+                  stats.totalCompletions,
+                  stats.completionRate.toStringAsFixed(0),
+                ),
                 excludeSemantics: true,
                 child: Row(
                   children: [
@@ -380,7 +381,7 @@ class _StatsRow extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Completions',
+                            context.l10n.habitsStatCompletions,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -398,7 +399,7 @@ class _StatsRow extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Completion Rate',
+                            context.l10n.habitsStatCompletionRate,
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
@@ -423,13 +424,13 @@ class _StatsRow extends StatelessWidget {
                     if (stats.currentStreak > 0)
                       PrismPill(
                         icon: AppIcons.localFireDepartment,
-                        label: '${stats.currentStreak} streak',
+                        label: context.l10n.habitsStatCurrentStreak(stats.currentStreak),
                         color: Colors.orange.shade700,
                       ),
                     if (stats.bestStreak > stats.currentStreak)
                       PrismPill(
                         icon: AppIcons.emojiEvents,
-                        label: '${stats.bestStreak} best',
+                        label: context.l10n.habitsStatBestStreak(stats.bestStreak),
                         color: Colors.amber.shade700,
                       ),
                   ],
@@ -489,7 +490,7 @@ class _CompletionTile extends StatelessWidget {
                 size: 36,
               )
             : Icon(AppIcons.checkCircle, color: Colors.green),
-        title: Text(_formatDate(completion.completedAt)),
+        title: Text(_formatDate(context, completion.completedAt)),
         subtitle: Text(
           [
             if (member != null) member.name,
@@ -500,7 +501,7 @@ class _CompletionTile extends StatelessWidget {
         ),
         trailing: completion.rating != null
             ? Semantics(
-                label: 'Rated ${completion.rating} out of 5 stars',
+                label: context.l10n.habitsCompletionRatedNStars(completion.rating!),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: List.generate(
@@ -520,13 +521,13 @@ class _CompletionTile extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(BuildContext context, DateTime date) {
     final dateDay = DateTime(date.year, date.month, date.day);
 
     if (dateDay == today) {
-      return 'Today ${_timeString(date)}';
+      return context.l10n.habitsCompletionTileToday(_timeString(date));
     } else if (dateDay == today.subtract(const Duration(days: 1))) {
-      return 'Yesterday ${_timeString(date)}';
+      return context.l10n.habitsCompletionTileYesterday(_timeString(date));
     }
     return '${date.month}/${date.day}/${date.year} ${_timeString(date)}';
   }
@@ -595,8 +596,8 @@ class _FloatingCompleteButton extends ConsumerWidget {
       button: true,
       enabled: enabled,
       label: isCompletedToday
-          ? 'Habit already completed for this period'
-          : 'Complete habit',
+          ? context.l10n.habitsAlreadyCompleted
+          : context.l10n.habitsCompleteButtonLabel,
       child: GlassSurface(
         borderRadius: pillRadius,
         tint: tint,
@@ -621,7 +622,7 @@ class _FloatingCompleteButton extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    isCompletedToday ? 'Completed' : 'Complete',
+                    isCompletedToday ? context.l10n.habitsCompleted : context.l10n.habitsComplete,
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: enabled

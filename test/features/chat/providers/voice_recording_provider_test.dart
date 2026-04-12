@@ -140,7 +140,7 @@ void main() {
       expect(state.audioBytes, isNull);
       expect(state.durationMs, 0);
       expect(state.waveformB64, '');
-      expect(state.error, isNull);
+      expect(state.errorType, isNull);
     });
 
     test('copyWith preserves unchanged fields', () {
@@ -161,13 +161,13 @@ void main() {
       expect(updated.status, VoiceRecordingStatus.error);
     });
 
-    test('copyWith sets error', () {
+    test('copyWith sets errorType', () {
       const state = VoiceRecordingState();
       final updated = state.copyWith(
         status: VoiceRecordingStatus.error,
-        error: 'mic unavailable',
+        errorType: VoiceRecordingError.permissionDenied,
       );
-      expect(updated.error, 'mic unavailable');
+      expect(updated.errorType, VoiceRecordingError.permissionDenied);
     });
   });
 
@@ -240,10 +240,9 @@ void main() {
       // Verify the error state shape matches expectations.
       const errorState = VoiceRecordingState(
         status: VoiceRecordingStatus.error,
-        error: 'No amplitude samples recorded',
       );
       expect(errorState.status, VoiceRecordingStatus.error);
-      expect(errorState.error, 'No amplitude samples recorded');
+      expect(errorState.errorType, isNull);
     });
   });
 }
