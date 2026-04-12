@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Full-screen sheet for creating a new poll.
 ///
@@ -147,7 +148,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
       }
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Failed to create poll: $e');
+        PrismToast.error(context, message: context.l10n.pollsCreateError(e));
         setState(() => _isCreating = false);
       }
     }
@@ -161,7 +162,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: 'New Poll',
+            title: context.l10n.pollsNewPoll,
             trailing: PrismGlassIconButton(
                     icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,
@@ -184,8 +185,8 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 // Question
                 PrismTextField(
                   controller: _questionController,
-                  labelText: 'Question',
-                  hintText: 'What do you want to ask?',
+                  labelText: context.l10n.pollsQuestionLabel,
+                  hintText: context.l10n.pollsQuestionHint,
                   maxLines: 2,
                   textCapitalization: TextCapitalization.sentences,
                   onChanged: (_) => setState(() {}),
@@ -195,8 +196,8 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 // Description (optional)
                 PrismTextField(
                   controller: _descriptionController,
-                  labelText: 'Description (optional)',
-                  hintText: 'Add context or details...',
+                  labelText: context.l10n.pollsDescriptionLabel,
+                  hintText: context.l10n.pollsDescriptionHint,
                   maxLines: 3,
                   minLines: 1,
                   textCapitalization: TextCapitalization.sentences,
@@ -204,7 +205,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 const SizedBox(height: 16),
 
                 // Options header
-                Text('Options', style: theme.textTheme.titleSmall),
+                Text(context.l10n.pollsOptionsHeader, style: theme.textTheme.titleSmall),
                 const SizedBox(height: 8),
 
                 // Option fields
@@ -224,7 +225,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                         Expanded(
                           child: PrismTextField(
                             controller: _optionControllers[i],
-                            labelText: 'Option ${i + 1}',
+                            labelText: context.l10n.pollsOptionLabel(i + 1),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 12,
@@ -240,7 +241,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                             size: 36,
                             iconSize: 18,
                             onPressed: () => _removeOption(i),
-                            tooltip: 'Remove option',
+                            tooltip: context.l10n.pollsRemoveOptionTooltip,
                           ),
                       ],
                     ),
@@ -250,7 +251,7 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: PrismButton(
-                    label: 'Add option',
+                    label: context.l10n.pollsAddOption,
                     onPressed: _addOption,
                     icon: AppIcons.add,
                     tone: PrismButtonTone.subtle,
@@ -260,31 +261,30 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
 
                 // Toggles
                 PrismSwitchRow(
-                  title: 'Add "Other" option',
-                  subtitle: 'Allows free-text responses',
+                  title: context.l10n.pollsAddOtherOption,
+                  subtitle: context.l10n.pollsAddOtherOptionSubtitle,
                   value: _addOtherOption,
                   onChanged: (v) => setState(() => _addOtherOption = v),
                 ),
                 PrismSwitchRow(
-                  title: 'Anonymous voting',
-                  subtitle: 'Hide who voted for what',
+                  title: context.l10n.pollsAnonymousVoting,
+                  subtitle: context.l10n.pollsAnonymousVotingSubtitle,
                   value: _isAnonymous,
                   onChanged: (v) => setState(() => _isAnonymous = v),
                 ),
                 PrismSwitchRow(
-                  title: 'Allow multiple votes',
-                  subtitle:
-                      '${ref.watch(terminologyProvider).plural} can vote for more than one option',
+                  title: context.l10n.pollsAllowMultipleVotes,
+                  subtitle: context.l10n.pollsAllowMultipleVotesSubtitle(ref.watch(terminologyProvider).plural),
                   value: _allowsMultipleVotes,
                   onChanged: (v) => setState(() => _allowsMultipleVotes = v),
                 ),
 
                 // Expiration
                 PrismSwitchRow(
-                  title: 'Set expiration',
+                  title: context.l10n.pollsSetExpiration,
                   subtitle: _hasExpiration && _expiresAt != null
                       ? _formatDateTime(_expiresAt!)
-                      : 'Poll stays open until manually closed',
+                      : context.l10n.pollsNoExpiration,
                   value: _hasExpiration,
                   onChanged: (v) {
                     setState(() => _hasExpiration = v);
@@ -296,8 +296,8 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                     alignment: Alignment.centerLeft,
                     child: PrismButton(
                       label: _expiresAt != null
-                          ? 'Change: ${_formatDateTime(_expiresAt!)}'
-                          : 'Pick date & time',
+                          ? context.l10n.pollsChangeDateTime(_formatDateTime(_expiresAt!))
+                          : context.l10n.pollsPickDateTime,
                       onPressed: _pickExpiration,
                       icon: AppIcons.schedule,
                       tone: PrismButtonTone.subtle,

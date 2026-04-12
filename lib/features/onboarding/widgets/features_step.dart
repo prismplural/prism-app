@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class FeaturesStep extends ConsumerWidget {
   const FeaturesStep({super.key});
@@ -24,8 +25,8 @@ class FeaturesStep extends ConsumerWidget {
             icon: AppIcons.duotoneChat,
             isDark: isDark,
             primary: primary,
-            title: 'Chat',
-            description: 'Internal messaging between system members',
+            title: context.l10n.onboardingFeaturesChat,
+            description: context.l10n.onboardingFeaturesChatDescription,
             value: onboarding.chatEnabled,
             onChanged: (v) => notifier.setFeatureToggle(chatEnabled: v),
           ),
@@ -34,8 +35,8 @@ class FeaturesStep extends ConsumerWidget {
             icon: AppIcons.duotonePolls,
             isDark: isDark,
             primary: primary,
-            title: 'Polls',
-            description: 'Create polls for system decisions',
+            title: context.l10n.onboardingFeaturesPolls,
+            description: context.l10n.onboardingFeaturesPollsDescription,
             value: onboarding.pollsEnabled,
             onChanged: (v) => notifier.setFeatureToggle(pollsEnabled: v),
           ),
@@ -44,8 +45,8 @@ class FeaturesStep extends ConsumerWidget {
             icon: AppIcons.duotoneHabits,
             isDark: isDark,
             primary: primary,
-            title: 'Habits',
-            description: 'Track daily habits and routines',
+            title: context.l10n.onboardingFeaturesHabits,
+            description: context.l10n.onboardingFeaturesHabitsDescription,
             value: onboarding.habitsEnabled,
             onChanged: (v) => notifier.setFeatureToggle(habitsEnabled: v),
           ),
@@ -54,8 +55,8 @@ class FeaturesStep extends ConsumerWidget {
             icon: AppIcons.duotoneSleep,
             isDark: isDark,
             primary: primary,
-            title: 'Sleep Tracking',
-            description: 'Monitor sleep patterns and quality',
+            title: context.l10n.onboardingFeaturesSleepTracking,
+            description: context.l10n.onboardingFeaturesSleepTrackingDescription,
             value: onboarding.sleepTrackingEnabled,
             onChanged: (v) =>
                 notifier.setFeatureToggle(sleepTrackingEnabled: v),

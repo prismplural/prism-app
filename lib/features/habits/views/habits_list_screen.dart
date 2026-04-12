@@ -22,6 +22,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class HabitsListScreen extends ConsumerWidget {
   const HabitsListScreen({super.key});
@@ -88,10 +89,10 @@ class HabitsListScreen extends ConsumerWidget {
             slivers: [
               SliverPinnedTopBar(
                 child: PrismTopBar(
-                  title: 'Habits',
+                  title: context.l10n.habitsListTitle,
                   trailing: PrismTopBarAction(
                     icon: AppIcons.add,
-                    tooltip: 'Create habit',
+                    tooltip: context.l10n.habitsCreateHabitTooltip,
                     onPressed: () => _showAddHabit(context),
                   ),
                 ),
@@ -101,10 +102,9 @@ class HabitsListScreen extends ConsumerWidget {
                   hasScrollBody: false,
                   child: EmptyState(
                     icon: Icon(AppIcons.checkCircleOutline),
-                    title: 'No habits yet',
-                    subtitle:
-                        'Create habits to track daily routines, self-care, or anything your system wants to keep up with.',
-                    actionLabel: 'Create Habit',
+                    title: context.l10n.habitsEmptyTitle,
+                    subtitle: context.l10n.habitsEmptySubtitle,
+                    actionLabel: context.l10n.habitsEmptyCreateLabel,
                     actionIcon: AppIcons.add,
                     onAction: () => _showAddHabit(context),
                   ),
@@ -122,7 +122,7 @@ class HabitsListScreen extends ConsumerWidget {
                   ),
                 if (upcoming.isNotEmpty)
                   _HabitSection(
-                    title: 'Upcoming',
+                    title: context.l10n.habitsSectionUpcoming,
                     habits: upcoming,
                     completions: todayCompletions,
                     completedHabitIds: completedHabitIds,
@@ -132,7 +132,7 @@ class HabitsListScreen extends ConsumerWidget {
                   ),
                 if (inactive.isNotEmpty)
                   _HabitSection(
-                    title: 'Inactive',
+                    title: context.l10n.habitsSectionInactive,
                     habits: inactive,
                     completions: todayCompletions,
                     completedHabitIds: completedHabitIds,

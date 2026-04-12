@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class SyncDeviceStep extends ConsumerStatefulWidget {
   const SyncDeviceStep({
@@ -70,9 +71,9 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
       case PairingStep.success:
         child = OnboardingDataReadyView(
           key: const ValueKey('success'),
-          title: 'Welcome Back!',
-          description: 'Your device has been paired and your data is ready.',
-          summaryLabel: 'Synced data',
+          title: context.l10n.onboardingSyncWelcomeBackTitle,
+          description: context.l10n.onboardingSyncWelcomeBackDescription,
+          summaryLabel: context.l10n.onboardingDataReadySyncedData,
           counts: pairingState.counts != null
               ? OnboardingDataCounts(
                   members: pairingState.counts!.members,
@@ -105,7 +106,7 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Some data is still syncing and will appear shortly.',
+                          context.l10n.onboardingSyncDataStillSyncing,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.amber.withValues(alpha: 0.9),
                           ),
@@ -115,7 +116,7 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
                   ),
                 )
               : null,
-          actionLabel: 'Get Started',
+          actionLabel: context.l10n.onboardingGetStarted,
           onAction: () async {
             await ref.read(devicePairingProvider.notifier).completeOnboarding();
             widget.onComplete();
@@ -124,7 +125,7 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
       case PairingStep.error:
         child = _ErrorView(
           key: const ValueKey('error'),
-          message: pairingState.errorMessage ?? 'An unknown error occurred.',
+          message: pairingState.errorMessage ?? context.l10n.onboardingSyncUnknownError,
           onTryAgain: () => ref.read(devicePairingProvider.notifier).reset(),
         );
     }
@@ -158,13 +159,13 @@ class _JoinPromptView extends StatelessWidget {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: _BackLink(label: 'Back', onTap: onBack),
+            child: _BackLink(label: context.l10n.back, onTap: onBack),
           ),
           const SizedBox(height: 20),
           Icon(AppIcons.devices, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           Text(
-            'Join your sync group',
+            context.l10n.onboardingSyncJoinYourGroup,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.warmWhite,
               fontWeight: FontWeight.w700,
@@ -173,7 +174,7 @@ class _JoinPromptView extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Create a pairing request on this device and have an existing device approve it.',
+            context.l10n.onboardingSyncJoinDescription,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
             ),
@@ -181,13 +182,13 @@ class _JoinPromptView extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           _ActionButton(
-            label: 'Request to Join',
+            label: context.l10n.onboardingSyncRequestToJoin,
             color: Colors.purple,
             onPressed: onRequestToJoin,
           ),
           const SizedBox(height: 8),
           Text(
-            'Show a QR code for your existing device to scan and approve.',
+            context.l10n.onboardingSyncRequestToJoinHint,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.5),
             ),
@@ -224,13 +225,13 @@ class _ShowingRequestView extends StatelessWidget {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: _BackLink(label: 'Back', onTap: onBack),
+            child: _BackLink(label: context.l10n.back, onTap: onBack),
           ),
           const SizedBox(height: 20),
           Icon(AppIcons.qrCode, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           Text(
-            'Show this to your existing device',
+            context.l10n.onboardingSyncShowToExistingDevice,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
               color: AppColors.warmWhite,
               fontWeight: FontWeight.w700,
@@ -239,7 +240,7 @@ class _ShowingRequestView extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'On your existing device, open "Set Up Another Device" and scan this code.',
+            context.l10n.onboardingSyncScanInstructions,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
             ),
@@ -274,7 +275,7 @@ class _ShowingRequestView extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Text(
-                'Waiting for other device to scan...',
+                context.l10n.onboardingSyncWaitingForScan,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.warmWhite.withValues(alpha: 0.7),
                 ),
@@ -304,7 +305,7 @@ class _WaitingForSasView extends StatelessWidget {
             const CircularProgressIndicator(color: AppColors.warmWhite),
             const SizedBox(height: 24),
             Text(
-              'Waiting for security verification...',
+              context.l10n.onboardingSyncWaitingForVerification,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: AppColors.warmWhite,
                 fontWeight: FontWeight.w500,
@@ -313,7 +314,7 @@ class _WaitingForSasView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'The other device is connecting. Security codes will appear shortly.',
+              context.l10n.onboardingSyncWaitingForVerificationSubtitle,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: AppColors.warmWhite.withValues(alpha: 0.6),
               ),
@@ -354,7 +355,7 @@ class _SasVerificationView extends StatelessWidget {
           Icon(AppIcons.shieldOutlined, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           Text(
-            'Verify Security Code',
+            context.l10n.onboardingSyncVerifySecurityCode,
             style: theme.textTheme.titleLarge?.copyWith(
               color: AppColors.warmWhite,
               fontWeight: FontWeight.w700,
@@ -363,7 +364,7 @@ class _SasVerificationView extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Confirm these words match the ones shown on your existing device.',
+            context.l10n.onboardingSyncVerifyDescription,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
             ),
@@ -413,13 +414,13 @@ class _SasVerificationView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           _ActionButton(
-            label: 'They Match',
+            label: context.l10n.onboardingSyncTheyMatch,
             color: Colors.purple,
             onPressed: onConfirm,
           ),
           const SizedBox(height: 8),
           _ActionButton(
-            label: 'They Don\'t Match',
+            label: context.l10n.onboardingSyncTheyDontMatch,
             color: Colors.redAccent,
             tone: PrismButtonTone.subtle,
             onPressed: onReject,
@@ -460,13 +461,13 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: _BackLink(label: 'Back', onTap: widget.onBack),
+            child: _BackLink(label: context.l10n.back, onTap: widget.onBack),
           ),
           const SizedBox(height: 24),
           Icon(AppIcons.lockOutline, color: AppColors.warmWhite, size: 48),
           const SizedBox(height: 16),
           Text(
-            'Enter your password',
+            context.l10n.onboardingSyncEnterPassword,
             style: theme.textTheme.titleLarge?.copyWith(
               color: AppColors.warmWhite,
               fontWeight: FontWeight.w700,
@@ -475,7 +476,7 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Enter your sync password to finish enrolling this device.',
+            context.l10n.onboardingSyncEnterPasswordDescription,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: AppColors.warmWhite.withValues(alpha: 0.7),
             ),
@@ -493,7 +494,7 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
               style: const TextStyle(color: AppColors.warmWhite),
               autofocus: true,
               onSubmitted: (_) => _connect(),
-              hintText: 'Password',
+              hintText: context.l10n.onboardingSyncPasswordHint,
               hintStyle: TextStyle(
                 color: AppColors.warmWhite.withValues(alpha: 0.4),
               ),
@@ -505,14 +506,14 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
               suffix: PrismFieldIconButton(
                 icon: _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
                 color: AppColors.warmWhite.withValues(alpha: 0.75),
-                tooltip: _obscure ? 'Show password' : 'Hide password',
+                tooltip: _obscure ? context.l10n.showPassword : context.l10n.hidePassword,
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
           ),
           const SizedBox(height: 24),
           _ActionButton(
-            label: 'Finish Pairing',
+            label: context.l10n.onboardingSyncFinishPairing,
             color: Colors.purple,
             onPressed: _connect,
           ),
@@ -525,7 +526,7 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
   void _connect() {
     final password = _passwordController.text;
     if (password.isEmpty) {
-      PrismToast.show(context, message: 'Please enter your password.');
+      PrismToast.show(context, message: context.l10n.onboardingSyncEnterPasswordPrompt);
       return;
     }
     ref.read(devicePairingProvider.notifier).completeJoinerWithPassword(password);
@@ -547,7 +548,7 @@ class _ConnectingView extends StatelessWidget {
             const CircularProgressIndicator(color: AppColors.warmWhite),
             const SizedBox(height: 24),
             Text(
-              'Pairing and syncing...',
+              context.l10n.onboardingSyncConnecting,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: AppColors.warmWhite,
                 fontWeight: FontWeight.w500,
@@ -556,7 +557,7 @@ class _ConnectingView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'This may take a moment while the device is enrolled.',
+              context.l10n.onboardingSyncConnectingSubtitle,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: AppColors.warmWhite.withValues(alpha: 0.6),
               ),

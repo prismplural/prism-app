@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class WelcomeStep extends StatelessWidget {
   const WelcomeStep({super.key});
@@ -17,25 +18,22 @@ class WelcomeStep extends StatelessWidget {
         children: [
           _FeatureRow(
             icon: AppIcons.duotoneEncryption,
-            title: 'Private by default',
-            description:
-                'Not even we can read your data. Everything stays on your device unless you choose to sync.',
+            title: context.l10n.onboardingWelcomePrivateTitle,
+            description: context.l10n.onboardingWelcomePrivateDescription,
             isDark: isDark,
           ),
           const SizedBox(height: 20),
           _FeatureRow(
             icon: AppIcons.duotoneSync,
-            title: 'Sync across devices',
-            description:
-                'End-to-end encrypted. The server only sees noise.',
+            title: context.l10n.onboardingWelcomeSyncTitle,
+            description: context.l10n.onboardingWelcomeSyncDescription,
             isDark: isDark,
           ),
           const SizedBox(height: 20),
           _FeatureRow(
             icon: AppIcons.duotoneTheme,
-            title: 'Built for you',
-            description:
-                'Your words, your colors, your features. Prism adapts to how your system works.',
+            title: context.l10n.onboardingWelcomeBuiltForYouTitle,
+            description: context.l10n.onboardingWelcomeBuiltForYouDescription,
             isDark: isDark,
           ),
         ],

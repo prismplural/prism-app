@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class PreferencesStep extends ConsumerStatefulWidget {
   const PreferencesStep({super.key});
@@ -47,7 +48,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
         children: [
           // Terminology section
           Text(
-            'Terminology',
+            context.l10n.onboardingPreferencesTerminology,
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w600,
               color: isDark
@@ -81,7 +82,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                   child: Center(
                     child: Text(
                       term == SystemTerminology.custom
-                          ? 'Custom'
+                          ? context.l10n.onboardingPreferencesCustomTerminology
                           : term.pluralForm,
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: isSelected
@@ -107,7 +108,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                 Expanded(
                   child: _buildTextField(
                     controller: _customSingularController,
-                    hint: 'Singular (e.g. Alter)',
+                    hint: context.l10n.onboardingPreferencesSingularHint,
                     onChanged: notifier.setCustomTermSingular,
                     isDark: isDark,
                   ),
@@ -116,7 +117,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                 Expanded(
                   child: _buildTextField(
                     controller: _customPluralController,
-                    hint: 'Plural (e.g. Alters)',
+                    hint: context.l10n.onboardingPreferencesPluralHint,
                     onChanged: notifier.setCustomTermPlural,
                     isDark: isDark,
                   ),
@@ -129,7 +130,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
 
           // Accent color section
           Text(
-            'Accent Color',
+            context.l10n.onboardingPreferencesAccentColor,
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w600,
               color: isDark
@@ -192,7 +193,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Per-Member Colors',
+                        context.l10n.onboardingPreferencesPerMemberColors,
                         style: theme.textTheme.labelLarge?.copyWith(
                           fontWeight: FontWeight.w600,
                           color: isDark
@@ -201,7 +202,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
                         ),
                       ),
                       Text(
-                        'Let each member have their own accent color',
+                        context.l10n.onboardingPreferencesPerMemberColorsSubtitle,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: isDark
                               ? AppColors.mutedTextDark

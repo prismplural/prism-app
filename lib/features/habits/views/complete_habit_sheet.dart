@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class CompleteHabitSheet extends ConsumerStatefulWidget {
   const CompleteHabitSheet({super.key, required this.habit, this.scrollController});
@@ -54,7 +55,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
     return Column(
       children: [
         PrismSheetTopBar(
-          title: 'Complete Habit',
+          title: context.l10n.habitsCompleteHabit,
           trailing: PrismGlassIconButton(
             icon: AppIcons.check,
             size: PrismTokens.topBarActionSize,
@@ -70,7 +71,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
             children: [
               // ── Completed At ──────────────────────────────
               PrismDateTimePills(
-                label: 'Completed At',
+                label: context.l10n.habitsCompletedAt,
                 dateTime: _completedAt,
                 firstDate: DateTime(2020),
                 lastDate: DateTime.now(),
@@ -81,7 +82,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
 
               // ── Member Picker ──────────────────────────────
               HeadmatePicker(
-                label: 'Completed By',
+                label: context.l10n.habitsCompletedBy,
                 selectedMemberId: _completedByMemberId,
                 includeUnknown: true,
                 onSelected: (v) => setState(() => _completedByMemberId = v),
@@ -90,20 +91,20 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
               const SizedBox(height: 24),
 
               // ── Rating ─────────────────────────────────────
-              const PrismSectionHeader(title: 'RATING'),
+              PrismSectionHeader(title: context.l10n.habitsSectionRating),
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(5, (i) {
                   final starValue = i + 1;
                   return Semantics(
-                    label: 'Rate ${i + 1} out of 5 stars',
+                    label: context.l10n.habitsRateNStars(i + 1),
                     child: PrismIconButton(
                       icon: _rating != null && starValue <= _rating!
                           ? AppIcons.star
                           : AppIcons.starBorder,
                       color: Colors.amber,
-                      tooltip: 'Rate ${i + 1} stars',
+                      tooltip: context.l10n.habitsRateNStarsTooltip(i + 1),
                       onPressed: () {
                         setState(() {
                           _rating =
@@ -120,7 +121,7 @@ class _CompleteHabitSheetState extends ConsumerState<CompleteHabitSheet> {
               // ── Notes ──────────────────────────────────────
               PrismTextField(
                 controller: _notesController,
-                labelText: 'Notes (optional)',
+                labelText: context.l10n.habitsNotesField,
                 maxLines: 5,
                 minLines: 3,
               ),
