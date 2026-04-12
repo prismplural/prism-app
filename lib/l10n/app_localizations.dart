@@ -974,6 +974,12 @@ abstract class AppLocalizations {
   /// **'Complete setup'**
   String get syncSetupCompleteButton;
 
+  /// Label for the PIN field on the sync setup secret key step
+  ///
+  /// In en, this message translates to:
+  /// **'App PIN'**
+  String get syncSetupPinLabel;
+
   /// Validation error: password too short
   ///
   /// In en, this message translates to:

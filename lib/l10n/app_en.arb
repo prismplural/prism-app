@@ -670,6 +670,10 @@
   "@syncSetupCompleteButton": {
     "description": "Complete button on sync setup secret key step"
   },
+  "syncSetupPinLabel": "App PIN",
+  "@syncSetupPinLabel": {
+    "description": "Label for the PIN field on the sync setup secret key step"
+  },
   "syncSetupPasswordTooShort": "Password must be at least 8 characters",
   "@syncSetupPasswordTooShort": {
     "description": "Validation error: password too short"

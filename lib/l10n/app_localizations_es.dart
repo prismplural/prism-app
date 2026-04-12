@@ -507,6 +507,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncSetupCompleteButton => 'Completar configuración';
 
   @override
+  String get syncSetupPinLabel => 'PIN de la app';
+
+  @override
   String get syncSetupPasswordTooShort =>
       'La contraseña debe tener al menos 8 caracteres';
 

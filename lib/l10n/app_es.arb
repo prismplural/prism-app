@@ -146,6 +146,7 @@
   "syncSetupConfirmPasswordLabel": "Confirmar contraseña",
   "syncSetupContinueButton": "Continuar",
   "syncSetupCompleteButton": "Completar configuración",
+  "syncSetupPinLabel": "PIN de la app",
   "syncSetupPasswordTooShort": "La contraseña debe tener al menos 8 caracteres",
   "syncSetupPasswordMismatch": "Las contraseñas no coinciden",
   "syncSetupProgressCreatingGroup": "Creando grupo de sincronización...",
