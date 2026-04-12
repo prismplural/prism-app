@@ -36,15 +36,22 @@ flutter_rust_bridge_codegen generate          # Regenerate Dart bindings after A
 
 ### Key Hierarchy
 ```
-Password + SecretKey → Argon2id (64MB, 3 rounds) → MEK
+Password + SecretKey (BIP39 mnemonic) → Argon2id (64 MiB, 3 iterations, parallelism=1) → MEK
 MEK wraps random DEK via XSalsa20-Poly1305
-  DEK → HKDF("sync") → Sync Encryption Key (per-epoch)
-  DEK → HKDF("identity") → X25519 keypair (for sharing)
-  DEK → HKDF("db") → Database key
-  DEK → HKDF("auth") → Auth token
+  DEK → HKDF-SHA256(info="epoch_sync\0", salt=epoch.to_be_bytes()) → Epoch 0 sync key (XChaCha20-Poly1305)
+  DEK → HKDF-SHA256(info="prism_database_key") → Database key
+  DEK → HKDF-SHA256(info="prism_group_invite") → Group invite secret (reserved)
+DeviceSecret (32 bytes, per-device CSPRNG — NOT derived from DEK)
+  → HKDF-SHA256(info="prism_device_ed25519", salt=device_id) → Ed25519 signing keypair
+  → HKDF-SHA256(info="prism_device_x25519", salt=device_id) → X25519 key exchange keypair
+  → HKDF-SHA256(info="prism_device_ml_dsa_65", salt=device_id) → ML-DSA-65 PQ signing keypair
+  → HKDF-SHA256(info="prism_device_ml_kem_768", salt=device_id, len=64) → ML-KEM-768 PQ KEM keypair
+  → HKDF-SHA256(info="prism_device_xwing_rekey", salt=device_id) → X-Wing hybrid KEM keypair
 ```
 - Password changes = re-wrap DEK only, no data re-encryption
-- SecretKey is a BIP39 mnemonic stored in Keychain/Keystore
+- SecretKey is a BIP39 12-word mnemonic (128-bit entropy)
+- Later epoch keys (>0) delivered via X-Wing KEM during device revocation/rekeying
+- Batch signatures use hybrid Ed25519 + ML-DSA-65 (protocol V3)
 
 ### Signal-Style Key Persistence (IMPORTANT)
 On first setup, the raw DEK is cached in the platform keychain (`prism_sync.runtime_dek`) so subsequent app launches bypass the expensive Argon2id derivation. The Rust FFI provides:
