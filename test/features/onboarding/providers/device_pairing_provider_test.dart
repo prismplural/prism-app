@@ -124,9 +124,9 @@ void main() {
       expect(state1.step, PairingStep.showingRequest);
 
       final state2 = state1.copyWith(
-        step: PairingStep.enterPassword,
+        step: PairingStep.enterPin,
       );
-      expect(state2.step, PairingStep.enterPassword);
+      expect(state2.step, PairingStep.enterPin);
       // Request fields should carry forward
       expect(state2.requestQrPayload, [0xDE, 0xAD]);
       expect(state2.requestDeviceId, 'dev-001');
@@ -288,7 +288,7 @@ void main() {
         notifier.confirmSas();
         expect(
           container.read(devicePairingProvider).step,
-          PairingStep.enterPassword,
+          PairingStep.enterPin,
         );
       },
     );
@@ -327,7 +327,7 @@ void main() {
         containsAll([
           PairingStep.enterUrl,
           PairingStep.showingRequest,
-          PairingStep.enterPassword,
+          PairingStep.enterPin,
           PairingStep.connecting,
           PairingStep.success,
           PairingStep.error,

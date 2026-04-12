@@ -928,11 +928,11 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
 
   void setState(SyncHealthState value) => state = value;
 
-  /// Attempt to unlock the key hierarchy with the user's password.
+  /// Attempt to unlock the key hierarchy with the user's PIN.
   ///
   /// Returns true on success (state transitions to healthy).
-  /// Returns false on failure (wrong password or missing handle).
-  Future<bool> attemptUnlock(String password) async {
+  /// Returns false on failure (wrong PIN or missing handle).
+  Future<bool> attemptUnlock(String pin) async {
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) return false;
 
@@ -953,15 +953,15 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       }
       final secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonic);
 
-      // Unlock the key hierarchy — throws on wrong password
+      // Unlock the key hierarchy — throws on wrong PIN
       try {
         await ffi.unlock(
           handle: handle,
-          password: password,
+          password: pin,
           secretKey: secretKeyBytes,
         );
       } on Exception {
-        // Wrong password — don't change state, let UI show error and retry
+        // Wrong PIN — don't change state, let UI show error and retry
         return false;
       }
 

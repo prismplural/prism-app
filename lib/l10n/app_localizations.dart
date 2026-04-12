@@ -650,16 +650,16 @@ abstract class AppLocalizations {
   /// **'View and revoke linked devices'**
   String get syncManageDevicesSubtitle;
 
-  /// Settings row title: change sync password
+  /// Settings row title: change sync PIN
   ///
   /// In en, this message translates to:
-  /// **'Change Password'**
+  /// **'Change PIN'**
   String get syncChangePassword;
 
-  /// Settings row subtitle: change sync password
+  /// Settings row subtitle: change sync PIN
   ///
   /// In en, this message translates to:
-  /// **'Update your sync encryption password'**
+  /// **'Update your sync encryption PIN'**
   String get syncChangePasswordSubtitle;
 
   /// Settings row title: view secret key
@@ -1028,22 +1028,22 @@ abstract class AppLocalizations {
   /// **'Secret Key'**
   String get syncSecretKeyTitle;
 
-  /// Sheet title when verifying password to reveal key
+  /// Sheet title when verifying PIN to reveal key
   ///
   /// In en, this message translates to:
-  /// **'Verify Password'**
+  /// **'Verify PIN'**
   String get syncVerifyPasswordTitle;
 
-  /// Prompt text in verify password sheet
+  /// Prompt text in verify PIN sheet
   ///
   /// In en, this message translates to:
-  /// **'Enter your sync password to reveal your 12-word recovery phrase.'**
+  /// **'Enter your app PIN to reveal your 12-word recovery phrase.'**
   String get syncVerifyPasswordPrompt;
 
-  /// Hint text for sync password field
+  /// Hint text for sync PIN field
   ///
   /// In en, this message translates to:
-  /// **'Sync password'**
+  /// **'PIN'**
   String get syncPasswordHint;
 
   /// Tooltip for show password icon button
@@ -1076,10 +1076,10 @@ abstract class AppLocalizations {
   /// **'Sync engine not available.'**
   String get syncEngineNotAvailable;
 
-  /// Error when password verification fails
+  /// Error when PIN verification fails
   ///
   /// In en, this message translates to:
-  /// **'Incorrect password. Please try again.'**
+  /// **'Incorrect PIN. Please try again.'**
   String get syncIncorrectPassword;
 
   /// Generic error message in secret key reveal
@@ -6008,34 +6008,34 @@ abstract class AppLocalizations {
   /// **'They Don\'t Match'**
   String get onboardingSyncTheyDontMatch;
 
-  /// Title on the password entry view during sync pairing
+  /// Title on the PIN entry view during sync pairing
   ///
   /// In en, this message translates to:
-  /// **'Enter your password'**
+  /// **'Enter your PIN'**
   String get onboardingSyncEnterPassword;
 
-  /// Description on the password entry view during sync pairing
+  /// Description on the PIN entry view during sync pairing
   ///
   /// In en, this message translates to:
-  /// **'Enter your sync password to finish enrolling this device.'**
+  /// **'Enter your app PIN to finish enrolling this device.'**
   String get onboardingSyncEnterPasswordDescription;
 
-  /// Hint text for the password field in sync pairing
+  /// Hint text for the PIN field in sync pairing
   ///
   /// In en, this message translates to:
-  /// **'Password'**
+  /// **'PIN'**
   String get onboardingSyncPasswordHint;
 
-  /// Button label to complete sync pairing with password
+  /// Button label to complete sync pairing with PIN
   ///
   /// In en, this message translates to:
   /// **'Finish Pairing'**
   String get onboardingSyncFinishPairing;
 
-  /// Toast shown when user taps Finish Pairing with empty password
+  /// Toast shown when user taps Finish Pairing with empty PIN
   ///
   /// In en, this message translates to:
-  /// **'Please enter your password.'**
+  /// **'Please enter your PIN.'**
   String get onboardingSyncEnterPasswordPrompt;
 
   /// Title shown while connecting and syncing during pairing
@@ -8959,6 +8959,174 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your sync password has been updated on this device.'**
   String get settingsChangePasswordSuccessBody;
+
+  /// Title of the sync PIN unlock sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your PIN'**
+  String get settingsSyncPinTitle;
+
+  /// Body text of the sync PIN unlock sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Your app PIN is needed to unlock encryption keys on this device.'**
+  String get settingsSyncPinBody;
+
+  /// Label for the PIN text field in the sync PIN sheet
+  ///
+  /// In en, this message translates to:
+  /// **'PIN'**
+  String get settingsSyncPinFieldLabel;
+
+  /// Error shown when the sync PIN is incorrect
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect PIN. Please try again.'**
+  String get settingsSyncPinWrong;
+
+  /// Unlock button label in the sync PIN sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get settingsSyncPinUnlock;
+
+  /// Title of the change PIN sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Change PIN'**
+  String get settingsChangePinTitle;
+
+  /// Body text of the verify step in the change PIN flow
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your current PIN to continue.'**
+  String get settingsChangePinVerifyBody;
+
+  /// Label for the current PIN text field
+  ///
+  /// In en, this message translates to:
+  /// **'Current PIN'**
+  String get settingsChangePinCurrentLabel;
+
+  /// Continue button in the verify step of change PIN
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get settingsChangePinContinue;
+
+  /// Validation error when current PIN field is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your current PIN.'**
+  String get settingsChangePinCurrentRequired;
+
+  /// Error when the secret key is missing during PIN change
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key not found on this device. Re-pair to restore it.'**
+  String get settingsChangePinNoSecretKey;
+
+  /// Error when the sync engine handle is null during PIN change
+  ///
+  /// In en, this message translates to:
+  /// **'Sync engine not available.'**
+  String get settingsChangePinEngineUnavailable;
+
+  /// Error when the current PIN is wrong during verification
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect PIN. Please try again.'**
+  String get settingsChangePinIncorrect;
+
+  /// Error when PIN verification fails with a known error message
+  ///
+  /// In en, this message translates to:
+  /// **'Verification failed: {error}'**
+  String settingsChangePinVerifyFailed(String error);
+
+  /// Generic error during PIN change flow
+  ///
+  /// In en, this message translates to:
+  /// **'An error occurred: {error}'**
+  String settingsChangePinGenericError(String error);
+
+  /// Error shown when the verified session is lost (e.g. hot-reload)
+  ///
+  /// In en, this message translates to:
+  /// **'Session expired — please verify again.'**
+  String get settingsChangePinSessionExpired;
+
+  /// Warning body text before changing the PIN
+  ///
+  /// In en, this message translates to:
+  /// **'Your other devices will need to enter the new PIN when they next open Prism.'**
+  String get settingsChangePinWarnBody;
+
+  /// Button label for the change PIN action
+  ///
+  /// In en, this message translates to:
+  /// **'Change PIN'**
+  String get settingsChangePinAction;
+
+  /// Body text of the new PIN step
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a new sync PIN.'**
+  String get settingsChangePinNewBody;
+
+  /// Label for the new PIN text field
+  ///
+  /// In en, this message translates to:
+  /// **'New PIN'**
+  String get settingsChangePinNewLabel;
+
+  /// Label for the confirm new PIN text field
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm new PIN'**
+  String get settingsChangePinConfirmLabel;
+
+  /// Validation error when new PIN field is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a new PIN.'**
+  String get settingsChangePinNewRequired;
+
+  /// Error when new PIN is the same as the current PIN
+  ///
+  /// In en, this message translates to:
+  /// **'Your sync PIN is already set to that.'**
+  String get settingsChangePinSamePin;
+
+  /// Error when new PIN and confirm PIN do not match
+  ///
+  /// In en, this message translates to:
+  /// **'PINs don\'t match.'**
+  String get settingsChangePinMismatch;
+
+  /// Error when a generation conflict is detected during PIN change
+  ///
+  /// In en, this message translates to:
+  /// **'Another device recently changed settings — please try again.'**
+  String get settingsChangePinGenerationConflict;
+
+  /// Generic failure message when PIN change fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to change PIN: {error}'**
+  String settingsChangePinFailed(String error);
+
+  /// Title on the success screen after changing PIN
+  ///
+  /// In en, this message translates to:
+  /// **'PIN changed'**
+  String get settingsChangePinSuccessTitle;
+
+  /// Body text on the success screen after changing PIN
+  ///
+  /// In en, this message translates to:
+  /// **'Your sync PIN has been updated on this device.'**
+  String get settingsChangePinSuccessBody;
 
   /// Title of the edit field sheet
   ///

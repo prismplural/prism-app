@@ -317,11 +317,11 @@ class AppLocalizationsEs extends AppLocalizations {
       'Ver y revocar dispositivos vinculados';
 
   @override
-  String get syncChangePassword => 'Cambiar contraseña';
+  String get syncChangePassword => 'Cambiar PIN';
 
   @override
   String get syncChangePasswordSubtitle =>
-      'Actualizar tu contraseña de cifrado de sincronización';
+      'Actualizar tu PIN de cifrado de sincronización';
 
   @override
   String get syncViewSecretKey => 'Ver clave secreta';
@@ -536,14 +536,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncSecretKeyTitle => 'Clave secreta';
 
   @override
-  String get syncVerifyPasswordTitle => 'Verificar contraseña';
+  String get syncVerifyPasswordTitle => 'Verificar PIN';
 
   @override
   String get syncVerifyPasswordPrompt =>
-      'Ingresa tu contraseña de sincronización para revelar tu frase de recuperación de 12 palabras.';
+      'Ingresa tu PIN de la app para revelar tu frase de recuperación de 12 palabras.';
 
   @override
-  String get syncPasswordHint => 'Contraseña de sincronización';
+  String get syncPasswordHint => 'PIN';
 
   @override
   String get syncShowPassword => 'Mostrar contraseña';
@@ -562,8 +562,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncEngineNotAvailable => 'Motor de sincronización no disponible.';
 
   @override
-  String get syncIncorrectPassword =>
-      'Contraseña incorrecta. Inténtalo de nuevo.';
+  String get syncIncorrectPassword => 'PIN incorrecto. Inténtalo de nuevo.';
 
   @override
   String syncAnErrorOccurred(Object error) {
@@ -3495,21 +3494,20 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingSyncTheyDontMatch => 'No coinciden';
 
   @override
-  String get onboardingSyncEnterPassword => 'Ingresa tu contraseña';
+  String get onboardingSyncEnterPassword => 'Ingresa tu PIN';
 
   @override
   String get onboardingSyncEnterPasswordDescription =>
-      'Ingresa tu contraseña de sincronización para terminar de registrar este dispositivo.';
+      'Ingresa tu PIN de la app para terminar de registrar este dispositivo.';
 
   @override
-  String get onboardingSyncPasswordHint => 'Contraseña';
+  String get onboardingSyncPasswordHint => 'PIN';
 
   @override
   String get onboardingSyncFinishPairing => 'Finalizar emparejamiento';
 
   @override
-  String get onboardingSyncEnterPasswordPrompt =>
-      'Por favor ingresa tu contraseña.';
+  String get onboardingSyncEnterPasswordPrompt => 'Por favor ingresa tu PIN.';
 
   @override
   String get onboardingSyncConnecting => 'Emparejando y sincronizando...';
@@ -5261,6 +5259,107 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settingsChangePasswordSuccessBody =>
       'Tu contraseña de sincronización ha sido actualizada en este dispositivo.';
+
+  @override
+  String get settingsSyncPinTitle => 'Ingresa tu PIN';
+
+  @override
+  String get settingsSyncPinBody =>
+      'Tu PIN de la app es necesario para desbloquear las claves de cifrado en este dispositivo.';
+
+  @override
+  String get settingsSyncPinFieldLabel => 'PIN';
+
+  @override
+  String get settingsSyncPinWrong => 'PIN incorrecto. Inténtalo de nuevo.';
+
+  @override
+  String get settingsSyncPinUnlock => 'Desbloquear';
+
+  @override
+  String get settingsChangePinTitle => 'Cambiar PIN';
+
+  @override
+  String get settingsChangePinVerifyBody =>
+      'Ingresa tu PIN actual para continuar.';
+
+  @override
+  String get settingsChangePinCurrentLabel => 'PIN actual';
+
+  @override
+  String get settingsChangePinContinue => 'Continuar';
+
+  @override
+  String get settingsChangePinCurrentRequired => 'Ingresa tu PIN actual.';
+
+  @override
+  String get settingsChangePinNoSecretKey =>
+      'Clave secreta no encontrada en este dispositivo. Vuelve a emparejar para restaurarla.';
+
+  @override
+  String get settingsChangePinEngineUnavailable =>
+      'Motor de sincronización no disponible.';
+
+  @override
+  String get settingsChangePinIncorrect =>
+      'PIN incorrecto. Inténtalo de nuevo.';
+
+  @override
+  String settingsChangePinVerifyFailed(String error) {
+    return 'Error de verificación: $error';
+  }
+
+  @override
+  String settingsChangePinGenericError(String error) {
+    return 'Ocurrió un error: $error';
+  }
+
+  @override
+  String get settingsChangePinSessionExpired =>
+      'Sesión expirada — verifica de nuevo.';
+
+  @override
+  String get settingsChangePinWarnBody =>
+      'Tus otros dispositivos necesitarán ingresar el nuevo PIN la próxima vez que abran Prism.';
+
+  @override
+  String get settingsChangePinAction => 'Cambiar PIN';
+
+  @override
+  String get settingsChangePinNewBody =>
+      'Elige un nuevo PIN de sincronización.';
+
+  @override
+  String get settingsChangePinNewLabel => 'Nuevo PIN';
+
+  @override
+  String get settingsChangePinConfirmLabel => 'Confirmar nuevo PIN';
+
+  @override
+  String get settingsChangePinNewRequired => 'Ingresa un nuevo PIN.';
+
+  @override
+  String get settingsChangePinSamePin =>
+      'Tu PIN de sincronización ya está configurado con ese valor.';
+
+  @override
+  String get settingsChangePinMismatch => 'Los PINs no coinciden.';
+
+  @override
+  String get settingsChangePinGenerationConflict =>
+      'Otro dispositivo cambió la configuración recientemente — inténtalo de nuevo.';
+
+  @override
+  String settingsChangePinFailed(String error) {
+    return 'No se pudo cambiar el PIN: $error';
+  }
+
+  @override
+  String get settingsChangePinSuccessTitle => 'PIN cambiado';
+
+  @override
+  String get settingsChangePinSuccessBody =>
+      'Tu PIN de sincronización ha sido actualizado en este dispositivo.';
 
   @override
   String get settingsCreateEditFieldEditTitle => 'Editar campo';
