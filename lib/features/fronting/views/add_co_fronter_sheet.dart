@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
@@ -57,6 +58,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final terms = ref.watch(terminologyProvider);
     final membersAsync = ref.watch(activeMembersProvider);
 
     return Container(
@@ -129,7 +131,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                 return Padding(
                   padding: const EdgeInsets.all(32),
                   child: Text(
-                    context.l10n.frontingNoOtherMembers,
+                    context.l10n.frontingNoOtherMembers(terms.pluralLower),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

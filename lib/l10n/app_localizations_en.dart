@@ -822,7 +822,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String statisticsSessions(int count) {
-    return '$count sessions';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sessions',
+      one: '1 session',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1303,8 +1309,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Sync credentials cleared';
 
   @override
-  String get featureChatDescription =>
-      'Internal messaging between system members.';
+  String featureChatDescription(String term) {
+    return 'Internal messaging between system $term.';
+  }
 
   @override
   String get featureChatGeneral => 'General';
@@ -1313,7 +1320,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureChatEnable => 'Enable Chat';
 
   @override
-  String get featureChatEnableSubtitle => 'In-system messaging between members';
+  String featureChatEnableSubtitle(String term) {
+    return 'In-system messaging between $term';
+  }
 
   @override
   String get featureChatOptions => 'Options';
@@ -1362,8 +1371,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'If you switch fronters within this window, it corrects the current session instead of creating a new one.';
 
   @override
-  String get featureHabitsDescription =>
-      'Track recurring tasks and build streaks with your system members.';
+  String featureHabitsDescription(String term) {
+    return 'Track recurring tasks and build streaks with your system $term.';
+  }
 
   @override
   String get featureHabitsGeneral => 'General';
@@ -1421,8 +1431,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featurePollsEnableSubtitle => 'Create polls for system decisions';
 
   @override
-  String get featureNotesDescription =>
-      'A personal journal for system members. Disabling hides notes from navigation but keeps existing entries.';
+  String featureNotesDescription(String term) {
+    return 'A personal journal for system $term. Disabling hides notes from navigation but keeps existing entries.';
+  }
 
   @override
   String get featureNotesEnable => 'Enable Notes';
@@ -1565,7 +1576,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingSelectFronter => 'Select Fronter';
 
   @override
-  String get frontingSelectMember => 'Select Member';
+  String frontingSelectMember(String term) {
+    return 'Select $term';
+  }
 
   @override
   String get frontingCoFrontToggle => 'Co-front';
@@ -1574,11 +1587,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingCoFronters => 'Co-Fronters';
 
   @override
-  String get frontingNoOtherMembers => 'No other members available';
+  String frontingNoOtherMembers(String term) {
+    return 'No other $term available';
+  }
 
   @override
-  String get frontingCoFrontHint =>
-      'Tap a member to add them as a co-fronter to the current session.';
+  String frontingCoFrontHint(String term) {
+    return 'Tap a $term to add them to the co-front of the current session.';
+  }
 
   @override
   String get frontingConfidenceLevel => 'Confidence Level';
@@ -1602,11 +1618,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingNotesHintEdit => 'Optional notes...';
 
   @override
-  String get frontingSearchMembersHint => 'Search members...';
+  String frontingSearchMembersHint(String term) {
+    return 'Search $term...';
+  }
 
   @override
-  String frontingNoMembersMatching(String query) {
-    return 'No members matching \"$query\"';
+  String frontingNoMembersMatching(String term, String query) {
+    return 'No $term matching \"$query\"';
   }
 
   @override
@@ -2388,7 +2406,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String memberSelectedCount(int count) {
-    return '$count selected';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count selected',
+      one: '1 selected',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2804,7 +2828,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String chatGifsFound(int count) {
-    return '$count GIFs found';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count GIFs found',
+      one: '1 GIF found',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3093,7 +3123,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String onboardingPluralKitImportSuccess(int count) {
-    return 'Imported $count members from PluralKit!';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Imported $count members from PluralKit!',
+      one: 'Imported 1 member from PluralKit!',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3720,7 +3756,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String pollsOptionCount(int count) {
-    return '$count options';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count options',
+      one: '1 option',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3830,5 +3872,1619 @@ class AppLocalizationsEn extends AppLocalizations {
       one: '1 poll needs',
     );
     return '$_temp0 your vote';
+  }
+
+  @override
+  String get notesTitle => 'Notes';
+
+  @override
+  String get notesNewNoteTooltip => 'New note';
+
+  @override
+  String get notesEmptyTitle => 'No notes yet';
+
+  @override
+  String get notesEmptySubtitle =>
+      'Create notes to keep track of thoughts and observations';
+
+  @override
+  String get notesNewNoteAction => 'New Note';
+
+  @override
+  String get notesUntitled => 'Untitled';
+
+  @override
+  String get migrationImportData => 'Import Data';
+
+  @override
+  String get migrationReadingFile => 'Reading file…';
+
+  @override
+  String get migrationVerifyingToken => 'Verifying token…';
+
+  @override
+  String get migrationImportFromSimplyPlural => 'Import from Simply Plural';
+
+  @override
+  String get migrationImportDescription =>
+      'Bring your existing data into Prism. Choose how you would like to import your Simply Plural data.';
+
+  @override
+  String get migrationConnectWithApi => 'Connect with API';
+
+  @override
+  String get migrationConnectWithApiSubtitle =>
+      'No file export needed — imports directly from your account';
+
+  @override
+  String get migrationRecommended => 'Recommended';
+
+  @override
+  String get migrationImportFromFile => 'Import from file';
+
+  @override
+  String get migrationImportFromFileSubtitle =>
+      'Use a JSON export file from Simply Plural';
+
+  @override
+  String get migrationSupportedDataTypes => 'Supported data types';
+
+  @override
+  String get migrationSupportedMembers => 'Members';
+
+  @override
+  String get migrationSupportedCustomFronts => 'Custom fronts';
+
+  @override
+  String get migrationSupportedFrontingHistory => 'Fronting history';
+
+  @override
+  String get migrationSupportedChatChannels => 'Chat channels & messages';
+
+  @override
+  String get migrationSupportedPolls => 'Polls';
+
+  @override
+  String get migrationSupportedMemberColors => 'Member colors';
+
+  @override
+  String get migrationSupportedMemberDescriptions => 'Member descriptions';
+
+  @override
+  String get migrationSupportedAvatarImages => 'Avatar images';
+
+  @override
+  String get migrationSupportedNotes => 'Notes';
+
+  @override
+  String get migrationSupportedCustomFields => 'Custom fields';
+
+  @override
+  String get migrationSupportedGroups => 'Groups';
+
+  @override
+  String get migrationSupportedComments => 'Comments on front sessions';
+
+  @override
+  String get migrationSupportedReminders => 'Reminders';
+
+  @override
+  String get migrationConnectToSimplyPlural => 'Connect to Simply Plural';
+
+  @override
+  String get migrationEnterTokenDescription =>
+      'Enter your API token to import data directly.';
+
+  @override
+  String get migrationApiTokenLabel => 'API Token';
+
+  @override
+  String get migrationPasteTokenHint => 'Paste your token here';
+
+  @override
+  String get migrationShowToken => 'Show token';
+
+  @override
+  String get migrationHideToken => 'Hide token';
+
+  @override
+  String get migrationPasteFromClipboard => 'Paste from clipboard';
+
+  @override
+  String get migrationWhereDoIFindThis => 'Where do I find this?';
+
+  @override
+  String get migrationTokenHelpText =>
+      'In Simply Plural, go to Settings → Account → Tokens. Create a new token with Read permission and copy it.';
+
+  @override
+  String get migrationVerifyToken => 'Verify Token';
+
+  @override
+  String get migrationConnected => 'Connected';
+
+  @override
+  String migrationSignedInAs(String username) {
+    return 'Signed in as $username';
+  }
+
+  @override
+  String get migrationContinue => 'Continue';
+
+  @override
+  String get migrationFetchingData => 'Fetching data from Simply Plural…';
+
+  @override
+  String get migrationPreviewImport => 'Preview Import';
+
+  @override
+  String get migrationPreviewDescription =>
+      'Review what was found before importing.';
+
+  @override
+  String get migrationImportInfoNote =>
+      'Imported data will be added alongside any existing data. Nothing will be overwritten.';
+
+  @override
+  String get migrationRemindersApiNote =>
+      'Reminders are not available via the API. To import reminders, use a file export instead.';
+
+  @override
+  String get migrationImportAllAddToExisting => 'Import All (add to existing)';
+
+  @override
+  String get migrationStartFresh => 'Start Fresh (replace all data)';
+
+  @override
+  String get migrationImportAll => 'Import All';
+
+  @override
+  String get migrationReplaceAllTitle => 'Replace all data?';
+
+  @override
+  String get migrationReplaceAllMessage =>
+      'This will delete all existing members, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.';
+
+  @override
+  String get migrationReplaceAll => 'Replace All';
+
+  @override
+  String get migrationImporting => 'Importing…';
+
+  @override
+  String get migrationImportComplete => 'Import Complete';
+
+  @override
+  String migrationImportSuccess(int total, int seconds) {
+    return 'Successfully imported $total items in ${seconds}s.';
+  }
+
+  @override
+  String get migrationSummary => 'Summary';
+
+  @override
+  String get migrationResultMembers => 'Members';
+
+  @override
+  String get migrationResultFrontSessions => 'Front sessions';
+
+  @override
+  String get migrationResultConversations => 'Conversations';
+
+  @override
+  String get migrationResultMessages => 'Messages';
+
+  @override
+  String get migrationResultPolls => 'Polls';
+
+  @override
+  String get migrationResultNotes => 'Notes';
+
+  @override
+  String get migrationResultComments => 'Comments';
+
+  @override
+  String get migrationResultCustomFields => 'Custom fields';
+
+  @override
+  String get migrationResultGroups => 'Groups';
+
+  @override
+  String get migrationResultReminders => 'Reminders';
+
+  @override
+  String get migrationResultAvatarsDownloaded => 'Avatars downloaded';
+
+  @override
+  String migrationWarnings(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count warnings',
+      one: '1 warning',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get migrationImportFailed => 'Import Failed';
+
+  @override
+  String get migrationTryFileImport => 'Try file import instead';
+
+  @override
+  String get migrationUnknownError => 'An unknown error occurred.';
+
+  @override
+  String migrationPreviewSystem(String name) {
+    return 'System: $name';
+  }
+
+  @override
+  String get migrationPreviewDataFound => 'Data found';
+
+  @override
+  String get migrationPreviewFrontHistoryEntries => 'Front history entries';
+
+  @override
+  String get migrationPreviewChatChannels => 'Chat channels';
+
+  @override
+  String get migrationPreviewMessages => 'Messages';
+
+  @override
+  String get migrationPreviewTotalEntities => 'Total entities';
+
+  @override
+  String get migrationPreviewWarnings => 'Warnings';
+
+  @override
+  String get migrationPreviewCustomFronts => 'Custom fronts';
+
+  @override
+  String get migrationPreviewGroups => 'Groups';
+
+  @override
+  String get migrationPreviewPolls => 'Polls';
+
+  @override
+  String get pluralkitTitle => 'PluralKit';
+
+  @override
+  String get pluralkitAccount => 'PluralKit Account';
+
+  @override
+  String get pluralkitSyncDirection => 'Sync Direction';
+
+  @override
+  String get pluralkitSyncActions => 'Sync Actions';
+
+  @override
+  String get pluralkitHowItWorks => 'How It Works';
+
+  @override
+  String get pluralkitDisconnectTitle => 'Disconnect PluralKit?';
+
+  @override
+  String get pluralkitDisconnectMessage =>
+      'This will remove your token and disconnect from PluralKit. Your imported data will remain in the app.';
+
+  @override
+  String get pluralkitDisconnect => 'Disconnect';
+
+  @override
+  String get pluralkitConnected => 'Connected';
+
+  @override
+  String pluralkitLastSync(String when) {
+    return 'Last sync: $when';
+  }
+
+  @override
+  String pluralkitLastManualSync(String when) {
+    return 'Last manual sync: $when';
+  }
+
+  @override
+  String get pluralkitTokenLabel => 'PluralKit Token';
+
+  @override
+  String get pluralkitPasteTokenHint => 'Paste your token here';
+
+  @override
+  String get pluralkitConnect => 'Connect';
+
+  @override
+  String get pluralkitTokenHelp =>
+      'To get your token, DM the PluralKit bot on Discord with \"pk;token\" and paste the result here.';
+
+  @override
+  String get pluralkitImportButton => 'Import from PluralKit';
+
+  @override
+  String get pluralkitSyncRecent => 'Sync Recent Changes';
+
+  @override
+  String pluralkitSyncRecentCooldown(int seconds) {
+    return 'Sync Recent Changes (${seconds}s)';
+  }
+
+  @override
+  String get pluralkitSyncDirectionDescription =>
+      'Choose how data flows between Prism and PluralKit.';
+
+  @override
+  String get pluralkitPull => 'Pull';
+
+  @override
+  String get pluralkitBoth => 'Both';
+
+  @override
+  String get pluralkitPush => 'Push';
+
+  @override
+  String get pluralkitLastSyncSummary => 'Last Sync Summary';
+
+  @override
+  String get pluralkitUpToDate => 'Everything is up to date.';
+
+  @override
+  String pluralkitMembersPulled(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members pulled',
+      one: '1 member pulled',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitMembersPushed(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members pushed',
+      one: '1 member pushed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitSwitchesPulled(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count switches pulled',
+      one: '1 switch pulled',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitSwitchesPushed(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count switches pushed',
+      one: '1 switch pushed',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitMembersUnchanged(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members unchanged',
+      one: '1 member unchanged',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pluralkitInfoSync =>
+      'Supports pull, push, or bidirectional sync. Choose your preferred direction above.';
+
+  @override
+  String get pluralkitInfoToken =>
+      'Your token is stored securely in the device keychain and never leaves your device.';
+
+  @override
+  String get pluralkitInfoMembers =>
+      'Members are matched by PluralKit UUID. Existing members are updated, new ones are created.';
+
+  @override
+  String get pluralkitInfoSwitches =>
+      'Switches are imported as fronting sessions. Duplicate switches are automatically skipped.';
+
+  @override
+  String get pluralkitJustNow => 'Just now';
+
+  @override
+  String pluralkitMinutesAgo(int minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String pluralkitHoursAgo(int hours) {
+    return '${hours}h ago';
+  }
+
+  @override
+  String pluralkitDaysAgo(int days) {
+    return '${days}d ago';
+  }
+
+  @override
+  String get dataManagementExportTitle => 'Export Data';
+
+  @override
+  String get dataManagementImportTitle => 'Import Data';
+
+  @override
+  String get dataManagementImportExportTitle => 'Import & Export';
+
+  @override
+  String get dataManagementExportSectionTitle => 'Export';
+
+  @override
+  String get dataManagementImportSectionTitle => 'Import';
+
+  @override
+  String get dataManagementImportFromOtherApps => 'Import from Other Apps';
+
+  @override
+  String get dataManagementExportRowTitle => 'Export Data';
+
+  @override
+  String get dataManagementExportRowSubtitle =>
+      'Create a password-protected backup';
+
+  @override
+  String get dataManagementImportRowTitle => 'Import Data';
+
+  @override
+  String get dataManagementImportRowSubtitle =>
+      'Restore data from a Prism export file (.json or .prism)';
+
+  @override
+  String get dataManagementPluralKitRowSubtitle =>
+      'Import members & fronting via API token';
+
+  @override
+  String get dataManagementSimplyPluralRowTitle => 'Simply Plural';
+
+  @override
+  String get dataManagementSimplyPluralRowSubtitle =>
+      'Import from a Simply Plural export file';
+
+  @override
+  String get dataManagementExportYourData => 'Export Your Data';
+
+  @override
+  String get dataManagementExportDescription =>
+      'Create a password-protected backup of all your data including members, fronting sessions, messages, polls, and settings.';
+
+  @override
+  String get dataManagementExportButton => 'Export Data';
+
+  @override
+  String get dataManagementEncryptExport => 'Encrypt Export';
+
+  @override
+  String get dataManagementEncryptDescription =>
+      'Set a password to encrypt your export file. You will need this password to import the data later.';
+
+  @override
+  String get dataManagementUnencryptedWarning =>
+      'Unencrypted exports are plain JSON. Anyone who opens the file can read its contents.';
+
+  @override
+  String get dataManagementPasswordLabel => 'Password';
+
+  @override
+  String get dataManagementPasswordHint =>
+      'Use a passphrase of 15+ words for best protection';
+
+  @override
+  String get dataManagementShowPassword => 'Show password';
+
+  @override
+  String get dataManagementHidePassword => 'Hide password';
+
+  @override
+  String get dataManagementConfirmPasswordLabel => 'Confirm Password';
+
+  @override
+  String get dataManagementExportUnencrypted => 'Export Unencrypted';
+
+  @override
+  String get dataManagementEncrypt => 'Encrypt';
+
+  @override
+  String get dataManagementExporting => 'Exporting your data…';
+
+  @override
+  String get dataManagementMayTakeMoment => 'This may take a moment.';
+
+  @override
+  String get dataManagementExportFailed => 'Export Failed';
+
+  @override
+  String get dataManagementRetry => 'Retry';
+
+  @override
+  String get dataManagementExportComplete => 'Export Complete';
+
+  @override
+  String get dataManagementExportWithoutEncryptionTitle =>
+      'Export without encryption?';
+
+  @override
+  String get dataManagementExportWithoutEncryptionMessage =>
+      'This will create a plain JSON file that anyone who opens it can read. Use encrypted export unless you specifically need an insecure backup.';
+
+  @override
+  String get dataManagementExportUnencryptedConfirm => 'Export Unencrypted';
+
+  @override
+  String get dataManagementPasswordEmpty => 'Password cannot be empty';
+
+  @override
+  String get dataManagementPasswordTooShort =>
+      'Password must be at least 12 characters';
+
+  @override
+  String get dataManagementPasswordMismatch => 'Passwords do not match';
+
+  @override
+  String get dataManagementSelectFile => 'Select File';
+
+  @override
+  String get dataManagementImportFileDescription =>
+      'Select a Prism export file (.json or .prism) to restore your data. Existing data will not be overwritten.';
+
+  @override
+  String get dataManagementEncryptedFile => 'Encrypted File';
+
+  @override
+  String get dataManagementEncryptedFileDescription =>
+      'This export file is encrypted. Enter the password that was used when the export was created.';
+
+  @override
+  String get dataManagementDecrypt => 'Decrypt';
+
+  @override
+  String get dataManagementImportPreview => 'Import Preview';
+
+  @override
+  String dataManagementExportedDate(String date) {
+    return 'Exported: $date';
+  }
+
+  @override
+  String get dataManagementPreviewMembers => 'Members';
+
+  @override
+  String get dataManagementPreviewFrontSessions => 'Front Sessions';
+
+  @override
+  String get dataManagementPreviewSleepSessions => 'Sleep Sessions';
+
+  @override
+  String get dataManagementPreviewConversations => 'Conversations';
+
+  @override
+  String get dataManagementPreviewMessages => 'Messages';
+
+  @override
+  String get dataManagementPreviewPolls => 'Polls';
+
+  @override
+  String get dataManagementPreviewPollOptions => 'Poll Options';
+
+  @override
+  String get dataManagementPreviewSettings => 'Settings';
+
+  @override
+  String get dataManagementPreviewHabits => 'Habits';
+
+  @override
+  String get dataManagementPreviewHabitCompletions => 'Habit Completions';
+
+  @override
+  String get dataManagementPreviewTotal => 'Total';
+
+  @override
+  String get dataManagementPreviewTotalCreated => 'Total Created';
+
+  @override
+  String get dataManagementImport => 'Import';
+
+  @override
+  String get dataManagementImporting => 'Importing your data…';
+
+  @override
+  String get dataManagementImportingMessage =>
+      'This may take a moment. Do not close the app.';
+
+  @override
+  String get dataManagementImportComplete => 'Import Complete';
+
+  @override
+  String get dataManagementImportFailed => 'Import Failed';
+
+  @override
+  String get dataManagementImportFailedNote =>
+      'No data was imported. The database was not modified.';
+
+  @override
+  String get dataManagementIncorrectPassword => 'Incorrect password';
+
+  @override
+  String dataManagementDecryptionFailed(String error) {
+    return 'Decryption failed: $error';
+  }
+
+  @override
+  String get dataManagementPasswordEmptyImport => 'Password cannot be empty';
+
+  @override
+  String get sharingTitle => 'Sharing';
+
+  @override
+  String get sharingRefreshInbox => 'Refresh inbox';
+
+  @override
+  String get sharingUseSharingCodeTooltip => 'Use sharing code';
+
+  @override
+  String get sharingShareYourCodeTooltip => 'Share your code';
+
+  @override
+  String get sharingPendingRequests => 'Pending Requests';
+
+  @override
+  String get sharingTrustedPeople => 'Trusted People';
+
+  @override
+  String get sharingEmptyTitle => 'No sharing relationships yet';
+
+  @override
+  String get sharingEmptySubtitle =>
+      'Share your code so someone can send you a request, or use someone else\'s code to connect.';
+
+  @override
+  String get sharingShareMyCode => 'Share My Code';
+
+  @override
+  String get sharingUseACode => 'Use a Code';
+
+  @override
+  String get sharingRequestSent =>
+      'Sharing request sent. They will see it the next time they check sharing.';
+
+  @override
+  String get sharingNoNewRequests => 'No new sharing requests';
+
+  @override
+  String get sharingUnableToRefresh => 'Unable to refresh sharing inbox';
+
+  @override
+  String get sharingSyncNotConfigured => 'Sync is not configured';
+
+  @override
+  String get sharingRequestAccepted => 'Sharing request accepted';
+
+  @override
+  String get sharingUnableToAccept => 'Unable to accept request';
+
+  @override
+  String get sharingRequestDismissed => 'Request dismissed';
+
+  @override
+  String get sharingRemoveTitle => 'Remove relationship';
+
+  @override
+  String sharingRemoveMessage(String name) {
+    return 'Remove $name and revoke their access? This cannot be undone.';
+  }
+
+  @override
+  String get sharingRemove => 'Remove';
+
+  @override
+  String get sharingNoScopesGranted => 'No scopes granted';
+
+  @override
+  String get sharingJustNow => 'Just now';
+
+  @override
+  String sharingMinutesAgo(int minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String sharingHoursAgo(int hours) {
+    return '${hours}h ago';
+  }
+
+  @override
+  String sharingDaysAgo(int days) {
+    return '${days}d ago';
+  }
+
+  @override
+  String get sharingIgnore => 'Ignore';
+
+  @override
+  String get sharingDismiss => 'Dismiss';
+
+  @override
+  String get sharingAccept => 'Accept';
+
+  @override
+  String get sharingUseSharingCode => 'Use Sharing Code';
+
+  @override
+  String get sharingSharingCodeLabel => 'Sharing code';
+
+  @override
+  String get sharingSharingCodeHint => 'Paste the code you received';
+
+  @override
+  String sharingConnectingWith(String name) {
+    return 'Connecting with $name';
+  }
+
+  @override
+  String get sharingReadyToSend => 'Ready to send a sharing request';
+
+  @override
+  String get sharingYourDisplayName => 'Your display name';
+
+  @override
+  String get sharingDisplayNameHint => 'How they will see you';
+
+  @override
+  String get sharingWhatToShare => 'What to share';
+
+  @override
+  String get sharingSending => 'Sending…';
+
+  @override
+  String get sharingSendRequest => 'Send Request';
+
+  @override
+  String get sharingInvalidCode => 'Invalid sharing code';
+
+  @override
+  String sharingFailedToSend(Object error) {
+    return 'Failed to send sharing request: $error';
+  }
+
+  @override
+  String get sharingShareYourCode => 'Share Your Code';
+
+  @override
+  String get sharingEnableSharing => 'Enable Sharing';
+
+  @override
+  String get sharingDescription =>
+      'Sharing uses a stable code instead of an inline key exchange. Anyone with this code can send you a sharing request.';
+
+  @override
+  String get sharingDisplayNameOptionalLabel => 'Display name (optional)';
+
+  @override
+  String get sharingDisplayNameOptionalHint =>
+      'Shown to the person opening your code';
+
+  @override
+  String get sharingSharingCodeTitle => 'Sharing Code';
+
+  @override
+  String get sharingCodeValidNote =>
+      'This code stays valid until you turn sharing off.';
+
+  @override
+  String get sharingCopy => 'Copy';
+
+  @override
+  String sharingFailedToEnable(Object error) {
+    return 'Failed to enable sharing: $error';
+  }
+
+  @override
+  String get sharingCodeCopied => 'Sharing code copied (auto-clears in 15s)';
+
+  @override
+  String get sharingFriend => 'Friend';
+
+  @override
+  String get sharingFriendNotFound => 'Friend not found';
+
+  @override
+  String get sharingGrantedScopes => 'Granted Scopes';
+
+  @override
+  String get sharingSharingId => 'Sharing ID';
+
+  @override
+  String get sharingCopySharingId => 'Copy sharing ID';
+
+  @override
+  String get sharingSharingIdCopied => 'Sharing ID copied';
+
+  @override
+  String get sharingLastSynced => 'Last synced';
+
+  @override
+  String get sharingRevokeAccess => 'Revoke Access';
+
+  @override
+  String get sharingVerified => 'Verified';
+
+  @override
+  String get sharingNotVerified => 'Not verified';
+
+  @override
+  String sharingAddedDate(String date) {
+    return 'Added $date';
+  }
+
+  @override
+  String get sharingVerificationRecommended => 'Verification Recommended';
+
+  @override
+  String sharingVerificationDescription(String name) {
+    return 'Compare fingerprints with $name out of band before marking this relationship as verified.';
+  }
+
+  @override
+  String get sharingCompareFingerprint => 'Compare Fingerprint';
+
+  @override
+  String get sharingSecurityFingerprintTitle => 'Security Fingerprint';
+
+  @override
+  String sharingFingerprintCompareText(String name) {
+    return 'Compare this fingerprint with $name. Only mark it verified if they see the same value.';
+  }
+
+  @override
+  String get sharingFingerprintWarning =>
+      'Do not verify if the fingerprints differ.';
+
+  @override
+  String get sharingMarkVerified => 'Mark Verified';
+
+  @override
+  String get sharingRevokeTitle => 'Revoke access';
+
+  @override
+  String sharingRevokeMessage(String name) {
+    return 'Revoke all access for $name? Resource keys will be rotated.';
+  }
+
+  @override
+  String get sharingRevoke => 'Revoke';
+
+  @override
+  String get sharingUnableToComputeFingerprint =>
+      'Unable to compute fingerprint';
+
+  @override
+  String sharingFingerprintCopied(String label) {
+    return '$label copied';
+  }
+
+  @override
+  String sharingCopyLabel(String label) {
+    return 'Copy $label';
+  }
+
+  @override
+  String get sharingFingerprint => 'Fingerprint';
+
+  @override
+  String get sharingIdentity => 'Identity';
+
+  @override
+  String get remindersTitle => 'Reminders';
+
+  @override
+  String remindersLoadError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get remindersEmptyTitle => 'No reminders';
+
+  @override
+  String get remindersEmptySubtitle =>
+      'Create reminders for fronting changes or scheduled times';
+
+  @override
+  String get remindersEmptyAction => 'Add Reminder';
+
+  @override
+  String remindersDeletedSnackbar(String name) {
+    return 'Deleted \"$name\"';
+  }
+
+  @override
+  String get remindersUndoAction => 'Undo';
+
+  @override
+  String get remindersSubtitleOnFrontChange => 'On front change';
+
+  @override
+  String remindersSubtitleOnFrontChangeDelay(int hours) {
+    return 'On front change (${hours}h delay)';
+  }
+
+  @override
+  String get remindersSubtitleDaily => 'Daily';
+
+  @override
+  String remindersSubtitleEveryNDays(int days) {
+    return 'Every $days days';
+  }
+
+  @override
+  String get remindersScheduled => 'Scheduled';
+
+  @override
+  String get remindersEditTitle => 'Edit Reminder';
+
+  @override
+  String get remindersNewTitle => 'New Reminder';
+
+  @override
+  String get remindersNameLabel => 'Reminder name';
+
+  @override
+  String get remindersMessageLabel => 'Notification message';
+
+  @override
+  String get remindersTriggerLabel => 'Trigger';
+
+  @override
+  String get remindersTriggerFrontChange => 'Front Change';
+
+  @override
+  String get remindersRepeatEveryLabel => 'Repeat every';
+
+  @override
+  String remindersIntervalDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get remindersTimeLabel => 'Time';
+
+  @override
+  String get remindersDelayLabel => 'Delay after front change';
+
+  @override
+  String get remindersImmediately => 'Immediately';
+
+  @override
+  String remindersDelayHours(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hours',
+      one: '1 hour',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsAboutAppName => 'Prism';
+
+  @override
+  String get settingsAboutTagline => 'Plural system management';
+
+  @override
+  String settingsAboutVersion(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get settingsAboutDescription =>
+      'A privacy-focused app for managing plural systems. Track fronting, communicate between headmates, and keep your system organized.';
+
+  @override
+  String get settingsAboutGitHub => 'GitHub';
+
+  @override
+  String get settingsAboutPrivacy => 'Privacy';
+
+  @override
+  String get settingsAboutFeedback => 'Feedback';
+
+  @override
+  String get settingsAboutGitHubComingSoon => 'GitHub link coming soon';
+
+  @override
+  String get settingsAboutPrivacyComingSoon => 'Privacy policy coming soon';
+
+  @override
+  String get settingsAboutFeedbackComingSoon => 'Feedback form coming soon';
+
+  @override
+  String get settingsCustomFieldsTitle => 'Custom Fields';
+
+  @override
+  String get settingsCustomFieldsAddTooltip => 'Add field';
+
+  @override
+  String settingsCustomFieldsError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get settingsCustomFieldsEmptyTitle => 'No custom fields';
+
+  @override
+  String get settingsCustomFieldsEmptySubtitle =>
+      'Add fields to track custom attributes for each member';
+
+  @override
+  String get settingsCustomFieldsAddAction => 'Add Field';
+
+  @override
+  String get settingsCustomFieldsDeleteTitle => 'Delete Field';
+
+  @override
+  String settingsCustomFieldsDeleteConfirm(String name) {
+    return 'Are you sure you want to delete \"$name\"? This will delete the field and all its values.';
+  }
+
+  @override
+  String settingsCustomFieldsDeletedToast(String name) {
+    return '$name deleted';
+  }
+
+  @override
+  String get settingsAccentColorPrismPurple => 'Prism Purple';
+
+  @override
+  String get settingsAccentColorBlue => 'Blue';
+
+  @override
+  String get settingsAccentColorGreen => 'Green';
+
+  @override
+  String get settingsAccentColorRed => 'Red';
+
+  @override
+  String get settingsAccentColorOrange => 'Orange';
+
+  @override
+  String get settingsAccentColorPink => 'Pink';
+
+  @override
+  String get settingsAccentColorTeal => 'Teal';
+
+  @override
+  String get settingsAccentColorAmber => 'Amber';
+
+  @override
+  String get settingsAccentColorIndigo => 'Indigo';
+
+  @override
+  String get settingsAccentColorGray => 'Gray';
+
+  @override
+  String get settingsAccentColorSystemColor => 'System color';
+
+  @override
+  String get settingsAccentColorCustom => 'Custom';
+
+  @override
+  String get settingsAccentColorPickerTitle => 'Pick a color';
+
+  @override
+  String get settingsAccentColorSelect => 'Select';
+
+  @override
+  String get settingsAccentColorSystemPaletteNote =>
+      'Using your system color palette';
+
+  @override
+  String get settingsSyncPasswordTitle => 'Enter your sync password';
+
+  @override
+  String get settingsSyncPasswordBody =>
+      'Your sync password is needed to unlock encryption keys on this device.';
+
+  @override
+  String get settingsSyncPasswordFieldLabel => 'Password';
+
+  @override
+  String get settingsSyncPasswordShow => 'Show password';
+
+  @override
+  String get settingsSyncPasswordHide => 'Hide password';
+
+  @override
+  String get settingsSyncPasswordWrong =>
+      'Incorrect password. Please try again.';
+
+  @override
+  String get settingsSyncPasswordUnlock => 'Unlock';
+
+  @override
+  String get settingsChangePasswordTitle => 'Change Password';
+
+  @override
+  String get settingsChangePasswordVerifyBody =>
+      'Enter your current sync password to continue.';
+
+  @override
+  String get settingsChangePasswordCurrentLabel => 'Current password';
+
+  @override
+  String get settingsChangePasswordShowPassword => 'Show password';
+
+  @override
+  String get settingsChangePasswordHidePassword => 'Hide password';
+
+  @override
+  String get settingsChangePasswordContinue => 'Continue';
+
+  @override
+  String get settingsChangePasswordCurrentRequired =>
+      'Enter your current password.';
+
+  @override
+  String get settingsChangePasswordNoSecretKey =>
+      'Secret Key not found on this device. Re-pair to restore it.';
+
+  @override
+  String get settingsChangePasswordEngineUnavailable =>
+      'Sync engine not available.';
+
+  @override
+  String get settingsChangePasswordIncorrect =>
+      'Incorrect password. Please try again.';
+
+  @override
+  String settingsChangePasswordVerifyFailed(String error) {
+    return 'Verification failed: $error';
+  }
+
+  @override
+  String settingsChangePasswordGenericError(String error) {
+    return 'An error occurred: $error';
+  }
+
+  @override
+  String get settingsChangePasswordSessionExpired =>
+      'Session expired — please verify again.';
+
+  @override
+  String get settingsChangePasswordWarnBody =>
+      'Your other devices will need to enter the new password when they next open Prism.';
+
+  @override
+  String get settingsChangePasswordAction => 'Change Password';
+
+  @override
+  String get settingsChangePasswordNewBody => 'Choose a new sync password.';
+
+  @override
+  String get settingsChangePasswordNewLabel => 'New password';
+
+  @override
+  String get settingsChangePasswordConfirmLabel => 'Confirm new password';
+
+  @override
+  String get settingsChangePasswordNewRequired => 'Enter a new password.';
+
+  @override
+  String get settingsChangePasswordSamePassword =>
+      'Your sync password is already set to that.';
+
+  @override
+  String get settingsChangePasswordMismatch => 'Passwords don\'t match.';
+
+  @override
+  String get settingsChangePasswordGenerationConflict =>
+      'Another device recently changed settings — please try again.';
+
+  @override
+  String settingsChangePasswordFailed(String error) {
+    return 'Failed to change password: $error';
+  }
+
+  @override
+  String get settingsChangePasswordSuccessTitle => 'Password changed';
+
+  @override
+  String get settingsChangePasswordSuccessBody =>
+      'Your sync password has been updated on this device.';
+
+  @override
+  String get settingsCreateEditFieldEditTitle => 'Edit Field';
+
+  @override
+  String get settingsCreateEditFieldNewTitle => 'New Field';
+
+  @override
+  String get settingsCreateEditFieldNameLabel => 'Field Name';
+
+  @override
+  String get settingsCreateEditFieldNameHint => 'e.g. Birthday, Favorite Color';
+
+  @override
+  String get settingsCreateEditFieldTypeHeading => 'Type';
+
+  @override
+  String get settingsCreateEditFieldTypeImmutable =>
+      'Type cannot be changed after creation.';
+
+  @override
+  String get settingsCreateEditFieldDatePrecisionHeading => 'Date Precision';
+
+  @override
+  String settingsCreateEditFieldSaveError(String error) {
+    return 'Error saving field: $error';
+  }
+
+  @override
+  String get settingsDataBrowserTitle => 'Data Browser';
+
+  @override
+  String get settingsDataBrowserReloadTooltip => 'Reload data';
+
+  @override
+  String get settingsDataBrowserTabMembers => 'Members';
+
+  @override
+  String get settingsDataBrowserTabSessions => 'Sessions';
+
+  @override
+  String get settingsDataBrowserTabChats => 'Chats';
+
+  @override
+  String get settingsDataBrowserTabMessages => 'Msgs';
+
+  @override
+  String get settingsDataBrowserTabPolls => 'Polls';
+
+  @override
+  String settingsDataBrowserError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get settingsDataBrowserNoMembers => 'No members';
+
+  @override
+  String get settingsDataBrowserNoSessions => 'No sessions';
+
+  @override
+  String get settingsDataBrowserNoConversations => 'No conversations';
+
+  @override
+  String get settingsDataBrowserNoMessages => 'No messages';
+
+  @override
+  String get settingsDataBrowserNoPolls => 'No polls';
+
+  @override
+  String get settingsDataBrowserSessionActive => 'Active';
+
+  @override
+  String get settingsDataBrowserSessionEnded => 'Ended';
+
+  @override
+  String get settingsDataBrowserUntitled => 'Untitled';
+
+  @override
+  String settingsDataBrowserParticipantCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count participants',
+      one: '1 participant',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsDataBrowserSystemMessage => 'System';
+
+  @override
+  String get settingsDataBrowserPollClosed => 'Closed';
+
+  @override
+  String get settingsDataBrowserPollActive => 'Active';
+
+  @override
+  String get settingsDataBrowserNoMessagesInConversation =>
+      'No messages in this conversation.';
+
+  @override
+  String get settingsDataBrowserLoadError => 'Error loading — tap to retry';
+
+  @override
+  String settingsDataBrowserMessageCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count messages',
+      one: '1 message',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsDataBrowserTapToLoad => 'Tap to load messages';
+
+  @override
+  String get settingsDataBrowserSessionEndTimeActive => 'null (active)';
+
+  @override
+  String get settingsSyncDebugTitle => 'Sync Event Log';
+
+  @override
+  String settingsSyncDebugEventCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count events',
+      one: '1 event',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsSyncDebugCopyLogTooltip => 'Copy log';
+
+  @override
+  String get settingsSyncDebugClearLogTooltip => 'Clear log';
+
+  @override
+  String get settingsSyncDebugCopiedToast => 'Sync event log copied';
+
+  @override
+  String get settingsSyncDebugEmptyTitle => 'No sync events recorded';
+
+  @override
+  String get settingsSyncDebugEmptyBody =>
+      'Sync events will appear here as they happen.';
+
+  @override
+  String get settingsTerminologyPickerLabel => 'Terminology';
+
+  @override
+  String get settingsTerminologyOptionMembers => 'Members';
+
+  @override
+  String get settingsTerminologyOptionMembersSingular => 'member';
+
+  @override
+  String get settingsTerminologyOptionHeadmates => 'Headmates';
+
+  @override
+  String get settingsTerminologyOptionHeadmatesSingular => 'headmate';
+
+  @override
+  String get settingsTerminologyOptionAlters => 'Alters';
+
+  @override
+  String get settingsTerminologyOptionAltersSingular => 'alter';
+
+  @override
+  String get settingsTerminologyOptionParts => 'Parts';
+
+  @override
+  String get settingsTerminologyOptionPartsSingular => 'part';
+
+  @override
+  String get settingsTerminologyOptionFacets => 'Facets';
+
+  @override
+  String get settingsTerminologyOptionFacetsSingular => 'facet';
+
+  @override
+  String get settingsTerminologyOptionCustom => 'Custom';
+
+  @override
+  String get settingsTerminologyOptionCustomSingular => 'custom term';
+
+  @override
+  String get settingsTerminologyCustomSingularLabel => 'Custom term (singular)';
+
+  @override
+  String get settingsTerminologyCustomSingularHint => 'e.g. fragment';
+
+  @override
+  String get settingsTerminologyCustomPluralLabel => 'Custom term (plural)';
+
+  @override
+  String get settingsTerminologyCustomPluralHint => 'e.g. fragments';
+
+  @override
+  String get settingsTerminologyPreviewLabel => 'Preview';
+
+  @override
+  String get navHome => 'Home';
+
+  @override
+  String get navChat => 'Chat';
+
+  @override
+  String get navHabits => 'Habits';
+
+  @override
+  String get navPolls => 'Polls';
+
+  @override
+  String get navSettings => 'Settings';
+
+  @override
+  String get navMembers => 'Members';
+
+  @override
+  String get navReminders => 'Reminders';
+
+  @override
+  String get navNotes => 'Notes';
+
+  @override
+  String get navStatistics => 'Statistics';
+
+  @override
+  String get onboardingWelcomeTitle => 'Welcome to Prism';
+
+  @override
+  String get onboardingWelcomeSubtitle => 'Your system, your way.';
+
+  @override
+  String get onboardingSyncDeviceTitle => 'Sync From Device';
+
+  @override
+  String get onboardingSyncDeviceSubtitle => 'Pair with an existing device';
+
+  @override
+  String get onboardingImportedDataReadyTitle => 'Data Ready';
+
+  @override
+  String get onboardingImportedDataReadySubtitle =>
+      'Your imported system is ready to use';
+
+  @override
+  String get onboardingImportDataTitle => 'Already have data?';
+
+  @override
+  String get onboardingImportDataSubtitle => 'Bring your system with you.';
+
+  @override
+  String get onboardingSystemNameTitle => 'Name your system';
+
+  @override
+  String get onboardingSystemNameSubtitle => 'Whatever feels right.';
+
+  @override
+  String get onboardingAddMembersTitle => 'Who\'s here?';
+
+  @override
+  String get onboardingAddMembersSubtitle => 'Add the people in your system.';
+
+  @override
+  String get onboardingFeaturesTitle => 'Pick your tools';
+
+  @override
+  String get onboardingFeaturesSubtitle =>
+      'Turn on what you need. Change anytime.';
+
+  @override
+  String get onboardingChatSetupTitle => 'Set up chat';
+
+  @override
+  String get onboardingChatSetupSubtitle => 'Channels for your system to talk.';
+
+  @override
+  String get onboardingPreferencesTitle => 'Make it yours';
+
+  @override
+  String get onboardingPreferencesSubtitle =>
+      'Colors, language, the small things.';
+
+  @override
+  String get onboardingWhosFrontingTitle => 'Who\'s fronting?';
+
+  @override
+  String get onboardingWhosFrontingSubtitle => 'Tap whoever\'s here right now.';
+
+  @override
+  String get onboardingCompleteTitle => 'Ready when you are';
+
+  @override
+  String get onboardingCompleteSubtitle =>
+      'Your system is set up. Here\'s what to explore.';
+
+  @override
+  String terminologyAddButton(String term) {
+    return 'Add $term';
+  }
+
+  @override
+  String terminologySearchHint(String term) {
+    return 'Search $term...';
+  }
+
+  @override
+  String terminologyEmptyTitle(String term) {
+    return 'No $term yet';
+  }
+
+  @override
+  String terminologyEmptyActiveTitle(String term) {
+    return 'No active $term yet';
+  }
+
+  @override
+  String terminologyNewItem(String term) {
+    return 'New $term';
+  }
+
+  @override
+  String terminologyEditItem(String term) {
+    return 'Edit $term';
+  }
+
+  @override
+  String terminologyDeleteItem(String term) {
+    return 'Delete $term';
+  }
+
+  @override
+  String terminologyManage(String term) {
+    return 'Manage $term';
+  }
+
+  @override
+  String terminologyDeleteSelected(String term) {
+    return 'Delete Selected $term';
+  }
+
+  @override
+  String terminologySelectPrompt(String term) {
+    return 'Select a $term';
+  }
+
+  @override
+  String terminologyNoFound(String term) {
+    return 'No $term found';
+  }
+
+  @override
+  String terminologyLoadError(String term, String error) {
+    return 'Error loading $term: $error';
+  }
+
+  @override
+  String terminologyAddFirstSubtitle(String term) {
+    return 'Add your first system $term to get started';
+  }
+
+  @override
+  String pollsVotingAsSelectPrompt(String term) {
+    return 'Select a $term to vote as';
   }
 }

@@ -5,6 +5,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -129,6 +130,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final terms = ref.watch(terminologyProvider);
     final membersAsync = ref.watch(activeMembersProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final activeSessions = activeSessionsAsync.whenOrNull(data: (s) => s) ?? [];
@@ -191,7 +193,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
               children: [
                 Expanded(
                   child: Text(
-                    _coFrontMode ? context.l10n.frontingSelectMember : context.l10n.frontingSelectFronter,
+                    _coFrontMode ? context.l10n.frontingSelectMember(terms.singular) : context.l10n.frontingSelectFronter,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -269,6 +271,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                 members: members,
                 selectedId: _selectedId,
                 unknownId: _unknownId,
+                pluralTerm: terms.pluralLower,
                 frontingMemberIds: frontingMemberIds,
                 coFrontMode: _coFrontMode,
                 onSelect: (id) {
@@ -299,7 +302,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                       .toList();
                   if (available.isEmpty) {
                     return Text(
-                      context.l10n.frontingNoOtherMembers,
+                      context.l10n.frontingNoOtherMembers(terms.pluralLower),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -339,7 +342,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
             if (_coFrontMode) ...[
               // In co-front mode, just show a hint
               Text(
-                context.l10n.frontingCoFrontHint,
+                context.l10n.frontingCoFrontHint(terms.singularLower),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -390,6 +393,7 @@ class _MemberGrid extends StatefulWidget {
     required this.selectedId,
     required this.unknownId,
     required this.onSelect,
+    required this.pluralTerm,
     this.frontingMemberIds = const {},
     this.coFrontMode = false,
   });
@@ -398,6 +402,7 @@ class _MemberGrid extends StatefulWidget {
   final String? selectedId;
   final String unknownId;
   final ValueChanged<String> onSelect;
+  final String pluralTerm;
   final Set<String> frontingMemberIds;
   final bool coFrontMode;
 
@@ -595,7 +600,7 @@ class _MemberGridState extends State<_MemberGrid> {
       children: [
         // Search field
         PrismTextField(
-          hintText: context.l10n.frontingSearchMembersHint,
+          hintText: context.l10n.frontingSearchMembersHint(widget.pluralTerm),
           prefixIcon: Icon(AppIcons.search, size: 20),
           onChanged: (v) => setState(() => _search = v),
         ),
@@ -658,7 +663,7 @@ class _MemberGridState extends State<_MemberGrid> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Text(
-              context.l10n.frontingNoMembersMatching(_search),
+              context.l10n.frontingNoMembersMatching(widget.pluralTerm, _search),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

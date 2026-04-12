@@ -840,7 +840,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String statisticsSessions(int count) {
-    return '$count sesiones';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sesiones',
+      one: '1 sesión',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -1331,8 +1337,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Credenciales de sincronización borradas';
 
   @override
-  String get featureChatDescription =>
-      'Mensajería interna entre los miembros del sistema.';
+  String featureChatDescription(String term) {
+    return 'Mensajería interna entre los $term del sistema.';
+  }
 
   @override
   String get featureChatGeneral => 'General';
@@ -1341,7 +1348,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get featureChatEnable => 'Activar Chat';
 
   @override
-  String get featureChatEnableSubtitle => 'Mensajería interna entre miembros';
+  String featureChatEnableSubtitle(String term) {
+    return 'Mensajería interna entre $term';
+  }
 
   @override
   String get featureChatOptions => 'Opciones';
@@ -1390,8 +1399,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Si cambias de frente dentro de esta ventana, corrige la sesión actual en lugar de crear una nueva.';
 
   @override
-  String get featureHabitsDescription =>
-      'Realiza un seguimiento de tareas recurrentes y construye rachas con los miembros del sistema.';
+  String featureHabitsDescription(String term) {
+    return 'Realiza un seguimiento de tareas recurrentes y construye rachas con los $term del sistema.';
+  }
 
   @override
   String get featureHabitsGeneral => 'General';
@@ -1452,8 +1462,9 @@ class AppLocalizationsEs extends AppLocalizations {
       'Crear encuestas para decisiones del sistema';
 
   @override
-  String get featureNotesDescription =>
-      'Un diario personal para los miembros del sistema. Desactivar oculta las notas de la navegación pero conserva las entradas existentes.';
+  String featureNotesDescription(String term) {
+    return 'Un diario personal para los $term del sistema. Desactivar oculta las notas de la navegación pero conserva las entradas existentes.';
+  }
 
   @override
   String get featureNotesEnable => 'Activar Notas';
@@ -1563,7 +1574,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get frontingDeleteSleepMessage =>
-      '¿Estás seguro/a de que quieres eliminar esta sesión de sueño?';
+      '¿Estás segure de que quieres eliminar esta sesión de sueño?';
 
   @override
   String get frontingSleeping => 'Sueño';
@@ -1574,7 +1585,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get frontingWelcomeTitle => 'Bienvenido/a a Prism';
+  String get frontingWelcomeTitle => 'Bienvenide a Prism';
 
   @override
   String frontingWelcomeSubtitle(String member) {
@@ -1594,26 +1605,31 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingNewSession => 'Nueva sesión';
 
   @override
-  String get frontingAddCoFronterTitle => 'Agregar co-frontador';
+  String get frontingAddCoFronterTitle => 'Agregar al co-frente';
 
   @override
   String get frontingSelectFronter => 'Seleccionar quien está al frente';
 
   @override
-  String get frontingSelectMember => 'Seleccionar miembro';
+  String frontingSelectMember(String term) {
+    return 'Seleccionar $term';
+  }
 
   @override
   String get frontingCoFrontToggle => 'Co-frente';
 
   @override
-  String get frontingCoFronters => 'Co-frontadores';
+  String get frontingCoFronters => 'Co-frente';
 
   @override
-  String get frontingNoOtherMembers => 'No hay otros miembros disponibles';
+  String frontingNoOtherMembers(String term) {
+    return 'No hay otros $term disponibles';
+  }
 
   @override
-  String get frontingCoFrontHint =>
-      'Toca un miembro para agregarlo como co-frontador a la sesión actual.';
+  String frontingCoFrontHint(String term) {
+    return 'Toca un $term para agregarlo al co-frente de la sesión actual.';
+  }
 
   @override
   String get frontingConfidenceLevel => 'Nivel de confianza';
@@ -1637,11 +1653,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingNotesHintEdit => 'Notas opcionales...';
 
   @override
-  String get frontingSearchMembersHint => 'Buscar miembros...';
+  String frontingSearchMembersHint(String term) {
+    return 'Buscar $term...';
+  }
 
   @override
-  String frontingNoMembersMatching(String query) {
-    return 'Sin miembros que coincidan con \"$query\"';
+  String frontingNoMembersMatching(String term, String query) {
+    return 'Sin $term que coincidan con \"$query\"';
   }
 
   @override
@@ -1649,7 +1667,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String frontingErrorAddingCoFronter(Object error) {
-    return 'Error al agregar co-frontador: $error';
+    return 'Error al agregar al co-frente: $error';
   }
 
   @override
@@ -1658,11 +1676,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get frontingAddCoFrontersTitle => 'Agregar co-frontadores';
+  String get frontingAddCoFrontersTitle => 'Agregar al co-frente';
 
   @override
   String frontingErrorAddingCoFronters(Object error) {
-    return 'Error al agregar co-frontadores: $error';
+    return 'Error al agregar al co-frente: $error';
   }
 
   @override
@@ -1757,7 +1775,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingNotesSection => 'Notas';
 
   @override
-  String get frontingCoFrontersSection => 'Co-frontadores';
+  String get frontingCoFrontersSection => 'Co-frente';
 
   @override
   String get frontingSleepingLabel => 'Durmiendo';
@@ -2025,7 +2043,8 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get frontingGapFillWithUnknown => 'Rellenar con fronter desconocido';
+  String get frontingGapFillWithUnknown =>
+      'Rellenar con integrante desconocido';
 
   @override
   String get frontingGapFillWithUnknownSubtitle =>
@@ -2144,17 +2163,17 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String memberActivated(String name) {
-    return '$name activado/a';
+    return '$name activade';
   }
 
   @override
   String memberDeactivated(String name) {
-    return '$name archivado/a';
+    return '$name archivade';
   }
 
   @override
   String memberRemoved(String name) {
-    return '$name eliminado/a';
+    return '$name eliminade';
   }
 
   @override
@@ -2257,7 +2276,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberInactiveChip => 'Inactivo';
 
   @override
-  String get memberSetAsFronter => 'Establecer como fronter';
+  String get memberSetAsFronter => 'Poner al frente';
 
   @override
   String get memberNoteTitle => 'Nota';
@@ -2290,7 +2309,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberNoteBodyHint => 'Empieza a escribir...';
 
   @override
-  String get memberNoteAddHeadmate => 'Agregar headmate';
+  String get memberNoteAddHeadmate => 'Agregar integrante';
 
   @override
   String get memberNoteDiscardTitle => '¿Descartar cambios?';
@@ -2303,7 +2322,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberNoteDiscardConfirm => 'Descartar';
 
   @override
-  String get memberNoteChooseHeadmate => 'Elegir Headmate';
+  String get memberNoteChooseHeadmate => 'Elegir integrante';
 
   @override
   String get memberSelectNone => 'Ninguno';
@@ -2426,7 +2445,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String memberSelectedCount(int count) {
-    return '$count seleccionado(s)';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count seleccionados',
+      one: '1 seleccionado',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2844,7 +2869,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String chatGifsFound(int count) {
-    return '$count GIFs encontrados';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count GIFs encontrados',
+      one: '1 GIF encontrado',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3137,7 +3168,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String onboardingPluralKitImportSuccess(int count) {
-    return '¡Se importaron $count integrantes desde PluralKit!';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '¡Se importaron $count integrantes desde PluralKit!',
+      one: '¡Se importó 1 integrante desde PluralKit!',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3773,7 +3810,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String pollsOptionCount(int count) {
-    return '$count opciones';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count opciones',
+      one: '1 opción',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -4725,7 +4768,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'Código de compartición copiado (se borra automáticamente en 15s)';
 
   @override
-  String get sharingFriend => 'Amigo/a';
+  String get sharingFriend => 'Amigue';
 
   @override
   String get sharingFriendNotFound => 'Persona no encontrada';
@@ -4815,4 +4858,717 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get sharingIdentity => 'Identidad';
+
+  @override
+  String get remindersTitle => 'Recordatorios';
+
+  @override
+  String remindersLoadError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get remindersEmptyTitle => 'Sin recordatorios';
+
+  @override
+  String get remindersEmptySubtitle =>
+      'Crea recordatorios para cambios de frente o tiempos programados';
+
+  @override
+  String get remindersEmptyAction => 'Agregar recordatorio';
+
+  @override
+  String remindersDeletedSnackbar(String name) {
+    return 'Eliminado \"$name\"';
+  }
+
+  @override
+  String get remindersUndoAction => 'Deshacer';
+
+  @override
+  String get remindersSubtitleOnFrontChange => 'Al cambio de frente';
+
+  @override
+  String remindersSubtitleOnFrontChangeDelay(int hours) {
+    return 'Al cambio de frente (${hours}h de retraso)';
+  }
+
+  @override
+  String get remindersSubtitleDaily => 'Diario';
+
+  @override
+  String remindersSubtitleEveryNDays(int days) {
+    return 'Cada $days días';
+  }
+
+  @override
+  String get remindersScheduled => 'Programado';
+
+  @override
+  String get remindersEditTitle => 'Editar recordatorio';
+
+  @override
+  String get remindersNewTitle => 'Nuevo recordatorio';
+
+  @override
+  String get remindersNameLabel => 'Nombre del recordatorio';
+
+  @override
+  String get remindersMessageLabel => 'Mensaje de notificación';
+
+  @override
+  String get remindersTriggerLabel => 'Activador';
+
+  @override
+  String get remindersTriggerFrontChange => 'Cambio de frente';
+
+  @override
+  String get remindersRepeatEveryLabel => 'Repetir cada';
+
+  @override
+  String remindersIntervalDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count días',
+      one: '1 día',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get remindersTimeLabel => 'Hora';
+
+  @override
+  String get remindersDelayLabel => 'Retraso tras el cambio de frente';
+
+  @override
+  String get remindersImmediately => 'Inmediatamente';
+
+  @override
+  String remindersDelayHours(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count horas',
+      one: '1 hora',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsAboutAppName => 'Prism';
+
+  @override
+  String get settingsAboutTagline => 'Gestión de sistemas plurales';
+
+  @override
+  String settingsAboutVersion(String version) {
+    return 'Versión $version';
+  }
+
+  @override
+  String get settingsAboutDescription =>
+      'Una app centrada en la privacidad para gestionar sistemas plurales. Registra el frente, comunícate entre compañeros de sistema y mantén tu sistema organizado.';
+
+  @override
+  String get settingsAboutGitHub => 'GitHub';
+
+  @override
+  String get settingsAboutPrivacy => 'Privacidad';
+
+  @override
+  String get settingsAboutFeedback => 'Sugerencias';
+
+  @override
+  String get settingsAboutGitHubComingSoon => 'Enlace de GitHub próximamente';
+
+  @override
+  String get settingsAboutPrivacyComingSoon =>
+      'Política de privacidad próximamente';
+
+  @override
+  String get settingsAboutFeedbackComingSoon =>
+      'Formulario de sugerencias próximamente';
+
+  @override
+  String get settingsCustomFieldsTitle => 'Campos personalizados';
+
+  @override
+  String get settingsCustomFieldsAddTooltip => 'Agregar campo';
+
+  @override
+  String settingsCustomFieldsError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get settingsCustomFieldsEmptyTitle => 'Sin campos personalizados';
+
+  @override
+  String get settingsCustomFieldsEmptySubtitle =>
+      'Agrega campos para registrar atributos personalizados de cada integrante';
+
+  @override
+  String get settingsCustomFieldsAddAction => 'Agregar campo';
+
+  @override
+  String get settingsCustomFieldsDeleteTitle => 'Eliminar campo';
+
+  @override
+  String settingsCustomFieldsDeleteConfirm(String name) {
+    return '¿Estás segure de que quieres eliminar \"$name\"? Se eliminará el campo y todos sus valores.';
+  }
+
+  @override
+  String settingsCustomFieldsDeletedToast(String name) {
+    return '$name eliminado';
+  }
+
+  @override
+  String get settingsAccentColorPrismPurple => 'Morado Prism';
+
+  @override
+  String get settingsAccentColorBlue => 'Azul';
+
+  @override
+  String get settingsAccentColorGreen => 'Verde';
+
+  @override
+  String get settingsAccentColorRed => 'Rojo';
+
+  @override
+  String get settingsAccentColorOrange => 'Naranja';
+
+  @override
+  String get settingsAccentColorPink => 'Rosa';
+
+  @override
+  String get settingsAccentColorTeal => 'Verde azulado';
+
+  @override
+  String get settingsAccentColorAmber => 'Ámbar';
+
+  @override
+  String get settingsAccentColorIndigo => 'Índigo';
+
+  @override
+  String get settingsAccentColorGray => 'Gris';
+
+  @override
+  String get settingsAccentColorSystemColor => 'Color del sistema';
+
+  @override
+  String get settingsAccentColorCustom => 'Personalizado';
+
+  @override
+  String get settingsAccentColorPickerTitle => 'Elige un color';
+
+  @override
+  String get settingsAccentColorSelect => 'Seleccionar';
+
+  @override
+  String get settingsAccentColorSystemPaletteNote =>
+      'Usando la paleta de colores del sistema';
+
+  @override
+  String get settingsSyncPasswordTitle =>
+      'Ingresa tu contraseña de sincronización';
+
+  @override
+  String get settingsSyncPasswordBody =>
+      'Se necesita tu contraseña de sincronización para desbloquear las claves de cifrado en este dispositivo.';
+
+  @override
+  String get settingsSyncPasswordFieldLabel => 'Contraseña';
+
+  @override
+  String get settingsSyncPasswordShow => 'Mostrar contraseña';
+
+  @override
+  String get settingsSyncPasswordHide => 'Ocultar contraseña';
+
+  @override
+  String get settingsSyncPasswordWrong =>
+      'Contraseña incorrecta. Por favor, inténtalo de nuevo.';
+
+  @override
+  String get settingsSyncPasswordUnlock => 'Desbloquear';
+
+  @override
+  String get settingsChangePasswordTitle => 'Cambiar contraseña';
+
+  @override
+  String get settingsChangePasswordVerifyBody =>
+      'Ingresa tu contraseña de sincronización actual para continuar.';
+
+  @override
+  String get settingsChangePasswordCurrentLabel => 'Contraseña actual';
+
+  @override
+  String get settingsChangePasswordShowPassword => 'Mostrar contraseña';
+
+  @override
+  String get settingsChangePasswordHidePassword => 'Ocultar contraseña';
+
+  @override
+  String get settingsChangePasswordContinue => 'Continuar';
+
+  @override
+  String get settingsChangePasswordCurrentRequired =>
+      'Ingresa tu contraseña actual.';
+
+  @override
+  String get settingsChangePasswordNoSecretKey =>
+      'Clave secreta no encontrada en este dispositivo. Vuelve a vincular para restaurarla.';
+
+  @override
+  String get settingsChangePasswordEngineUnavailable =>
+      'Motor de sincronización no disponible.';
+
+  @override
+  String get settingsChangePasswordIncorrect =>
+      'Contraseña incorrecta. Por favor, inténtalo de nuevo.';
+
+  @override
+  String settingsChangePasswordVerifyFailed(String error) {
+    return 'Error de verificación: $error';
+  }
+
+  @override
+  String settingsChangePasswordGenericError(String error) {
+    return 'Ocurrió un error: $error';
+  }
+
+  @override
+  String get settingsChangePasswordSessionExpired =>
+      'Sesión expirada — verifica de nuevo.';
+
+  @override
+  String get settingsChangePasswordWarnBody =>
+      'Tus otros dispositivos necesitarán ingresar la nueva contraseña la próxima vez que abran Prism.';
+
+  @override
+  String get settingsChangePasswordAction => 'Cambiar contraseña';
+
+  @override
+  String get settingsChangePasswordNewBody =>
+      'Elige una nueva contraseña de sincronización.';
+
+  @override
+  String get settingsChangePasswordNewLabel => 'Nueva contraseña';
+
+  @override
+  String get settingsChangePasswordConfirmLabel => 'Confirmar nueva contraseña';
+
+  @override
+  String get settingsChangePasswordNewRequired =>
+      'Ingresa una nueva contraseña.';
+
+  @override
+  String get settingsChangePasswordSamePassword =>
+      'Tu contraseña de sincronización ya está configurada con ese valor.';
+
+  @override
+  String get settingsChangePasswordMismatch => 'Las contraseñas no coinciden.';
+
+  @override
+  String get settingsChangePasswordGenerationConflict =>
+      'Otro dispositivo cambió la configuración recientemente — inténtalo de nuevo.';
+
+  @override
+  String settingsChangePasswordFailed(String error) {
+    return 'Error al cambiar la contraseña: $error';
+  }
+
+  @override
+  String get settingsChangePasswordSuccessTitle => 'Contraseña cambiada';
+
+  @override
+  String get settingsChangePasswordSuccessBody =>
+      'Tu contraseña de sincronización ha sido actualizada en este dispositivo.';
+
+  @override
+  String get settingsCreateEditFieldEditTitle => 'Editar campo';
+
+  @override
+  String get settingsCreateEditFieldNewTitle => 'Nuevo campo';
+
+  @override
+  String get settingsCreateEditFieldNameLabel => 'Nombre del campo';
+
+  @override
+  String get settingsCreateEditFieldNameHint =>
+      'p. ej. Cumpleaños, Color favorito';
+
+  @override
+  String get settingsCreateEditFieldTypeHeading => 'Tipo';
+
+  @override
+  String get settingsCreateEditFieldTypeImmutable =>
+      'El tipo no se puede cambiar después de la creación.';
+
+  @override
+  String get settingsCreateEditFieldDatePrecisionHeading =>
+      'Precisión de fecha';
+
+  @override
+  String settingsCreateEditFieldSaveError(String error) {
+    return 'Error al guardar el campo: $error';
+  }
+
+  @override
+  String get settingsDataBrowserTitle => 'Visor de datos';
+
+  @override
+  String get settingsDataBrowserReloadTooltip => 'Recargar datos';
+
+  @override
+  String get settingsDataBrowserTabMembers => 'Integrantes';
+
+  @override
+  String get settingsDataBrowserTabSessions => 'Sesiones';
+
+  @override
+  String get settingsDataBrowserTabChats => 'Chats';
+
+  @override
+  String get settingsDataBrowserTabMessages => 'Msgs';
+
+  @override
+  String get settingsDataBrowserTabPolls => 'Encuestas';
+
+  @override
+  String settingsDataBrowserError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get settingsDataBrowserNoMembers => 'Sin integrantes';
+
+  @override
+  String get settingsDataBrowserNoSessions => 'Sin sesiones';
+
+  @override
+  String get settingsDataBrowserNoConversations => 'Sin conversaciones';
+
+  @override
+  String get settingsDataBrowserNoMessages => 'Sin mensajes';
+
+  @override
+  String get settingsDataBrowserNoPolls => 'Sin encuestas';
+
+  @override
+  String get settingsDataBrowserSessionActive => 'Activo';
+
+  @override
+  String get settingsDataBrowserSessionEnded => 'Finalizado';
+
+  @override
+  String get settingsDataBrowserUntitled => 'Sin título';
+
+  @override
+  String settingsDataBrowserParticipantCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count participantes',
+      one: '1 participante',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsDataBrowserSystemMessage => 'Sistema';
+
+  @override
+  String get settingsDataBrowserPollClosed => 'Cerrada';
+
+  @override
+  String get settingsDataBrowserPollActive => 'Activa';
+
+  @override
+  String get settingsDataBrowserNoMessagesInConversation =>
+      'Sin mensajes en esta conversación.';
+
+  @override
+  String get settingsDataBrowserLoadError =>
+      'Error al cargar — toca para reintentar';
+
+  @override
+  String settingsDataBrowserMessageCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count mensajes',
+      one: '1 mensaje',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsDataBrowserTapToLoad => 'Toca para cargar mensajes';
+
+  @override
+  String get settingsDataBrowserSessionEndTimeActive => 'null (activo)';
+
+  @override
+  String get settingsSyncDebugTitle => 'Registro de eventos de sincronización';
+
+  @override
+  String settingsSyncDebugEventCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count eventos',
+      one: '1 evento',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsSyncDebugCopyLogTooltip => 'Copiar registro';
+
+  @override
+  String get settingsSyncDebugClearLogTooltip => 'Limpiar registro';
+
+  @override
+  String get settingsSyncDebugCopiedToast =>
+      'Registro de eventos de sincronización copiado';
+
+  @override
+  String get settingsSyncDebugEmptyTitle =>
+      'Sin eventos de sincronización registrados';
+
+  @override
+  String get settingsSyncDebugEmptyBody =>
+      'Los eventos de sincronización aparecerán aquí a medida que ocurran.';
+
+  @override
+  String get settingsTerminologyPickerLabel => 'Terminología';
+
+  @override
+  String get settingsTerminologyOptionMembers => 'Integrantes';
+
+  @override
+  String get settingsTerminologyOptionMembersSingular => 'integrante';
+
+  @override
+  String get settingsTerminologyOptionHeadmates => 'Compañeros de sistema';
+
+  @override
+  String get settingsTerminologyOptionHeadmatesSingular =>
+      'compañero de sistema';
+
+  @override
+  String get settingsTerminologyOptionAlters => 'Alters';
+
+  @override
+  String get settingsTerminologyOptionAltersSingular => 'alter';
+
+  @override
+  String get settingsTerminologyOptionParts => 'Partes';
+
+  @override
+  String get settingsTerminologyOptionPartsSingular => 'parte';
+
+  @override
+  String get settingsTerminologyOptionFacets => 'Facetas';
+
+  @override
+  String get settingsTerminologyOptionFacetsSingular => 'faceta';
+
+  @override
+  String get settingsTerminologyOptionCustom => 'Personalizado';
+
+  @override
+  String get settingsTerminologyOptionCustomSingular => 'término personalizado';
+
+  @override
+  String get settingsTerminologyCustomSingularLabel =>
+      'Término personalizado (singular)';
+
+  @override
+  String get settingsTerminologyCustomSingularHint => 'p. ej. fragmento';
+
+  @override
+  String get settingsTerminologyCustomPluralLabel =>
+      'Término personalizado (plural)';
+
+  @override
+  String get settingsTerminologyCustomPluralHint => 'p. ej. fragmentos';
+
+  @override
+  String get settingsTerminologyPreviewLabel => 'Vista previa';
+
+  @override
+  String get navHome => 'Inicio';
+
+  @override
+  String get navChat => 'Chat';
+
+  @override
+  String get navHabits => 'Hábitos';
+
+  @override
+  String get navPolls => 'Encuestas';
+
+  @override
+  String get navSettings => 'Ajustes';
+
+  @override
+  String get navMembers => 'Integrantes';
+
+  @override
+  String get navReminders => 'Recordatorios';
+
+  @override
+  String get navNotes => 'Notas';
+
+  @override
+  String get navStatistics => 'Estadísticas';
+
+  @override
+  String get onboardingWelcomeTitle => 'Bienvenido a Prism';
+
+  @override
+  String get onboardingWelcomeSubtitle => 'Tu sistema, a tu manera.';
+
+  @override
+  String get onboardingSyncDeviceTitle => 'Sincronizar desde dispositivo';
+
+  @override
+  String get onboardingSyncDeviceSubtitle =>
+      'Emparejar con un dispositivo existente';
+
+  @override
+  String get onboardingImportedDataReadyTitle => 'Datos listos';
+
+  @override
+  String get onboardingImportedDataReadySubtitle =>
+      'Tu sistema importado está listo para usar';
+
+  @override
+  String get onboardingImportDataTitle => '¿Ya tienes datos?';
+
+  @override
+  String get onboardingImportDataSubtitle => 'Trae tu sistema contigo.';
+
+  @override
+  String get onboardingSystemNameTitle => 'Nombra tu sistema';
+
+  @override
+  String get onboardingSystemNameSubtitle => 'Lo que se sienta bien.';
+
+  @override
+  String get onboardingAddMembersTitle => '¿Quién está aquí?';
+
+  @override
+  String get onboardingAddMembersSubtitle =>
+      'Agrega a las personas en tu sistema.';
+
+  @override
+  String get onboardingFeaturesTitle => 'Elige tus herramientas';
+
+  @override
+  String get onboardingFeaturesSubtitle =>
+      'Activa lo que necesitas. Cambia cuando quieras.';
+
+  @override
+  String get onboardingChatSetupTitle => 'Configura el chat';
+
+  @override
+  String get onboardingChatSetupSubtitle =>
+      'Canales para que tu sistema pueda hablar.';
+
+  @override
+  String get onboardingPreferencesTitle => 'Hazlo tuyo';
+
+  @override
+  String get onboardingPreferencesSubtitle =>
+      'Colores, idioma, los pequeños detalles.';
+
+  @override
+  String get onboardingWhosFrontingTitle => '¿Quién está al frente?';
+
+  @override
+  String get onboardingWhosFrontingSubtitle =>
+      'Toca a quienes están aquí ahora.';
+
+  @override
+  String get onboardingCompleteTitle => 'Listo cuando tú lo estés';
+
+  @override
+  String get onboardingCompleteSubtitle =>
+      'Tu sistema está configurado. Esto es lo que puedes explorar.';
+
+  @override
+  String terminologyAddButton(String term) {
+    return 'Agregar $term';
+  }
+
+  @override
+  String terminologySearchHint(String term) {
+    return 'Buscar $term...';
+  }
+
+  @override
+  String terminologyEmptyTitle(String term) {
+    return 'Sin $term aún';
+  }
+
+  @override
+  String terminologyEmptyActiveTitle(String term) {
+    return 'Sin $term activos aún';
+  }
+
+  @override
+  String terminologyNewItem(String term) {
+    return 'Nuevo $term';
+  }
+
+  @override
+  String terminologyEditItem(String term) {
+    return 'Editar $term';
+  }
+
+  @override
+  String terminologyDeleteItem(String term) {
+    return 'Eliminar $term';
+  }
+
+  @override
+  String terminologyManage(String term) {
+    return 'Gestionar $term';
+  }
+
+  @override
+  String terminologyDeleteSelected(String term) {
+    return 'Eliminar $term seleccionados';
+  }
+
+  @override
+  String terminologySelectPrompt(String term) {
+    return 'Selecciona un $term';
+  }
+
+  @override
+  String terminologyNoFound(String term) {
+    return 'No se encontraron $term';
+  }
+
+  @override
+  String terminologyLoadError(String term, String error) {
+    return 'Error al cargar $term: $error';
+  }
+
+  @override
+  String terminologyAddFirstSubtitle(String term) {
+    return 'Agrega tu primer $term del sistema para comenzar';
+  }
+
+  @override
+  String pollsVotingAsSelectPrompt(String term) {
+    return 'Selecciona un $term para votar';
+  }
 }
