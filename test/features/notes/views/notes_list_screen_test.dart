@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 import 'package:prism_plurality/domain/models/note.dart';
@@ -34,8 +35,10 @@ void main() {
           (ref) => Stream.value(notes),
         ),
       ],
-      child: const MaterialApp(
-        home: NotesListScreen(),
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        home: const NotesListScreen(),
       ),
     );
   }

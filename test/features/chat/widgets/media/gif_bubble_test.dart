@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
 import 'package:prism_plurality/features/chat/widgets/media/gif_bubble.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 /// Wraps a widget in MaterialApp + ProviderScope for testing.
 Widget _buildTestWidget(Widget child) {
   return ProviderScope(
     child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('en')],
       home: Scaffold(
         body: Center(child: child),
       ),
