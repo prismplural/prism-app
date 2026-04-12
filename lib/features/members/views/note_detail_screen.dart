@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Provider to watch a single note by ID.
 final noteByIdProvider =
@@ -32,22 +33,23 @@ class NoteDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final noteAsync = ref.watch(noteByIdProvider(noteId));
 
     return noteAsync.when(
-      loading: () => const PrismPageScaffold(
-        topBar: PrismTopBar(title: 'Note', showBackButton: true),
-        body: PrismLoadingState(),
+      loading: () => PrismPageScaffold(
+        topBar: PrismTopBar(title: l10n.memberNoteTitle, showBackButton: true),
+        body: const PrismLoadingState(),
       ),
       error: (e, _) => PrismPageScaffold(
-        topBar: const PrismTopBar(title: 'Note', showBackButton: true),
+        topBar: PrismTopBar(title: l10n.memberNoteTitle, showBackButton: true),
         body: Center(child: Text('Error: $e')),
       ),
       data: (note) {
         if (note == null) {
-          return const PrismPageScaffold(
-            topBar: PrismTopBar(title: 'Note', showBackButton: true),
-            body: Center(child: Text('Note not found')),
+          return PrismPageScaffold(
+            topBar: PrismTopBar(title: l10n.memberNoteTitle, showBackButton: true),
+            body: Center(child: Text(l10n.memberNoteNotFound)),
           );
         }
         return _NoteDetailBody(note: note);
@@ -64,6 +66,8 @@ class _NoteDetailBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final dateFormat = DateFormat.yMMMd(context.dateLocale);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -72,12 +76,12 @@ class _NoteDetailBody extends ConsumerWidget {
         actions: [
           PrismTopBarAction(
             icon: AppIcons.editOutlined,
-            tooltip: 'Edit',
+            tooltip: l10n.edit,
             onPressed: () => _openEditSheet(context),
           ),
           PrismTopBarAction(
             icon: AppIcons.deleteOutline,
-            tooltip: 'Delete',
+            tooltip: l10n.delete,
             onPressed: () => _confirmDelete(context, ref),
           ),
         ],
@@ -104,7 +108,7 @@ class _NoteDetailBody extends ConsumerWidget {
                   : note.body.split('\n').first.trim();
               final isFallbackTitle = note.title.isEmpty;
               return Text(
-                displayTitle.isNotEmpty ? displayTitle : 'Untitled',
+                displayTitle.isNotEmpty ? displayTitle : l10n.memberNoteUntitled,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight:
                       isFallbackTitle ? FontWeight.normal : FontWeight.bold,
@@ -115,7 +119,7 @@ class _NoteDetailBody extends ConsumerWidget {
             }),
             const SizedBox(height: 8),
             Text(
-              DateFormat.yMMMd().format(note.date),
+              dateFormat.format(note.date),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -143,12 +147,12 @@ class _NoteDetailBody extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete note?',
-      message: 'Are you sure you want to delete "${note.title}"? '
-          'This action cannot be undone.',
-      confirmLabel: 'Delete',
+      title: l10n.memberNoteDeleteTitle,
+      message: l10n.memberNoteDeleteMessage(note.title),
+      confirmLabel: l10n.delete,
       destructive: true,
     );
     if (confirmed) {

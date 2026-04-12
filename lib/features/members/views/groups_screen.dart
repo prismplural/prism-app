@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Screen listing all member groups with reordering support.
 class GroupsScreen extends ConsumerStatefulWidget {
@@ -38,37 +39,38 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   }
 
   Future<void> _confirmDelete(MemberGroup group) async {
+    final l10n = context.l10n;
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete group',
-      message: 'Are you sure you want to delete "${group.name}"? '
-          'Members will not be deleted.',
-      confirmLabel: 'Delete',
+      title: l10n.memberGroupDeleteTitle,
+      message: l10n.memberGroupDeleteMessage(group.name),
+      confirmLabel: l10n.memberGroupDeleteConfirm,
       destructive: true,
     );
     if (confirmed) {
       Haptics.heavy();
       ref.read(groupNotifierProvider.notifier).deleteGroup(group.id);
       if (mounted) {
-        PrismToast.show(context, message: '${group.name} deleted');
+        PrismToast.show(context, message: context.l10n.memberGroupDeleted(group.name));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final groupsAsync = ref.watch(allGroupsProvider);
     final countsAsync = ref.watch(groupMemberCountsProvider);
     final counts = countsAsync.whenOrNull(data: (c) => c) ?? {};
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Groups',
+        title: l10n.memberGroupsTitle,
         showBackButton: true,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.add,
-            tooltip: 'New group',
+            tooltip: l10n.memberNewGroupTooltip,
             onPressed: _openCreateSheet,
           ),
         ],
@@ -80,7 +82,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'Error loading groups: $e',
+              l10n.memberGroupErrorLoading(e),
               textAlign: TextAlign.center,
             ),
           ),
@@ -89,9 +91,9 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           if (groups.isEmpty) {
             return EmptyState(
               icon: Icon(AppIcons.folderOutlined),
-              title: 'No groups yet',
-              subtitle: 'Create groups to organize your system members',
-              actionLabel: 'New group',
+              title: l10n.memberGroupEmptyList,
+              subtitle: l10n.memberGroupEmptySubtitle,
+              actionLabel: l10n.memberNewGroupTooltip,
               onAction: _openCreateSheet,
             );
           }
@@ -199,7 +201,6 @@ class _GroupTile extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      // Emoji or colored circle fallback
                       if (group.emoji != null && group.emoji!.isNotEmpty)
                         SizedBox(
                           width: 32,

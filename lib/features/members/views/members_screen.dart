@@ -26,6 +26,7 @@ import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Main member list screen.
 class MembersScreen extends ConsumerStatefulWidget {
@@ -54,11 +55,13 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   void _showOptionsMenu(List<Member>? members, dynamic terms) {
+    final l10n = context.l10n;
     PrismSheet.show<void>(
       context: context,
-      title: 'Options',
+      title: l10n.options,
       builder: (ctx) {
         final theme = Theme.of(ctx);
+        final ctxL10n = ctx.l10n;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,7 +72,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   ? AppIcons.visibility
                   : AppIcons.visibilityOutlined),
               title: Text(
-                  _showInactive ? 'Hide inactive' : 'Show inactive'),
+                  _showInactive ? ctxL10n.memberHideInactive : ctxL10n.memberShowInactive),
               trailing: _showInactive
                   ? Icon(AppIcons.check,
                       size: 18, color: theme.colorScheme.primary)
@@ -84,7 +87,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(0, 12, 0, 4),
                 child: Text(
-                  'Reorder by',
+                  ctxL10n.memberReorderBy,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -94,7 +97,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               PrismListRow(
                 padding: EdgeInsets.zero,
                 dense: true,
-                title: const Text('Name A–Z'),
+                title: Text(ctxL10n.memberSortNameAZ),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _reorderBy(members, (a, b) => a.name
@@ -105,7 +108,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               PrismListRow(
                 padding: EdgeInsets.zero,
                 dense: true,
-                title: const Text('Name Z–A'),
+                title: Text(ctxL10n.memberSortNameZA),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _reorderBy(members, (a, b) => b.name
@@ -116,7 +119,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               PrismListRow(
                 padding: EdgeInsets.zero,
                 dense: true,
-                title: const Text('Recently created'),
+                title: Text(ctxL10n.memberSortRecentlyCreated),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _reorderBy(
@@ -126,7 +129,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               PrismListRow(
                 padding: EdgeInsets.zero,
                 dense: true,
-                title: const Text('Most fronting'),
+                title: Text(ctxL10n.memberSortMostFronting),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _reorderByFronting(members, descending: true);
@@ -135,7 +138,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               PrismListRow(
                 padding: EdgeInsets.zero,
                 dense: true,
-                title: const Text('Least fronting'),
+                title: Text(ctxL10n.memberSortLeastFronting),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _reorderByFronting(members, descending: false);
@@ -180,9 +183,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Delete ${ref.read(terminologyProvider).singular}',
-      message: 'Are you sure you want to delete $memberName? '
-          'This action cannot be undone.',
-      confirmLabel: 'Delete',
+      message: 'Are you sure you want to delete $memberName? This action cannot be undone.',
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {
@@ -201,8 +203,8 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     PrismToast.show(
       context,
       message: newActive
-          ? '${member.name} activated'
-          : '${member.name} archived',
+          ? context.l10n.memberActivated(member.name)
+          : context.l10n.memberDeactivated(member.name),
     );
   }
 
@@ -210,7 +212,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     final sorted = [...members]..sort(compare);
     ref.read(membersNotifierProvider.notifier).reorderMembers(sorted);
     Haptics.selection();
-    if (mounted) PrismToast.show(context, message: 'Order updated');
+    if (mounted) PrismToast.show(context, message: context.l10n.memberOrderUpdated);
   }
 
   Future<void> _reorderByFronting(List<Member> members, {required bool descending}) async {
@@ -229,7 +231,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     });
     ref.read(membersNotifierProvider.notifier).reorderMembers(sorted);
     Haptics.selection();
-    if (mounted) PrismToast.show(context, message: 'Order updated');
+    if (mounted) PrismToast.show(context, message: context.l10n.memberOrderUpdated);
   }
 
   void _onReorder(List<Member> members, int oldIndex, int newIndex) {
@@ -275,7 +277,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           ),
           PrismTopBarAction(
             icon: AppIcons.moreVert,
-            tooltip: 'Options',
+            tooltip: context.l10n.options,
             onPressed: () => _showOptionsMenu(membersAsync.value, terms),
           ),
         ],
@@ -382,7 +384,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           children: [
             if (isFronting) ...[
               PrismPill(
-                label: 'Fronting',
+                label: context.l10n.memberFrontingChip,
                 icon: AppIcons.flashOn,
                 color: AppColors.fronting(theme.brightness),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

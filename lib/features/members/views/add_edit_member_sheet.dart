@@ -19,15 +19,10 @@ import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:uuid/uuid.dart';
 
 /// A modal sheet for creating or editing a system member.
-///
-/// When [member] is provided the sheet operates in edit mode and pre-populates
-/// all fields. Otherwise it starts blank for creation.
-///
-/// Use via [PrismSheet.showFullScreen] — pass the [scrollController] from the
-/// builder callback.
 class AddEditMemberSheet extends ConsumerStatefulWidget {
   const AddEditMemberSheet({
     super.key,
@@ -85,7 +80,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
 
   @override
   void dispose() {
-    // Clean up orphaned custom field values if member creation was cancelled.
     if (!widget.isEditing && !_saved) {
       ref
           .read(customFieldValueNotifierProvider.notifier)
@@ -179,7 +173,9 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       }
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error saving ${ref.read(terminologyProvider).singularLower}: $e');
+        PrismToast.error(context,
+            message: context.l10n.memberErrorSaving(
+                ref.read(terminologyProvider).singularLower, e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -190,6 +186,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final terms = ref.watch(terminologyProvider);
+    final l10n = context.l10n;
 
     final canSave = _nameController.text.trim().isNotEmpty;
 
@@ -219,7 +216,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                   bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                 ),
                 children: [
-                        // Avatar
                         Center(
                           child: GestureDetector(
                             onTap: _pickAvatar,
@@ -261,7 +257,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Emoji + Name
                         Row(
                           children: [
                             PrismEmojiPicker(
@@ -279,13 +274,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                             Expanded(
                               child: PrismTextField(
                                 controller: _nameController,
-                                labelText: 'Name *',
-                                hintText: 'Enter name',
+                                labelText: l10n.memberNameLabel,
+                                hintText: l10n.memberNameHint,
                                 textCapitalization: TextCapitalization.words,
                                 onChanged: (_) => setState(() {}),
                                 validator: (value) {
                                   if (value == null || value.trim().isEmpty) {
-                                    return 'Name is required';
+                                    return l10n.memberNameRequired;
                                   }
                                   return null;
                                 },
@@ -295,19 +290,17 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Pronouns
                         PrismTextField(
                           controller: _pronounsController,
-                          labelText: 'Pronouns',
-                          hintText: 'e.g. she/her, they/them',
+                          labelText: l10n.memberPronounsLabel,
+                          hintText: l10n.memberPronounsHint,
                         ),
                         const SizedBox(height: 16),
 
-                        // Age
                         PrismTextField(
                           controller: _ageController,
-                          labelText: 'Age',
-                          hintText: 'Optional',
+                          labelText: l10n.memberAgeLabel,
+                          hintText: l10n.memberAgeHint,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
@@ -315,40 +308,36 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Bio
                         PrismTextField(
                           controller: _bioController,
-                          labelText: 'Bio',
-                          hintText: 'A short description...',
+                          labelText: l10n.memberBioLabel,
+                          hintText: l10n.memberBioHint,
                           maxLines: 4,
                           minLines: 2,
                           textCapitalization: TextCapitalization.sentences,
                         ),
                         const SizedBox(height: 8),
 
-                        // Markdown toggle
                         PrismSwitchRow(
-                          title: 'Format bio as markdown',
-                          subtitle: 'Render bio text with markdown formatting',
+                          title: l10n.memberMarkdownTitle,
+                          subtitle: l10n.memberMarkdownSubtitle,
                           value: _markdownEnabled,
                           onChanged: (v) =>
                               setState(() => _markdownEnabled = v),
                         ),
                         const SizedBox(height: 16),
 
-                        // Admin toggle
                         PrismSwitchRow(
-                          title: 'Admin',
-                          subtitle: 'Admins can manage system settings',
+                          title: l10n.memberAdminTitle,
+                          subtitle: l10n.memberAdminSubtitle,
                           value: _isAdmin,
                           onChanged: (v) => setState(() => _isAdmin = v),
                         ),
                         const SizedBox(height: 8),
 
-                        // Custom color toggle + hex input
                         PrismSwitchRow(
-                          title: 'Custom color',
-                          subtitle: 'Use a personal color for this member',
+                          title: l10n.memberCustomColorTitle,
+                          subtitle: l10n.memberCustomColorSubtitle,
                           value: _customColorEnabled,
                           onChanged: (v) =>
                               setState(() => _customColorEnabled = v),
@@ -357,7 +346,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              // Color preview circle
                               Container(
                                 width: 40,
                                 height: 40,
@@ -374,7 +362,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                               Expanded(
                                 child: PrismTextField(
                                   controller: _colorHexController,
-                                  labelText: 'Color hex',
+                                  labelText: l10n.memberColorHexLabel,
                                   hintText: '#AF8EE9',
                                   prefixText: '#',
                                   onChanged: (_) => setState(() {}),
@@ -390,7 +378,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                           ),
                         ],
 
-                        // Custom fields
                         CustomFieldsEditor(memberId: _memberId),
                         const SizedBox(height: 32),
                       ],

@@ -1,1439 +1,3271 @@
 {
   "@@locale": "en",
   "cancel": "Cancel",
-  "@cancel": { "description": "Cancel action button label" },
+  "@cancel": {
+    "description": "Cancel action button label"
+  },
   "save": "Save",
-  "@save": { "description": "Save action button label" },
+  "@save": {
+    "description": "Save action button label"
+  },
   "delete": "Delete",
-  "@delete": { "description": "Delete action button label" },
+  "@delete": {
+    "description": "Delete action button label"
+  },
   "edit": "Edit",
-  "@edit": { "description": "Edit action button label" },
+  "@edit": {
+    "description": "Edit action button label"
+  },
   "add": "Add",
-  "@add": { "description": "Add action button label" },
+  "@add": {
+    "description": "Add action button label"
+  },
   "done": "Done",
-  "@done": { "description": "Done action button label" },
+  "@done": {
+    "description": "Done action button label"
+  },
   "close": "Close",
-  "@close": { "description": "Close/dismiss action button label" },
+  "@close": {
+    "description": "Close/dismiss action button label"
+  },
   "confirm": "Confirm",
-  "@confirm": { "description": "Confirm action button label" },
+  "@confirm": {
+    "description": "Confirm action button label"
+  },
   "back": "Back",
-  "@back": { "description": "Back navigation button label" },
+  "@back": {
+    "description": "Back navigation button label"
+  },
   "options": "Options",
-  "@options": { "description": "Options menu button label" },
+  "@options": {
+    "description": "Options menu button label"
+  },
   "activate": "Activate",
-  "@activate": { "description": "Activate action button label" },
+  "@activate": {
+    "description": "Activate action button label"
+  },
   "deactivate": "Deactivate",
-  "@deactivate": { "description": "Deactivate action button label" },
+  "@deactivate": {
+    "description": "Deactivate action button label"
+  },
   "loading": "Loading…",
-  "@loading": { "description": "Generic loading state label" },
+  "@loading": {
+    "description": "Generic loading state label"
+  },
   "noResults": "No results",
-  "@noResults": { "description": "Empty search results label" },
+  "@noResults": {
+    "description": "Empty search results label"
+  },
   "tryAgain": "Try Again",
-  "@tryAgain": { "description": "Retry action button label" },
+  "@tryAgain": {
+    "description": "Retry action button label"
+  },
   "search": "Search",
-  "@search": { "description": "Search placeholder/label" },
+  "@search": {
+    "description": "Search placeholder/label"
+  },
   "error": "Error",
-  "@error": { "description": "Generic error label" },
+  "@error": {
+    "description": "Generic error label"
+  },
   "suggestions": "Suggestions:",
-  "@suggestions": { "description": "Suggestions section header in empty state widget" },
+  "@suggestions": {
+    "description": "Suggestions section header in empty state widget"
+  },
   "unknown": "Unknown",
-  "@unknown": { "description": "Unknown member option in headmate picker" },
+  "@unknown": {
+    "description": "Unknown member option in headmate picker"
+  },
   "tapToSet": "Tap to set",
-  "@tapToSet": { "description": "Placeholder text on datetime pill when no date is selected" },
+  "@tapToSet": {
+    "description": "Placeholder text on datetime pill when no date is selected"
+  },
   "navigationBar": "Navigation bar",
-  "@navigationBar": { "description": "Semantics label for the floating navigation bar" },
+  "@navigationBar": {
+    "description": "Semantics label for the floating navigation bar"
+  },
   "mainNavigation": "Main navigation",
-  "@mainNavigation": { "description": "Semantics label for the desktop sidebar navigation" },
+  "@mainNavigation": {
+    "description": "Semantics label for the desktop sidebar navigation"
+  },
   "closeMenu": "Close menu",
-  "@closeMenu": { "description": "Semantics label for the nav bar More/close trigger when expanded" },
+  "@closeMenu": {
+    "description": "Semantics label for the nav bar More/close trigger when expanded"
+  },
   "moreTabs": "More tabs",
-  "@moreTabs": { "description": "Semantics label for the nav bar More trigger when collapsed" },
+  "@moreTabs": {
+    "description": "Semantics label for the nav bar More trigger when collapsed"
+  },
   "navUnreadCount": "{label}, {count} unread",
   "@navUnreadCount": {
     "description": "Semantics label for a nav bar tab with unread messages",
     "placeholders": {
-      "label": { "type": "String" },
-      "count": { "type": "int" }
+      "label": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
     }
   },
   "errorLoadingMembers": "Error loading {members}: {error}",
   "@errorLoadingMembers": {
     "description": "Error message shown in headmate picker when members fail to load",
     "placeholders": {
-      "members": { "type": "String" },
-      "error": { "type": "Object" }
+      "members": {
+        "type": "String"
+      },
+      "error": {
+        "type": "Object"
+      }
     }
   },
   "selectMember": "Select member",
-  "@selectMember": { "description": "Member picker placeholder when no member is selected" },
+  "@selectMember": {
+    "description": "Member picker placeholder when no member is selected"
+  },
   "selectMembers": "Select members",
-  "@selectMembers": { "description": "Member picker placeholder for multi-select" },
+  "@selectMembers": {
+    "description": "Member picker placeholder for multi-select"
+  },
   "selectAMember": "Select a member",
-  "@selectAMember": { "description": "Member picker hint text" },
+  "@selectAMember": {
+    "description": "Member picker hint text"
+  },
   "errorWithDetail": "Error: {detail}",
   "@errorWithDetail": {
     "description": "Error message with detail",
-    "placeholders": { "detail": { "type": "Object" } }
+    "placeholders": {
+      "detail": {
+        "type": "Object"
+      }
+    }
   },
   "segmentedControl": "Segmented control",
-  "@segmentedControl": { "description": "Semantics label for segmented control widget" },
+  "@segmentedControl": {
+    "description": "Semantics label for segmented control widget"
+  },
   "dismissNotification": "Dismiss notification",
-  "@dismissNotification": { "description": "Tooltip for dismiss button on toast notifications" },
+  "@dismissNotification": {
+    "description": "Tooltip for dismiss button on toast notifications"
+  },
   "searchEmoji": "Search emoji...",
-  "@searchEmoji": { "description": "Hint text in emoji search field" },
+  "@searchEmoji": {
+    "description": "Hint text in emoji search field"
+  },
   "dismiss": "Dismiss",
-  "@dismiss": { "description": "Accessibility barrier label for dismissing dialogs" },
+  "@dismiss": {
+    "description": "Accessibility barrier label for dismissing dialogs"
+  },
   "destructiveAction": "Destructive action",
-  "@destructiveAction": { "description": "Semantics hint for destructive action buttons" },
+  "@destructiveAction": {
+    "description": "Semantics hint for destructive action buttons"
+  },
   "searchMembers": "Search members...",
-  "@searchMembers": { "description": "Search hint in member search" },
+  "@searchMembers": {
+    "description": "Search hint in member search"
+  },
   "noMembersFound": "No members found",
-  "@noMembersFound": { "description": "Empty state in member search" },
+  "@noMembersFound": {
+    "description": "Empty state in member search"
+  },
   "moreOptions": "More options",
-  "@moreOptions": { "description": "Tooltip for 'more options' menu button" },
-
+  "@moreOptions": {
+    "description": "Tooltip for 'more options' menu button"
+  },
   "settingsSectionSystem": "System",
-  "@settingsSectionSystem": { "description": "Settings section header: System" },
+  "@settingsSectionSystem": {
+    "description": "Settings section header: System"
+  },
   "settingsSectionApp": "App",
-  "@settingsSectionApp": { "description": "Settings section header: App" },
+  "@settingsSectionApp": {
+    "description": "Settings section header: App"
+  },
   "settingsSectionData": "Data",
-  "@settingsSectionData": { "description": "Settings section header: Data" },
+  "@settingsSectionData": {
+    "description": "Settings section header: Data"
+  },
   "settingsSectionAbout": "About",
-  "@settingsSectionAbout": { "description": "Settings section header: About" },
+  "@settingsSectionAbout": {
+    "description": "Settings section header: About"
+  },
   "settingsSystemInformation": "System Information",
-  "@settingsSystemInformation": { "description": "Settings link: System Information" },
+  "@settingsSystemInformation": {
+    "description": "Settings link: System Information"
+  },
   "settingsGroups": "Groups",
-  "@settingsGroups": { "description": "Settings link: Groups" },
+  "@settingsGroups": {
+    "description": "Settings link: Groups"
+  },
   "settingsCustomFields": "Custom Fields",
-  "@settingsCustomFields": { "description": "Settings link: Custom Fields" },
+  "@settingsCustomFields": {
+    "description": "Settings link: Custom Fields"
+  },
   "settingsStatistics": "Statistics",
-  "@settingsStatistics": { "description": "Settings link: Statistics" },
+  "@settingsStatistics": {
+    "description": "Settings link: Statistics"
+  },
   "settingsAppearance": "Appearance",
-  "@settingsAppearance": { "description": "Settings link: Appearance" },
+  "@settingsAppearance": {
+    "description": "Settings link: Appearance"
+  },
   "settingsNavigation": "Navigation",
-  "@settingsNavigation": { "description": "Settings link: Navigation" },
+  "@settingsNavigation": {
+    "description": "Settings link: Navigation"
+  },
   "settingsFeatures": "Features",
-  "@settingsFeatures": { "description": "Settings link: Features" },
+  "@settingsFeatures": {
+    "description": "Settings link: Features"
+  },
   "settingsPrivacySecurity": "Privacy & Security",
-  "@settingsPrivacySecurity": { "description": "Settings link: Privacy & Security" },
+  "@settingsPrivacySecurity": {
+    "description": "Settings link: Privacy & Security"
+  },
   "settingsNotifications": "Notifications",
-  "@settingsNotifications": { "description": "Settings link: Notifications" },
+  "@settingsNotifications": {
+    "description": "Settings link: Notifications"
+  },
   "settingsSync": "Sync",
-  "@settingsSync": { "description": "Settings link: Sync" },
+  "@settingsSync": {
+    "description": "Settings link: Sync"
+  },
   "settingsSharing": "Sharing",
-  "@settingsSharing": { "description": "Settings link: Sharing" },
+  "@settingsSharing": {
+    "description": "Settings link: Sharing"
+  },
   "settingsImportExport": "Import & Export",
-  "@settingsImportExport": { "description": "Settings link: Import & Export" },
+  "@settingsImportExport": {
+    "description": "Settings link: Import & Export"
+  },
   "settingsResetData": "Reset Data",
-  "@settingsResetData": { "description": "Settings link: Reset Data" },
+  "@settingsResetData": {
+    "description": "Settings link: Reset Data"
+  },
   "settingsAbout": "About",
-  "@settingsAbout": { "description": "Settings link: About" },
+  "@settingsAbout": {
+    "description": "Settings link: About"
+  },
   "settingsEncryptionPrivacy": "Encryption & Privacy",
-  "@settingsEncryptionPrivacy": { "description": "Settings link: Encryption & Privacy" },
+  "@settingsEncryptionPrivacy": {
+    "description": "Settings link: Encryption & Privacy"
+  },
   "settingsDebug": "Debug",
-  "@settingsDebug": { "description": "Settings link: Debug" },
+  "@settingsDebug": {
+    "description": "Settings link: Debug"
+  },
   "settingsFallbackSystemName": "My System",
-  "@settingsFallbackSystemName": { "description": "Fallback display name when no system name is set" },
+  "@settingsFallbackSystemName": {
+    "description": "Fallback display name when no system name is set"
+  },
   "settingsLanguageTitle": "Language",
-  "@settingsLanguageTitle": { "description": "Language settings row title" },
+  "@settingsLanguageTitle": {
+    "description": "Language settings row title"
+  },
   "settingsLanguageSubtitle": "Follows your device settings",
-  "@settingsLanguageSubtitle": { "description": "Language settings row subtitle" },
-
+  "@settingsLanguageSubtitle": {
+    "description": "Language settings row subtitle"
+  },
   "appearanceTitle": "Appearance",
-  "@appearanceTitle": { "description": "Appearance settings screen title" },
+  "@appearanceTitle": {
+    "description": "Appearance settings screen title"
+  },
   "appearanceBrightness": "Brightness",
-  "@appearanceBrightness": { "description": "Appearance settings section: Brightness" },
+  "@appearanceBrightness": {
+    "description": "Appearance settings section: Brightness"
+  },
   "appearanceStyle": "Style",
-  "@appearanceStyle": { "description": "Appearance settings section: Style" },
+  "@appearanceStyle": {
+    "description": "Appearance settings section: Style"
+  },
   "appearanceUsesSystemPalette": "Uses your system color palette",
-  "@appearanceUsesSystemPalette": { "description": "Label shown when Material You style is active" },
+  "@appearanceUsesSystemPalette": {
+    "description": "Label shown when Material You style is active"
+  },
   "appearanceAccentColor": "Accent Color",
-  "@appearanceAccentColor": { "description": "Appearance settings section: Accent Color" },
+  "@appearanceAccentColor": {
+    "description": "Appearance settings section: Accent Color"
+  },
   "appearancePerMemberColors": "Per-Member Colors",
-  "@appearancePerMemberColors": { "description": "Appearance settings section: Per-Member Colors" },
+  "@appearancePerMemberColors": {
+    "description": "Appearance settings section: Per-Member Colors"
+  },
   "appearanceSyncSection": "Sync",
-  "@appearanceSyncSection": { "description": "Appearance settings section: Sync" },
+  "@appearanceSyncSection": {
+    "description": "Appearance settings section: Sync"
+  },
   "appearanceSyncThemeTitle": "Sync theme across devices",
-  "@appearanceSyncThemeTitle": { "description": "Toggle title: sync theme across devices" },
+  "@appearanceSyncThemeTitle": {
+    "description": "Toggle title: sync theme across devices"
+  },
   "appearanceSyncThemeSubtitle": "Share brightness, style, and accent color via sync",
-  "@appearanceSyncThemeSubtitle": { "description": "Toggle subtitle: sync theme across devices" },
+  "@appearanceSyncThemeSubtitle": {
+    "description": "Toggle subtitle: sync theme across devices"
+  },
   "appearanceTerminology": "Terminology",
-  "@appearanceTerminology": { "description": "Appearance settings section: Terminology" },
+  "@appearanceTerminology": {
+    "description": "Appearance settings section: Terminology"
+  },
   "appearancePreview": "Preview",
-  "@appearancePreview": { "description": "Appearance settings section: Preview" },
+  "@appearancePreview": {
+    "description": "Appearance settings section: Preview"
+  },
   "appearanceSamplePronouns": "she/her",
-  "@appearanceSamplePronouns": { "description": "Sample pronouns in the appearance preview card" },
+  "@appearanceSamplePronouns": {
+    "description": "Sample pronouns in the appearance preview card"
+  },
   "appearanceFronting": "Fronting",
-  "@appearanceFronting": { "description": "Fronting pill label in the appearance preview card" },
+  "@appearanceFronting": {
+    "description": "Fronting pill label in the appearance preview card"
+  },
   "appearanceUsingSystemPalette": "Using your system color palette",
-  "@appearanceUsingSystemPalette": { "description": "Label shown below accent color picker when Material You is active" },
-
+  "@appearanceUsingSystemPalette": {
+    "description": "Label shown below accent color picker when Material You is active"
+  },
   "syncTitle": "Sync",
-  "@syncTitle": { "description": "Sync settings screen title" },
+  "@syncTitle": {
+    "description": "Sync settings screen title"
+  },
   "syncDisconnectedTitle": "Sync was disconnected",
-  "@syncDisconnectedTitle": { "description": "Title shown when sync health is disconnected" },
+  "@syncDisconnectedTitle": {
+    "description": "Title shown when sync health is disconnected"
+  },
   "syncDisconnectedMessage": "Set up sync again to reconnect your devices.",
-  "@syncDisconnectedMessage": { "description": "Message shown when sync is disconnected" },
+  "@syncDisconnectedMessage": {
+    "description": "Message shown when sync is disconnected"
+  },
   "syncSetUpSyncButton": "Set Up Sync",
-  "@syncSetUpSyncButton": { "description": "Button label to navigate to sync setup" },
+  "@syncSetUpSyncButton": {
+    "description": "Button label to navigate to sync setup"
+  },
   "syncUnableToLoad": "Unable to load sync settings",
-  "@syncUnableToLoad": { "description": "Title shown when sync settings fail to load" },
+  "@syncUnableToLoad": {
+    "description": "Title shown when sync settings fail to load"
+  },
   "syncNotSetUp": "Sync is not set up",
-  "@syncNotSetUp": { "description": "Title when sync has not been configured" },
+  "@syncNotSetUp": {
+    "description": "Title when sync has not been configured"
+  },
   "syncNotSetUpDescription": "Set up end-to-end encrypted sync to keep your data in sync across all your devices.",
-  "@syncNotSetUpDescription": { "description": "Description shown when sync is not configured" },
-  "syncSetupButton": "Set Up Sync",
-  "@syncSetupButton": { "description": "Button to start sync setup from the not-set-up view" },
+  "@syncNotSetUpDescription": {
+    "description": "Description shown when sync is not configured"
+  },
+  "syncSetupButton": "Set up sync",
+  "@syncSetupButton": {
+    "description": "Button label on sync setup intro step"
+  },
   "syncNowTitle": "Sync now",
-  "@syncNowTitle": { "description": "Settings row title: sync now" },
+  "@syncNowTitle": {
+    "description": "Settings row title: sync now"
+  },
   "syncNowSubtitle": "Check for changes and push local updates",
-  "@syncNowSubtitle": { "description": "Settings row subtitle: sync now" },
+  "@syncNowSubtitle": {
+    "description": "Settings row subtitle: sync now"
+  },
   "syncInProgress": "Syncing…",
-  "@syncInProgress": { "description": "Label shown while sync is in progress" },
+  "@syncInProgress": {
+    "description": "Label shown while sync is in progress"
+  },
   "syncSetUpAnotherDevice": "Set up another device",
-  "@syncSetUpAnotherDevice": { "description": "Settings row title: set up another device" },
+  "@syncSetUpAnotherDevice": {
+    "description": "Settings row title: set up another device"
+  },
   "syncSetUpAnotherDeviceSubtitle": "Generate a pairing QR code",
-  "@syncSetUpAnotherDeviceSubtitle": { "description": "Settings row subtitle: set up another device" },
+  "@syncSetUpAnotherDeviceSubtitle": {
+    "description": "Settings row subtitle: set up another device"
+  },
   "syncManageDevices": "Manage Devices",
-  "@syncManageDevices": { "description": "Settings row title: manage devices" },
+  "@syncManageDevices": {
+    "description": "Settings row title: manage devices"
+  },
   "syncManageDevicesSubtitle": "View and revoke linked devices",
-  "@syncManageDevicesSubtitle": { "description": "Settings row subtitle: manage devices" },
+  "@syncManageDevicesSubtitle": {
+    "description": "Settings row subtitle: manage devices"
+  },
   "syncChangePassword": "Change Password",
-  "@syncChangePassword": { "description": "Settings row title: change sync password" },
+  "@syncChangePassword": {
+    "description": "Settings row title: change sync password"
+  },
   "syncChangePasswordSubtitle": "Update your sync encryption password",
-  "@syncChangePasswordSubtitle": { "description": "Settings row subtitle: change sync password" },
+  "@syncChangePasswordSubtitle": {
+    "description": "Settings row subtitle: change sync password"
+  },
   "syncViewSecretKey": "View Secret Key",
-  "@syncViewSecretKey": { "description": "Settings row title: view secret key" },
+  "@syncViewSecretKey": {
+    "description": "Settings row title: view secret key"
+  },
   "syncViewSecretKeySubtitle": "Show your 12-word recovery phrase",
-  "@syncViewSecretKeySubtitle": { "description": "Settings row subtitle: view secret key" },
+  "@syncViewSecretKeySubtitle": {
+    "description": "Settings row subtitle: view secret key"
+  },
   "syncPreferencesSection": "Sync Preferences",
-  "@syncPreferencesSection": { "description": "Section title for sync preferences" },
+  "@syncPreferencesSection": {
+    "description": "Section title for sync preferences"
+  },
   "syncPreferencesDescription": "Control what settings are shared across your devices via sync.",
-  "@syncPreferencesDescription": { "description": "Description for sync preferences section" },
+  "@syncPreferencesDescription": {
+    "description": "Description for sync preferences section"
+  },
   "syncNavigationLayoutTitle": "Sync navigation layout",
-  "@syncNavigationLayoutTitle": { "description": "Toggle title: sync navigation layout" },
+  "@syncNavigationLayoutTitle": {
+    "description": "Toggle title: sync navigation layout"
+  },
   "syncNavigationLayoutSubtitle": "Share tab arrangement across devices",
-  "@syncNavigationLayoutSubtitle": { "description": "Toggle subtitle: sync navigation layout" },
+  "@syncNavigationLayoutSubtitle": {
+    "description": "Toggle subtitle: sync navigation layout"
+  },
   "syncIssuesSection": "Sync Issues",
-  "@syncIssuesSection": { "description": "Section title for quarantined sync issues" },
+  "@syncIssuesSection": {
+    "description": "Section title for quarantined sync issues"
+  },
   "syncIssuesDescription": "These records could not be applied due to data type mismatches. Clearing them removes the warning indicator.",
-  "@syncIssuesDescription": { "description": "Description for sync issues section" },
+  "@syncIssuesDescription": {
+    "description": "Description for sync issues section"
+  },
   "syncClearAll": "Clear all",
-  "@syncClearAll": { "description": "Button to clear all quarantined sync items" },
+  "@syncClearAll": {
+    "description": "Button to clear all quarantined sync items"
+  },
   "syncDetailsSection": "Details",
-  "@syncDetailsSection": { "description": "Section title for sync connection details" },
+  "@syncDetailsSection": {
+    "description": "Section title for sync connection details"
+  },
   "syncRelayLabel": "Relay",
-  "@syncRelayLabel": { "description": "Label for the relay URL detail row" },
+  "@syncRelayLabel": {
+    "description": "Label for the relay URL detail row"
+  },
   "syncIdLabel": "Sync ID",
-  "@syncIdLabel": { "description": "Label for the sync ID detail row" },
+  "@syncIdLabel": {
+    "description": "Label for the sync ID detail row"
+  },
   "syncNodeIdLabel": "Node ID",
-  "@syncNodeIdLabel": { "description": "Label for the node ID detail row" },
+  "@syncNodeIdLabel": {
+    "description": "Label for the node ID detail row"
+  },
   "syncNodeIdNotInitialised": "Not initialised",
-  "@syncNodeIdNotInitialised": { "description": "Value for node ID when not yet initialised" },
+  "@syncNodeIdNotInitialised": {
+    "description": "Value for node ID when not yet initialised"
+  },
   "syncTroubleshootingLink": "Troubleshooting",
-  "@syncTroubleshootingLink": { "description": "Settings row title: troubleshooting link" },
+  "@syncTroubleshootingLink": {
+    "description": "Settings row title: troubleshooting link"
+  },
   "syncLast24h": "Synced last 24h",
-  "@syncLast24h": { "description": "Label for synced last 24h count" },
+  "@syncLast24h": {
+    "description": "Label for synced last 24h count"
+  },
   "syncTotal": "Total synced",
-  "@syncTotal": { "description": "Label for total synced count" },
+  "@syncTotal": {
+    "description": "Label for total synced count"
+  },
   "syncEntitiesCount": "{count} entities",
   "@syncEntitiesCount": {
     "description": "Number of synced entities",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "syncFinished": "Sync finished",
-  "@syncFinished": { "description": "Toast message after a successful manual sync" },
+  "@syncFinished": {
+    "description": "Toast message after a successful manual sync"
+  },
   "syncFailed": "Sync failed: {error}",
   "@syncFailed": {
     "description": "Toast message when sync fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "syncStatusError": "Sync error",
-  "@syncStatusError": { "description": "Sync status card: error state title" },
+  "@syncStatusError": {
+    "description": "Sync status card: error state title"
+  },
   "syncStatusSyncing": "Syncing",
-  "@syncStatusSyncing": { "description": "Sync status card: syncing state title" },
+  "@syncStatusSyncing": {
+    "description": "Sync status card: syncing state title"
+  },
   "syncStatusSyncInProgress": "Sync in progress…",
-  "@syncStatusSyncInProgress": { "description": "Sync status card: syncing detail" },
+  "@syncStatusSyncInProgress": {
+    "description": "Sync status card: syncing detail"
+  },
   "syncStatusSyncedWithIssues": "Synced with issues",
-  "@syncStatusSyncedWithIssues": { "description": "Sync status card: synced with quarantine issues" },
+  "@syncStatusSyncedWithIssues": {
+    "description": "Sync status card: synced with quarantine issues"
+  },
   "syncStatusLastSynced": "Last synced",
-  "@syncStatusLastSynced": { "description": "Sync status card: last synced title" },
+  "@syncStatusLastSynced": {
+    "description": "Sync status card: last synced title"
+  },
   "syncStatusReadyToSync": "Ready to sync",
-  "@syncStatusReadyToSync": { "description": "Sync status card: ready state title" },
+  "@syncStatusReadyToSync": {
+    "description": "Sync status card: ready state title"
+  },
   "syncStatusWaiting": "Waiting for changes.",
-  "@syncStatusWaiting": { "description": "Sync status card: waiting detail" },
+  "@syncStatusWaiting": {
+    "description": "Sync status card: waiting detail"
+  },
   "syncStatusNeedsReconnect": "Needs reconnect",
-  "@syncStatusNeedsReconnect": { "description": "Sync status card: needs reconnect title" },
+  "@syncStatusNeedsReconnect": {
+    "description": "Sync status card: needs reconnect title"
+  },
   "syncStatusTapToReconnect": "Tap Sync Now to reconnect.",
-  "@syncStatusTapToReconnect": { "description": "Sync status card: tap to reconnect detail" },
+  "@syncStatusTapToReconnect": {
+    "description": "Sync status card: tap to reconnect detail"
+  },
   "syncRealTimeConnected": "Real-time connected",
-  "@syncRealTimeConnected": { "description": "Real-time WebSocket connected label" },
+  "@syncRealTimeConnected": {
+    "description": "Real-time WebSocket connected label"
+  },
   "syncRealTimeDisconnected": "Real-time disconnected",
-  "@syncRealTimeDisconnected": { "description": "Real-time WebSocket disconnected label" },
+  "@syncRealTimeDisconnected": {
+    "description": "Real-time WebSocket disconnected label"
+  },
   "syncJustNow": "Just now",
-  "@syncJustNow": { "description": "Time ago: just now" },
+  "@syncJustNow": {
+    "description": "Time ago: just now"
+  },
   "syncMinutesAgo": "{count}m ago",
   "@syncMinutesAgo": {
     "description": "Time ago in minutes",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "syncHoursAgo": "{count}h ago",
   "@syncHoursAgo": {
     "description": "Time ago in hours",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "syncDaysAgo": "{count}d ago",
   "@syncDaysAgo": {
     "description": "Time ago in days",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "syncSetupIntroTitle": "Set Up Sync",
-  "@syncSetupIntroTitle": { "description": "Sync setup screen title: intro step" },
+  "@syncSetupIntroTitle": {
+    "description": "Sync setup screen title: intro step"
+  },
   "syncSetupPasswordTitle": "Create Password",
-  "@syncSetupPasswordTitle": { "description": "Sync setup screen title: password step" },
+  "@syncSetupPasswordTitle": {
+    "description": "Sync setup screen title: password step"
+  },
   "syncSetupSecretKeyTitle": "Your Secret Key",
-  "@syncSetupSecretKeyTitle": { "description": "Sync setup screen title: secret key step" },
+  "@syncSetupSecretKeyTitle": {
+    "description": "Sync setup screen title: secret key step"
+  },
   "syncSetupIntroHeadline": "Keep your data in sync across all your devices.",
-  "@syncSetupIntroHeadline": { "description": "Sync setup intro headline" },
+  "@syncSetupIntroHeadline": {
+    "description": "Sync setup intro headline"
+  },
   "syncSetupIntroBody": "Everything is end-to-end encrypted — the server never sees your data. You'll create a password and receive a recovery key to keep safe.",
-  "@syncSetupIntroBody": { "description": "Sync setup intro body text" },
+  "@syncSetupIntroBody": {
+    "description": "Sync setup intro body text"
+  },
   "syncSetupSelfHosted": "Self-hosted relay?",
-  "@syncSetupSelfHosted": { "description": "Toggle label for showing self-hosted relay fields" },
+  "@syncSetupSelfHosted": {
+    "description": "Toggle label for showing self-hosted relay fields"
+  },
   "syncSetupRelayUrlLabel": "Relay URL",
-  "@syncSetupRelayUrlLabel": { "description": "Label for relay URL text field" },
+  "@syncSetupRelayUrlLabel": {
+    "description": "Label for relay URL text field"
+  },
   "syncSetupRegistrationToken": "Registration token",
-  "@syncSetupRegistrationToken": { "description": "Label for registration token field" },
+  "@syncSetupRegistrationToken": {
+    "description": "Label for registration token field"
+  },
   "syncSetupRegistrationTokenHint": "Optional",
-  "@syncSetupRegistrationTokenHint": { "description": "Hint text for registration token field" },
+  "@syncSetupRegistrationTokenHint": {
+    "description": "Hint text for registration token field"
+  },
   "syncSetupRegistrationTokenHelp": "Required if your relay has registration gating enabled.",
-  "@syncSetupRegistrationTokenHelp": { "description": "Help text for registration token field" },
+  "@syncSetupRegistrationTokenHelp": {
+    "description": "Help text for registration token field"
+  },
   "syncSetupRelayUrlError": "Relay URL must start with https://",
-  "@syncSetupRelayUrlError": { "description": "Validation error for relay URL field" },
-  "syncSetupButton": "Set up sync",
-  "@syncSetupButton": { "description": "Button label on sync setup intro step" },
+  "@syncSetupRelayUrlError": {
+    "description": "Validation error for relay URL field"
+  },
   "syncSetupPasswordIntro": "Create a password to protect your encryption keys.",
-  "@syncSetupPasswordIntro": { "description": "Intro text for the sync setup password step" },
+  "@syncSetupPasswordIntro": {
+    "description": "Intro text for the sync setup password step"
+  },
   "syncSetupPasswordHelp": "You'll need this password each time you set up a new device.",
-  "@syncSetupPasswordHelp": { "description": "Help text below password intro" },
+  "@syncSetupPasswordHelp": {
+    "description": "Help text below password intro"
+  },
   "syncSetupPasswordLabel": "Password",
-  "@syncSetupPasswordLabel": { "description": "Label for password field in sync setup" },
+  "@syncSetupPasswordLabel": {
+    "description": "Label for password field in sync setup"
+  },
   "syncSetupConfirmPasswordLabel": "Confirm password",
-  "@syncSetupConfirmPasswordLabel": { "description": "Label for confirm password field in sync setup" },
+  "@syncSetupConfirmPasswordLabel": {
+    "description": "Label for confirm password field in sync setup"
+  },
   "syncSetupContinueButton": "Continue",
-  "@syncSetupContinueButton": { "description": "Continue button on sync setup password step" },
+  "@syncSetupContinueButton": {
+    "description": "Continue button on sync setup password step"
+  },
   "syncSetupCompleteButton": "Complete setup",
-  "@syncSetupCompleteButton": { "description": "Complete button on sync setup secret key step" },
+  "@syncSetupCompleteButton": {
+    "description": "Complete button on sync setup secret key step"
+  },
   "syncSetupPasswordTooShort": "Password must be at least 8 characters",
-  "@syncSetupPasswordTooShort": { "description": "Validation error: password too short" },
+  "@syncSetupPasswordTooShort": {
+    "description": "Validation error: password too short"
+  },
   "syncSetupPasswordMismatch": "Passwords do not match",
-  "@syncSetupPasswordMismatch": { "description": "Validation error: passwords do not match" },
+  "@syncSetupPasswordMismatch": {
+    "description": "Validation error: passwords do not match"
+  },
   "syncSetupProgressCreatingGroup": "Creating sync group...",
-  "@syncSetupProgressCreatingGroup": { "description": "Sync setup progress: creating group" },
+  "@syncSetupProgressCreatingGroup": {
+    "description": "Sync setup progress: creating group"
+  },
   "syncSetupProgressConfiguringEngine": "Configuring encryption...",
-  "@syncSetupProgressConfiguringEngine": { "description": "Sync setup progress: configuring engine" },
+  "@syncSetupProgressConfiguringEngine": {
+    "description": "Sync setup progress: configuring engine"
+  },
   "syncSetupProgressCachingKeys": "Securing keys...",
-  "@syncSetupProgressCachingKeys": { "description": "Sync setup progress: caching keys" },
+  "@syncSetupProgressCachingKeys": {
+    "description": "Sync setup progress: caching keys"
+  },
   "syncSetupProgressBootstrapping": "Uploading your data...",
-  "@syncSetupProgressBootstrapping": { "description": "Sync setup progress: bootstrapping data" },
+  "@syncSetupProgressBootstrapping": {
+    "description": "Sync setup progress: bootstrapping data"
+  },
   "syncSetupProgressSyncing": "Syncing...",
-  "@syncSetupProgressSyncing": { "description": "Sync setup progress: syncing" },
-
+  "@syncSetupProgressSyncing": {
+    "description": "Sync setup progress: syncing"
+  },
   "syncSecretKeyTitle": "Secret Key",
-  "@syncSecretKeyTitle": { "description": "Sheet title when secret key is revealed" },
+  "@syncSecretKeyTitle": {
+    "description": "Sheet title when secret key is revealed"
+  },
   "syncVerifyPasswordTitle": "Verify Password",
-  "@syncVerifyPasswordTitle": { "description": "Sheet title when verifying password to reveal key" },
+  "@syncVerifyPasswordTitle": {
+    "description": "Sheet title when verifying password to reveal key"
+  },
   "syncVerifyPasswordPrompt": "Enter your sync password to reveal your 12-word recovery phrase.",
-  "@syncVerifyPasswordPrompt": { "description": "Prompt text in verify password sheet" },
+  "@syncVerifyPasswordPrompt": {
+    "description": "Prompt text in verify password sheet"
+  },
   "syncPasswordHint": "Sync password",
-  "@syncPasswordHint": { "description": "Hint text for sync password field" },
+  "@syncPasswordHint": {
+    "description": "Hint text for sync password field"
+  },
   "syncShowPassword": "Show password",
-  "@syncShowPassword": { "description": "Tooltip for show password icon button" },
+  "@syncShowPassword": {
+    "description": "Tooltip for show password icon button"
+  },
   "syncHidePassword": "Hide password",
-  "@syncHidePassword": { "description": "Tooltip for hide password icon button" },
+  "@syncHidePassword": {
+    "description": "Tooltip for hide password icon button"
+  },
   "syncRevealSecretKey": "Reveal Secret Key",
-  "@syncRevealSecretKey": { "description": "Button to reveal the secret key" },
+  "@syncRevealSecretKey": {
+    "description": "Button to reveal the secret key"
+  },
   "syncSecretKeyNotFound": "Secret Key not found in keychain.",
-  "@syncSecretKeyNotFound": { "description": "Error when secret key is missing from keychain" },
+  "@syncSecretKeyNotFound": {
+    "description": "Error when secret key is missing from keychain"
+  },
   "syncEngineNotAvailable": "Sync engine not available.",
-  "@syncEngineNotAvailable": { "description": "Error when sync engine handle is null" },
+  "@syncEngineNotAvailable": {
+    "description": "Error when sync engine handle is null"
+  },
   "syncIncorrectPassword": "Incorrect password. Please try again.",
-  "@syncIncorrectPassword": { "description": "Error when password verification fails" },
+  "@syncIncorrectPassword": {
+    "description": "Error when password verification fails"
+  },
   "syncAnErrorOccurred": "An error occurred: {error}",
   "@syncAnErrorOccurred": {
     "description": "Generic error message in secret key reveal",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
-
   "privacySecurityTitle": "Privacy & Security",
-  "@privacySecurityTitle": { "description": "Privacy & Security settings screen title" },
+  "@privacySecurityTitle": {
+    "description": "Privacy & Security settings screen title"
+  },
   "pinLockSection": "PIN Lock",
-  "@pinLockSection": { "description": "PIN lock section title" },
+  "@pinLockSection": {
+    "description": "PIN lock section title"
+  },
   "pinLockEnableTitle": "Enable PIN Lock",
-  "@pinLockEnableTitle": { "description": "PIN lock toggle title" },
+  "@pinLockEnableTitle": {
+    "description": "PIN lock toggle title"
+  },
   "pinLockEnableSubtitle": "Require a PIN to open the app",
-  "@pinLockEnableSubtitle": { "description": "PIN lock toggle subtitle" },
+  "@pinLockEnableSubtitle": {
+    "description": "PIN lock toggle subtitle"
+  },
   "pinLockBiometricSection": "Biometric",
-  "@pinLockBiometricSection": { "description": "Biometric section title in PIN lock settings" },
+  "@pinLockBiometricSection": {
+    "description": "Biometric section title in PIN lock settings"
+  },
   "pinLockBiometricTitle": "Biometric Unlock",
-  "@pinLockBiometricTitle": { "description": "Biometric unlock toggle title" },
+  "@pinLockBiometricTitle": {
+    "description": "Biometric unlock toggle title"
+  },
   "pinLockBiometricSubtitle": "Use Face ID or fingerprint to unlock",
-  "@pinLockBiometricSubtitle": { "description": "Biometric unlock subtitle when PIN is set" },
+  "@pinLockBiometricSubtitle": {
+    "description": "Biometric unlock subtitle when PIN is set"
+  },
   "pinLockBiometricDisabledSubtitle": "Enable PIN Lock to use biometric unlock",
-  "@pinLockBiometricDisabledSubtitle": { "description": "Biometric unlock subtitle when PIN is not set" },
+  "@pinLockBiometricDisabledSubtitle": {
+    "description": "Biometric unlock subtitle when PIN is not set"
+  },
   "pinLockAutoLockSection": "Auto-Lock",
-  "@pinLockAutoLockSection": { "description": "Auto-lock section title" },
+  "@pinLockAutoLockSection": {
+    "description": "Auto-lock section title"
+  },
   "pinLockAfterLeaving": "Lock after leaving the app",
-  "@pinLockAfterLeaving": { "description": "Auto-lock delay label" },
+  "@pinLockAfterLeaving": {
+    "description": "Auto-lock delay label"
+  },
   "pinLockManageSection": "Manage",
-  "@pinLockManageSection": { "description": "Manage PIN section title" },
+  "@pinLockManageSection": {
+    "description": "Manage PIN section title"
+  },
   "pinLockChange": "Change PIN",
-  "@pinLockChange": { "description": "Change PIN row label" },
+  "@pinLockChange": {
+    "description": "Change PIN row label"
+  },
   "pinLockRemove": "Remove PIN",
-  "@pinLockRemove": { "description": "Remove PIN row label" },
+  "@pinLockRemove": {
+    "description": "Remove PIN row label"
+  },
   "pinLockSetTitle": "Set PIN",
-  "@pinLockSetTitle": { "description": "Title for set PIN screen" },
+  "@pinLockSetTitle": {
+    "description": "Title for set PIN screen"
+  },
   "pinLockConfirmTitle": "Confirm PIN",
-  "@pinLockConfirmTitle": { "description": "Title for confirm PIN screen" },
+  "@pinLockConfirmTitle": {
+    "description": "Title for confirm PIN screen"
+  },
   "pinLockEnterTitle": "Enter PIN",
-  "@pinLockEnterTitle": { "description": "Title for unlock PIN screen" },
+  "@pinLockEnterTitle": {
+    "description": "Title for unlock PIN screen"
+  },
   "pinLockSetSubtitle": "Choose a 6-digit PIN",
-  "@pinLockSetSubtitle": { "description": "Subtitle for set PIN screen" },
+  "@pinLockSetSubtitle": {
+    "description": "Subtitle for set PIN screen"
+  },
   "pinLockConfirmSubtitle": "Re-enter your PIN to confirm",
-  "@pinLockConfirmSubtitle": { "description": "Subtitle for confirm PIN screen" },
+  "@pinLockConfirmSubtitle": {
+    "description": "Subtitle for confirm PIN screen"
+  },
   "pinLockUnlockSubtitle": "Enter your PIN to unlock",
-  "@pinLockUnlockSubtitle": { "description": "Subtitle for unlock PIN screen" },
+  "@pinLockUnlockSubtitle": {
+    "description": "Subtitle for unlock PIN screen"
+  },
   "pinLockInstant": "Instant",
-  "@pinLockInstant": { "description": "Auto-lock delay: Instant" },
+  "@pinLockInstant": {
+    "description": "Auto-lock delay: Instant"
+  },
   "pinLock15s": "15s",
-  "@pinLock15s": { "description": "Auto-lock delay: 15 seconds" },
+  "@pinLock15s": {
+    "description": "Auto-lock delay: 15 seconds"
+  },
   "pinLock1m": "1m",
-  "@pinLock1m": { "description": "Auto-lock delay: 1 minute" },
+  "@pinLock1m": {
+    "description": "Auto-lock delay: 1 minute"
+  },
   "pinLock5m": "5m",
-  "@pinLock5m": { "description": "Auto-lock delay: 5 minutes" },
+  "@pinLock5m": {
+    "description": "Auto-lock delay: 5 minutes"
+  },
   "pinLock15m": "15m",
-  "@pinLock15m": { "description": "Auto-lock delay: 15 minutes" },
-
+  "@pinLock15m": {
+    "description": "Auto-lock delay: 15 minutes"
+  },
   "notificationsTitle": "Notifications",
-  "@notificationsTitle": { "description": "Notifications settings screen title" },
+  "@notificationsTitle": {
+    "description": "Notifications settings screen title"
+  },
   "notificationsFrontingRemindersTitle": "Fronting reminders",
-  "@notificationsFrontingRemindersTitle": { "description": "Fronting reminders toggle title" },
+  "@notificationsFrontingRemindersTitle": {
+    "description": "Fronting reminders toggle title"
+  },
   "notificationsFrontingRemindersSubtitle": "Get reminded to log fronting changes",
-  "@notificationsFrontingRemindersSubtitle": { "description": "Fronting reminders toggle subtitle" },
+  "@notificationsFrontingRemindersSubtitle": {
+    "description": "Fronting reminders toggle subtitle"
+  },
   "notificationsReminderIntervalTitle": "Reminder interval",
-  "@notificationsReminderIntervalTitle": { "description": "Reminder interval row title" },
+  "@notificationsReminderIntervalTitle": {
+    "description": "Reminder interval row title"
+  },
   "notificationsReminderIntervalSubtitle": "How often to send reminders",
-  "@notificationsReminderIntervalSubtitle": { "description": "Reminder interval row subtitle" },
+  "@notificationsReminderIntervalSubtitle": {
+    "description": "Reminder interval row subtitle"
+  },
   "notificationsChatSection": "Chat Notifications",
-  "@notificationsChatSection": { "description": "Chat notifications section title" },
+  "@notificationsChatSection": {
+    "description": "Chat notifications section title"
+  },
   "notificationsBadgeAllMessages": "Badge for all messages",
-  "@notificationsBadgeAllMessages": { "description": "Chat badge toggle title" },
+  "@notificationsBadgeAllMessages": {
+    "description": "Chat badge toggle title"
+  },
   "notificationsBadgeMentionsOnly": "Only @mentions will badge for {member}",
   "@notificationsBadgeMentionsOnly": {
     "description": "Chat badge subtitle when mentions-only mode is active",
-    "placeholders": { "member": { "type": "String" } }
+    "placeholders": {
+      "member": {
+        "type": "String"
+      }
+    }
   },
   "notificationsBadgeAllFor": "All new messages will badge for {member}",
   "@notificationsBadgeAllFor": {
     "description": "Chat badge subtitle when all-messages mode is active",
-    "placeholders": { "member": { "type": "String" } }
+    "placeholders": {
+      "member": {
+        "type": "String"
+      }
+    }
   },
   "notificationsPermissionStatus": "Permission status",
-  "@notificationsPermissionStatus": { "description": "Notification permission status row title (loading)" },
+  "@notificationsPermissionStatus": {
+    "description": "Notification permission status row title (loading)"
+  },
   "notificationsCouldNotCheck": "Could not check permissions",
-  "@notificationsCouldNotCheck": { "description": "Notification permission error message" },
+  "@notificationsCouldNotCheck": {
+    "description": "Notification permission error message"
+  },
   "notificationsEnabled": "Notifications enabled",
-  "@notificationsEnabled": { "description": "Notification permission granted title" },
+  "@notificationsEnabled": {
+    "description": "Notification permission granted title"
+  },
   "notificationsPermissionGranted": "Permission granted",
-  "@notificationsPermissionGranted": { "description": "Notification permission granted subtitle" },
+  "@notificationsPermissionGranted": {
+    "description": "Notification permission granted subtitle"
+  },
   "notificationsNotEnabled": "Notifications not enabled",
-  "@notificationsNotEnabled": { "description": "Notification permission not granted title" },
+  "@notificationsNotEnabled": {
+    "description": "Notification permission not granted title"
+  },
   "notificationsPermissionRequired": "Permission required for reminders",
-  "@notificationsPermissionRequired": { "description": "Notification permission not granted subtitle" },
+  "@notificationsPermissionRequired": {
+    "description": "Notification permission not granted subtitle"
+  },
   "notificationsRequest": "Request",
-  "@notificationsRequest": { "description": "Button to request notification permission" },
+  "@notificationsRequest": {
+    "description": "Button to request notification permission"
+  },
   "notificationsAboutText": "Fronting reminders send periodic notifications to help you stay aware of who is fronting. This can be useful for logging switches and maintaining awareness throughout the day.",
-  "@notificationsAboutText": { "description": "About text at the bottom of notification settings" },
+  "@notificationsAboutText": {
+    "description": "About text at the bottom of notification settings"
+  },
   "notificationsInterval15m": "15 minutes",
-  "@notificationsInterval15m": { "description": "Reminder interval: 15 minutes" },
+  "@notificationsInterval15m": {
+    "description": "Reminder interval: 15 minutes"
+  },
   "notificationsInterval30m": "30 minutes",
-  "@notificationsInterval30m": { "description": "Reminder interval: 30 minutes" },
+  "@notificationsInterval30m": {
+    "description": "Reminder interval: 30 minutes"
+  },
   "notificationsInterval1h": "1 hour",
-  "@notificationsInterval1h": { "description": "Reminder interval: 1 hour" },
+  "@notificationsInterval1h": {
+    "description": "Reminder interval: 1 hour"
+  },
   "notificationsInterval2h": "2 hours",
-  "@notificationsInterval2h": { "description": "Reminder interval: 2 hours" },
+  "@notificationsInterval2h": {
+    "description": "Reminder interval: 2 hours"
+  },
   "notificationsInterval4h": "4 hours",
-  "@notificationsInterval4h": { "description": "Reminder interval: 4 hours" },
+  "@notificationsInterval4h": {
+    "description": "Reminder interval: 4 hours"
+  },
   "notificationsInterval8h": "8 hours",
-  "@notificationsInterval8h": { "description": "Reminder interval: 8 hours" },
-
+  "@notificationsInterval8h": {
+    "description": "Reminder interval: 8 hours"
+  },
   "resetDataTitle": "Reset Data",
-  "@resetDataTitle": { "description": "Reset Data settings screen title" },
+  "@resetDataTitle": {
+    "description": "Reset Data settings screen title"
+  },
   "resetDataCategoriesSection": "Categories",
-  "@resetDataCategoriesSection": { "description": "Reset data: Categories section title" },
+  "@resetDataCategoriesSection": {
+    "description": "Reset data: Categories section title"
+  },
   "resetDataCategoriesDescription": "Reset specific categories of data on this device. Sync System reset wipes sync setup without deleting your app data.",
-  "@resetDataCategoriesDescription": { "description": "Reset data: Categories section description" },
+  "@resetDataCategoriesDescription": {
+    "description": "Reset data: Categories section description"
+  },
   "resetDataDangerZone": "Danger Zone",
-  "@resetDataDangerZone": { "description": "Reset data: Danger Zone section title" },
+  "@resetDataDangerZone": {
+    "description": "Reset data: Danger Zone section title"
+  },
   "resetDataConfirmTitle": "Reset {category}?",
   "@resetDataConfirmTitle": {
     "description": "Confirmation dialog title for resetting a data category",
-    "placeholders": { "category": { "type": "String" } }
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
   },
   "resetDataConfirmAll": "This will permanently delete all your data including members, fronting sessions, messages, polls, habits, sleep data, and settings. This action cannot be undone.",
-  "@resetDataConfirmAll": { "description": "Confirmation message when resetting all data" },
+  "@resetDataConfirmAll": {
+    "description": "Confirmation message when resetting all data"
+  },
   "resetDataConfirmSync": "This keeps your local app data, but removes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.",
-  "@resetDataConfirmSync": { "description": "Confirmation message when resetting sync" },
+  "@resetDataConfirmSync": {
+    "description": "Confirmation message when resetting sync"
+  },
   "resetDataConfirmCategory": "This will permanently delete all {category} data on this device. This action cannot be undone.",
   "@resetDataConfirmCategory": {
     "description": "Confirmation message when resetting a specific category",
-    "placeholders": { "category": { "type": "String" } }
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
   },
   "resetDataConfirmEverything": "Reset Everything",
-  "@resetDataConfirmEverything": { "description": "Confirm button label when resetting all data" },
+  "@resetDataConfirmEverything": {
+    "description": "Confirm button label when resetting all data"
+  },
   "resetDataConfirmSync2": "Reset Sync",
-  "@resetDataConfirmSync2": { "description": "Confirm button label when resetting sync" },
+  "@resetDataConfirmSync2": {
+    "description": "Confirm button label when resetting sync"
+  },
   "resetDataSuccess": "{category} reset successfully",
   "@resetDataSuccess": {
     "description": "Toast message after successful data reset",
-    "placeholders": { "category": { "type": "String" } }
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
   },
   "resetDataFailed": "Failed to reset: {error}",
   "@resetDataFailed": {
     "description": "Toast message when data reset fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
-
   "navigationSettingsTitle": "Navigation",
-  "@navigationSettingsTitle": { "description": "Navigation settings screen title" },
+  "@navigationSettingsTitle": {
+    "description": "Navigation settings screen title"
+  },
   "navigationNavBar": "Nav Bar",
-  "@navigationNavBar": { "description": "Navigation settings: Nav Bar section label" },
+  "@navigationNavBar": {
+    "description": "Navigation settings: Nav Bar section label"
+  },
   "navigationMoreMenu": "More Menu",
-  "@navigationMoreMenu": { "description": "Navigation settings: More Menu section label" },
+  "@navigationMoreMenu": {
+    "description": "Navigation settings: More Menu section label"
+  },
   "navigationAvailable": "Available",
-  "@navigationAvailable": { "description": "Navigation settings: Available section title" },
+  "@navigationAvailable": {
+    "description": "Navigation settings: Available section title"
+  },
   "navigationDisabledFeatures": "Disabled Features",
-  "@navigationDisabledFeatures": { "description": "Navigation settings: Disabled Features section title" },
+  "@navigationDisabledFeatures": {
+    "description": "Navigation settings: Disabled Features section title"
+  },
   "navigationEnableInFeatures": "Enable in Features",
-  "@navigationEnableInFeatures": { "description": "Navigation item disabled, tap to open Features settings" },
+  "@navigationEnableInFeatures": {
+    "description": "Navigation item disabled, tap to open Features settings"
+  },
   "navigationMoveToNavBar": "Move to nav bar",
-  "@navigationMoveToNavBar": { "description": "Tooltip: move item to nav bar" },
+  "@navigationMoveToNavBar": {
+    "description": "Tooltip: move item to nav bar"
+  },
   "navigationMoveToMoreMenu": "Move to More menu",
-  "@navigationMoveToMoreMenu": { "description": "Tooltip: move item to More menu" },
+  "@navigationMoveToMoreMenu": {
+    "description": "Tooltip: move item to More menu"
+  },
   "navigationRemove": "Remove from navigation",
-  "@navigationRemove": { "description": "Tooltip: remove item from navigation" },
+  "@navigationRemove": {
+    "description": "Tooltip: remove item from navigation"
+  },
   "navigationAddToNavBar": "Add to nav bar",
-  "@navigationAddToNavBar": { "description": "Tooltip: add item to nav bar" },
+  "@navigationAddToNavBar": {
+    "description": "Tooltip: add item to nav bar"
+  },
   "navigationAddToMoreMenu": "Add to More menu",
-  "@navigationAddToMoreMenu": { "description": "Tooltip: add item to More menu" },
-
+  "@navigationAddToMoreMenu": {
+    "description": "Tooltip: add item to More menu"
+  },
   "featuresTitle": "Features",
-  "@featuresTitle": { "description": "Features settings screen title" },
+  "@featuresTitle": {
+    "description": "Features settings screen title"
+  },
   "featuresDisablingHint": "Disabling a feature hides it from navigation without deleting any data.",
-  "@featuresDisablingHint": { "description": "Hint text at the bottom of features settings" },
+  "@featuresDisablingHint": {
+    "description": "Hint text at the bottom of features settings"
+  },
   "featuresEnabled": "Enabled",
-  "@featuresEnabled": { "description": "Semantics label for an enabled feature" },
+  "@featuresEnabled": {
+    "description": "Semantics label for an enabled feature"
+  },
   "featuresDisabled": "Disabled",
-  "@featuresDisabled": { "description": "Semantics label for a disabled feature" },
+  "@featuresDisabled": {
+    "description": "Semantics label for a disabled feature"
+  },
   "featureChatTitle": "Chat",
-  "@featureChatTitle": { "description": "Feature name: Chat" },
+  "@featureChatTitle": {
+    "description": "Feature name: Chat"
+  },
   "featureFrontingTitle": "Fronting",
-  "@featureFrontingTitle": { "description": "Feature name: Fronting" },
+  "@featureFrontingTitle": {
+    "description": "Feature name: Fronting"
+  },
   "featureHabitsTitle": "Habits",
-  "@featureHabitsTitle": { "description": "Feature name: Habits" },
+  "@featureHabitsTitle": {
+    "description": "Feature name: Habits"
+  },
   "featureSleepTitle": "Sleep",
-  "@featureSleepTitle": { "description": "Feature name: Sleep" },
+  "@featureSleepTitle": {
+    "description": "Feature name: Sleep"
+  },
   "featurePollsTitle": "Polls",
-  "@featurePollsTitle": { "description": "Feature name: Polls" },
+  "@featurePollsTitle": {
+    "description": "Feature name: Polls"
+  },
   "featureNotesTitle": "Notes",
-  "@featureNotesTitle": { "description": "Feature name: Notes" },
+  "@featureNotesTitle": {
+    "description": "Feature name: Notes"
+  },
   "featureRemindersTitle": "Reminders",
-  "@featureRemindersTitle": { "description": "Feature name: Reminders" },
-
+  "@featureRemindersTitle": {
+    "description": "Feature name: Reminders"
+  },
   "statisticsTitle": "Statistics",
-  "@statisticsTitle": { "description": "Statistics screen title" },
+  "@statisticsTitle": {
+    "description": "Statistics screen title"
+  },
   "statisticsOverview": "Overview",
-  "@statisticsOverview": { "description": "Statistics: Overview section title" },
+  "@statisticsOverview": {
+    "description": "Statistics: Overview section title"
+  },
   "statisticsTotalMembers": "Total members",
-  "@statisticsTotalMembers": { "description": "Statistics row: total members" },
+  "@statisticsTotalMembers": {
+    "description": "Statistics row: total members"
+  },
   "statisticsTotalSessions": "Total sessions",
-  "@statisticsTotalSessions": { "description": "Statistics row: total sessions" },
+  "@statisticsTotalSessions": {
+    "description": "Statistics row: total sessions"
+  },
   "statisticsConversations": "Conversations",
-  "@statisticsConversations": { "description": "Statistics row: conversations" },
+  "@statisticsConversations": {
+    "description": "Statistics row: conversations"
+  },
   "statisticsPolls": "Polls",
-  "@statisticsPolls": { "description": "Statistics row: polls" },
+  "@statisticsPolls": {
+    "description": "Statistics row: polls"
+  },
   "statisticsMostFrequentFronters": "Most Frequent Fronters",
-  "@statisticsMostFrequentFronters": { "description": "Statistics section: most frequent fronters" },
+  "@statisticsMostFrequentFronters": {
+    "description": "Statistics section: most frequent fronters"
+  },
   "statisticsAverageSessionDuration": "Average Session Duration",
-  "@statisticsAverageSessionDuration": { "description": "Statistics section: average session duration" },
+  "@statisticsAverageSessionDuration": {
+    "description": "Statistics section: average session duration"
+  },
   "statisticsNoFrontingData": "No fronting data yet",
-  "@statisticsNoFrontingData": { "description": "Empty state for most frequent fronters" },
+  "@statisticsNoFrontingData": {
+    "description": "Empty state for most frequent fronters"
+  },
   "statisticsNoCompletedSessions": "No completed sessions yet",
-  "@statisticsNoCompletedSessions": { "description": "Empty state for average session duration" },
+  "@statisticsNoCompletedSessions": {
+    "description": "Empty state for average session duration"
+  },
   "statisticsSessions": "{count} sessions",
   "@statisticsSessions": {
     "description": "Number of sessions in statistics fronter row",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "statisticsActiveMembersBreakdown": "{active} active, {inactive} inactive",
   "@statisticsActiveMembersBreakdown": {
     "description": "Active/inactive member count breakdown in statistics",
     "placeholders": {
-      "active": { "type": "int" },
-      "inactive": { "type": "int" }
+      "active": {
+        "type": "int"
+      },
+      "inactive": {
+        "type": "int"
+      }
     }
   },
-
   "debugTitle": "Debug",
-  "@debugTitle": { "description": "Debug screen title" },
+  "@debugTitle": {
+    "description": "Debug screen title"
+  },
   "debugDangerZone": "Danger Zone",
-  "@debugDangerZone": { "description": "Debug: Danger Zone section title" },
+  "@debugDangerZone": {
+    "description": "Debug: Danger Zone section title"
+  },
   "debugResetDatabase": "Reset Database",
-  "@debugResetDatabase": { "description": "Debug: Reset Database button" },
+  "@debugResetDatabase": {
+    "description": "Debug: Reset Database button"
+  },
   "debugExportData": "Export Data",
-  "@debugExportData": { "description": "Debug: Export Data button" },
+  "@debugExportData": {
+    "description": "Debug: Export Data button"
+  },
   "debugComingSoon": "Coming soon",
-  "@debugComingSoon": { "description": "Toast for unimplemented debug actions" },
+  "@debugComingSoon": {
+    "description": "Toast for unimplemented debug actions"
+  },
   "debugStressTestingTitle": "Stress Testing",
-  "@debugStressTestingTitle": { "description": "Debug: Stress Testing section title" },
+  "@debugStressTestingTitle": {
+    "description": "Debug: Stress Testing section title"
+  },
   "debugStressTestingDescription": "Generate large datasets for performance testing",
-  "@debugStressTestingDescription": { "description": "Debug: Stress Testing section description" },
+  "@debugStressTestingDescription": {
+    "description": "Debug: Stress Testing section description"
+  },
   "debugGenerateStressData": "Generate Stress Data",
-  "@debugGenerateStressData": { "description": "Debug: Generate Stress Data button" },
+  "@debugGenerateStressData": {
+    "description": "Debug: Generate Stress Data button"
+  },
   "debugClearingStressData": "Clearing...",
-  "@debugClearingStressData": { "description": "Debug: label while clearing stress data" },
+  "@debugClearingStressData": {
+    "description": "Debug: label while clearing stress data"
+  },
   "debugClearStressData": "Clear Stress Data",
-  "@debugClearStressData": { "description": "Debug: Clear Stress Data button" },
+  "@debugClearStressData": {
+    "description": "Debug: Clear Stress Data button"
+  },
   "debugSyncState": "Sync State",
-  "@debugSyncState": { "description": "Debug: Sync State section title" },
+  "@debugSyncState": {
+    "description": "Debug: Sync State section title"
+  },
   "debugPendingChanges": "Pending changes",
-  "@debugPendingChanges": { "description": "Debug row: pending changes label" },
+  "@debugPendingChanges": {
+    "description": "Debug row: pending changes label"
+  },
   "debugLastSync": "Last sync",
-  "@debugLastSync": { "description": "Debug row: last sync label" },
+  "@debugLastSync": {
+    "description": "Debug row: last sync label"
+  },
   "debugNeverSynced": "Never",
-  "@debugNeverSynced": { "description": "Debug: last sync value when never synced" },
+  "@debugNeverSynced": {
+    "description": "Debug: last sync value when never synced"
+  },
   "debugOpenSyncLog": "Open Sync Debug Log",
-  "@debugOpenSyncLog": { "description": "Debug: button to open sync debug log" },
+  "@debugOpenSyncLog": {
+    "description": "Debug: button to open sync debug log"
+  },
   "debugBuildInfo": "Build Info",
-  "@debugBuildInfo": { "description": "Debug: Build Info section title" },
+  "@debugBuildInfo": {
+    "description": "Debug: Build Info section title"
+  },
   "debugCopyBuildInfo": "Copy build info",
-  "@debugCopyBuildInfo": { "description": "Tooltip: copy build info to clipboard" },
+  "@debugCopyBuildInfo": {
+    "description": "Tooltip: copy build info to clipboard"
+  },
   "debugBuildInfoCopied": "Build info copied",
-  "@debugBuildInfoCopied": { "description": "Toast after copying build info" },
+  "@debugBuildInfoCopied": {
+    "description": "Toast after copying build info"
+  },
   "debugAppVersion": "App version",
-  "@debugAppVersion": { "description": "Debug row: app version label" },
+  "@debugAppVersion": {
+    "description": "Debug row: app version label"
+  },
   "debugGit": "Git",
-  "@debugGit": { "description": "Debug row: git label" },
+  "@debugGit": {
+    "description": "Debug row: git label"
+  },
   "debugBranch": "Branch",
-  "@debugBranch": { "description": "Debug row: branch label" },
+  "@debugBranch": {
+    "description": "Debug row: branch label"
+  },
   "debugBuilt": "Built",
-  "@debugBuilt": { "description": "Debug row: built label" },
+  "@debugBuilt": {
+    "description": "Debug row: built label"
+  },
   "debugPackage": "Package",
-  "@debugPackage": { "description": "Debug row: package label" },
+  "@debugPackage": {
+    "description": "Debug row: package label"
+  },
   "debugTools": "Tools",
-  "@debugTools": { "description": "Debug: Tools section title" },
+  "@debugTools": {
+    "description": "Debug: Tools section title"
+  },
   "debugTimelineSanitization": "Timeline Sanitization",
-  "@debugTimelineSanitization": { "description": "Debug tools: timeline sanitization title" },
+  "@debugTimelineSanitization": {
+    "description": "Debug tools: timeline sanitization title"
+  },
   "debugTimelineSanitizationSubtitle": "Scan for and fix timeline issues",
-  "@debugTimelineSanitizationSubtitle": { "description": "Debug tools: timeline sanitization subtitle" },
+  "@debugTimelineSanitizationSubtitle": {
+    "description": "Debug tools: timeline sanitization subtitle"
+  },
   "debugDevice": "Device",
-  "@debugDevice": { "description": "Debug: Device section title" },
+  "@debugDevice": {
+    "description": "Debug: Device section title"
+  },
   "debugNodeId": "Node ID",
-  "@debugNodeId": { "description": "Debug row: node ID label" },
+  "@debugNodeId": {
+    "description": "Debug row: node ID label"
+  },
   "debugNodeIdUnavailable": "Unavailable — not yet paired",
-  "@debugNodeIdUnavailable": { "description": "Debug: node ID when not yet paired" },
+  "@debugNodeIdUnavailable": {
+    "description": "Debug: node ID when not yet paired"
+  },
   "debugCopyNodeId": "Copy Node ID",
-  "@debugCopyNodeId": { "description": "Tooltip: copy node ID to clipboard" },
+  "@debugCopyNodeId": {
+    "description": "Tooltip: copy node ID to clipboard"
+  },
   "debugNodeIdCopied": "Node ID copied to clipboard",
-  "@debugNodeIdCopied": { "description": "Toast after copying node ID" },
+  "@debugNodeIdCopied": {
+    "description": "Toast after copying node ID"
+  },
   "debugResetDatabaseConfirm1Title": "Reset Database",
-  "@debugResetDatabaseConfirm1Title": { "description": "First confirmation title for DB reset" },
+  "@debugResetDatabaseConfirm1Title": {
+    "description": "First confirmation title for DB reset"
+  },
   "debugResetDatabaseConfirm1Message": "Are you sure you want to delete all data? This action cannot be undone.",
-  "@debugResetDatabaseConfirm1Message": { "description": "First confirmation message for DB reset" },
+  "@debugResetDatabaseConfirm1Message": {
+    "description": "First confirmation message for DB reset"
+  },
   "debugResetDatabaseConfirm2Title": "Really delete all data?",
-  "@debugResetDatabaseConfirm2Title": { "description": "Second confirmation title for DB reset" },
+  "@debugResetDatabaseConfirm2Title": {
+    "description": "Second confirmation title for DB reset"
+  },
   "debugResetDatabaseConfirm2Message": "This will permanently erase all members, sessions, conversations, messages, and polls. There is no undo.",
-  "@debugResetDatabaseConfirm2Message": { "description": "Second confirmation message for DB reset" },
+  "@debugResetDatabaseConfirm2Message": {
+    "description": "Second confirmation message for DB reset"
+  },
   "debugDeleteEverything": "Delete Everything",
-  "@debugDeleteEverything": { "description": "Second confirmation: delete everything button" },
+  "@debugDeleteEverything": {
+    "description": "Second confirmation: delete everything button"
+  },
   "debugDatabaseResetSuccess": "Database reset successfully",
-  "@debugDatabaseResetSuccess": { "description": "Toast after database reset" },
+  "@debugDatabaseResetSuccess": {
+    "description": "Toast after database reset"
+  },
   "debugFailedToReset": "Failed to reset: {error}",
   "@debugFailedToReset": {
     "description": "Toast when database reset fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "debugSelectPreset": "Select Preset",
-  "@debugSelectPreset": { "description": "Title of the stress test preset picker" },
+  "@debugSelectPreset": {
+    "description": "Title of the stress test preset picker"
+  },
   "debugDatabaseNotEmpty": "Database Not Empty",
-  "@debugDatabaseNotEmpty": { "description": "Title when database already has data" },
+  "@debugDatabaseNotEmpty": {
+    "description": "Title when database already has data"
+  },
   "debugDatabaseNotEmptyMessage": "Your database already has data. Stress data will be added alongside it. Continue?",
-  "@debugDatabaseNotEmptyMessage": { "description": "Message when database already has data" },
+  "@debugDatabaseNotEmptyMessage": {
+    "description": "Message when database already has data"
+  },
   "debugNoStressData": "No stress data to clear",
-  "@debugNoStressData": { "description": "Toast when no stress data exists" },
+  "@debugNoStressData": {
+    "description": "Toast when no stress data exists"
+  },
   "debugClearStressDataTitle": "Clear Stress Data",
-  "@debugClearStressDataTitle": { "description": "Confirmation title for clearing stress data" },
+  "@debugClearStressDataTitle": {
+    "description": "Confirmation title for clearing stress data"
+  },
   "debugClearStressDataMessage": "This will delete all generated stress test data. Your real data will not be affected.",
-  "@debugClearStressDataMessage": { "description": "Confirmation message for clearing stress data" },
+  "@debugClearStressDataMessage": {
+    "description": "Confirmation message for clearing stress data"
+  },
   "debugStressDataCleared": "Stress data cleared",
-  "@debugStressDataCleared": { "description": "Toast after stress data is cleared" },
+  "@debugStressDataCleared": {
+    "description": "Toast after stress data is cleared"
+  },
   "debugFailedToClearStress": "Failed to clear stress data: {error}",
   "@debugFailedToClearStress": {
     "description": "Toast when clearing stress data fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "debugStressGenerated": "{preset} stress data generated",
   "@debugStressGenerated": {
     "description": "Toast after stress data is generated",
-    "placeholders": { "preset": { "type": "String" } }
+    "placeholders": {
+      "preset": {
+        "type": "String"
+      }
+    }
   },
   "debugGenerationFailed": "Generation failed: {error}",
   "@debugGenerationFailed": {
     "description": "Toast when stress data generation fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
-
   "errorHistoryTitle": "Error History",
-  "@errorHistoryTitle": { "description": "Error history screen title" },
+  "@errorHistoryTitle": {
+    "description": "Error history screen title"
+  },
   "errorHistoryClear": "Clear History",
-  "@errorHistoryClear": { "description": "Tooltip for clear history button" },
+  "@errorHistoryClear": {
+    "description": "Tooltip for clear history button"
+  },
   "errorHistoryEmpty": "No errors recorded",
-  "@errorHistoryEmpty": { "description": "Empty state title in error history" },
+  "@errorHistoryEmpty": {
+    "description": "Empty state title in error history"
+  },
   "errorHistoryEmptySubtitle": "Errors will appear here when they occur",
-  "@errorHistoryEmptySubtitle": { "description": "Empty state subtitle in error history" },
+  "@errorHistoryEmptySubtitle": {
+    "description": "Empty state subtitle in error history"
+  },
   "errorHistoryCopyTooltip": "Copy error details",
-  "@errorHistoryCopyTooltip": { "description": "Tooltip for copy error button" },
+  "@errorHistoryCopyTooltip": {
+    "description": "Tooltip for copy error button"
+  },
   "errorHistoryCopied": "Error details copied",
-  "@errorHistoryCopied": { "description": "Toast after copying error details" },
-
+  "@errorHistoryCopied": {
+    "description": "Toast after copying error details"
+  },
   "systemInfoTitle": "System Information",
-  "@systemInfoTitle": { "description": "System Information screen title" },
+  "@systemInfoTitle": {
+    "description": "System Information screen title"
+  },
   "systemInfoChangeAvatar": "Change avatar",
-  "@systemInfoChangeAvatar": { "description": "Avatar action: change avatar" },
+  "@systemInfoChangeAvatar": {
+    "description": "Avatar action: change avatar"
+  },
   "systemInfoRemoveAvatar": "Remove avatar",
-  "@systemInfoRemoveAvatar": { "description": "Avatar action: remove avatar" },
+  "@systemInfoRemoveAvatar": {
+    "description": "Avatar action: remove avatar"
+  },
   "systemInfoNameLabel": "Name",
-  "@systemInfoNameLabel": { "description": "System name field label" },
+  "@systemInfoNameLabel": {
+    "description": "System name field label"
+  },
   "systemInfoSystemNameHint": "System name",
-  "@systemInfoSystemNameHint": { "description": "Hint text for system name field" },
+  "@systemInfoSystemNameHint": {
+    "description": "Hint text for system name field"
+  },
   "systemInfoSaveSystemName": "Save system name",
-  "@systemInfoSaveSystemName": { "description": "Tooltip for save system name button" },
+  "@systemInfoSaveSystemName": {
+    "description": "Tooltip for save system name button"
+  },
   "systemInfoCancelEditing": "Cancel editing",
-  "@systemInfoCancelEditing": { "description": "Tooltip for cancel editing button" },
+  "@systemInfoCancelEditing": {
+    "description": "Tooltip for cancel editing button"
+  },
   "systemInfoDescriptionLabel": "Description",
-  "@systemInfoDescriptionLabel": { "description": "System description field label" },
+  "@systemInfoDescriptionLabel": {
+    "description": "System description field label"
+  },
   "systemInfoDescriptionHint": "System description",
-  "@systemInfoDescriptionHint": { "description": "Hint text for system description field" },
+  "@systemInfoDescriptionHint": {
+    "description": "Hint text for system description field"
+  },
   "systemInfoAddDescription": "Add a description...",
-  "@systemInfoAddDescription": { "description": "Placeholder text when no description is set" },
+  "@systemInfoAddDescription": {
+    "description": "Placeholder text when no description is set"
+  },
   "systemInfoSaveDescription": "Save description",
-  "@systemInfoSaveDescription": { "description": "Tooltip for save description button" },
-
+  "@systemInfoSaveDescription": {
+    "description": "Tooltip for save description button"
+  },
   "devicesTitle": "Manage Devices",
-  "@devicesTitle": { "description": "Device management screen title" },
+  "@devicesTitle": {
+    "description": "Device management screen title"
+  },
   "devicesThisDevice": "This Device",
-  "@devicesThisDevice": { "description": "Section header for the current device" },
+  "@devicesThisDevice": {
+    "description": "Section header for the current device"
+  },
   "devicesOtherDevices": "Other Devices",
-  "@devicesOtherDevices": { "description": "Section header for other devices" },
+  "@devicesOtherDevices": {
+    "description": "Section header for other devices"
+  },
   "devicesFailedToLoad": "Failed to load devices",
-  "@devicesFailedToLoad": { "description": "Error title when device list fails to load" },
+  "@devicesFailedToLoad": {
+    "description": "Error title when device list fails to load"
+  },
   "devicesNoOtherDevices": "No other devices",
-  "@devicesNoOtherDevices": { "description": "Empty state title in device management" },
+  "@devicesNoOtherDevices": {
+    "description": "Empty state title in device management"
+  },
   "devicesNoOtherDevicesSubtitle": "Only this device is registered in the sync group.",
-  "@devicesNoOtherDevicesSubtitle": { "description": "Empty state subtitle in device management" },
+  "@devicesNoOtherDevicesSubtitle": {
+    "description": "Empty state subtitle in device management"
+  },
   "devicesThisDevicePill": "This Device",
-  "@devicesThisDevicePill": { "description": "Pill label for the current device" },
+  "@devicesThisDevicePill": {
+    "description": "Pill label for the current device"
+  },
   "devicesStatusActive": "Active",
-  "@devicesStatusActive": { "description": "Device status: Active" },
+  "@devicesStatusActive": {
+    "description": "Device status: Active"
+  },
   "devicesStatusStale": "Stale",
-  "@devicesStatusStale": { "description": "Device status: Stale" },
+  "@devicesStatusStale": {
+    "description": "Device status: Stale"
+  },
   "devicesStatusRevoked": "Revoked",
-  "@devicesStatusRevoked": { "description": "Device status: Revoked" },
+  "@devicesStatusRevoked": {
+    "description": "Device status: Revoked"
+  },
   "devicesRotateKey": "Rotate signing key",
-  "@devicesRotateKey": { "description": "Tooltip for rotate signing key button" },
+  "@devicesRotateKey": {
+    "description": "Tooltip for rotate signing key button"
+  },
   "devicesRevokeDevice": "Revoke device",
-  "@devicesRevokeDevice": { "description": "Tooltip for revoke device button" },
+  "@devicesRevokeDevice": {
+    "description": "Tooltip for revoke device button"
+  },
   "devicesDeviceCopied": "Device ID copied",
-  "@devicesDeviceCopied": { "description": "Toast after copying device ID" },
+  "@devicesDeviceCopied": {
+    "description": "Toast after copying device ID"
+  },
   "devicesRotateKeyTitle": "Rotate Signing Key?",
-  "@devicesRotateKeyTitle": { "description": "Dialog title for key rotation" },
+  "@devicesRotateKeyTitle": {
+    "description": "Dialog title for key rotation"
+  },
   "devicesRotateKeyMessage": "This generates a new post-quantum signing key for this device. Other devices will accept the new key automatically. The old key remains valid for 30 days.",
-  "@devicesRotateKeyMessage": { "description": "Dialog message for key rotation" },
+  "@devicesRotateKeyMessage": {
+    "description": "Dialog message for key rotation"
+  },
   "devicesRotate": "Rotate",
-  "@devicesRotate": { "description": "Button label: rotate key" },
+  "@devicesRotate": {
+    "description": "Button label: rotate key"
+  },
   "devicesKeyRotated": "Key rotated to generation {gen}",
   "@devicesKeyRotated": {
     "description": "Toast after successful key rotation",
-    "placeholders": { "gen": { "type": "int" } }
+    "placeholders": {
+      "gen": {
+        "type": "int"
+      }
+    }
   },
   "devicesKeyRotationFailed": "Key rotation failed: {error}",
   "@devicesKeyRotationFailed": {
     "description": "Toast when key rotation fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "devicesRevokeTitle": "Revoke Device?",
-  "@devicesRevokeTitle": { "description": "Dialog title for device revocation" },
+  "@devicesRevokeTitle": {
+    "description": "Dialog title for device revocation"
+  },
   "devicesRevokeMessage": "Device {shortId} will be removed from the sync group and can no longer sync. This cannot be undone.",
   "@devicesRevokeMessage": {
     "description": "Dialog message for device revocation",
-    "placeholders": { "shortId": { "type": "String" } }
+    "placeholders": {
+      "shortId": {
+        "type": "String"
+      }
+    }
   },
   "devicesRequestWipeTitle": "Request remote data wipe",
-  "@devicesRequestWipeTitle": { "description": "Toggle title in revoke dialog: request wipe" },
+  "@devicesRequestWipeTitle": {
+    "description": "Toggle title in revoke dialog: request wipe"
+  },
   "devicesRequestWipeSubtitle": "Asks the device to erase its sync data. This is a request — if the device is offline or compromised, it may not be honored.",
-  "@devicesRequestWipeSubtitle": { "description": "Toggle subtitle in revoke dialog: request wipe" },
+  "@devicesRequestWipeSubtitle": {
+    "description": "Toggle subtitle in revoke dialog: request wipe"
+  },
   "devicesRevoke": "Revoke",
-  "@devicesRevoke": { "description": "Button label: revoke device" },
+  "@devicesRevoke": {
+    "description": "Button label: revoke device"
+  },
   "devicesRevoked": "Device {shortId} revoked",
   "@devicesRevoked": {
     "description": "Toast after device is revoked",
-    "placeholders": { "shortId": { "type": "String" } }
+    "placeholders": {
+      "shortId": {
+        "type": "String"
+      }
+    }
   },
   "devicesFailedToRevoke": "Failed to revoke: {error}",
   "@devicesFailedToRevoke": {
     "description": "Toast when device revocation fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "devicesSemanticLabel": "Device {shortId}, {status}, key generation {gen}",
   "@devicesSemanticLabel": {
     "description": "Semantics label for a device tile",
     "placeholders": {
-      "shortId": { "type": "String" },
-      "status": { "type": "String" },
-      "gen": { "type": "int" }
+      "shortId": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "gen": {
+        "type": "int"
+      }
     }
   },
   "devicesSemanticLabelCurrent": "Device {shortId}, {status}, key generation {gen}, this device",
   "@devicesSemanticLabelCurrent": {
     "description": "Semantics label for current device tile",
     "placeholders": {
-      "shortId": { "type": "String" },
-      "status": { "type": "String" },
-      "gen": { "type": "int" }
+      "shortId": {
+        "type": "String"
+      },
+      "status": {
+        "type": "String"
+      },
+      "gen": {
+        "type": "int"
+      }
     }
   },
-
   "continueLabel": "Continue",
-  "@continueLabel": { "description": "Button label: continue to next step" },
-
+  "@continueLabel": {
+    "description": "Button label: continue to next step"
+  },
   "devicesEpochKeyGen": "Epoch {epoch} · Key gen {gen}",
   "@devicesEpochKeyGen": {
     "description": "Device tile subtitle: epoch and key generation",
     "placeholders": {
-      "epoch": { "type": "int" },
-      "gen": { "type": "int" }
+      "epoch": {
+        "type": "int"
+      },
+      "gen": {
+        "type": "int"
+      }
     }
   },
   "devicesRotateKeyTooltip": "Rotate signing key",
-  "@devicesRotateKeyTooltip": { "description": "Tooltip on rotate key button" },
+  "@devicesRotateKeyTooltip": {
+    "description": "Tooltip on rotate key button"
+  },
   "devicesRevokeTooltip": "Revoke device",
-  "@devicesRevokeTooltip": { "description": "Tooltip on revoke button" },
+  "@devicesRevokeTooltip": {
+    "description": "Tooltip on revoke button"
+  },
   "devicesIdCopied": "Device ID copied",
-  "@devicesIdCopied": { "description": "Toast when device ID is copied to clipboard" },
-
+  "@devicesIdCopied": {
+    "description": "Toast when device ID is copied to clipboard"
+  },
   "syncTroubleshootingTitle": "Sync Troubleshooting",
-  "@syncTroubleshootingTitle": { "description": "Title of the sync troubleshooting screen" },
+  "@syncTroubleshootingTitle": {
+    "description": "Title of the sync troubleshooting screen"
+  },
   "syncTroubleshootingConnectionStatus": "Connection Status",
-  "@syncTroubleshootingConnectionStatus": { "description": "Section header: connection status" },
+  "@syncTroubleshootingConnectionStatus": {
+    "description": "Section header: connection status"
+  },
   "syncTroubleshootingNotConfigured": "Not configured",
-  "@syncTroubleshootingNotConfigured": { "description": "Connection state: not configured" },
+  "@syncTroubleshootingNotConfigured": {
+    "description": "Connection state: not configured"
+  },
   "syncTroubleshootingConnected": "Connected",
-  "@syncTroubleshootingConnected": { "description": "Connection state: connected" },
+  "@syncTroubleshootingConnected": {
+    "description": "Connection state: connected"
+  },
   "syncTroubleshootingConfiguredLocally": "Configured locally",
-  "@syncTroubleshootingConfiguredLocally": { "description": "Connection state: configured locally but engine not active" },
+  "@syncTroubleshootingConfiguredLocally": {
+    "description": "Connection state: configured locally but engine not active"
+  },
   "syncTroubleshootingNotConfiguredSubtitle": "This device does not currently have sync set up.",
-  "@syncTroubleshootingNotConfiguredSubtitle": { "description": "Subtitle when sync is not configured" },
+  "@syncTroubleshootingNotConfiguredSubtitle": {
+    "description": "Subtitle when sync is not configured"
+  },
   "syncTroubleshootingConnectedSubtitle": "Sync engine is active and ready",
-  "@syncTroubleshootingConnectedSubtitle": { "description": "Subtitle when sync is connected" },
+  "@syncTroubleshootingConnectedSubtitle": {
+    "description": "Subtitle when sync is connected"
+  },
   "syncTroubleshootingConfiguredLocallySubtitle": "Settings are stored. The engine will reconnect on the next sync.",
-  "@syncTroubleshootingConfiguredLocallySubtitle": { "description": "Subtitle when configured locally but not active" },
+  "@syncTroubleshootingConfiguredLocallySubtitle": {
+    "description": "Subtitle when configured locally but not active"
+  },
   "syncTroubleshootingLastSync": "Last Sync",
-  "@syncTroubleshootingLastSync": { "description": "Section header: last sync time" },
+  "@syncTroubleshootingLastSync": {
+    "description": "Section header: last sync time"
+  },
   "syncTroubleshootingLastSuccessful": "Last successful sync",
-  "@syncTroubleshootingLastSuccessful": { "description": "Row title: last successful sync" },
+  "@syncTroubleshootingLastSuccessful": {
+    "description": "Row title: last successful sync"
+  },
   "syncTroubleshootingNeverSynced": "Never synced",
-  "@syncTroubleshootingNeverSynced": { "description": "Subtitle when never synced" },
+  "@syncTroubleshootingNeverSynced": {
+    "description": "Subtitle when never synced"
+  },
   "syncTroubleshootingLastError": "Last sync error",
-  "@syncTroubleshootingLastError": { "description": "Row title: last sync error" },
+  "@syncTroubleshootingLastError": {
+    "description": "Row title: last sync error"
+  },
   "syncTroubleshootingCurrentState": "Current sync state",
-  "@syncTroubleshootingCurrentState": { "description": "Row title: current sync state" },
+  "@syncTroubleshootingCurrentState": {
+    "description": "Row title: current sync state"
+  },
   "syncTroubleshootingSyncing": "Syncing…",
-  "@syncTroubleshootingSyncing": { "description": "Sync state: syncing" },
+  "@syncTroubleshootingSyncing": {
+    "description": "Sync state: syncing"
+  },
   "syncTroubleshootingIdle": "Idle",
-  "@syncTroubleshootingIdle": { "description": "Sync state: idle" },
+  "@syncTroubleshootingIdle": {
+    "description": "Sync state: idle"
+  },
   "syncTroubleshootingPendingOps": "Pending operations",
-  "@syncTroubleshootingPendingOps": { "description": "Row title: pending operations" },
+  "@syncTroubleshootingPendingOps": {
+    "description": "Row title: pending operations"
+  },
   "syncTroubleshootingPendingOpsValue": "{count} ops waiting to sync",
   "@syncTroubleshootingPendingOpsValue": {
     "description": "Subtitle for pending ops count",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "syncTroubleshootingSyncId": "Sync ID",
-  "@syncTroubleshootingSyncId": { "description": "Row title: sync ID" },
+  "@syncTroubleshootingSyncId": {
+    "description": "Row title: sync ID"
+  },
   "syncTroubleshootingRelayUrl": "Relay URL",
-  "@syncTroubleshootingRelayUrl": { "description": "Row title: relay URL" },
+  "@syncTroubleshootingRelayUrl": {
+    "description": "Row title: relay URL"
+  },
   "syncTroubleshootingActions": "Actions",
-  "@syncTroubleshootingActions": { "description": "Section header: actions" },
+  "@syncTroubleshootingActions": {
+    "description": "Section header: actions"
+  },
   "syncTroubleshootingForceSync": "Force Sync",
-  "@syncTroubleshootingForceSync": { "description": "Button: force sync now" },
+  "@syncTroubleshootingForceSync": {
+    "description": "Button: force sync now"
+  },
   "syncTroubleshootingOpenEventLog": "Open Sync Event Log",
-  "@syncTroubleshootingOpenEventLog": { "description": "Button: open sync event log" },
+  "@syncTroubleshootingOpenEventLog": {
+    "description": "Button: open sync event log"
+  },
   "syncTroubleshootingResetSync": "Reset Sync System",
-  "@syncTroubleshootingResetSync": { "description": "Button: reset sync system" },
+  "@syncTroubleshootingResetSync": {
+    "description": "Button: reset sync system"
+  },
   "syncTroubleshootingRepair": "Re-pair Device",
-  "@syncTroubleshootingRepair": { "description": "Button: re-pair device" },
+  "@syncTroubleshootingRepair": {
+    "description": "Button: re-pair device"
+  },
   "syncTroubleshootingCommonIssues": "Common Issues",
-  "@syncTroubleshootingCommonIssues": { "description": "Section header: common issues" },
+  "@syncTroubleshootingCommonIssues": {
+    "description": "Section header: common issues"
+  },
   "syncTroubleshootingIssue1Title": "Sync not working?",
-  "@syncTroubleshootingIssue1Title": { "description": "Common issue 1 title" },
+  "@syncTroubleshootingIssue1Title": {
+    "description": "Common issue 1 title"
+  },
   "syncTroubleshootingIssue1Description": "Check that your relay URL and sync ID are correctly configured in Sync settings. Both devices must use the same sync ID.",
-  "@syncTroubleshootingIssue1Description": { "description": "Common issue 1 description" },
+  "@syncTroubleshootingIssue1Description": {
+    "description": "Common issue 1 description"
+  },
   "syncTroubleshootingIssue2Title": "Duplicate data?",
-  "@syncTroubleshootingIssue2Title": { "description": "Common issue 2 title" },
+  "@syncTroubleshootingIssue2Title": {
+    "description": "Common issue 2 title"
+  },
   "syncTroubleshootingIssue2Description": "Try resetting the sync system using the button above. This wipes local sync setup and lets you pair again cleanly.",
-  "@syncTroubleshootingIssue2Description": { "description": "Common issue 2 description" },
+  "@syncTroubleshootingIssue2Description": {
+    "description": "Common issue 2 description"
+  },
   "syncTroubleshootingIssue3Title": "Connection errors?",
-  "@syncTroubleshootingIssue3Title": { "description": "Common issue 3 title" },
+  "@syncTroubleshootingIssue3Title": {
+    "description": "Common issue 3 title"
+  },
   "syncTroubleshootingIssue3Description": "Verify that your device has network access and that the relay server is online. Check the relay URL for typos.",
-  "@syncTroubleshootingIssue3Description": { "description": "Common issue 3 description" },
+  "@syncTroubleshootingIssue3Description": {
+    "description": "Common issue 3 description"
+  },
   "syncTroubleshootingIssue4Title": "Sync is slow?",
-  "@syncTroubleshootingIssue4Title": { "description": "Common issue 4 title" },
+  "@syncTroubleshootingIssue4Title": {
+    "description": "Common issue 4 title"
+  },
   "syncTroubleshootingIssue4Description": "Initial sync may take longer with large datasets. Subsequent syncs are incremental and should be faster.",
-  "@syncTroubleshootingIssue4Description": { "description": "Common issue 4 description" },
+  "@syncTroubleshootingIssue4Description": {
+    "description": "Common issue 4 description"
+  },
   "syncTroubleshootingIssue5Title": "Device Identity Mismatch",
-  "@syncTroubleshootingIssue5Title": { "description": "Common issue 5 title" },
+  "@syncTroubleshootingIssue5Title": {
+    "description": "Common issue 5 title"
+  },
   "syncTroubleshootingIssue5Description": "If pairing failed mid-way, your device identity may be inconsistent. Use \"Re-pair Device\" to generate a fresh identity and pair again.",
-  "@syncTroubleshootingIssue5Description": { "description": "Common issue 5 description" },
+  "@syncTroubleshootingIssue5Description": {
+    "description": "Common issue 5 description"
+  },
   "syncTroubleshootingFinished": "Sync finished",
-  "@syncTroubleshootingFinished": { "description": "Toast when sync finishes" },
+  "@syncTroubleshootingFinished": {
+    "description": "Toast when sync finishes"
+  },
   "syncTroubleshootingFailed": "Sync failed: {error}",
   "@syncTroubleshootingFailed": {
     "description": "Toast when sync fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "syncTroubleshootingResetTitle": "Reset sync system?",
-  "@syncTroubleshootingResetTitle": { "description": "Dialog title for sync reset" },
+  "@syncTroubleshootingResetTitle": {
+    "description": "Dialog title for sync reset"
+  },
   "syncTroubleshootingResetMessage": "This keeps your local app data, but wipes sync keys, relay configuration, device identity, and sync history from this device. You will need to set up sync again afterward.",
-  "@syncTroubleshootingResetMessage": { "description": "Dialog message for sync reset" },
+  "@syncTroubleshootingResetMessage": {
+    "description": "Dialog message for sync reset"
+  },
   "syncTroubleshootingResetConfirm": "Reset",
-  "@syncTroubleshootingResetConfirm": { "description": "Button: confirm sync reset" },
+  "@syncTroubleshootingResetConfirm": {
+    "description": "Button: confirm sync reset"
+  },
   "syncTroubleshootingResetSuccess": "Sync system reset",
-  "@syncTroubleshootingResetSuccess": { "description": "Toast after sync reset" },
+  "@syncTroubleshootingResetSuccess": {
+    "description": "Toast after sync reset"
+  },
   "syncTroubleshootingRepairTitle": "Re-pair Device?",
-  "@syncTroubleshootingRepairTitle": { "description": "Dialog title for re-pair" },
+  "@syncTroubleshootingRepairTitle": {
+    "description": "Dialog title for re-pair"
+  },
   "syncTroubleshootingRepairMessage": "This will clear your sync credentials and require you to pair again. Any local changes not yet synced will be lost.\n\nWe recommend exporting your data first as a safety net.",
-  "@syncTroubleshootingRepairMessage": { "description": "Dialog message for re-pair" },
+  "@syncTroubleshootingRepairMessage": {
+    "description": "Dialog message for re-pair"
+  },
   "syncTroubleshootingRepairNow": "Re-pair Now",
-  "@syncTroubleshootingRepairNow": { "description": "Button: re-pair now" },
+  "@syncTroubleshootingRepairNow": {
+    "description": "Button: re-pair now"
+  },
   "syncTroubleshootingExportFirst": "Export Data First",
-  "@syncTroubleshootingExportFirst": { "description": "Button: export data first before re-pair" },
+  "@syncTroubleshootingExportFirst": {
+    "description": "Button: export data first before re-pair"
+  },
   "syncTroubleshootingCredentialsCleared": "Sync credentials cleared",
-  "@syncTroubleshootingCredentialsCleared": { "description": "Toast after credentials cleared" },
-
+  "@syncTroubleshootingCredentialsCleared": {
+    "description": "Toast after credentials cleared"
+  },
   "featureChatDescription": "Internal messaging between system members.",
-  "@featureChatDescription": { "description": "Description text on chat feature settings screen" },
+  "@featureChatDescription": {
+    "description": "Description text on chat feature settings screen"
+  },
   "featureChatGeneral": "General",
-  "@featureChatGeneral": { "description": "Section title: general settings on chat feature screen" },
+  "@featureChatGeneral": {
+    "description": "Section title: general settings on chat feature screen"
+  },
   "featureChatEnable": "Enable Chat",
-  "@featureChatEnable": { "description": "Toggle title: enable chat" },
+  "@featureChatEnable": {
+    "description": "Toggle title: enable chat"
+  },
   "featureChatEnableSubtitle": "In-system messaging between members",
-  "@featureChatEnableSubtitle": { "description": "Toggle subtitle: enable chat" },
+  "@featureChatEnableSubtitle": {
+    "description": "Toggle subtitle: enable chat"
+  },
   "featureChatOptions": "Options",
-  "@featureChatOptions": { "description": "Section title: options on chat feature screen" },
+  "@featureChatOptions": {
+    "description": "Section title: options on chat feature screen"
+  },
   "featureChatLogFront": "Log Front on Switch",
-  "@featureChatLogFront": { "description": "Toggle title: log front on speaker switch" },
+  "@featureChatLogFront": {
+    "description": "Toggle title: log front on speaker switch"
+  },
   "featureChatLogFrontSubtitle": "Changing who's speaking in chat also logs a front",
-  "@featureChatLogFrontSubtitle": { "description": "Toggle subtitle: log front on speaker switch" },
+  "@featureChatLogFrontSubtitle": {
+    "description": "Toggle subtitle: log front on speaker switch"
+  },
   "featureChatGifSearch": "GIF Search",
-  "@featureChatGifSearch": { "description": "Toggle title: GIF search" },
+  "@featureChatGifSearch": {
+    "description": "Toggle title: GIF search"
+  },
   "featureChatGifSearchSubtitle": "Search and send GIFs in chat",
-  "@featureChatGifSearchSubtitle": { "description": "Toggle subtitle: GIF search" },
-
+  "@featureChatGifSearchSubtitle": {
+    "description": "Toggle subtitle: GIF search"
+  },
   "featureFrontingDescription": "Configure how fronting sessions work.",
-  "@featureFrontingDescription": { "description": "Description text on fronting feature settings screen" },
+  "@featureFrontingDescription": {
+    "description": "Description text on fronting feature settings screen"
+  },
   "featureFrontingOptions": "Options",
-  "@featureFrontingOptions": { "description": "Section title: options on fronting feature screen" },
+  "@featureFrontingOptions": {
+    "description": "Section title: options on fronting feature screen"
+  },
   "featureFrontingQuickSwitch": "Quick Switch",
-  "@featureFrontingQuickSwitch": { "description": "Row title: quick switch setting" },
+  "@featureFrontingQuickSwitch": {
+    "description": "Row title: quick switch setting"
+  },
   "featureFrontingQuickSwitchOff": "Off",
-  "@featureFrontingQuickSwitchOff": { "description": "Quick switch label when off" },
+  "@featureFrontingQuickSwitchOff": {
+    "description": "Quick switch label when off"
+  },
   "featureFrontingQuickSwitchSeconds": "{seconds}s correction window",
   "@featureFrontingQuickSwitchSeconds": {
     "description": "Quick switch label for seconds",
-    "placeholders": { "seconds": { "type": "int" } }
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
   },
   "featureFrontingQuickSwitchMinutes": "{minutes}m correction window",
   "@featureFrontingQuickSwitchMinutes": {
     "description": "Quick switch label for minutes",
-    "placeholders": { "minutes": { "type": "int" } }
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
   },
   "featureFrontingQuickSwitchTitle": "Quick Switch Window",
-  "@featureFrontingQuickSwitchTitle": { "description": "Dialog title for quick switch picker" },
+  "@featureFrontingQuickSwitchTitle": {
+    "description": "Dialog title for quick switch picker"
+  },
   "featureFrontingQuickSwitchMessage": "If you switch fronters within this window, it corrects the current session instead of creating a new one.",
-  "@featureFrontingQuickSwitchMessage": { "description": "Dialog message for quick switch picker" },
-
+  "@featureFrontingQuickSwitchMessage": {
+    "description": "Dialog message for quick switch picker"
+  },
   "featureHabitsDescription": "Track recurring tasks and build streaks with your system members.",
-  "@featureHabitsDescription": { "description": "Description text on habits feature settings screen" },
+  "@featureHabitsDescription": {
+    "description": "Description text on habits feature settings screen"
+  },
   "featureHabitsGeneral": "General",
-  "@featureHabitsGeneral": { "description": "Section title: general on habits feature screen" },
+  "@featureHabitsGeneral": {
+    "description": "Section title: general on habits feature screen"
+  },
   "featureHabitsEnable": "Enable Habits",
-  "@featureHabitsEnable": { "description": "Toggle title: enable habits" },
+  "@featureHabitsEnable": {
+    "description": "Toggle title: enable habits"
+  },
   "featureHabitsEnableSubtitle": "Track daily routines and goals",
-  "@featureHabitsEnableSubtitle": { "description": "Toggle subtitle: enable habits" },
+  "@featureHabitsEnableSubtitle": {
+    "description": "Toggle subtitle: enable habits"
+  },
   "featureHabitsOptions": "Options",
-  "@featureHabitsOptions": { "description": "Section title: options on habits feature screen" },
+  "@featureHabitsOptions": {
+    "description": "Section title: options on habits feature screen"
+  },
   "featureHabitsDueBadge": "Due Habits Badge",
-  "@featureHabitsDueBadge": { "description": "Toggle title: due habits badge" },
+  "@featureHabitsDueBadge": {
+    "description": "Toggle title: due habits badge"
+  },
   "featureHabitsDueBadgeSubtitle": "Show count of due habits on the tab icon",
-  "@featureHabitsDueBadgeSubtitle": { "description": "Toggle subtitle: due habits badge" },
-
+  "@featureHabitsDueBadgeSubtitle": {
+    "description": "Toggle subtitle: due habits badge"
+  },
   "featureSleepDescription": "Sleep sessions help you track rest patterns alongside fronting sessions. You can start a sleep session from the moon icon on the fronting screen.",
-  "@featureSleepDescription": { "description": "Description text on sleep feature settings screen" },
+  "@featureSleepDescription": {
+    "description": "Description text on sleep feature settings screen"
+  },
   "featureSleepGeneral": "General",
-  "@featureSleepGeneral": { "description": "Section title: general on sleep feature screen" },
+  "@featureSleepGeneral": {
+    "description": "Section title: general on sleep feature screen"
+  },
   "featureSleepEnable": "Enable Sleep",
-  "@featureSleepEnable": { "description": "Toggle title: enable sleep" },
+  "@featureSleepEnable": {
+    "description": "Toggle title: enable sleep"
+  },
   "featureSleepEnableSubtitle": "Log and monitor sleep sessions",
-  "@featureSleepEnableSubtitle": { "description": "Toggle subtitle: enable sleep" },
+  "@featureSleepEnableSubtitle": {
+    "description": "Toggle subtitle: enable sleep"
+  },
   "featureSleepOptions": "Options",
-  "@featureSleepOptions": { "description": "Section title: options on sleep feature screen" },
+  "@featureSleepOptions": {
+    "description": "Section title: options on sleep feature screen"
+  },
   "featureSleepDefaultQuality": "Default Quality",
-  "@featureSleepDefaultQuality": { "description": "Row title: default sleep quality" },
+  "@featureSleepDefaultQuality": {
+    "description": "Row title: default sleep quality"
+  },
   "featureSleepDefaultQualityTitle": "Default Quality",
-  "@featureSleepDefaultQualityTitle": { "description": "Dialog title for default quality picker" },
+  "@featureSleepDefaultQualityTitle": {
+    "description": "Dialog title for default quality picker"
+  },
   "featureSleepDefaultQualityMessage": "Choose the default quality rating for new sleep sessions.",
-  "@featureSleepDefaultQualityMessage": { "description": "Dialog message for default quality picker" },
-
+  "@featureSleepDefaultQualityMessage": {
+    "description": "Dialog message for default quality picker"
+  },
   "featurePollsDescription": "Let your system vote on decisions together. Disabling hides polls from navigation but keeps existing poll data.",
-  "@featurePollsDescription": { "description": "Description text on polls feature settings screen" },
+  "@featurePollsDescription": {
+    "description": "Description text on polls feature settings screen"
+  },
   "featurePollsEnable": "Enable Polls",
-  "@featurePollsEnable": { "description": "Toggle title: enable polls" },
+  "@featurePollsEnable": {
+    "description": "Toggle title: enable polls"
+  },
   "featurePollsEnableSubtitle": "Create polls for system decisions",
-  "@featurePollsEnableSubtitle": { "description": "Toggle subtitle: enable polls" },
-
+  "@featurePollsEnableSubtitle": {
+    "description": "Toggle subtitle: enable polls"
+  },
   "featureNotesDescription": "A personal journal for system members. Disabling hides notes from navigation but keeps existing entries.",
-  "@featureNotesDescription": { "description": "Description text on notes feature settings screen" },
+  "@featureNotesDescription": {
+    "description": "Description text on notes feature settings screen"
+  },
   "featureNotesEnable": "Enable Notes",
-  "@featureNotesEnable": { "description": "Toggle title: enable notes" },
+  "@featureNotesEnable": {
+    "description": "Toggle title: enable notes"
+  },
   "featureNotesEnableSubtitle": "Write notes and journal entries",
-  "@featureNotesEnableSubtitle": { "description": "Toggle subtitle: enable notes" },
-
+  "@featureNotesEnableSubtitle": {
+    "description": "Toggle subtitle: enable notes"
+  },
   "featureRemindersDescription": "Get reminded on a schedule or when fronters change. Disabling hides reminders from navigation but keeps existing ones.",
-  "@featureRemindersDescription": { "description": "Description text on reminders feature settings screen" },
+  "@featureRemindersDescription": {
+    "description": "Description text on reminders feature settings screen"
+  },
   "featureRemindersGeneral": "General",
-  "@featureRemindersGeneral": { "description": "Section title: general on reminders feature screen" },
+  "@featureRemindersGeneral": {
+    "description": "Section title: general on reminders feature screen"
+  },
   "featureRemindersEnable": "Enable Reminders",
-  "@featureRemindersEnable": { "description": "Toggle title: enable reminders" },
+  "@featureRemindersEnable": {
+    "description": "Toggle title: enable reminders"
+  },
   "featureRemindersEnableSubtitle": "Scheduled and front-change reminders",
-  "@featureRemindersEnableSubtitle": { "description": "Toggle subtitle: enable reminders" },
+  "@featureRemindersEnableSubtitle": {
+    "description": "Toggle subtitle: enable reminders"
+  },
   "featureRemindersOptions": "Options",
-  "@featureRemindersOptions": { "description": "Section title: options on reminders feature screen" },
+  "@featureRemindersOptions": {
+    "description": "Section title: options on reminders feature screen"
+  },
   "featureRemindersManage": "Manage Reminders",
-  "@featureRemindersManage": { "description": "Row title: manage reminders" },
+  "@featureRemindersManage": {
+    "description": "Row title: manage reminders"
+  },
   "featureRemindersManageSubtitle": "Create and edit your reminders",
-  "@featureRemindersManageSubtitle": { "description": "Row subtitle: manage reminders" },
-
+  "@featureRemindersManageSubtitle": {
+    "description": "Row subtitle: manage reminders"
+  },
   "voiceMicPermissionDenied": "Microphone permission is required to record voice notes.",
-  "@voiceMicPermissionDenied": { "description": "Error shown when the user dismisses the microphone permission prompt" },
+  "@voiceMicPermissionDenied": {
+    "description": "Error shown when the user dismisses the microphone permission prompt"
+  },
   "voiceMicPermissionBlocked": "Microphone access is blocked. Enable it in Settings.",
-  "@voiceMicPermissionBlocked": { "description": "Error shown when microphone permission is permanently denied" },
+  "@voiceMicPermissionBlocked": {
+    "description": "Error shown when microphone permission is permanently denied"
+  },
   "voiceRecordingFailed": "Could not start recording.",
-  "@voiceRecordingFailed": { "description": "Generic error when voice recording fails for a non-permission reason" },
-
+  "@voiceRecordingFailed": {
+    "description": "Generic error when voice recording fails for a non-permission reason"
+  },
+  "openSettings": "Open Settings",
+  "@openSettings": {
+    "description": "Label for a button that opens the OS app settings page"
+  },
   "frontingListView": "List view",
-  "@frontingListView": { "description": "Tooltip to switch to list view on the fronting screen" },
+  "@frontingListView": {
+    "description": "Tooltip to switch to list view on the fronting screen"
+  },
   "frontingTimelineView": "Timeline view",
-  "@frontingTimelineView": { "description": "Tooltip to switch to timeline view on the fronting screen" },
+  "@frontingTimelineView": {
+    "description": "Tooltip to switch to timeline view on the fronting screen"
+  },
   "frontingAddEntry": "Add fronting entry",
-  "@frontingAddEntry": { "description": "Tooltip for the add button on the fronting screen" },
+  "@frontingAddEntry": {
+    "description": "Tooltip for the add button on the fronting screen"
+  },
   "frontingLoadingOlderSessions": "Loading older sessions",
-  "@frontingLoadingOlderSessions": { "description": "Accessibility announcement when loading older sessions on scroll" },
+  "@frontingLoadingOlderSessions": {
+    "description": "Accessibility announcement when loading older sessions on scroll"
+  },
   "frontingTimelineIssuesFound": "Timeline issues found",
-  "@frontingTimelineIssuesFound": { "description": "Info banner title when timeline validation issues are detected" },
+  "@frontingTimelineIssuesFound": {
+    "description": "Info banner title when timeline validation issues are detected"
+  },
   "frontingTimelineIssuesBannerMessage": "{count, plural, =1{1 timeline issue found. Tap to review.} other{{count} timeline issues found. Tap to review.}}",
   "@frontingTimelineIssuesBannerMessage": {
     "description": "Info banner message showing timeline issue count",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "frontingTimelineIssuesReview": "Review",
-  "@frontingTimelineIssuesReview": { "description": "Button label in timeline issues banner" },
+  "@frontingTimelineIssuesReview": {
+    "description": "Button label in timeline issues banner"
+  },
   "frontingMenuWakeUpAs": "Wake Up As...",
-  "@frontingMenuWakeUpAs": { "description": "Menu item to wake up and start fronting as a specific member" },
+  "@frontingMenuWakeUpAs": {
+    "description": "Menu item to wake up and start fronting as a specific member"
+  },
   "frontingMenuLogFront": "Log Front",
-  "@frontingMenuLogFront": { "description": "Menu item to log a new fronting entry" },
+  "@frontingMenuLogFront": {
+    "description": "Menu item to log a new fronting entry"
+  },
   "frontingMenuNewPoll": "New Poll",
-  "@frontingMenuNewPoll": { "description": "Menu item to create a new poll" },
+  "@frontingMenuNewPoll": {
+    "description": "Menu item to create a new poll"
+  },
   "frontingMenuStartSleep": "Start Sleep",
-  "@frontingMenuStartSleep": { "description": "Menu item to start a sleep session" },
+  "@frontingMenuStartSleep": {
+    "description": "Menu item to start a sleep session"
+  },
   "frontingWakeUpAsTitle": "Wake Up As...",
-  "@frontingWakeUpAsTitle": { "description": "Dialog title for selecting a member to front after waking up" },
+  "@frontingWakeUpAsTitle": {
+    "description": "Dialog title for selecting a member to front after waking up"
+  },
   "frontingErrorWakingUp": "Error waking up: {error}",
   "@frontingErrorWakingUp": {
     "description": "Error toast when waking up fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingNoSessionHistory": "No session history yet",
-  "@frontingNoSessionHistory": { "description": "Empty state text when there is no fronting history" },
+  "@frontingNoSessionHistory": {
+    "description": "Empty state text when there is no fronting history"
+  },
   "frontingErrorLoadingHistory": "Error loading history: {error}",
   "@frontingErrorLoadingHistory": {
     "description": "Error shown in session history list when history fails to load",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingDeleteSleepTitle": "Delete Sleep Session",
-  "@frontingDeleteSleepTitle": { "description": "Confirmation dialog title for deleting a sleep session" },
+  "@frontingDeleteSleepTitle": {
+    "description": "Confirmation dialog title for deleting a sleep session"
+  },
   "frontingDeleteSleepMessage": "Are you sure you want to delete this sleep session?",
-  "@frontingDeleteSleepMessage": { "description": "Confirmation dialog message for deleting a sleep session" },
+  "@frontingDeleteSleepMessage": {
+    "description": "Confirmation dialog message for deleting a sleep session"
+  },
   "frontingSleepping": "Sleep",
-  "@frontingSleepping": { "description": "Label for a sleep session in the history list" },
+  "@frontingSleepping": {
+    "description": "Label for a sleep session in the history list"
+  },
   "frontingSleepSessionSemantics": "Sleep session, {duration}, {timeRange}",
   "@frontingSleepSessionSemantics": {
     "description": "Semantics label for a sleep session tile",
     "placeholders": {
-      "duration": { "type": "String" },
-      "timeRange": { "type": "String" }
+      "duration": {
+        "type": "String"
+      },
+      "timeRange": {
+        "type": "String"
+      }
     }
   },
   "frontingWelcomeTitle": "Welcome to Prism",
-  "@frontingWelcomeTitle": { "description": "Title on empty system view when no members exist" },
+  "@frontingWelcomeTitle": {
+    "description": "Title on empty system view when no members exist"
+  },
   "frontingWelcomeSubtitle": "Add your first system {member} to get started",
   "@frontingWelcomeSubtitle": {
     "description": "Subtitle on empty system view (uses terminology term for member)",
-    "placeholders": { "member": { "type": "String" } }
+    "placeholders": {
+      "member": {
+        "type": "String"
+      }
+    }
   },
   "frontingQuickFrontLabel": "Quick front {name}",
   "@frontingQuickFrontLabel": {
     "description": "Semantics label for a quick-front avatar button",
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "frontingQuickFrontHoldHint": "Hold to start fronting",
-  "@frontingQuickFrontHoldHint": { "description": "Semantics long-press hint on quick front button" },
+  "@frontingQuickFrontHoldHint": {
+    "description": "Semantics long-press hint on quick front button"
+  },
   "frontingNewSession": "New Session",
-  "@frontingNewSession": { "description": "Sheet title when creating a new fronting session (non-co-front mode)" },
+  "@frontingNewSession": {
+    "description": "Sheet title when creating a new fronting session (non-co-front mode)"
+  },
   "frontingAddCoFronterTitle": "Add Co-Fronter",
-  "@frontingAddCoFronterTitle": { "description": "Sheet title when adding a co-fronter to the active session" },
+  "@frontingAddCoFronterTitle": {
+    "description": "Sheet title when adding a co-fronter to the active session"
+  },
   "frontingSelectFronter": "Select Fronter",
-  "@frontingSelectFronter": { "description": "Section header when selecting the primary fronter" },
+  "@frontingSelectFronter": {
+    "description": "Section header when selecting the primary fronter"
+  },
   "frontingSelectMember": "Select Member",
-  "@frontingSelectMember": { "description": "Section header when selecting a member in co-front mode" },
+  "@frontingSelectMember": {
+    "description": "Section header when selecting a member in co-front mode"
+  },
   "frontingCoFrontToggle": "Co-front",
-  "@frontingCoFrontToggle": { "description": "Toggle label to switch between new session and co-front mode" },
+  "@frontingCoFrontToggle": {
+    "description": "Toggle label to switch between new session and co-front mode"
+  },
   "frontingCoFronters": "Co-Fronters",
-  "@frontingCoFronters": { "description": "Section header for co-fronter selection in add session sheet" },
+  "@frontingCoFronters": {
+    "description": "Section header for co-fronter selection in add session sheet"
+  },
   "frontingNoOtherMembers": "No other members available",
-  "@frontingNoOtherMembers": { "description": "Empty state when no other members are available to add as co-fronters" },
+  "@frontingNoOtherMembers": {
+    "description": "Empty state when no other members are available to add as co-fronters"
+  },
   "frontingCoFrontHint": "Tap a member to add them as a co-fronter to the current session.",
-  "@frontingCoFrontHint": { "description": "Hint text shown in co-front mode on the add session sheet" },
+  "@frontingCoFrontHint": {
+    "description": "Hint text shown in co-front mode on the add session sheet"
+  },
   "frontingConfidenceLevel": "Confidence Level",
-  "@frontingConfidenceLevel": { "description": "Section header for confidence level picker" },
+  "@frontingConfidenceLevel": {
+    "description": "Section header for confidence level picker"
+  },
   "frontingConfidenceUnsure": "Unsure",
-  "@frontingConfidenceUnsure": { "description": "Confidence level: unsure" },
+  "@frontingConfidenceUnsure": {
+    "description": "Confidence level: unsure"
+  },
   "frontingConfidenceStrong": "Strong",
-  "@frontingConfidenceStrong": { "description": "Confidence level: strong" },
+  "@frontingConfidenceStrong": {
+    "description": "Confidence level: strong"
+  },
   "frontingConfidenceCertain": "Certain",
-  "@frontingConfidenceCertain": { "description": "Confidence level: certain" },
+  "@frontingConfidenceCertain": {
+    "description": "Confidence level: certain"
+  },
   "frontingNotes": "Notes",
-  "@frontingNotes": { "description": "Label for the notes field in add/edit session sheets" },
+  "@frontingNotes": {
+    "description": "Label for the notes field in add/edit session sheets"
+  },
   "frontingNotesHint": "Optional notes about this session...",
-  "@frontingNotesHint": { "description": "Hint text for notes field in add session sheet" },
+  "@frontingNotesHint": {
+    "description": "Hint text for notes field in add session sheet"
+  },
   "frontingNotesHintEdit": "Optional notes...",
-  "@frontingNotesHintEdit": { "description": "Hint text for notes field in edit session screen" },
+  "@frontingNotesHintEdit": {
+    "description": "Hint text for notes field in edit session screen"
+  },
   "frontingSearchMembersHint": "Search members...",
-  "@frontingSearchMembersHint": { "description": "Hint text in member search field on add session sheet" },
+  "@frontingSearchMembersHint": {
+    "description": "Hint text in member search field on add session sheet"
+  },
   "frontingNoMembersMatching": "No members matching \"{query}\"",
   "@frontingNoMembersMatching": {
     "description": "Empty state when search yields no members",
-    "placeholders": { "query": { "type": "String" } }
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
   },
   "frontingFronting": "Fronting",
-  "@frontingFronting": { "description": "Badge label shown on a member avatar who is already fronting" },
+  "@frontingFronting": {
+    "description": "Badge label shown on a member avatar who is already fronting"
+  },
   "frontingErrorAddingCoFronter": "Error adding co-fronter: {error}",
   "@frontingErrorAddingCoFronter": {
     "description": "Error toast when adding a co-fronter fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingErrorCreatingSession": "Error creating session: {error}",
   "@frontingErrorCreatingSession": {
     "description": "Error toast when creating a fronting session fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingAddCoFrontersTitle": "Add Co-Fronters",
-  "@frontingAddCoFrontersTitle": { "description": "Header title on the add co-fronters bottom sheet" },
+  "@frontingAddCoFrontersTitle": {
+    "description": "Header title on the add co-fronters bottom sheet"
+  },
   "frontingErrorAddingCoFronters": "Error adding co-fronters: {error}",
   "@frontingErrorAddingCoFronters": {
     "description": "Error toast when adding co-fronters fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingEditSessionTitle": "Edit Session",
-  "@frontingEditSessionTitle": { "description": "Title on the edit fronting session screen" },
+  "@frontingEditSessionTitle": {
+    "description": "Title on the edit fronting session screen"
+  },
   "frontingSaveSession": "Save session",
-  "@frontingSaveSession": { "description": "Semantics label for save button on edit session screen" },
+  "@frontingSaveSession": {
+    "description": "Semantics label for save button on edit session screen"
+  },
   "frontingSessionNotFound": "Session not found",
-  "@frontingSessionNotFound": { "description": "Message shown when the requested session is not found" },
+  "@frontingSessionNotFound": {
+    "description": "Message shown when the requested session is not found"
+  },
   "frontingStillActive": "Still Active",
-  "@frontingStillActive": { "description": "Toggle label for marking a session as still active" },
+  "@frontingStillActive": {
+    "description": "Toggle label for marking a session as still active"
+  },
   "frontingStart": "Start",
-  "@frontingStart": { "description": "Label for the start date/time field in session edit screen" },
+  "@frontingStart": {
+    "description": "Label for the start date/time field in session edit screen"
+  },
   "frontingEnd": "End",
-  "@frontingEnd": { "description": "Label for the end date/time field in session edit screen" },
+  "@frontingEnd": {
+    "description": "Label for the end date/time field in session edit screen"
+  },
   "frontingFronter": "Fronter",
-  "@frontingFronter": { "description": "Section header for the fronter picker in edit session screen" },
+  "@frontingFronter": {
+    "description": "Section header for the fronter picker in edit session screen"
+  },
   "frontingShortSessionTitle": "Short Session",
-  "@frontingShortSessionTitle": { "description": "Dialog title warning about a very short session" },
+  "@frontingShortSessionTitle": {
+    "description": "Dialog title warning about a very short session"
+  },
   "frontingShortSessionMessage": "This session is less than a minute long. Save anyway?",
-  "@frontingShortSessionMessage": { "description": "Dialog message warning about a very short session" },
+  "@frontingShortSessionMessage": {
+    "description": "Dialog message warning about a very short session"
+  },
   "frontingDuplicateSessionTitle": "Duplicate Session",
-  "@frontingDuplicateSessionTitle": { "description": "Dialog title warning about a duplicate session" },
+  "@frontingDuplicateSessionTitle": {
+    "description": "Dialog title warning about a duplicate session"
+  },
   "frontingDuplicateSessionMessage": "{count, plural, =1{This session appears to be a duplicate of 1 other session. Save anyway?} other{This session appears to be a duplicate of {count} other sessions. Save anyway?}}",
   "@frontingDuplicateSessionMessage": {
     "description": "Dialog message warning about duplicate sessions",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "frontingSaveAnyway": "Save anyway",
-  "@frontingSaveAnyway": { "description": "Confirm button label on duplicate session dialog" },
+  "@frontingSaveAnyway": {
+    "description": "Confirm button label on duplicate session dialog"
+  },
   "frontingErrorSavingSession": "Error saving session: {error}",
   "@frontingErrorSavingSession": {
     "description": "Error toast when saving a session fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingSessionDetailEditTooltip": "Edit",
-  "@frontingSessionDetailEditTooltip": { "description": "Tooltip on edit button in session detail screen" },
+  "@frontingSessionDetailEditTooltip": {
+    "description": "Tooltip on edit button in session detail screen"
+  },
   "frontingSessionDetailDeleteTooltip": "Delete",
-  "@frontingSessionDetailDeleteTooltip": { "description": "Tooltip on delete button in session detail screen" },
+  "@frontingSessionDetailDeleteTooltip": {
+    "description": "Tooltip on delete button in session detail screen"
+  },
   "frontingSleepingNow": "Sleeping now",
-  "@frontingSleepingNow": { "description": "Title on sleep session detail when session is still active" },
+  "@frontingSleepingNow": {
+    "description": "Title on sleep session detail when session is still active"
+  },
   "frontingSleepSession": "Sleep session",
-  "@frontingSleepSession": { "description": "Title on sleep session detail when session has ended" },
+  "@frontingSleepSession": {
+    "description": "Title on sleep session detail when session has ended"
+  },
   "frontingInfoStarted": "Started",
-  "@frontingInfoStarted": { "description": "Label for the started time row in session detail" },
+  "@frontingInfoStarted": {
+    "description": "Label for the started time row in session detail"
+  },
   "frontingInfoEnded": "Ended",
-  "@frontingInfoEnded": { "description": "Label for the ended time row in session detail" },
+  "@frontingInfoEnded": {
+    "description": "Label for the ended time row in session detail"
+  },
   "frontingInfoDuration": "Duration",
-  "@frontingInfoDuration": { "description": "Label for the duration row in session detail" },
+  "@frontingInfoDuration": {
+    "description": "Label for the duration row in session detail"
+  },
   "frontingInfoActive": "Active",
-  "@frontingInfoActive": { "description": "Value shown in session detail ended row when session is still active" },
+  "@frontingInfoActive": {
+    "description": "Value shown in session detail ended row when session is still active"
+  },
   "frontingInfoQuality": "Quality",
-  "@frontingInfoQuality": { "description": "Label for the quality row in sleep session detail" },
+  "@frontingInfoQuality": {
+    "description": "Label for the quality row in sleep session detail"
+  },
   "frontingInfoQualityUnrated": "Unrated",
-  "@frontingInfoQualityUnrated": { "description": "Value shown when sleep quality has not been rated" },
+  "@frontingInfoQualityUnrated": {
+    "description": "Value shown when sleep quality has not been rated"
+  },
   "frontingTimeSection": "Time",
-  "@frontingTimeSection": { "description": "Section header for time info in session detail" },
+  "@frontingTimeSection": {
+    "description": "Section header for time info in session detail"
+  },
   "frontingConfidenceSection": "Confidence",
-  "@frontingConfidenceSection": { "description": "Section header for confidence in session detail" },
+  "@frontingConfidenceSection": {
+    "description": "Section header for confidence in session detail"
+  },
   "frontingNotesSection": "Notes",
-  "@frontingNotesSection": { "description": "Section header for notes in session detail" },
+  "@frontingNotesSection": {
+    "description": "Section header for notes in session detail"
+  },
   "frontingCoFrontersSection": "Co-Fronters",
-  "@frontingCoFrontersSection": { "description": "Section header for co-fronters in session detail" },
+  "@frontingCoFrontersSection": {
+    "description": "Section header for co-fronters in session detail"
+  },
   "frontingSleepingLabel": "Sleeping",
-  "@frontingSleepingLabel": { "description": "Headline on the active sleep mode card" },
+  "@frontingSleepingLabel": {
+    "description": "Headline on the active sleep mode card"
+  },
   "frontingSleepSince": "Since {time}",
   "@frontingSleepSince": {
     "description": "Subtitle on sleep mode card showing when sleep started",
-    "placeholders": { "time": { "type": "String" } }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "frontingWakeUp": "Wake Up",
-  "@frontingWakeUp": { "description": "Button label on sleep mode card to end sleep" },
+  "@frontingWakeUp": {
+    "description": "Button label on sleep mode card to end sleep"
+  },
   "frontingSleepQualityUnrated": "Sleep Quality: Unrated",
-  "@frontingSleepQualityUnrated": { "description": "Sleep quality label when no rating has been given" },
+  "@frontingSleepQualityUnrated": {
+    "description": "Sleep quality label when no rating has been given"
+  },
   "frontingSleepQualityRated": "Sleep Quality: {label}",
   "@frontingSleepQualityRated": {
     "description": "Sleep quality label with a rating",
-    "placeholders": { "label": { "type": "String" } }
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
   },
   "frontingRateSleepAs": "Rate sleep as {label}",
   "@frontingRateSleepAs": {
     "description": "Semantics label for a star rating button on sleep mode card",
-    "placeholders": { "label": { "type": "String" } }
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
   },
   "frontingStartSleepTitle": "Start Sleep",
-  "@frontingStartSleepTitle": { "description": "Sheet title for starting a sleep session" },
+  "@frontingStartSleepTitle": {
+    "description": "Sheet title for starting a sleep session"
+  },
   "frontingStartButton": "Start",
-  "@frontingStartButton": { "description": "Button label to start sleep" },
+  "@frontingStartButton": {
+    "description": "Button label to start sleep"
+  },
   "frontingStartSleepNotesHint": "Optional notes about this sleep...",
-  "@frontingStartSleepNotesHint": { "description": "Hint text for notes field in start sleep sheet" },
+  "@frontingStartSleepNotesHint": {
+    "description": "Hint text for notes field in start sleep sheet"
+  },
   "frontingErrorStartingSleep": "Error starting sleep: {error}",
   "@frontingErrorStartingSleep": {
     "description": "Error toast when starting a sleep session fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingEditSleepTitle": "Edit Sleep",
-  "@frontingEditSleepTitle": { "description": "Sheet title for editing a sleep session" },
+  "@frontingEditSleepTitle": {
+    "description": "Sheet title for editing a sleep session"
+  },
   "frontingEditSleepLabel": "Sleep session",
-  "@frontingEditSleepLabel": { "description": "Section label inside the edit sleep sheet" },
+  "@frontingEditSleepLabel": {
+    "description": "Section label inside the edit sleep sheet"
+  },
   "frontingStillSleeping": "Still Sleeping",
-  "@frontingStillSleeping": { "description": "Toggle label for marking a sleep session as still active" },
+  "@frontingStillSleeping": {
+    "description": "Toggle label for marking a sleep session as still active"
+  },
   "frontingStillSleepingSubtitle": "Leave the session open-ended",
-  "@frontingStillSleepingSubtitle": { "description": "Subtitle on the Still Sleeping toggle" },
+  "@frontingStillSleepingSubtitle": {
+    "description": "Subtitle on the Still Sleeping toggle"
+  },
   "frontingSleepQualityLabel": "Sleep quality",
-  "@frontingSleepQualityLabel": { "description": "Label for the sleep quality dropdown in edit sleep sheet" },
+  "@frontingSleepQualityLabel": {
+    "description": "Label for the sleep quality dropdown in edit sleep sheet"
+  },
   "frontingEditSleepNotesHint": "Optional notes about this sleep...",
-  "@frontingEditSleepNotesHint": { "description": "Hint text for notes field in edit sleep sheet" },
+  "@frontingEditSleepNotesHint": {
+    "description": "Hint text for notes field in edit sleep sheet"
+  },
   "frontingEndTimeMustBeAfterStart": "End time must be after start time.",
-  "@frontingEndTimeMustBeAfterStart": { "description": "Error toast when end time is not after start time" },
+  "@frontingEndTimeMustBeAfterStart": {
+    "description": "Error toast when end time is not after start time"
+  },
   "frontingErrorSavingSleepSession": "Error saving sleep session: {error}",
   "@frontingErrorSavingSleepSession": {
     "description": "Error toast when saving a sleep session fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingCommentsTitle": "Comments",
-  "@frontingCommentsTitle": { "description": "Section header for comments in session detail" },
+  "@frontingCommentsTitle": {
+    "description": "Section header for comments in session detail"
+  },
   "frontingAddCommentTooltip": "Add comment",
-  "@frontingAddCommentTooltip": { "description": "Tooltip on the add comment button in session detail" },
+  "@frontingAddCommentTooltip": {
+    "description": "Tooltip on the add comment button in session detail"
+  },
   "frontingNoCommentsYet": "No comments yet",
-  "@frontingNoCommentsYet": { "description": "Empty state for comments section in session detail" },
+  "@frontingNoCommentsYet": {
+    "description": "Empty state for comments section in session detail"
+  },
   "frontingAddCommentTitle": "Add Comment",
-  "@frontingAddCommentTitle": { "description": "Sheet title when adding a new comment" },
+  "@frontingAddCommentTitle": {
+    "description": "Sheet title when adding a new comment"
+  },
   "frontingEditCommentTitle": "Edit Comment",
-  "@frontingEditCommentTitle": { "description": "Sheet title when editing an existing comment" },
+  "@frontingEditCommentTitle": {
+    "description": "Sheet title when editing an existing comment"
+  },
   "frontingCommentHint": "Write your comment...",
-  "@frontingCommentHint": { "description": "Hint text for comment body field" },
+  "@frontingCommentHint": {
+    "description": "Hint text for comment body field"
+  },
   "frontingDeleteCommentTitle": "Delete comment?",
-  "@frontingDeleteCommentTitle": { "description": "Confirmation dialog title for deleting a comment" },
+  "@frontingDeleteCommentTitle": {
+    "description": "Confirmation dialog title for deleting a comment"
+  },
   "frontingDeleteCommentMessage": "This action cannot be undone.",
-  "@frontingDeleteCommentMessage": { "description": "Confirmation dialog message for deleting a comment" },
+  "@frontingDeleteCommentMessage": {
+    "description": "Confirmation dialog message for deleting a comment"
+  },
   "frontingTimelineJumpToDate": "Jump to date",
-  "@frontingTimelineJumpToDate": { "description": "Label for the jump-to-date control in timeline view" },
+  "@frontingTimelineJumpToDate": {
+    "description": "Label for the jump-to-date control in timeline view"
+  },
   "frontingTimelineJumpToNow": "Jump to now",
-  "@frontingTimelineJumpToNow": { "description": "Tooltip for the today button in timeline controls" },
+  "@frontingTimelineJumpToNow": {
+    "description": "Tooltip for the today button in timeline controls"
+  },
   "frontingTimelineZoomOut": "Zoom out",
-  "@frontingTimelineZoomOut": { "description": "Tooltip for zoom out button in timeline controls" },
+  "@frontingTimelineZoomOut": {
+    "description": "Tooltip for zoom out button in timeline controls"
+  },
   "frontingTimelineZoomIn": "Zoom in",
-  "@frontingTimelineZoomIn": { "description": "Tooltip for zoom in button in timeline controls" },
+  "@frontingTimelineZoomIn": {
+    "description": "Tooltip for zoom in button in timeline controls"
+  },
   "frontingTimelineNoHistory": "No fronting history",
-  "@frontingTimelineNoHistory": { "description": "Empty state title in timeline view" },
+  "@frontingTimelineNoHistory": {
+    "description": "Empty state title in timeline view"
+  },
   "frontingTimelineNoHistorySubtitle": "Start a fronting session to see it appear on the timeline.",
-  "@frontingTimelineNoHistorySubtitle": { "description": "Empty state subtitle in timeline view" },
+  "@frontingTimelineNoHistorySubtitle": {
+    "description": "Empty state subtitle in timeline view"
+  },
   "frontingSanitizationTitle": "Timeline Sanitization",
-  "@frontingSanitizationTitle": { "description": "Screen title for the timeline sanitization screen" },
+  "@frontingSanitizationTitle": {
+    "description": "Screen title for the timeline sanitization screen"
+  },
   "frontingSanitizationScanning": "Scanning timeline…",
-  "@frontingSanitizationScanning": { "description": "Text shown while the sanitization scan is running" },
+  "@frontingSanitizationScanning": {
+    "description": "Text shown while the sanitization scan is running"
+  },
   "frontingSanitizationIntroTitle": "Timeline Sanitization",
-  "@frontingSanitizationIntroTitle": { "description": "Title on the initial state of sanitization screen" },
+  "@frontingSanitizationIntroTitle": {
+    "description": "Title on the initial state of sanitization screen"
+  },
   "frontingSanitizationIntroBody": "Scan your fronting history for overlapping, duplicate, or invalid sessions, then apply automatic fixes.",
-  "@frontingSanitizationIntroBody": { "description": "Description on the initial state of sanitization screen" },
+  "@frontingSanitizationIntroBody": {
+    "description": "Description on the initial state of sanitization screen"
+  },
   "frontingSanitizationScanButton": "Scan Timeline",
-  "@frontingSanitizationScanButton": { "description": "Button to start a sanitization scan" },
+  "@frontingSanitizationScanButton": {
+    "description": "Button to start a sanitization scan"
+  },
   "frontingSanitizationCleanTitle": "Timeline looks clean!",
-  "@frontingSanitizationCleanTitle": { "description": "Empty state title when no issues are found" },
+  "@frontingSanitizationCleanTitle": {
+    "description": "Empty state title when no issues are found"
+  },
   "frontingSanitizationCleanSubtitle": "No overlaps, duplicates, or invalid sessions found.",
-  "@frontingSanitizationCleanSubtitle": { "description": "Empty state subtitle when no issues are found" },
+  "@frontingSanitizationCleanSubtitle": {
+    "description": "Empty state subtitle when no issues are found"
+  },
   "frontingSanitizationScanAgain": "Scan Again",
-  "@frontingSanitizationScanAgain": { "description": "Button to run a new scan after viewing results" },
+  "@frontingSanitizationScanAgain": {
+    "description": "Button to run a new scan after viewing results"
+  },
   "frontingSanitizationIssuesFound": "{count, plural, =1{Found 1 issue in your timeline.} other{Found {count} issues in your timeline.}}",
   "@frontingSanitizationIssuesFound": {
     "description": "Summary banner showing total issues found",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "frontingSanitizationFixesApplied": "{count, plural, =1{1 fix applied successfully.} other{{count} fixes applied successfully.}}",
   "@frontingSanitizationFixesApplied": {
     "description": "Banner showing number of fixes applied",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "frontingSanitizationScanFailed": "Scan failed: {error}",
   "@frontingSanitizationScanFailed": {
     "description": "Error toast when a scan fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingSanitizationFixFailed": "Fix failed: {error}",
   "@frontingSanitizationFixFailed": {
     "description": "Error toast when applying a fix fails",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingSanitizationLoadFixFailed": "Could not load fix options: {error}",
   "@frontingSanitizationLoadFixFailed": {
     "description": "Error toast when fix options cannot be loaded",
-    "placeholders": { "error": { "type": "Object" } }
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
   },
   "frontingSanitizationFixOptionsTitle": "Fix Options",
-  "@frontingSanitizationFixOptionsTitle": { "description": "Sheet title for fix options" },
+  "@frontingSanitizationFixOptionsTitle": {
+    "description": "Sheet title for fix options"
+  },
   "frontingSanitizationNoAutoFix": "No automated fixes available for this issue.\nPlease review and resolve it manually.",
-  "@frontingSanitizationNoAutoFix": { "description": "Message shown when no automated fix plans are available" },
+  "@frontingSanitizationNoAutoFix": {
+    "description": "Message shown when no automated fix plans are available"
+  },
   "frontingSanitizationPreview": "Preview",
-  "@frontingSanitizationPreview": { "description": "Button label to show fix preview" },
+  "@frontingSanitizationPreview": {
+    "description": "Button label to show fix preview"
+  },
   "frontingSanitizationHidePreview": "Hide Preview",
-  "@frontingSanitizationHidePreview": { "description": "Button label to hide fix preview" },
+  "@frontingSanitizationHidePreview": {
+    "description": "Button label to hide fix preview"
+  },
   "frontingSanitizationApply": "Apply",
-  "@frontingSanitizationApply": { "description": "Button label to apply a fix plan" },
+  "@frontingSanitizationApply": {
+    "description": "Button label to apply a fix plan"
+  },
   "frontingIssueTypeOverlap": "Overlap",
-  "@frontingIssueTypeOverlap": { "description": "Issue type chip label: overlap" },
+  "@frontingIssueTypeOverlap": {
+    "description": "Issue type chip label: overlap"
+  },
   "frontingIssueTypeGap": "Gap",
-  "@frontingIssueTypeGap": { "description": "Issue type chip label: gap" },
+  "@frontingIssueTypeGap": {
+    "description": "Issue type chip label: gap"
+  },
   "frontingIssueTypeDuplicate": "Duplicate",
-  "@frontingIssueTypeDuplicate": { "description": "Issue type chip label: duplicate" },
+  "@frontingIssueTypeDuplicate": {
+    "description": "Issue type chip label: duplicate"
+  },
   "frontingIssueTypeMergeable": "Mergeable",
-  "@frontingIssueTypeMergeable": { "description": "Issue type chip label: mergeable adjacent" },
+  "@frontingIssueTypeMergeable": {
+    "description": "Issue type chip label: mergeable adjacent"
+  },
   "frontingIssueTypeInvalidRange": "Invalid Range",
-  "@frontingIssueTypeInvalidRange": { "description": "Issue type chip label: invalid range" },
+  "@frontingIssueTypeInvalidRange": {
+    "description": "Issue type chip label: invalid range"
+  },
   "frontingIssueTypeFutureSession": "Future Session",
-  "@frontingIssueTypeFutureSession": { "description": "Issue type chip label: future session" },
+  "@frontingIssueTypeFutureSession": {
+    "description": "Issue type chip label: future session"
+  },
   "frontingIssueSectionOverlap": "Overlapping Sessions",
-  "@frontingIssueSectionOverlap": { "description": "Section header for overlapping issues in sanitization results" },
+  "@frontingIssueSectionOverlap": {
+    "description": "Section header for overlapping issues in sanitization results"
+  },
   "frontingIssueSectionGap": "Gaps",
-  "@frontingIssueSectionGap": { "description": "Section header for gap issues in sanitization results" },
+  "@frontingIssueSectionGap": {
+    "description": "Section header for gap issues in sanitization results"
+  },
   "frontingIssueSectionDuplicate": "Duplicates",
-  "@frontingIssueSectionDuplicate": { "description": "Section header for duplicate issues in sanitization results" },
+  "@frontingIssueSectionDuplicate": {
+    "description": "Section header for duplicate issues in sanitization results"
+  },
   "frontingIssueSectionMergeable": "Mergeable Adjacent",
-  "@frontingIssueSectionMergeable": { "description": "Section header for mergeable adjacent issues in sanitization results" },
+  "@frontingIssueSectionMergeable": {
+    "description": "Section header for mergeable adjacent issues in sanitization results"
+  },
   "frontingIssueSectionInvalidRange": "Invalid Ranges",
-  "@frontingIssueSectionInvalidRange": { "description": "Section header for invalid range issues in sanitization results" },
+  "@frontingIssueSectionInvalidRange": {
+    "description": "Section header for invalid range issues in sanitization results"
+  },
   "frontingIssueSectionFutureSession": "Future Sessions",
-  "@frontingIssueSectionFutureSession": { "description": "Section header for future session issues in sanitization results" },
+  "@frontingIssueSectionFutureSession": {
+    "description": "Section header for future session issues in sanitization results"
+  },
   "frontingIssueSessionCount": "{count, plural, =1{1 session} other{{count} sessions}}",
   "@frontingIssueSessionCount": {
     "description": "Session count shown on a validation issue tile",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "frontingDeleteStrategyTitle": "What should happen to this time?",
-  "@frontingDeleteStrategyTitle": { "description": "Dialog title when choosing a delete strategy for a session" },
+  "@frontingDeleteStrategyTitle": {
+    "description": "Dialog title when choosing a delete strategy for a session"
+  },
   "frontingDeleteStrategyRecommended": "Recommended",
-  "@frontingDeleteStrategyRecommended": { "description": "Badge shown on the recommended delete strategy" },
+  "@frontingDeleteStrategyRecommended": {
+    "description": "Badge shown on the recommended delete strategy"
+  },
   "frontingGapDetectedTitle": "{count, plural, =1{Gap detected} other{Gaps detected}}",
   "@frontingGapDetectedTitle": {
     "description": "Dialog title when editing would create timeline gaps",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "frontingGapDetectedMessage": "{count, plural, =1{This edit would create a gap totaling {total}.} other{This edit would create {count} gaps totaling {total}.}}",
   "@frontingGapDetectedMessage": {
     "description": "Dialog message when editing would create timeline gaps",
     "placeholders": {
-      "count": { "type": "int" },
-      "total": { "type": "String" }
+      "count": {
+        "type": "int"
+      },
+      "total": {
+        "type": "String"
+      }
     }
   },
   "frontingGapFillWithUnknown": "Fill with unknown fronter",
-  "@frontingGapFillWithUnknown": { "description": "Gap resolution option: fill with unknown fronter" },
+  "@frontingGapFillWithUnknown": {
+    "description": "Gap resolution option: fill with unknown fronter"
+  },
   "frontingGapFillWithUnknownSubtitle": "Create unknown sessions to cover the gaps.",
-  "@frontingGapFillWithUnknownSubtitle": { "description": "Subtitle for fill-with-unknown gap resolution option" },
+  "@frontingGapFillWithUnknownSubtitle": {
+    "description": "Subtitle for fill-with-unknown gap resolution option"
+  },
   "frontingGapLeaveGaps": "Leave gaps",
-  "@frontingGapLeaveGaps": { "description": "Gap resolution option: leave the gaps as-is" },
+  "@frontingGapLeaveGaps": {
+    "description": "Gap resolution option: leave the gaps as-is"
+  },
   "frontingGapLeaveGapsSubtitle": "Save without filling the gaps.",
-  "@frontingGapLeaveGapsSubtitle": { "description": "Subtitle for leave-gaps resolution option" },
+  "@frontingGapLeaveGapsSubtitle": {
+    "description": "Subtitle for leave-gaps resolution option"
+  },
   "frontingOverlapTitle": "{count, plural, =1{Overlap with 1 session} other{Overlap with {count} sessions}}",
   "@frontingOverlapTitle": {
     "description": "Dialog title when the edited session overlaps others",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "frontingOverlapTrimOption": "Trim overlapping sessions",
-  "@frontingOverlapTrimOption": { "description": "Overlap resolution option: trim conflicting sessions" },
+  "@frontingOverlapTrimOption": {
+    "description": "Overlap resolution option: trim conflicting sessions"
+  },
   "frontingOverlapTrimSubtitle": "Shorten or remove sessions that conflict with your edit.",
-  "@frontingOverlapTrimSubtitle": { "description": "Subtitle for trim overlap resolution option" },
+  "@frontingOverlapTrimSubtitle": {
+    "description": "Subtitle for trim overlap resolution option"
+  },
   "frontingOverlapCoFrontOption": "Create co-fronting session",
-  "@frontingOverlapCoFrontOption": { "description": "Overlap resolution option: create co-fronting session" },
+  "@frontingOverlapCoFrontOption": {
+    "description": "Overlap resolution option: create co-fronting session"
+  },
   "frontingOverlapCoFrontSubtitle": "Split the overlapping time into shared co-fronting segments.",
-  "@frontingOverlapCoFrontSubtitle": { "description": "Subtitle for co-fronting overlap resolution option" },
+  "@frontingOverlapCoFrontSubtitle": {
+    "description": "Subtitle for co-fronting overlap resolution option"
+  },
   "frontingOverlapRemoveSessionTitle": "Remove Session",
-  "@frontingOverlapRemoveSessionTitle": { "description": "Confirmation dialog title when trimming would delete a session entirely" },
+  "@frontingOverlapRemoveSessionTitle": {
+    "description": "Confirmation dialog title when trimming would delete a session entirely"
+  },
   "frontingOverlapRemoveSessionMessage": "This would remove a session entirely. Continue?",
-  "@frontingOverlapRemoveSessionMessage": { "description": "Confirmation dialog message when trim would delete a session" },
+  "@frontingOverlapRemoveSessionMessage": {
+    "description": "Confirmation dialog message when trim would delete a session"
+  },
   "frontingOverlapContinue": "Continue",
-  "@frontingOverlapContinue": { "description": "Confirm button on the remove-session confirmation dialog" },
+  "@frontingOverlapContinue": {
+    "description": "Confirm button on the remove-session confirmation dialog"
+  },
   "frontingTimingModeTitle": "Timing Mode",
-  "@frontingTimingModeTitle": { "description": "Section title for the timing mode setting" },
+  "@frontingTimingModeTitle": {
+    "description": "Section title for the timing mode setting"
+  },
   "frontingTimingModeFlexible": "Flexible",
-  "@frontingTimingModeFlexible": { "description": "Timing mode option: Flexible" },
+  "@frontingTimingModeFlexible": {
+    "description": "Timing mode option: Flexible"
+  },
   "frontingTimingModeStrict": "Strict",
-  "@frontingTimingModeStrict": { "description": "Timing mode option: Strict" },
+  "@frontingTimingModeStrict": {
+    "description": "Timing mode option: Strict"
+  },
   "frontingTimingModeFlexibleSubtitle": "Small gaps (under 5 minutes) are allowed between sessions.",
-  "@frontingTimingModeFlexibleSubtitle": { "description": "Description shown when Flexible timing mode is selected" },
+  "@frontingTimingModeFlexibleSubtitle": {
+    "description": "Description shown when Flexible timing mode is selected"
+  },
   "frontingTimingModeStrictSubtitle": "Sessions must be continuous with no gaps in the timeline.",
-  "@frontingTimingModeStrictSubtitle": { "description": "Description shown when Strict timing mode is selected" }
+  "@frontingTimingModeStrictSubtitle": {
+    "description": "Description shown when Strict timing mode is selected"
+  },
+  "memberSectionCustomFields": "Custom Fields",
+  "@memberSectionCustomFields": {
+    "description": "Section header for custom fields on member detail screen"
+  },
+  "memberSectionFrontingStats": "Fronting Stats",
+  "@memberSectionFrontingStats": {
+    "description": "Section header for fronting statistics on member detail screen"
+  },
+  "memberSectionRecentSessions": "Recent Sessions",
+  "@memberSectionRecentSessions": {
+    "description": "Section header for recent fronting sessions on member detail screen"
+  },
+  "memberSectionConversations": "Conversations",
+  "@memberSectionConversations": {
+    "description": "Section header for conversations on member detail screen"
+  },
+  "memberSectionNotes": "Notes",
+  "@memberSectionNotes": {
+    "description": "Section header for notes on member detail screen"
+  },
+  "memberSectionBio": "Notes",
+  "@memberSectionBio": {
+    "description": "Section header shown above member bio/notes field on detail screen"
+  },
+  "memberEditTooltip": "Edit member",
+  "@memberEditTooltip": {
+    "description": "Tooltip for edit member button"
+  },
+  "memberMoreOptionsTooltip": "More options",
+  "@memberMoreOptionsTooltip": {
+    "description": "Tooltip for more options menu on member detail screen"
+  },
+  "memberAddNoteTooltip": "Add note",
+  "@memberAddNoteTooltip": {
+    "description": "Tooltip for add note button in notes section"
+  },
+  "memberSaveNoteTooltip": "Save note",
+  "@memberSaveNoteTooltip": {
+    "description": "Tooltip for save note button in note sheet"
+  },
+  "memberCancelSelectionTooltip": "Cancel selection",
+  "@memberCancelSelectionTooltip": {
+    "description": "Tooltip for cancel selection button in system management screen"
+  },
+  "memberClearDateTooltip": "Clear date",
+  "@memberClearDateTooltip": {
+    "description": "Tooltip for clear date button in custom fields date editor"
+  },
+  "memberNewGroupTooltip": "New group",
+  "@memberNewGroupTooltip": {
+    "description": "Tooltip for new group button"
+  },
+  "memberAdded": "Member added",
+  "@memberAdded": {
+    "description": "Toast shown when a member is added to a group"
+  },
+  "memberIsFronting": "{name} is now fronting",
+  "@memberIsFronting": {
+    "description": "Toast shown when a member starts fronting",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberGroupDeleted": "{name} deleted",
+  "@memberGroupDeleted": {
+    "description": "Toast shown when a member group is deleted",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberActivated": "{name} activated",
+  "@memberActivated": {
+    "description": "Toast shown when a member is activated",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberDeactivated": "{name} archived",
+  "@memberDeactivated": {
+    "description": "Toast shown when a member is deactivated/archived",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberRemoved": "{name} removed",
+  "@memberRemoved": {
+    "description": "Toast shown when a member is removed from a group",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberRemoveFromGroupTitle": "Remove member",
+  "@memberRemoveFromGroupTitle": {
+    "description": "Dialog title when confirming removal of a member from a group"
+  },
+  "memberRemoveFromGroupMessage": "Remove {name} from this group? The member will not be deleted.",
+  "@memberRemoveFromGroupMessage": {
+    "description": "Dialog message when removing a member from a group",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberEmptyList": "No members yet",
+  "@memberEmptyList": {
+    "description": "Empty state when there are no members in a group"
+  },
+  "memberGroupEmptyList": "No groups yet",
+  "@memberGroupEmptyList": {
+    "description": "Empty state title on the groups screen"
+  },
+  "memberGroupEmptySubtitle": "Create groups to organize your system members",
+  "@memberGroupEmptySubtitle": {
+    "description": "Empty state subtitle on the groups screen"
+  },
+  "memberGroupNoMembers": "No members",
+  "@memberGroupNoMembers": {
+    "description": "Empty state title inside a group detail screen"
+  },
+  "memberGroupNoMembersSubtitle": "Add members to this group",
+  "@memberGroupNoMembersSubtitle": {
+    "description": "Empty state subtitle inside a group detail screen"
+  },
+  "memberArchived": "Inactive",
+  "@memberArchived": {
+    "description": "Label for the inactive/archived filter chip in system management screen"
+  },
+  "memberActive": "Active",
+  "@memberActive": {
+    "description": "Label for the active filter chip in system management screen"
+  },
+  "memberOrderUpdated": "Order updated",
+  "@memberOrderUpdated": {
+    "description": "Toast shown after reordering members"
+  },
+  "memberReorderBy": "Reorder by",
+  "@memberReorderBy": {
+    "description": "Section header for reorder options in the member list options menu"
+  },
+  "memberSortNameAZ": "Name A–Z",
+  "@memberSortNameAZ": {
+    "description": "Sort option: name ascending"
+  },
+  "memberSortNameZA": "Name Z–A",
+  "@memberSortNameZA": {
+    "description": "Sort option: name descending"
+  },
+  "memberSortRecentlyCreated": "Recently created",
+  "@memberSortRecentlyCreated": {
+    "description": "Sort option: most recently created"
+  },
+  "memberSortMostFronting": "Most fronting",
+  "@memberSortMostFronting": {
+    "description": "Sort option: most fronting sessions"
+  },
+  "memberSortLeastFronting": "Least fronting",
+  "@memberSortLeastFronting": {
+    "description": "Sort option: fewest fronting sessions"
+  },
+  "memberShowInactive": "Show inactive",
+  "@memberShowInactive": {
+    "description": "Toggle option to show inactive members"
+  },
+  "memberHideInactive": "Hide inactive",
+  "@memberHideInactive": {
+    "description": "Toggle option to hide inactive members"
+  },
+  "memberStatsTotalSessions": "Total sessions",
+  "@memberStatsTotalSessions": {
+    "description": "Label for total sessions stat row"
+  },
+  "memberStatsTotalTime": "Total time",
+  "@memberStatsTotalTime": {
+    "description": "Label for total time stat row"
+  },
+  "memberStatsLastFronted": "Last fronted",
+  "@memberStatsLastFronted": {
+    "description": "Label for last fronted stat row"
+  },
+  "memberStatsToday": "Today",
+  "@memberStatsToday": {
+    "description": "Relative date: today"
+  },
+  "memberStatsYesterday": "Yesterday",
+  "@memberStatsYesterday": {
+    "description": "Relative date: yesterday"
+  },
+  "memberStatsDaysAgo": "{count} days ago",
+  "@memberStatsDaysAgo": {
+    "description": "Relative date: N days ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memberStatsWeeksAgo": "{count} weeks ago",
+  "@memberStatsWeeksAgo": {
+    "description": "Relative date: N weeks ago",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memberSessionActive": "Active",
+  "@memberSessionActive": {
+    "description": "Label shown on an active fronting session tile"
+  },
+  "memberSessionTodayAt": "Today at {time}",
+  "@memberSessionTodayAt": {
+    "description": "Session date label when the session started today",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "memberFrontingChip": "Fronting",
+  "@memberFrontingChip": {
+    "description": "Chip label shown when a member is currently fronting"
+  },
+  "memberAdminChip": "Admin",
+  "@memberAdminChip": {
+    "description": "Chip label shown when a member has admin status"
+  },
+  "memberInactiveChip": "Inactive",
+  "@memberInactiveChip": {
+    "description": "Chip label shown when a member is inactive"
+  },
+  "memberSetAsFronter": "Set as fronter",
+  "@memberSetAsFronter": {
+    "description": "Menu action to set this member as the current fronter"
+  },
+  "memberNoteTitle": "Note",
+  "@memberNoteTitle": {
+    "description": "Title shown in the note sheet top bar"
+  },
+  "memberNoteUntitled": "Untitled",
+  "@memberNoteUntitled": {
+    "description": "Fallback title for a note with no title"
+  },
+  "memberNoteNotFound": "Note not found",
+  "@memberNoteNotFound": {
+    "description": "Shown when a note cannot be found"
+  },
+  "memberNoteDeleteTitle": "Delete note?",
+  "@memberNoteDeleteTitle": {
+    "description": "Confirmation dialog title when deleting a note"
+  },
+  "memberNoteDeleteMessage": "Are you sure you want to delete \"{title}\"? This action cannot be undone.",
+  "@memberNoteDeleteMessage": {
+    "description": "Confirmation dialog message when deleting a note",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "memberNoteNoNotesYet": "No notes yet",
+  "memberNoteEmptySubtitle": "Create notes to keep track of thoughts and observations",
+  "@memberNoteEmptySubtitle": {
+    "description": "Subtitle for empty notes list state"
+  },
+  "@memberNoteNoNotesYet": {
+    "description": "Empty state text in the notes section on member detail screen"
+  },
+  "memberNoteTitleHint": "Title",
+  "@memberNoteTitleHint": {
+    "description": "Hint text for the note title field"
+  },
+  "memberNoteBodyHint": "Start writing...",
+  "@memberNoteBodyHint": {
+    "description": "Hint text for the note body field"
+  },
+  "memberNoteAddHeadmate": "Add headmate",
+  "@memberNoteAddHeadmate": {
+    "description": "Toolbar chip label when no headmate is assigned to a note"
+  },
+  "memberNoteDiscardTitle": "Discard changes?",
+  "@memberNoteDiscardTitle": {
+    "description": "Confirmation dialog title when discarding unsaved note changes"
+  },
+  "memberNoteDiscardMessage": "You have unsaved changes. Are you sure you want to discard them?",
+  "@memberNoteDiscardMessage": {
+    "description": "Confirmation dialog message when discarding unsaved note changes"
+  },
+  "memberNoteDiscardConfirm": "Discard",
+  "@memberNoteDiscardConfirm": {
+    "description": "Confirm button label for discarding note changes"
+  },
+  "memberNoteChooseHeadmate": "Choose Headmate",
+  "@memberNoteChooseHeadmate": {
+    "description": "Sheet title for headmate selection in note sheet"
+  },
+  "memberSelectNone": "None",
+  "@memberSelectNone": {
+    "description": "Option to clear headmate selection in note sheet"
+  },
+  "memberGroupsTitle": "Groups",
+  "@memberGroupsTitle": {
+    "description": "Title for the groups screen"
+  },
+  "memberGroupErrorLoading": "Error loading groups: {error}",
+  "@memberGroupErrorLoading": {
+    "description": "Error message on the groups screen",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "memberGroupErrorLoadingDetail": "Error loading group: {error}",
+  "@memberGroupErrorLoadingDetail": {
+    "description": "Error message on the group detail screen",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "memberGroupNotFound": "Group not found",
+  "@memberGroupNotFound": {
+    "description": "Message shown when a group cannot be found"
+  },
+  "memberGroupSectionMembers": "Members",
+  "@memberGroupSectionMembers": {
+    "description": "Section header for members inside a group detail screen"
+  },
+  "memberGroupAddMember": "Add member",
+  "@memberGroupAddMember": {
+    "description": "Button label to add a member to a group"
+  },
+  "memberGroupDeleteTitle": "Delete group",
+  "@memberGroupDeleteTitle": {
+    "description": "Confirmation dialog title when deleting a group"
+  },
+  "memberGroupDeleteMessage": "Are you sure you want to delete \"{name}\"? Members will not be deleted.",
+  "@memberGroupDeleteMessage": {
+    "description": "Confirmation dialog message when deleting a group",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberGroupDeleteConfirm": "Delete",
+  "@memberGroupDeleteConfirm": {
+    "description": "Confirm button for group deletion dialog"
+  },
+  "memberGroupEditTitle": "Edit Group",
+  "@memberGroupEditTitle": {
+    "description": "Sheet title when editing an existing group"
+  },
+  "memberGroupNewTitle": "New Group",
+  "@memberGroupNewTitle": {
+    "description": "Sheet title when creating a new group"
+  },
+  "memberGroupNameLabel": "Name",
+  "@memberGroupNameLabel": {
+    "description": "Label for the group name text field"
+  },
+  "memberGroupNameRequired": "Name is required",
+  "@memberGroupNameRequired": {
+    "description": "Validation error when group name is empty"
+  },
+  "memberGroupDescriptionLabel": "Description",
+  "@memberGroupDescriptionLabel": {
+    "description": "Label for the group description text field"
+  },
+  "memberGroupColorLabel": "Color (hex)",
+  "@memberGroupColorLabel": {
+    "description": "Label for the group color hex text field"
+  },
+  "memberGroupErrorSaving": "Error saving group: {error}",
+  "@memberGroupErrorSaving": {
+    "description": "Error toast when saving a group fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "memberNameLabel": "Name *",
+  "@memberNameLabel": {
+    "description": "Label for the member name text field (required)"
+  },
+  "memberNameHint": "Enter name",
+  "@memberNameHint": {
+    "description": "Hint text for the member name field"
+  },
+  "memberNameRequired": "Name is required",
+  "@memberNameRequired": {
+    "description": "Validation error when member name is empty"
+  },
+  "memberPronounsLabel": "Pronouns",
+  "@memberPronounsLabel": {
+    "description": "Label for the member pronouns text field"
+  },
+  "memberPronounsHint": "e.g. she/her, they/them",
+  "@memberPronounsHint": {
+    "description": "Hint text for the member pronouns field"
+  },
+  "memberAgeLabel": "Age",
+  "@memberAgeLabel": {
+    "description": "Label for the member age text field"
+  },
+  "memberAgeHint": "Optional",
+  "@memberAgeHint": {
+    "description": "Hint text for the member age field"
+  },
+  "memberBioLabel": "Bio",
+  "@memberBioLabel": {
+    "description": "Label for the member bio text field"
+  },
+  "memberBioHint": "A short description...",
+  "@memberBioHint": {
+    "description": "Hint text for the member bio field"
+  },
+  "memberMarkdownTitle": "Format bio as markdown",
+  "@memberMarkdownTitle": {
+    "description": "Switch label: format bio as markdown"
+  },
+  "memberMarkdownSubtitle": "Render bio text with markdown formatting",
+  "@memberMarkdownSubtitle": {
+    "description": "Switch subtitle: format bio as markdown"
+  },
+  "memberAdminTitle": "Admin",
+  "@memberAdminTitle": {
+    "description": "Switch label: admin status"
+  },
+  "memberAdminSubtitle": "Admins can manage system settings",
+  "@memberAdminSubtitle": {
+    "description": "Switch subtitle: admin status"
+  },
+  "memberCustomColorTitle": "Custom color",
+  "@memberCustomColorTitle": {
+    "description": "Switch label: custom color"
+  },
+  "memberCustomColorSubtitle": "Use a personal color for this member",
+  "@memberCustomColorSubtitle": {
+    "description": "Switch subtitle: custom color"
+  },
+  "memberColorHexLabel": "Color hex",
+  "@memberColorHexLabel": {
+    "description": "Label for the member color hex text field"
+  },
+  "memberErrorSaving": "Error saving {term}: {error}",
+  "@memberErrorSaving": {
+    "description": "Error toast when saving a member fails",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      },
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
+  "memberAgeDisplay": "Age {age}",
+  "@memberAgeDisplay": {
+    "description": "Age displayed on member detail screen",
+    "placeholders": {
+      "age": {
+        "type": "int"
+      }
+    }
+  },
+  "memberSelectedCount": "{count} selected",
+  "@memberSelectedCount": {
+    "description": "Bulk selection count label in system management screen",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "memberBulkActivate": "Activate",
+  "@memberBulkActivate": {
+    "description": "Bulk action button: activate selected members"
+  },
+  "memberBulkDeactivate": "Deactivate",
+  "@memberBulkDeactivate": {
+    "description": "Bulk action button: deactivate selected members"
+  },
+  "memberNoInactive": "No inactive {terms}",
+  "@memberNoInactive": {
+    "description": "Empty state when there are no inactive members",
+    "placeholders": {
+      "terms": {
+        "type": "String"
+      }
+    }
+  },
+  "memberNoActive": "No active {terms}",
+  "@memberNoActive": {
+    "description": "Empty state when there are no active members",
+    "placeholders": {
+      "terms": {
+        "type": "String"
+      }
+    }
+  },
+  "memberConversationFallback": "Conversation",
+  "@memberConversationFallback": {
+    "description": "Fallback title for a conversation with no title or emoji"
+  },
+  "memberCustomFieldSelectDate": "Select date",
+  "@memberCustomFieldSelectDate": {
+    "description": "Placeholder text when no date is selected in a custom field date input"
+  },
+  "memberCustomFieldEnterHint": "Enter {fieldName}",
+  "@memberCustomFieldEnterHint": {
+    "description": "Hint text for a custom field text input",
+    "placeholders": {
+      "fieldName": {
+        "type": "String"
+      }
+    }
+  }
 }

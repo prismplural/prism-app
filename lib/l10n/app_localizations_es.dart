@@ -1504,6 +1504,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get voiceRecordingFailed => 'No se pudo iniciar la grabación.';
 
   @override
+  String get openSettings => 'Abrir Configuración';
+
+  @override
   String get frontingListView => 'Vista de lista';
 
   @override
@@ -2092,4 +2095,370 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get frontingTimingModeStrictSubtitle =>
       'Las sesiones deben ser continuas sin brechas en la cronología.';
+
+  @override
+  String get memberSectionCustomFields => 'Campos personalizados';
+
+  @override
+  String get memberSectionFrontingStats => 'Estadísticas de frente';
+
+  @override
+  String get memberSectionRecentSessions => 'Sesiones recientes';
+
+  @override
+  String get memberSectionConversations => 'Conversaciones';
+
+  @override
+  String get memberSectionNotes => 'Notas';
+
+  @override
+  String get memberSectionBio => 'Notas';
+
+  @override
+  String get memberEditTooltip => 'Editar integrante';
+
+  @override
+  String get memberMoreOptionsTooltip => 'Más opciones';
+
+  @override
+  String get memberAddNoteTooltip => 'Agregar nota';
+
+  @override
+  String get memberSaveNoteTooltip => 'Guardar nota';
+
+  @override
+  String get memberCancelSelectionTooltip => 'Cancelar selección';
+
+  @override
+  String get memberClearDateTooltip => 'Borrar fecha';
+
+  @override
+  String get memberNewGroupTooltip => 'Nuevo grupo';
+
+  @override
+  String get memberAdded => 'Integrante agregado';
+
+  @override
+  String memberIsFronting(String name) {
+    return '$name está al frente';
+  }
+
+  @override
+  String memberGroupDeleted(String name) {
+    return '$name eliminado';
+  }
+
+  @override
+  String memberActivated(String name) {
+    return '$name activado/a';
+  }
+
+  @override
+  String memberDeactivated(String name) {
+    return '$name archivado/a';
+  }
+
+  @override
+  String memberRemoved(String name) {
+    return '$name eliminado/a';
+  }
+
+  @override
+  String get memberRemoveFromGroupTitle => 'Eliminar integrante';
+
+  @override
+  String memberRemoveFromGroupMessage(String name) {
+    return '¿Eliminar a $name de este grupo? El integrante no será eliminado.';
+  }
+
+  @override
+  String get memberEmptyList => 'Aún no hay integrantes';
+
+  @override
+  String get memberGroupEmptyList => 'Aún no hay grupos';
+
+  @override
+  String get memberGroupEmptySubtitle =>
+      'Crea grupos para organizar a los integrantes del sistema';
+
+  @override
+  String get memberGroupNoMembers => 'Sin integrantes';
+
+  @override
+  String get memberGroupNoMembersSubtitle => 'Agrega integrantes a este grupo';
+
+  @override
+  String get memberArchived => 'Inactivo';
+
+  @override
+  String get memberActive => 'Activo';
+
+  @override
+  String get memberOrderUpdated => 'Orden actualizado';
+
+  @override
+  String get memberReorderBy => 'Reordenar por';
+
+  @override
+  String get memberSortNameAZ => 'Nombre A–Z';
+
+  @override
+  String get memberSortNameZA => 'Nombre Z–A';
+
+  @override
+  String get memberSortRecentlyCreated => 'Creados recientemente';
+
+  @override
+  String get memberSortMostFronting => 'Más tiempo al frente';
+
+  @override
+  String get memberSortLeastFronting => 'Menos tiempo al frente';
+
+  @override
+  String get memberShowInactive => 'Mostrar inactivos';
+
+  @override
+  String get memberHideInactive => 'Ocultar inactivos';
+
+  @override
+  String get memberStatsTotalSessions => 'Total de sesiones';
+
+  @override
+  String get memberStatsTotalTime => 'Tiempo total';
+
+  @override
+  String get memberStatsLastFronted => 'Último frente';
+
+  @override
+  String get memberStatsToday => 'Hoy';
+
+  @override
+  String get memberStatsYesterday => 'Ayer';
+
+  @override
+  String memberStatsDaysAgo(int count) {
+    return 'Hace $count días';
+  }
+
+  @override
+  String memberStatsWeeksAgo(int count) {
+    return 'Hace $count semanas';
+  }
+
+  @override
+  String get memberSessionActive => 'Activo';
+
+  @override
+  String memberSessionTodayAt(String time) {
+    return 'Hoy a las $time';
+  }
+
+  @override
+  String get memberFrontingChip => 'Al frente';
+
+  @override
+  String get memberAdminChip => 'Admin';
+
+  @override
+  String get memberInactiveChip => 'Inactivo';
+
+  @override
+  String get memberSetAsFronter => 'Establecer como fronter';
+
+  @override
+  String get memberNoteTitle => 'Nota';
+
+  @override
+  String get memberNoteUntitled => 'Sin título';
+
+  @override
+  String get memberNoteNotFound => 'Nota no encontrada';
+
+  @override
+  String get memberNoteDeleteTitle => '¿Eliminar nota?';
+
+  @override
+  String memberNoteDeleteMessage(String title) {
+    return '¿Seguro que quieres eliminar \"$title\"? Esta acción no se puede deshacer.';
+  }
+
+  @override
+  String get memberNoteNoNotesYet => 'Aún no hay notas';
+
+  @override
+  String get memberNoteEmptySubtitle =>
+      'Crea notas para registrar pensamientos y observaciones';
+
+  @override
+  String get memberNoteTitleHint => 'Título';
+
+  @override
+  String get memberNoteBodyHint => 'Empieza a escribir...';
+
+  @override
+  String get memberNoteAddHeadmate => 'Agregar headmate';
+
+  @override
+  String get memberNoteDiscardTitle => '¿Descartar cambios?';
+
+  @override
+  String get memberNoteDiscardMessage =>
+      'Tienes cambios sin guardar. ¿Seguro que quieres descartarlos?';
+
+  @override
+  String get memberNoteDiscardConfirm => 'Descartar';
+
+  @override
+  String get memberNoteChooseHeadmate => 'Elegir Headmate';
+
+  @override
+  String get memberSelectNone => 'Ninguno';
+
+  @override
+  String get memberGroupsTitle => 'Grupos';
+
+  @override
+  String memberGroupErrorLoading(Object error) {
+    return 'Error al cargar grupos: $error';
+  }
+
+  @override
+  String memberGroupErrorLoadingDetail(Object error) {
+    return 'Error al cargar el grupo: $error';
+  }
+
+  @override
+  String get memberGroupNotFound => 'Grupo no encontrado';
+
+  @override
+  String get memberGroupSectionMembers => 'Integrantes';
+
+  @override
+  String get memberGroupAddMember => 'Agregar integrante';
+
+  @override
+  String get memberGroupDeleteTitle => 'Eliminar grupo';
+
+  @override
+  String memberGroupDeleteMessage(String name) {
+    return '¿Seguro que quieres eliminar \"$name\"? Los integrantes no serán eliminados.';
+  }
+
+  @override
+  String get memberGroupDeleteConfirm => 'Eliminar';
+
+  @override
+  String get memberGroupEditTitle => 'Editar Grupo';
+
+  @override
+  String get memberGroupNewTitle => 'Nuevo Grupo';
+
+  @override
+  String get memberGroupNameLabel => 'Nombre';
+
+  @override
+  String get memberGroupNameRequired => 'El nombre es obligatorio';
+
+  @override
+  String get memberGroupDescriptionLabel => 'Descripción';
+
+  @override
+  String get memberGroupColorLabel => 'Color (hex)';
+
+  @override
+  String memberGroupErrorSaving(Object error) {
+    return 'Error al guardar el grupo: $error';
+  }
+
+  @override
+  String get memberNameLabel => 'Nombre *';
+
+  @override
+  String get memberNameHint => 'Ingresar nombre';
+
+  @override
+  String get memberNameRequired => 'El nombre es obligatorio';
+
+  @override
+  String get memberPronounsLabel => 'Pronombres';
+
+  @override
+  String get memberPronounsHint => 'p. ej. ella, elle, él';
+
+  @override
+  String get memberAgeLabel => 'Edad';
+
+  @override
+  String get memberAgeHint => 'Opcional';
+
+  @override
+  String get memberBioLabel => 'Bio';
+
+  @override
+  String get memberBioHint => 'Una breve descripción...';
+
+  @override
+  String get memberMarkdownTitle => 'Formatear bio en markdown';
+
+  @override
+  String get memberMarkdownSubtitle => 'Mostrar el texto con formato markdown';
+
+  @override
+  String get memberAdminTitle => 'Admin';
+
+  @override
+  String get memberAdminSubtitle =>
+      'Los admins pueden gestionar la configuración del sistema';
+
+  @override
+  String get memberCustomColorTitle => 'Color personalizado';
+
+  @override
+  String get memberCustomColorSubtitle =>
+      'Usar un color personal para este integrante';
+
+  @override
+  String get memberColorHexLabel => 'Color hex';
+
+  @override
+  String memberErrorSaving(String term, Object error) {
+    return 'Error al guardar $term: $error';
+  }
+
+  @override
+  String memberAgeDisplay(int age) {
+    return 'Edad $age';
+  }
+
+  @override
+  String memberSelectedCount(int count) {
+    return '$count seleccionado(s)';
+  }
+
+  @override
+  String get memberBulkActivate => 'Activar';
+
+  @override
+  String get memberBulkDeactivate => 'Desactivar';
+
+  @override
+  String memberNoInactive(String terms) {
+    return 'Sin $terms inactivos';
+  }
+
+  @override
+  String memberNoActive(String terms) {
+    return 'Sin $terms activos';
+  }
+
+  @override
+  String get memberConversationFallback => 'Conversación';
+
+  @override
+  String get memberCustomFieldSelectDate => 'Seleccionar fecha';
+
+  @override
+  String memberCustomFieldEnterHint(String fieldName) {
+    return 'Ingresar $fieldName';
+  }
 }

@@ -15,11 +15,9 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Create or edit a note. Shown as a full-screen PrismSheet.
-///
-/// Inline editor with borderless title/body fields, bottom toolbar for date
-/// and optional headmate selection, and a save checkmark in the top bar.
 class NoteSheet extends ConsumerStatefulWidget {
   const NoteSheet({
     super.key,
@@ -44,7 +42,6 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
   late String? _selectedMemberId;
   String? _colorHex;
 
-  // Track initial values for dirty checking.
   late final String _initialTitle;
   late final String _initialBody;
   late final DateTime _initialDate;
@@ -128,7 +125,7 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
       context,
       currentMemberId: _selectedMemberId,
     );
-    if (result == null) return; // Dismissed without selection.
+    if (result == null) return;
     setState(() {
       _selectedMemberId = result.isEmpty ? null : result;
     });
@@ -138,9 +135,9 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
     if (!_isDirty) return true;
     return await PrismDialog.confirm(
       context: context,
-      title: 'Discard changes?',
-      message: 'You have unsaved changes. Are you sure you want to discard them?',
-      confirmLabel: 'Discard',
+      title: context.l10n.memberNoteDiscardTitle,
+      message: context.l10n.memberNoteDiscardMessage,
+      confirmLabel: context.l10n.memberNoteDiscardConfirm,
       destructive: true,
     );
   }
@@ -148,6 +145,7 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     _bodyController.updateTheme(context);
 
     return ListenableBuilder(
@@ -164,12 +162,12 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
         child: Column(
           children: [
             PrismSheetTopBar(
-              title: 'Note',
+              title: l10n.memberNoteTitle,
               trailing: PrismGlassIconButton(
                 icon: AppIcons.check,
                 onPressed: _isValid ? _save : null,
                 enabled: _isValid,
-                tooltip: 'Save note',
+                tooltip: l10n.memberSaveNoteTooltip,
                 size: PrismTokens.topBarActionSize,
                 tint: theme.colorScheme.primary,
                 accentIcon: true,
@@ -188,7 +186,7 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
                   children: [
                     PrismTextField(
                       controller: _titleController,
-                      hintText: 'Title',
+                      hintText: l10n.memberNoteTitleHint,
                       fieldStyle: PrismTextFieldStyle.borderless,
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w600,
@@ -207,7 +205,7 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
                     PrismTextField(
                       controller: _bodyController,
                       focusNode: _bodyFocusNode,
-                      hintText: 'Start writing...',
+                      hintText: l10n.memberNoteBodyHint,
                       fieldStyle: PrismTextFieldStyle.borderless,
                       style: theme.textTheme.bodyLarge,
                       hintStyle: theme.textTheme.bodyLarge?.copyWith(
@@ -249,11 +247,11 @@ class _BottomToolbar extends ConsumerWidget {
   final VoidCallback onPickDate;
   final VoidCallback onPickMember;
 
-  static final _dateFormat = DateFormat.MMMd();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final dateFormat = DateFormat.MMMd(context.dateLocale);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final mutedColor = theme.colorScheme.onSurfaceVariant;
 
@@ -281,11 +279,11 @@ class _BottomToolbar extends ConsumerWidget {
           // Date chip.
           _ToolbarChip(
             icon: AppIcons.calendarTodayOutlined,
-            label: _dateFormat.format(date),
+            label: dateFormat.format(date),
             color: mutedColor,
             onTap: onPickDate,
             semanticLabel:
-                'Note date, ${DateFormat.yMMMd().format(date)}. Tap to change',
+                'Note date, ${DateFormat.yMMMd(context.dateLocale).format(date)}. Tap to change',
           ),
           const SizedBox(width: 8),
           // Member chip.
@@ -308,7 +306,7 @@ class _BottomToolbar extends ConsumerWidget {
           else
             _ToolbarChip(
               icon: AppIcons.personOutline,
-              label: 'Add headmate',
+              label: l10n.memberNoteAddHeadmate,
               color: mutedColor.withValues(alpha: 0.6),
               onTap: onPickMember,
               semanticLabel: 'No headmate selected. Tap to choose',
