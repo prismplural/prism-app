@@ -416,7 +416,6 @@ class _EditFrontSessionScreenState
                 controller: _notesController,
                 labelText: context.l10n.frontingNotes,
                 hintText: context.l10n.frontingNotesHintEdit,
-                alignLabelWithHint: true,
                 maxLines: 4,
                 minLines: 2,
                 textCapitalization: TextCapitalization.sentences,

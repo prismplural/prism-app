@@ -124,7 +124,6 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
                   controller: _notesController,
                   labelText: context.l10n.frontingNotes,
                   hintText: context.l10n.frontingStartSleepNotesHint,
-                  alignLabelWithHint: true,
                   maxLines: 3,
                   minLines: 1,
                   textCapitalization: TextCapitalization.sentences,

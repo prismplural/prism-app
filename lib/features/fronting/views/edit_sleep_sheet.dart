@@ -237,7 +237,6 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                 controller: _notesController,
                 labelText: context.l10n.frontingNotes,
                 hintText: context.l10n.frontingEditSleepNotesHint,
-                alignLabelWithHint: true,
                 maxLines: 4,
                 minLines: 2,
                 textCapitalization: TextCapitalization.sentences,

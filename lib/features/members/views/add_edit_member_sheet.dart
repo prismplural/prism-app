@@ -320,7 +320,6 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                           controller: _bioController,
                           labelText: 'Bio',
                           hintText: 'A short description...',
-                          alignLabelWithHint: true,
                           maxLines: 4,
                           minLines: 2,
                           textCapitalization: TextCapitalization.sentences,
