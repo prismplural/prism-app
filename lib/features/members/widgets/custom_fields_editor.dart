@@ -11,12 +11,9 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Inline editor for custom field values on the member edit sheet.
-///
-/// For each defined custom field, shows an appropriate input widget based on
-/// the field type. Saves values via [CustomFieldValueNotifier.setValue] on
-/// change.
 class CustomFieldsEditor extends ConsumerWidget {
   const CustomFieldsEditor({super.key, required this.memberId});
 
@@ -49,8 +46,8 @@ class CustomFieldsEditor extends ConsumerWidget {
     List<CustomFieldValue> values,
   ) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
-    // Build a map of customFieldId -> value for quick lookup.
     final valueMap = <String, CustomFieldValue>{
       for (final v in values) v.customFieldId: v,
     };
@@ -68,7 +65,7 @@ class CustomFieldsEditor extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Custom Fields',
+              l10n.memberSectionCustomFields,
               style: theme.textTheme.labelLarge?.copyWith(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -119,7 +116,6 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
   @override
   void didUpdateWidget(covariant _FieldInput oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update controller if external value changed (e.g. from sync).
     final newVal = widget.existingValue?.value ?? '';
     if (oldWidget.existingValue?.value != newVal &&
         _textController.text != newVal) {
@@ -155,13 +151,14 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
   @override
   Widget build(BuildContext context) {
     return switch (widget.field.fieldType) {
-      CustomFieldType.text => _buildTextInput(),
+      CustomFieldType.text => _buildTextInput(context),
       CustomFieldType.color => _buildColorInput(context),
       CustomFieldType.date => _buildDateInput(context),
     };
   }
 
-  Widget _buildTextInput() {
+  Widget _buildTextInput(BuildContext context) {
+    final l10n = context.l10n;
     return Focus(
       onFocusChange: (hasFocus) {
         if (!hasFocus) _saveValue(_textController.text.trim());
@@ -169,7 +166,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       child: PrismTextField(
         controller: _textController,
         labelText: widget.field.name,
-        hintText: 'Enter ${widget.field.name.toLowerCase()}',
+        hintText: l10n.memberCustomFieldEnterHint(widget.field.name.toLowerCase()),
         onChanged: (_) {},
         onSubmitted: _saveValue,
       ),
@@ -218,6 +215,8 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
 
   Widget _buildDateInput(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final locale = context.dateLocale;
     final precision = widget.field.datePrecision ?? DatePrecision.full;
     final currentValue = _textController.text.trim();
     String displayText = '';
@@ -225,63 +224,54 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     if (currentValue.isNotEmpty) {
       try {
         final dt = DateTime.parse(currentValue);
-        displayText = _formatForPrecision(dt, precision);
+        displayText = _formatForPrecision(dt, precision, locale);
       } catch (_) {
         displayText = currentValue;
       }
     }
 
-    final labelStyle = theme.textTheme.labelLarge!.copyWith(
-      color: theme.colorScheme.onSurfaceVariant,
-    );
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(widget.field.name, style: labelStyle),
-        const SizedBox(height: 4),
-        GestureDetector(
-          onTap: () => _pickDate(context, precision),
-          child: InputDecorator(
-            decoration: InputDecoration(
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (currentValue.isNotEmpty)
-                    PrismFieldIconButton(
-                      icon: AppIcons.clear,
-                      color: theme.colorScheme.onSurfaceVariant,
-                      onPressed: () {
-                        _textController.text = '';
-                        if (widget.existingValue != null) {
-                          ref
-                              .read(customFieldValueNotifierProvider.notifier)
-                              .deleteValue(widget.existingValue!.id);
-                        }
-                        setState(() {});
-                      },
-                      tooltip: 'Clear date',
-                    ),
-                  Icon(
-                    AppIcons.calendarToday,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 12),
-                ],
+    return GestureDetector(
+      onTap: () => _pickDate(context, precision),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: widget.field.name,
+          border: const OutlineInputBorder(),
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (currentValue.isNotEmpty)
+                PrismFieldIconButton(
+                  icon: AppIcons.clear,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  onPressed: () {
+                    _textController.text = '';
+                    if (widget.existingValue != null) {
+                      ref
+                          .read(customFieldValueNotifierProvider.notifier)
+                          .deleteValue(widget.existingValue!.id);
+                    }
+                    setState(() {});
+                  },
+                  tooltip: l10n.memberClearDateTooltip,
+                ),
+              Icon(
+                AppIcons.calendarToday,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
-            ),
-            child: Text(
-              displayText.isNotEmpty ? displayText : 'Select date',
-              style: displayText.isNotEmpty
-                  ? theme.textTheme.bodyLarge
-                  : theme.textTheme.bodyLarge?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-            ),
+              const SizedBox(width: 12),
+            ],
           ),
         ),
-      ],
+        child: Text(
+          displayText.isNotEmpty ? displayText : l10n.memberCustomFieldSelectDate,
+          style: displayText.isNotEmpty
+              ? theme.textTheme.bodyLarge
+              : theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+        ),
+      ),
     );
   }
 
@@ -324,7 +314,6 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
           lastDate: DateTime(2000, 12, 31),
         );
         if (picked != null && mounted) {
-          // Store with year 2000 as a placeholder.
           _textController.text = picked.toIso8601String();
           _saveValue(_textController.text);
           setState(() {});
@@ -371,14 +360,14 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     }
   }
 
-  String _formatForPrecision(DateTime dt, DatePrecision precision) {
+  String _formatForPrecision(DateTime dt, DatePrecision precision, String locale) {
     return switch (precision) {
-      DatePrecision.full => DateFormat.yMMMd().format(dt),
-      DatePrecision.monthYear => DateFormat.yMMM().format(dt),
-      DatePrecision.monthDay => DateFormat.MMMd().format(dt),
-      DatePrecision.month => DateFormat.MMMM().format(dt),
-      DatePrecision.year => DateFormat.y().format(dt),
-      DatePrecision.timestamp => DateFormat.yMMMd().add_jm().format(dt),
+      DatePrecision.full => DateFormat.yMMMd(locale).format(dt),
+      DatePrecision.monthYear => DateFormat.yMMM(locale).format(dt),
+      DatePrecision.monthDay => DateFormat.MMMd(locale).format(dt),
+      DatePrecision.month => DateFormat.MMMM(locale).format(dt),
+      DatePrecision.year => DateFormat.y(locale).format(dt),
+      DatePrecision.timestamp => DateFormat.yMMMd(locale).add_jm().format(dt),
     };
   }
 }

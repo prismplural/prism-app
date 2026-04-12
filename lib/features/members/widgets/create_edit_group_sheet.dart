@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 const _uuid = Uuid();
 
@@ -117,7 +118,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
       }
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error saving group: $e');
+        PrismToast.error(context, message: context.l10n.memberGroupErrorSaving(e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -127,6 +128,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final canSave = _nameController.text.trim().isNotEmpty;
     final previewColor = _previewColor();
 
@@ -134,7 +136,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: widget.isEditing ? 'Edit Group' : 'New Group',
+            title: widget.isEditing ? l10n.memberGroupEditTitle : l10n.memberGroupNewTitle,
             trailing: PrismGlassIconButton(
                     icon: AppIcons.check,
                     size: PrismTokens.topBarActionSize,
@@ -171,12 +173,12 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                   // Name
                   PrismTextField(
                     controller: _nameController,
-                    labelText: 'Name',
+                    labelText: l10n.memberGroupNameLabel,
                     textCapitalization: TextCapitalization.words,
                     onChanged: (_) => setState(() {}),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Name is required';
+                        return l10n.memberGroupNameRequired;
                       }
                       return null;
                     },
@@ -186,7 +188,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                   // Description
                   PrismTextField(
                     controller: _descriptionController,
-                    labelText: 'Description',
+                    labelText: l10n.memberGroupDescriptionLabel,
                     textCapitalization: TextCapitalization.sentences,
                     minLines: 1,
                     maxLines: 4,
@@ -199,7 +201,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                       Expanded(
                         child: PrismTextField(
                           controller: _colorHexController,
-                          labelText: 'Color (hex)',
+                          labelText: l10n.memberGroupColorLabel,
                           hintText: '#AF8EE9',
                           onChanged: (_) => setState(() {}),
                         ),

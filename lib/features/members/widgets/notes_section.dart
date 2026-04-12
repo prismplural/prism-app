@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Notes section shown on member detail screen.
 class NotesSection extends ConsumerWidget {
@@ -25,6 +26,7 @@ class NotesSection extends ConsumerWidget {
 
     final notesAsync = ref.watch(recentMemberNotesProvider(memberId));
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
     return notesAsync.when(
       loading: () => const SizedBox.shrink(),
@@ -44,7 +46,7 @@ class NotesSection extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Notes',
+                    l10n.memberSectionNotes,
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w600,
@@ -56,7 +58,7 @@ class NotesSection extends ConsumerWidget {
                     iconSize: 20,
                     color: theme.colorScheme.primary,
                     onPressed: () => _openCreateSheet(context),
-                    tooltip: 'Add note',
+                    tooltip: l10n.memberAddNoteTooltip,
                   ),
                 ],
               ),
@@ -70,7 +72,7 @@ class NotesSection extends ConsumerWidget {
                       padding: const EdgeInsets.all(24),
                       child: Center(
                         child: Text(
-                          'No notes yet',
+                          l10n.memberNoteNoNotesYet,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -119,7 +121,8 @@ class _NoteTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dateStr = DateFormat.MMMd().format(note.date);
+    final dateFormat = DateFormat.MMMd(context.dateLocale);
+    final dateStr = dateFormat.format(note.date);
 
     return InkWell(
       onTap: () => context.push('${AppRoutePaths.settings}/notes/${note.id}'),

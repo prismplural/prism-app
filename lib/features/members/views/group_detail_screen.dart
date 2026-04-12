@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Detail screen for a single member group.
 class GroupDetailScreen extends ConsumerWidget {
@@ -34,6 +35,7 @@ class GroupDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final groupAsync = ref.watch(groupByIdProvider(groupId));
 
     return groupAsync.when(
@@ -43,13 +45,13 @@ class GroupDetailScreen extends ConsumerWidget {
       ),
       error: (e, _) => PrismPageScaffold(
         topBar: const PrismTopBar(title: '', showBackButton: true),
-        body: Center(child: Text('Error loading group: $e')),
+        body: Center(child: Text(l10n.memberGroupErrorLoadingDetail(e))),
       ),
       data: (group) {
         if (group == null) {
-          return const PrismPageScaffold(
-            topBar: PrismTopBar(title: '', showBackButton: true),
-            body: Center(child: Text('Group not found')),
+          return PrismPageScaffold(
+            topBar: const PrismTopBar(title: '', showBackButton: true),
+            body: Center(child: Text(l10n.memberGroupNotFound)),
           );
         }
         return _GroupDetailBody(group: group);
@@ -66,6 +68,7 @@ class _GroupDetailBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
 
     return PrismPageScaffold(
@@ -75,12 +78,12 @@ class _GroupDetailBody extends ConsumerWidget {
         actions: [
           PrismTopBarAction(
             icon: AppIcons.editOutlined,
-            tooltip: 'Edit',
+            tooltip: l10n.edit,
             onPressed: () => _openEditSheet(context),
           ),
           PrismTopBarAction(
             icon: AppIcons.deleteOutline,
-            tooltip: 'Delete',
+            tooltip: l10n.delete,
             onPressed: () => _confirmDelete(context, ref),
           ),
         ],
@@ -93,19 +96,17 @@ class _GroupDetailBody extends ConsumerWidget {
           children: [
             const SizedBox(height: 16),
 
-            // Group info header
             _GroupInfoHeader(group: group),
 
             const SizedBox(height: 24),
 
-            // Members section
             Row(
               children: [
                 Icon(AppIcons.peopleOutline,
                     size: 18, color: theme.colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Members',
+                  l10n.memberGroupSectionMembers,
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w600,
@@ -124,8 +125,8 @@ class _GroupDetailBody extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: EmptyState(
                       icon: Icon(AppIcons.personAddOutlined),
-                      title: 'No members',
-                      subtitle: 'Add members to this group',
+                      title: l10n.memberGroupNoMembers,
+                      subtitle: l10n.memberGroupNoMembersSubtitle,
                     ),
                   );
                 }
@@ -144,10 +145,9 @@ class _GroupDetailBody extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
-            // Add member button
             Center(
               child: PrismButton(
-                label: 'Add member',
+                label: l10n.memberGroupAddMember,
                 onPressed: () => _addMember(context, ref),
                 icon: AppIcons.personAddOutlined,
                 tone: PrismButtonTone.subtle,
@@ -172,25 +172,26 @@ class _GroupDetailBody extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete group',
-      message: 'Are you sure you want to delete "${group.name}"? '
-          'Members will not be deleted.',
-      confirmLabel: 'Delete',
+      title: l10n.memberGroupDeleteTitle,
+      message: l10n.memberGroupDeleteMessage(group.name),
+      confirmLabel: l10n.memberGroupDeleteConfirm,
       destructive: true,
     );
     if (confirmed) {
       Haptics.heavy();
       ref.read(groupNotifierProvider.notifier).deleteGroup(group.id);
       if (context.mounted) {
-        PrismToast.show(context, message: '${group.name} deleted');
+        PrismToast.show(context, message: context.l10n.memberGroupDeleted(group.name));
         Navigator.of(context).pop();
       }
     }
   }
 
   void _addMember(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final entries =
         ref.read(groupEntriesProvider(group.id)).whenOrNull(data: (e) => e) ??
             [];
@@ -198,7 +199,7 @@ class _GroupDetailBody extends ConsumerWidget {
 
     PrismDialog.show<void>(
       context: context,
-      title: 'Add member',
+      title: l10n.memberGroupAddMember,
       builder: (ctx) => HeadmatePicker(
         excludeIds: existingMemberIds,
         onSelected: (memberId) {
@@ -208,7 +209,7 @@ class _GroupDetailBody extends ConsumerWidget {
                 .addMemberToGroup(group.id, memberId);
             Haptics.success();
             Navigator.of(ctx).pop();
-            PrismToast.show(context, message: 'Member added');
+            PrismToast.show(context, message: context.l10n.memberAdded);
           }
         },
       ),
@@ -230,7 +231,6 @@ class _GroupInfoHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Emoji or colored circle
         if (group.emoji != null && group.emoji!.isNotEmpty)
           SizedBox(
             width: 56,
@@ -345,12 +345,12 @@ class _GroupMemberTile extends ConsumerWidget {
 
   Future<bool> _confirmRemove(
       BuildContext context, WidgetRef ref, Member member) async {
+    final l10n = context.l10n;
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Remove member',
-      message:
-          'Remove ${member.name} from this group? The member will not be deleted.',
-      confirmLabel: 'Remove',
+      title: l10n.memberRemoveFromGroupTitle,
+      message: l10n.memberRemoveFromGroupMessage(member.name),
+      confirmLabel: l10n.confirm,
       destructive: true,
     );
     if (confirmed) {
@@ -359,7 +359,7 @@ class _GroupMemberTile extends ConsumerWidget {
           .read(groupNotifierProvider.notifier)
           .removeMemberFromGroup(groupId, entry.memberId);
       if (context.mounted) {
-        PrismToast.show(context, message: '${member.name} removed');
+        PrismToast.show(context, message: context.l10n.memberRemoved(member.name));
       }
     }
     return false; // Don't auto-dismiss; provider stream will update

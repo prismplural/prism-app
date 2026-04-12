@@ -7,11 +7,9 @@ import 'package:prism_plurality/domain/models/custom_field_value.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Displays custom field values on a member detail screen.
-///
-/// Follows the same _SectionCard pattern used in member_detail_screen.dart.
-/// Returns [SizedBox.shrink] when no fields have values set.
 class CustomFieldsDisplay extends ConsumerWidget {
   const CustomFieldsDisplay({super.key, required this.memberId});
 
@@ -38,12 +36,10 @@ class CustomFieldsDisplay extends ConsumerWidget {
     List<CustomField> fields,
     List<CustomFieldValue> values,
   ) {
-    // Build a map of customFieldId → value for quick lookup.
     final valueMap = <String, CustomFieldValue>{
       for (final v in values) v.customFieldId: v,
     };
 
-    // Only show fields that have a value set.
     final fieldsWithValues = fields.where((f) {
       final v = valueMap[f.id];
       return v != null && v.value.isNotEmpty;
@@ -52,6 +48,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
     if (fieldsWithValues.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
+    final l10n = context.l10n;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -63,7 +60,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
               Icon(AppIcons.tuneOutlined, size: 18, color: theme.colorScheme.primary),
               const SizedBox(width: 8),
               Text(
-                'Custom Fields',
+                l10n.memberSectionCustomFields,
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: theme.colorScheme.primary,
                   fontWeight: FontWeight.w600,
@@ -138,7 +135,7 @@ class _FieldValueRow extends StatelessWidget {
         ),
       CustomFieldType.color => _buildColorDisplay(context),
       CustomFieldType.date => Text(
-          _formatDateValue(value.value, field.datePrecision),
+          _formatDateValue(context, value.value, field.datePrecision),
           style: theme.textTheme.bodyMedium,
           textAlign: TextAlign.end,
         ),
@@ -182,16 +179,17 @@ class _FieldValueRow extends StatelessWidget {
     );
   }
 
-  String _formatDateValue(String raw, DatePrecision? precision) {
+  String _formatDateValue(BuildContext context, String raw, DatePrecision? precision) {
+    final locale = context.dateLocale;
     try {
       final dt = DateTime.parse(raw);
       return switch (precision ?? DatePrecision.full) {
-        DatePrecision.full => DateFormat.yMMMd().format(dt),
-        DatePrecision.monthYear => DateFormat.yMMM().format(dt),
-        DatePrecision.monthDay => DateFormat.MMMd().format(dt),
-        DatePrecision.month => DateFormat.MMMM().format(dt),
-        DatePrecision.year => DateFormat.y().format(dt),
-        DatePrecision.timestamp => DateFormat.yMMMd().add_jm().format(dt),
+        DatePrecision.full => DateFormat.yMMMd(locale).format(dt),
+        DatePrecision.monthYear => DateFormat.yMMM(locale).format(dt),
+        DatePrecision.monthDay => DateFormat.MMMd(locale).format(dt),
+        DatePrecision.month => DateFormat.MMMM(locale).format(dt),
+        DatePrecision.year => DateFormat.y(locale).format(dt),
+        DatePrecision.timestamp => DateFormat.yMMMd(locale).add_jm().format(dt),
       };
     } catch (_) {
       return raw;

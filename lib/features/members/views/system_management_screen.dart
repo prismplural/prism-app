@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Screen for bulk member operations: activate/deactivate, delete, and reorder.
 class SystemManagementScreen extends ConsumerStatefulWidget {
@@ -74,7 +75,7 @@ class _SystemManagementScreenState
       message:
           'Are you sure you want to delete ${_selectedIds.length} '
           '${ref.read(terminologyProvider).singularLower}(s)? This action cannot be undone.',
-      confirmLabel: 'Delete',
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (!confirmed) return;
@@ -97,6 +98,7 @@ class _SystemManagementScreenState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final membersAsync = ref.watch(allMembersProvider);
 
     return PrismPageScaffold(
@@ -106,7 +108,7 @@ class _SystemManagementScreenState
         trailing: _selectionMode
             ? PrismTopBarAction(
                 icon: AppIcons.close,
-                tooltip: 'Cancel selection',
+                tooltip: l10n.memberCancelSelectionTooltip,
                 onPressed: _clearSelection,
               )
             : null,
@@ -122,14 +124,12 @@ class _SystemManagementScreenState
               ? inactiveMembers
               : activeMembers;
 
-          // Sort by displayOrder for consistent ordering.
           displayedMembers.sort(
             (a, b) => a.displayOrder.compareTo(b.displayOrder),
           );
 
           return Column(
             children: [
-              // ── Counts ────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -138,7 +138,7 @@ class _SystemManagementScreenState
                 child: Row(
                   children: [
                     _CountChip(
-                      label: 'Active',
+                      label: l10n.memberActive,
                       count: activeMembers.length,
                       selected: !_showInactive,
                       onTap: () => setState(() {
@@ -148,7 +148,7 @@ class _SystemManagementScreenState
                     ),
                     const SizedBox(width: 8),
                     _CountChip(
-                      label: 'Inactive',
+                      label: l10n.memberArchived,
                       count: inactiveMembers.length,
                       selected: _showInactive,
                       onTap: () => setState(() {
@@ -160,7 +160,6 @@ class _SystemManagementScreenState
                 ),
               ),
 
-              // ── Bulk action bar ───────────────────
               if (_selectionMode && _selectedIds.isNotEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -171,14 +170,14 @@ class _SystemManagementScreenState
                   child: Row(
                     children: [
                       Text(
-                        '${_selectedIds.length} selected',
+                        l10n.memberSelectedCount(_selectedIds.length),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const Spacer(),
                       PrismButton(
-                        label: _showInactive ? 'Activate' : 'Deactivate',
+                        label: _showInactive ? l10n.memberBulkActivate : l10n.memberBulkDeactivate,
                         icon: _showInactive
                             ? AppIcons.visibility
                             : AppIcons.visibilityOff,
@@ -187,7 +186,7 @@ class _SystemManagementScreenState
                       ),
                       const SizedBox(width: 8),
                       PrismButton(
-                        label: 'Delete',
+                        label: l10n.delete,
                         icon: AppIcons.delete,
                         tone: PrismButtonTone.destructive,
                         onPressed: () => _bulkDelete(displayedMembers),
@@ -196,14 +195,13 @@ class _SystemManagementScreenState
                   ),
                 ),
 
-              // ── Member list (reorderable) ─────────
               Expanded(
                 child: displayedMembers.isEmpty
                     ? Center(
                         child: Text(
                           _showInactive
-                              ? 'No inactive ${ref.read(terminologyProvider).pluralLower}'
-                              : 'No active ${ref.read(terminologyProvider).pluralLower}',
+                              ? l10n.memberNoInactive(ref.read(terminologyProvider).pluralLower)
+                              : l10n.memberNoActive(ref.read(terminologyProvider).pluralLower),
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),

@@ -2774,6 +2774,12 @@ abstract class AppLocalizations {
   /// **'Could not start recording.'**
   String get voiceRecordingFailed;
 
+  /// Label for a button that opens the OS app settings page
+  ///
+  /// In en, this message translates to:
+  /// **'Open Settings'**
+  String get openSettings;
+
   /// Tooltip to switch to list view on the fronting screen
   ///
   /// In en, this message translates to:
@@ -3709,6 +3715,648 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sessions must be continuous with no gaps in the timeline.'**
   String get frontingTimingModeStrictSubtitle;
+
+  /// Section header for custom fields on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Fields'**
+  String get memberSectionCustomFields;
+
+  /// Section header for fronting statistics on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting Stats'**
+  String get memberSectionFrontingStats;
+
+  /// Section header for recent fronting sessions on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Recent Sessions'**
+  String get memberSectionRecentSessions;
+
+  /// Section header for conversations on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Conversations'**
+  String get memberSectionConversations;
+
+  /// Section header for notes on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get memberSectionNotes;
+
+  /// Section header shown above member bio/notes field on detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get memberSectionBio;
+
+  /// Tooltip for edit member button
+  ///
+  /// In en, this message translates to:
+  /// **'Edit member'**
+  String get memberEditTooltip;
+
+  /// Tooltip for more options menu on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'More options'**
+  String get memberMoreOptionsTooltip;
+
+  /// Tooltip for add note button in notes section
+  ///
+  /// In en, this message translates to:
+  /// **'Add note'**
+  String get memberAddNoteTooltip;
+
+  /// Tooltip for save note button in note sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Save note'**
+  String get memberSaveNoteTooltip;
+
+  /// Tooltip for cancel selection button in system management screen
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel selection'**
+  String get memberCancelSelectionTooltip;
+
+  /// Tooltip for clear date button in custom fields date editor
+  ///
+  /// In en, this message translates to:
+  /// **'Clear date'**
+  String get memberClearDateTooltip;
+
+  /// Tooltip for new group button
+  ///
+  /// In en, this message translates to:
+  /// **'New group'**
+  String get memberNewGroupTooltip;
+
+  /// Toast shown when a member is added to a group
+  ///
+  /// In en, this message translates to:
+  /// **'Member added'**
+  String get memberAdded;
+
+  /// Toast shown when a member starts fronting
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is now fronting'**
+  String memberIsFronting(String name);
+
+  /// Toast shown when a member group is deleted
+  ///
+  /// In en, this message translates to:
+  /// **'{name} deleted'**
+  String memberGroupDeleted(String name);
+
+  /// Toast shown when a member is activated
+  ///
+  /// In en, this message translates to:
+  /// **'{name} activated'**
+  String memberActivated(String name);
+
+  /// Toast shown when a member is deactivated/archived
+  ///
+  /// In en, this message translates to:
+  /// **'{name} archived'**
+  String memberDeactivated(String name);
+
+  /// Toast shown when a member is removed from a group
+  ///
+  /// In en, this message translates to:
+  /// **'{name} removed'**
+  String memberRemoved(String name);
+
+  /// Dialog title when confirming removal of a member from a group
+  ///
+  /// In en, this message translates to:
+  /// **'Remove member'**
+  String get memberRemoveFromGroupTitle;
+
+  /// Dialog message when removing a member from a group
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from this group? The member will not be deleted.'**
+  String memberRemoveFromGroupMessage(String name);
+
+  /// Empty state when there are no members in a group
+  ///
+  /// In en, this message translates to:
+  /// **'No members yet'**
+  String get memberEmptyList;
+
+  /// Empty state title on the groups screen
+  ///
+  /// In en, this message translates to:
+  /// **'No groups yet'**
+  String get memberGroupEmptyList;
+
+  /// Empty state subtitle on the groups screen
+  ///
+  /// In en, this message translates to:
+  /// **'Create groups to organize your system members'**
+  String get memberGroupEmptySubtitle;
+
+  /// Empty state title inside a group detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'No members'**
+  String get memberGroupNoMembers;
+
+  /// Empty state subtitle inside a group detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Add members to this group'**
+  String get memberGroupNoMembersSubtitle;
+
+  /// Label for the inactive/archived filter chip in system management screen
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive'**
+  String get memberArchived;
+
+  /// Label for the active filter chip in system management screen
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get memberActive;
+
+  /// Toast shown after reordering members
+  ///
+  /// In en, this message translates to:
+  /// **'Order updated'**
+  String get memberOrderUpdated;
+
+  /// Section header for reorder options in the member list options menu
+  ///
+  /// In en, this message translates to:
+  /// **'Reorder by'**
+  String get memberReorderBy;
+
+  /// Sort option: name ascending
+  ///
+  /// In en, this message translates to:
+  /// **'Name A–Z'**
+  String get memberSortNameAZ;
+
+  /// Sort option: name descending
+  ///
+  /// In en, this message translates to:
+  /// **'Name Z–A'**
+  String get memberSortNameZA;
+
+  /// Sort option: most recently created
+  ///
+  /// In en, this message translates to:
+  /// **'Recently created'**
+  String get memberSortRecentlyCreated;
+
+  /// Sort option: most fronting sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Most fronting'**
+  String get memberSortMostFronting;
+
+  /// Sort option: fewest fronting sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Least fronting'**
+  String get memberSortLeastFronting;
+
+  /// Toggle option to show inactive members
+  ///
+  /// In en, this message translates to:
+  /// **'Show inactive'**
+  String get memberShowInactive;
+
+  /// Toggle option to hide inactive members
+  ///
+  /// In en, this message translates to:
+  /// **'Hide inactive'**
+  String get memberHideInactive;
+
+  /// Label for total sessions stat row
+  ///
+  /// In en, this message translates to:
+  /// **'Total sessions'**
+  String get memberStatsTotalSessions;
+
+  /// Label for total time stat row
+  ///
+  /// In en, this message translates to:
+  /// **'Total time'**
+  String get memberStatsTotalTime;
+
+  /// Label for last fronted stat row
+  ///
+  /// In en, this message translates to:
+  /// **'Last fronted'**
+  String get memberStatsLastFronted;
+
+  /// Relative date: today
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get memberStatsToday;
+
+  /// Relative date: yesterday
+  ///
+  /// In en, this message translates to:
+  /// **'Yesterday'**
+  String get memberStatsYesterday;
+
+  /// Relative date: N days ago
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days ago'**
+  String memberStatsDaysAgo(int count);
+
+  /// Relative date: N weeks ago
+  ///
+  /// In en, this message translates to:
+  /// **'{count} weeks ago'**
+  String memberStatsWeeksAgo(int count);
+
+  /// Label shown on an active fronting session tile
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get memberSessionActive;
+
+  /// Session date label when the session started today
+  ///
+  /// In en, this message translates to:
+  /// **'Today at {time}'**
+  String memberSessionTodayAt(String time);
+
+  /// Chip label shown when a member is currently fronting
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting'**
+  String get memberFrontingChip;
+
+  /// Chip label shown when a member has admin status
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get memberAdminChip;
+
+  /// Chip label shown when a member is inactive
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive'**
+  String get memberInactiveChip;
+
+  /// Menu action to set this member as the current fronter
+  ///
+  /// In en, this message translates to:
+  /// **'Set as fronter'**
+  String get memberSetAsFronter;
+
+  /// Title shown in the note sheet top bar
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get memberNoteTitle;
+
+  /// Fallback title for a note with no title
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get memberNoteUntitled;
+
+  /// Shown when a note cannot be found
+  ///
+  /// In en, this message translates to:
+  /// **'Note not found'**
+  String get memberNoteNotFound;
+
+  /// Confirmation dialog title when deleting a note
+  ///
+  /// In en, this message translates to:
+  /// **'Delete note?'**
+  String get memberNoteDeleteTitle;
+
+  /// Confirmation dialog message when deleting a note
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete \"{title}\"? This action cannot be undone.'**
+  String memberNoteDeleteMessage(String title);
+
+  /// Empty state text in the notes section on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'No notes yet'**
+  String get memberNoteNoNotesYet;
+
+  /// Subtitle for empty notes list state
+  ///
+  /// In en, this message translates to:
+  /// **'Create notes to keep track of thoughts and observations'**
+  String get memberNoteEmptySubtitle;
+
+  /// Hint text for the note title field
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get memberNoteTitleHint;
+
+  /// Hint text for the note body field
+  ///
+  /// In en, this message translates to:
+  /// **'Start writing...'**
+  String get memberNoteBodyHint;
+
+  /// Toolbar chip label when no headmate is assigned to a note
+  ///
+  /// In en, this message translates to:
+  /// **'Add headmate'**
+  String get memberNoteAddHeadmate;
+
+  /// Confirmation dialog title when discarding unsaved note changes
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes?'**
+  String get memberNoteDiscardTitle;
+
+  /// Confirmation dialog message when discarding unsaved note changes
+  ///
+  /// In en, this message translates to:
+  /// **'You have unsaved changes. Are you sure you want to discard them?'**
+  String get memberNoteDiscardMessage;
+
+  /// Confirm button label for discarding note changes
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get memberNoteDiscardConfirm;
+
+  /// Sheet title for headmate selection in note sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Headmate'**
+  String get memberNoteChooseHeadmate;
+
+  /// Option to clear headmate selection in note sheet
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get memberSelectNone;
+
+  /// Title for the groups screen
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get memberGroupsTitle;
+
+  /// Error message on the groups screen
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading groups: {error}'**
+  String memberGroupErrorLoading(Object error);
+
+  /// Error message on the group detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading group: {error}'**
+  String memberGroupErrorLoadingDetail(Object error);
+
+  /// Message shown when a group cannot be found
+  ///
+  /// In en, this message translates to:
+  /// **'Group not found'**
+  String get memberGroupNotFound;
+
+  /// Section header for members inside a group detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get memberGroupSectionMembers;
+
+  /// Button label to add a member to a group
+  ///
+  /// In en, this message translates to:
+  /// **'Add member'**
+  String get memberGroupAddMember;
+
+  /// Confirmation dialog title when deleting a group
+  ///
+  /// In en, this message translates to:
+  /// **'Delete group'**
+  String get memberGroupDeleteTitle;
+
+  /// Confirmation dialog message when deleting a group
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete \"{name}\"? Members will not be deleted.'**
+  String memberGroupDeleteMessage(String name);
+
+  /// Confirm button for group deletion dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get memberGroupDeleteConfirm;
+
+  /// Sheet title when editing an existing group
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Group'**
+  String get memberGroupEditTitle;
+
+  /// Sheet title when creating a new group
+  ///
+  /// In en, this message translates to:
+  /// **'New Group'**
+  String get memberGroupNewTitle;
+
+  /// Label for the group name text field
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get memberGroupNameLabel;
+
+  /// Validation error when group name is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Name is required'**
+  String get memberGroupNameRequired;
+
+  /// Label for the group description text field
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get memberGroupDescriptionLabel;
+
+  /// Label for the group color hex text field
+  ///
+  /// In en, this message translates to:
+  /// **'Color (hex)'**
+  String get memberGroupColorLabel;
+
+  /// Error toast when saving a group fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving group: {error}'**
+  String memberGroupErrorSaving(Object error);
+
+  /// Label for the member name text field (required)
+  ///
+  /// In en, this message translates to:
+  /// **'Name *'**
+  String get memberNameLabel;
+
+  /// Hint text for the member name field
+  ///
+  /// In en, this message translates to:
+  /// **'Enter name'**
+  String get memberNameHint;
+
+  /// Validation error when member name is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Name is required'**
+  String get memberNameRequired;
+
+  /// Label for the member pronouns text field
+  ///
+  /// In en, this message translates to:
+  /// **'Pronouns'**
+  String get memberPronounsLabel;
+
+  /// Hint text for the member pronouns field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. she/her, they/them'**
+  String get memberPronounsHint;
+
+  /// Label for the member age text field
+  ///
+  /// In en, this message translates to:
+  /// **'Age'**
+  String get memberAgeLabel;
+
+  /// Hint text for the member age field
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get memberAgeHint;
+
+  /// Label for the member bio text field
+  ///
+  /// In en, this message translates to:
+  /// **'Bio'**
+  String get memberBioLabel;
+
+  /// Hint text for the member bio field
+  ///
+  /// In en, this message translates to:
+  /// **'A short description...'**
+  String get memberBioHint;
+
+  /// Switch label: format bio as markdown
+  ///
+  /// In en, this message translates to:
+  /// **'Format bio as markdown'**
+  String get memberMarkdownTitle;
+
+  /// Switch subtitle: format bio as markdown
+  ///
+  /// In en, this message translates to:
+  /// **'Render bio text with markdown formatting'**
+  String get memberMarkdownSubtitle;
+
+  /// Switch label: admin status
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get memberAdminTitle;
+
+  /// Switch subtitle: admin status
+  ///
+  /// In en, this message translates to:
+  /// **'Admins can manage system settings'**
+  String get memberAdminSubtitle;
+
+  /// Switch label: custom color
+  ///
+  /// In en, this message translates to:
+  /// **'Custom color'**
+  String get memberCustomColorTitle;
+
+  /// Switch subtitle: custom color
+  ///
+  /// In en, this message translates to:
+  /// **'Use a personal color for this member'**
+  String get memberCustomColorSubtitle;
+
+  /// Label for the member color hex text field
+  ///
+  /// In en, this message translates to:
+  /// **'Color hex'**
+  String get memberColorHexLabel;
+
+  /// Error toast when saving a member fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving {term}: {error}'**
+  String memberErrorSaving(String term, Object error);
+
+  /// Age displayed on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Age {age}'**
+  String memberAgeDisplay(int age);
+
+  /// Bulk selection count label in system management screen
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String memberSelectedCount(int count);
+
+  /// Bulk action button: activate selected members
+  ///
+  /// In en, this message translates to:
+  /// **'Activate'**
+  String get memberBulkActivate;
+
+  /// Bulk action button: deactivate selected members
+  ///
+  /// In en, this message translates to:
+  /// **'Deactivate'**
+  String get memberBulkDeactivate;
+
+  /// Empty state when there are no inactive members
+  ///
+  /// In en, this message translates to:
+  /// **'No inactive {terms}'**
+  String memberNoInactive(String terms);
+
+  /// Empty state when there are no active members
+  ///
+  /// In en, this message translates to:
+  /// **'No active {terms}'**
+  String memberNoActive(String terms);
+
+  /// Fallback title for a conversation with no title or emoji
+  ///
+  /// In en, this message translates to:
+  /// **'Conversation'**
+  String get memberConversationFallback;
+
+  /// Placeholder text when no date is selected in a custom field date input
+  ///
+  /// In en, this message translates to:
+  /// **'Select date'**
+  String get memberCustomFieldSelectDate;
+
+  /// Hint text for a custom field text input
+  ///
+  /// In en, this message translates to:
+  /// **'Enter {fieldName}'**
+  String memberCustomFieldEnterHint(String fieldName);
 }
 
 class _AppLocalizationsDelegate

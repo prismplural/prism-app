@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class NotesListScreen extends ConsumerWidget {
   const NotesListScreen({super.key, this.showBackButton = true});
@@ -27,15 +28,16 @@ class NotesListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notesAsync = ref.watch(allNotesProvider);
+    final l10n = context.l10n;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Notes',
+        title: l10n.memberSectionNotes,
         showBackButton: showBackButton,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.add,
-            tooltip: 'New note',
+            tooltip: l10n.memberAddNoteTooltip,
             onPressed: () => _showCreateSheet(context),
           ),
         ],
@@ -48,9 +50,9 @@ class NotesListScreen extends ConsumerWidget {
           if (notes.isEmpty) {
             return EmptyState(
               icon: Icon(AppIcons.noteOutlined),
-              title: 'No notes yet',
-              subtitle: 'Create notes to keep track of thoughts and observations',
-              actionLabel: 'New Note',
+              title: l10n.memberNoteNoNotesYet,
+              subtitle: l10n.memberNoteEmptySubtitle,
+              actionLabel: l10n.memberNoteTitle,
               onAction: () => _showCreateSheet(context),
             );
           }
@@ -91,11 +93,12 @@ class _NoteCard extends ConsumerWidget {
 
   final Note note;
 
-  static final _dateFormat = DateFormat.yMMMd();
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
+    // Locale-aware date format — must be a local variable, not static.
+    final dateFormat = DateFormat.yMMMd(context.dateLocale);
 
     // Look up the member if this note is associated with one
     final memberAsync = note.memberId != null
@@ -146,7 +149,7 @@ class _NoteCard extends ConsumerWidget {
                         : note.body.split('\n').first.trim();
                     final isFallbackTitle = note.title.isEmpty;
                     return Text(
-                      displayTitle.isNotEmpty ? displayTitle : 'Untitled',
+                      displayTitle.isNotEmpty ? displayTitle : l10n.memberNoteUntitled,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight:
                             isFallbackTitle ? FontWeight.normal : FontWeight.w600,
@@ -170,7 +173,7 @@ class _NoteCard extends ConsumerWidget {
                   ],
                   const SizedBox(height: 4),
                   Text(
-                    _dateFormat.format(note.date),
+                    dateFormat.format(note.date),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant
                           .withValues(alpha: 0.6),

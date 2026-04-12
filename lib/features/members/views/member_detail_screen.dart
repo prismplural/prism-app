@@ -28,13 +28,9 @@ import 'package:prism_plurality/features/members/widgets/custom_fields_display.d
 import 'package:prism_plurality/features/members/widgets/notes_section.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Detail screen for a single system member, pushed via go_router.
-///
-/// Displays the member's full profile including avatar, name, pronouns, bio,
-/// age, admin status, and whether they are currently fronting. Provides
-/// actions for editing, setting as fronter, toggling active status, and
-/// deleting. Also shows fronting stats, recent sessions, and conversations.
 class MemberDetailScreen extends ConsumerWidget {
   const MemberDetailScreen({super.key, required this.memberId});
 
@@ -81,6 +77,7 @@ class _MemberDetailBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final isFronting = activeSessionsAsync.whenOrNull(
           data: _isFronting,
@@ -94,7 +91,7 @@ class _MemberDetailBody extends ConsumerWidget {
         actions: [
           PrismTopBarAction(
             icon: AppIcons.editOutlined,
-            tooltip: 'Edit',
+            tooltip: l10n.memberEditTooltip,
             onPressed: () => _openEditSheet(context),
           ),
           _MoreMenuButton(
@@ -110,8 +107,6 @@ class _MemberDetailBody extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 16),
-
-            // Header: Avatar left, info right (matches SwiftUI layout)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -147,7 +142,7 @@ class _MemberDetailBody extends ConsumerWidget {
                       if (member.age != null) ...[
                         const SizedBox(height: 2),
                         Text(
-                          'Age ${member.age}',
+                          l10n.memberAgeDisplay(member.age!),
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -161,7 +156,7 @@ class _MemberDetailBody extends ConsumerWidget {
                           if (isFronting)
                             _Chip(
                               icon: AppIcons.flashOn,
-                              label: 'Fronting',
+                              label: l10n.memberFrontingChip,
                               backgroundColor:
                                   AppColors.fronting(theme.brightness).withValues(alpha: 0.15),
                               foregroundColor: AppColors.fronting(theme.brightness),
@@ -169,7 +164,7 @@ class _MemberDetailBody extends ConsumerWidget {
                           if (member.isAdmin)
                             _Chip(
                               icon: AppIcons.shieldOutlined,
-                              label: 'Admin',
+                              label: l10n.memberAdminChip,
                               backgroundColor:
                                   theme.colorScheme.tertiaryContainer,
                               foregroundColor:
@@ -178,7 +173,7 @@ class _MemberDetailBody extends ConsumerWidget {
                           if (!member.isActive)
                             _Chip(
                               icon: AppIcons.visibilityOffOutlined,
-                              label: 'Inactive',
+                              label: l10n.memberInactiveChip,
                               backgroundColor:
                                   theme.colorScheme.surfaceContainerHighest,
                               foregroundColor:
@@ -194,14 +189,13 @@ class _MemberDetailBody extends ConsumerWidget {
 
             const SizedBox(height: 24),
 
-            // Group chips
             MemberGroupChips(memberId: member.id),
 
             // Bio
             if (member.bio != null && member.bio!.isNotEmpty)
               _DetailSection(
                 icon: AppIcons.notesOutlined,
-                title: 'Notes',
+                title: l10n.memberSectionBio,
                 child: MarkdownText(
                   data: member.bio!,
                   enabled: member.markdownEnabled,
@@ -209,23 +203,16 @@ class _MemberDetailBody extends ConsumerWidget {
                 ),
               ),
 
-            // Custom Fields
             CustomFieldsDisplay(memberId: member.id),
-
-            // Notes
             NotesSection(memberId: member.id),
-
-            // Fronting Stats
             _FrontingStatsSection(memberId: member.id),
 
             const SizedBox(height: 8),
 
-            // Recent Sessions
             _RecentSessionsSection(memberId: member.id),
 
             const SizedBox(height: 8),
 
-            // Conversations
             _ConversationsSection(memberId: member.id),
 
             const SizedBox(height: 32),
@@ -253,7 +240,7 @@ class _MemberDetailBody extends ConsumerWidget {
     switch (action) {
       case _MenuAction.setFronter:
         ref.read(frontingNotifierProvider.notifier).startFronting(member.id);
-        PrismToast.show(context, message: '${member.name} is now fronting');
+        PrismToast.show(context, message: context.l10n.memberIsFronting(member.name));
       case _MenuAction.toggleActive:
         ref.read(membersNotifierProvider.notifier).updateMember(
               member.copyWith(isActive: !member.isActive),
@@ -270,7 +257,7 @@ class _MemberDetailBody extends ConsumerWidget {
       title: 'Delete ${terms.singularLower}?',
       message: 'Are you sure you want to delete ${member.name}? '
           'This action cannot be undone.',
-      confirmLabel: 'Delete',
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {
@@ -290,6 +277,7 @@ class _FrontingStatsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final statsAsync = ref.watch(memberFrontingStatsProvider(memberId));
 
     return statsAsync.when(
@@ -305,26 +293,26 @@ class _FrontingStatsSection extends ConsumerWidget {
 
         return _SectionCard(
           icon: AppIcons.barChartOutlined,
-          title: 'Fronting Stats',
+          title: l10n.memberSectionFrontingStats,
           theme: theme,
           child: Column(
             children: [
               _StatRow(
-                label: 'Total sessions',
+                label: l10n.memberStatsTotalSessions,
                 value: '${stats.totalSessions}',
                 theme: theme,
               ),
               const Divider(height: 1),
               _StatRow(
-                label: 'Total time',
+                label: l10n.memberStatsTotalTime,
                 value: _formatDuration(stats.totalDuration),
                 theme: theme,
               ),
               if (stats.lastFronted != null) ...[
                 const Divider(height: 1),
                 _StatRow(
-                  label: 'Last fronted',
-                  value: _formatTimestamp(stats.lastFronted!),
+                  label: l10n.memberStatsLastFronted,
+                  value: _formatTimestamp(l10n, stats.lastFronted!),
                   theme: theme,
                 ),
               ],
@@ -347,14 +335,14 @@ class _FrontingStatsSection extends ConsumerWidget {
     return '${d.inMinutes}m';
   }
 
-  String _formatTimestamp(DateTime dt) {
+  String _formatTimestamp(dynamic l10n, DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
 
-    if (diff.inDays == 0) return 'Today';
-    if (diff.inDays == 1) return 'Yesterday';
-    if (diff.inDays < 7) return '${diff.inDays} days ago';
-    if (diff.inDays < 30) return '${diff.inDays ~/ 7} weeks ago';
+    if (diff.inDays == 0) return l10n.memberStatsToday as String;
+    if (diff.inDays == 1) return l10n.memberStatsYesterday as String;
+    if (diff.inDays < 7) return l10n.memberStatsDaysAgo(diff.inDays) as String;
+    if (diff.inDays < 30) return l10n.memberStatsWeeksAgo(diff.inDays ~/ 7) as String;
     return '${dt.month}/${dt.day}/${dt.year}';
   }
 }
@@ -379,7 +367,7 @@ class _RecentSessionsSection extends ConsumerWidget {
 
         return _SectionCard(
           icon: AppIcons.historyOutlined,
-          title: 'Recent Sessions',
+          title: context.l10n.memberSectionRecentSessions,
           theme: theme,
           child: Column(
             children: [
@@ -403,7 +391,8 @@ class _SessionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final startDate = _formatDate(session.startTime);
+    final l10n = context.l10n;
+    final startDate = _formatDate(l10n, session.startTime);
     final duration = _formatDuration(session.duration);
 
     return InkWell(
@@ -428,7 +417,7 @@ class _SessionTile extends StatelessWidget {
               ),
             ),
             Text(
-              session.isActive ? 'Active' : duration,
+              session.isActive ? l10n.memberSessionActive : duration,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: session.isActive
                     ? AppColors.fronting(theme.brightness)
@@ -449,16 +438,16 @@ class _SessionTile extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime dt) {
+  String _formatDate(dynamic l10n, DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
 
     if (diff.inDays == 0) {
       final hour = dt.hour.toString().padLeft(2, '0');
       final minute = dt.minute.toString().padLeft(2, '0');
-      return 'Today at $hour:$minute';
+      return l10n.memberSessionTodayAt('$hour:$minute') as String;
     }
-    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays == 1) return l10n.memberStatsYesterday as String;
 
     return '${dt.month}/${dt.day}/${dt.year}';
   }
@@ -490,7 +479,7 @@ class _ConversationsSection extends ConsumerWidget {
 
         return _SectionCard(
           icon: AppIcons.chatOutlined,
-          title: 'Conversations',
+          title: context.l10n.memberSectionConversations,
           theme: theme,
           child: Column(
             children: [
@@ -516,7 +505,7 @@ class _ConversationTile extends ConsumerWidget {
     final theme = Theme.of(context);
     final terms = ref.watch(terminologyProvider);
     final title =
-        conversation.title ?? conversation.emoji ?? 'Conversation';
+        conversation.title ?? conversation.emoji ?? context.l10n.memberConversationFallback;
 
     return InkWell(
       onTap: () => context.go(AppRoutePaths.chatConversation(conversation.id)),
@@ -570,7 +559,6 @@ class _ConversationTile extends ConsumerWidget {
 
 enum _MenuAction { setFronter, toggleActive, delete }
 
-/// A card container for detail sections with an icon + title header.
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.icon,
@@ -619,7 +607,6 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-/// A row showing a label and value side by side inside a stats card.
 class _StatRow extends StatelessWidget {
   const _StatRow({
     required this.label,
@@ -651,7 +638,6 @@ class _StatRow extends StatelessWidget {
   }
 }
 
-/// A small informational chip used in the badges row.
 class _Chip extends StatelessWidget {
   const _Chip({
     required this.label,
@@ -698,7 +684,6 @@ class _Chip extends StatelessWidget {
   }
 }
 
-/// A section showing an icon, title, and content text or custom child widget.
 class _DetailSection extends StatelessWidget {
   const _DetailSection({
     required this.icon,
@@ -765,15 +750,26 @@ class _MoreMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final items = [
-      (action: _MenuAction.setFronter, label: 'Set as fronter', icon: AppIcons.flashOn, destructive: false),
+      (
+        action: _MenuAction.setFronter,
+        label: l10n.memberSetAsFronter,
+        icon: AppIcons.flashOn,
+        destructive: false,
+      ),
       (
         action: _MenuAction.toggleActive,
-        label: member.isActive ? 'Deactivate' : 'Activate',
+        label: member.isActive ? l10n.deactivate : l10n.activate,
         icon: member.isActive ? AppIcons.visibilityOff : AppIcons.visibility,
         destructive: false,
       ),
-      (action: _MenuAction.delete, label: 'Delete', icon: AppIcons.deleteOutline, destructive: true),
+      (
+        action: _MenuAction.delete,
+        label: l10n.delete,
+        icon: AppIcons.deleteOutline,
+        destructive: true,
+      ),
     ];
 
     return BlurPopupAnchor(
@@ -801,7 +797,7 @@ class _MoreMenuButton extends StatelessWidget {
       },
       child: PrismTopBarAction(
         icon: AppIcons.moreVert,
-        tooltip: 'More options',
+        tooltip: l10n.memberMoreOptionsTooltip,
         onPressed: null,
       ),
     );

@@ -1471,6 +1471,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get voiceRecordingFailed => 'Could not start recording.';
 
   @override
+  String get openSettings => 'Open Settings';
+
+  @override
   String get frontingListView => 'List view';
 
   @override
@@ -2054,4 +2057,370 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get frontingTimingModeStrictSubtitle =>
       'Sessions must be continuous with no gaps in the timeline.';
+
+  @override
+  String get memberSectionCustomFields => 'Custom Fields';
+
+  @override
+  String get memberSectionFrontingStats => 'Fronting Stats';
+
+  @override
+  String get memberSectionRecentSessions => 'Recent Sessions';
+
+  @override
+  String get memberSectionConversations => 'Conversations';
+
+  @override
+  String get memberSectionNotes => 'Notes';
+
+  @override
+  String get memberSectionBio => 'Notes';
+
+  @override
+  String get memberEditTooltip => 'Edit member';
+
+  @override
+  String get memberMoreOptionsTooltip => 'More options';
+
+  @override
+  String get memberAddNoteTooltip => 'Add note';
+
+  @override
+  String get memberSaveNoteTooltip => 'Save note';
+
+  @override
+  String get memberCancelSelectionTooltip => 'Cancel selection';
+
+  @override
+  String get memberClearDateTooltip => 'Clear date';
+
+  @override
+  String get memberNewGroupTooltip => 'New group';
+
+  @override
+  String get memberAdded => 'Member added';
+
+  @override
+  String memberIsFronting(String name) {
+    return '$name is now fronting';
+  }
+
+  @override
+  String memberGroupDeleted(String name) {
+    return '$name deleted';
+  }
+
+  @override
+  String memberActivated(String name) {
+    return '$name activated';
+  }
+
+  @override
+  String memberDeactivated(String name) {
+    return '$name archived';
+  }
+
+  @override
+  String memberRemoved(String name) {
+    return '$name removed';
+  }
+
+  @override
+  String get memberRemoveFromGroupTitle => 'Remove member';
+
+  @override
+  String memberRemoveFromGroupMessage(String name) {
+    return 'Remove $name from this group? The member will not be deleted.';
+  }
+
+  @override
+  String get memberEmptyList => 'No members yet';
+
+  @override
+  String get memberGroupEmptyList => 'No groups yet';
+
+  @override
+  String get memberGroupEmptySubtitle =>
+      'Create groups to organize your system members';
+
+  @override
+  String get memberGroupNoMembers => 'No members';
+
+  @override
+  String get memberGroupNoMembersSubtitle => 'Add members to this group';
+
+  @override
+  String get memberArchived => 'Inactive';
+
+  @override
+  String get memberActive => 'Active';
+
+  @override
+  String get memberOrderUpdated => 'Order updated';
+
+  @override
+  String get memberReorderBy => 'Reorder by';
+
+  @override
+  String get memberSortNameAZ => 'Name A–Z';
+
+  @override
+  String get memberSortNameZA => 'Name Z–A';
+
+  @override
+  String get memberSortRecentlyCreated => 'Recently created';
+
+  @override
+  String get memberSortMostFronting => 'Most fronting';
+
+  @override
+  String get memberSortLeastFronting => 'Least fronting';
+
+  @override
+  String get memberShowInactive => 'Show inactive';
+
+  @override
+  String get memberHideInactive => 'Hide inactive';
+
+  @override
+  String get memberStatsTotalSessions => 'Total sessions';
+
+  @override
+  String get memberStatsTotalTime => 'Total time';
+
+  @override
+  String get memberStatsLastFronted => 'Last fronted';
+
+  @override
+  String get memberStatsToday => 'Today';
+
+  @override
+  String get memberStatsYesterday => 'Yesterday';
+
+  @override
+  String memberStatsDaysAgo(int count) {
+    return '$count days ago';
+  }
+
+  @override
+  String memberStatsWeeksAgo(int count) {
+    return '$count weeks ago';
+  }
+
+  @override
+  String get memberSessionActive => 'Active';
+
+  @override
+  String memberSessionTodayAt(String time) {
+    return 'Today at $time';
+  }
+
+  @override
+  String get memberFrontingChip => 'Fronting';
+
+  @override
+  String get memberAdminChip => 'Admin';
+
+  @override
+  String get memberInactiveChip => 'Inactive';
+
+  @override
+  String get memberSetAsFronter => 'Set as fronter';
+
+  @override
+  String get memberNoteTitle => 'Note';
+
+  @override
+  String get memberNoteUntitled => 'Untitled';
+
+  @override
+  String get memberNoteNotFound => 'Note not found';
+
+  @override
+  String get memberNoteDeleteTitle => 'Delete note?';
+
+  @override
+  String memberNoteDeleteMessage(String title) {
+    return 'Are you sure you want to delete \"$title\"? This action cannot be undone.';
+  }
+
+  @override
+  String get memberNoteNoNotesYet => 'No notes yet';
+
+  @override
+  String get memberNoteEmptySubtitle =>
+      'Create notes to keep track of thoughts and observations';
+
+  @override
+  String get memberNoteTitleHint => 'Title';
+
+  @override
+  String get memberNoteBodyHint => 'Start writing...';
+
+  @override
+  String get memberNoteAddHeadmate => 'Add headmate';
+
+  @override
+  String get memberNoteDiscardTitle => 'Discard changes?';
+
+  @override
+  String get memberNoteDiscardMessage =>
+      'You have unsaved changes. Are you sure you want to discard them?';
+
+  @override
+  String get memberNoteDiscardConfirm => 'Discard';
+
+  @override
+  String get memberNoteChooseHeadmate => 'Choose Headmate';
+
+  @override
+  String get memberSelectNone => 'None';
+
+  @override
+  String get memberGroupsTitle => 'Groups';
+
+  @override
+  String memberGroupErrorLoading(Object error) {
+    return 'Error loading groups: $error';
+  }
+
+  @override
+  String memberGroupErrorLoadingDetail(Object error) {
+    return 'Error loading group: $error';
+  }
+
+  @override
+  String get memberGroupNotFound => 'Group not found';
+
+  @override
+  String get memberGroupSectionMembers => 'Members';
+
+  @override
+  String get memberGroupAddMember => 'Add member';
+
+  @override
+  String get memberGroupDeleteTitle => 'Delete group';
+
+  @override
+  String memberGroupDeleteMessage(String name) {
+    return 'Are you sure you want to delete \"$name\"? Members will not be deleted.';
+  }
+
+  @override
+  String get memberGroupDeleteConfirm => 'Delete';
+
+  @override
+  String get memberGroupEditTitle => 'Edit Group';
+
+  @override
+  String get memberGroupNewTitle => 'New Group';
+
+  @override
+  String get memberGroupNameLabel => 'Name';
+
+  @override
+  String get memberGroupNameRequired => 'Name is required';
+
+  @override
+  String get memberGroupDescriptionLabel => 'Description';
+
+  @override
+  String get memberGroupColorLabel => 'Color (hex)';
+
+  @override
+  String memberGroupErrorSaving(Object error) {
+    return 'Error saving group: $error';
+  }
+
+  @override
+  String get memberNameLabel => 'Name *';
+
+  @override
+  String get memberNameHint => 'Enter name';
+
+  @override
+  String get memberNameRequired => 'Name is required';
+
+  @override
+  String get memberPronounsLabel => 'Pronouns';
+
+  @override
+  String get memberPronounsHint => 'e.g. she/her, they/them';
+
+  @override
+  String get memberAgeLabel => 'Age';
+
+  @override
+  String get memberAgeHint => 'Optional';
+
+  @override
+  String get memberBioLabel => 'Bio';
+
+  @override
+  String get memberBioHint => 'A short description...';
+
+  @override
+  String get memberMarkdownTitle => 'Format bio as markdown';
+
+  @override
+  String get memberMarkdownSubtitle =>
+      'Render bio text with markdown formatting';
+
+  @override
+  String get memberAdminTitle => 'Admin';
+
+  @override
+  String get memberAdminSubtitle => 'Admins can manage system settings';
+
+  @override
+  String get memberCustomColorTitle => 'Custom color';
+
+  @override
+  String get memberCustomColorSubtitle =>
+      'Use a personal color for this member';
+
+  @override
+  String get memberColorHexLabel => 'Color hex';
+
+  @override
+  String memberErrorSaving(String term, Object error) {
+    return 'Error saving $term: $error';
+  }
+
+  @override
+  String memberAgeDisplay(int age) {
+    return 'Age $age';
+  }
+
+  @override
+  String memberSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get memberBulkActivate => 'Activate';
+
+  @override
+  String get memberBulkDeactivate => 'Deactivate';
+
+  @override
+  String memberNoInactive(String terms) {
+    return 'No inactive $terms';
+  }
+
+  @override
+  String memberNoActive(String terms) {
+    return 'No active $terms';
+  }
+
+  @override
+  String get memberConversationFallback => 'Conversation';
+
+  @override
+  String get memberCustomFieldSelectDate => 'Select date';
+
+  @override
+  String memberCustomFieldEnterHint(String fieldName) {
+    return 'Enter $fieldName';
+  }
 }
