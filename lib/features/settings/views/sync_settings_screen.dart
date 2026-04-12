@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
@@ -25,7 +24,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
-import 'package:prism_plurality/features/settings/widgets/change_password_sheet.dart';
+import 'package:prism_plurality/features/settings/widgets/change_pin_sheet.dart';
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -374,7 +373,7 @@ class _ConfiguredView extends ConsumerWidget {
                     title: context.l10n.syncChangePassword,
                     subtitle: context.l10n.syncChangePasswordSubtitle,
                     enabled: !isSyncActive,
-                    onTap: () => ChangePasswordSheet.show(context),
+                    onTap: () => ChangePinSheet.show(context),
                   ),
                   const Divider(height: 1),
                   PrismSettingsRow(
@@ -528,8 +527,7 @@ class _ViewSecretKeySheet extends ConsumerStatefulWidget {
 }
 
 class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
-  final _passwordController = TextEditingController();
-  bool _obscure = true;
+  final _pinController = TextEditingController();
   bool _isLoading = false;
   String? _error;
   String? _mnemonic;
@@ -538,15 +536,15 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
 
   @override
   void dispose() {
-    _passwordController.dispose();
+    _pinController.dispose();
     // Clear the mnemonic from memory on dismiss
     _mnemonic = null;
     super.dispose();
   }
 
   Future<void> _verifyAndReveal() async {
-    final password = _passwordController.text;
-    if (password.isEmpty) return;
+    final pin = _pinController.text.trim();
+    if (pin.isEmpty) return;
 
     setState(() {
       _isLoading = true;
@@ -592,7 +590,7 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
       try {
         await ffi.unlock(
           handle: handle,
-          password: password,
+          password: pin,
           secretKey: secretKeyBytes,
         );
       } on Exception {
@@ -668,22 +666,13 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
                         ),
                         const SizedBox(height: 20),
                         PrismTextField(
-                          controller: _passwordController,
-                          obscureText: _obscure,
+                          controller: _pinController,
+                          obscureText: true,
+                          keyboardType: TextInputType.number,
                           autofocus: true,
                           enabled: !_isLoading,
                           onSubmitted: (_) => _verifyAndReveal(),
                           hintText: context.l10n.syncPasswordHint,
-                          suffix: PrismFieldIconButton(
-                            icon: _obscure
-                                ? AppIcons.visibilityOff
-                                : AppIcons.visibility,
-                            tooltip: _obscure
-                                ? context.l10n.syncShowPassword
-                                : context.l10n.syncHidePassword,
-                            onPressed: () =>
-                                setState(() => _obscure = !_obscure),
-                          ),
                           errorText: _error,
                         ),
                         const SizedBox(height: 16),

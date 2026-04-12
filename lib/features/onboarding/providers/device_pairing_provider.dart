@@ -22,8 +22,8 @@ enum PairingStep {
   waitingForSas,
   // Displaying SAS words for user verification
   showingSas,
-  // User enters the sync password
-  enterPassword,
+  // User enters the sync PIN
+  enterPin,
   // Connecting to the relay / performing the join
   connecting,
   // Successfully joined
@@ -225,18 +225,18 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   void confirmSas() {
     if (state.step != PairingStep.showingSas) return;
     state = state.copyWith(
-      step: PairingStep.enterPassword,
+      step: PairingStep.enterPin,
       errorMessage: null,
       errorCode: null,
     );
   }
 
-  /// Complete the joiner ceremony with the user's password.
-  Future<void> completeJoinerWithPassword(String password) async {
-    if (password.trim().isEmpty) {
+  /// Complete the joiner ceremony with the user's PIN.
+  Future<void> completeJoinerWithPin(String pin) async {
+    if (pin.trim().isEmpty) {
       state = state.copyWith(
         step: PairingStep.error,
-        errorMessage: 'Password cannot be empty.',
+        errorMessage: 'PIN cannot be empty.',
         errorCode: null,
       );
       return;
@@ -262,7 +262,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
         await pairingApi.completeJoinerCeremony(
           handle: handle,
-          password: password,
+          password: pin,
         );
 
         if (_generation != myGeneration) return;
@@ -408,7 +408,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     await drainRustStore(handle);
 
     // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
-    await cacheRuntimeKeys(handle);
+    await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
     final counts = await _countLocalData();
     if (kDebugMode) {

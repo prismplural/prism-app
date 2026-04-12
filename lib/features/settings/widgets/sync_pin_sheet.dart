@@ -1,34 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-/// Modal sheet that prompts for the sync password when the cached DEK is
-/// missing but other credentials exist (e.g. after an app update that
-/// introduced Signal-style key caching).
-class SyncPasswordSheet extends ConsumerStatefulWidget {
-  const SyncPasswordSheet({super.key});
+/// Modal sheet that prompts for the app PIN when the cached DEK is missing
+/// but other credentials exist (e.g. after an app update that introduced
+/// Signal-style key caching).
+class SyncPinSheet extends ConsumerStatefulWidget {
+  const SyncPinSheet({super.key});
 
   static Future<void> show(BuildContext context) {
     return PrismSheet.show(
       context: context,
       isDismissible: true,
-      builder: (_) => const SyncPasswordSheet(),
+      builder: (_) => const SyncPinSheet(),
     );
   }
 
   @override
-  ConsumerState<SyncPasswordSheet> createState() => _SyncPasswordSheetState();
+  ConsumerState<SyncPinSheet> createState() => _SyncPinSheetState();
 }
 
-class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
+class _SyncPinSheetState extends ConsumerState<SyncPinSheet> {
   final _controller = TextEditingController();
-  bool _obscure = true;
   bool _isLoading = false;
   String? _error;
 
@@ -39,8 +38,8 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
   }
 
   Future<void> _unlock() async {
-    final password = _controller.text;
-    if (password.isEmpty) return;
+    final pin = _controller.text.trim();
+    if (pin.isEmpty) return;
 
     setState(() {
       _isLoading = true;
@@ -49,7 +48,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
 
     final success = await ref
         .read(syncHealthProvider.notifier)
-        .attemptUnlock(password);
+        .attemptUnlock(pin);
 
     if (!mounted) return;
 
@@ -58,7 +57,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
     } else {
       setState(() {
         _isLoading = false;
-        _error = context.l10n.settingsSyncPasswordWrong;
+        _error = context.l10n.settingsSyncPinWrong;
       });
     }
   }
@@ -86,7 +85,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
           ),
           const SizedBox(height: 12),
           Text(
-            context.l10n.settingsSyncPasswordTitle,
+            context.l10n.settingsSyncPinTitle,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
@@ -94,7 +93,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
           ),
           const SizedBox(height: 4),
           Text(
-            context.l10n.settingsSyncPasswordBody,
+            context.l10n.settingsSyncPinBody,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
@@ -103,21 +102,18 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
           const SizedBox(height: 20),
           PrismTextField(
             controller: _controller,
-            obscureText: _obscure,
+            obscureText: true,
             autofocus: true,
             enabled: !_isLoading,
             onSubmitted: (_) => _unlock(),
-            labelText: context.l10n.settingsSyncPasswordFieldLabel,
-            suffix: PrismFieldIconButton(
-              icon: _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-              tooltip: _obscure ? context.l10n.settingsSyncPasswordShow : context.l10n.settingsSyncPasswordHide,
-              onPressed: () => setState(() => _obscure = !_obscure),
-            ),
+            labelText: context.l10n.settingsSyncPinFieldLabel,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             errorText: _error,
           ),
           const SizedBox(height: 16),
           PrismButton(
-            label: context.l10n.settingsSyncPasswordUnlock,
+            label: context.l10n.settingsSyncPinUnlock,
             onPressed: _unlock,
             isLoading: _isLoading,
           ),

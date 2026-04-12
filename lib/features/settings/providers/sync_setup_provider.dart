@@ -10,7 +10,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
-enum SyncSetupStep { intro, password, secretKey }
+enum SyncSetupStep { intro, secretKey }
 
 enum SyncSetupProgress {
   creatingGroup,
@@ -26,7 +26,6 @@ class SyncSetupState {
   final SyncSetupStep step;
   final String relayUrl;
   final String? registrationToken;
-  final String? password;
   final String? mnemonic;
   final bool isProcessing;
   final SyncSetupProgress? currentProgress;
@@ -36,7 +35,6 @@ class SyncSetupState {
     this.step = SyncSetupStep.intro,
     this.relayUrl = AppConstants.defaultRelayUrl,
     this.registrationToken,
-    this.password,
     this.mnemonic,
     this.isProcessing = false,
     this.currentProgress,
@@ -47,7 +45,6 @@ class SyncSetupState {
     SyncSetupStep? step,
     String? relayUrl,
     Object? registrationToken = _sentinel,
-    Object? password = _sentinel,
     Object? mnemonic = _sentinel,
     bool? isProcessing,
     Object? currentProgress = _sentinel,
@@ -58,7 +55,6 @@ class SyncSetupState {
     registrationToken: registrationToken == _sentinel
         ? this.registrationToken
         : registrationToken as String?,
-    password: password == _sentinel ? this.password : password as String?,
     mnemonic: mnemonic == _sentinel ? this.mnemonic : mnemonic as String?,
     isProcessing: isProcessing ?? this.isProcessing,
     currentProgress: currentProgress == _sentinel
@@ -80,7 +76,10 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     state = state.copyWith(registrationToken: token);
   }
 
-  void proceedToPassword() {
+  /// Validate the relay URL and proceed to the secret key step.
+  ///
+  /// Generates a new BIP39 mnemonic for display to the user.
+  Future<void> proceedToSecretKey() async {
     // Validate relay URL before proceeding
     final uri = Uri.tryParse(state.relayUrl);
     if (uri == null ||
@@ -91,21 +90,11 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       );
       return;
     }
-    state = state.copyWith(step: SyncSetupStep.password, error: null);
-  }
-
-  Future<void> proceedToSecretKey(String password) async {
-    // Validate password is non-empty
-    if (password.trim().isEmpty) {
-      state = state.copyWith(error: 'Password cannot be empty.');
-      return;
-    }
 
     // Generate mnemonic via FFI
     final mnemonic = await ffi.generateSecretKey();
     state = state.copyWith(
       step: SyncSetupStep.secretKey,
-      password: password,
       mnemonic: mnemonic,
       error: null,
     );
@@ -115,27 +104,26 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     switch (state.step) {
       case SyncSetupStep.intro:
         break;
-      case SyncSetupStep.password:
-        state = state.copyWith(step: SyncSetupStep.intro, error: null);
       case SyncSetupStep.secretKey:
         state = state.copyWith(
-          step: SyncSetupStep.password,
+          step: SyncSetupStep.intro,
           mnemonic: null,
           error: null,
         );
     }
   }
 
-  Future<bool> complete() async {
-    final password = state.password;
-    final mnemonic = state.mnemonic;
-    if (password == null || mnemonic == null) return false;
-
-    // Defense-in-depth: re-validate before FFI calls
-    if (password.trim().isEmpty) {
-      state = state.copyWith(error: 'Password cannot be empty.');
+  /// Complete sync group creation using the provided [pin] as the
+  /// sync password. The PIN should be the app-lock PIN set during onboarding.
+  Future<bool> complete(String pin) async {
+    if (pin.trim().isEmpty) {
+      state = state.copyWith(error: 'PIN cannot be empty.');
       return false;
     }
+
+    final mnemonic = state.mnemonic;
+    if (mnemonic == null) return false;
+
     final uri = Uri.tryParse(state.relayUrl);
     if (uri == null ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
@@ -167,7 +155,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       // they saved for recovery) rather than generating a different one.
       final inviteJson = await ffi.createSyncGroup(
         handle: handle,
-        password: password,
+        password: pin,
         relayUrl: state.relayUrl,
         mnemonic: mnemonic,
       );
@@ -207,7 +195,7 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       await drainRustStore(handle);
 
       // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
-      await cacheRuntimeKeys(handle);
+      await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
       // Bootstrap: push all existing data as record_create ops so the
       // relay has it for other devices to pull.
