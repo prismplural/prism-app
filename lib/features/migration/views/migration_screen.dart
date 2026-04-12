@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -32,15 +33,15 @@ class MigrationScreen extends ConsumerWidget {
     final migration = ref.watch(importerProvider);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Import Data', showBackButton: true),
+      topBar: PrismTopBar(title: context.l10n.migrationImportData, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: switch (migration.step) {
         ImportState.idle => _IdleView(ref: ref),
-        ImportState.parsing => const _LoadingView(message: 'Reading file...'),
+        ImportState.parsing => _LoadingView(message: context.l10n.migrationReadingFile),
         ImportState.verifying =>
           migration.spUsername != null
               ? _ConnectedView(username: migration.spUsername!, ref: ref)
-              : const _LoadingView(message: 'Verifying token...'),
+              : _LoadingView(message: context.l10n.migrationVerifyingToken),
         ImportState.fetching => _FetchingView(state: migration),
         ImportState.previewing => _PreviewView(
           data: migration.exportData!,
@@ -53,7 +54,7 @@ class MigrationScreen extends ConsumerWidget {
           ref: ref,
         ),
         ImportState.error => _ErrorView(
-          message: migration.error ?? 'An unknown error occurred.',
+          message: migration.error ?? context.l10n.migrationUnknownError,
           ref: ref,
           source: migration.source,
         ),
@@ -81,7 +82,7 @@ class _IdleView extends StatelessWidget {
         Icon(AppIcons.swapHoriz, size: 48, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(
-          'Import from Simply Plural',
+          context.l10n.migrationImportFromSimplyPlural,
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -89,8 +90,7 @@ class _IdleView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Bring your existing data into Prism. Choose how you would '
-          'like to import your Simply Plural data.',
+          context.l10n.migrationImportDescription,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -101,9 +101,8 @@ class _IdleView extends StatelessWidget {
         // Option 1: API import
         _ImportMethodCard(
           icon: AppIcons.cloudDownloadOutlined,
-          title: 'Connect with API',
-          subtitle:
-              'No file export needed — imports directly from your account',
+          title: context.l10n.migrationConnectWithApi,
+          subtitle: context.l10n.migrationConnectWithApiSubtitle,
           recommended: true,
           onTap: () {
             Navigator.of(context).push(
@@ -118,8 +117,8 @@ class _IdleView extends StatelessWidget {
         // Option 2: File import
         _ImportMethodCard(
           icon: AppIcons.fileUploadOutlined,
-          title: 'Import from file',
-          subtitle: 'Use a JSON export file from Simply Plural',
+          title: context.l10n.migrationImportFromFile,
+          subtitle: context.l10n.migrationImportFromFileSubtitle,
           recommended: false,
           onTap: () {
             ref.read(importerProvider.notifier).selectAndParseFile();
@@ -134,49 +133,49 @@ class _IdleView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Supported data types',
+                context.l10n.migrationSupportedDataTypes,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),
-              _SupportedItem(icon: AppIcons.person, label: 'Members'),
+              _SupportedItem(icon: AppIcons.person, label: context.l10n.migrationSupportedMembers),
               _SupportedItem(
                 icon: AppIcons.labelOutlined,
-                label: 'Custom fronts',
+                label: context.l10n.migrationSupportedCustomFronts,
               ),
               _SupportedItem(
                 icon: AppIcons.flashOn,
-                label: 'Fronting history',
+                label: context.l10n.migrationSupportedFrontingHistory,
               ),
               _SupportedItem(
                 icon: AppIcons.chatBubbleOutline,
-                label: 'Chat channels & messages',
+                label: context.l10n.migrationSupportedChatChannels,
               ),
-              _SupportedItem(icon: AppIcons.pollOutlined, label: 'Polls'),
+              _SupportedItem(icon: AppIcons.pollOutlined, label: context.l10n.migrationSupportedPolls),
               _SupportedItem(
                 icon: AppIcons.colorLens,
-                label: 'Member colors',
+                label: context.l10n.migrationSupportedMemberColors,
               ),
               _SupportedItem(
                 icon: AppIcons.notes,
-                label: 'Member descriptions',
+                label: context.l10n.migrationSupportedMemberDescriptions,
               ),
               _SupportedItem(
                 icon: AppIcons.imageOutlined,
-                label: 'Avatar images',
+                label: context.l10n.migrationSupportedAvatarImages,
               ),
-              _SupportedItem(icon: AppIcons.noteOutlined, label: 'Notes'),
+              _SupportedItem(icon: AppIcons.noteOutlined, label: context.l10n.migrationSupportedNotes),
               _SupportedItem(
                 icon: AppIcons.textFields,
-                label: 'Custom fields',
+                label: context.l10n.migrationSupportedCustomFields,
               ),
-              _SupportedItem(icon: AppIcons.groupOutlined, label: 'Groups'),
+              _SupportedItem(icon: AppIcons.groupOutlined, label: context.l10n.migrationSupportedGroups),
               _SupportedItem(
                 icon: AppIcons.commentOutlined,
-                label: 'Comments on front sessions',
+                label: context.l10n.migrationSupportedComments,
               ),
-              _SupportedItem(icon: AppIcons.alarm, label: 'Reminders'),
+              _SupportedItem(icon: AppIcons.alarm, label: context.l10n.migrationSupportedReminders),
             ],
           ),
         ),
@@ -230,7 +229,7 @@ class _ImportMethodCard extends StatelessWidget {
                       const SizedBox(width: 8),
                       Chip(
                         label: Text(
-                          'Recommended',
+                          context.l10n.migrationRecommended,
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: theme.colorScheme.onSecondaryContainer,
                           ),
@@ -322,8 +321,8 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
         migration.step == ImportState.verifying && migration.spUsername == null;
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(
-        title: 'Connect to Simply Plural',
+      topBar: PrismTopBar(
+        title: context.l10n.migrationConnectToSimplyPlural,
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -337,7 +336,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Connect to Simply Plural',
+            context.l10n.migrationConnectToSimplyPlural,
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -345,7 +344,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Enter your API token to import data directly.',
+            context.l10n.migrationEnterTokenDescription,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
@@ -357,8 +356,8 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
           PrismTextField(
             controller: _tokenController,
             obscureText: _obscured,
-            labelText: 'API Token',
-            hintText: 'Paste your token here',
+            labelText: context.l10n.migrationApiTokenLabel,
+            hintText: context.l10n.migrationPasteTokenHint,
             suffix: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -366,7 +365,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
                   icon: _obscured
                       ? AppIcons.visibilityOff
                       : AppIcons.visibility,
-                  tooltip: _obscured ? 'Show token' : 'Hide token',
+                  tooltip: _obscured ? context.l10n.migrationShowToken : context.l10n.migrationHideToken,
                   onPressed: () {
                     setState(() => _obscured = !_obscured);
                   },
@@ -379,7 +378,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
                       _tokenController.text = data!.text!;
                     }
                   },
-                  tooltip: 'Paste from clipboard',
+                  tooltip: context.l10n.migrationPasteFromClipboard,
                 ),
               ],
             ),
@@ -400,7 +399,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Where do I find this?',
+                  context.l10n.migrationWhereDoIFindThis,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.primary,
                     fontWeight: FontWeight.w500,
@@ -417,9 +416,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
               ),
               padding: const EdgeInsets.all(12),
               child: Text(
-                'In Simply Plural, go to Settings \u2192 Account \u2192 '
-                'Tokens. Create a new token with Read permission and '
-                'copy it.',
+                context.l10n.migrationTokenHelpText,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -436,7 +433,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
                   .verifyToken(_tokenController.text);
             },
             icon: AppIcons.verifiedOutlined,
-            label: 'Verify Token',
+            label: context.l10n.migrationVerifyToken,
             tone: PrismButtonTone.filled,
             expanded: true,
             isLoading: isVerifying,
@@ -450,7 +447,7 @@ class _TokenInputScreenState extends ConsumerState<_TokenInputScreen> {
               ref.read(importerProvider.notifier).reset();
               Navigator.of(context).pop();
             },
-            label: 'Back',
+            label: context.l10n.back,
             tone: PrismButtonTone.outlined,
             expanded: true,
             enabled: !isVerifying,
@@ -484,14 +481,14 @@ class _ConnectedView extends StatelessWidget {
             Icon(AppIcons.checkCircle, size: 64, color: Colors.green.shade600),
             const SizedBox(height: 16),
             Text(
-              'Connected',
+              context.l10n.migrationConnected,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Signed in as $username',
+              context.l10n.migrationSignedInAs(username),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -502,7 +499,7 @@ class _ConnectedView extends StatelessWidget {
                 ref.read(importerProvider.notifier).fetchFromApi();
               },
               icon: AppIcons.download,
-              label: 'Continue',
+              label: context.l10n.migrationContinue,
               tone: PrismButtonTone.filled,
               expanded: true,
             ),
@@ -511,7 +508,7 @@ class _ConnectedView extends StatelessWidget {
               onPressed: () {
                 ref.read(importerProvider.notifier).reset();
               },
-              label: 'Cancel',
+              label: context.l10n.cancel,
               tone: PrismButtonTone.outlined,
               expanded: true,
             ),
@@ -548,7 +545,7 @@ class _FetchingView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Fetching data from Simply Plural...',
+              context.l10n.migrationFetchingData,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -614,7 +611,7 @@ class _PreviewView extends StatelessWidget {
         Icon(AppIcons.preview, size: 48, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(
-          'Preview Import',
+          context.l10n.migrationPreviewImport,
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -622,7 +619,7 @@ class _PreviewView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Review what was found before importing.',
+          context.l10n.migrationPreviewDescription,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -649,8 +646,7 @@ class _PreviewView extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Imported data will be added alongside any existing data. '
-                  'Nothing will be overwritten.',
+                  context.l10n.migrationImportInfoNote,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -681,8 +677,7 @@ class _PreviewView extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Reminders are not available via the API. '
-                      'To import reminders, use a file export instead.',
+                      context.l10n.migrationRemindersApiNote,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -706,7 +701,7 @@ class _PreviewView extends StatelessWidget {
                       ref.read(importerProvider.notifier).executeImport();
                     },
                     icon: AppIcons.download,
-                    label: 'Import All (add to existing)',
+                    label: context.l10n.migrationImportAllAddToExisting,
                     tone: PrismButtonTone.filled,
                     expanded: true,
                   ),
@@ -716,7 +711,7 @@ class _PreviewView extends StatelessWidget {
                       _showStartFreshDialog(context);
                     },
                     icon: AppIcons.refresh,
-                    label: 'Start Fresh (replace all data)',
+                    label: context.l10n.migrationStartFresh,
                     tone: PrismButtonTone.outlined,
                     expanded: true,
                   ),
@@ -728,7 +723,7 @@ class _PreviewView extends StatelessWidget {
                 ref.read(importerProvider.notifier).executeImport();
               },
               icon: AppIcons.download,
-              label: 'Import All',
+              label: context.l10n.migrationImportAll,
               tone: PrismButtonTone.filled,
               expanded: true,
             );
@@ -738,7 +733,7 @@ class _PreviewView extends StatelessWidget {
               ref.read(importerProvider.notifier).executeImport();
             },
             icon: AppIcons.download,
-            label: 'Import All',
+            label: context.l10n.migrationImportAll,
             tone: PrismButtonTone.filled,
             expanded: true,
           ),
@@ -747,7 +742,7 @@ class _PreviewView extends StatelessWidget {
               ref.read(importerProvider.notifier).executeImport();
             },
             icon: AppIcons.download,
-            label: 'Import All',
+            label: context.l10n.migrationImportAll,
             tone: PrismButtonTone.filled,
             expanded: true,
           ),
@@ -758,7 +753,7 @@ class _PreviewView extends StatelessWidget {
           onPressed: () {
             ref.read(importerProvider.notifier).reset();
           },
-          label: 'Cancel',
+          label: context.l10n.cancel,
           tone: PrismButtonTone.outlined,
           expanded: true,
         ),
@@ -769,14 +764,9 @@ class _PreviewView extends StatelessWidget {
   void _showStartFreshDialog(BuildContext context) {
     PrismDialog.confirm(
       context: context,
-      title: 'Replace all data?',
-      message:
-          'This will delete all existing members, front history, '
-          'conversations, and other data before importing. '
-          'This action cannot be undone.\n\n'
-          'If you have sync set up, other paired devices should '
-          'also be reset to avoid conflicts.',
-      confirmLabel: 'Replace All',
+      title: context.l10n.migrationReplaceAllTitle,
+      message: context.l10n.migrationReplaceAllMessage,
+      confirmLabel: context.l10n.migrationReplaceAll,
       destructive: true,
     ).then((confirmed) {
       if (confirmed) {
@@ -815,7 +805,7 @@ class _ImportingView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Importing...',
+              context.l10n.migrationImporting,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -870,7 +860,7 @@ class _CompleteView extends StatelessWidget {
         Icon(AppIcons.checkCircle, size: 64, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(
-          'Import Complete',
+          context.l10n.migrationImportComplete,
           style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -878,8 +868,7 @@ class _CompleteView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Successfully imported ${result.totalImported} items '
-          'in ${result.duration.inSeconds}s.',
+          context.l10n.migrationImportSuccess(result.totalImported, result.duration.inSeconds),
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -894,42 +883,42 @@ class _CompleteView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Summary',
+                context.l10n.migrationSummary,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 8),
-              _ResultRow(label: 'Members', count: result.membersImported),
+              _ResultRow(label: context.l10n.migrationResultMembers, count: result.membersImported),
               _ResultRow(
-                label: 'Front sessions',
+                label: context.l10n.migrationResultFrontSessions,
                 count: result.sessionsImported,
               ),
               _ResultRow(
-                label: 'Conversations',
+                label: context.l10n.migrationResultConversations,
                 count: result.conversationsImported,
               ),
-              _ResultRow(label: 'Messages', count: result.messagesImported),
-              _ResultRow(label: 'Polls', count: result.pollsImported),
+              _ResultRow(label: context.l10n.migrationResultMessages, count: result.messagesImported),
+              _ResultRow(label: context.l10n.migrationResultPolls, count: result.pollsImported),
               if (result.notesImported > 0)
-                _ResultRow(label: 'Notes', count: result.notesImported),
+                _ResultRow(label: context.l10n.migrationResultNotes, count: result.notesImported),
               if (result.commentsImported > 0)
-                _ResultRow(label: 'Comments', count: result.commentsImported),
+                _ResultRow(label: context.l10n.migrationResultComments, count: result.commentsImported),
               if (result.customFieldsImported > 0)
                 _ResultRow(
-                  label: 'Custom fields',
+                  label: context.l10n.migrationResultCustomFields,
                   count: result.customFieldsImported,
                 ),
               if (result.groupsImported > 0)
-                _ResultRow(label: 'Groups', count: result.groupsImported),
+                _ResultRow(label: context.l10n.migrationResultGroups, count: result.groupsImported),
               if (result.remindersImported > 0)
                 _ResultRow(
-                  label: 'Reminders',
+                  label: context.l10n.migrationResultReminders,
                   count: result.remindersImported,
                 ),
               if (result.avatarsDownloaded > 0)
                 _ResultRow(
-                  label: 'Avatars downloaded',
+                  label: context.l10n.migrationResultAvatarsDownloaded,
                   count: result.avatarsDownloaded,
                 ),
             ],
@@ -945,7 +934,7 @@ class _CompleteView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${result.warnings.length} warning(s)',
+                  context.l10n.migrationWarnings(result.warnings.length),
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                     color: theme.colorScheme.error,
@@ -975,7 +964,7 @@ class _CompleteView extends StatelessWidget {
             ref.read(importerProvider.notifier).reset();
             Navigator.of(context).pop();
           },
-          label: 'Done',
+          label: context.l10n.done,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),
@@ -1043,7 +1032,7 @@ class _ErrorView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Import Failed',
+              context.l10n.migrationImportFailed,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -1061,7 +1050,7 @@ class _ErrorView extends StatelessWidget {
               onPressed: () {
                 ref.read(importerProvider.notifier).reset();
               },
-              label: 'Try Again',
+              label: context.l10n.tryAgain,
               tone: PrismButtonTone.filled,
             ),
             if (source == ImportSource.api) ...[
@@ -1076,7 +1065,7 @@ class _ErrorView extends StatelessWidget {
                   });
                 },
                 icon: AppIcons.fileUploadOutlined,
-                label: 'Try file import instead',
+                label: context.l10n.migrationTryFileImport,
                 tone: PrismButtonTone.outlined,
               ),
             ],

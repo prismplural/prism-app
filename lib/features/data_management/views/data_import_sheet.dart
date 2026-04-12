@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -89,7 +90,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   void _onPasswordSubmit() {
     final password = _passwordController.text;
     if (password.isEmpty) {
-      setState(() => _passwordError = 'Password cannot be empty');
+      setState(() => _passwordError = context.l10n.dataManagementPasswordEmptyImport);
       return;
     }
 
@@ -113,8 +114,8 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
       final message = e.toString();
       setState(() {
         _passwordError = message.contains('mac check')
-            ? 'Incorrect password'
-            : 'Decryption failed: $message';
+            ? context.l10n.dataManagementIncorrectPassword
+            : context.l10n.dataManagementDecryptionFailed(message);
       });
     }
   }
@@ -146,7 +147,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
 
     return Column(
       children: [
-        const PrismSheetTopBar(title: 'Import Data'),
+        PrismSheetTopBar(title: context.l10n.dataManagementImportTitle),
         const Divider(height: 1),
         Expanded(
           child: SingleChildScrollView(
@@ -186,14 +187,14 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Import Data',
+          context.l10n.dataManagementImportTitle,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Select a Prism export file (.json or .prism) to restore your data. Existing data will not be overwritten.',
+          context.l10n.dataManagementImportFileDescription,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -203,7 +204,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         PrismButton(
           onPressed: _pickFile,
           icon: AppIcons.folderOpen,
-          label: 'Select File',
+          label: context.l10n.dataManagementSelectFile,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),
@@ -230,14 +231,14 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Encrypted File',
+          context.l10n.dataManagementEncryptedFile,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          'This export file is encrypted. Enter the password that was used when the export was created.',
+          context.l10n.dataManagementEncryptedFileDescription,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -248,13 +249,13 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           controller: _passwordController,
           obscureText: _obscurePassword,
           autofocus: true,
-          labelText: 'Password',
+          labelText: context.l10n.dataManagementPasswordLabel,
           errorText: _passwordError,
           suffix: PrismFieldIconButton(
             icon: _obscurePassword
                 ? AppIcons.visibilityOff
                 : AppIcons.visibility,
-            tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+            tooltip: _obscurePassword ? context.l10n.dataManagementShowPassword : context.l10n.dataManagementHidePassword,
             onPressed: () =>
                 setState(() => _obscurePassword = !_obscurePassword),
           ),
@@ -271,7 +272,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             Expanded(
               child: PrismButton(
                 onPressed: () => Navigator.pop(context),
-                label: 'Cancel',
+                label: context.l10n.cancel,
                 tone: PrismButtonTone.outlined,
               ),
             ),
@@ -280,7 +281,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
               child: PrismButton(
                 onPressed: _onPasswordSubmit,
                 icon: AppIcons.lockOpen,
-                label: 'Decrypt',
+                label: context.l10n.dataManagementDecrypt,
                 tone: PrismButtonTone.filled,
               ),
             ),
@@ -296,7 +297,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Import Preview',
+          context.l10n.dataManagementImportPreview,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -304,7 +305,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         const SizedBox(height: 4),
         if (p.exportDate.isNotEmpty)
           Text(
-            'Exported: ${p.exportDate}',
+            context.l10n.dataManagementExportedDate(p.exportDate),
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -320,18 +321,18 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _previewRow('Members', p.headmates),
-              _previewRow('Front Sessions', p.frontSessions),
-              _previewRow('Sleep Sessions', p.sleepSessions),
-              _previewRow('Conversations', p.conversations),
-              _previewRow('Messages', p.messages),
-              _previewRow('Polls', p.polls),
-              _previewRow('Poll Options', p.pollOptions),
-              _previewRow('Settings', p.systemSettings),
-              _previewRow('Habits', p.habits),
-              _previewRow('Habit Completions', p.habitCompletions),
+              _previewRow(context.l10n.dataManagementPreviewMembers, p.headmates),
+              _previewRow(context.l10n.dataManagementPreviewFrontSessions, p.frontSessions),
+              _previewRow(context.l10n.dataManagementPreviewSleepSessions, p.sleepSessions),
+              _previewRow(context.l10n.dataManagementPreviewConversations, p.conversations),
+              _previewRow(context.l10n.dataManagementPreviewMessages, p.messages),
+              _previewRow(context.l10n.dataManagementPreviewPolls, p.polls),
+              _previewRow(context.l10n.dataManagementPreviewPollOptions, p.pollOptions),
+              _previewRow(context.l10n.dataManagementPreviewSettings, p.systemSettings),
+              _previewRow(context.l10n.dataManagementPreviewHabits, p.habits),
+              _previewRow(context.l10n.dataManagementPreviewHabitCompletions, p.habitCompletions),
               const Divider(),
-              _previewRow('Total', p.totalRecords, bold: true),
+              _previewRow(context.l10n.dataManagementPreviewTotal, p.totalRecords, bold: true),
             ],
           ),
         ),
@@ -341,7 +342,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
             Expanded(
               child: PrismButton(
                 onPressed: () => Navigator.pop(context),
-                label: 'Cancel',
+                label: context.l10n.cancel,
                 tone: PrismButtonTone.outlined,
               ),
             ),
@@ -350,7 +351,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
               child: PrismButton(
                 onPressed: _startImport,
                 icon: AppIcons.download,
-                label: 'Import',
+                label: context.l10n.dataManagementImport,
                 tone: PrismButtonTone.filled,
               ),
             ),
@@ -386,10 +387,10 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         const SizedBox(height: 16),
         const CircularProgressIndicator(),
         const SizedBox(height: 24),
-        Text('Importing your data...', style: theme.textTheme.titleMedium),
+        Text(context.l10n.dataManagementImporting, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
-          'This may take a moment. Do not close the app.',
+          context.l10n.dataManagementImportingMessage,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -407,7 +408,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         Icon(AppIcons.checkCircleOutline, size: 48, color: Colors.green),
         const SizedBox(height: 16),
         Text(
-          'Import Complete',
+          context.l10n.dataManagementImportComplete,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
@@ -423,25 +424,25 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _previewRow('Members', r.membersCreated),
-              _previewRow('Front Sessions', r.frontSessionsCreated),
-              _previewRow('Sleep Sessions', r.sleepSessionsCreated),
-              _previewRow('Conversations', r.conversationsCreated),
-              _previewRow('Messages', r.messagesCreated),
-              _previewRow('Polls', r.pollsCreated),
-              _previewRow('Poll Options', r.pollOptionsCreated),
-              _previewRow('Settings', r.settingsUpdated ? 1 : 0),
-              _previewRow('Habits', r.habitsCreated),
-              _previewRow('Habit Completions', r.habitCompletionsCreated),
+              _previewRow(context.l10n.dataManagementPreviewMembers, r.membersCreated),
+              _previewRow(context.l10n.dataManagementPreviewFrontSessions, r.frontSessionsCreated),
+              _previewRow(context.l10n.dataManagementPreviewSleepSessions, r.sleepSessionsCreated),
+              _previewRow(context.l10n.dataManagementPreviewConversations, r.conversationsCreated),
+              _previewRow(context.l10n.dataManagementPreviewMessages, r.messagesCreated),
+              _previewRow(context.l10n.dataManagementPreviewPolls, r.pollsCreated),
+              _previewRow(context.l10n.dataManagementPreviewPollOptions, r.pollOptionsCreated),
+              _previewRow(context.l10n.dataManagementPreviewSettings, r.settingsUpdated ? 1 : 0),
+              _previewRow(context.l10n.dataManagementPreviewHabits, r.habitsCreated),
+              _previewRow(context.l10n.dataManagementPreviewHabitCompletions, r.habitCompletionsCreated),
               const Divider(),
-              _previewRow('Total Created', r.totalRecordsCreated, bold: true),
+              _previewRow(context.l10n.dataManagementPreviewTotalCreated, r.totalRecordsCreated, bold: true),
             ],
           ),
         ),
         const SizedBox(height: 24),
         PrismButton(
           onPressed: () => Navigator.pop(context),
-          label: 'Done',
+          label: context.l10n.done,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),
@@ -456,14 +457,14 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         Icon(AppIcons.errorOutline, size: 48, color: Colors.red),
         const SizedBox(height: 16),
         Text(
-          'Import Failed',
+          context.l10n.dataManagementImportFailed,
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          _errorMessage ?? 'An unknown error occurred.',
+          _errorMessage ?? context.l10n.migrationUnknownError,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.error,
@@ -471,7 +472,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
         ),
         const SizedBox(height: 4),
         Text(
-          'No data was imported. The database was not modified.',
+          context.l10n.dataManagementImportFailedNote,
           textAlign: TextAlign.center,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
@@ -489,7 +490,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
               _passwordError = null;
             });
           },
-          label: 'Try Again',
+          label: context.l10n.tryAgain,
           tone: PrismButtonTone.filled,
           expanded: true,
         ),

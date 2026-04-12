@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/sharing/friend.dart';
 import 'package:prism_plurality/core/sharing/pending_sharing_request.dart';
@@ -49,24 +50,24 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: 'Sharing',
+        title: context.l10n.sharingTitle,
         showBackButton: true,
         actions: [
           PrismTopBarAction(
             icon: AppIcons.refresh,
-            tooltip: 'Refresh inbox',
+            tooltip: context.l10n.sharingRefreshInbox,
             onPressed: _refreshing
                 ? null
                 : () => _refreshInbox(showNoopToast: true),
           ),
           PrismTopBarAction(
             icon: AppIcons.paste,
-            tooltip: 'Use sharing code',
+            tooltip: context.l10n.sharingUseSharingCodeTooltip,
             onPressed: () => _showUseInvite(context),
           ),
           PrismTopBarAction(
             icon: AppIcons.personAdd,
-            tooltip: 'Share your code',
+            tooltip: context.l10n.sharingShareYourCodeTooltip,
             onPressed: () => _showCreateInvite(context),
           ),
         ],
@@ -84,7 +85,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
-                        'Pending Requests',
+                        context.l10n.sharingPendingRequests,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.w600,
@@ -113,7 +114,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
-                        'Trusted People',
+                        context.l10n.sharingTrustedPeople,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.w600,
@@ -157,8 +158,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
     if (result == true && context.mounted) {
       PrismToast.show(
         context,
-        message:
-            'Sharing request sent. They will see it the next time they check sharing.',
+        message: context.l10n.sharingRequestSent,
       );
     }
   }
@@ -168,7 +168,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
     final sharingService = ref.read(sharingServiceProvider);
     if (sharingService == null) {
       if (mounted) {
-        PrismToast.error(context, message: 'Sync is not configured');
+        PrismToast.error(context, message: context.l10n.sharingSyncNotConfigured);
       }
       return;
     }
@@ -182,11 +182,11 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
       if (result.hasUpdates) {
         PrismToast.show(context, message: _refreshSummary(result));
       } else if (showNoopToast) {
-        PrismToast.show(context, message: 'No new sharing requests');
+        PrismToast.show(context, message: context.l10n.sharingNoNewRequests);
       }
     } catch (e) {
       if (!mounted) return;
-      PrismToast.error(context, message: 'Unable to refresh sharing inbox');
+      PrismToast.error(context, message: context.l10n.sharingUnableToRefresh);
     } finally {
       if (mounted) {
         setState(() {
@@ -203,10 +203,10 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
     try {
       await sharingService.acceptPendingRequest(request.initId);
       if (!mounted) return;
-      PrismToast.show(context, message: 'Sharing request accepted');
+      PrismToast.show(context, message: context.l10n.sharingRequestAccepted);
     } catch (e) {
       if (!mounted) return;
-      PrismToast.error(context, message: 'Unable to accept request');
+      PrismToast.error(context, message: context.l10n.sharingUnableToAccept);
     }
   }
 
@@ -216,16 +216,15 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
 
     await sharingService.rejectPendingRequest(request.initId);
     if (!mounted) return;
-    PrismToast.show(context, message: 'Request dismissed');
+    PrismToast.show(context, message: context.l10n.sharingRequestDismissed);
   }
 
   Future<void> _confirmDelete(BuildContext context, Friend friend) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Remove relationship',
-      message:
-          'Remove ${friend.displayName} and revoke their access? This cannot be undone.',
-      confirmLabel: 'Remove',
+      title: context.l10n.sharingRemoveTitle,
+      message: context.l10n.sharingRemoveMessage(friend.displayName),
+      confirmLabel: context.l10n.sharingRemove,
       destructive: true,
     );
     if (confirmed) {
@@ -335,7 +334,7 @@ class _PendingRequestCard extends StatelessWidget {
             children: [
               Expanded(
                 child: PrismButton(
-                  label: request.canAccept ? 'Ignore' : 'Dismiss',
+                  label: request.canAccept ? context.l10n.sharingIgnore : context.l10n.sharingDismiss,
                   onPressed: onDismiss,
                   tone: PrismButtonTone.subtle,
                 ),
@@ -344,7 +343,7 @@ class _PendingRequestCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: PrismButton(
-                    label: 'Accept',
+                    label: context.l10n.sharingAccept,
                     onPressed: onAccept ?? () {},
                     enabled: onAccept != null,
                     tone: PrismButtonTone.filled,
@@ -416,12 +415,12 @@ class _FriendTile extends StatelessWidget {
           ],
         ),
         subtitle: Text(
-          highestScope?.displayName ?? 'No scopes granted',
+          highestScope?.displayName ?? context.l10n.sharingNoScopesGranted,
           style: theme.textTheme.bodySmall,
         ),
         trailing: friend.lastSyncAt != null
             ? Text(
-                _formatRelativeTime(friend.lastSyncAt!),
+                _formatRelativeTime(friend.lastSyncAt!, context),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -432,12 +431,12 @@ class _FriendTile extends StatelessWidget {
     );
   }
 
-  String _formatRelativeTime(DateTime dt) {
+  String _formatRelativeTime(DateTime dt, BuildContext context) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return context.l10n.sharingJustNow;
+    if (diff.inMinutes < 60) return context.l10n.sharingMinutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return context.l10n.sharingHoursAgo(diff.inHours);
+    return context.l10n.sharingDaysAgo(diff.inDays);
   }
 }
 
@@ -464,14 +463,14 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No sharing relationships yet',
+              context.l10n.sharingEmptyTitle,
               style: theme.textTheme.titleMedium?.copyWith(
                 color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Share your code so someone can send you a request, or use someone else\'s code to connect.',
+              context.l10n.sharingEmptySubtitle,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
@@ -479,14 +478,14 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             PrismButton(
-              label: 'Share My Code',
+              label: context.l10n.sharingShareMyCode,
               icon: AppIcons.personAdd,
               onPressed: onCreateInvite,
               tone: PrismButtonTone.filled,
             ),
             const SizedBox(height: 12),
             PrismButton(
-              label: 'Use a Code',
+              label: context.l10n.sharingUseACode,
               icon: AppIcons.paste,
               onPressed: onUseInvite,
               tone: PrismButtonTone.subtle,

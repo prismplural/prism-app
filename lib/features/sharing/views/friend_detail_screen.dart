@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/sharing/friend.dart';
 import 'package:prism_plurality/core/sharing/share_scope.dart';
@@ -34,9 +35,9 @@ class FriendDetailScreen extends ConsumerWidget {
     }
 
     if (friend == null) {
-      return const PrismPageScaffold(
-        topBar: PrismTopBar(title: 'Friend', showBackButton: true),
-        body: Center(child: Text('Friend not found')),
+      return PrismPageScaffold(
+        topBar: PrismTopBar(title: context.l10n.sharingFriend, showBackButton: true),
+        body: Center(child: Text(context.l10n.sharingFriendNotFound)),
       );
     }
     final resolvedFriend = friend;
@@ -70,7 +71,7 @@ class FriendDetailScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Granted Scopes',
+              context.l10n.sharingGrantedScopes,
               style: theme.textTheme.titleSmall?.copyWith(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -105,7 +106,7 @@ class FriendDetailScreen extends ConsumerWidget {
           if ((resolvedFriend.peerSharingId ?? '').isNotEmpty)
             PrismListRow(
               leading: Icon(AppIcons.link),
-              title: const Text('Sharing ID'),
+              title: Text(context.l10n.sharingSharingId),
               subtitle: Text(
                 resolvedFriend.peerSharingId!,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -115,12 +116,12 @@ class FriendDetailScreen extends ConsumerWidget {
               trailing: PrismInlineIconButton(
                 icon: AppIcons.copy,
                 iconSize: 20,
-                tooltip: 'Copy sharing ID',
+                tooltip: context.l10n.sharingCopySharingId,
                 onPressed: () {
                   Clipboard.setData(
                     ClipboardData(text: resolvedFriend.peerSharingId!),
                   );
-                  PrismToast.show(context, message: 'Sharing ID copied');
+                  PrismToast.show(context, message: context.l10n.sharingSharingIdCopied);
                 },
               ),
             ),
@@ -128,7 +129,7 @@ class FriendDetailScreen extends ConsumerWidget {
           if (resolvedFriend.lastSyncAt != null)
             PrismListRow(
               leading: Icon(AppIcons.sync),
-              title: const Text('Last synced'),
+              title: Text(context.l10n.sharingLastSynced),
               subtitle: Text(
                 resolvedFriend.lastSyncAt!
                     .toLocal()
@@ -143,7 +144,7 @@ class FriendDetailScreen extends ConsumerWidget {
             child: PrismButton(
               onPressed: () => _confirmRevoke(context, ref, resolvedFriend),
               icon: AppIcons.block,
-              label: 'Revoke Access',
+              label: context.l10n.sharingRevokeAccess,
               tone: PrismButtonTone.destructive,
             ),
           ),
@@ -159,10 +160,9 @@ class FriendDetailScreen extends ConsumerWidget {
   ) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Revoke access',
-      message:
-          'Revoke all access for ${friend.displayName}? Resource keys will be rotated.',
-      confirmLabel: 'Revoke',
+      title: context.l10n.sharingRevokeTitle,
+      message: context.l10n.sharingRevokeMessage(friend.displayName),
+      confirmLabel: context.l10n.sharingRevoke,
       destructive: true,
     );
     if (confirmed) {
@@ -219,7 +219,7 @@ class _FriendHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  friend.isVerified ? 'Verified' : 'Not verified',
+                  friend.isVerified ? context.l10n.sharingVerified : context.l10n.sharingNotVerified,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: friend.isVerified
                         ? theme.colorScheme.primary
@@ -227,7 +227,7 @@ class _FriendHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Added ${(friend.establishedAt ?? friend.addedAt).toLocal().toString().split(' ').first}',
+                  context.l10n.sharingAddedDate((friend.establishedAt ?? friend.addedAt).toLocal().toString().split(' ').first),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -263,7 +263,7 @@ class _VerifyCard extends ConsumerWidget {
                 Icon(AppIcons.warningAmber, color: theme.colorScheme.error),
                 const SizedBox(width: 8),
                 Text(
-                  'Verification Recommended',
+                  context.l10n.sharingVerificationRecommended,
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: theme.colorScheme.onErrorContainer,
                   ),
@@ -272,7 +272,7 @@ class _VerifyCard extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Compare fingerprints with ${friend.displayName} out of band before marking this relationship as verified.',
+              context.l10n.sharingVerificationDescription(friend.displayName),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onErrorContainer,
               ),
@@ -280,7 +280,7 @@ class _VerifyCard extends ConsumerWidget {
             const SizedBox(height: 12),
             PrismButton(
               onPressed: () => _showFingerprintDialog(context, ref),
-              label: 'Compare Fingerprint',
+              label: context.l10n.sharingCompareFingerprint,
               tone: PrismButtonTone.filled,
             ),
           ],
@@ -304,19 +304,19 @@ class _VerifyCard extends ConsumerWidget {
       fingerprint = await sharingService.fingerprintForFriend(friend);
     } catch (_) {
       if (!context.mounted) return;
-      PrismToast.error(context, message: 'Unable to compute fingerprint');
+      PrismToast.error(context, message: context.l10n.sharingUnableToComputeFingerprint);
       return;
     }
 
     if (!context.mounted) return;
     PrismDialog.show(
       context: context,
-      title: 'Security Fingerprint',
+      title: context.l10n.sharingSecurityFingerprintTitle,
       builder: (_) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Compare this fingerprint with ${friend.displayName}. Only mark it verified if they see the same value.',
+            context.l10n.sharingFingerprintCompareText(friend.displayName),
           ),
           const SizedBox(height: 24),
           SelectableText(
@@ -328,7 +328,7 @@ class _VerifyCard extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Do not verify if the fingerprints differ.',
+            context.l10n.sharingFingerprintWarning,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.error,
             ),
@@ -338,7 +338,7 @@ class _VerifyCard extends ConsumerWidget {
       actions: [
         PrismButton(
           onPressed: () => Navigator.of(context).pop(),
-          label: 'Cancel',
+          label: context.l10n.cancel,
           tone: PrismButtonTone.subtle,
         ),
         PrismButton(
@@ -346,7 +346,7 @@ class _VerifyCard extends ConsumerWidget {
             onVerified();
             Navigator.of(context).pop();
           },
-          label: 'Mark Verified',
+          label: context.l10n.sharingMarkVerified,
           tone: PrismButtonTone.filled,
         ),
       ],
@@ -367,7 +367,7 @@ class _FingerprintRow extends ConsumerWidget {
       builder: (context, snapshot) {
         final theme = Theme.of(context);
         final fallback = friend.publicKeyHex;
-        final label = snapshot.hasData ? 'Fingerprint' : 'Identity';
+        final label = snapshot.hasData ? context.l10n.sharingFingerprint : context.l10n.sharingIdentity;
         final value = snapshot.data ?? _truncate(fallback);
         return PrismListRow(
           leading: Icon(snapshot.hasData ? AppIcons.fingerprint : AppIcons.key),
@@ -379,11 +379,11 @@ class _FingerprintRow extends ConsumerWidget {
           trailing: PrismInlineIconButton(
             icon: AppIcons.copy,
             iconSize: 20,
-            tooltip: 'Copy $label',
+            tooltip: context.l10n.sharingCopyLabel(label),
             onPressed: () {
               final text = snapshot.data ?? fallback;
               Clipboard.setData(ClipboardData(text: text));
-              PrismToast.show(context, message: '$label copied');
+              PrismToast.show(context, message: context.l10n.sharingFingerprintCopied(label));
             },
           ),
         );

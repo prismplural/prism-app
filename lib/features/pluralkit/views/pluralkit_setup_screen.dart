@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
@@ -68,10 +69,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   Future<void> _disconnect() async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Disconnect PluralKit?',
-      message: 'This will remove your token and disconnect from PluralKit. '
-          'Your imported data will remain in the app.',
-      confirmLabel: 'Disconnect',
+      title: context.l10n.pluralkitDisconnectTitle,
+      message: context.l10n.pluralkitDisconnectMessage,
+      confirmLabel: context.l10n.pluralkitDisconnect,
       destructive: true,
     );
     if (confirmed) {
@@ -102,8 +102,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(
-        title: 'PluralKit',
+      topBar: PrismTopBar(
+        title: context.l10n.pluralkitTitle,
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -111,7 +111,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         children: [
           // -- Section 1: PluralKit Account --
-          const _SectionHeader(title: 'PluralKit Account'),
+          _SectionHeader(title: context.l10n.pluralkitAccount),
           const SizedBox(height: 8),
           if (syncState.isConnected)
             _buildConnectedCard(syncState, theme)
@@ -145,7 +145,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           // -- Section 2: Sync Direction --
           if (syncState.isConnected) ...[
             const SizedBox(height: 24),
-            const _SectionHeader(title: 'Sync Direction'),
+            _SectionHeader(title: context.l10n.pluralkitSyncDirection),
             const SizedBox(height: 8),
             _buildSyncDirectionSection(theme),
           ],
@@ -153,7 +153,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           // -- Section 3: Sync Actions --
           if (syncState.isConnected) ...[
             const SizedBox(height: 24),
-            const _SectionHeader(title: 'Sync Actions'),
+            _SectionHeader(title: context.l10n.pluralkitSyncActions),
             const SizedBox(height: 8),
             if (syncState.isSyncing)
               _buildSyncProgress(syncState, theme)
@@ -168,7 +168,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
 
           // -- How It Works --
           const SizedBox(height: 24),
-          const _SectionHeader(title: 'How It Works'),
+          _SectionHeader(title: context.l10n.pluralkitHowItWorks),
           const SizedBox(height: 8),
           PrismSectionCard(
             padding: const EdgeInsets.all(16),
@@ -177,26 +177,22 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               children: [
                 _InfoRow(
                   icon: AppIcons.sync,
-                  text: 'Supports pull, push, or bidirectional sync. '
-                      'Choose your preferred direction above.',
+                  text: context.l10n.pluralkitInfoSync,
                 ),
                 const SizedBox(height: 12),
                 _InfoRow(
                   icon: AppIcons.lockOutline,
-                  text: 'Your token is stored securely in the device '
-                      'keychain and never leaves your device.',
+                  text: context.l10n.pluralkitInfoToken,
                 ),
                 const SizedBox(height: 12),
                 _InfoRow(
                   icon: AppIcons.people,
-                  text: 'Members are matched by PluralKit UUID. '
-                      'Existing members are updated, new ones are created.',
+                  text: context.l10n.pluralkitInfoMembers,
                 ),
                 const SizedBox(height: 12),
                 _InfoRow(
                   icon: AppIcons.swapVert,
-                  text: 'Switches are imported as fronting sessions. '
-                      'Duplicate switches are automatically skipped.',
+                  text: context.l10n.pluralkitInfoSwitches,
                 ),
               ],
             ),
@@ -218,7 +214,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               Icon(AppIcons.checkCircle, color: Colors.green.shade600),
               const SizedBox(width: 8),
               Text(
-                'Connected',
+                context.l10n.pluralkitConnected,
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: Colors.green.shade600,
                   fontWeight: FontWeight.w600,
@@ -229,14 +225,14 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           if (syncState.lastSyncDate != null) ...[
             const SizedBox(height: 8),
             Text(
-              'Last sync: ${_formatDate(syncState.lastSyncDate!)}',
+              context.l10n.pluralkitLastSync(_formatDate(syncState.lastSyncDate!)),
               style: theme.textTheme.bodySmall,
             ),
           ],
           if (syncState.lastManualSyncDate != null) ...[
             const SizedBox(height: 4),
             Text(
-              'Last manual sync: ${_formatDate(syncState.lastManualSyncDate!)}',
+              context.l10n.pluralkitLastManualSync(_formatDate(syncState.lastManualSyncDate!)),
               style: theme.textTheme.bodySmall,
             ),
           ],
@@ -244,7 +240,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           PrismButton(
             onPressed: _disconnect,
             icon: AppIcons.linkOff,
-            label: 'Disconnect',
+            label: context.l10n.pluralkitDisconnect,
             tone: PrismButtonTone.destructive,
             expanded: true,
           ),
@@ -262,8 +258,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           PrismTextField(
             controller: _tokenController,
             obscureText: true,
-            labelText: 'PluralKit Token',
-            hintText: 'Paste your token here',
+            labelText: context.l10n.pluralkitTokenLabel,
+            hintText: context.l10n.pluralkitPasteTokenHint,
             isDense: true,
             onSubmitted: (_) => _connect(),
           ),
@@ -271,14 +267,13 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           PrismButton(
             onPressed: _connect,
             icon: AppIcons.link,
-            label: 'Connect',
+            label: context.l10n.pluralkitConnect,
             tone: PrismButtonTone.filled,
             expanded: true,
           ),
           const SizedBox(height: 12),
           Text(
-            'To get your token, DM the PluralKit bot on Discord with '
-            '"pk;token" and paste the result here.',
+            context.l10n.pluralkitTokenHelp,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -324,7 +319,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
         PrismButton(
           onPressed: _importFromPK,
           icon: AppIcons.cloudDownload,
-          label: 'Import from PluralKit',
+          label: context.l10n.pluralkitImportButton,
           tone: PrismButtonTone.filled,
           expanded: true,
           enabled: !syncState.isSyncing,
@@ -334,8 +329,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           onPressed: _syncRecent,
           icon: AppIcons.sync,
           label: _cooldownSeconds > 0
-              ? 'Sync Recent Changes ($_cooldownSeconds s)'
-              : 'Sync Recent Changes',
+              ? context.l10n.pluralkitSyncRecentCooldown(_cooldownSeconds)
+              : context.l10n.pluralkitSyncRecent,
           tone: PrismButtonTone.outlined,
           expanded: true,
           enabled: canSync,
@@ -361,7 +356,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Choose how data flows between Prism and PluralKit.',
+            context.l10n.pluralkitSyncDirectionDescription,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -393,10 +388,10 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-    if (diff.inDays < 1) return '${diff.inHours}h ago';
-    return '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return context.l10n.pluralkitJustNow;
+    if (diff.inHours < 1) return context.l10n.pluralkitMinutesAgo(diff.inMinutes);
+    if (diff.inDays < 1) return context.l10n.pluralkitHoursAgo(diff.inHours);
+    return context.l10n.pluralkitDaysAgo(diff.inDays);
   }
 }
 
