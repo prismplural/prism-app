@@ -7,9 +7,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 enum VoiceRecordingStatus { idle, recording, processing, done, error }
+
+enum VoiceRecordingError {
+  /// OS permission prompt was dismissed without granting access.
+  permissionDenied,
+
+  /// Permission was previously denied and is now permanently blocked —
+  /// user must open Settings to grant it.
+  permissionBlocked,
+
+  /// Recording failed for a non-permission reason (hardware, codec, etc.).
+  unknown,
+}
 
 class VoiceRecordingState {
   const VoiceRecordingState({
@@ -19,7 +32,7 @@ class VoiceRecordingState {
     this.audioBytes,
     this.durationMs = 0,
     this.waveformB64 = '',
-    this.error,
+    this.errorType,
   });
 
   final VoiceRecordingStatus status;
@@ -28,7 +41,10 @@ class VoiceRecordingState {
   final Uint8List? audioBytes;
   final int durationMs;
   final String waveformB64;
-  final String? error;
+
+  /// Set when [status] is [VoiceRecordingStatus.error]. The widget layer
+  /// maps this to a localized string.
+  final VoiceRecordingError? errorType;
 
   VoiceRecordingState copyWith({
     VoiceRecordingStatus? status,
@@ -37,7 +53,7 @@ class VoiceRecordingState {
     Uint8List? audioBytes,
     int? durationMs,
     String? waveformB64,
-    String? error,
+    VoiceRecordingError? errorType,
   }) {
     return VoiceRecordingState(
       status: status ?? this.status,
@@ -46,7 +62,7 @@ class VoiceRecordingState {
       audioBytes: audioBytes ?? this.audioBytes,
       durationMs: durationMs ?? this.durationMs,
       waveformB64: waveformB64 ?? this.waveformB64,
-      error: error ?? this.error,
+      errorType: errorType ?? this.errorType,
     );
   }
 }
@@ -80,6 +96,17 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
 
   Future<void> startRecording() async {
     try {
+      final micStatus = await Permission.microphone.request();
+      if (!micStatus.isGranted) {
+        state = VoiceRecordingState(
+          status: VoiceRecordingStatus.error,
+          errorType: micStatus.isPermanentlyDenied
+              ? VoiceRecordingError.permissionBlocked
+              : VoiceRecordingError.permissionDenied,
+        );
+        return;
+      }
+
       _recorder ??= FlutterSoundRecorder();
       await _recorder!.openRecorder();
 
@@ -109,9 +136,9 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
 
       state = state.copyWith(status: VoiceRecordingStatus.recording);
     } catch (e) {
-      state = VoiceRecordingState(
+      state = const VoiceRecordingState(
         status: VoiceRecordingStatus.error,
-        error: e.toString(),
+        errorType: VoiceRecordingError.unknown,
       );
     }
   }
@@ -136,7 +163,7 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
       if (samples.isEmpty) {
         state = const VoiceRecordingState(
           status: VoiceRecordingStatus.error,
-          error: 'No amplitude samples recorded',
+          errorType: VoiceRecordingError.unknown,
         );
         return state;
       }
@@ -161,9 +188,9 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
 
       return state;
     } catch (e) {
-      state = VoiceRecordingState(
+      state = const VoiceRecordingState(
         status: VoiceRecordingStatus.error,
-        error: e.toString(),
+        errorType: VoiceRecordingError.unknown,
       );
       return state;
     }
