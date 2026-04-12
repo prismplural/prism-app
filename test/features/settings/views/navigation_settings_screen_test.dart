@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
@@ -31,8 +32,10 @@ void main() {
           (ref) => Stream.value(settings),
         ),
       ],
-      child: const MaterialApp(
-        home: NavigationSettingsScreen(),
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: const [Locale('en')],
+        home: const NavigationSettingsScreen(),
       ),
     );
   }
