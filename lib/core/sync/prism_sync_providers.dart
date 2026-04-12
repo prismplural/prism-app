@@ -371,17 +371,139 @@ const kRuntimeDekKey = '${_secureStorePrefix}runtime_dek';
 
 const _storage = secureStorage;
 
-/// Seed the Rust-side MemorySecureStore with values from platform keychain.
-Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
+/// Prefixes for dynamic secure-store entries that the Rust side may write
+/// at runtime (epoch rotation recovery, runtime key blobs). These are NOT
+/// in `_secureStoreKeys` because they vary by epoch number / family.
+///
+/// `_seedRustStore` must restore them so that a device which recovered
+/// `epoch_key_1` in a previous session can still push at epoch 1 after a
+/// restart — otherwise `key_hierarchy.epoch_key(1)` returns `None` and
+/// the engine errors with "Missing epoch key for push epoch 1".
+const _dynamicSecureStorePrefixes = ['epoch_key_', 'runtime_keys_'];
+
+/// End-to-end seed request builder.
+///
+/// Takes the output of `FlutterSecureStorage.readAll()` and returns the
+/// JSON string that `_seedRustStore` passes into `ffi.seedSecureStore`,
+/// or `null` if there are no entries to seed. Equivalent to
+/// `jsonEncode(computeSeedEntries(all))` but returns `null` on empty
+/// so tests can assert "should not have been called at all".
+///
+/// Used by `_seedRustStore` and by unit tests that want to verify the
+/// full read + filter + encode pipeline without a real FFI handle.
+@visibleForTesting
+String? buildSeedRequestJson(Map<String, String> keychainContents) {
+  final entries = computeSeedEntries(keychainContents);
+  if (entries.isEmpty) return null;
+  return jsonEncode(entries);
+}
+
+/// Compute the set of (un-prefixed) secure-store entries that should be
+/// seeded into Rust, given the raw keychain contents.
+///
+/// Pure function — takes a `readAll()`-style map keyed by the full
+/// platform-keychain keys (with `prism_sync.` prefix) and returns the
+/// bare key -> base64 map that gets passed to `ffi.seedSecureStore`.
+/// Extracted so unit tests can exercise the "dynamic prefix scan"
+/// behavior without touching `FlutterSecureStorage`.
+@visibleForTesting
+Map<String, String> computeSeedEntries(Map<String, String> all) {
   final entries = <String, String>{};
+
+  // 1. Static allow-list lookups — explicit keys we know we care about.
   for (final key in _secureStoreKeys) {
-    final value = await _storage.read(key: '$_secureStorePrefix$key');
+    final full = '$_secureStorePrefix$key';
+    final value = all[full];
     if (value != null) {
       entries[key] = value; // Already base64-encoded
     }
   }
-  if (entries.isNotEmpty) {
-    await ffi.seedSecureStore(handle: handle, entriesJson: jsonEncode(entries));
+
+  // 2. Dynamic-prefix scan — `epoch_key_*` and `runtime_keys_*`.
+  for (final entry in all.entries) {
+    final fullKey = entry.key;
+    if (!fullKey.startsWith(_secureStorePrefix)) continue;
+    final bareKey = fullKey.substring(_secureStorePrefix.length);
+    if (entries.containsKey(bareKey)) continue;
+    final isDynamic = _dynamicSecureStorePrefixes.any(bareKey.startsWith);
+    if (isDynamic) {
+      entries[bareKey] = entry.value;
+    }
+  }
+
+  return entries;
+}
+
+/// Compute the full-keychain keys that should be deleted by the
+/// reset/revoke cleanup path, given the current keychain contents.
+///
+/// Returns the static allow-list (prefixed) plus every dynamic
+/// `epoch_key_*` / `runtime_keys_*` entry currently stored. Pure so
+/// tests can verify the "don't miss a prefix" invariant.
+@visibleForTesting
+List<String> computeKeysToClearOnReset(Map<String, String> all) {
+  final out = <String>{};
+  // Static allow-list, regardless of whether they currently exist.
+  for (final key in const [
+    'wrapped_dek',
+    'dek_salt',
+    'device_secret',
+    'device_id',
+    'sync_id',
+    'session_token',
+    'epoch',
+    'relay_url',
+    'mnemonic',
+    'setup_rollback_marker',
+    'sharing_prekey_store',
+    'sharing_id_cache',
+    'min_signature_version_floor',
+    'runtime_dek',
+  ]) {
+    out.add('$_secureStorePrefix$key');
+  }
+  // Dynamic prefix scan.
+  for (final fullKey in all.keys) {
+    if (!fullKey.startsWith(_secureStorePrefix)) continue;
+    final bare = fullKey.substring(_secureStorePrefix.length);
+    if (_dynamicSecureStorePrefixes.any(bare.startsWith)) {
+      out.add(fullKey);
+    }
+  }
+  return out.toList();
+}
+
+/// Seed the Rust-side MemorySecureStore with values from platform keychain.
+///
+/// Reads both the static `_secureStoreKeys` allow-list and any dynamic
+/// keys whose (un-prefixed) name begins with one of
+/// `_dynamicSecureStorePrefixes` (`epoch_key_*`, `runtime_keys_*`). The
+/// `readAll()` scan catches every entry regardless of how many epoch keys
+/// have accumulated across rekey cycles.
+Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
+  Map<String, String> all;
+  try {
+    all = await _storage.readAll();
+  } catch (e, st) {
+    // `readAll()` is best-effort: if the keychain fails we still try
+    // the static keys individually. The auto-sync driver will recover
+    // any missing epoch key via `recover_epoch_key` on the next
+    // WebSocket notification.
+    ErrorReportingService.instance.report(
+      'Dynamic secure-store seed scan failed (non-fatal): $e',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+    all = <String, String>{};
+    for (final key in _secureStoreKeys) {
+      final value = await _storage.read(key: '$_secureStorePrefix$key');
+      if (value != null) all['$_secureStorePrefix$key'] = value;
+    }
+  }
+
+  final json = buildSeedRequestJson(all);
+  if (json != null) {
+    await ffi.seedSecureStore(handle: handle, entriesJson: json);
   }
 }
 
@@ -421,22 +543,94 @@ Future<void> cacheRuntimeKeys(ffi.PrismSyncHandle handle) async {
   }
 }
 
-/// Drain the Rust-side MemorySecureStore back to platform keychain.
-/// Call after state-changing operations (initialize, createSyncGroup, join, etc).
-Future<void> drainRustStore(ffi.PrismSyncHandle handle) async {
-  final json = await ffi.drainSecureStore(handle: handle);
-  final entries = Map<String, String>.from(jsonDecode(json) as Map);
+/// Pure, testable core of the keychain-write phase of `drainRustStore`.
+///
+/// Given the parsed `entries` map (bare-key -> base64 value), runs the
+/// delete-then-write loop against the supplied [deleteKey] / [writeKey]
+/// callbacks, checking [shouldAbort] before every keychain mutation.
+/// Used by both the real `drainRustStore` (which supplies real
+/// `_storage` callbacks) and unit tests (which supply fakes to prove
+/// the per-iteration abort actually short-circuits writes).
+///
+/// Returns the number of writes that were committed before the abort
+/// short-circuited the loop. Tests use this to assert partial-write
+/// invariants.
+///
+/// **Round 3 Fix 2 contract:**
+/// - The pre-loop `shouldAbort` check is the LAST chance to bail
+///   before any mutation.
+/// - Every iteration of the delete and write loops re-checks
+///   `shouldAbort` BEFORE the next `await`, so a revocation firing
+///   mid-loop short-circuits cleanly.
+@visibleForTesting
+Future<int> applyDrainedEntries({
+  required Map<String, String> entries,
+  required Future<void> Function(String fullKey) deleteKey,
+  required Future<void> Function(String fullKey, String value) writeKey,
+  bool Function()? shouldAbort,
+}) async {
+  // Pre-loop barrier.
+  if (shouldAbort?.call() ?? false) {
+    return 0;
+  }
+
+  int committedWrites = 0;
+  // Phase 1: delete stale static keys that Rust no longer has.
   for (final key in _secureStoreKeys) {
     if (!entries.containsKey(key)) {
-      await _storage.delete(key: '$_secureStorePrefix$key');
+      if (shouldAbort?.call() ?? false) return committedWrites;
+      await deleteKey('$_secureStorePrefix$key');
     }
   }
+  // Phase 2: write every entry Rust returned.
   for (final entry in entries.entries) {
-    await _storage.write(
-      key: '$_secureStorePrefix${entry.key}',
-      value: entry.value,
-    );
+    if (shouldAbort?.call() ?? false) return committedWrites;
+    await writeKey('$_secureStorePrefix${entry.key}', entry.value);
+    committedWrites++;
   }
+  return committedWrites;
+}
+
+/// Drain the Rust-side MemorySecureStore back to platform keychain.
+/// Call after state-changing operations (initialize, createSyncGroup, join, etc).
+///
+/// The optional [shouldAbort] callback is checked at every yield point
+/// inside the write loop. If it returns `true` the drain bails before
+/// committing the next keychain mutation, short-circuiting the
+/// remaining writes. This is how the event-driven drain path in
+/// `SyncStatusNotifier` stops a mid-flight drain when a
+/// `DeviceRevoked` / credential-cleanup event fires between schedule
+/// time and any specific keychain write.
+///
+/// Design note: the abort check runs AFTER the FFI drain (which reads
+/// Rust state) but BEFORE the first keychain write. Once we start
+/// writing, partial writes are worse than "fully wrote" or "fully
+/// didn't", so we re-check before EACH individual write. The
+/// per-iteration cost is a trivial closure call; the safety payoff is
+/// that credentials can't be partially resurrected.
+///
+/// Existing callers that don't pass [shouldAbort] keep working — the
+/// parameter defaults to a no-op that always returns `false`.
+Future<void> drainRustStore(
+  ffi.PrismSyncHandle handle, {
+  bool Function()? shouldAbort,
+}) async {
+  final json = await ffi.drainSecureStore(handle: handle);
+
+  // Pre-write barrier: if revocation landed during the FFI call, log
+  // and bail before touching the keychain.
+  if (shouldAbort?.call() ?? false) {
+    debugPrint('[SYNC] drainRustStore aborted: credentials revoked pre-write');
+    return;
+  }
+
+  final entries = Map<String, String>.from(jsonDecode(json) as Map);
+  await applyDrainedEntries(
+    entries: entries,
+    deleteKey: (full) => _storage.delete(key: full),
+    writeKey: (full, value) => _storage.write(key: full, value: value),
+    shouldAbort: shouldAbort,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -835,6 +1029,85 @@ class SyncStatus {
   }
 }
 
+/// Whether the event-driven drain in `SyncStatusNotifier` should fire for
+/// a `SyncCompleted` event with the given structured `errorKind`.
+///
+/// Returns `true` for success (`null`) and transient errors (`Network`,
+/// `Server`, `Timeout`) so the secure-store stays in sync even when a
+/// single cycle fails. Returns `false` for credential-state errors
+/// (`Auth`, `KeyChanged`, `DeviceIdentityMismatch`) so the revoke cleanup
+/// path can wipe credentials without the drain writing them back.
+///
+/// Pascal-case strings match the Rust `SyncErrorKind` Debug format emitted
+/// by `sync_result_to_json` in `prism-sync-ffi/src/api.rs`.
+@visibleForTesting
+bool shouldDrainForCompletedErrorKind(String? errorKind) {
+  if (errorKind == null) return true;
+  switch (errorKind) {
+    case 'Network':
+    case 'Server':
+    case 'Timeout':
+      return true;
+    case 'Auth':
+    case 'KeyChanged':
+    case 'DeviceIdentityMismatch':
+      return false;
+    case 'EpochRotation':
+    case 'Protocol':
+    case 'ClockSkew':
+      // Rare protocol paths — don't drain because they typically mean
+      // something about the device state is inconsistent and the next
+      // recovery step will handle persistence.
+      return false;
+    default:
+      // Unknown future kinds — be conservative and drain. Worst case we
+      // write slightly stale keys; alternative is losing new ones.
+      return true;
+  }
+}
+
+/// Test seam: when non-null, the event-driven drain path in
+/// `SyncStatusNotifier` invokes this instead of acquiring a handle and
+/// calling `drainRustStore`. Used by unit tests to observe drain
+/// invocations without exercising the FFI or secure storage.
+///
+/// The override takes no arguments by default (existing tests) and
+/// receives a [shouldAbortDrain] via the optional sibling hook below
+/// when it wants to race-test mid-drain aborts.
+@visibleForTesting
+Future<void> Function()? debugDrainRustStoreOverride;
+
+/// Test seam: when non-null, `SyncStatusNotifier._scheduleDrain` calls
+/// this instead of `debugDrainRustStoreOverride`, passing the per-drain
+/// `shouldAbort` closure. Use this for tests that need to prove the
+/// drain bails mid-flight when revocation fires: the test's fake
+/// drain can `await` on a completer, then check `shouldAbort()` to
+/// confirm the gate flipped.
+@visibleForTesting
+Future<void> Function(bool Function() shouldAbort)?
+    debugDrainRustStoreOverrideWithAbort;
+
+/// Test seam: override the debounce interval used by `SyncStatusNotifier`
+/// for event-driven drains. Set to a very small value (e.g. 1ms) in tests
+/// so they don't have to wait 500ms of real time per scenario. Leave as
+/// `null` in production to use the default 500ms.
+@visibleForTesting
+Duration? debugDrainDebounceOverride;
+
+/// Test seam: override the "post-revoke belt-and-suspenders re-cleanup"
+/// delay. Production defaults to 2 seconds (longer than any realistic
+/// drain write loop). Tests set this to ~50ms so they don't have to
+/// wait 2s per revocation scenario.
+@visibleForTesting
+Duration? debugPostRevokeRecleanOverride;
+
+/// Test seam: when non-null, the post-revoke re-cleanup timer in
+/// `_abortPendingDrainForRevoke` calls this instead of
+/// `_wipeSyncKeychainEntries`. Lets tests observe that the second-stage
+/// cleanup fires even when the first pass was partial.
+@visibleForTesting
+Future<void> Function()? debugPostRevokeRecleanOverrideCallback;
+
 @visibleForTesting
 SyncStatus syncStatusAfterCompleted({
   required SyncStatus previous,
@@ -862,14 +1135,194 @@ final syncStatusProvider = NotifierProvider<SyncStatusNotifier, SyncStatus>(
 );
 
 class SyncStatusNotifier extends Notifier<SyncStatus> {
+  Timer? _drainDebounce;
+
+  /// Timer for the belt-and-suspenders post-revoke re-cleanup pass.
+  Timer? _postRevokeRecleanTimer;
+
+  /// Monotonic drain generation. Incremented every time
+  /// `_abortPendingDrainSafe` runs (which `_abortPendingDrainForRevoke`
+  /// calls internally). Each scheduled drain captures this value at
+  /// schedule time, and both the timer callback AND the inner
+  /// `shouldAbort` hook inside `drainRustStore` compare it to the
+  /// current field value. A mismatch means "revocation fired between
+  /// schedule and this check — bail." This is the atomic barrier that a
+  /// plain `bool` flag can't provide: a timer callback that already
+  /// started running has its `myGeneration` captured on the stack and
+  /// can't be affected by further bumps, but every suspension point
+  /// (`await`) re-checks and bails if it's stale.
+  ///
+  /// **Monotonic for the lifetime of the notifier — NEVER reset.**
+  /// The only writes to this field are the `++` in `_abortPendingDrainSafe`
+  /// and the initial `0`. Resetting it on fresh-handle transitions would
+  /// reopen a race where a stale in-flight drain from the previous
+  /// session could find `myGeneration == _drainGeneration == 0` after
+  /// the reset and resume writing. 64-bit int can't wrap in practice
+  /// (a billion revokes per second for 292 years).
+  int _drainGeneration = 0;
+
+  /// Once credentials have been wiped (device revoked, sync reset,
+  /// unrecoverable auth failure), this flag is flipped to `true` and
+  /// stays `true` until a fresh handle is created (new pairing / new
+  /// unlock). While set, `_scheduleDrain` is a no-op and any in-flight
+  /// timer callback bails before touching `drainRustStore`. This is the
+  /// belt-and-suspenders gate for Fix 1 of the 2026-04-11 robustness
+  /// plan: timer cancellation alone is not enough because a drain
+  /// callback may already have started running when revocation fires.
+  bool _credentialsRevoked = false;
+
+  /// Debounce interval for event-driven `drainRustStore` calls.
+  ///
+  /// 500ms (trailing-edge) matches Appendix B.6 of the 2026-04-11 sync
+  /// robustness plan: short enough to persist keys quickly after a sync
+  /// cycle settles, long enough to coalesce bursts (SyncStarted ->
+  /// RemoteChanges -> SyncCompleted) without queuing serial keychain
+  /// writes faster than they complete. 200ms would overdrive Android/iOS
+  /// secure storage on large drains (15–20 entries, ~30–80ms each).
+  static const _drainDebounceInterval = Duration(milliseconds: 500);
+
+  /// Default post-revocation re-cleanup delay. Longer than any realistic
+  /// drain write loop (~30-80ms × 15 entries = 450-1200ms) so an
+  /// in-flight drain has time to finish its writes before we re-wipe.
+  static const _postRevokeRecleanInterval = Duration(seconds: 2);
+
+  Duration get _effectiveDrainDebounce =>
+      debugDrainDebounceOverride ?? _drainDebounceInterval;
+
+  Duration get _effectivePostRevokeRecleanDelay =>
+      debugPostRevokeRecleanOverride ?? _postRevokeRecleanInterval;
+
+  /// Minimal, always-safe "cancel any in-flight drain" step.
+  ///
+  /// Bumps the generation token (invalidating any running drain
+  /// callback's captured `myGeneration`) and cancels the pending
+  /// debounce timer. **Does NOT** set `_credentialsRevoked` and does
+  /// NOT schedule the post-revoke re-cleanup. Safe to call from both
+  /// self-revoke and sibling-revoke paths, and safe to call when the
+  /// event may or may not turn out to target this device.
+  ///
+  /// Used as the defensive first statement of `_handleDeviceRevoked`
+  /// (before any `await`) so a pending drain cannot fire during the
+  /// async self-vs-sibling check. If the revocation turns out to be
+  /// a sibling, the caller leaves state exactly like this — the flag
+  /// stays `false` and the re-cleanup timer never fires, so a fresh
+  /// drain can be scheduled immediately after this function returns.
+  void _abortPendingDrainSafe() {
+    _drainGeneration++;
+    _drainDebounce?.cancel();
+    _drainDebounce = null;
+  }
+
+  /// Full self-revoke abort: suppresses future drains for the lifetime
+  /// of this session, invalidates in-flight drains, and schedules the
+  /// belt-and-suspenders keychain re-cleanup timer. **Only call this
+  /// when the CURRENT device has been revoked** — calling it on a
+  /// sibling-revoke path would wipe this device's credentials via the
+  /// delayed re-cleanup timer even though this device wasn't revoked.
+  ///
+  /// The function is idempotent with `_abortPendingDrainSafe`: it
+  /// reuses the safe-abort as its first step, so calling both in
+  /// sequence (safe first, then full) is fine.
+  void _abortPendingDrainForRevoke() {
+    _abortPendingDrainSafe();
+    _credentialsRevoked = true;
+
+    // Belt-and-suspenders: schedule a delayed keychain re-wipe. If a
+    // drain callback was already running when we aborted, its writes
+    // may land after `_clearSyncCredentials` completes. The timer fires
+    // ~2s later (longer than any realistic drain write loop) and wipes
+    // the keychain again, unless a fresh handle has appeared in the
+    // meantime (via the `prismSyncHandleProvider` listener resetting
+    // `_credentialsRevoked`).
+    _postRevokeRecleanTimer?.cancel();
+    _postRevokeRecleanTimer = Timer(
+      _effectivePostRevokeRecleanDelay,
+      () async {
+        if (!_credentialsRevoked) return; // New handle appeared, skip.
+        try {
+          final override = debugPostRevokeRecleanOverrideCallback;
+          if (override != null) {
+            await override();
+          } else {
+            await _wipeSyncKeychainEntries();
+          }
+          debugPrint('[SYNC] Post-revoke keychain re-clean completed');
+        } catch (e) {
+          debugPrint('[SYNC] Post-revoke keychain re-clean failed: $e');
+        }
+      },
+    );
+  }
+
+  /// Reset the revoked flag. Must ONLY be called when a fresh handle is
+  /// created (new pairing / new unlock) — NOT on the next successful
+  /// SyncCompleted, which would re-enable drains against a still-wiped
+  /// keychain if any remnant of a prior session leaked through.
+  ///
+  /// Does NOT reset `_drainGeneration`: that counter is monotonic for
+  /// the lifetime of the notifier, see the field's doc comment for why.
+  @visibleForTesting
+  void debugResetCredentialsRevoked() {
+    _credentialsRevoked = false;
+    _postRevokeRecleanTimer?.cancel();
+    _postRevokeRecleanTimer = null;
+  }
+
   @override
   SyncStatus build() {
+    ref.onDispose(() {
+      _drainDebounce?.cancel();
+      _drainDebounce = null;
+      _postRevokeRecleanTimer?.cancel();
+      _postRevokeRecleanTimer = null;
+    });
+
+    // When a fresh handle is created (new pairing or new unlock) the
+    // `prismSyncHandleProvider` transitions from null (or from a
+    // previous handle) to a new instance. That's the only moment we
+    // allow the revoked flag to reset — NOT on the next SyncCompleted,
+    // which would re-enable drains if any remnant of the previous
+    // session leaked through.
+    //
+    // **Round 4 Fix 2:** do NOT reset `_drainGeneration` here. The
+    // counter is monotonic for the lifetime of the notifier. A stale
+    // in-flight drain from the previous session may still resume after
+    // the reset; if we zeroed the counter, its captured `myGeneration`
+    // could suddenly match and the drain would write back wiped
+    // credentials. Because the generation was bumped at least once by
+    // the abort that preceded the new handle, any captured value is
+    // guaranteed to be strictly less than the current field value.
+    ref.listen<AsyncValue<ffi.PrismSyncHandle?>>(prismSyncHandleProvider, (
+      prev,
+      next,
+    ) {
+      final nextHandle = next.value;
+      final prevHandle = prev?.value;
+      if (nextHandle != null && !identical(prevHandle, nextHandle)) {
+        _credentialsRevoked = false;
+        _postRevokeRecleanTimer?.cancel();
+        _postRevokeRecleanTimer = null;
+      }
+    });
+
     ref.listen(syncEventStreamProvider, (prev, next) {
       next.whenData((event) {
         if (event.isSyncCompleted) {
           final rawResultError =
               (event.data['result'] as Map<String, dynamic>?)?['error']
                   as String?;
+          final resultMap = event.data['result'] as Map<String, dynamic>?;
+          // Structured `error_code` + `remote_wipe` propagated from the
+          // Rust engine via `populate_result_error`. When the engine
+          // wraps a `device_revoked` response into `Ok(result)`, the
+          // retry loop surfaces it here instead of through a separate
+          // `Error` event. We must trigger credential cleanup on this
+          // path too, otherwise a mid-cycle 401 would leak the creds.
+          // (Fix 2 of the 2026-04-11 sync robustness plan.)
+          final resultErrorCode = resultMap?['error_code'] as String?;
+          final resultRemoteWipe = resultMap?['remote_wipe'] as bool?;
+          final isDeviceRevokedFromResult =
+              resultErrorCode == 'device_revoked';
           final structuredError = rawResultError == null
               ? null
               : PrismSyncStructuredError.tryParseMessage(rawResultError);
@@ -884,11 +1337,29 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
               completedAt: DateTime.now(),
             );
           });
-          if (structuredError?.isDeviceRevoked ?? false) {
-            _handleDeviceRevokedFromAuthFailure(
-              structuredError?.remoteWipe ?? false,
-            );
+          final isRevoked =
+              (structuredError?.isDeviceRevoked ?? false) ||
+              isDeviceRevokedFromResult;
+          if (isRevoked) {
+            final wipe =
+                structuredError?.remoteWipe ?? resultRemoteWipe ?? false;
+            _handleDeviceRevokedFromAuthFailure(wipe);
           }
+          // Event-driven drain: persist the Rust MemorySecureStore back to
+          // the platform keychain whenever a sync cycle completes. Covers
+          // the auto-sync driver path (`api.rs:1361`) which runs entirely
+          // inside Rust and never invoked `drainRustStore` before. Skip
+          // the drain for credential-state errors so revoke cleanup can
+          // wipe the keychain without our writing stale keys back.
+          if (!isRevoked &&
+              shouldDrainForCompletedErrorKind(event.errorKind)) {
+            _scheduleDrain();
+          }
+        } else if (event.isEpochRotated) {
+          // Epoch rotation is the most important persistence moment: a new
+          // epoch key was recovered and must reach the keychain before the
+          // next restart.
+          _scheduleDrain();
         } else if (event.isSyncStarted) {
           // Snapshot current pending ops count when sync begins so the UI
           // can show how many ops are waiting to be pushed.
@@ -921,6 +1392,67 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     return const SyncStatus();
   }
 
+  /// Schedule a trailing-edge debounced drain of the Rust MemorySecureStore
+  /// back to the platform keychain.
+  ///
+  /// Rapid bursts (e.g. SyncCompleted + EpochRotated in the same cycle)
+  /// coalesce into a single drain call that fires after the debounce
+  /// window elapses. If the handle is disposed before the window elapses,
+  /// the cancelled timer simply drops the callback.
+  ///
+  /// **Generation token:** each scheduled drain captures
+  /// `_drainGeneration` at schedule time. If `_abortPendingDrainForRevoke`
+  /// fires before the timer callback runs (bumping the counter), the
+  /// captured value becomes stale and both the callback and the
+  /// `shouldAbort` hook passed into `drainRustStore` bail. A single bool
+  /// gate can't catch the case where a drain is already mid-`await` when
+  /// revocation fires; the generation comparison can.
+  void _scheduleDrain() {
+    if (_credentialsRevoked) {
+      // Credentials have been wiped. A drain at this point would read
+      // the (still populated) Rust MemorySecureStore and write the
+      // secrets back to the keychain, undoing revocation.
+      return;
+    }
+    _drainDebounce?.cancel();
+    final myGeneration = _drainGeneration;
+    _drainDebounce = Timer(_effectiveDrainDebounce, () async {
+      // Check 1: synchronous gate at the top of the callback. If
+      // revocation fired during the debounce window, bail immediately
+      // before even touching the FFI.
+      if (_credentialsRevoked || _drainGeneration != myGeneration) {
+        return;
+      }
+      // Shared `shouldAbort` closure passed into `drainRustStore`. It
+      // is re-evaluated at every await point inside the drain loop,
+      // so a revocation firing mid-write short-circuits the remaining
+      // writes. See `drainRustStore` for placement details.
+      bool shouldAbort() =>
+          _credentialsRevoked || _drainGeneration != myGeneration;
+      final plainOverride = debugDrainRustStoreOverride;
+      final abortAwareOverride = debugDrainRustStoreOverrideWithAbort;
+      try {
+        if (abortAwareOverride != null) {
+          await abortAwareOverride(shouldAbort);
+          return;
+        }
+        if (plainOverride != null) {
+          await plainOverride();
+          return;
+        }
+        final handle = ref.read(prismSyncHandleProvider).value;
+        if (handle == null) return;
+        await drainRustStore(handle, shouldAbort: shouldAbort);
+      } catch (e, st) {
+        ErrorReportingService.instance.report(
+          'Event-driven drain failed (non-fatal): $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      }
+    });
+  }
+
   /// Query the Rust sync engine for the current number of unpushed pending ops.
   Future<int> _queryPendingOps() async {
     try {
@@ -945,16 +1477,40 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     }
   }
 
-  /// Handle a DeviceRevoked event for the current device.
+  /// Handle a DeviceRevoked event. Rust emits this event for BOTH
+  /// self-revoke AND sibling-revoke (another device in the group being
+  /// revoked), so the first thing we do is determine which case this
+  /// is and only wipe this device's credentials on self-revoke.
   ///
-  /// Always clears sync credentials and stops auto-sync so the revoked device
-  /// does not keep trying to sync in the background. If [remoteWipe] is true,
-  /// also deletes the sync database file.
+  /// On self-revoke: clears sync credentials, stops auto-sync, and if
+  /// `remoteWipe` is set also deletes the sync database file.
+  ///
+  /// On sibling-revoke: nothing to do except defensively cancel any
+  /// pending drain that was already scheduled — we do NOT wipe
+  /// credentials and we do NOT schedule the post-revoke re-cleanup
+  /// timer.
+  ///
+  /// **Round 4 Fix 1:** the earlier round called the FULL
+  /// `_abortPendingDrainForRevoke` as the first statement, which set
+  /// `_credentialsRevoked = true` and scheduled the 2-second re-cleanup
+  /// timer unconditionally. On sibling-revoke, the re-cleanup timer
+  /// would then fire and wipe THIS device's credentials even though
+  /// this device wasn't revoked. The split below preserves the
+  /// "cancel at the top before any await" pattern for the pending
+  /// drain (via the safe variant) while keeping the full wipe behind
+  /// the self-revoke branch.
   Future<void> _handleDeviceRevoked(SyncEvent event) async {
+    // Step 1 — always safe: cancel any pending debounced drain and
+    // invalidate any in-flight drain via the generation bump. This is
+    // the "cancel at the top, before any await" pattern, but WITHOUT
+    // setting `_credentialsRevoked` and WITHOUT scheduling re-cleanup.
+    // Safe to call on both self and sibling paths.
+    _abortPendingDrainSafe();
+
     final revokedDeviceId = event.data['device_id'] as String?;
     final wipe = event.remoteWipe;
 
-    // Read current device ID to check if this revocation targets us.
+    // Step 2 — determine whether this event targets us.
     String? currentDeviceId;
     try {
       final raw = await _storage.read(key: '${_secureStorePrefix}device_id');
@@ -966,18 +1522,26 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         }
       }
     } catch (_) {
-      // If we can't read the device ID, assume we're the target
+      // If we can't read the device ID, assume we're the target.
     }
 
-    // Only act if this device was revoked (or we can't determine)
     if (revokedDeviceId != null &&
         currentDeviceId != null &&
         revokedDeviceId != currentDeviceId) {
-      // Another device was revoked, not us — just update state normally
+      // Sibling revoke: our credentials are fine. The pending drain
+      // was cancelled defensively by `_abortPendingDrainSafe`, but
+      // `_credentialsRevoked` is NOT set and no re-cleanup was
+      // scheduled, so new drains can still be scheduled normally and
+      // THIS device's keychain stays intact.
       return;
     }
 
-    // Stop auto-sync to prevent background retry loops
+    // Step 3 — self-revoke (or device id unknown, assume self).
+    // Escalate from safe-abort to the full revoke path: this sets the
+    // suppression flag and schedules the post-revoke re-cleanup timer.
+    _abortPendingDrainForRevoke();
+
+    // Stop auto-sync to prevent background retry loops.
     try {
       final handle = ref.read(prismSyncHandleProvider).value;
       if (handle != null) {
@@ -993,12 +1557,12 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       debugPrint('[SYNC] Failed to disable auto-sync after revocation: $e');
     }
 
-    // If remote wipe was requested, delete the sync database
+    // If remote wipe was requested, delete the sync database.
     if (wipe) {
       await _wipeSyncDatabase();
     }
 
-    // Clear sync credentials from keychain
+    // Clear sync credentials from keychain.
     await _clearSyncCredentials();
 
     ref
@@ -1007,6 +1571,10 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   }
 
   Future<void> _handleDeviceRevokedFromAuthFailure(bool remoteWipe) async {
+    // Abort any pending drain before wiping anything — same reason as
+    // `_handleDeviceRevoked`: a debounced drain in flight would resurrect
+    // secrets after cleanup.
+    _abortPendingDrainForRevoke();
     try {
       if (remoteWipe) {
         debugPrint('[SYNC] Device flagged for remote wipe — wiping sync data');
@@ -1042,9 +1610,14 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     }
   }
 
-  /// Clear all sync credentials from the platform keychain.
-  Future<void> _clearSyncCredentials() async {
-    for (final key in [
+  /// Narrow keychain-wipe helper — deletes every static allow-list
+  /// entry plus any dynamic `epoch_key_*` / `runtime_keys_*` entries.
+  /// No state transitions, no provider invalidation, no UI side effects.
+  /// Shared between `_clearSyncCredentials` (primary cleanup) and
+  /// `_abortPendingDrainForRevoke`'s belt-and-suspenders post-revoke
+  /// re-cleanup timer.
+  Future<void> _wipeSyncKeychainEntries() async {
+    for (final key in const [
       'wrapped_dek',
       'dek_salt',
       'device_secret',
@@ -1066,6 +1639,38 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
         // Best effort — continue clearing remaining keys
       }
     }
+    // Dynamic-prefix scan — scan and delete any prefixed entries left
+    // over from a previous pairing.
+    try {
+      final all = await _storage.readAll();
+      for (final entry in all.entries) {
+        if (!entry.key.startsWith(_secureStorePrefix)) continue;
+        final bare = entry.key.substring(_secureStorePrefix.length);
+        if (_dynamicSecureStorePrefixes.any(bare.startsWith)) {
+          try {
+            await _storage.delete(key: entry.key);
+          } catch (_) {}
+        }
+      }
+    } catch (_) {
+      // Non-fatal — the next reset will pick them up.
+    }
+  }
+
+  /// Clear all sync credentials from the platform keychain.
+  ///
+  /// Wipes the static allow-list first, then scans for any dynamic
+  /// `epoch_key_*` / `runtime_keys_*` entries and deletes them too.
+  /// Dynamic cleanup is required because those keys accumulate across
+  /// epoch rotations — leaving stale entries behind would let them seed
+  /// into a freshly-paired handle and corrupt the new group's key
+  /// hierarchy.
+  Future<void> _clearSyncCredentials() async {
+    // Abort any pending debounced drain FIRST. If a drain callback is
+    // already queued for 500ms from now, it would otherwise run after
+    // we've deleted everything and write the secrets back from Rust.
+    _abortPendingDrainForRevoke();
+    await _wipeSyncKeychainEntries();
     debugPrint('[SYNC] Sync credentials cleared');
   }
 
@@ -1187,10 +1792,26 @@ class WebSocketConnectedNotifier extends Notifier<bool> {
 /// Also attempts to reconnect the WebSocket if it is currently disconnected,
 /// resetting the exponential backoff so real-time notifications resume
 /// immediately rather than waiting for the next backoff interval.
+///
+/// Fire-and-forget semantics: this used to let [ffi.syncNow] throw through.
+/// After the inner-retry rewrite in `sync_service.rs`, exhausted retries now
+/// surface as a thrown `CoreError::Relay` rather than being silently buried
+/// in the `SyncResult.error` field. Callers of `triggerSync` (auto-resume,
+/// background triggers) don't want the exception to propagate — the outer
+/// auto-sync driver will handle sustained failures. Log as a warning and
+/// continue.
 Future<void> triggerSync(ffi.PrismSyncHandle handle) async {
   // Best-effort WebSocket reconnect (non-fatal if it fails).
   try {
     await ffi.reconnectWebsocket(handle: handle);
   } catch (_) {}
-  await ffi.syncNow(handle: handle);
+  try {
+    await ffi.syncNow(handle: handle);
+  } catch (e, st) {
+    ErrorReportingService.instance.report(
+      'triggerSync: sync_now failed (non-fatal, driver will retry): $e',
+      severity: ErrorSeverity.warning,
+      stackTrace: st,
+    );
+  }
 }

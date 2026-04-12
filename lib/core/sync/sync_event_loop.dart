@@ -21,8 +21,35 @@ class SyncEvent {
   bool get isSyncStarted => type == 'SyncStarted';
   bool get isError => type == 'Error';
   bool get isDeviceRevoked => type == 'DeviceRevoked';
+  bool get isEpochRotated => type == 'EpochRotated';
   bool get remoteWipe => data['remote_wipe'] as bool? ?? false;
   bool get isWebSocketStateChanged => type == 'WebSocketStateChanged';
+
+  /// Structured error-kind string as emitted by the Rust FFI (pascal-case).
+  ///
+  /// Populated on `SyncCompleted` events whose `result.error` is set, and
+  /// on `Error` events via `event.data['kind']`. Values correspond to the
+  /// Rust `SyncErrorKind` Debug format: `'Network'`, `'Auth'`, `'Server'`,
+  /// `'Timeout'`, `'KeyChanged'`, `'DeviceIdentityMismatch'`,
+  /// `'EpochRotation'`, `'Protocol'`, `'ClockSkew'`.
+  ///
+  /// Returns `null` when no structured kind is available (older events,
+  /// genuine success, or events that don't carry an error).
+  String? get errorKind {
+    if (isSyncCompleted) {
+      final result = data['result'];
+      if (result is Map<String, dynamic>) {
+        final kind = result['error_kind'];
+        if (kind is String) return kind;
+      }
+      return null;
+    }
+    if (isError) {
+      final kind = data['kind'];
+      if (kind is String) return kind;
+    }
+    return null;
+  }
 }
 
 /// Creates an event stream using native flutter_rust_bridge StreamSink.

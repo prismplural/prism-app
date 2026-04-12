@@ -20,6 +20,11 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 abstract class ResetSecureStore {
   Future<String?> read(String key);
   Future<void> delete(String key);
+
+  /// Read every key/value pair currently in the secure store. Used to
+  /// scan for dynamic `prism_sync.epoch_key_*` / `prism_sync.runtime_keys_*`
+  /// entries on reset/revoke cleanup.
+  Future<Map<String, String>> readAll();
 }
 
 class _PlatformResetSecureStore implements ResetSecureStore {
@@ -30,6 +35,9 @@ class _PlatformResetSecureStore implements ResetSecureStore {
 
   @override
   Future<void> delete(String key) => secureStorage.delete(key: key);
+
+  @override
+  Future<Map<String, String>> readAll() => secureStorage.readAll();
 }
 
 final resetSecureStoreProvider = Provider<ResetSecureStore>((ref) {
@@ -276,6 +284,22 @@ class ResetDataNotifier extends Notifier<void> {
       'runtime_dek',
     ]) {
       await storage.delete('$prefix$key');
+    }
+    // Dynamic-prefix cleanup: any `prism_sync.epoch_key_*` or
+    // `prism_sync.runtime_keys_*` entries left over from a previous
+    // pairing must also be wiped, otherwise they'd seed into a fresh
+    // handle after re-pairing and corrupt the new group's key hierarchy.
+    try {
+      final all = await storage.readAll();
+      for (final fullKey in all.keys) {
+        if (!fullKey.startsWith(prefix)) continue;
+        final bare = fullKey.substring(prefix.length);
+        if (bare.startsWith('epoch_key_') || bare.startsWith('runtime_keys_')) {
+          await storage.delete(fullKey);
+        }
+      }
+    } catch (e) {
+      _log('Dynamic secure-store cleanup failed (non-fatal): $e');
     }
 
     // 3. Delete the Rust sync database
