@@ -1075,12 +1075,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get devicesRotateKey => 'Rotate signing key';
 
   @override
-  String get devicesRevokeDevice => 'Revoke device';
-
-  @override
-  String get devicesDeviceCopied => 'Device ID copied';
-
-  @override
   String get devicesRotateKeyTitle => 'Rotate Signing Key?';
 
   @override
@@ -1538,7 +1532,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Are you sure you want to delete this sleep session?';
 
   @override
-  String get frontingSleepping => 'Sleep';
+  String get frontingSleeping => 'Sleep';
 
   @override
   String frontingSleepSessionSemantics(String duration, String timeRange) {

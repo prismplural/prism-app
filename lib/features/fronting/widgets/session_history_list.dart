@@ -496,7 +496,7 @@ class _InlineSleepTile extends ConsumerWidget {
                       AppIcons.duotoneSleep,
                       size: 20,
                       color: theme.colorScheme.tertiary,
-                      semanticLabel: context.l10n.frontingSleepping,
+                      semanticLabel: context.l10n.frontingSleeping,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -505,7 +505,7 @@ class _InlineSleepTile extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          context.l10n.frontingSleepping,
+                          context.l10n.frontingSleeping,
                           style: theme.textTheme.bodyLarge?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),

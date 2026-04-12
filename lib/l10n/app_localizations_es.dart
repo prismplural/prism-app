@@ -225,7 +225,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get appearanceSyncThemeSubtitle =>
-      'Compartir brillo, estilo y color de acento via sincronización';
+      'Compartir brillo, estilo y color de acento vía sincronización';
 
   @override
   String get appearanceTerminology => 'Terminología';
@@ -313,7 +313,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncPreferencesDescription =>
-      'Controla qué configuraciones se comparten entre tus dispositivos via sincronización.';
+      'Controla qué configuraciones se comparten entre tus dispositivos vía sincronización.';
 
   @override
   String get syncNavigationLayoutTitle => 'Sincronizar diseño de navegación';
@@ -1095,12 +1095,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get devicesRotateKey => 'Rotar clave de firma';
 
   @override
-  String get devicesRevokeDevice => 'Revocar dispositivo';
-
-  @override
-  String get devicesDeviceCopied => 'ID de dispositivo copiado';
-
-  @override
   String get devicesRotateKeyTitle => '¿Rotar clave de firma?';
 
   @override
@@ -1324,7 +1318,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncTroubleshootingRepairMessage =>
-      'Esto borrará tus credenciales de sincronización y requerirá que emparej es de nuevo. Los cambios locales no sincronizados se perderán.\n\nRecomendamos exportar los datos primero como medida de seguridad.';
+      'Esto borrará tus credenciales de sincronización y requerirá que emparejes de nuevo. Los cambios locales no sincronizados se perderán.\n\nRecomendamos exportar los datos primero como medida de seguridad.';
 
   @override
   String get syncTroubleshootingRepairNow => 'Reemparejar ahora';
@@ -1572,7 +1566,7 @@ class AppLocalizationsEs extends AppLocalizations {
       '¿Estás seguro/a de que quieres eliminar esta sesión de sueño?';
 
   @override
-  String get frontingSleepping => 'Sueño';
+  String get frontingSleeping => 'Sueño';
 
   @override
   String frontingSleepSessionSemantics(String duration, String timeRange) {
