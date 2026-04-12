@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
@@ -21,6 +22,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final chatLogsFront = ref.watch(chatLogsFrontProvider);
     final gifSearchEnabled = ref.watch(gifSearchEnabledProvider);
     final theme = Theme.of(context);
+    final terms = ref.watch(terminologyProvider);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.featureChatTitle, showBackButton: true),
@@ -31,7 +33,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              context.l10n.featureChatDescription,
+              context.l10n.featureChatDescription(terms.pluralLower),
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -45,7 +47,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                 icon: AppIcons.chatOutlined,
                 iconColor: Colors.blue,
                 title: context.l10n.featureChatEnable,
-                subtitle: context.l10n.featureChatEnableSubtitle,
+                subtitle: context.l10n.featureChatEnableSubtitle(terms.pluralLower),
                 value: chatEnabled,
                 onChanged: (value) => ref
                     .read(settingsNotifierProvider.notifier)

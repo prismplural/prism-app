@@ -1093,7 +1093,7 @@
   "@statisticsNoCompletedSessions": {
     "description": "Empty state for average session duration"
   },
-  "statisticsSessions": "{count} sessions",
+  "statisticsSessions": "{count, plural, =1{1 session} other{{count} sessions}}",
   "@statisticsSessions": {
     "description": "Number of sessions in statistics fronter row",
     "placeholders": {
@@ -1763,9 +1763,10 @@
   "@syncTroubleshootingCredentialsCleared": {
     "description": "Toast after credentials cleared"
   },
-  "featureChatDescription": "Internal messaging between system members.",
+  "featureChatDescription": "Internal messaging between system {term}.",
   "@featureChatDescription": {
-    "description": "Description text on chat feature settings screen"
+    "description": "Description text on chat feature settings screen",
+    "placeholders": { "term": { "type": "String" } }
   },
   "featureChatGeneral": "General",
   "@featureChatGeneral": {
@@ -1775,9 +1776,10 @@
   "@featureChatEnable": {
     "description": "Toggle title: enable chat"
   },
-  "featureChatEnableSubtitle": "In-system messaging between members",
+  "featureChatEnableSubtitle": "In-system messaging between {term}",
   "@featureChatEnableSubtitle": {
-    "description": "Toggle subtitle: enable chat"
+    "description": "Toggle subtitle: enable chat",
+    "placeholders": { "term": { "type": "String" } }
   },
   "featureChatOptions": "Options",
   "@featureChatOptions": {
@@ -1841,9 +1843,10 @@
   "@featureFrontingQuickSwitchMessage": {
     "description": "Dialog message for quick switch picker"
   },
-  "featureHabitsDescription": "Track recurring tasks and build streaks with your system members.",
+  "featureHabitsDescription": "Track recurring tasks and build streaks with your system {term}.",
   "@featureHabitsDescription": {
-    "description": "Description text on habits feature settings screen"
+    "description": "Description text on habits feature settings screen",
+    "placeholders": { "term": { "type": "String" } }
   },
   "featureHabitsGeneral": "General",
   "@featureHabitsGeneral": {
@@ -1913,9 +1916,10 @@
   "@featurePollsEnableSubtitle": {
     "description": "Toggle subtitle: enable polls"
   },
-  "featureNotesDescription": "A personal journal for system members. Disabling hides notes from navigation but keeps existing entries.",
+  "featureNotesDescription": "A personal journal for system {term}. Disabling hides notes from navigation but keeps existing entries.",
   "@featureNotesDescription": {
-    "description": "Description text on notes feature settings screen"
+    "description": "Description text on notes feature settings screen",
+    "placeholders": { "term": { "type": "String" } }
   },
   "featureNotesEnable": "Enable Notes",
   "@featureNotesEnable": {
@@ -2106,9 +2110,10 @@
   "@frontingSelectFronter": {
     "description": "Section header when selecting the primary fronter"
   },
-  "frontingSelectMember": "Select Member",
+  "frontingSelectMember": "Select {term}",
   "@frontingSelectMember": {
-    "description": "Section header when selecting a member in co-front mode"
+    "description": "Section header when selecting a member in co-front mode",
+    "placeholders": { "term": { "type": "String" } }
   },
   "frontingCoFrontToggle": "Co-front",
   "@frontingCoFrontToggle": {
@@ -2118,13 +2123,15 @@
   "@frontingCoFronters": {
     "description": "Section header for co-fronter selection in add session sheet"
   },
-  "frontingNoOtherMembers": "No other members available",
+  "frontingNoOtherMembers": "No other {term} available",
   "@frontingNoOtherMembers": {
-    "description": "Empty state when no other members are available to add as co-fronters"
+    "description": "Empty state when no other members are available to add as co-fronters",
+    "placeholders": { "term": { "type": "String" } }
   },
-  "frontingCoFrontHint": "Tap a member to add them as a co-fronter to the current session.",
+  "frontingCoFrontHint": "Tap a {term} to add them to the co-front of the current session.",
   "@frontingCoFrontHint": {
-    "description": "Hint text shown in co-front mode on the add session sheet"
+    "description": "Hint text shown in co-front mode on the add session sheet",
+    "placeholders": { "term": { "type": "String" } }
   },
   "frontingConfidenceLevel": "Confidence Level",
   "@frontingConfidenceLevel": {
@@ -2154,14 +2161,16 @@
   "@frontingNotesHintEdit": {
     "description": "Hint text for notes field in edit session screen"
   },
-  "frontingSearchMembersHint": "Search members...",
+  "frontingSearchMembersHint": "Search {term}...",
   "@frontingSearchMembersHint": {
-    "description": "Hint text in member search field on add session sheet"
+    "description": "Hint text in member search field on add session sheet",
+    "placeholders": { "term": { "type": "String" } }
   },
-  "frontingNoMembersMatching": "No members matching \"{query}\"",
+  "frontingNoMembersMatching": "No {term} matching \"{query}\"",
   "@frontingNoMembersMatching": {
     "description": "Empty state when search yields no members",
     "placeholders": {
+      "term": { "type": "String" },
       "query": {
         "type": "String"
       }
@@ -3208,7 +3217,7 @@
       }
     }
   },
-  "memberSelectedCount": "{count} selected",
+  "memberSelectedCount": "{count, plural, =1{1 selected} other{{count} selected}}",
   "@memberSelectedCount": {
     "description": "Bulk selection count label in system management screen",
     "placeholders": {
@@ -3810,7 +3819,7 @@
   "@chatGifsNotFoundSubtitle": {
     "description": "Subtitle for empty GIF search results"
   },
-  "chatGifsFound": "{count} GIFs found",
+  "chatGifsFound": "{count, plural, =1{1 GIF found} other{{count} GIFs found}}",
   "@chatGifsFound": {
     "description": "Accessibility announcement for GIF search result count",
     "placeholders": {
@@ -4200,7 +4209,7 @@
   "@onboardingPluralKitImportButton": {
     "description": "Button label to start PluralKit import"
   },
-  "onboardingPluralKitImportSuccess": "Imported {count} members from PluralKit!",
+  "onboardingPluralKitImportSuccess": "{count, plural, =1{Imported 1 member from PluralKit!} other{Imported {count} members from PluralKit!}}",
   "@onboardingPluralKitImportSuccess": {
     "description": "Success message after PluralKit import",
     "placeholders": {
@@ -5047,7 +5056,7 @@
       }
     }
   },
-  "pollsOptionCount": "{count} options",
+  "pollsOptionCount": "{count, plural, =1{1 option} other{{count} options}}",
   "@pollsOptionCount": {
     "description": "Option count label on poll card",
     "placeholders": {
@@ -5884,5 +5893,494 @@
   "sharingFingerprint": "Fingerprint",
   "@sharingFingerprint": { "description": "Label for fingerprint row when fingerprint data is available" },
   "sharingIdentity": "Identity",
-  "@sharingIdentity": { "description": "Label for identity row when fingerprint data is not yet loaded" }
+  "@sharingIdentity": { "description": "Label for identity row when fingerprint data is not yet loaded" },
+
+  "remindersTitle": "Reminders",
+  "@remindersTitle": { "description": "Title of the Reminders screen" },
+  "remindersLoadError": "Error: {error}",
+  "@remindersLoadError": {
+    "description": "Error message when reminders fail to load",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "remindersEmptyTitle": "No reminders",
+  "@remindersEmptyTitle": { "description": "Empty state title on reminders screen" },
+  "remindersEmptySubtitle": "Create reminders for fronting changes or scheduled times",
+  "@remindersEmptySubtitle": { "description": "Empty state subtitle on reminders screen" },
+  "remindersEmptyAction": "Add Reminder",
+  "@remindersEmptyAction": { "description": "Empty state action button label on reminders screen" },
+  "remindersDeletedSnackbar": "Deleted \"{name}\"",
+  "@remindersDeletedSnackbar": {
+    "description": "Snackbar text after deleting a reminder",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "remindersUndoAction": "Undo",
+  "@remindersUndoAction": { "description": "Undo action label in reminder deletion snackbar" },
+  "remindersSubtitleOnFrontChange": "On front change",
+  "@remindersSubtitleOnFrontChange": { "description": "Reminder subtitle when trigger is on front change with no delay" },
+  "remindersSubtitleOnFrontChangeDelay": "On front change ({hours}h delay)",
+  "@remindersSubtitleOnFrontChangeDelay": {
+    "description": "Reminder subtitle when trigger is on front change with a delay",
+    "placeholders": { "hours": { "type": "int" } }
+  },
+  "remindersSubtitleDaily": "Daily",
+  "@remindersSubtitleDaily": { "description": "Reminder subtitle for daily repeat interval" },
+  "remindersSubtitleEveryNDays": "Every {days} days",
+  "@remindersSubtitleEveryNDays": {
+    "description": "Reminder subtitle for every N days repeat interval",
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "remindersScheduled": "Scheduled",
+  "@remindersScheduled": { "description": "Trigger type label and fallback subtitle for scheduled reminders" },
+  "remindersEditTitle": "Edit Reminder",
+  "@remindersEditTitle": { "description": "Sheet title when editing an existing reminder" },
+  "remindersNewTitle": "New Reminder",
+  "@remindersNewTitle": { "description": "Sheet title when creating a new reminder" },
+  "remindersNameLabel": "Reminder name",
+  "@remindersNameLabel": { "description": "Label for the reminder name text field" },
+  "remindersMessageLabel": "Notification message",
+  "@remindersMessageLabel": { "description": "Label for the notification message text field" },
+  "remindersTriggerLabel": "Trigger",
+  "@remindersTriggerLabel": { "description": "Section label for reminder trigger type selector" },
+  "remindersTriggerFrontChange": "Front Change",
+  "@remindersTriggerFrontChange": { "description": "Reminder trigger type: triggers on fronting change" },
+  "remindersRepeatEveryLabel": "Repeat every",
+  "@remindersRepeatEveryLabel": { "description": "Label for the repeat interval picker row" },
+  "remindersIntervalDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@remindersIntervalDays": {
+    "description": "Interval picker option for number of days",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "remindersTimeLabel": "Time",
+  "@remindersTimeLabel": { "description": "Label for the time picker row in scheduled reminder" },
+  "remindersDelayLabel": "Delay after front change",
+  "@remindersDelayLabel": { "description": "Label for the delay picker row in front-change reminder" },
+  "remindersImmediately": "Immediately",
+  "@remindersImmediately": { "description": "Delay option: no delay, trigger immediately on front change" },
+  "remindersDelayHours": "{count, plural, =1{1 hour} other{{count} hours}}",
+  "@remindersDelayHours": {
+    "description": "Delay picker option for number of hours",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "settingsAboutAppName": "Prism",
+  "@settingsAboutAppName": { "description": "App name headline in the About section" },
+  "settingsAboutTagline": "Plural system management",
+  "@settingsAboutTagline": { "description": "Tagline shown below the app name in About" },
+  "settingsAboutVersion": "Version {version}",
+  "@settingsAboutVersion": {
+    "description": "App version string in About section",
+    "placeholders": { "version": { "type": "String" } }
+  },
+  "settingsAboutDescription": "A privacy-focused app for managing plural systems. Track fronting, communicate between headmates, and keep your system organized.",
+  "@settingsAboutDescription": { "description": "Description paragraph in the About section" },
+  "settingsAboutGitHub": "GitHub",
+  "@settingsAboutGitHub": { "description": "GitHub chip label in About section" },
+  "settingsAboutPrivacy": "Privacy",
+  "@settingsAboutPrivacy": { "description": "Privacy chip label in About section" },
+  "settingsAboutFeedback": "Feedback",
+  "@settingsAboutFeedback": { "description": "Feedback chip label in About section" },
+  "settingsAboutGitHubComingSoon": "GitHub link coming soon",
+  "@settingsAboutGitHubComingSoon": { "description": "Toast shown when GitHub chip is tapped" },
+  "settingsAboutPrivacyComingSoon": "Privacy policy coming soon",
+  "@settingsAboutPrivacyComingSoon": { "description": "Toast shown when Privacy chip is tapped" },
+  "settingsAboutFeedbackComingSoon": "Feedback form coming soon",
+  "@settingsAboutFeedbackComingSoon": { "description": "Toast shown when Feedback chip is tapped" },
+  "settingsCustomFieldsTitle": "Custom Fields",
+  "@settingsCustomFieldsTitle": { "description": "Title for the custom fields settings screen" },
+  "settingsCustomFieldsAddTooltip": "Add field",
+  "@settingsCustomFieldsAddTooltip": { "description": "Tooltip for the add field action button" },
+  "settingsCustomFieldsError": "Error: {error}",
+  "@settingsCustomFieldsError": {
+    "description": "Error state text in custom fields screen",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settingsCustomFieldsEmptyTitle": "No custom fields",
+  "@settingsCustomFieldsEmptyTitle": { "description": "Empty state title when no custom fields exist" },
+  "settingsCustomFieldsEmptySubtitle": "Add fields to track custom attributes for each member",
+  "@settingsCustomFieldsEmptySubtitle": { "description": "Empty state subtitle for custom fields screen" },
+  "settingsCustomFieldsAddAction": "Add Field",
+  "@settingsCustomFieldsAddAction": { "description": "Empty state action button label for adding a custom field" },
+  "settingsCustomFieldsDeleteTitle": "Delete Field",
+  "@settingsCustomFieldsDeleteTitle": { "description": "Title of the delete field confirmation dialog" },
+  "settingsCustomFieldsDeleteConfirm": "Are you sure you want to delete \"{name}\"? This will delete the field and all its values.",
+  "@settingsCustomFieldsDeleteConfirm": {
+    "description": "Body of the delete field confirmation dialog",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "settingsCustomFieldsDeletedToast": "{name} deleted",
+  "@settingsCustomFieldsDeletedToast": {
+    "description": "Toast shown after a custom field is deleted",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "settingsAccentColorPrismPurple": "Prism Purple",
+  "@settingsAccentColorPrismPurple": { "description": "Tooltip for the Prism Purple accent color option" },
+  "settingsAccentColorBlue": "Blue",
+  "@settingsAccentColorBlue": { "description": "Tooltip for the Blue accent color option" },
+  "settingsAccentColorGreen": "Green",
+  "@settingsAccentColorGreen": { "description": "Tooltip for the Green accent color option" },
+  "settingsAccentColorRed": "Red",
+  "@settingsAccentColorRed": { "description": "Tooltip for the Red accent color option" },
+  "settingsAccentColorOrange": "Orange",
+  "@settingsAccentColorOrange": { "description": "Tooltip for the Orange accent color option" },
+  "settingsAccentColorPink": "Pink",
+  "@settingsAccentColorPink": { "description": "Tooltip for the Pink accent color option" },
+  "settingsAccentColorTeal": "Teal",
+  "@settingsAccentColorTeal": { "description": "Tooltip for the Teal accent color option" },
+  "settingsAccentColorAmber": "Amber",
+  "@settingsAccentColorAmber": { "description": "Tooltip for the Amber accent color option" },
+  "settingsAccentColorIndigo": "Indigo",
+  "@settingsAccentColorIndigo": { "description": "Tooltip for the Indigo accent color option" },
+  "settingsAccentColorGray": "Gray",
+  "@settingsAccentColorGray": { "description": "Tooltip for the Gray accent color option" },
+  "settingsAccentColorSystemColor": "System color",
+  "@settingsAccentColorSystemColor": { "description": "Tooltip for the system color circle when Material You is active" },
+  "settingsAccentColorCustom": "Custom",
+  "@settingsAccentColorCustom": { "description": "Tooltip for the custom color picker circle" },
+  "settingsAccentColorPickerTitle": "Pick a color",
+  "@settingsAccentColorPickerTitle": { "description": "Title of the custom color picker dialog" },
+  "settingsAccentColorSelect": "Select",
+  "@settingsAccentColorSelect": { "description": "Confirm button label in the color picker dialog" },
+  "settingsAccentColorSystemPaletteNote": "Using your system color palette",
+  "@settingsAccentColorSystemPaletteNote": { "description": "Note shown below color swatches when Material You is active" },
+  "settingsSyncPasswordTitle": "Enter your sync password",
+  "@settingsSyncPasswordTitle": { "description": "Title of the sync password unlock sheet" },
+  "settingsSyncPasswordBody": "Your sync password is needed to unlock encryption keys on this device.",
+  "@settingsSyncPasswordBody": { "description": "Body text of the sync password unlock sheet" },
+  "settingsSyncPasswordFieldLabel": "Password",
+  "@settingsSyncPasswordFieldLabel": { "description": "Label for the password text field in the sync password sheet" },
+  "settingsSyncPasswordShow": "Show password",
+  "@settingsSyncPasswordShow": { "description": "Tooltip to show the password in the sync password sheet" },
+  "settingsSyncPasswordHide": "Hide password",
+  "@settingsSyncPasswordHide": { "description": "Tooltip to hide the password in the sync password sheet" },
+  "settingsSyncPasswordWrong": "Incorrect password. Please try again.",
+  "@settingsSyncPasswordWrong": { "description": "Error shown when the sync password is incorrect" },
+  "settingsSyncPasswordUnlock": "Unlock",
+  "@settingsSyncPasswordUnlock": { "description": "Unlock button label in the sync password sheet" },
+  "settingsChangePasswordTitle": "Change Password",
+  "@settingsChangePasswordTitle": { "description": "Title of the change password sheet" },
+  "settingsChangePasswordVerifyBody": "Enter your current sync password to continue.",
+  "@settingsChangePasswordVerifyBody": { "description": "Body text of the verify step in the change password flow" },
+  "settingsChangePasswordCurrentLabel": "Current password",
+  "@settingsChangePasswordCurrentLabel": { "description": "Label for the current password text field" },
+  "settingsChangePasswordShowPassword": "Show password",
+  "@settingsChangePasswordShowPassword": { "description": "Tooltip to show password in change password sheet" },
+  "settingsChangePasswordHidePassword": "Hide password",
+  "@settingsChangePasswordHidePassword": { "description": "Tooltip to hide password in change password sheet" },
+  "settingsChangePasswordContinue": "Continue",
+  "@settingsChangePasswordContinue": { "description": "Continue button in the verify step of change password" },
+  "settingsChangePasswordCurrentRequired": "Enter your current password.",
+  "@settingsChangePasswordCurrentRequired": { "description": "Validation error when current password field is empty" },
+  "settingsChangePasswordNoSecretKey": "Secret Key not found on this device. Re-pair to restore it.",
+  "@settingsChangePasswordNoSecretKey": { "description": "Error when the secret key is missing during password change" },
+  "settingsChangePasswordEngineUnavailable": "Sync engine not available.",
+  "@settingsChangePasswordEngineUnavailable": { "description": "Error when the sync engine handle is null during password change" },
+  "settingsChangePasswordIncorrect": "Incorrect password. Please try again.",
+  "@settingsChangePasswordIncorrect": { "description": "Error when the current password is wrong during verification" },
+  "settingsChangePasswordVerifyFailed": "Verification failed: {error}",
+  "@settingsChangePasswordVerifyFailed": {
+    "description": "Error when password verification fails with a known error message",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settingsChangePasswordGenericError": "An error occurred: {error}",
+  "@settingsChangePasswordGenericError": {
+    "description": "Generic error during password change flow",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settingsChangePasswordSessionExpired": "Session expired — please verify again.",
+  "@settingsChangePasswordSessionExpired": { "description": "Error shown when the verified session is lost (e.g. hot-reload)" },
+  "settingsChangePasswordWarnBody": "Your other devices will need to enter the new password when they next open Prism.",
+  "@settingsChangePasswordWarnBody": { "description": "Warning body text before changing the password" },
+  "settingsChangePasswordAction": "Change Password",
+  "@settingsChangePasswordAction": { "description": "Button label for the change password action" },
+  "settingsChangePasswordNewBody": "Choose a new sync password.",
+  "@settingsChangePasswordNewBody": { "description": "Body text of the new password step" },
+  "settingsChangePasswordNewLabel": "New password",
+  "@settingsChangePasswordNewLabel": { "description": "Label for the new password text field" },
+  "settingsChangePasswordConfirmLabel": "Confirm new password",
+  "@settingsChangePasswordConfirmLabel": { "description": "Label for the confirm new password text field" },
+  "settingsChangePasswordNewRequired": "Enter a new password.",
+  "@settingsChangePasswordNewRequired": { "description": "Validation error when new password field is empty" },
+  "settingsChangePasswordSamePassword": "Your sync password is already set to that.",
+  "@settingsChangePasswordSamePassword": { "description": "Error when new password is the same as the current password" },
+  "settingsChangePasswordMismatch": "Passwords don't match.",
+  "@settingsChangePasswordMismatch": { "description": "Error when new password and confirm password do not match" },
+  "settingsChangePasswordGenerationConflict": "Another device recently changed settings — please try again.",
+  "@settingsChangePasswordGenerationConflict": { "description": "Error when a generation conflict is detected during password change" },
+  "settingsChangePasswordFailed": "Failed to change password: {error}",
+  "@settingsChangePasswordFailed": {
+    "description": "Generic failure message when password change fails",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settingsChangePasswordSuccessTitle": "Password changed",
+  "@settingsChangePasswordSuccessTitle": { "description": "Title on the success screen after changing password" },
+  "settingsChangePasswordSuccessBody": "Your sync password has been updated on this device.",
+  "@settingsChangePasswordSuccessBody": { "description": "Body text on the success screen after changing password" },
+  "settingsCreateEditFieldEditTitle": "Edit Field",
+  "@settingsCreateEditFieldEditTitle": { "description": "Title of the edit field sheet" },
+  "settingsCreateEditFieldNewTitle": "New Field",
+  "@settingsCreateEditFieldNewTitle": { "description": "Title of the new field sheet" },
+  "settingsCreateEditFieldNameLabel": "Field Name",
+  "@settingsCreateEditFieldNameLabel": { "description": "Label for the field name text input" },
+  "settingsCreateEditFieldNameHint": "e.g. Birthday, Favorite Color",
+  "@settingsCreateEditFieldNameHint": { "description": "Hint text for the field name input" },
+  "settingsCreateEditFieldTypeHeading": "Type",
+  "@settingsCreateEditFieldTypeHeading": { "description": "Heading for the field type picker section" },
+  "settingsCreateEditFieldTypeImmutable": "Type cannot be changed after creation.",
+  "@settingsCreateEditFieldTypeImmutable": { "description": "Note shown below type chips when editing a field" },
+  "settingsCreateEditFieldDatePrecisionHeading": "Date Precision",
+  "@settingsCreateEditFieldDatePrecisionHeading": { "description": "Heading for the date precision picker section" },
+  "settingsCreateEditFieldSaveError": "Error saving field: {error}",
+  "@settingsCreateEditFieldSaveError": {
+    "description": "Toast shown when saving a field fails",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settingsDataBrowserTitle": "Data Browser",
+  "@settingsDataBrowserTitle": { "description": "Title of the data browser debug screen" },
+  "settingsDataBrowserReloadTooltip": "Reload data",
+  "@settingsDataBrowserReloadTooltip": { "description": "Tooltip for the reload button in the data browser" },
+  "settingsDataBrowserTabMembers": "Members",
+  "@settingsDataBrowserTabMembers": { "description": "Tab label for the members table in the data browser" },
+  "settingsDataBrowserTabSessions": "Sessions",
+  "@settingsDataBrowserTabSessions": { "description": "Tab label for the sessions table in the data browser" },
+  "settingsDataBrowserTabChats": "Chats",
+  "@settingsDataBrowserTabChats": { "description": "Tab label for the conversations table in the data browser" },
+  "settingsDataBrowserTabMessages": "Msgs",
+  "@settingsDataBrowserTabMessages": { "description": "Tab label for the messages table in the data browser" },
+  "settingsDataBrowserTabPolls": "Polls",
+  "@settingsDataBrowserTabPolls": { "description": "Tab label for the polls table in the data browser" },
+  "settingsDataBrowserError": "Error: {error}",
+  "@settingsDataBrowserError": {
+    "description": "Error state text in the data browser",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settingsDataBrowserNoMembers": "No members",
+  "@settingsDataBrowserNoMembers": { "description": "Empty state text when members table is empty" },
+  "settingsDataBrowserNoSessions": "No sessions",
+  "@settingsDataBrowserNoSessions": { "description": "Empty state text when sessions table is empty" },
+  "settingsDataBrowserNoConversations": "No conversations",
+  "@settingsDataBrowserNoConversations": { "description": "Empty state text when conversations table is empty" },
+  "settingsDataBrowserNoMessages": "No messages",
+  "@settingsDataBrowserNoMessages": { "description": "Empty state text when messages table is empty" },
+  "settingsDataBrowserNoPolls": "No polls",
+  "@settingsDataBrowserNoPolls": { "description": "Empty state text when polls table is empty" },
+  "settingsDataBrowserSessionActive": "Active",
+  "@settingsDataBrowserSessionActive": { "description": "Secondary field label for an active fronting session" },
+  "settingsDataBrowserSessionEnded": "Ended",
+  "@settingsDataBrowserSessionEnded": { "description": "Secondary field label for an ended fronting session" },
+  "settingsDataBrowserUntitled": "Untitled",
+  "@settingsDataBrowserUntitled": { "description": "Fallback title for conversations without a title" },
+  "settingsDataBrowserParticipantCount": "{count, plural, =1{1 participant} other{{count} participants}}",
+  "@settingsDataBrowserParticipantCount": {
+    "description": "Participant count shown in conversation rows",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "settingsDataBrowserSystemMessage": "System",
+  "@settingsDataBrowserSystemMessage": { "description": "Secondary field label for system messages" },
+  "settingsDataBrowserPollClosed": "Closed",
+  "@settingsDataBrowserPollClosed": { "description": "Secondary field label for closed polls" },
+  "settingsDataBrowserPollActive": "Active",
+  "@settingsDataBrowserPollActive": { "description": "Secondary field label for active polls" },
+  "settingsDataBrowserNoMessagesInConversation": "No messages in this conversation.",
+  "@settingsDataBrowserNoMessagesInConversation": { "description": "Text shown when a conversation has no messages" },
+  "settingsDataBrowserLoadError": "Error loading — tap to retry",
+  "@settingsDataBrowserLoadError": { "description": "Subtitle shown on a conversation row when messages fail to load" },
+  "settingsDataBrowserMessageCount": "{count, plural, =1{1 message} other{{count} messages}}",
+  "@settingsDataBrowserMessageCount": {
+    "description": "Message count subtitle on a conversation row",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "settingsDataBrowserTapToLoad": "Tap to load messages",
+  "@settingsDataBrowserTapToLoad": { "description": "Subtitle shown on a conversation row before messages are loaded" },
+  "settingsDataBrowserSessionEndTimeActive": "null (active)",
+  "@settingsDataBrowserSessionEndTimeActive": { "description": "Value shown in the endTime field for an active session" },
+  "settingsSyncDebugTitle": "Sync Event Log",
+  "@settingsSyncDebugTitle": { "description": "Title of the sync event log debug screen" },
+  "settingsSyncDebugEventCount": "{count, plural, =1{1 event} other{{count} events}}",
+  "@settingsSyncDebugEventCount": {
+    "description": "Subtitle showing the number of sync events recorded",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "settingsSyncDebugCopyLogTooltip": "Copy log",
+  "@settingsSyncDebugCopyLogTooltip": { "description": "Tooltip for the copy log button in the sync debug screen" },
+  "settingsSyncDebugClearLogTooltip": "Clear log",
+  "@settingsSyncDebugClearLogTooltip": { "description": "Tooltip for the clear log button in the sync debug screen" },
+  "settingsSyncDebugCopiedToast": "Sync event log copied",
+  "@settingsSyncDebugCopiedToast": { "description": "Toast shown after copying the sync event log" },
+  "settingsSyncDebugEmptyTitle": "No sync events recorded",
+  "@settingsSyncDebugEmptyTitle": { "description": "Empty state title in the sync event log screen" },
+  "settingsSyncDebugEmptyBody": "Sync events will appear here as they happen.",
+  "@settingsSyncDebugEmptyBody": { "description": "Empty state body in the sync event log screen" },
+  "settingsTerminologyPickerLabel": "Terminology",
+  "@settingsTerminologyPickerLabel": { "description": "Label for the terminology dropdown picker" },
+  "settingsTerminologyOptionMembers": "Members",
+  "@settingsTerminologyOptionMembers": { "description": "Terminology option: Members (plural)" },
+  "settingsTerminologyOptionMembersSingular": "member",
+  "@settingsTerminologyOptionMembersSingular": { "description": "Terminology option: member (singular)" },
+  "settingsTerminologyOptionHeadmates": "Headmates",
+  "@settingsTerminologyOptionHeadmates": { "description": "Terminology option: Headmates (plural)" },
+  "settingsTerminologyOptionHeadmatesSingular": "headmate",
+  "@settingsTerminologyOptionHeadmatesSingular": { "description": "Terminology option: headmate (singular)" },
+  "settingsTerminologyOptionAlters": "Alters",
+  "@settingsTerminologyOptionAlters": { "description": "Terminology option: Alters (plural)" },
+  "settingsTerminologyOptionAltersSingular": "alter",
+  "@settingsTerminologyOptionAltersSingular": { "description": "Terminology option: alter (singular)" },
+  "settingsTerminologyOptionParts": "Parts",
+  "@settingsTerminologyOptionParts": { "description": "Terminology option: Parts (plural)" },
+  "settingsTerminologyOptionPartsSingular": "part",
+  "@settingsTerminologyOptionPartsSingular": { "description": "Terminology option: part (singular)" },
+  "settingsTerminologyOptionFacets": "Facets",
+  "@settingsTerminologyOptionFacets": { "description": "Terminology option: Facets (plural)" },
+  "settingsTerminologyOptionFacetsSingular": "facet",
+  "@settingsTerminologyOptionFacetsSingular": { "description": "Terminology option: facet (singular)" },
+  "settingsTerminologyOptionCustom": "Custom",
+  "@settingsTerminologyOptionCustom": { "description": "Terminology option: Custom (plural label)" },
+  "settingsTerminologyOptionCustomSingular": "custom term",
+  "@settingsTerminologyOptionCustomSingular": { "description": "Terminology option: custom term (singular label)" },
+  "settingsTerminologyCustomSingularLabel": "Custom term (singular)",
+  "@settingsTerminologyCustomSingularLabel": { "description": "Label for the custom singular term text field" },
+  "settingsTerminologyCustomSingularHint": "e.g. fragment",
+  "@settingsTerminologyCustomSingularHint": { "description": "Hint text for the custom singular term text field" },
+  "settingsTerminologyCustomPluralLabel": "Custom term (plural)",
+  "@settingsTerminologyCustomPluralLabel": { "description": "Label for the custom plural term text field" },
+  "settingsTerminologyCustomPluralHint": "e.g. fragments",
+  "@settingsTerminologyCustomPluralHint": { "description": "Hint text for the custom plural term text field" },
+  "settingsTerminologyPreviewLabel": "Preview",
+  "@settingsTerminologyPreviewLabel": { "description": "Label above the live terminology preview box" },
+
+  "navHome": "Home",
+  "@navHome": { "description": "Bottom navigation tab label for the Home (fronting) tab" },
+  "navChat": "Chat",
+  "@navChat": { "description": "Bottom navigation tab label for the Chat tab" },
+  "navHabits": "Habits",
+  "@navHabits": { "description": "Bottom navigation tab label for the Habits tab" },
+  "navPolls": "Polls",
+  "@navPolls": { "description": "Bottom navigation tab label for the Polls tab" },
+  "navSettings": "Settings",
+  "@navSettings": { "description": "Bottom navigation tab label for the Settings tab" },
+  "navMembers": "Members",
+  "@navMembers": { "description": "Bottom navigation tab label for the Members tab (default; overridden by user terminology)" },
+  "navReminders": "Reminders",
+  "@navReminders": { "description": "Bottom navigation tab label for the Reminders tab" },
+  "navNotes": "Notes",
+  "@navNotes": { "description": "Bottom navigation tab label for the Notes tab" },
+  "navStatistics": "Statistics",
+  "@navStatistics": { "description": "Bottom navigation tab label for the Statistics tab" },
+
+  "onboardingWelcomeTitle": "Welcome to Prism",
+  "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },
+  "onboardingWelcomeSubtitle": "Your system, your way.",
+  "@onboardingWelcomeSubtitle": { "description": "Header subtitle for the onboarding welcome step" },
+  "onboardingSyncDeviceTitle": "Sync From Device",
+  "@onboardingSyncDeviceTitle": { "description": "Header title for the onboarding sync device step" },
+  "onboardingSyncDeviceSubtitle": "Pair with an existing device",
+  "@onboardingSyncDeviceSubtitle": { "description": "Header subtitle for the onboarding sync device step" },
+  "onboardingImportedDataReadyTitle": "Data Ready",
+  "@onboardingImportedDataReadyTitle": { "description": "Header title for the onboarding imported-data-ready step" },
+  "onboardingImportedDataReadySubtitle": "Your imported system is ready to use",
+  "@onboardingImportedDataReadySubtitle": { "description": "Header subtitle for the onboarding imported-data-ready step" },
+  "onboardingImportDataTitle": "Already have data?",
+  "@onboardingImportDataTitle": { "description": "Header title for the onboarding import-data step" },
+  "onboardingImportDataSubtitle": "Bring your system with you.",
+  "@onboardingImportDataSubtitle": { "description": "Header subtitle for the onboarding import-data step" },
+  "onboardingSystemNameTitle": "Name your system",
+  "@onboardingSystemNameTitle": { "description": "Header title for the onboarding system-name step" },
+  "onboardingSystemNameSubtitle": "Whatever feels right.",
+  "@onboardingSystemNameSubtitle": { "description": "Header subtitle for the onboarding system-name step" },
+  "onboardingAddMembersTitle": "Who's here?",
+  "@onboardingAddMembersTitle": { "description": "Header title for the onboarding add-members step" },
+  "onboardingAddMembersSubtitle": "Add the people in your system.",
+  "@onboardingAddMembersSubtitle": { "description": "Header subtitle for the onboarding add-members step" },
+  "onboardingFeaturesTitle": "Pick your tools",
+  "@onboardingFeaturesTitle": { "description": "Header title for the onboarding features step" },
+  "onboardingFeaturesSubtitle": "Turn on what you need. Change anytime.",
+  "@onboardingFeaturesSubtitle": { "description": "Header subtitle for the onboarding features step" },
+  "onboardingChatSetupTitle": "Set up chat",
+  "@onboardingChatSetupTitle": { "description": "Header title for the onboarding chat-setup step" },
+  "onboardingChatSetupSubtitle": "Channels for your system to talk.",
+  "@onboardingChatSetupSubtitle": { "description": "Header subtitle for the onboarding chat-setup step" },
+  "onboardingPreferencesTitle": "Make it yours",
+  "@onboardingPreferencesTitle": { "description": "Header title for the onboarding preferences step" },
+  "onboardingPreferencesSubtitle": "Colors, language, the small things.",
+  "@onboardingPreferencesSubtitle": { "description": "Header subtitle for the onboarding preferences step" },
+  "onboardingWhosFrontingTitle": "Who's fronting?",
+  "@onboardingWhosFrontingTitle": { "description": "Header title for the onboarding who's-fronting step" },
+  "onboardingWhosFrontingSubtitle": "Tap whoever's here right now.",
+  "@onboardingWhosFrontingSubtitle": { "description": "Header subtitle for the onboarding who's-fronting step" },
+  "onboardingCompleteTitle": "Ready when you are",
+  "@onboardingCompleteTitle": { "description": "Header title for the onboarding complete step" },
+  "onboardingCompleteSubtitle": "Your system is set up. Here's what to explore.",
+  "@onboardingCompleteSubtitle": { "description": "Header subtitle for the onboarding complete step" },
+
+  "terminologyAddButton": "Add {term}",
+  "@terminologyAddButton": {
+    "description": "Button label to add a new member/alter/headmate — {term} is user's chosen singular",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologySearchHint": "Search {term}...",
+  "@terminologySearchHint": {
+    "description": "Search field hint text — {term} is user's chosen plural lowercase",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologyEmptyTitle": "No {term} yet",
+  "@terminologyEmptyTitle": {
+    "description": "Empty state title for all members shown — {term} is user's chosen plural lowercase",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologyEmptyActiveTitle": "No active {term} yet",
+  "@terminologyEmptyActiveTitle": {
+    "description": "Empty state title when only active members shown — {term} is user's chosen plural lowercase",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologyNewItem": "New {term}",
+  "@terminologyNewItem": {
+    "description": "Sheet title when creating a new member — {term} is user's chosen singular",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologyEditItem": "Edit {term}",
+  "@terminologyEditItem": {
+    "description": "Sheet title when editing a member — {term} is user's chosen singular",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologyDeleteItem": "Delete {term}",
+  "@terminologyDeleteItem": {
+    "description": "Dialog title when deleting a member — {term} is user's chosen singular",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologyManage": "Manage {term}",
+  "@terminologyManage": {
+    "description": "System management screen title — {term} is user's chosen plural",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologyDeleteSelected": "Delete Selected {term}",
+  "@terminologyDeleteSelected": {
+    "description": "Bulk delete action label — {term} is user's chosen plural",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologySelectPrompt": "Select a {term}",
+  "@terminologySelectPrompt": {
+    "description": "Prompt to select a member — {term} is user's chosen singular lowercase",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologyNoFound": "No {term} found",
+  "@terminologyNoFound": {
+    "description": "Search empty state — {term} is user's chosen plural lowercase",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "terminologyLoadError": "Error loading {term}: {error}",
+  "@terminologyLoadError": {
+    "description": "Error when member list fails to load — {term} is plural lowercase, {error} is error message",
+    "placeholders": {
+      "term": { "type": "String" },
+      "error": { "type": "String" }
+    }
+  },
+  "terminologyAddFirstSubtitle": "Add your first system {term} to get started",
+  "@terminologyAddFirstSubtitle": {
+    "description": "Members empty state subtitle — {term} is user's chosen singular lowercase",
+    "placeholders": { "term": { "type": "String" } }
+  },
+  "pollsVotingAsSelectPrompt": "Select a {term} to vote as",
+  "@pollsVotingAsSelectPrompt": {
+    "description": "Toast when trying to vote without selecting a member to vote as — {term} is user's chosen singular lowercase",
+    "placeholders": { "term": { "type": "String" } }
+  }
 }

@@ -1619,7 +1619,7 @@ abstract class AppLocalizations {
   /// Number of sessions in statistics fronter row
   ///
   /// In en, this message translates to:
-  /// **'{count} sessions'**
+  /// **'{count, plural, =1{1 session} other{{count} sessions}}'**
   String statisticsSessions(int count);
 
   /// Active/inactive member count breakdown in statistics
@@ -2477,8 +2477,8 @@ abstract class AppLocalizations {
   /// Description text on chat feature settings screen
   ///
   /// In en, this message translates to:
-  /// **'Internal messaging between system members.'**
-  String get featureChatDescription;
+  /// **'Internal messaging between system {term}.'**
+  String featureChatDescription(String term);
 
   /// Section title: general settings on chat feature screen
   ///
@@ -2495,8 +2495,8 @@ abstract class AppLocalizations {
   /// Toggle subtitle: enable chat
   ///
   /// In en, this message translates to:
-  /// **'In-system messaging between members'**
-  String get featureChatEnableSubtitle;
+  /// **'In-system messaging between {term}'**
+  String featureChatEnableSubtitle(String term);
 
   /// Section title: options on chat feature screen
   ///
@@ -2579,8 +2579,8 @@ abstract class AppLocalizations {
   /// Description text on habits feature settings screen
   ///
   /// In en, this message translates to:
-  /// **'Track recurring tasks and build streaks with your system members.'**
-  String get featureHabitsDescription;
+  /// **'Track recurring tasks and build streaks with your system {term}.'**
+  String featureHabitsDescription(String term);
 
   /// Section title: general on habits feature screen
   ///
@@ -2687,8 +2687,8 @@ abstract class AppLocalizations {
   /// Description text on notes feature settings screen
   ///
   /// In en, this message translates to:
-  /// **'A personal journal for system members. Disabling hides notes from navigation but keeps existing entries.'**
-  String get featureNotesDescription;
+  /// **'A personal journal for system {term}. Disabling hides notes from navigation but keeps existing entries.'**
+  String featureNotesDescription(String term);
 
   /// Toggle title: enable notes
   ///
@@ -2927,8 +2927,8 @@ abstract class AppLocalizations {
   /// Section header when selecting a member in co-front mode
   ///
   /// In en, this message translates to:
-  /// **'Select Member'**
-  String get frontingSelectMember;
+  /// **'Select {term}'**
+  String frontingSelectMember(String term);
 
   /// Toggle label to switch between new session and co-front mode
   ///
@@ -2945,14 +2945,14 @@ abstract class AppLocalizations {
   /// Empty state when no other members are available to add as co-fronters
   ///
   /// In en, this message translates to:
-  /// **'No other members available'**
-  String get frontingNoOtherMembers;
+  /// **'No other {term} available'**
+  String frontingNoOtherMembers(String term);
 
   /// Hint text shown in co-front mode on the add session sheet
   ///
   /// In en, this message translates to:
-  /// **'Tap a member to add them as a co-fronter to the current session.'**
-  String get frontingCoFrontHint;
+  /// **'Tap a {term} to add them to the co-front of the current session.'**
+  String frontingCoFrontHint(String term);
 
   /// Section header for confidence level picker
   ///
@@ -2999,14 +2999,14 @@ abstract class AppLocalizations {
   /// Hint text in member search field on add session sheet
   ///
   /// In en, this message translates to:
-  /// **'Search members...'**
-  String get frontingSearchMembersHint;
+  /// **'Search {term}...'**
+  String frontingSearchMembersHint(String term);
 
   /// Empty state when search yields no members
   ///
   /// In en, this message translates to:
-  /// **'No members matching \"{query}\"'**
-  String frontingNoMembersMatching(String query);
+  /// **'No {term} matching \"{query}\"'**
+  String frontingNoMembersMatching(String term, String query);
 
   /// Badge label shown on a member avatar who is already fronting
   ///
@@ -4301,7 +4301,7 @@ abstract class AppLocalizations {
   /// Bulk selection count label in system management screen
   ///
   /// In en, this message translates to:
-  /// **'{count} selected'**
+  /// **'{count, plural, =1{1 selected} other{{count} selected}}'**
   String memberSelectedCount(int count);
 
   /// Bulk action button: activate selected members
@@ -5027,7 +5027,7 @@ abstract class AppLocalizations {
   /// Accessibility announcement for GIF search result count
   ///
   /// In en, this message translates to:
-  /// **'{count} GIFs found'**
+  /// **'{count, plural, =1{1 GIF found} other{{count} GIFs found}}'**
   String chatGifsFound(int count);
 
   /// Send button in GIF preview overlay
@@ -5525,7 +5525,7 @@ abstract class AppLocalizations {
   /// Success message after PluralKit import
   ///
   /// In en, this message translates to:
-  /// **'Imported {count} members from PluralKit!'**
+  /// **'{count, plural, =1{Imported 1 member from PluralKit!} other{Imported {count} members from PluralKit!}}'**
   String onboardingPluralKitImportSuccess(int count);
 
   /// Validation error when PluralKit token is empty
@@ -6617,7 +6617,7 @@ abstract class AppLocalizations {
   /// Option count label on poll card
   ///
   /// In en, this message translates to:
-  /// **'{count} options'**
+  /// **'{count, plural, =1{1 option} other{{count} options}}'**
   String pollsOptionCount(int count);
 
   /// Pill label for expired poll
@@ -6793,6 +6793,2730 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 poll needs} other{{count} polls need}} your vote'**
   String pollsNotificationBanner(int count);
+
+  /// Notes screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get notesTitle;
+
+  /// Tooltip for the new note button in notes list
+  ///
+  /// In en, this message translates to:
+  /// **'New note'**
+  String get notesNewNoteTooltip;
+
+  /// Empty state title when there are no notes
+  ///
+  /// In en, this message translates to:
+  /// **'No notes yet'**
+  String get notesEmptyTitle;
+
+  /// Empty state subtitle for notes list
+  ///
+  /// In en, this message translates to:
+  /// **'Create notes to keep track of thoughts and observations'**
+  String get notesEmptySubtitle;
+
+  /// Action button label to create a new note
+  ///
+  /// In en, this message translates to:
+  /// **'New Note'**
+  String get notesNewNoteAction;
+
+  /// Fallback title for a note with no title or body
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get notesUntitled;
+
+  /// Migration screen top bar title
+  ///
+  /// In en, this message translates to:
+  /// **'Import Data'**
+  String get migrationImportData;
+
+  /// Loading message while reading an import file
+  ///
+  /// In en, this message translates to:
+  /// **'Reading file…'**
+  String get migrationReadingFile;
+
+  /// Loading message while verifying the Simply Plural token
+  ///
+  /// In en, this message translates to:
+  /// **'Verifying token…'**
+  String get migrationVerifyingToken;
+
+  /// Headline on the migration idle view
+  ///
+  /// In en, this message translates to:
+  /// **'Import from Simply Plural'**
+  String get migrationImportFromSimplyPlural;
+
+  /// Body text on the migration idle view
+  ///
+  /// In en, this message translates to:
+  /// **'Bring your existing data into Prism. Choose how you would like to import your Simply Plural data.'**
+  String get migrationImportDescription;
+
+  /// Import method card title for API import
+  ///
+  /// In en, this message translates to:
+  /// **'Connect with API'**
+  String get migrationConnectWithApi;
+
+  /// Import method card subtitle for API import
+  ///
+  /// In en, this message translates to:
+  /// **'No file export needed — imports directly from your account'**
+  String get migrationConnectWithApiSubtitle;
+
+  /// Chip label shown on the recommended import method
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get migrationRecommended;
+
+  /// Import method card title for file import
+  ///
+  /// In en, this message translates to:
+  /// **'Import from file'**
+  String get migrationImportFromFile;
+
+  /// Import method card subtitle for file import
+  ///
+  /// In en, this message translates to:
+  /// **'Use a JSON export file from Simply Plural'**
+  String get migrationImportFromFileSubtitle;
+
+  /// Section heading for supported data types list
+  ///
+  /// In en, this message translates to:
+  /// **'Supported data types'**
+  String get migrationSupportedDataTypes;
+
+  /// Supported data type: members
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get migrationSupportedMembers;
+
+  /// Supported data type: custom fronts
+  ///
+  /// In en, this message translates to:
+  /// **'Custom fronts'**
+  String get migrationSupportedCustomFronts;
+
+  /// Supported data type: fronting history
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting history'**
+  String get migrationSupportedFrontingHistory;
+
+  /// Supported data type: chat channels and messages
+  ///
+  /// In en, this message translates to:
+  /// **'Chat channels & messages'**
+  String get migrationSupportedChatChannels;
+
+  /// Supported data type: polls
+  ///
+  /// In en, this message translates to:
+  /// **'Polls'**
+  String get migrationSupportedPolls;
+
+  /// Supported data type: member colors
+  ///
+  /// In en, this message translates to:
+  /// **'Member colors'**
+  String get migrationSupportedMemberColors;
+
+  /// Supported data type: member descriptions
+  ///
+  /// In en, this message translates to:
+  /// **'Member descriptions'**
+  String get migrationSupportedMemberDescriptions;
+
+  /// Supported data type: avatar images
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar images'**
+  String get migrationSupportedAvatarImages;
+
+  /// Supported data type: notes
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get migrationSupportedNotes;
+
+  /// Supported data type: custom fields
+  ///
+  /// In en, this message translates to:
+  /// **'Custom fields'**
+  String get migrationSupportedCustomFields;
+
+  /// Supported data type: groups
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get migrationSupportedGroups;
+
+  /// Supported data type: comments on front sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Comments on front sessions'**
+  String get migrationSupportedComments;
+
+  /// Supported data type: reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get migrationSupportedReminders;
+
+  /// Token input screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Connect to Simply Plural'**
+  String get migrationConnectToSimplyPlural;
+
+  /// Body text on the token input screen
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your API token to import data directly.'**
+  String get migrationEnterTokenDescription;
+
+  /// Label for the API token input field
+  ///
+  /// In en, this message translates to:
+  /// **'API Token'**
+  String get migrationApiTokenLabel;
+
+  /// Hint text for the API token input field
+  ///
+  /// In en, this message translates to:
+  /// **'Paste your token here'**
+  String get migrationPasteTokenHint;
+
+  /// Tooltip to show the API token
+  ///
+  /// In en, this message translates to:
+  /// **'Show token'**
+  String get migrationShowToken;
+
+  /// Tooltip to hide the API token
+  ///
+  /// In en, this message translates to:
+  /// **'Hide token'**
+  String get migrationHideToken;
+
+  /// Tooltip for the paste-from-clipboard button
+  ///
+  /// In en, this message translates to:
+  /// **'Paste from clipboard'**
+  String get migrationPasteFromClipboard;
+
+  /// Expandable help link label on the token input screen
+  ///
+  /// In en, this message translates to:
+  /// **'Where do I find this?'**
+  String get migrationWhereDoIFindThis;
+
+  /// Help text explaining where to find the Simply Plural API token
+  ///
+  /// In en, this message translates to:
+  /// **'In Simply Plural, go to Settings → Account → Tokens. Create a new token with Read permission and copy it.'**
+  String get migrationTokenHelpText;
+
+  /// Button label to verify the API token
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Token'**
+  String get migrationVerifyToken;
+
+  /// Status label shown when the Simply Plural token is verified
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get migrationConnected;
+
+  /// Label showing the connected Simply Plural username
+  ///
+  /// In en, this message translates to:
+  /// **'Signed in as {username}'**
+  String migrationSignedInAs(String username);
+
+  /// Button label to continue after token verification
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get migrationContinue;
+
+  /// Headline shown while fetching data from Simply Plural API
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching data from Simply Plural…'**
+  String get migrationFetchingData;
+
+  /// Headline on the import preview step
+  ///
+  /// In en, this message translates to:
+  /// **'Preview Import'**
+  String get migrationPreviewImport;
+
+  /// Body text on the import preview step
+  ///
+  /// In en, this message translates to:
+  /// **'Review what was found before importing.'**
+  String get migrationPreviewDescription;
+
+  /// Info note on the import preview step
+  ///
+  /// In en, this message translates to:
+  /// **'Imported data will be added alongside any existing data. Nothing will be overwritten.'**
+  String get migrationImportInfoNote;
+
+  /// Note shown when the API cannot provide reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders are not available via the API. To import reminders, use a file export instead.'**
+  String get migrationRemindersApiNote;
+
+  /// Button label when a previous import exists
+  ///
+  /// In en, this message translates to:
+  /// **'Import All (add to existing)'**
+  String get migrationImportAllAddToExisting;
+
+  /// Button label to reset and re-import
+  ///
+  /// In en, this message translates to:
+  /// **'Start Fresh (replace all data)'**
+  String get migrationStartFresh;
+
+  /// Button label to import all data
+  ///
+  /// In en, this message translates to:
+  /// **'Import All'**
+  String get migrationImportAll;
+
+  /// Confirmation dialog title for replacing all data
+  ///
+  /// In en, this message translates to:
+  /// **'Replace all data?'**
+  String get migrationReplaceAllTitle;
+
+  /// Confirmation dialog body for replacing all data
+  ///
+  /// In en, this message translates to:
+  /// **'This will delete all existing members, front history, conversations, and other data before importing. This action cannot be undone.\n\nIf you have sync set up, other paired devices should also be reset to avoid conflicts.'**
+  String get migrationReplaceAllMessage;
+
+  /// Confirmation button to replace all data
+  ///
+  /// In en, this message translates to:
+  /// **'Replace All'**
+  String get migrationReplaceAll;
+
+  /// Progress headline shown during import
+  ///
+  /// In en, this message translates to:
+  /// **'Importing…'**
+  String get migrationImporting;
+
+  /// Headline shown when import finishes
+  ///
+  /// In en, this message translates to:
+  /// **'Import Complete'**
+  String get migrationImportComplete;
+
+  /// Body text shown when import finishes
+  ///
+  /// In en, this message translates to:
+  /// **'Successfully imported {total} items in {seconds}s.'**
+  String migrationImportSuccess(int total, int seconds);
+
+  /// Section heading on the import complete view
+  ///
+  /// In en, this message translates to:
+  /// **'Summary'**
+  String get migrationSummary;
+
+  /// Import result row label for members
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get migrationResultMembers;
+
+  /// Import result row label for front sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Front sessions'**
+  String get migrationResultFrontSessions;
+
+  /// Import result row label for conversations
+  ///
+  /// In en, this message translates to:
+  /// **'Conversations'**
+  String get migrationResultConversations;
+
+  /// Import result row label for messages
+  ///
+  /// In en, this message translates to:
+  /// **'Messages'**
+  String get migrationResultMessages;
+
+  /// Import result row label for polls
+  ///
+  /// In en, this message translates to:
+  /// **'Polls'**
+  String get migrationResultPolls;
+
+  /// Import result row label for notes
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get migrationResultNotes;
+
+  /// Import result row label for comments
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get migrationResultComments;
+
+  /// Import result row label for custom fields
+  ///
+  /// In en, this message translates to:
+  /// **'Custom fields'**
+  String get migrationResultCustomFields;
+
+  /// Import result row label for groups
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get migrationResultGroups;
+
+  /// Import result row label for reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get migrationResultReminders;
+
+  /// Import result row label for downloaded avatars
+  ///
+  /// In en, this message translates to:
+  /// **'Avatars downloaded'**
+  String get migrationResultAvatarsDownloaded;
+
+  /// Warning count label on the import complete view
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 warning} other{{count} warnings}}'**
+  String migrationWarnings(int count);
+
+  /// Headline shown when import fails
+  ///
+  /// In en, this message translates to:
+  /// **'Import Failed'**
+  String get migrationImportFailed;
+
+  /// Button to switch to file import after API import fails
+  ///
+  /// In en, this message translates to:
+  /// **'Try file import instead'**
+  String get migrationTryFileImport;
+
+  /// Fallback error message
+  ///
+  /// In en, this message translates to:
+  /// **'An unknown error occurred.'**
+  String get migrationUnknownError;
+
+  /// System name label on the import preview card
+  ///
+  /// In en, this message translates to:
+  /// **'System: {name}'**
+  String migrationPreviewSystem(String name);
+
+  /// Section heading on the import preview card
+  ///
+  /// In en, this message translates to:
+  /// **'Data found'**
+  String get migrationPreviewDataFound;
+
+  /// Preview card row label for front history entries
+  ///
+  /// In en, this message translates to:
+  /// **'Front history entries'**
+  String get migrationPreviewFrontHistoryEntries;
+
+  /// Preview card row label for chat channels
+  ///
+  /// In en, this message translates to:
+  /// **'Chat channels'**
+  String get migrationPreviewChatChannels;
+
+  /// Preview card row label for messages
+  ///
+  /// In en, this message translates to:
+  /// **'Messages'**
+  String get migrationPreviewMessages;
+
+  /// Preview card row label for total entities count
+  ///
+  /// In en, this message translates to:
+  /// **'Total entities'**
+  String get migrationPreviewTotalEntities;
+
+  /// Preview card warnings section heading
+  ///
+  /// In en, this message translates to:
+  /// **'Warnings'**
+  String get migrationPreviewWarnings;
+
+  /// Preview card row label for custom fronts
+  ///
+  /// In en, this message translates to:
+  /// **'Custom fronts'**
+  String get migrationPreviewCustomFronts;
+
+  /// Preview card row label for groups
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get migrationPreviewGroups;
+
+  /// Preview card row label for polls
+  ///
+  /// In en, this message translates to:
+  /// **'Polls'**
+  String get migrationPreviewPolls;
+
+  /// PluralKit setup screen title
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit'**
+  String get pluralkitTitle;
+
+  /// Section header for PluralKit account
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit Account'**
+  String get pluralkitAccount;
+
+  /// Section header for sync direction
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Direction'**
+  String get pluralkitSyncDirection;
+
+  /// Section header for sync actions
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Actions'**
+  String get pluralkitSyncActions;
+
+  /// Section header for how PluralKit sync works
+  ///
+  /// In en, this message translates to:
+  /// **'How It Works'**
+  String get pluralkitHowItWorks;
+
+  /// Confirmation dialog title when disconnecting PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect PluralKit?'**
+  String get pluralkitDisconnectTitle;
+
+  /// Confirmation dialog body when disconnecting PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'This will remove your token and disconnect from PluralKit. Your imported data will remain in the app.'**
+  String get pluralkitDisconnectMessage;
+
+  /// Button label to disconnect from PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'Disconnect'**
+  String get pluralkitDisconnect;
+
+  /// Status label when PluralKit token is connected
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get pluralkitConnected;
+
+  /// Label showing when the last automatic sync occurred
+  ///
+  /// In en, this message translates to:
+  /// **'Last sync: {when}'**
+  String pluralkitLastSync(String when);
+
+  /// Label showing when the last manual sync occurred
+  ///
+  /// In en, this message translates to:
+  /// **'Last manual sync: {when}'**
+  String pluralkitLastManualSync(String when);
+
+  /// Label for the PluralKit token input field
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit Token'**
+  String get pluralkitTokenLabel;
+
+  /// Hint text for the PluralKit token input field
+  ///
+  /// In en, this message translates to:
+  /// **'Paste your token here'**
+  String get pluralkitPasteTokenHint;
+
+  /// Button label to connect PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'Connect'**
+  String get pluralkitConnect;
+
+  /// Help text for finding the PluralKit token
+  ///
+  /// In en, this message translates to:
+  /// **'To get your token, DM the PluralKit bot on Discord with \"pk;token\" and paste the result here.'**
+  String get pluralkitTokenHelp;
+
+  /// Button label to import all data from PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'Import from PluralKit'**
+  String get pluralkitImportButton;
+
+  /// Button label to sync recent PluralKit changes
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Recent Changes'**
+  String get pluralkitSyncRecent;
+
+  /// Button label showing cooldown countdown
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Recent Changes ({seconds}s)'**
+  String pluralkitSyncRecentCooldown(int seconds);
+
+  /// Description text for the sync direction picker
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how data flows between Prism and PluralKit.'**
+  String get pluralkitSyncDirectionDescription;
+
+  /// PluralKit sync direction: pull only
+  ///
+  /// In en, this message translates to:
+  /// **'Pull'**
+  String get pluralkitPull;
+
+  /// PluralKit sync direction: bidirectional
+  ///
+  /// In en, this message translates to:
+  /// **'Both'**
+  String get pluralkitBoth;
+
+  /// PluralKit sync direction: push only
+  ///
+  /// In en, this message translates to:
+  /// **'Push'**
+  String get pluralkitPush;
+
+  /// Card heading for the last PluralKit sync summary
+  ///
+  /// In en, this message translates to:
+  /// **'Last Sync Summary'**
+  String get pluralkitLastSyncSummary;
+
+  /// Message when there are no sync changes
+  ///
+  /// In en, this message translates to:
+  /// **'Everything is up to date.'**
+  String get pluralkitUpToDate;
+
+  /// Sync summary row: members pulled from PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 member pulled} other{{count} members pulled}}'**
+  String pluralkitMembersPulled(int count);
+
+  /// Sync summary row: members pushed to PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 member pushed} other{{count} members pushed}}'**
+  String pluralkitMembersPushed(int count);
+
+  /// Sync summary row: switches pulled from PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 switch pulled} other{{count} switches pulled}}'**
+  String pluralkitSwitchesPulled(int count);
+
+  /// Sync summary row: switches pushed to PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 switch pushed} other{{count} switches pushed}}'**
+  String pluralkitSwitchesPushed(int count);
+
+  /// Sync summary row: members with no changes
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 member unchanged} other{{count} members unchanged}}'**
+  String pluralkitMembersUnchanged(int count);
+
+  /// How It Works info row about sync direction
+  ///
+  /// In en, this message translates to:
+  /// **'Supports pull, push, or bidirectional sync. Choose your preferred direction above.'**
+  String get pluralkitInfoSync;
+
+  /// How It Works info row about token security
+  ///
+  /// In en, this message translates to:
+  /// **'Your token is stored securely in the device keychain and never leaves your device.'**
+  String get pluralkitInfoToken;
+
+  /// How It Works info row about member matching
+  ///
+  /// In en, this message translates to:
+  /// **'Members are matched by PluralKit UUID. Existing members are updated, new ones are created.'**
+  String get pluralkitInfoMembers;
+
+  /// How It Works info row about switch import
+  ///
+  /// In en, this message translates to:
+  /// **'Switches are imported as fronting sessions. Duplicate switches are automatically skipped.'**
+  String get pluralkitInfoSwitches;
+
+  /// Relative time label when PluralKit sync was less than a minute ago
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get pluralkitJustNow;
+
+  /// Relative time label for minutes ago in PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m ago'**
+  String pluralkitMinutesAgo(int minutes);
+
+  /// Relative time label for hours ago in PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h ago'**
+  String pluralkitHoursAgo(int hours);
+
+  /// Relative time label for days ago in PluralKit
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d ago'**
+  String pluralkitDaysAgo(int days);
+
+  /// Export sheet top bar title
+  ///
+  /// In en, this message translates to:
+  /// **'Export Data'**
+  String get dataManagementExportTitle;
+
+  /// Import sheet top bar title
+  ///
+  /// In en, this message translates to:
+  /// **'Import Data'**
+  String get dataManagementImportTitle;
+
+  /// Import/export screen top bar title
+  ///
+  /// In en, this message translates to:
+  /// **'Import & Export'**
+  String get dataManagementImportExportTitle;
+
+  /// Section title for the export row on the import/export screen
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get dataManagementExportSectionTitle;
+
+  /// Section title for the import row on the import/export screen
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get dataManagementImportSectionTitle;
+
+  /// Section title for other app imports
+  ///
+  /// In en, this message translates to:
+  /// **'Import from Other Apps'**
+  String get dataManagementImportFromOtherApps;
+
+  /// Settings row title for exporting data
+  ///
+  /// In en, this message translates to:
+  /// **'Export Data'**
+  String get dataManagementExportRowTitle;
+
+  /// Settings row subtitle for exporting data
+  ///
+  /// In en, this message translates to:
+  /// **'Create a password-protected backup'**
+  String get dataManagementExportRowSubtitle;
+
+  /// Settings row title for importing data
+  ///
+  /// In en, this message translates to:
+  /// **'Import Data'**
+  String get dataManagementImportRowTitle;
+
+  /// Settings row subtitle for importing data
+  ///
+  /// In en, this message translates to:
+  /// **'Restore data from a Prism export file (.json or .prism)'**
+  String get dataManagementImportRowSubtitle;
+
+  /// Settings row subtitle for PluralKit import
+  ///
+  /// In en, this message translates to:
+  /// **'Import members & fronting via API token'**
+  String get dataManagementPluralKitRowSubtitle;
+
+  /// Settings row title for Simply Plural import
+  ///
+  /// In en, this message translates to:
+  /// **'Simply Plural'**
+  String get dataManagementSimplyPluralRowTitle;
+
+  /// Settings row subtitle for Simply Plural import
+  ///
+  /// In en, this message translates to:
+  /// **'Import from a Simply Plural export file'**
+  String get dataManagementSimplyPluralRowSubtitle;
+
+  /// Headline on the export idle state
+  ///
+  /// In en, this message translates to:
+  /// **'Export Your Data'**
+  String get dataManagementExportYourData;
+
+  /// Body text on the export idle state
+  ///
+  /// In en, this message translates to:
+  /// **'Create a password-protected backup of all your data including members, fronting sessions, messages, polls, and settings.'**
+  String get dataManagementExportDescription;
+
+  /// Button label to start the export flow
+  ///
+  /// In en, this message translates to:
+  /// **'Export Data'**
+  String get dataManagementExportButton;
+
+  /// Headline on the export password step
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypt Export'**
+  String get dataManagementEncryptExport;
+
+  /// Body text on the export password step
+  ///
+  /// In en, this message translates to:
+  /// **'Set a password to encrypt your export file. You will need this password to import the data later.'**
+  String get dataManagementEncryptDescription;
+
+  /// Warning about unencrypted exports
+  ///
+  /// In en, this message translates to:
+  /// **'Unencrypted exports are plain JSON. Anyone who opens the file can read its contents.'**
+  String get dataManagementUnencryptedWarning;
+
+  /// Label for the export password field
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get dataManagementPasswordLabel;
+
+  /// Hint for the export password field
+  ///
+  /// In en, this message translates to:
+  /// **'Use a passphrase of 15+ words for best protection'**
+  String get dataManagementPasswordHint;
+
+  /// Tooltip to show the password
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get dataManagementShowPassword;
+
+  /// Tooltip to hide the password
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get dataManagementHidePassword;
+
+  /// Label for the confirm password field
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Password'**
+  String get dataManagementConfirmPasswordLabel;
+
+  /// Button label to export without encryption
+  ///
+  /// In en, this message translates to:
+  /// **'Export Unencrypted'**
+  String get dataManagementExportUnencrypted;
+
+  /// Button label to encrypt and export
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypt'**
+  String get dataManagementEncrypt;
+
+  /// Progress message while exporting
+  ///
+  /// In en, this message translates to:
+  /// **'Exporting your data…'**
+  String get dataManagementExporting;
+
+  /// Hint that the operation may take some time
+  ///
+  /// In en, this message translates to:
+  /// **'This may take a moment.'**
+  String get dataManagementMayTakeMoment;
+
+  /// Headline when export fails
+  ///
+  /// In en, this message translates to:
+  /// **'Export Failed'**
+  String get dataManagementExportFailed;
+
+  /// Button label to retry a failed export
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get dataManagementRetry;
+
+  /// Headline when export succeeds
+  ///
+  /// In en, this message translates to:
+  /// **'Export Complete'**
+  String get dataManagementExportComplete;
+
+  /// Confirmation dialog title for unencrypted export
+  ///
+  /// In en, this message translates to:
+  /// **'Export without encryption?'**
+  String get dataManagementExportWithoutEncryptionTitle;
+
+  /// Confirmation dialog body for unencrypted export
+  ///
+  /// In en, this message translates to:
+  /// **'This will create a plain JSON file that anyone who opens it can read. Use encrypted export unless you specifically need an insecure backup.'**
+  String get dataManagementExportWithoutEncryptionMessage;
+
+  /// Confirmation button for unencrypted export dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Export Unencrypted'**
+  String get dataManagementExportUnencryptedConfirm;
+
+  /// Validation error when password is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Password cannot be empty'**
+  String get dataManagementPasswordEmpty;
+
+  /// Validation error when password is too short
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 12 characters'**
+  String get dataManagementPasswordTooShort;
+
+  /// Validation error when passwords do not match
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get dataManagementPasswordMismatch;
+
+  /// Button label to pick an import file
+  ///
+  /// In en, this message translates to:
+  /// **'Select File'**
+  String get dataManagementSelectFile;
+
+  /// Body text on the import idle state
+  ///
+  /// In en, this message translates to:
+  /// **'Select a Prism export file (.json or .prism) to restore your data. Existing data will not be overwritten.'**
+  String get dataManagementImportFileDescription;
+
+  /// Headline when the selected import file is encrypted
+  ///
+  /// In en, this message translates to:
+  /// **'Encrypted File'**
+  String get dataManagementEncryptedFile;
+
+  /// Body text when the import file is encrypted
+  ///
+  /// In en, this message translates to:
+  /// **'This export file is encrypted. Enter the password that was used when the export was created.'**
+  String get dataManagementEncryptedFileDescription;
+
+  /// Button label to decrypt the import file
+  ///
+  /// In en, this message translates to:
+  /// **'Decrypt'**
+  String get dataManagementDecrypt;
+
+  /// Headline on the import preview step
+  ///
+  /// In en, this message translates to:
+  /// **'Import Preview'**
+  String get dataManagementImportPreview;
+
+  /// Label showing when the export was created
+  ///
+  /// In en, this message translates to:
+  /// **'Exported: {date}'**
+  String dataManagementExportedDate(String date);
+
+  /// Import preview row label for members
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get dataManagementPreviewMembers;
+
+  /// Import preview row label for front sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Front Sessions'**
+  String get dataManagementPreviewFrontSessions;
+
+  /// Import preview row label for sleep sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep Sessions'**
+  String get dataManagementPreviewSleepSessions;
+
+  /// Import preview row label for conversations
+  ///
+  /// In en, this message translates to:
+  /// **'Conversations'**
+  String get dataManagementPreviewConversations;
+
+  /// Import preview row label for messages
+  ///
+  /// In en, this message translates to:
+  /// **'Messages'**
+  String get dataManagementPreviewMessages;
+
+  /// Import preview row label for polls
+  ///
+  /// In en, this message translates to:
+  /// **'Polls'**
+  String get dataManagementPreviewPolls;
+
+  /// Import preview row label for poll options
+  ///
+  /// In en, this message translates to:
+  /// **'Poll Options'**
+  String get dataManagementPreviewPollOptions;
+
+  /// Import preview row label for settings
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get dataManagementPreviewSettings;
+
+  /// Import preview row label for habits
+  ///
+  /// In en, this message translates to:
+  /// **'Habits'**
+  String get dataManagementPreviewHabits;
+
+  /// Import preview row label for habit completions
+  ///
+  /// In en, this message translates to:
+  /// **'Habit Completions'**
+  String get dataManagementPreviewHabitCompletions;
+
+  /// Import preview row label for total records
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get dataManagementPreviewTotal;
+
+  /// Import complete row label for total records created
+  ///
+  /// In en, this message translates to:
+  /// **'Total Created'**
+  String get dataManagementPreviewTotalCreated;
+
+  /// Button label to start the import
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get dataManagementImport;
+
+  /// Progress message while importing
+  ///
+  /// In en, this message translates to:
+  /// **'Importing your data…'**
+  String get dataManagementImporting;
+
+  /// Hint shown while importing
+  ///
+  /// In en, this message translates to:
+  /// **'This may take a moment. Do not close the app.'**
+  String get dataManagementImportingMessage;
+
+  /// Headline when import succeeds
+  ///
+  /// In en, this message translates to:
+  /// **'Import Complete'**
+  String get dataManagementImportComplete;
+
+  /// Headline when import fails
+  ///
+  /// In en, this message translates to:
+  /// **'Import Failed'**
+  String get dataManagementImportFailed;
+
+  /// Note shown when import fails
+  ///
+  /// In en, this message translates to:
+  /// **'No data was imported. The database was not modified.'**
+  String get dataManagementImportFailedNote;
+
+  /// Error shown when the import file password is wrong
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect password'**
+  String get dataManagementIncorrectPassword;
+
+  /// Error shown when import file decryption fails
+  ///
+  /// In en, this message translates to:
+  /// **'Decryption failed: {error}'**
+  String dataManagementDecryptionFailed(String error);
+
+  /// Validation error when import password is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Password cannot be empty'**
+  String get dataManagementPasswordEmptyImport;
+
+  /// Sharing screen title
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing'**
+  String get sharingTitle;
+
+  /// Tooltip for refresh inbox button
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh inbox'**
+  String get sharingRefreshInbox;
+
+  /// Tooltip for use sharing code button
+  ///
+  /// In en, this message translates to:
+  /// **'Use sharing code'**
+  String get sharingUseSharingCodeTooltip;
+
+  /// Tooltip for share your code button
+  ///
+  /// In en, this message translates to:
+  /// **'Share your code'**
+  String get sharingShareYourCodeTooltip;
+
+  /// Section header for pending sharing requests
+  ///
+  /// In en, this message translates to:
+  /// **'Pending Requests'**
+  String get sharingPendingRequests;
+
+  /// Section header for established sharing relationships
+  ///
+  /// In en, this message translates to:
+  /// **'Trusted People'**
+  String get sharingTrustedPeople;
+
+  /// Empty state title on sharing screen
+  ///
+  /// In en, this message translates to:
+  /// **'No sharing relationships yet'**
+  String get sharingEmptyTitle;
+
+  /// Empty state subtitle on sharing screen
+  ///
+  /// In en, this message translates to:
+  /// **'Share your code so someone can send you a request, or use someone else\'s code to connect.'**
+  String get sharingEmptySubtitle;
+
+  /// Button label to open create invite sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Share My Code'**
+  String get sharingShareMyCode;
+
+  /// Button label to open accept invite sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Use a Code'**
+  String get sharingUseACode;
+
+  /// Toast message after sending a sharing request
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing request sent. They will see it the next time they check sharing.'**
+  String get sharingRequestSent;
+
+  /// Toast when inbox refresh finds no new requests
+  ///
+  /// In en, this message translates to:
+  /// **'No new sharing requests'**
+  String get sharingNoNewRequests;
+
+  /// Error toast when inbox refresh fails
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to refresh sharing inbox'**
+  String get sharingUnableToRefresh;
+
+  /// Error message when sync is not set up
+  ///
+  /// In en, this message translates to:
+  /// **'Sync is not configured'**
+  String get sharingSyncNotConfigured;
+
+  /// Toast when a sharing request is accepted
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing request accepted'**
+  String get sharingRequestAccepted;
+
+  /// Error toast when accepting a sharing request fails
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to accept request'**
+  String get sharingUnableToAccept;
+
+  /// Toast when a sharing request is dismissed
+  ///
+  /// In en, this message translates to:
+  /// **'Request dismissed'**
+  String get sharingRequestDismissed;
+
+  /// Confirmation dialog title for removing a friend
+  ///
+  /// In en, this message translates to:
+  /// **'Remove relationship'**
+  String get sharingRemoveTitle;
+
+  /// Confirmation dialog body for removing a friend
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} and revoke their access? This cannot be undone.'**
+  String sharingRemoveMessage(String name);
+
+  /// Confirm button for removing a friend
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get sharingRemove;
+
+  /// Subtitle when a friend has no granted scopes
+  ///
+  /// In en, this message translates to:
+  /// **'No scopes granted'**
+  String get sharingNoScopesGranted;
+
+  /// Relative time: less than a minute ago
+  ///
+  /// In en, this message translates to:
+  /// **'Just now'**
+  String get sharingJustNow;
+
+  /// Relative time: N minutes ago
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m ago'**
+  String sharingMinutesAgo(int minutes);
+
+  /// Relative time: N hours ago
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h ago'**
+  String sharingHoursAgo(int hours);
+
+  /// Relative time: N days ago
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d ago'**
+  String sharingDaysAgo(int days);
+
+  /// Button to ignore a pending sharing request that can be accepted
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore'**
+  String get sharingIgnore;
+
+  /// Button to dismiss a pending sharing request that cannot be accepted
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get sharingDismiss;
+
+  /// Button to accept a pending sharing request
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get sharingAccept;
+
+  /// Title on the accept invite sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Use Sharing Code'**
+  String get sharingUseSharingCode;
+
+  /// Label for the sharing code input field
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing code'**
+  String get sharingSharingCodeLabel;
+
+  /// Hint for the sharing code input field
+  ///
+  /// In en, this message translates to:
+  /// **'Paste the code you received'**
+  String get sharingSharingCodeHint;
+
+  /// Status text when a valid invite with a display name is parsed
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting with {name}'**
+  String sharingConnectingWith(String name);
+
+  /// Status text when a valid invite without a display name is parsed
+  ///
+  /// In en, this message translates to:
+  /// **'Ready to send a sharing request'**
+  String get sharingReadyToSend;
+
+  /// Label for the display name field on accept invite sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Your display name'**
+  String get sharingYourDisplayName;
+
+  /// Hint for the display name field on accept invite sheet
+  ///
+  /// In en, this message translates to:
+  /// **'How they will see you'**
+  String get sharingDisplayNameHint;
+
+  /// Section heading for scope selection on accept invite sheet
+  ///
+  /// In en, this message translates to:
+  /// **'What to share'**
+  String get sharingWhatToShare;
+
+  /// Button label while submitting a sharing request
+  ///
+  /// In en, this message translates to:
+  /// **'Sending…'**
+  String get sharingSending;
+
+  /// Button label to send a sharing request
+  ///
+  /// In en, this message translates to:
+  /// **'Send Request'**
+  String get sharingSendRequest;
+
+  /// Error when the sharing code cannot be parsed
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid sharing code'**
+  String get sharingInvalidCode;
+
+  /// Error when sending a sharing request fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to send sharing request: {error}'**
+  String sharingFailedToSend(Object error);
+
+  /// Title on the create invite sheet when an invite exists
+  ///
+  /// In en, this message translates to:
+  /// **'Share Your Code'**
+  String get sharingShareYourCode;
+
+  /// Title on the create invite sheet before generating an invite
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Sharing'**
+  String get sharingEnableSharing;
+
+  /// Description text on the create invite sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing uses a stable code instead of an inline key exchange. Anyone with this code can send you a sharing request.'**
+  String get sharingDescription;
+
+  /// Label for the optional display name field on create invite sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Display name (optional)'**
+  String get sharingDisplayNameOptionalLabel;
+
+  /// Hint for the optional display name field on create invite sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Shown to the person opening your code'**
+  String get sharingDisplayNameOptionalHint;
+
+  /// Card heading for the generated sharing code
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing Code'**
+  String get sharingSharingCodeTitle;
+
+  /// Note about the sharing code validity
+  ///
+  /// In en, this message translates to:
+  /// **'This code stays valid until you turn sharing off.'**
+  String get sharingCodeValidNote;
+
+  /// Button label to copy the sharing code
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get sharingCopy;
+
+  /// Error when enabling sharing fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to enable sharing: {error}'**
+  String sharingFailedToEnable(Object error);
+
+  /// Toast when sharing code is copied to clipboard
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing code copied (auto-clears in 15s)'**
+  String get sharingCodeCopied;
+
+  /// Fallback title on friend detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Friend'**
+  String get sharingFriend;
+
+  /// Message when friend is not found on detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Friend not found'**
+  String get sharingFriendNotFound;
+
+  /// Section heading for granted scopes on friend detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Granted Scopes'**
+  String get sharingGrantedScopes;
+
+  /// Label for the sharing ID row on friend detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing ID'**
+  String get sharingSharingId;
+
+  /// Tooltip to copy the sharing ID
+  ///
+  /// In en, this message translates to:
+  /// **'Copy sharing ID'**
+  String get sharingCopySharingId;
+
+  /// Toast when sharing ID is copied
+  ///
+  /// In en, this message translates to:
+  /// **'Sharing ID copied'**
+  String get sharingSharingIdCopied;
+
+  /// Label for the last synced row on friend detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Last synced'**
+  String get sharingLastSynced;
+
+  /// Button label to revoke a friend's access
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke Access'**
+  String get sharingRevokeAccess;
+
+  /// Status label for a verified friend
+  ///
+  /// In en, this message translates to:
+  /// **'Verified'**
+  String get sharingVerified;
+
+  /// Status label for an unverified friend
+  ///
+  /// In en, this message translates to:
+  /// **'Not verified'**
+  String get sharingNotVerified;
+
+  /// Label showing when a friend was added
+  ///
+  /// In en, this message translates to:
+  /// **'Added {date}'**
+  String sharingAddedDate(String date);
+
+  /// Heading on the verification card for unverified friends
+  ///
+  /// In en, this message translates to:
+  /// **'Verification Recommended'**
+  String get sharingVerificationRecommended;
+
+  /// Body text on the verification card
+  ///
+  /// In en, this message translates to:
+  /// **'Compare fingerprints with {name} out of band before marking this relationship as verified.'**
+  String sharingVerificationDescription(String name);
+
+  /// Button to open the fingerprint comparison dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Compare Fingerprint'**
+  String get sharingCompareFingerprint;
+
+  /// Title of the security fingerprint dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Security Fingerprint'**
+  String get sharingSecurityFingerprintTitle;
+
+  /// Instruction text in the fingerprint dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Compare this fingerprint with {name}. Only mark it verified if they see the same value.'**
+  String sharingFingerprintCompareText(String name);
+
+  /// Warning text in the fingerprint dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Do not verify if the fingerprints differ.'**
+  String get sharingFingerprintWarning;
+
+  /// Button to mark a friend as verified
+  ///
+  /// In en, this message translates to:
+  /// **'Mark Verified'**
+  String get sharingMarkVerified;
+
+  /// Confirmation dialog title for revoking a friend's access
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke access'**
+  String get sharingRevokeTitle;
+
+  /// Confirmation dialog body for revoking a friend's access
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke all access for {name}? Resource keys will be rotated.'**
+  String sharingRevokeMessage(String name);
+
+  /// Confirm button for revoking access
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke'**
+  String get sharingRevoke;
+
+  /// Error toast when fingerprint cannot be computed
+  ///
+  /// In en, this message translates to:
+  /// **'Unable to compute fingerprint'**
+  String get sharingUnableToComputeFingerprint;
+
+  /// Toast when fingerprint or identity is copied
+  ///
+  /// In en, this message translates to:
+  /// **'{label} copied'**
+  String sharingFingerprintCopied(String label);
+
+  /// Tooltip for copying fingerprint or identity
+  ///
+  /// In en, this message translates to:
+  /// **'Copy {label}'**
+  String sharingCopyLabel(String label);
+
+  /// Label for fingerprint row when fingerprint data is available
+  ///
+  /// In en, this message translates to:
+  /// **'Fingerprint'**
+  String get sharingFingerprint;
+
+  /// Label for identity row when fingerprint data is not yet loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Identity'**
+  String get sharingIdentity;
+
+  /// Title of the Reminders screen
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get remindersTitle;
+
+  /// Error message when reminders fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String remindersLoadError(String error);
+
+  /// Empty state title on reminders screen
+  ///
+  /// In en, this message translates to:
+  /// **'No reminders'**
+  String get remindersEmptyTitle;
+
+  /// Empty state subtitle on reminders screen
+  ///
+  /// In en, this message translates to:
+  /// **'Create reminders for fronting changes or scheduled times'**
+  String get remindersEmptySubtitle;
+
+  /// Empty state action button label on reminders screen
+  ///
+  /// In en, this message translates to:
+  /// **'Add Reminder'**
+  String get remindersEmptyAction;
+
+  /// Snackbar text after deleting a reminder
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted \"{name}\"'**
+  String remindersDeletedSnackbar(String name);
+
+  /// Undo action label in reminder deletion snackbar
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get remindersUndoAction;
+
+  /// Reminder subtitle when trigger is on front change with no delay
+  ///
+  /// In en, this message translates to:
+  /// **'On front change'**
+  String get remindersSubtitleOnFrontChange;
+
+  /// Reminder subtitle when trigger is on front change with a delay
+  ///
+  /// In en, this message translates to:
+  /// **'On front change ({hours}h delay)'**
+  String remindersSubtitleOnFrontChangeDelay(int hours);
+
+  /// Reminder subtitle for daily repeat interval
+  ///
+  /// In en, this message translates to:
+  /// **'Daily'**
+  String get remindersSubtitleDaily;
+
+  /// Reminder subtitle for every N days repeat interval
+  ///
+  /// In en, this message translates to:
+  /// **'Every {days} days'**
+  String remindersSubtitleEveryNDays(int days);
+
+  /// Trigger type label and fallback subtitle for scheduled reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled'**
+  String get remindersScheduled;
+
+  /// Sheet title when editing an existing reminder
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Reminder'**
+  String get remindersEditTitle;
+
+  /// Sheet title when creating a new reminder
+  ///
+  /// In en, this message translates to:
+  /// **'New Reminder'**
+  String get remindersNewTitle;
+
+  /// Label for the reminder name text field
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder name'**
+  String get remindersNameLabel;
+
+  /// Label for the notification message text field
+  ///
+  /// In en, this message translates to:
+  /// **'Notification message'**
+  String get remindersMessageLabel;
+
+  /// Section label for reminder trigger type selector
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger'**
+  String get remindersTriggerLabel;
+
+  /// Reminder trigger type: triggers on fronting change
+  ///
+  /// In en, this message translates to:
+  /// **'Front Change'**
+  String get remindersTriggerFrontChange;
+
+  /// Label for the repeat interval picker row
+  ///
+  /// In en, this message translates to:
+  /// **'Repeat every'**
+  String get remindersRepeatEveryLabel;
+
+  /// Interval picker option for number of days
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String remindersIntervalDays(int count);
+
+  /// Label for the time picker row in scheduled reminder
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get remindersTimeLabel;
+
+  /// Label for the delay picker row in front-change reminder
+  ///
+  /// In en, this message translates to:
+  /// **'Delay after front change'**
+  String get remindersDelayLabel;
+
+  /// Delay option: no delay, trigger immediately on front change
+  ///
+  /// In en, this message translates to:
+  /// **'Immediately'**
+  String get remindersImmediately;
+
+  /// Delay picker option for number of hours
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 hour} other{{count} hours}}'**
+  String remindersDelayHours(int count);
+
+  /// App name headline in the About section
+  ///
+  /// In en, this message translates to:
+  /// **'Prism'**
+  String get settingsAboutAppName;
+
+  /// Tagline shown below the app name in About
+  ///
+  /// In en, this message translates to:
+  /// **'Plural system management'**
+  String get settingsAboutTagline;
+
+  /// App version string in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version}'**
+  String settingsAboutVersion(String version);
+
+  /// Description paragraph in the About section
+  ///
+  /// In en, this message translates to:
+  /// **'A privacy-focused app for managing plural systems. Track fronting, communicate between headmates, and keep your system organized.'**
+  String get settingsAboutDescription;
+
+  /// GitHub chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub'**
+  String get settingsAboutGitHub;
+
+  /// Privacy chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy'**
+  String get settingsAboutPrivacy;
+
+  /// Feedback chip label in About section
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get settingsAboutFeedback;
+
+  /// Toast shown when GitHub chip is tapped
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub link coming soon'**
+  String get settingsAboutGitHubComingSoon;
+
+  /// Toast shown when Privacy chip is tapped
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy policy coming soon'**
+  String get settingsAboutPrivacyComingSoon;
+
+  /// Toast shown when Feedback chip is tapped
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback form coming soon'**
+  String get settingsAboutFeedbackComingSoon;
+
+  /// Title for the custom fields settings screen
+  ///
+  /// In en, this message translates to:
+  /// **'Custom Fields'**
+  String get settingsCustomFieldsTitle;
+
+  /// Tooltip for the add field action button
+  ///
+  /// In en, this message translates to:
+  /// **'Add field'**
+  String get settingsCustomFieldsAddTooltip;
+
+  /// Error state text in custom fields screen
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String settingsCustomFieldsError(String error);
+
+  /// Empty state title when no custom fields exist
+  ///
+  /// In en, this message translates to:
+  /// **'No custom fields'**
+  String get settingsCustomFieldsEmptyTitle;
+
+  /// Empty state subtitle for custom fields screen
+  ///
+  /// In en, this message translates to:
+  /// **'Add fields to track custom attributes for each member'**
+  String get settingsCustomFieldsEmptySubtitle;
+
+  /// Empty state action button label for adding a custom field
+  ///
+  /// In en, this message translates to:
+  /// **'Add Field'**
+  String get settingsCustomFieldsAddAction;
+
+  /// Title of the delete field confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Field'**
+  String get settingsCustomFieldsDeleteTitle;
+
+  /// Body of the delete field confirmation dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete \"{name}\"? This will delete the field and all its values.'**
+  String settingsCustomFieldsDeleteConfirm(String name);
+
+  /// Toast shown after a custom field is deleted
+  ///
+  /// In en, this message translates to:
+  /// **'{name} deleted'**
+  String settingsCustomFieldsDeletedToast(String name);
+
+  /// Tooltip for the Prism Purple accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Prism Purple'**
+  String get settingsAccentColorPrismPurple;
+
+  /// Tooltip for the Blue accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Blue'**
+  String get settingsAccentColorBlue;
+
+  /// Tooltip for the Green accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Green'**
+  String get settingsAccentColorGreen;
+
+  /// Tooltip for the Red accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Red'**
+  String get settingsAccentColorRed;
+
+  /// Tooltip for the Orange accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Orange'**
+  String get settingsAccentColorOrange;
+
+  /// Tooltip for the Pink accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Pink'**
+  String get settingsAccentColorPink;
+
+  /// Tooltip for the Teal accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Teal'**
+  String get settingsAccentColorTeal;
+
+  /// Tooltip for the Amber accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Amber'**
+  String get settingsAccentColorAmber;
+
+  /// Tooltip for the Indigo accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Indigo'**
+  String get settingsAccentColorIndigo;
+
+  /// Tooltip for the Gray accent color option
+  ///
+  /// In en, this message translates to:
+  /// **'Gray'**
+  String get settingsAccentColorGray;
+
+  /// Tooltip for the system color circle when Material You is active
+  ///
+  /// In en, this message translates to:
+  /// **'System color'**
+  String get settingsAccentColorSystemColor;
+
+  /// Tooltip for the custom color picker circle
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get settingsAccentColorCustom;
+
+  /// Title of the custom color picker dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Pick a color'**
+  String get settingsAccentColorPickerTitle;
+
+  /// Confirm button label in the color picker dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get settingsAccentColorSelect;
+
+  /// Note shown below color swatches when Material You is active
+  ///
+  /// In en, this message translates to:
+  /// **'Using your system color palette'**
+  String get settingsAccentColorSystemPaletteNote;
+
+  /// Title of the sync password unlock sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your sync password'**
+  String get settingsSyncPasswordTitle;
+
+  /// Body text of the sync password unlock sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Your sync password is needed to unlock encryption keys on this device.'**
+  String get settingsSyncPasswordBody;
+
+  /// Label for the password text field in the sync password sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get settingsSyncPasswordFieldLabel;
+
+  /// Tooltip to show the password in the sync password sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get settingsSyncPasswordShow;
+
+  /// Tooltip to hide the password in the sync password sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get settingsSyncPasswordHide;
+
+  /// Error shown when the sync password is incorrect
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect password. Please try again.'**
+  String get settingsSyncPasswordWrong;
+
+  /// Unlock button label in the sync password sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock'**
+  String get settingsSyncPasswordUnlock;
+
+  /// Title of the change password sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Change Password'**
+  String get settingsChangePasswordTitle;
+
+  /// Body text of the verify step in the change password flow
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your current sync password to continue.'**
+  String get settingsChangePasswordVerifyBody;
+
+  /// Label for the current password text field
+  ///
+  /// In en, this message translates to:
+  /// **'Current password'**
+  String get settingsChangePasswordCurrentLabel;
+
+  /// Tooltip to show password in change password sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Show password'**
+  String get settingsChangePasswordShowPassword;
+
+  /// Tooltip to hide password in change password sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Hide password'**
+  String get settingsChangePasswordHidePassword;
+
+  /// Continue button in the verify step of change password
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get settingsChangePasswordContinue;
+
+  /// Validation error when current password field is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your current password.'**
+  String get settingsChangePasswordCurrentRequired;
+
+  /// Error when the secret key is missing during password change
+  ///
+  /// In en, this message translates to:
+  /// **'Secret Key not found on this device. Re-pair to restore it.'**
+  String get settingsChangePasswordNoSecretKey;
+
+  /// Error when the sync engine handle is null during password change
+  ///
+  /// In en, this message translates to:
+  /// **'Sync engine not available.'**
+  String get settingsChangePasswordEngineUnavailable;
+
+  /// Error when the current password is wrong during verification
+  ///
+  /// In en, this message translates to:
+  /// **'Incorrect password. Please try again.'**
+  String get settingsChangePasswordIncorrect;
+
+  /// Error when password verification fails with a known error message
+  ///
+  /// In en, this message translates to:
+  /// **'Verification failed: {error}'**
+  String settingsChangePasswordVerifyFailed(String error);
+
+  /// Generic error during password change flow
+  ///
+  /// In en, this message translates to:
+  /// **'An error occurred: {error}'**
+  String settingsChangePasswordGenericError(String error);
+
+  /// Error shown when the verified session is lost (e.g. hot-reload)
+  ///
+  /// In en, this message translates to:
+  /// **'Session expired — please verify again.'**
+  String get settingsChangePasswordSessionExpired;
+
+  /// Warning body text before changing the password
+  ///
+  /// In en, this message translates to:
+  /// **'Your other devices will need to enter the new password when they next open Prism.'**
+  String get settingsChangePasswordWarnBody;
+
+  /// Button label for the change password action
+  ///
+  /// In en, this message translates to:
+  /// **'Change Password'**
+  String get settingsChangePasswordAction;
+
+  /// Body text of the new password step
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a new sync password.'**
+  String get settingsChangePasswordNewBody;
+
+  /// Label for the new password text field
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get settingsChangePasswordNewLabel;
+
+  /// Label for the confirm new password text field
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm new password'**
+  String get settingsChangePasswordConfirmLabel;
+
+  /// Validation error when new password field is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a new password.'**
+  String get settingsChangePasswordNewRequired;
+
+  /// Error when new password is the same as the current password
+  ///
+  /// In en, this message translates to:
+  /// **'Your sync password is already set to that.'**
+  String get settingsChangePasswordSamePassword;
+
+  /// Error when new password and confirm password do not match
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords don\'t match.'**
+  String get settingsChangePasswordMismatch;
+
+  /// Error when a generation conflict is detected during password change
+  ///
+  /// In en, this message translates to:
+  /// **'Another device recently changed settings — please try again.'**
+  String get settingsChangePasswordGenerationConflict;
+
+  /// Generic failure message when password change fails
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to change password: {error}'**
+  String settingsChangePasswordFailed(String error);
+
+  /// Title on the success screen after changing password
+  ///
+  /// In en, this message translates to:
+  /// **'Password changed'**
+  String get settingsChangePasswordSuccessTitle;
+
+  /// Body text on the success screen after changing password
+  ///
+  /// In en, this message translates to:
+  /// **'Your sync password has been updated on this device.'**
+  String get settingsChangePasswordSuccessBody;
+
+  /// Title of the edit field sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Field'**
+  String get settingsCreateEditFieldEditTitle;
+
+  /// Title of the new field sheet
+  ///
+  /// In en, this message translates to:
+  /// **'New Field'**
+  String get settingsCreateEditFieldNewTitle;
+
+  /// Label for the field name text input
+  ///
+  /// In en, this message translates to:
+  /// **'Field Name'**
+  String get settingsCreateEditFieldNameLabel;
+
+  /// Hint text for the field name input
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Birthday, Favorite Color'**
+  String get settingsCreateEditFieldNameHint;
+
+  /// Heading for the field type picker section
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get settingsCreateEditFieldTypeHeading;
+
+  /// Note shown below type chips when editing a field
+  ///
+  /// In en, this message translates to:
+  /// **'Type cannot be changed after creation.'**
+  String get settingsCreateEditFieldTypeImmutable;
+
+  /// Heading for the date precision picker section
+  ///
+  /// In en, this message translates to:
+  /// **'Date Precision'**
+  String get settingsCreateEditFieldDatePrecisionHeading;
+
+  /// Toast shown when saving a field fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error saving field: {error}'**
+  String settingsCreateEditFieldSaveError(String error);
+
+  /// Title of the data browser debug screen
+  ///
+  /// In en, this message translates to:
+  /// **'Data Browser'**
+  String get settingsDataBrowserTitle;
+
+  /// Tooltip for the reload button in the data browser
+  ///
+  /// In en, this message translates to:
+  /// **'Reload data'**
+  String get settingsDataBrowserReloadTooltip;
+
+  /// Tab label for the members table in the data browser
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get settingsDataBrowserTabMembers;
+
+  /// Tab label for the sessions table in the data browser
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions'**
+  String get settingsDataBrowserTabSessions;
+
+  /// Tab label for the conversations table in the data browser
+  ///
+  /// In en, this message translates to:
+  /// **'Chats'**
+  String get settingsDataBrowserTabChats;
+
+  /// Tab label for the messages table in the data browser
+  ///
+  /// In en, this message translates to:
+  /// **'Msgs'**
+  String get settingsDataBrowserTabMessages;
+
+  /// Tab label for the polls table in the data browser
+  ///
+  /// In en, this message translates to:
+  /// **'Polls'**
+  String get settingsDataBrowserTabPolls;
+
+  /// Error state text in the data browser
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String settingsDataBrowserError(String error);
+
+  /// Empty state text when members table is empty
+  ///
+  /// In en, this message translates to:
+  /// **'No members'**
+  String get settingsDataBrowserNoMembers;
+
+  /// Empty state text when sessions table is empty
+  ///
+  /// In en, this message translates to:
+  /// **'No sessions'**
+  String get settingsDataBrowserNoSessions;
+
+  /// Empty state text when conversations table is empty
+  ///
+  /// In en, this message translates to:
+  /// **'No conversations'**
+  String get settingsDataBrowserNoConversations;
+
+  /// Empty state text when messages table is empty
+  ///
+  /// In en, this message translates to:
+  /// **'No messages'**
+  String get settingsDataBrowserNoMessages;
+
+  /// Empty state text when polls table is empty
+  ///
+  /// In en, this message translates to:
+  /// **'No polls'**
+  String get settingsDataBrowserNoPolls;
+
+  /// Secondary field label for an active fronting session
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get settingsDataBrowserSessionActive;
+
+  /// Secondary field label for an ended fronting session
+  ///
+  /// In en, this message translates to:
+  /// **'Ended'**
+  String get settingsDataBrowserSessionEnded;
+
+  /// Fallback title for conversations without a title
+  ///
+  /// In en, this message translates to:
+  /// **'Untitled'**
+  String get settingsDataBrowserUntitled;
+
+  /// Participant count shown in conversation rows
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 participant} other{{count} participants}}'**
+  String settingsDataBrowserParticipantCount(int count);
+
+  /// Secondary field label for system messages
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsDataBrowserSystemMessage;
+
+  /// Secondary field label for closed polls
+  ///
+  /// In en, this message translates to:
+  /// **'Closed'**
+  String get settingsDataBrowserPollClosed;
+
+  /// Secondary field label for active polls
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get settingsDataBrowserPollActive;
+
+  /// Text shown when a conversation has no messages
+  ///
+  /// In en, this message translates to:
+  /// **'No messages in this conversation.'**
+  String get settingsDataBrowserNoMessagesInConversation;
+
+  /// Subtitle shown on a conversation row when messages fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading — tap to retry'**
+  String get settingsDataBrowserLoadError;
+
+  /// Message count subtitle on a conversation row
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 message} other{{count} messages}}'**
+  String settingsDataBrowserMessageCount(int count);
+
+  /// Subtitle shown on a conversation row before messages are loaded
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to load messages'**
+  String get settingsDataBrowserTapToLoad;
+
+  /// Value shown in the endTime field for an active session
+  ///
+  /// In en, this message translates to:
+  /// **'null (active)'**
+  String get settingsDataBrowserSessionEndTimeActive;
+
+  /// Title of the sync event log debug screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Event Log'**
+  String get settingsSyncDebugTitle;
+
+  /// Subtitle showing the number of sync events recorded
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 event} other{{count} events}}'**
+  String settingsSyncDebugEventCount(int count);
+
+  /// Tooltip for the copy log button in the sync debug screen
+  ///
+  /// In en, this message translates to:
+  /// **'Copy log'**
+  String get settingsSyncDebugCopyLogTooltip;
+
+  /// Tooltip for the clear log button in the sync debug screen
+  ///
+  /// In en, this message translates to:
+  /// **'Clear log'**
+  String get settingsSyncDebugClearLogTooltip;
+
+  /// Toast shown after copying the sync event log
+  ///
+  /// In en, this message translates to:
+  /// **'Sync event log copied'**
+  String get settingsSyncDebugCopiedToast;
+
+  /// Empty state title in the sync event log screen
+  ///
+  /// In en, this message translates to:
+  /// **'No sync events recorded'**
+  String get settingsSyncDebugEmptyTitle;
+
+  /// Empty state body in the sync event log screen
+  ///
+  /// In en, this message translates to:
+  /// **'Sync events will appear here as they happen.'**
+  String get settingsSyncDebugEmptyBody;
+
+  /// Label for the terminology dropdown picker
+  ///
+  /// In en, this message translates to:
+  /// **'Terminology'**
+  String get settingsTerminologyPickerLabel;
+
+  /// Terminology option: Members (plural)
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get settingsTerminologyOptionMembers;
+
+  /// Terminology option: member (singular)
+  ///
+  /// In en, this message translates to:
+  /// **'member'**
+  String get settingsTerminologyOptionMembersSingular;
+
+  /// Terminology option: Headmates (plural)
+  ///
+  /// In en, this message translates to:
+  /// **'Headmates'**
+  String get settingsTerminologyOptionHeadmates;
+
+  /// Terminology option: headmate (singular)
+  ///
+  /// In en, this message translates to:
+  /// **'headmate'**
+  String get settingsTerminologyOptionHeadmatesSingular;
+
+  /// Terminology option: Alters (plural)
+  ///
+  /// In en, this message translates to:
+  /// **'Alters'**
+  String get settingsTerminologyOptionAlters;
+
+  /// Terminology option: alter (singular)
+  ///
+  /// In en, this message translates to:
+  /// **'alter'**
+  String get settingsTerminologyOptionAltersSingular;
+
+  /// Terminology option: Parts (plural)
+  ///
+  /// In en, this message translates to:
+  /// **'Parts'**
+  String get settingsTerminologyOptionParts;
+
+  /// Terminology option: part (singular)
+  ///
+  /// In en, this message translates to:
+  /// **'part'**
+  String get settingsTerminologyOptionPartsSingular;
+
+  /// Terminology option: Facets (plural)
+  ///
+  /// In en, this message translates to:
+  /// **'Facets'**
+  String get settingsTerminologyOptionFacets;
+
+  /// Terminology option: facet (singular)
+  ///
+  /// In en, this message translates to:
+  /// **'facet'**
+  String get settingsTerminologyOptionFacetsSingular;
+
+  /// Terminology option: Custom (plural label)
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get settingsTerminologyOptionCustom;
+
+  /// Terminology option: custom term (singular label)
+  ///
+  /// In en, this message translates to:
+  /// **'custom term'**
+  String get settingsTerminologyOptionCustomSingular;
+
+  /// Label for the custom singular term text field
+  ///
+  /// In en, this message translates to:
+  /// **'Custom term (singular)'**
+  String get settingsTerminologyCustomSingularLabel;
+
+  /// Hint text for the custom singular term text field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. fragment'**
+  String get settingsTerminologyCustomSingularHint;
+
+  /// Label for the custom plural term text field
+  ///
+  /// In en, this message translates to:
+  /// **'Custom term (plural)'**
+  String get settingsTerminologyCustomPluralLabel;
+
+  /// Hint text for the custom plural term text field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. fragments'**
+  String get settingsTerminologyCustomPluralHint;
+
+  /// Label above the live terminology preview box
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get settingsTerminologyPreviewLabel;
+
+  /// Bottom navigation tab label for the Home (fronting) tab
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get navHome;
+
+  /// Bottom navigation tab label for the Chat tab
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get navChat;
+
+  /// Bottom navigation tab label for the Habits tab
+  ///
+  /// In en, this message translates to:
+  /// **'Habits'**
+  String get navHabits;
+
+  /// Bottom navigation tab label for the Polls tab
+  ///
+  /// In en, this message translates to:
+  /// **'Polls'**
+  String get navPolls;
+
+  /// Bottom navigation tab label for the Settings tab
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get navSettings;
+
+  /// Bottom navigation tab label for the Members tab (default; overridden by user terminology)
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get navMembers;
+
+  /// Bottom navigation tab label for the Reminders tab
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get navReminders;
+
+  /// Bottom navigation tab label for the Notes tab
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get navNotes;
+
+  /// Bottom navigation tab label for the Statistics tab
+  ///
+  /// In en, this message translates to:
+  /// **'Statistics'**
+  String get navStatistics;
+
+  /// Header title for the onboarding welcome step
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome to Prism'**
+  String get onboardingWelcomeTitle;
+
+  /// Header subtitle for the onboarding welcome step
+  ///
+  /// In en, this message translates to:
+  /// **'Your system, your way.'**
+  String get onboardingWelcomeSubtitle;
+
+  /// Header title for the onboarding sync device step
+  ///
+  /// In en, this message translates to:
+  /// **'Sync From Device'**
+  String get onboardingSyncDeviceTitle;
+
+  /// Header subtitle for the onboarding sync device step
+  ///
+  /// In en, this message translates to:
+  /// **'Pair with an existing device'**
+  String get onboardingSyncDeviceSubtitle;
+
+  /// Header title for the onboarding imported-data-ready step
+  ///
+  /// In en, this message translates to:
+  /// **'Data Ready'**
+  String get onboardingImportedDataReadyTitle;
+
+  /// Header subtitle for the onboarding imported-data-ready step
+  ///
+  /// In en, this message translates to:
+  /// **'Your imported system is ready to use'**
+  String get onboardingImportedDataReadySubtitle;
+
+  /// Header title for the onboarding import-data step
+  ///
+  /// In en, this message translates to:
+  /// **'Already have data?'**
+  String get onboardingImportDataTitle;
+
+  /// Header subtitle for the onboarding import-data step
+  ///
+  /// In en, this message translates to:
+  /// **'Bring your system with you.'**
+  String get onboardingImportDataSubtitle;
+
+  /// Header title for the onboarding system-name step
+  ///
+  /// In en, this message translates to:
+  /// **'Name your system'**
+  String get onboardingSystemNameTitle;
+
+  /// Header subtitle for the onboarding system-name step
+  ///
+  /// In en, this message translates to:
+  /// **'Whatever feels right.'**
+  String get onboardingSystemNameSubtitle;
+
+  /// Header title for the onboarding add-members step
+  ///
+  /// In en, this message translates to:
+  /// **'Who\'s here?'**
+  String get onboardingAddMembersTitle;
+
+  /// Header subtitle for the onboarding add-members step
+  ///
+  /// In en, this message translates to:
+  /// **'Add the people in your system.'**
+  String get onboardingAddMembersSubtitle;
+
+  /// Header title for the onboarding features step
+  ///
+  /// In en, this message translates to:
+  /// **'Pick your tools'**
+  String get onboardingFeaturesTitle;
+
+  /// Header subtitle for the onboarding features step
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on what you need. Change anytime.'**
+  String get onboardingFeaturesSubtitle;
+
+  /// Header title for the onboarding chat-setup step
+  ///
+  /// In en, this message translates to:
+  /// **'Set up chat'**
+  String get onboardingChatSetupTitle;
+
+  /// Header subtitle for the onboarding chat-setup step
+  ///
+  /// In en, this message translates to:
+  /// **'Channels for your system to talk.'**
+  String get onboardingChatSetupSubtitle;
+
+  /// Header title for the onboarding preferences step
+  ///
+  /// In en, this message translates to:
+  /// **'Make it yours'**
+  String get onboardingPreferencesTitle;
+
+  /// Header subtitle for the onboarding preferences step
+  ///
+  /// In en, this message translates to:
+  /// **'Colors, language, the small things.'**
+  String get onboardingPreferencesSubtitle;
+
+  /// Header title for the onboarding who's-fronting step
+  ///
+  /// In en, this message translates to:
+  /// **'Who\'s fronting?'**
+  String get onboardingWhosFrontingTitle;
+
+  /// Header subtitle for the onboarding who's-fronting step
+  ///
+  /// In en, this message translates to:
+  /// **'Tap whoever\'s here right now.'**
+  String get onboardingWhosFrontingSubtitle;
+
+  /// Header title for the onboarding complete step
+  ///
+  /// In en, this message translates to:
+  /// **'Ready when you are'**
+  String get onboardingCompleteTitle;
+
+  /// Header subtitle for the onboarding complete step
+  ///
+  /// In en, this message translates to:
+  /// **'Your system is set up. Here\'s what to explore.'**
+  String get onboardingCompleteSubtitle;
+
+  /// Button label to add a new member/alter/headmate — {term} is user's chosen singular
+  ///
+  /// In en, this message translates to:
+  /// **'Add {term}'**
+  String terminologyAddButton(String term);
+
+  /// Search field hint text — {term} is user's chosen plural lowercase
+  ///
+  /// In en, this message translates to:
+  /// **'Search {term}...'**
+  String terminologySearchHint(String term);
+
+  /// Empty state title for all members shown — {term} is user's chosen plural lowercase
+  ///
+  /// In en, this message translates to:
+  /// **'No {term} yet'**
+  String terminologyEmptyTitle(String term);
+
+  /// Empty state title when only active members shown — {term} is user's chosen plural lowercase
+  ///
+  /// In en, this message translates to:
+  /// **'No active {term} yet'**
+  String terminologyEmptyActiveTitle(String term);
+
+  /// Sheet title when creating a new member — {term} is user's chosen singular
+  ///
+  /// In en, this message translates to:
+  /// **'New {term}'**
+  String terminologyNewItem(String term);
+
+  /// Sheet title when editing a member — {term} is user's chosen singular
+  ///
+  /// In en, this message translates to:
+  /// **'Edit {term}'**
+  String terminologyEditItem(String term);
+
+  /// Dialog title when deleting a member — {term} is user's chosen singular
+  ///
+  /// In en, this message translates to:
+  /// **'Delete {term}'**
+  String terminologyDeleteItem(String term);
+
+  /// System management screen title — {term} is user's chosen plural
+  ///
+  /// In en, this message translates to:
+  /// **'Manage {term}'**
+  String terminologyManage(String term);
+
+  /// Bulk delete action label — {term} is user's chosen plural
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Selected {term}'**
+  String terminologyDeleteSelected(String term);
+
+  /// Prompt to select a member — {term} is user's chosen singular lowercase
+  ///
+  /// In en, this message translates to:
+  /// **'Select a {term}'**
+  String terminologySelectPrompt(String term);
+
+  /// Search empty state — {term} is user's chosen plural lowercase
+  ///
+  /// In en, this message translates to:
+  /// **'No {term} found'**
+  String terminologyNoFound(String term);
+
+  /// Error when member list fails to load — {term} is plural lowercase, {error} is error message
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading {term}: {error}'**
+  String terminologyLoadError(String term, String error);
+
+  /// Members empty state subtitle — {term} is user's chosen singular lowercase
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first system {term} to get started'**
+  String terminologyAddFirstSubtitle(String term);
+
+  /// Toast when trying to vote without selecting a member to vote as — {term} is user's chosen singular lowercase
+  ///
+  /// In en, this message translates to:
+  /// **'Select a {term} to vote as'**
+  String pollsVotingAsSelectPrompt(String term);
 }
 
 class _AppLocalizationsDelegate

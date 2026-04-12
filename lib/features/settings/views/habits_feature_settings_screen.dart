@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
@@ -20,6 +21,7 @@ class HabitsFeatureSettingsScreen extends ConsumerWidget {
     final habitsEnabled = ref.watch(habitsEnabledProvider);
     final habitsBadgeEnabled = ref.watch(habitsBadgeEnabledProvider);
     final theme = Theme.of(context);
+    final terms = ref.watch(terminologyProvider);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.featureHabitsTitle, showBackButton: true),
@@ -30,7 +32,7 @@ class HabitsFeatureSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
             child: Text(
-              context.l10n.featureHabitsDescription,
+              context.l10n.featureHabitsDescription(terms.pluralLower),
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
