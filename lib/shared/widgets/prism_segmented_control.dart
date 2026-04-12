@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
@@ -128,7 +129,7 @@ class _PrismSegmentedControlState<T>
         : PrismTokens.tintedShadowAlphaLight;
 
     return Semantics(
-      label: 'Segmented control',
+      label: context.l10n.segmentedControl,
       child: Container(
         height: 44,
         decoration: BoxDecoration(

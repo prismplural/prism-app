@@ -63,5 +63,32 @@
       "members": { "type": "String" },
       "error": { "type": "Object" }
     }
-  }
+  },
+  "selectMember": "Select member",
+  "@selectMember": { "description": "Member picker placeholder when no member is selected" },
+  "selectMembers": "Select members",
+  "@selectMembers": { "description": "Member picker placeholder for multi-select" },
+  "selectAMember": "Select a member",
+  "@selectAMember": { "description": "Member picker hint text" },
+  "errorWithDetail": "Error: {detail}",
+  "@errorWithDetail": {
+    "description": "Error message with detail",
+    "placeholders": { "detail": { "type": "Object" } }
+  },
+  "segmentedControl": "Segmented control",
+  "@segmentedControl": { "description": "Semantics label for segmented control widget" },
+  "dismissNotification": "Dismiss notification",
+  "@dismissNotification": { "description": "Tooltip for dismiss button on toast notifications" },
+  "searchEmoji": "Search emoji...",
+  "@searchEmoji": { "description": "Hint text in emoji search field" },
+  "dismiss": "Dismiss",
+  "@dismiss": { "description": "Accessibility barrier label for dismissing dialogs" },
+  "destructiveAction": "Destructive action",
+  "@destructiveAction": { "description": "Semantics hint for destructive action buttons" },
+  "searchMembers": "Search members...",
+  "@searchMembers": { "description": "Search hint in member search" },
+  "noMembersFound": "No members found",
+  "@noMembersFound": { "description": "Empty state in member search" },
+  "moreOptions": "More options",
+  "@moreOptions": { "description": "Tooltip for 'more options' menu button" }
 }

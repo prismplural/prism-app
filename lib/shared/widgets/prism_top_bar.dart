@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -56,7 +57,7 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
         (showBackButton
             ? PrismTopBarAction(
                 icon: AppIcons.arrowBack,
-                tooltip: 'Back',
+                tooltip: context.l10n.back,
                 onPressed: () => Navigator.of(context).maybePop(),
               )
             : null);

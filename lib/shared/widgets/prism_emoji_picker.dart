@@ -4,6 +4,7 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart' as foundation;
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
@@ -35,6 +36,7 @@ class PrismEmojiPicker extends StatelessWidget {
   /// Returns the selected emoji string, or null if dismissed.
   static Future<String?> showPicker(BuildContext context) {
     final theme = Theme.of(context);
+    final hintText = context.l10n.searchEmoji;
     final completer = Completer<String?>();
 
     showModalBottomSheet<void>(
@@ -47,6 +49,7 @@ class PrismEmojiPicker extends StatelessWidget {
       ),
       builder: (_) => _PickerBody(
         theme: theme,
+        hintText: hintText,
         onSelected: (emoji) {
           Navigator.of(context, rootNavigator: true).pop();
           completer.complete(emoji);
@@ -59,7 +62,7 @@ class PrismEmojiPicker extends StatelessWidget {
     return completer.future;
   }
 
-  static Config _buildConfig(ThemeData theme) {
+  static Config _buildConfig(ThemeData theme, {required String hintText}) {
     final isDark = theme.brightness == Brightness.dark;
     return Config(
       height: _kPickerHeight,
@@ -95,7 +98,7 @@ class PrismEmojiPicker extends StatelessWidget {
       searchViewConfig: SearchViewConfig(
         backgroundColor: Colors.transparent,
         buttonIconColor: theme.colorScheme.onSurfaceVariant,
-        hintText: 'Search emoji...',
+        hintText: hintText,
         inputTextStyle: theme.textTheme.bodyMedium,
         hintTextStyle: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
@@ -135,10 +138,12 @@ class PrismEmojiPicker extends StatelessWidget {
 class _PickerBody extends StatelessWidget {
   const _PickerBody({
     required this.theme,
+    required this.hintText,
     required this.onSelected,
   });
 
   final ThemeData theme;
+  final String hintText;
   final ValueChanged<String> onSelected;
 
   @override
@@ -151,7 +156,7 @@ class _PickerBody extends StatelessWidget {
         height: _kPickerHeight,
         child: EmojiPicker(
           onEmojiSelected: (category, emoji) => onSelected(emoji.emoji),
-          config: PrismEmojiPicker._buildConfig(theme),
+          config: PrismEmojiPicker._buildConfig(theme, hintText: hintText),
         ),
       ),
     );
