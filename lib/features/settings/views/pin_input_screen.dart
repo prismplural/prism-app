@@ -24,6 +24,7 @@ class PinInputScreen extends ConsumerStatefulWidget {
     required this.mode,
     required this.onSuccess,
     this.pinToConfirm,
+    this.onPinEntered,
   });
 
   final PinInputMode mode;
@@ -31,6 +32,11 @@ class PinInputScreen extends ConsumerStatefulWidget {
 
   /// When [mode] is [PinInputMode.confirm], this is the PIN to match against.
   final String? pinToConfirm;
+
+  /// Called with the entered PIN when the PIN is accepted (before [onSuccess]).
+  /// Useful for callers that need to capture the PIN value, e.g. to pass as
+  /// [pinToConfirm] in a follow-up confirm phase.
+  final void Function(String pin)? onPinEntered;
 
   @override
   ConsumerState<PinInputScreen> createState() => _PinInputScreenState();
@@ -131,9 +137,11 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
 
     switch (widget.mode) {
       case PinInputMode.set:
+        widget.onPinEntered?.call(_pin);
         widget.onSuccess();
       case PinInputMode.confirm:
         if (_pin == widget.pinToConfirm) {
+          widget.onPinEntered?.call(_pin);
           widget.onSuccess();
         } else {
           _showError();
@@ -143,6 +151,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
         final valid = await service.verifyStoredPin(_pin);
         if (valid) {
           _failedAttempts = 0;
+          widget.onPinEntered?.call(_pin);
           widget.onSuccess();
         } else {
           _failedAttempts++;
