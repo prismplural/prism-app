@@ -15,7 +15,9 @@ class VoiceBubble extends StatefulWidget {
     this.progress = 0.0,
     this.speed = 1.0,
     this.isLoading = false,
+    this.hasError = false,
     this.onPlayPause,
+    this.onRetry,
     this.onSeek,
     this.onSpeedTap,
   });
@@ -35,8 +37,15 @@ class VoiceBubble extends StatefulWidget {
   /// Whether the audio file is loading (downloading/decrypting).
   final bool isLoading;
 
+  /// Whether a download or playback error occurred.
+  final bool hasError;
+
   /// Called when the play/pause button is tapped.
   final VoidCallback? onPlayPause;
+
+  /// Called when the error icon is tapped to retry a failed download.
+  /// If null and [hasError] is true, [onPlayPause] is used as fallback.
+  final VoidCallback? onRetry;
 
   /// Called when the user seeks to a position (0.0 to 1.0).
   final ValueChanged<double>? onSeek;
@@ -74,9 +83,11 @@ class _VoiceBubbleState extends State<VoiceBubble> {
             Semantics(
               label: widget.isLoading
                   ? context.l10n.chatVoiceNoteLoading(durationText)
-                  : widget.isPlaying
-                      ? context.l10n.chatVoiceNotePause(durationText)
-                      : context.l10n.chatVoiceNotePlay(durationText),
+                  : widget.hasError
+                      ? context.l10n.chatVoiceNoteError
+                      : widget.isPlaying
+                          ? context.l10n.chatVoiceNotePause(durationText)
+                          : context.l10n.chatVoiceNotePlay(durationText),
               button: true,
               child: SizedBox(
                 width: 44,
@@ -89,17 +100,27 @@ class _VoiceBubbleState extends State<VoiceBubble> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
-                    : IconButton(
-                        icon: Icon(
-                          widget.isPlaying
-                              ? AppIcons.stopRounded
-                              : AppIcons.playArrowRounded,
-                          size: 22,
-                          color: theme.colorScheme.primary,
-                        ),
-                        onPressed: widget.onPlayPause,
-                        padding: EdgeInsets.zero,
-                      ),
+                    : widget.hasError
+                        ? IconButton(
+                            icon: Icon(
+                              AppIcons.refresh,
+                              size: 22,
+                              color: theme.colorScheme.error,
+                            ),
+                            onPressed: widget.onRetry ?? widget.onPlayPause,
+                            padding: EdgeInsets.zero,
+                          )
+                        : IconButton(
+                            icon: Icon(
+                              widget.isPlaying
+                                  ? AppIcons.stopRounded
+                                  : AppIcons.playArrowRounded,
+                              size: 22,
+                              color: theme.colorScheme.primary,
+                            ),
+                            onPressed: widget.onPlayPause,
+                            padding: EdgeInsets.zero,
+                          ),
               ),
             ),
             const SizedBox(width: 4),

@@ -3911,6 +3911,10 @@
       }
     }
   },
+  "chatVoiceNoteError": "Failed to load voice note. Tap to retry.",
+  "@chatVoiceNoteError": {
+    "description": "Semantics label for voice note error state with retry"
+  },
   "chatVoiceRecorderCancel": "Cancel recording",
   "@chatVoiceRecorderCancel": {
     "description": "Semantics label for cancel recording button"
