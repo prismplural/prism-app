@@ -358,7 +358,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String syncEntitiesCount(int count) {
-    return '$count entidades';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entidades',
+      one: '1 entidad',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -928,7 +934,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get debugTools => 'Herramientas';
 
   @override
-  String get debugTimelineSanitization => 'Saneamiento de cronología';
+  String get debugTimelineSanitization => 'Limpieza de cronología';
 
   @override
   String get debugTimelineSanitizationSubtitle =>
@@ -1889,13 +1895,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Inicia una sesión de frente para verla en la cronología.';
 
   @override
-  String get frontingSanitizationTitle => 'Saneamiento de cronología';
+  String get frontingSanitizationTitle => 'Limpieza de cronología';
 
   @override
   String get frontingSanitizationScanning => 'Escaneando cronología…';
 
   @override
-  String get frontingSanitizationIntroTitle => 'Saneamiento de cronología';
+  String get frontingSanitizationIntroTitle => 'Limpieza de cronología';
 
   @override
   String get frontingSanitizationIntroBody =>
@@ -2250,7 +2256,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String memberStatsDaysAgo(int count) {
-    return 'Hace $count días';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Hace $count días',
+      one: 'Hace 1 día',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -2791,11 +2803,11 @@ class AppLocalizationsEs extends AppLocalizations {
       'No hay integrantes disponibles. Crea integrantes primero.';
 
   @override
-  String get chatCreateFronting => 'Fronting';
+  String get chatCreateFronting => 'Al frente';
 
   @override
   String chatCreateFronterDeselectedWarning(String name) {
-    return '$name está en frente actualmente pero no está en este chat. No podrás ver ni enviar mensajes.';
+    return '$name está al frente actualmente pero no está en este chat. No podrás ver ni enviar mensajes.';
   }
 
   @override
@@ -2927,6 +2939,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String chatVoiceNoteSpeed(String speed) {
     return 'Velocidad de reproducción ${speed}x. Toca dos veces para cambiar.';
   }
+
+  @override
+  String get chatVoiceNoteError =>
+      'Error al cargar la nota de voz. Toca para reintentar.';
 
   @override
   String get chatVoiceRecorderCancel => 'Cancelar grabación';
@@ -3449,7 +3465,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'Algunos datos aún se están sincronizando y aparecerán en breve.';
 
   @override
-  String get onboardingSyncWelcomeBackTitle => '¡Bienvenido de vuelta!';
+  String get onboardingSyncWelcomeBackTitle => '¡Bienvenide de vuelta!';
 
   @override
   String get onboardingSyncWelcomeBackDescription =>
@@ -4969,7 +4985,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settingsAboutDescription =>
-      'Una app centrada en la privacidad para gestionar sistemas plurales. Registra el frente, comunícate entre compañeros de sistema y mantén tu sistema organizado.';
+      'Una app centrada en la privacidad para gestionar sistemas plurales. Registra el frente, comunícate entre integrantes del sistema y mantén tu sistema organizado.';
 
   @override
   String get settingsAboutGitHub => 'GitHub';
@@ -5429,7 +5445,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navStatistics => 'Estadísticas';
 
   @override
-  String get onboardingWelcomeTitle => 'Bienvenido a Prism';
+  String get onboardingWelcomeTitle => 'Bienvenide a Prism';
 
   @override
   String get onboardingWelcomeSubtitle => 'Tu sistema, a tu manera.';
