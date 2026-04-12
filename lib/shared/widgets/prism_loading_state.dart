@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// A standardized loading indicator for async states.
 ///
-/// Replaces repeated `Center(child: CircularProgressIndicator())` patterns.
+/// Eight dots arranged in a ring with a sequential cosine pulse — the same
+/// orbital language as [PrismSpinner] but scaled up for page-level contexts.
+/// The 3 s cycle keeps it calm while the system works.
+///
 /// Use [PrismLoadingState.sliver] inside [CustomScrollView].
 class PrismLoadingState extends StatelessWidget {
   const PrismLoadingState({super.key, this.color});
@@ -15,7 +19,14 @@ class PrismLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(child: CircularProgressIndicator(color: color));
+    return Center(
+      child: PrismSpinner(
+        color: color ?? Theme.of(context).colorScheme.primary,
+        size: 52,
+        dotCount: 8,
+        duration: const Duration(milliseconds: 3000),
+      ),
+    );
   }
 }
 
@@ -25,7 +36,14 @@ class _SliverLoadingState extends PrismLoadingState {
   @override
   Widget build(BuildContext context) {
     return SliverFillRemaining(
-      child: Center(child: CircularProgressIndicator(color: color)),
+      child: Center(
+        child: PrismSpinner(
+          color: color ?? Theme.of(context).colorScheme.primary,
+          size: 52,
+          dotCount: 8,
+          duration: const Duration(milliseconds: 3000),
+        ),
+      ),
     );
   }
 }

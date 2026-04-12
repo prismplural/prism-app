@@ -80,13 +80,14 @@ class _PrismListRowState extends State<PrismListRow> {
                         theme.textTheme.bodyLarge?.copyWith(
                           color: foregroundColor,
                           fontWeight: FontWeight.w600,
+                          height: 1.2,
                         ) ??
                         TextStyle(color: foregroundColor),
                     child: widget.title,
                   ),
                 ),
                 if (widget.subtitle != null) ...[
-                  SizedBox(height: widget.dense ? 2 : 4),
+                  SizedBox(height: widget.dense ? 1 : 2),
                   DefaultTextStyle(
                     style:
                         theme.textTheme.bodySmall?.copyWith(

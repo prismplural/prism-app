@@ -24,6 +24,7 @@ import '../../features/settings/views/notification_settings_screen.dart';
 import '../../features/settings/views/appearance_settings_screen.dart';
 import '../../features/settings/views/statistics_screen.dart';
 import '../../features/settings/views/database_diagnostics_screen.dart';
+import '../../features/settings/views/component_gallery_screen.dart';
 import '../../features/settings/views/debug_screen.dart';
 import '../../features/settings/views/error_history_screen.dart';
 import '../../features/settings/views/sync_debug_screen.dart';
@@ -366,6 +367,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'debug',
                     builder: (context, state) => const DebugScreen(),
+                  ),
+                  GoRoute(
+                    path: 'component-gallery',
+                    builder: (context, state) =>
+                        const ComponentGalleryScreen(),
                   ),
                   GoRoute(
                     path: 'sync-debug',

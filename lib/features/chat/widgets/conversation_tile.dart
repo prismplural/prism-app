@@ -6,11 +6,12 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// List tile for a conversation in the conversation list.
 ///
-/// Uses the same row layout as session tiles: avatar + title/subtitle + trailing.
+/// Built on [PrismListRow] for consistent sizing and touch targets.
 /// Watches a single [conversationTileDataProvider] to reduce provider fan-out.
 class ConversationTile extends ConsumerWidget {
   const ConversationTile({
@@ -24,95 +25,41 @@ class ConversationTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final tileData = ref.watch(conversationTileDataProvider(conversation.id));
 
-    // While the batched provider is loading, show a minimal placeholder.
     if (tileData == null) {
       return const SizedBox.shrink();
     }
 
-    final child = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              _buildLeading(context, tileData),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tileData.displayTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: tileData.hasUnread
-                            ? FontWeight.w700
-                            : FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    _buildMessagePreview(context, tileData),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _relativeTimestamp(tileData.conversation.lastActivityAt),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: tileData.hasUnread
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  if (tileData.unreadCount > 0) ...[
-                    const SizedBox(height: 4),
-                    Badge(
-                      label: Text(
-                        tileData.unreadCount > 99
-                            ? '99+'
-                            : '${tileData.unreadCount}',
-                      ),
-                      child: const SizedBox.shrink(),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                AppIcons.chevronRightRounded,
-                size: 20,
-                color:
-                    theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-            ],
-          ),
-        ),
+    Widget tile = PrismListRow(
+      leading: _buildLeading(context, tileData),
+      title: Text(
+        tileData.displayTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: tileData.hasUnread
+            ? const TextStyle(fontWeight: FontWeight.w700)
+            : null,
       ),
+      subtitle: _buildMessagePreview(context, tileData),
+      trailing: _buildTrailing(context, tileData),
+      onTap: onTap,
     );
 
-    // Use ColorFiltered instead of Opacity to avoid an extra compositing layer.
+    // Dim archived conversations.
     if (tileData.isArchived) {
-      return ColorFiltered(
+      tile = ColorFiltered(
         colorFilter: const ColorFilter.matrix(<double>[
-          1, 0, 0, 0, 0, // R
-          0, 1, 0, 0, 0, // G
-          0, 0, 1, 0, 0, // B
-          0, 0, 0, 0.6, 0, // A
+          1, 0, 0, 0, 0,
+          0, 1, 0, 0, 0,
+          0, 0, 1, 0, 0,
+          0, 0, 0, 0.6, 0,
         ]),
-        child: child,
+        child: tile,
       );
     }
-    return child;
+
+    return tile;
   }
 
   Widget _buildLeading(BuildContext context, ConversationTileData tileData) {
@@ -126,7 +73,6 @@ class ConversationTile extends ConsumerWidget {
       );
     }
 
-    // For DMs, show the other participant's avatar.
     if (tileData.conversation.isDirectMessage && tileData.dmPartner != null) {
       final member = tileData.dmPartner!;
       return MemberAvatar(
@@ -138,7 +84,6 @@ class ConversationTile extends ConsumerWidget {
       );
     }
 
-    // DM with unknown partner or group without emoji.
     final icon = tileData.conversation.isDirectMessage
         ? AppIcons.person
         : AppIcons.group;
@@ -154,11 +99,48 @@ class ConversationTile extends ConsumerWidget {
         shape: BoxShape.circle,
         color: theme.colorScheme.surfaceContainerHighest,
       ),
-      child: Icon(
-        icon,
-        size: 20,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
+      child: Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+    );
+  }
+
+  Widget _buildTrailing(BuildContext context, ConversationTileData tileData) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _relativeTimestamp(tileData.conversation.lastActivityAt),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: tileData.hasUnread
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            if (tileData.unreadCount > 0) ...[
+              const SizedBox(height: 4),
+              Badge(
+                label: Text(
+                  tileData.unreadCount > 99
+                      ? '99+'
+                      : '${tileData.unreadCount}',
+                ),
+                child: const SizedBox.shrink(),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(width: 4),
+        Icon(
+          AppIcons.chevronRightRounded,
+          size: 20,
+          color:
+              theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
+      ],
     );
   }
 
@@ -166,16 +148,11 @@ class ConversationTile extends ConsumerWidget {
     BuildContext context,
     ConversationTileData tileData,
   ) {
-    final theme = Theme.of(context);
-
     if (tileData.lastMessage == null) {
       return Text(
         context.l10n.chatTileNoMessages,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.bodySmall?.copyWith(
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
       );
     }
 
@@ -189,17 +166,13 @@ class ConversationTile extends ConsumerWidget {
           if (prefix.isNotEmpty)
             TextSpan(
               text: prefix,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           TextSpan(
             text: displayContent,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: tileData.hasUnread ? FontWeight.w600 : null,
-            ),
+            style: tileData.hasUnread
+                ? const TextStyle(fontWeight: FontWeight.w600)
+                : null,
           ),
         ],
       ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+
 enum PrismTextFieldStyle { standard, borderless }
 
 /// A shared text-field wrapper that preserves Material text entry behavior.
@@ -84,51 +86,109 @@ class PrismTextField extends StatelessWidget {
     final theme = Theme.of(context);
     final inputTheme = theme.inputDecorationTheme;
 
-    // Multi-line standard fields use a rounded rectangle instead of the
-    // theme-level pill (BorderRadius.circular(999)).
+    // Multi-line fields use a slightly tighter radius than single-line
+    // since the taller container looks better with less rounding.
     OutlineInputBorder? multiLineBorder(InputBorder? themeBorder) {
       if (!_isMultiLine || fieldStyle != PrismTextFieldStyle.standard) {
         return null;
       }
-      const radius = BorderRadius.all(Radius.circular(12));
+      const radius = BorderRadius.all(Radius.circular(PrismTokens.radiusMedium));
       if (themeBorder is OutlineInputBorder) {
         return themeBorder.copyWith(borderRadius: radius);
       }
       return null;
     }
 
+    // When a static label is rendered above the field, don't duplicate it
+    // inside the InputDecoration — keep the field itself clean.
+    final hasExternalLabel =
+        labelText != null && fieldStyle != PrismTextFieldStyle.borderless;
+    final hasError = errorText != null && errorText!.isNotEmpty;
+    final isBorderless = fieldStyle == PrismTextFieldStyle.borderless;
+    final errorColor = theme.colorScheme.error;
+
+    // Build the error chip suffix when there's an error.
+    Widget? effectiveSuffix = suffix;
+    if (hasError && !isBorderless) {
+      final chip = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: errorColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          errorText!,
+          style: theme.textTheme.labelSmall!.copyWith(
+            color: errorColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+      // If there's already a suffix, stack them.
+      effectiveSuffix = suffix != null
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [suffix!, const SizedBox(width: 6), chip],
+            )
+          : chip;
+    }
+
+    // Error border: subtle tint instead of the default bold red.
+    OutlineInputBorder? errorBorder() {
+      if (isBorderless || !hasError) return null;
+      final radius = _isMultiLine
+          ? const BorderRadius.all(Radius.circular(PrismTokens.radiusMedium))
+          : BorderRadius.circular(PrismTokens.radiusLarge);
+      return OutlineInputBorder(
+        borderRadius: radius,
+        borderSide: BorderSide(color: errorColor.withValues(alpha: 0.25)),
+      );
+    }
+
     final decoration = InputDecoration(
-      labelText: labelText,
+      labelText: hasExternalLabel ? null : labelText,
       floatingLabelBehavior: FloatingLabelBehavior.never,
       hintText: hintText,
-      helperText: helperText,
-      errorText: errorText,
+      // When we have an external label, render helper text ourselves
+      // so it aligns with the label at the container edge.
+      helperText: hasExternalLabel ? null : helperText,
+      // Suppress below-field error text — errors show as an inline chip.
+      errorText: hasError ? '' : null,
+      errorStyle: hasError
+          ? const TextStyle(fontSize: 0, height: 0)
+          : null,
       prefixIcon: prefixIcon,
-      suffixIcon: suffix,
+      suffixIcon: effectiveSuffix != null
+          ? Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: effectiveSuffix,
+            )
+          : null,
+      suffixIconConstraints: effectiveSuffix != null
+          ? const BoxConstraints(minHeight: 0, minWidth: 0)
+          : null,
       hintStyle: hintStyle,
       contentPadding: contentPadding,
       prefixText: prefixText,
       isDense: isDense,
-      border: fieldStyle == PrismTextFieldStyle.borderless
-          ? InputBorder.none
-          : multiLineBorder(inputTheme.border),
-      enabledBorder: fieldStyle == PrismTextFieldStyle.borderless
+      // Tint the fill when errored.
+      filled: isBorderless ? false : true,
+      fillColor: isBorderless
+          ? null
+          : hasError
+              ? errorColor.withValues(alpha: 0.06)
+              : null,
+      border: isBorderless ? InputBorder.none : multiLineBorder(inputTheme.border),
+      enabledBorder: isBorderless
           ? InputBorder.none
           : multiLineBorder(inputTheme.enabledBorder),
-      focusedBorder: fieldStyle == PrismTextFieldStyle.borderless
+      focusedBorder: isBorderless
           ? InputBorder.none
           : multiLineBorder(inputTheme.focusedBorder),
-      disabledBorder: fieldStyle == PrismTextFieldStyle.borderless
-          ? InputBorder.none
-          : null,
-      errorBorder: fieldStyle == PrismTextFieldStyle.borderless
-          ? InputBorder.none
-          : null,
-      focusedErrorBorder: fieldStyle == PrismTextFieldStyle.borderless
-          ? InputBorder.none
-          : null,
-      filled: fieldStyle == PrismTextFieldStyle.borderless ? false : null,
-      isCollapsed: fieldStyle == PrismTextFieldStyle.borderless,
+      disabledBorder: isBorderless ? InputBorder.none : null,
+      errorBorder: isBorderless ? InputBorder.none : errorBorder(),
+      focusedErrorBorder: isBorderless ? InputBorder.none : errorBorder(),
+      isCollapsed: isBorderless,
     );
 
     final textFormField = TextFormField(
@@ -155,14 +215,29 @@ class PrismTextField extends StatelessWidget {
       textAlign: textAlign,
     );
 
-    if (labelText != null && fieldStyle != PrismTextFieldStyle.borderless) {
+    if (hasExternalLabel) {
+      final hasHelper = helperText != null && helperText!.isNotEmpty;
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildLabel(context),
-          const SizedBox(height: 4),
-          textFormField,
+          const SizedBox(height: 6),
+          // Semantics label so screen readers still announce the field name
+          // even though the visual label lives outside the InputDecoration.
+          Semantics(
+            label: labelText,
+            child: textFormField,
+          ),
+          if (hasHelper) ...[
+            const SizedBox(height: 4),
+            Text(
+              helperText!,
+              style: theme.textTheme.bodySmall!.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
       );
     }
@@ -171,7 +246,7 @@ class PrismTextField extends StatelessWidget {
 
   Widget _buildLabel(BuildContext context) {
     final theme = Theme.of(context);
-    final style = theme.textTheme.labelLarge!.copyWith(
+    final style = theme.textTheme.titleSmall!.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
 

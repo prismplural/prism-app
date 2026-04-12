@@ -167,15 +167,15 @@ class AppTheme {
         filled: true,
         fillColor: colors.fillColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
           borderSide: BorderSide(color: colors.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
           borderSide: BorderSide(color: colors.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
           borderSide: BorderSide(color: colors.focusBorderColor),
         ),
       ),

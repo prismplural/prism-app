@@ -25,12 +25,6 @@ end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
-# Only include the microphone permission — keeps binary size minimal and avoids
-# App Store rejection for permissions you don't use.
-$PermissionHandlerCapabilitiesMap = {
-  'PermissionGroupMicrophone' => true,
-}
-
 flutter_ios_podfile_setup
 
 target 'Runner' do
@@ -53,6 +47,11 @@ post_install do |installer|
       ccache_clangpp = File.expand_path('../.ccache-clang++', __FILE__)
       config.build_settings['CC'] = ccache_clang
       config.build_settings['CXX'] = ccache_clangpp
+      # Enable only the permissions the app actually uses.
+      # permission_handler requires explicit opt-in at compile time — without this
+      # the native code is stripped and iOS never shows the permission dialog.
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_MICROPHONE=1'
     end
   end
 end

@@ -1,11 +1,10 @@
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
-import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 /// A styled dialog wrapper with consistent Prism design language.
@@ -231,30 +230,54 @@ class PrismDialog extends StatelessWidget {
 
 /// Glass chrome shell for dialogs.
 ///
-/// Uses [GlassSurface] for frosted glass treatment with automatic fallback
-/// to [TintedGlassSurface] when visual effects are reduced.
-class _GlassDialogShell extends ConsumerWidget {
+/// Inlines the frosted glass treatment so the shell shrink-wraps its content
+/// (GlassSurface's Container uses alignment which forces expansion).
+class _GlassDialogShell extends StatelessWidget {
   const _GlassDialogShell({required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final maxWidth = min(size.width - 48.0, PrismTokens.dialogMaxWidth);
     final maxHeight = min(size.height * 0.8, 560.0);
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: maxWidth,
-        maxHeight: maxHeight,
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: GlassSurface(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
-          sigma: PrismTokens.glassBlurMedium,
-          child: SingleChildScrollView(child: child),
+    final borderRadius = BorderRadius.circular(PrismTokens.radiusLarge);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fillColor = isDark
+        ? AppColors.warmWhite.withValues(alpha: 0.08)
+        : AppColors.warmWhite.withValues(alpha: 0.65);
+    final borderColor = isDark
+        ? AppColors.warmWhite.withValues(alpha: 0.1)
+        : AppColors.warmBlack.withValues(alpha: 0.06);
+
+    return Material(
+      type: MaterialType.transparency,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: maxHeight,
+        ),
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(
+              sigmaX: PrismTokens.glassBlurMedium,
+              sigmaY: PrismTokens.glassBlurMedium,
+            ),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: fillColor,
+                borderRadius: borderRadius,
+                border: Border.all(
+                  color: borderColor,
+                  width: PrismTokens.hairlineBorderWidth,
+                ),
+              ),
+              child: child,
+            ),
+          ),
         ),
       ),
     );

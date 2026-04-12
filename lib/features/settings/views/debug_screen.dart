@@ -289,6 +289,14 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                   onTap: () =>
                       context.push(AppRoutePaths.settingsTimelineSanitization),
                 ),
+                PrismListRow(
+                  leading: Icon(AppIcons.gridView),
+                  title: const Text('Component Gallery'),
+                  subtitle: const Text('Preview all shared widgets'),
+                  trailing: Icon(AppIcons.chevronRight),
+                  onTap: () =>
+                      context.push(AppRoutePaths.settingsComponentGallery),
+                ),
               ],
             ),
           ),

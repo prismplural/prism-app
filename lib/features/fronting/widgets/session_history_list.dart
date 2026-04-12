@@ -261,7 +261,7 @@ class _SessionTile extends ConsumerWidget {
         ? AppColors.fromHex(member.customColorHex!)
         : theme.colorScheme.primary;
 
-    final timeRange = displaySession.timeRangeString;
+    final timeRange = displaySession.timeRangeString(context.dateLocale);
 
     final Widget leadingWidget;
     if (isUnknown) {
@@ -451,7 +451,7 @@ class _InlineSleepTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    final timeRange = displaySession.timeRangeString;
+    final timeRange = displaySession.timeRangeString(context.dateLocale);
 
     final quality = session.quality;
     final hasQuality = quality != null && quality != SleepQuality.unknown;
