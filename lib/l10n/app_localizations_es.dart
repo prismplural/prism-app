@@ -91,13 +91,19 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get selectMember => 'Seleccionar integrante';
+  String selectMember(String term) {
+    return 'Seleccionar $term';
+  }
 
   @override
-  String get selectMembers => 'Seleccionar integrantes';
+  String selectMembers(String termPlural) {
+    return 'Seleccionar $termPlural';
+  }
 
   @override
-  String get selectAMember => 'Seleccionar un integrante';
+  String selectAMember(String termLower) {
+    return 'Seleccionar $termLower';
+  }
 
   @override
   String errorWithDetail(Object detail) {
@@ -120,10 +126,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get destructiveAction => 'Acción destructiva';
 
   @override
-  String get searchMembers => 'Buscar integrantes...';
+  String searchMembers(String termPlural) {
+    return 'Buscar $termPlural...';
+  }
 
   @override
-  String get noMembersFound => 'No se encontraron integrantes';
+  String noMembersFound(String termPlural) {
+    return 'No se encontraron $termPlural';
+  }
 
   @override
   String get moreOptions => 'Más opciones';
@@ -215,7 +225,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get appearanceAccentColor => 'Color de acento';
 
   @override
-  String get appearancePerMemberColors => 'Colores por integrante';
+  String appearancePerMemberColors(String term) {
+    return 'Colores por $term';
+  }
 
   @override
   String get appearanceSyncSection => 'Sincronización';
@@ -820,7 +832,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get statisticsOverview => 'Resumen';
 
   @override
-  String get statisticsTotalMembers => 'Total de integrantes';
+  String statisticsTotalMembers(String termPlural) {
+    return 'Total de $termPlural';
+  }
 
   @override
   String get statisticsTotalSessions => 'Total de sesiones';
@@ -2155,7 +2169,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberNewGroupTooltip => 'Nuevo grupo';
 
   @override
-  String get memberAdded => 'Integrante agregado';
+  String memberAdded(String term) {
+    return '$term añadide';
+  }
 
   @override
   String memberIsFronting(String name) {
@@ -2183,28 +2199,37 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get memberRemoveFromGroupTitle => 'Eliminar integrante';
-
-  @override
-  String memberRemoveFromGroupMessage(String name) {
-    return '¿Eliminar a $name de este grupo? El integrante no será eliminado.';
+  String memberRemoveFromGroupTitle(String term) {
+    return 'Eliminar $term';
   }
 
   @override
-  String get memberEmptyList => 'Aún no hay integrantes';
+  String memberRemoveFromGroupMessage(String name, String termLower) {
+    return '¿Eliminar a $name de este grupo? $termLower no será eliminade.';
+  }
+
+  @override
+  String memberEmptyList(String termPlural) {
+    return 'Sin $termPlural todavía';
+  }
 
   @override
   String get memberGroupEmptyList => 'Aún no hay grupos';
 
   @override
-  String get memberGroupEmptySubtitle =>
-      'Crea grupos para organizar a los integrantes del sistema';
+  String memberGroupEmptySubtitle(String termPlural) {
+    return 'Crea grupos para organizar les $termPlural de tu sistema';
+  }
 
   @override
-  String get memberGroupNoMembers => 'Sin integrantes';
+  String memberGroupNoMembers(String termPlural) {
+    return 'Sin $termPlural';
+  }
 
   @override
-  String get memberGroupNoMembersSubtitle => 'Agrega integrantes a este grupo';
+  String memberGroupNoMembersSubtitle(String termPlural) {
+    return 'Añadir $termPlural a este grupo';
+  }
 
   @override
   String get memberArchived => 'Inactivo';
@@ -2321,7 +2346,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberNoteBodyHint => 'Empieza a escribir...';
 
   @override
-  String get memberNoteAddHeadmate => 'Agregar integrante';
+  String memberNoteAddHeadmate(String termLower) {
+    return 'Añadir $termLower';
+  }
 
   @override
   String get memberNoteDiscardTitle => '¿Descartar cambios?';

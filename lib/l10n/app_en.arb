@@ -120,17 +120,32 @@
       }
     }
   },
-  "selectMember": "Select member",
+  "selectMember": "Select {term}",
   "@selectMember": {
-    "description": "Member picker placeholder when no member is selected"
+    "description": "Member picker placeholder when no member is selected",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
   },
-  "selectMembers": "Select members",
+  "selectMembers": "Select {termPlural}",
   "@selectMembers": {
-    "description": "Member picker placeholder for multi-select"
+    "description": "Member picker placeholder for multi-select",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
-  "selectAMember": "Select a member",
+  "selectAMember": "Select a {termLower}",
   "@selectAMember": {
-    "description": "Member picker hint text"
+    "description": "Member picker hint text",
+    "placeholders": {
+      "termLower": {
+        "type": "String"
+      }
+    }
   },
   "errorWithDetail": "Error: {detail}",
   "@errorWithDetail": {
@@ -161,13 +176,23 @@
   "@destructiveAction": {
     "description": "Semantics hint for destructive action buttons"
   },
-  "searchMembers": "Search members...",
+  "searchMembers": "Search {termPlural}...",
   "@searchMembers": {
-    "description": "Search hint in member search"
+    "description": "Search hint in member search",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
-  "noMembersFound": "No members found",
+  "noMembersFound": "No {termPlural} found",
   "@noMembersFound": {
-    "description": "Empty state in member search"
+    "description": "Empty state in member search",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
   "moreOptions": "More options",
   "@moreOptions": {
@@ -285,9 +310,14 @@
   "@appearanceAccentColor": {
     "description": "Appearance settings section: Accent Color"
   },
-  "appearancePerMemberColors": "Per-Member Colors",
+  "appearancePerMemberColors": "Per-{term} Colors",
   "@appearancePerMemberColors": {
-    "description": "Appearance settings section: Per-Member Colors"
+    "description": "Appearance settings section: Per-Member Colors",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
   },
   "appearanceSyncSection": "Sync",
   "@appearanceSyncSection": {
@@ -1061,9 +1091,14 @@
   "@statisticsOverview": {
     "description": "Statistics: Overview section title"
   },
-  "statisticsTotalMembers": "Total members",
+  "statisticsTotalMembers": "Total {termPlural}",
   "@statisticsTotalMembers": {
-    "description": "Statistics row: total members"
+    "description": "Statistics row: total members",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
   "statisticsTotalSessions": "Total sessions",
   "@statisticsTotalSessions": {
@@ -2790,9 +2825,14 @@
   "@memberNewGroupTooltip": {
     "description": "Tooltip for new group button"
   },
-  "memberAdded": "Member added",
+  "memberAdded": "{term} added",
   "@memberAdded": {
-    "description": "Toast shown when a member is added to a group"
+    "description": "Toast shown when a member is added to a group",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
   },
   "memberIsFronting": "{name} is now fronting",
   "@memberIsFronting": {
@@ -2839,38 +2879,66 @@
       }
     }
   },
-  "memberRemoveFromGroupTitle": "Remove member",
+  "memberRemoveFromGroupTitle": "Remove {term}",
   "@memberRemoveFromGroupTitle": {
-    "description": "Dialog title when confirming removal of a member from a group"
+    "description": "Dialog title when confirming removal of a member from a group",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
   },
-  "memberRemoveFromGroupMessage": "Remove {name} from this group? The member will not be deleted.",
+  "memberRemoveFromGroupMessage": "Remove {name} from this group? The {termLower} will not be deleted.",
   "@memberRemoveFromGroupMessage": {
     "description": "Dialog message when removing a member from a group",
     "placeholders": {
       "name": {
         "type": "String"
+      },
+      "termLower": {
+        "type": "String"
       }
     }
   },
-  "memberEmptyList": "No members yet",
+  "memberEmptyList": "No {termPlural} yet",
   "@memberEmptyList": {
-    "description": "Empty state when there are no members in a group"
+    "description": "Empty state when there are no members in a group",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
   "memberGroupEmptyList": "No groups yet",
   "@memberGroupEmptyList": {
     "description": "Empty state title on the groups screen"
   },
-  "memberGroupEmptySubtitle": "Create groups to organize your system members",
+  "memberGroupEmptySubtitle": "Create groups to organize your system {termPlural}",
   "@memberGroupEmptySubtitle": {
-    "description": "Empty state subtitle on the groups screen"
+    "description": "Empty state subtitle on the groups screen",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
-  "memberGroupNoMembers": "No members",
+  "memberGroupNoMembers": "No {termPlural}",
   "@memberGroupNoMembers": {
-    "description": "Empty state title inside a group detail screen"
+    "description": "Empty state title inside a group detail screen",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
-  "memberGroupNoMembersSubtitle": "Add members to this group",
+  "memberGroupNoMembersSubtitle": "Add {termPlural} to this group",
   "@memberGroupNoMembersSubtitle": {
-    "description": "Empty state subtitle inside a group detail screen"
+    "description": "Empty state subtitle inside a group detail screen",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
   },
   "memberArchived": "Inactive",
   "@memberArchived": {
@@ -3024,9 +3092,14 @@
   "@memberNoteBodyHint": {
     "description": "Hint text for the note body field"
   },
-  "memberNoteAddHeadmate": "Add headmate",
+  "memberNoteAddHeadmate": "Add {termLower}",
   "@memberNoteAddHeadmate": {
-    "description": "Toolbar chip label when no headmate is assigned to a note"
+    "description": "Toolbar chip label when no headmate is assigned to a note",
+    "placeholders": {
+      "termLower": {
+        "type": "String"
+      }
+    }
   },
   "memberNoteDiscardTitle": "Discard changes?",
   "@memberNoteDiscardTitle": {

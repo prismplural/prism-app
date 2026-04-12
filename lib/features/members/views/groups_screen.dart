@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Screen listing all member groups with reordering support.
@@ -92,7 +93,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
             return EmptyState(
               icon: Icon(AppIcons.folderOutlined),
               title: l10n.memberGroupEmptyList,
-              subtitle: l10n.memberGroupEmptySubtitle,
+              subtitle: l10n.memberGroupEmptySubtitle(watchTerminology(context, ref).pluralLower),
               actionLabel: l10n.memberNewGroupTooltip,
               onAction: _openCreateSheet,
             );

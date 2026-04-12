@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -59,6 +60,7 @@ class _InlineExpandableMemberPickerState
             .where((m) => m.id == widget.selectedMemberId)
             .firstOrNull
         : null;
+    final terms = watchTerminology(context, ref);
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
@@ -71,7 +73,7 @@ class _InlineExpandableMemberPickerState
           Semantics(
             button: true,
             expanded: _expanded,
-            label: selected?.name ?? context.l10n.selectMember,
+            label: selected?.name ?? context.l10n.selectMember(terms.singular),
             child: InkWell(
               onTap: () => setState(() => _expanded = !_expanded),
               borderRadius: BorderRadius.circular(12),
@@ -122,7 +124,7 @@ class _InlineExpandableMemberPickerState
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          context.l10n.selectAMember,
+                          context.l10n.selectAMember(terms.singularLower),
                           style:
                               Theme.of(context).textTheme.titleSmall?.copyWith(
                                     color: Theme.of(context)
@@ -233,6 +235,7 @@ class _InlineExpandableMultiMemberPickerState
     final selected = members
         .where((m) => widget.selectedMemberIds.contains(m.id))
         .toList();
+    final terms = watchTerminology(context, ref);
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
@@ -249,7 +252,7 @@ class _InlineExpandableMultiMemberPickerState
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
               child: Row(
                 children: [
-                  ..._buildCollapsedContent(context, selected),
+                  ..._buildCollapsedContent(context, selected, terms.plural),
                   AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
                     duration: const Duration(milliseconds: 200),
@@ -294,14 +297,14 @@ class _InlineExpandableMultiMemberPickerState
   }
 
   List<Widget> _buildCollapsedContent(
-      BuildContext context, List<Member> selected) {
+      BuildContext context, List<Member> selected, String termPlural) {
     if (selected.isEmpty) {
       return [
         const MemberAvatar(emoji: '\u2754', size: 44),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            context.l10n.selectMembers,
+            context.l10n.selectMembers(termPlural),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

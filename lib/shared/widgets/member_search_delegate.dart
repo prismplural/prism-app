@@ -15,11 +15,16 @@ class MemberSearchDelegate extends SearchDelegate<String?> {
     required this.members,
     this.searchHint,
     this.emptyLabel,
+    this.termPlural = 'members',
   });
 
   final List<Member> members;
   final String? searchHint;
   final String? emptyLabel;
+
+  /// Plural terminology word used for the default empty-state label
+  /// when [emptyLabel] is not provided. Defaults to "members".
+  final String termPlural;
 
   @override
   String get searchFieldLabel => searchHint ?? '';
@@ -79,7 +84,7 @@ class MemberSearchDelegate extends SearchDelegate<String?> {
             ),
             const SizedBox(height: 8),
             Text(
-              emptyLabel ?? l10n.noMembersFound,
+              emptyLabel ?? l10n.noMembersFound(termPlural),
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),

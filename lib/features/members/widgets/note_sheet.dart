@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Create or edit a note. Shown as a full-screen PrismSheet.
@@ -306,7 +307,7 @@ class _BottomToolbar extends ConsumerWidget {
           else
             _ToolbarChip(
               icon: AppIcons.personOutline,
-              label: l10n.memberNoteAddHeadmate,
+              label: l10n.memberNoteAddHeadmate(watchTerminology(context, ref).singularLower),
               color: mutedColor.withValues(alpha: 0.6),
               onTap: onPickMember,
               semanticLabel: 'No headmate selected. Tap to choose',

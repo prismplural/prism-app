@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Detail screen for a single member group.
@@ -69,6 +70,7 @@ class _GroupDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l10n = context.l10n;
+    final terms = watchTerminology(context, ref);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
 
     return PrismPageScaffold(
@@ -125,8 +127,8 @@ class _GroupDetailBody extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     child: EmptyState(
                       icon: Icon(AppIcons.personAddOutlined),
-                      title: l10n.memberGroupNoMembers,
-                      subtitle: l10n.memberGroupNoMembersSubtitle,
+                      title: l10n.memberGroupNoMembers(terms.pluralLower),
+                      subtitle: l10n.memberGroupNoMembersSubtitle(terms.pluralLower),
                     ),
                   );
                 }
@@ -209,7 +211,7 @@ class _GroupDetailBody extends ConsumerWidget {
                 .addMemberToGroup(group.id, memberId);
             Haptics.success();
             Navigator.of(ctx).pop();
-            PrismToast.show(context, message: context.l10n.memberAdded);
+            PrismToast.show(context, message: context.l10n.memberAdded(readTerminology(context, ref).singular));
           }
         },
       ),
@@ -346,10 +348,11 @@ class _GroupMemberTile extends ConsumerWidget {
   Future<bool> _confirmRemove(
       BuildContext context, WidgetRef ref, Member member) async {
     final l10n = context.l10n;
+    final terms = readTerminology(context, ref);
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: l10n.memberRemoveFromGroupTitle,
-      message: l10n.memberRemoveFromGroupMessage(member.name),
+      title: l10n.memberRemoveFromGroupTitle(terms.singular),
+      message: l10n.memberRemoveFromGroupMessage(member.name, terms.singularLower),
       confirmLabel: l10n.confirm,
       destructive: true,
     );
