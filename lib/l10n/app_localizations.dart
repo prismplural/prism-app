@@ -9656,6 +9656,54 @@ abstract class AppLocalizations {
   /// **'Tap whoever\'s here right now.'**
   String get onboardingWhosFrontingSubtitle;
 
+  /// Header title for the onboarding PIN setup step
+  ///
+  /// In en, this message translates to:
+  /// **'Set your PIN'**
+  String get onboardingPinSetupTitle;
+
+  /// Header subtitle for the onboarding PIN setup step
+  ///
+  /// In en, this message translates to:
+  /// **'Protects your app and sync.'**
+  String get onboardingPinSetupSubtitle;
+
+  /// Header title for the onboarding recovery phrase step
+  ///
+  /// In en, this message translates to:
+  /// **'Save your recovery phrase'**
+  String get onboardingRecoveryPhraseTitle;
+
+  /// Header subtitle for the onboarding recovery phrase step
+  ///
+  /// In en, this message translates to:
+  /// **'Write these 12 words somewhere safe.'**
+  String get onboardingRecoveryPhraseSubtitle;
+
+  /// Header title for the onboarding confirm phrase step
+  ///
+  /// In en, this message translates to:
+  /// **'Verify your phrase'**
+  String get onboardingConfirmPhraseTitle;
+
+  /// Header subtitle for the onboarding confirm phrase step
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm you saved your phrase.'**
+  String get onboardingConfirmPhraseSubtitle;
+
+  /// Header title for the onboarding biometric setup step
+  ///
+  /// In en, this message translates to:
+  /// **'Enable biometrics'**
+  String get onboardingBiometricSetupTitle;
+
+  /// Header subtitle for the onboarding biometric setup step
+  ///
+  /// In en, this message translates to:
+  /// **'Use Face ID or Touch ID to unlock.'**
+  String get onboardingBiometricSetupSubtitle;
+
   /// Header title for the onboarding complete step
   ///
   /// In en, this message translates to:
