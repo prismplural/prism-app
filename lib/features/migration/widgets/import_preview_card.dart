@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Card displaying a summary of what will be imported.
@@ -26,7 +27,7 @@ class ImportPreviewCard extends StatelessWidget {
           children: [
             if (data.systemName != null) ...[
               Text(
-                'System: ${data.systemName}',
+                context.l10n.migrationPreviewSystem(data.systemName!),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -34,7 +35,7 @@ class ImportPreviewCard extends StatelessWidget {
               const SizedBox(height: 12),
             ],
             Text(
-              'Data found',
+              context.l10n.migrationPreviewDataFound,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -42,42 +43,42 @@ class ImportPreviewCard extends StatelessWidget {
             const SizedBox(height: 8),
             _CountRow(
               icon: AppIcons.person,
-              label: 'Members',
+              label: context.l10n.migrationSupportedMembers,
               count: data.members.length,
             ),
             if (data.customFronts.isNotEmpty)
               _CountRow(
                 icon: AppIcons.labelOutlined,
-                label: 'Custom fronts',
+                label: context.l10n.migrationPreviewCustomFronts,
                 count: data.customFronts.length,
               ),
             _CountRow(
               icon: AppIcons.flashOn,
-              label: 'Front history entries',
+              label: context.l10n.migrationPreviewFrontHistoryEntries,
               count: data.frontHistory.length,
             ),
             if (data.groups.isNotEmpty)
               _CountRow(
                 icon: AppIcons.group,
-                label: 'Groups',
+                label: context.l10n.migrationPreviewGroups,
                 count: data.groups.length,
               ),
             if (data.channels.isNotEmpty)
               _CountRow(
                 icon: AppIcons.chatBubbleOutline,
-                label: 'Chat channels',
+                label: context.l10n.migrationPreviewChatChannels,
                 count: data.channels.length,
               ),
             if (data.messages.isNotEmpty)
               _CountRow(
                 icon: AppIcons.messageOutlined,
-                label: 'Messages',
+                label: context.l10n.migrationPreviewMessages,
                 count: data.messages.length,
               ),
             if (data.polls.isNotEmpty)
               _CountRow(
                 icon: AppIcons.pollOutlined,
-                label: 'Polls',
+                label: context.l10n.migrationPreviewPolls,
                 count: data.polls.length,
               ),
             const SizedBox(height: 8),
@@ -85,14 +86,14 @@ class ImportPreviewCard extends StatelessWidget {
             const SizedBox(height: 4),
             _CountRow(
               icon: AppIcons.summarizeOutlined,
-              label: 'Total entities',
+              label: context.l10n.migrationPreviewTotalEntities,
               count: data.totalEntities,
               bold: true,
             ),
             if (warnings.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                'Warnings',
+                context.l10n.migrationPreviewWarnings,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
                   color: theme.colorScheme.error,
