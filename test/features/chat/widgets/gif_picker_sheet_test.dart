@@ -10,6 +10,7 @@ import 'package:http/testing.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_picker_sheet.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 /// Helper to build a realistic Klipy API response body.
 Map<String, dynamic> _buildResponse(List<Map<String, dynamic>> items) {
@@ -52,8 +53,10 @@ Widget _buildTestWidget({required MockClient mockClient}) {
         KlipyService(httpClient: mockClient),
       ),
     ],
-    child: const MaterialApp(
-      home: Scaffold(
+    child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: const [Locale('en')],
+      home: const Scaffold(
         body: GifPickerSheet(),
       ),
     ),
