@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -50,8 +51,7 @@ class ValidationIssueTile extends StatelessWidget {
                           const Spacer(),
                           if (issue.sessionIds.isNotEmpty)
                             Text(
-                              '${issue.sessionIds.length} '
-                              '${issue.sessionIds.length == 1 ? 'session' : 'sessions'}',
+                              context.l10n.frontingIssueSessionCount(issue.sessionIds.length),
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
@@ -67,7 +67,7 @@ class ValidationIssueTile extends StatelessWidget {
                       const SizedBox(height: 4),
                       // Time range
                       Text(
-                        _formatRange(issue.rangeStart, issue.rangeEnd),
+                        _formatRange(context, issue.rangeStart, issue.rangeEnd),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -100,9 +100,10 @@ class ValidationIssueTile extends StatelessWidget {
     };
   }
 
-  static String _formatRange(DateTime start, DateTime end) {
-    final dateFmt = DateFormat('MMM d');
-    final timeFmt = DateFormat('h:mm a');
+  static String _formatRange(BuildContext context, DateTime start, DateTime end) {
+    final locale = context.dateLocale;
+    final dateFmt = DateFormat('MMM d', locale);
+    final timeFmt = DateFormat('h:mm a', locale);
     final sameDay = start.year == end.year &&
         start.month == end.month &&
         start.day == end.day;
@@ -132,7 +133,7 @@ class _TypeChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
-        _label(type),
+        _label(context, type),
         style: theme.textTheme.labelSmall?.copyWith(
           color: color,
           fontWeight: FontWeight.w600,
@@ -141,14 +142,15 @@ class _TypeChip extends StatelessWidget {
     );
   }
 
-  static String _label(FrontingIssueType type) {
+  static String _label(BuildContext context, FrontingIssueType type) {
+    final l10n = context.l10n;
     return switch (type) {
-      FrontingIssueType.overlap => 'Overlap',
-      FrontingIssueType.gap => 'Gap',
-      FrontingIssueType.duplicate => 'Duplicate',
-      FrontingIssueType.mergeableAdjacent => 'Mergeable',
-      FrontingIssueType.invalidRange => 'Invalid Range',
-      FrontingIssueType.futureSession => 'Future Session',
+      FrontingIssueType.overlap => l10n.frontingIssueTypeOverlap,
+      FrontingIssueType.gap => l10n.frontingIssueTypeGap,
+      FrontingIssueType.duplicate => l10n.frontingIssueTypeDuplicate,
+      FrontingIssueType.mergeableAdjacent => l10n.frontingIssueTypeMergeable,
+      FrontingIssueType.invalidRange => l10n.frontingIssueTypeInvalidRange,
+      FrontingIssueType.futureSession => l10n.frontingIssueTypeFutureSession,
     };
   }
 }

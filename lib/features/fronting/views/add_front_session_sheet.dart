@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -94,7 +95,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error adding co-fronter: $e');
+        PrismToast.error(context, message: context.l10n.frontingErrorAddingCoFronter(e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -118,7 +119,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error creating session: $e');
+        PrismToast.error(context, message: context.l10n.frontingErrorCreatingSession(e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -164,7 +165,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   ) {
     return [
       PrismSheetTopBar(
-        title: _coFrontMode ? 'Add Co-Fronter' : 'New Session',
+        title: _coFrontMode ? context.l10n.frontingAddCoFronterTitle : context.l10n.frontingNewSession,
         trailing: PrismGlassIconButton(
           icon: AppIcons.check,
           onPressed: (_saving || _selectedId == null)
@@ -190,7 +191,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
               children: [
                 Expanded(
                   child: Text(
-                    _coFrontMode ? 'Select Member' : 'Select Fronter',
+                    _coFrontMode ? context.l10n.frontingSelectMember : context.l10n.frontingSelectFronter,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -242,7 +243,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Co-front',
+                              context.l10n.frontingCoFrontToggle,
                               style: theme.textTheme.labelSmall?.copyWith(
                                 color: _coFrontMode
                                     ? AppColors.fronting(theme.brightness)
@@ -283,7 +284,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
             // Co-fronter multi-select (hidden in co-front mode)
             if (_selectedMemberId != null && !_coFrontMode) ...[
               Text(
-                'Co-Fronters',
+                context.l10n.frontingCoFronters,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -298,7 +299,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                       .toList();
                   if (available.isEmpty) {
                     return Text(
-                      'No other members available',
+                      context.l10n.frontingNoOtherMembers,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -338,7 +339,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
             if (_coFrontMode) ...[
               // In co-front mode, just show a hint
               Text(
-                'Tap a member to add them as a co-fronter to the current session.',
+                context.l10n.frontingCoFrontHint,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -349,7 +350,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
             // Confidence level picker (hidden in co-front mode)
             if (!_coFrontMode) ...[
               Text(
-                'Confidence Level',
+                context.l10n.frontingConfidenceLevel,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -366,8 +367,8 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                 key: _notesKey,
                 controller: _notesController,
                 focusNode: _notesFocus,
-                labelText: 'Notes',
-                hintText: 'Optional notes about this session...',
+                labelText: context.l10n.frontingNotes,
+                hintText: context.l10n.frontingNotesHint,
                 alignLabelWithHint: true,
                 maxLines: 6,
                 minLines: 3,
@@ -512,7 +513,7 @@ class _MemberGridState extends State<_MemberGrid> {
                     ),
                     const SizedBox(width: 2),
                     Text(
-                      'Fronting',
+                      context.l10n.frontingFronting,
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: AppColors.fronting(theme.brightness),
                         fontWeight: FontWeight.w600,
@@ -595,7 +596,7 @@ class _MemberGridState extends State<_MemberGrid> {
       children: [
         // Search field
         PrismTextField(
-          hintText: 'Search members...',
+          hintText: context.l10n.frontingSearchMembersHint,
           prefixIcon: Icon(AppIcons.search, size: 20),
           onChanged: (v) => setState(() => _search = v),
         ),
@@ -658,7 +659,7 @@ class _MemberGridState extends State<_MemberGrid> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Text(
-              'No members matching "$_search"',
+              context.l10n.frontingNoMembersMatching(_search),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -753,17 +754,17 @@ class _ConfidencePicker extends StatelessWidget {
   final FrontConfidence? selected;
   final ValueChanged<FrontConfidence?> onSelect;
 
-  static const _labels = {
-    FrontConfidence.unsure: 'Unsure',
-    FrontConfidence.strong: 'Strong',
-    FrontConfidence.certain: 'Certain',
-  };
-
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final labels = {
+      FrontConfidence.unsure: l10n.frontingConfidenceUnsure,
+      FrontConfidence.strong: l10n.frontingConfidenceStrong,
+      FrontConfidence.certain: l10n.frontingConfidenceCertain,
+    };
     return PrismSegmentedControl<FrontConfidence>(
       segments: FrontConfidence.values.map((c) {
-        return PrismSegment(value: c, label: _labels[c]!);
+        return PrismSegment(value: c, label: labels[c]!);
       }).toList(),
       selected: selected ?? FrontConfidence.unsure,
       onChanged: onSelect,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -29,14 +30,14 @@ class EmptySystemView extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Welcome to Prism',
+              context.l10n.frontingWelcomeTitle,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Add your first system ${terms.singularLower} to get started',
+              context.l10n.frontingWelcomeSubtitle(terms.singularLower),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

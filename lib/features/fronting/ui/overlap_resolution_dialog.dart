@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -16,8 +17,7 @@ Future<OverlapResolution?> showOverlapResolutionDialog(
 }) async {
   final resolution = await PrismDialog.show<OverlapResolution>(
     context: context,
-    title: 'Overlap with $overlapCount '
-        '${overlapCount == 1 ? 'session' : 'sessions'}',
+    title: context.l10n.frontingOverlapTitle(overlapCount),
     builder: (ctx) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -25,26 +25,22 @@ Future<OverlapResolution?> showOverlapResolutionDialog(
           PrismListRow(
             padding: EdgeInsets.zero,
             leading: Icon(AppIcons.contentCut),
-            title: const Text('Trim overlapping sessions'),
-            subtitle: const Text(
-              'Shorten or remove sessions that conflict with your edit.',
-            ),
+            title: Text(ctx.l10n.frontingOverlapTrimOption),
+            subtitle: Text(ctx.l10n.frontingOverlapTrimSubtitle),
             onTap: () => Navigator.of(ctx).pop(OverlapResolution.trim),
           ),
           PrismListRow(
             padding: EdgeInsets.zero,
             leading: Icon(AppIcons.group),
-            title: const Text('Create co-fronting session'),
-            subtitle: const Text(
-              'Split the overlapping time into shared co-fronting segments.',
-            ),
+            title: Text(ctx.l10n.frontingOverlapCoFrontOption),
+            subtitle: Text(ctx.l10n.frontingOverlapCoFrontSubtitle),
             onTap: () =>
                 Navigator.of(ctx).pop(OverlapResolution.makeCoFronting),
           ),
           Align(
             alignment: Alignment.centerRight,
             child: PrismButton(
-              label: 'Cancel',
+              label: ctx.l10n.cancel,
               tone: PrismButtonTone.subtle,
               onPressed: () =>
                   Navigator.of(ctx).pop(OverlapResolution.cancel),
@@ -61,9 +57,9 @@ Future<OverlapResolution?> showOverlapResolutionDialog(
       context.mounted) {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Remove Session',
-      message: 'This would remove a session entirely. Continue?',
-      confirmLabel: 'Continue',
+      title: context.l10n.frontingOverlapRemoveSessionTitle,
+      message: context.l10n.frontingOverlapRemoveSessionMessage,
+      confirmLabel: context.l10n.frontingOverlapContinue,
       destructive: true,
     );
     if (!confirmed) return null;

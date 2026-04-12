@@ -1502,4 +1502,594 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get voiceRecordingFailed => 'No se pudo iniciar la grabación.';
+
+  @override
+  String get frontingListView => 'Vista de lista';
+
+  @override
+  String get frontingTimelineView => 'Vista de cronología';
+
+  @override
+  String get frontingAddEntry => 'Agregar registro de frente';
+
+  @override
+  String get frontingLoadingOlderSessions => 'Cargando sesiones anteriores';
+
+  @override
+  String get frontingTimelineIssuesFound =>
+      'Problemas de cronología encontrados';
+
+  @override
+  String frontingTimelineIssuesBannerMessage(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count problemas de cronología encontrados. Toca para revisar.',
+      one: '1 problema de cronología encontrado. Toca para revisar.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingTimelineIssuesReview => 'Revisar';
+
+  @override
+  String get frontingMenuWakeUpAs => 'Despertar como...';
+
+  @override
+  String get frontingMenuLogFront => 'Registrar frente';
+
+  @override
+  String get frontingMenuNewPoll => 'Nueva encuesta';
+
+  @override
+  String get frontingMenuStartSleep => 'Empezar a dormir';
+
+  @override
+  String get frontingWakeUpAsTitle => 'Despertar como...';
+
+  @override
+  String frontingErrorWakingUp(Object error) {
+    return 'Error al despertar: $error';
+  }
+
+  @override
+  String get frontingNoSessionHistory => 'Sin historial de sesiones aún';
+
+  @override
+  String frontingErrorLoadingHistory(Object error) {
+    return 'Error al cargar el historial: $error';
+  }
+
+  @override
+  String get frontingDeleteSleepTitle => 'Eliminar sesión de sueño';
+
+  @override
+  String get frontingDeleteSleepMessage =>
+      '¿Estás seguro/a de que quieres eliminar esta sesión de sueño?';
+
+  @override
+  String get frontingSleepping => 'Sueño';
+
+  @override
+  String frontingSleepSessionSemantics(String duration, String timeRange) {
+    return 'Sesión de sueño, $duration, $timeRange';
+  }
+
+  @override
+  String get frontingWelcomeTitle => 'Bienvenido/a a Prism';
+
+  @override
+  String frontingWelcomeSubtitle(String member) {
+    return 'Agrega tu primer $member del sistema para comenzar';
+  }
+
+  @override
+  String frontingQuickFrontLabel(String name) {
+    return 'Frente rápido de $name';
+  }
+
+  @override
+  String get frontingQuickFrontHoldHint =>
+      'Mantén presionado para estar al frente';
+
+  @override
+  String get frontingNewSession => 'Nueva sesión';
+
+  @override
+  String get frontingAddCoFronterTitle => 'Agregar co-frontador';
+
+  @override
+  String get frontingSelectFronter => 'Seleccionar quien está al frente';
+
+  @override
+  String get frontingSelectMember => 'Seleccionar miembro';
+
+  @override
+  String get frontingCoFrontToggle => 'Co-frente';
+
+  @override
+  String get frontingCoFronters => 'Co-frontadores';
+
+  @override
+  String get frontingNoOtherMembers => 'No hay otros miembros disponibles';
+
+  @override
+  String get frontingCoFrontHint =>
+      'Toca un miembro para agregarlo como co-frontador a la sesión actual.';
+
+  @override
+  String get frontingConfidenceLevel => 'Nivel de confianza';
+
+  @override
+  String get frontingConfidenceUnsure => 'Inseguro';
+
+  @override
+  String get frontingConfidenceStrong => 'Fuerte';
+
+  @override
+  String get frontingConfidenceCertain => 'Seguro';
+
+  @override
+  String get frontingNotes => 'Notas';
+
+  @override
+  String get frontingNotesHint => 'Notas opcionales sobre esta sesión...';
+
+  @override
+  String get frontingNotesHintEdit => 'Notas opcionales...';
+
+  @override
+  String get frontingSearchMembersHint => 'Buscar miembros...';
+
+  @override
+  String frontingNoMembersMatching(String query) {
+    return 'Sin miembros que coincidan con \"$query\"';
+  }
+
+  @override
+  String get frontingFronting => 'Al frente';
+
+  @override
+  String frontingErrorAddingCoFronter(Object error) {
+    return 'Error al agregar co-frontador: $error';
+  }
+
+  @override
+  String frontingErrorCreatingSession(Object error) {
+    return 'Error al crear la sesión: $error';
+  }
+
+  @override
+  String get frontingAddCoFrontersTitle => 'Agregar co-frontadores';
+
+  @override
+  String frontingErrorAddingCoFronters(Object error) {
+    return 'Error al agregar co-frontadores: $error';
+  }
+
+  @override
+  String get frontingEditSessionTitle => 'Editar sesión';
+
+  @override
+  String get frontingSaveSession => 'Guardar sesión';
+
+  @override
+  String get frontingSessionNotFound => 'Sesión no encontrada';
+
+  @override
+  String get frontingStillActive => 'Aún activo';
+
+  @override
+  String get frontingStart => 'Inicio';
+
+  @override
+  String get frontingEnd => 'Fin';
+
+  @override
+  String get frontingFronter => 'Al frente';
+
+  @override
+  String get frontingShortSessionTitle => 'Sesión corta';
+
+  @override
+  String get frontingShortSessionMessage =>
+      'Esta sesión dura menos de un minuto. ¿Guardar de todas formas?';
+
+  @override
+  String get frontingDuplicateSessionTitle => 'Sesión duplicada';
+
+  @override
+  String frontingDuplicateSessionMessage(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Esta sesión parece ser un duplicado de $count otras sesiones. ¿Guardar de todas formas?',
+      one:
+          'Esta sesión parece ser un duplicado de 1 otra sesión. ¿Guardar de todas formas?',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingSaveAnyway => 'Guardar de todas formas';
+
+  @override
+  String frontingErrorSavingSession(Object error) {
+    return 'Error al guardar la sesión: $error';
+  }
+
+  @override
+  String get frontingSessionDetailEditTooltip => 'Editar';
+
+  @override
+  String get frontingSessionDetailDeleteTooltip => 'Eliminar';
+
+  @override
+  String get frontingSleepingNow => 'Durmiendo ahora';
+
+  @override
+  String get frontingSleepSession => 'Sesión de sueño';
+
+  @override
+  String get frontingInfoStarted => 'Inicio';
+
+  @override
+  String get frontingInfoEnded => 'Fin';
+
+  @override
+  String get frontingInfoDuration => 'Duración';
+
+  @override
+  String get frontingInfoActive => 'Activo';
+
+  @override
+  String get frontingInfoQuality => 'Calidad';
+
+  @override
+  String get frontingInfoQualityUnrated => 'Sin calificar';
+
+  @override
+  String get frontingTimeSection => 'Tiempo';
+
+  @override
+  String get frontingConfidenceSection => 'Confianza';
+
+  @override
+  String get frontingNotesSection => 'Notas';
+
+  @override
+  String get frontingCoFrontersSection => 'Co-frontadores';
+
+  @override
+  String get frontingSleepingLabel => 'Durmiendo';
+
+  @override
+  String frontingSleepSince(String time) {
+    return 'Desde las $time';
+  }
+
+  @override
+  String get frontingWakeUp => 'Despertar';
+
+  @override
+  String get frontingSleepQualityUnrated => 'Calidad del sueño: Sin calificar';
+
+  @override
+  String frontingSleepQualityRated(String label) {
+    return 'Calidad del sueño: $label';
+  }
+
+  @override
+  String frontingRateSleepAs(String label) {
+    return 'Calificar sueño como $label';
+  }
+
+  @override
+  String get frontingStartSleepTitle => 'Empezar a dormir';
+
+  @override
+  String get frontingStartButton => 'Empezar';
+
+  @override
+  String get frontingStartSleepNotesHint =>
+      'Notas opcionales sobre este sueño...';
+
+  @override
+  String frontingErrorStartingSleep(Object error) {
+    return 'Error al iniciar el sueño: $error';
+  }
+
+  @override
+  String get frontingEditSleepTitle => 'Editar sueño';
+
+  @override
+  String get frontingEditSleepLabel => 'Sesión de sueño';
+
+  @override
+  String get frontingStillSleeping => 'Aún durmiendo';
+
+  @override
+  String get frontingStillSleepingSubtitle => 'Dejar la sesión abierta';
+
+  @override
+  String get frontingSleepQualityLabel => 'Calidad del sueño';
+
+  @override
+  String get frontingEditSleepNotesHint =>
+      'Notas opcionales sobre este sueño...';
+
+  @override
+  String get frontingEndTimeMustBeAfterStart =>
+      'La hora de fin debe ser posterior a la de inicio.';
+
+  @override
+  String frontingErrorSavingSleepSession(Object error) {
+    return 'Error al guardar la sesión de sueño: $error';
+  }
+
+  @override
+  String get frontingCommentsTitle => 'Comentarios';
+
+  @override
+  String get frontingAddCommentTooltip => 'Agregar comentario';
+
+  @override
+  String get frontingNoCommentsYet => 'Sin comentarios aún';
+
+  @override
+  String get frontingAddCommentTitle => 'Agregar comentario';
+
+  @override
+  String get frontingEditCommentTitle => 'Editar comentario';
+
+  @override
+  String get frontingCommentHint => 'Escribe tu comentario...';
+
+  @override
+  String get frontingDeleteCommentTitle => '¿Eliminar comentario?';
+
+  @override
+  String get frontingDeleteCommentMessage =>
+      'Esta acción no se puede deshacer.';
+
+  @override
+  String get frontingTimelineJumpToDate => 'Ir a fecha';
+
+  @override
+  String get frontingTimelineJumpToNow => 'Ir a ahora';
+
+  @override
+  String get frontingTimelineZoomOut => 'Alejar';
+
+  @override
+  String get frontingTimelineZoomIn => 'Acercar';
+
+  @override
+  String get frontingTimelineNoHistory => 'Sin historial de frente';
+
+  @override
+  String get frontingTimelineNoHistorySubtitle =>
+      'Inicia una sesión de frente para verla en la cronología.';
+
+  @override
+  String get frontingSanitizationTitle => 'Saneamiento de cronología';
+
+  @override
+  String get frontingSanitizationScanning => 'Escaneando cronología…';
+
+  @override
+  String get frontingSanitizationIntroTitle => 'Saneamiento de cronología';
+
+  @override
+  String get frontingSanitizationIntroBody =>
+      'Escanea tu historial de frente en busca de sesiones superpuestas, duplicadas o inválidas, y aplica correcciones automáticas.';
+
+  @override
+  String get frontingSanitizationScanButton => 'Escanear cronología';
+
+  @override
+  String get frontingSanitizationCleanTitle => '¡La cronología está limpia!';
+
+  @override
+  String get frontingSanitizationCleanSubtitle =>
+      'No se encontraron superposiciones, duplicados ni sesiones inválidas.';
+
+  @override
+  String get frontingSanitizationScanAgain => 'Escanear de nuevo';
+
+  @override
+  String frontingSanitizationIssuesFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Se encontraron $count problemas en tu cronología.',
+      one: 'Se encontró 1 problema en tu cronología.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingSanitizationFixesApplied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count correcciones aplicadas correctamente.',
+      one: '1 corrección aplicada correctamente.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingSanitizationScanFailed(Object error) {
+    return 'Error al escanear: $error';
+  }
+
+  @override
+  String frontingSanitizationFixFailed(Object error) {
+    return 'Error al aplicar la corrección: $error';
+  }
+
+  @override
+  String frontingSanitizationLoadFixFailed(Object error) {
+    return 'No se pudieron cargar las opciones de corrección: $error';
+  }
+
+  @override
+  String get frontingSanitizationFixOptionsTitle => 'Opciones de corrección';
+
+  @override
+  String get frontingSanitizationNoAutoFix =>
+      'No hay correcciones automáticas disponibles para este problema.\nRevisa y resuélvelo manualmente.';
+
+  @override
+  String get frontingSanitizationPreview => 'Vista previa';
+
+  @override
+  String get frontingSanitizationHidePreview => 'Ocultar vista previa';
+
+  @override
+  String get frontingSanitizationApply => 'Aplicar';
+
+  @override
+  String get frontingIssueTypeOverlap => 'Superposición';
+
+  @override
+  String get frontingIssueTypeGap => 'Brecha';
+
+  @override
+  String get frontingIssueTypeDuplicate => 'Duplicado';
+
+  @override
+  String get frontingIssueTypeMergeable => 'Fusionable';
+
+  @override
+  String get frontingIssueTypeInvalidRange => 'Rango inválido';
+
+  @override
+  String get frontingIssueTypeFutureSession => 'Sesión futura';
+
+  @override
+  String get frontingIssueSectionOverlap => 'Sesiones superpuestas';
+
+  @override
+  String get frontingIssueSectionGap => 'Brechas';
+
+  @override
+  String get frontingIssueSectionDuplicate => 'Duplicados';
+
+  @override
+  String get frontingIssueSectionMergeable => 'Adyacentes fusionables';
+
+  @override
+  String get frontingIssueSectionInvalidRange => 'Rangos inválidos';
+
+  @override
+  String get frontingIssueSectionFutureSession => 'Sesiones futuras';
+
+  @override
+  String frontingIssueSessionCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sesiones',
+      one: '1 sesión',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingDeleteStrategyTitle => '¿Qué debe pasar con este tiempo?';
+
+  @override
+  String get frontingDeleteStrategyRecommended => 'Recomendado';
+
+  @override
+  String frontingGapDetectedTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Brechas detectadas',
+      one: 'Brecha detectada',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String frontingGapDetectedMessage(int count, String total) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Esta edición crearía $count brechas de $total en total.',
+      one: 'Esta edición crearía una brecha de $total en total.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingGapFillWithUnknown => 'Rellenar con fronter desconocido';
+
+  @override
+  String get frontingGapFillWithUnknownSubtitle =>
+      'Crear sesiones desconocidas para cubrir las brechas.';
+
+  @override
+  String get frontingGapLeaveGaps => 'Dejar brechas';
+
+  @override
+  String get frontingGapLeaveGapsSubtitle =>
+      'Guardar sin rellenar las brechas.';
+
+  @override
+  String frontingOverlapTitle(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Superposición con $count sesiones',
+      one: 'Superposición con 1 sesión',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get frontingOverlapTrimOption => 'Recortar sesiones superpuestas';
+
+  @override
+  String get frontingOverlapTrimSubtitle =>
+      'Acortar o eliminar sesiones que entran en conflicto con tu edición.';
+
+  @override
+  String get frontingOverlapCoFrontOption => 'Crear sesión de co-frente';
+
+  @override
+  String get frontingOverlapCoFrontSubtitle =>
+      'Dividir el tiempo superpuesto en segmentos compartidos de co-frente.';
+
+  @override
+  String get frontingOverlapRemoveSessionTitle => 'Eliminar sesión';
+
+  @override
+  String get frontingOverlapRemoveSessionMessage =>
+      'Esto eliminaría completamente una sesión. ¿Continuar?';
+
+  @override
+  String get frontingOverlapContinue => 'Continuar';
+
+  @override
+  String get frontingTimingModeTitle => 'Modo de tiempo';
+
+  @override
+  String get frontingTimingModeFlexible => 'Flexible';
+
+  @override
+  String get frontingTimingModeStrict => 'Estricto';
+
+  @override
+  String get frontingTimingModeFlexibleSubtitle =>
+      'Se permiten pequeñas brechas (menos de 5 minutos) entre sesiones.';
+
+  @override
+  String get frontingTimingModeStrictSubtitle =>
+      'Las sesiones deben ser continuas sin brechas en la cronología.';
 }

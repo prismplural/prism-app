@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
@@ -187,8 +188,8 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
     return Semantics(
       button: true,
       enabled: true,
-      label: 'Quick front ${member.name}',
-      onLongPressHint: 'Hold to start fronting',
+      label: context.l10n.frontingQuickFrontLabel(member.name),
+      onLongPressHint: context.l10n.frontingQuickFrontHoldHint,
       child: GestureDetector(
       onLongPressStart: (_) => _onPressStart(),
       onLongPressEnd: (_) => _onPressEnd(),

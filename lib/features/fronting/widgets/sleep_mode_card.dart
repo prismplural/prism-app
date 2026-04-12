@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
@@ -53,7 +54,7 @@ class _ActiveSleepCard extends ConsumerWidget {
             Icon(AppIcons.bedtimeRounded, size: 48, color: sleepColor),
             const SizedBox(height: 8),
             Text(
-              'Sleeping',
+              context.l10n.frontingSleepingLabel,
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.onSurface,
@@ -61,7 +62,7 @@ class _ActiveSleepCard extends ConsumerWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Since ${session.startTime.toTimeString()}',
+              context.l10n.frontingSleepSince(session.startTime.toTimeString()),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
@@ -98,7 +99,7 @@ class _ActiveSleepCard extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             PrismButton(
-              label: 'Wake Up',
+              label: context.l10n.frontingWakeUp,
               icon: AppIcons.wbSunnyRounded,
               onPressed: () {
                 ref.read(sleepNotifierProvider.notifier).endSleep(session.id);
@@ -134,8 +135,8 @@ class _QualityRating extends StatelessWidget {
       children: [
         Text(
           quality == SleepQuality.unknown
-              ? 'Sleep Quality: Unrated'
-              : 'Sleep Quality: ${quality.label}',
+              ? context.l10n.frontingSleepQualityUnrated
+              : context.l10n.frontingSleepQualityRated(quality.label),
           style: theme.textTheme.labelMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
           ),
@@ -150,7 +151,7 @@ class _QualityRating extends StatelessWidget {
             return Semantics(
               button: true,
               selected: isSelected,
-              label: 'Rate sleep as ${q.label}',
+              label: context.l10n.frontingRateSleepAs(q.label),
               child: PrismInlineIconButton(
                 onPressed: () => onChanged(q),
                 icon: isSelected

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/mutations/field_patch.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -71,7 +72,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
 
     if (endTime != null && !endTime.isAfter(_startTime)) {
       if (!mounted) return;
-      PrismToast.error(context, message: 'End time must be after start time.');
+      PrismToast.error(context, message: context.l10n.frontingEndTimeMustBeAfterStart);
       return;
     }
 
@@ -104,7 +105,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error saving sleep session: $e');
+        PrismToast.error(context, message: context.l10n.frontingErrorSavingSleepSession(e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -120,7 +121,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
     return Column(
       children: [
         PrismSheetTopBar(
-          title: 'Edit Sleep',
+          title: context.l10n.frontingEditSleepTitle,
           trailing: PrismGlassIconButton(
             icon: AppIcons.check,
             onPressed: _saving ? null : _save,
@@ -149,7 +150,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Sleep session',
+                          context.l10n.frontingEditSleepLabel,
                           style: theme.textTheme.titleSmall?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -158,8 +159,8 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                     ),
                     const SizedBox(height: 12),
                     PrismSwitchRow(
-                      title: 'Still Sleeping',
-                      subtitle: 'Leave the session open-ended',
+                      title: context.l10n.frontingStillSleeping,
+                      subtitle: context.l10n.frontingStillSleepingSubtitle,
                       value: _isActive,
                       onChanged: (value) {
                         setState(() {
@@ -174,7 +175,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                     ),
                     const Divider(height: 24),
                     PrismDateTimePills(
-                      label: 'Start',
+                      label: context.l10n.frontingStart,
                       dateTime: _startTime,
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
@@ -183,7 +184,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                     if (!_isActive) ...[
                       const SizedBox(height: 16),
                       PrismDateTimePills(
-                        label: 'End',
+                        label: context.l10n.frontingEnd,
                         dateTime: _endTime,
                         firstDate: _startTime,
                         lastDate: DateTime.now(),
@@ -203,7 +204,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Quality',
+                      context.l10n.frontingInfoQuality,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -211,14 +212,14 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                     const SizedBox(height: 12),
                     PrismSelect<SleepQuality>(
                       value: _quality,
-                      labelText: 'Sleep quality',
+                      labelText: context.l10n.frontingSleepQualityLabel,
                       enabled: !_saving,
                       items: SleepQuality.values
                           .map(
                             (quality) => PrismSelectItem(
                               value: quality,
                               label: quality == SleepQuality.unknown
-                                  ? 'Unrated'
+                                  ? context.l10n.frontingInfoQualityUnrated
                                   : quality.label,
                             ),
                           )
@@ -234,8 +235,8 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
               const SizedBox(height: 16),
               PrismTextField(
                 controller: _notesController,
-                labelText: 'Notes',
-                hintText: 'Optional notes about this sleep...',
+                labelText: context.l10n.frontingNotes,
+                hintText: context.l10n.frontingEditSleepNotesHint,
                 alignLabelWithHint: true,
                 maxLines: 4,
                 minLines: 2,

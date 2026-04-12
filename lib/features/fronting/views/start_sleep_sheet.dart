@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -51,7 +52,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error starting sleep: $e');
+        PrismToast.error(context, message: context.l10n.frontingErrorStartingSleep(e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -71,7 +72,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               PrismButton(
-                label: 'Cancel',
+                label: context.l10n.cancel,
                 onPressed: () => Navigator.of(context).pop(),
                 enabled: !_saving,
                 tone: PrismButtonTone.subtle,
@@ -86,7 +87,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Start Sleep',
+                    context.l10n.frontingStartSleepTitle,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -94,7 +95,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
                 ],
               ),
               PrismButton(
-                label: 'Start',
+                label: context.l10n.frontingStartButton,
                 onPressed: _startSleep,
                 isLoading: _saving,
                 tone: PrismButtonTone.filled,
@@ -112,7 +113,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 PrismDateTimePills(
-                  label: 'Start',
+                  label: context.l10n.frontingStart,
                   dateTime: _startTime,
                   firstDate: DateTime(2020),
                   lastDate: DateTime.now(),
@@ -121,8 +122,8 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
                 const SizedBox(height: 16),
                 PrismTextField(
                   controller: _notesController,
-                  labelText: 'Notes',
-                  hintText: 'Optional notes about this sleep...',
+                  labelText: context.l10n.frontingNotes,
+                  hintText: context.l10n.frontingStartSleepNotesHint,
                   alignLabelWithHint: true,
                   maxLines: 3,
                   minLines: 1,

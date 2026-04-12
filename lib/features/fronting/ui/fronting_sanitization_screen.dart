@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_fix_models.dart';
@@ -37,8 +38,8 @@ class _FrontingSanitizationScreenState
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(
-        title: 'Timeline Sanitization',
+      topBar: PrismTopBar(
+        title: context.l10n.frontingSanitizationTitle,
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -48,13 +49,13 @@ class _FrontingSanitizationScreenState
 
   Widget _buildBody(ThemeData theme) {
     if (_scanning) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('Scanning timeline…'),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text(context.l10n.frontingSanitizationScanning),
           ],
         ),
       );
@@ -87,7 +88,7 @@ class _FrontingSanitizationScreenState
             ),
             const SizedBox(height: 24),
             Text(
-              'Timeline Sanitization',
+              context.l10n.frontingSanitizationIntroTitle,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -95,9 +96,7 @@ class _FrontingSanitizationScreenState
             ),
             const SizedBox(height: 8),
             Text(
-              'Scan your fronting history for overlapping, '
-              'duplicate, or invalid sessions, then apply '
-              'automatic fixes.',
+              context.l10n.frontingSanitizationIntroBody,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -106,7 +105,7 @@ class _FrontingSanitizationScreenState
             const SizedBox(height: 32),
             PrismButton(
               icon: AppIcons.search,
-              label: 'Scan Timeline',
+              label: context.l10n.frontingSanitizationScanButton,
               onPressed: _scan,
               tone: PrismButtonTone.filled,
             ),
@@ -126,9 +125,9 @@ class _FrontingSanitizationScreenState
           child: EmptyState(
             icon: Icon(AppIcons.checkCircleOutline),
             iconColor: Colors.green,
-            title: 'Timeline looks clean!',
-            subtitle: 'No overlaps, duplicates, or invalid sessions found.',
-            actionLabel: 'Scan Again',
+            title: context.l10n.frontingSanitizationCleanTitle,
+            subtitle: context.l10n.frontingSanitizationCleanSubtitle,
+            actionLabel: context.l10n.frontingSanitizationScanAgain,
             actionIcon: AppIcons.refresh,
             onAction: _scan,
           ),
@@ -186,7 +185,7 @@ class _FrontingSanitizationScreenState
             ),
             child: PrismButton(
               icon: AppIcons.refresh,
-              label: 'Scan Again',
+              label: context.l10n.frontingSanitizationScanAgain,
               onPressed: _scan,
               tone: PrismButtonTone.outlined,
             ),
@@ -210,7 +209,7 @@ class _FrontingSanitizationScreenState
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Found $count ${count == 1 ? 'issue' : 'issues'} in your timeline.',
+              context.l10n.frontingSanitizationIssuesFound(count),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onErrorContainer,
                 fontWeight: FontWeight.w500,
@@ -237,7 +236,7 @@ class _FrontingSanitizationScreenState
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              '$_fixedCount ${_fixedCount == 1 ? 'fix' : 'fixes'} applied successfully.',
+              context.l10n.frontingSanitizationFixesApplied(_fixedCount),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: Colors.green.shade800,
                 fontWeight: FontWeight.w500,
@@ -265,7 +264,7 @@ class _FrontingSanitizationScreenState
     } catch (e) {
       if (mounted) {
         setState(() => _scanning = false);
-        PrismToast.error(context, message: 'Scan failed: $e');
+        PrismToast.error(context, message: context.l10n.frontingSanitizationScanFailed(e));
       }
     }
   }
@@ -277,7 +276,7 @@ class _FrontingSanitizationScreenState
       plans = await service.plansForIssue(issue);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Could not load fix options: $e');
+        PrismToast.error(context, message: context.l10n.frontingSanitizationLoadFixFailed(e));
       }
       return;
     }
@@ -307,7 +306,7 @@ class _FrontingSanitizationScreenState
       await _scan(); // Re-scan after applying the fix
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Fix failed: $e');
+        PrismToast.error(context, message: context.l10n.frontingSanitizationFixFailed(e));
       }
     }
   }
@@ -323,27 +322,25 @@ class _SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final label = switch (type) {
+      FrontingIssueType.overlap => l10n.frontingIssueSectionOverlap,
+      FrontingIssueType.gap => l10n.frontingIssueSectionGap,
+      FrontingIssueType.duplicate => l10n.frontingIssueSectionDuplicate,
+      FrontingIssueType.mergeableAdjacent => l10n.frontingIssueSectionMergeable,
+      FrontingIssueType.invalidRange => l10n.frontingIssueSectionInvalidRange,
+      FrontingIssueType.futureSession => l10n.frontingIssueSectionFutureSession,
+    };
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
       child: Text(
-        _label(type),
+        label,
         style: theme.textTheme.labelLarge?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
         ),
       ),
     );
-  }
-
-  static String _label(FrontingIssueType type) {
-    return switch (type) {
-      FrontingIssueType.overlap => 'Overlapping Sessions',
-      FrontingIssueType.gap => 'Gaps',
-      FrontingIssueType.duplicate => 'Duplicates',
-      FrontingIssueType.mergeableAdjacent => 'Mergeable Adjacent',
-      FrontingIssueType.invalidRange => 'Invalid Ranges',
-      FrontingIssueType.futureSession => 'Future Sessions',
-    };
   }
 }
 
@@ -379,7 +376,7 @@ class _FixOptionsSheetState extends State<_FixOptionsSheet> {
 
     return Column(
       children: [
-        const PrismSheetTopBar(title: 'Fix Options'),
+        PrismSheetTopBar(title: context.l10n.frontingSanitizationFixOptionsTitle),
         // Issue summary
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -399,8 +396,7 @@ class _FixOptionsSheetState extends State<_FixOptionsSheet> {
                   child: Padding(
                     padding: const EdgeInsets.all(32),
                     child: Text(
-                      'No automated fixes available for this issue.\n'
-                      'Please review and resolve it manually.',
+                      context.l10n.frontingSanitizationNoAutoFix,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -544,7 +540,7 @@ class _PlanCard extends StatelessWidget {
             Row(
               children: [
                 PrismButton(
-                  label: isExpanded ? 'Hide Preview' : 'Preview',
+                  label: isExpanded ? context.l10n.frontingSanitizationHidePreview : context.l10n.frontingSanitizationPreview,
                   onPressed: onTogglePreview,
                   enabled: !applying,
                   tone: PrismButtonTone.subtle,
@@ -552,7 +548,7 @@ class _PlanCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 PrismButton(
-                  label: 'Apply',
+                  label: context.l10n.frontingSanitizationApply,
                   onPressed: onApply,
                   enabled: !applying,
                   isLoading: applying,

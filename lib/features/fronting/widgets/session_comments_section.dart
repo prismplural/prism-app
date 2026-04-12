@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/features/fronting/providers/front_comments_providers.dart';
@@ -36,7 +37,7 @@ class SessionCommentsSection extends ConsumerWidget {
                 Row(
                   children: [
                     Text(
-                      'Comments',
+                      context.l10n.frontingCommentsTitle,
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -47,14 +48,14 @@ class SessionCommentsSection extends ConsumerWidget {
                       iconSize: 20,
                       color: theme.colorScheme.primary,
                       onPressed: () => _openAddSheet(context),
-                      tooltip: 'Add comment',
+                      tooltip: context.l10n.frontingAddCommentTooltip,
                     ),
                   ],
                 ),
                 if (comments.isEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'No comments yet',
+                    context.l10n.frontingNoCommentsYet,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -94,8 +95,8 @@ class _CommentTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final timeStr = DateFormat.jm().format(comment.timestamp);
-    final dateStr = DateFormat.MMMd().format(comment.timestamp);
+    final timeStr = DateFormat.jm(context.dateLocale).format(comment.timestamp);
+    final dateStr = DateFormat.MMMd(context.dateLocale).format(comment.timestamp);
 
     return BlurPopupAnchor(
       trigger: BlurPopupTrigger.longPress,
@@ -104,7 +105,7 @@ class _CommentTile extends ConsumerWidget {
         if (index == 0) {
           return PrismListRow(
             leading: Icon(AppIcons.editOutlined),
-            title: const Text('Edit'),
+            title: Text(context.l10n.edit),
             onTap: () {
               close();
               _openEditSheet(context);
@@ -114,7 +115,7 @@ class _CommentTile extends ConsumerWidget {
         return PrismListRow(
           leading: Icon(AppIcons.deleteOutline, color: theme.colorScheme.error),
           title: Text(
-            'Delete',
+            context.l10n.delete,
             style: TextStyle(color: theme.colorScheme.error),
           ),
           onTap: () {
@@ -166,9 +167,9 @@ class _CommentTile extends ConsumerWidget {
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete comment?',
-      message: 'This action cannot be undone.',
-      confirmLabel: 'Delete',
+      title: context.l10n.frontingDeleteCommentTitle,
+      message: context.l10n.frontingDeleteCommentMessage,
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (confirmed) {

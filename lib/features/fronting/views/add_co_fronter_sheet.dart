@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -46,7 +47,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error adding co-fronters: $e');
+        PrismToast.error(context, message: context.l10n.frontingErrorAddingCoFronters(e));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -87,13 +88,13 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 PrismButton(
-                  label: 'Cancel',
+                  label: context.l10n.cancel,
                   tone: PrismButtonTone.subtle,
                   onPressed: () => Navigator.of(context).pop(),
                   enabled: !_saving,
                 ),
                 Text(
-                  'Add Co-Fronters',
+                  context.l10n.frontingAddCoFrontersTitle,
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -102,7 +103,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                   onPressed: _add,
                   enabled: !_saving && _selectedIds.isNotEmpty,
                   isLoading: _saving,
-                  label: 'Add',
+                  label: context.l10n.add,
                   tone: PrismButtonTone.filled,
                 ),
               ],
@@ -128,7 +129,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                 return Padding(
                   padding: const EdgeInsets.all(32),
                   child: Text(
-                    'No other members available',
+                    context.l10n.frontingNoOtherMembers,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

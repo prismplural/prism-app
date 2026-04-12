@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/domain/models/front_session_comment.dart';
 import 'package:prism_plurality/features/fronting/providers/front_comments_providers.dart';
@@ -96,7 +97,7 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
     return Column(
       children: [
         PrismSheetTopBar(
-          title: _isEditing ? 'Edit Comment' : 'Add Comment',
+          title: _isEditing ? context.l10n.frontingEditCommentTitle : context.l10n.frontingAddCommentTitle,
         ),
         Expanded(
           child: ListView(
@@ -106,7 +107,7 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
             children: [
               PrismTextField(
                 controller: _bodyController,
-                hintText: 'Write your comment...',
+                hintText: context.l10n.frontingCommentHint,
                 maxLines: 5,
                 autofocus: true,
                 onChanged: (_) => setState(() {}),
@@ -116,7 +117,7 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
                 padding: EdgeInsets.zero,
                 leading: Icon(AppIcons.accessTime),
                 title: Text(
-                    DateFormat.yMMMd().add_jm().format(_timestamp)),
+                    DateFormat.yMMMd(context.dateLocale).add_jm().format(_timestamp)),
                 trailing: Icon(AppIcons.chevronRight),
                 onTap: _pickDateTime,
               ),
@@ -124,7 +125,7 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
               PrismButton(
                 onPressed: _save,
                 enabled: _isValid,
-                label: _isEditing ? 'Save' : 'Add',
+                label: _isEditing ? context.l10n.save : context.l10n.add,
               ),
             ],
           ),
