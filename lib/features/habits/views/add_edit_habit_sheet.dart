@@ -21,6 +21,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class AddEditHabitSheet extends ConsumerStatefulWidget {
   const AddEditHabitSheet({
@@ -99,7 +100,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: _isEditing ? 'Edit Habit' : 'New Habit',
+            title: _isEditing ? context.l10n.habitsEditHabit : context.l10n.habitsNewHabit,
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
@@ -119,9 +120,9 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
               ),
               children: [
                 // ── Basic Info ─────────────────────────────────
-                const PrismSectionHeader(
-                  title: 'BASIC INFO',
-                  padding: EdgeInsets.only(top: 8, bottom: 8),
+                PrismSectionHeader(
+                  title: context.l10n.habitsSectionBasicInfo,
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -141,8 +142,8 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                     Expanded(
                       child: PrismTextField(
                         controller: _nameController,
-                        labelText: 'Name',
-                        hintText: 'e.g., Morning meditation',
+                        labelText: context.l10n.habitsFieldName,
+                        hintText: context.l10n.habitsFieldNameHint,
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -151,7 +152,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 const SizedBox(height: 12),
                 PrismTextField(
                   controller: _descriptionController,
-                  labelText: 'Description (optional)',
+                  labelText: context.l10n.habitsFieldDescription,
                   maxLines: 2,
                 ),
                 const SizedBox(height: 12),
@@ -163,9 +164,9 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 const SizedBox(height: 24),
 
                 // ── Schedule ───────────────────────────────────
-                const PrismSectionHeader(
-                  title: 'SCHEDULE',
-                  padding: EdgeInsets.only(top: 8, bottom: 8),
+                PrismSectionHeader(
+                  title: context.l10n.habitsSectionSchedule,
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
                 ),
                 const SizedBox(height: 8),
                 PrismSegmentedControl<HabitFrequency>(
@@ -184,12 +185,12 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 if (_frequency == HabitFrequency.interval)
                   Row(
                     children: [
-                      const Text('Every '),
+                      Text(context.l10n.habitsIntervalEvery),
                       PrismIconButton(
                         icon: AppIcons.remove,
                         onPressed: () => setState(() => _intervalDays--),
                         enabled: _intervalDays > 1,
-                        tooltip: 'Decrease interval',
+                        tooltip: context.l10n.habitsIntervalDecrease,
                       ),
                       Text(
                         '$_intervalDays',
@@ -198,43 +199,43 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                       PrismIconButton(
                         icon: AppIcons.add,
                         onPressed: () => setState(() => _intervalDays++),
-                        tooltip: 'Increase interval',
+                        tooltip: context.l10n.habitsIntervalIncrease,
                       ),
-                      const Text(' days'),
+                      Text(context.l10n.habitsIntervalDays),
                     ],
                   ),
 
                 const SizedBox(height: 24),
 
                 // ── Notifications ──────────────────────────────
-                const PrismSectionHeader(
-                  title: 'NOTIFICATIONS',
-                  padding: EdgeInsets.only(top: 8, bottom: 8),
+                PrismSectionHeader(
+                  title: context.l10n.habitsSectionNotifications,
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
                 ),
                 const SizedBox(height: 8),
                 PrismSwitchRow(
-                  title: 'Enable Reminders',
+                  title: context.l10n.habitsEnableReminders,
                   value: _notificationsEnabled,
                   onChanged: (v) => setState(() => _notificationsEnabled = v),
                 ),
                 if (_notificationsEnabled) ...[
                   PrismListRow(
-                    title: const Text('Reminder Time'),
-                    trailing: Text(_reminderTime ?? 'Not set'),
+                    title: Text(context.l10n.habitsReminderTime),
+                    trailing: Text(_reminderTime ?? context.l10n.habitsReminderTimeNotSet),
                     onTap: _pickTime,
                   ),
                   PrismTextField(
                     controller: _notificationMessageController,
-                    labelText: 'Custom message (optional)',
+                    labelText: context.l10n.habitsCustomMessageField,
                   ),
                 ],
 
                 const SizedBox(height: 24),
 
                 // ── Assignment ─────────────────────────────────
-                const PrismSectionHeader(
-                  title: 'ASSIGNMENT',
-                  padding: EdgeInsets.only(top: 8, bottom: 8),
+                PrismSectionHeader(
+                  title: context.l10n.habitsSectionAssignment,
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
                 ),
                 const SizedBox(height: 8),
                 membersAsync.when(
@@ -242,11 +243,11 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                   error: (e, _) => Text('Error: $e'),
                   data: (members) => PrismSelect<String?>(
                     value: _assignedMemberId,
-                    labelText: 'Assigned Member',
+                    labelText: context.l10n.habitsAssignedMember,
                     items: [
-                      const PrismSelectItem<String?>(
+                      PrismSelectItem<String?>(
                         value: null,
-                        label: 'Anyone',
+                        label: context.l10n.habitsAssignedMemberAnyone,
                       ),
                       ...members.map(
                         (m) => PrismSelectItem<String?>(
@@ -274,7 +275,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 ),
                 if (_assignedMemberId != null)
                   PrismSwitchRow(
-                    title: 'Only notify when fronting',
+                    title: context.l10n.habitsOnlyNotifyWhenFronting,
                     value: _onlyNotifyWhenFronting,
                     onChanged: (v) =>
                         setState(() => _onlyNotifyWhenFronting = v),
@@ -284,8 +285,8 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
 
                 // ── Privacy ────────────────────────────────────
                 PrismSwitchRow(
-                  title: 'Private',
-                  subtitle: 'Hide from shared views',
+                  title: context.l10n.habitsPrivate,
+                  subtitle: context.l10n.habitsPrivateSubtitle,
                   value: _isPrivate,
                   onChanged: (v) => setState(() => _isPrivate = v),
                 ),
@@ -428,7 +429,7 @@ class _ColorPicker extends StatelessWidget {
       children: _colors.map((hex) {
         final isSelected = selectedHex == hex;
         return Semantics(
-          label: 'Color #$hex${isSelected ? ", selected" : ""}',
+          label: context.l10n.habitsColorSemantics(hex, isSelected ? context.l10n.habitsColorSelected : ''),
           button: true,
           child: GestureDetector(
             onTap: () => onChanged(isSelected ? null : hex),

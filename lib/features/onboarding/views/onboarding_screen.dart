@@ -21,6 +21,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -128,7 +129,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                               color: isDark
                                   ? AppColors.warmWhite.withValues(alpha: 0.8)
                                   : AppColors.warmBlack.withValues(alpha: 0.8),
-                              tooltip: 'Close onboarding',
+                              tooltip: context.l10n.onboardingCloseOnboarding,
                             )
                           else
                             const SizedBox(width: 48),
@@ -216,10 +217,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                           const Spacer(),
                           _PillButton(
                             label: isCompleteStep
-                                ? 'Get Started'
+                                ? context.l10n.onboardingGetStarted
                                 : isFirstStep
-                                ? 'Get Started'
-                                : 'Continue',
+                                ? context.l10n.onboardingGetStarted
+                                : context.l10n.onboardingContinue,
                             enabled: notifier.canProceed && !_isCompleting,
                             isLoading: _isCompleting,
                             isDark: isDark,
@@ -258,12 +259,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       ),
       OnboardingStep.importedDataReady => OnboardingDataReadyView(
         key: const ValueKey('imported-data-ready'),
-        title: 'Import Complete',
-        description:
-            'Your Prism export has been restored and this device is ready.',
-        summaryLabel: 'Imported data',
+        title: context.l10n.onboardingImportCompleteTitle,
+        description: context.l10n.onboardingImportCompleteDescription,
+        summaryLabel: context.l10n.onboardingImportedDataLabel,
         counts: onboarding.importedDataCounts,
-        actionLabel: 'Get Started',
+        actionLabel: context.l10n.onboardingGetStarted,
         onAction: () async {
           try {
             await ref
@@ -273,7 +273,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             context.go(AppRoutePaths.home);
           } catch (e) {
             if (!mounted) return;
-            PrismToast.error(context, message: 'Error completing setup: $e');
+            PrismToast.error(context, message: context.l10n.onboardingErrorCompletingSetup(e));
           }
         },
       ),
@@ -309,7 +309,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       }
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Error completing setup: $e');
+        PrismToast.error(context, message: context.l10n.onboardingErrorCompletingSetup(e));
       }
     } finally {
       if (mounted) {
@@ -338,7 +338,7 @@ class _ProgressIndicator extends StatelessWidget {
     final currentIndex = steps.indexOf(currentStep);
 
     return Semantics(
-      label: 'Step ${currentIndex + 1} of ${steps.length}',
+      label: context.l10n.onboardingProgressStep(currentIndex + 1, steps.length),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(steps.length, (index) {

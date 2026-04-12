@@ -3,6 +3,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class SystemNameStep extends ConsumerStatefulWidget {
   const SystemNameStep({super.key});
@@ -54,7 +55,7 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,
-              hintText: 'Enter system name',
+              hintText: context.l10n.onboardingSystemNameHint,
               hintStyle: TextStyle(
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.35)
@@ -73,7 +74,7 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
           ),
           const SizedBox(height: 16),
           Text(
-            'This is how your system will be identified in the app.',
+            context.l10n.onboardingSystemNameHelperText,
             style: TextStyle(
               color: isDark
                   ? AppColors.mutedTextDark

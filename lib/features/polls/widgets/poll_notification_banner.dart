@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// A small banner widget showing how many polls need attention.
 ///
@@ -42,7 +43,7 @@ class PollNotificationBanner extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  '$count ${count == 1 ? 'poll needs' : 'polls need'} your vote',
+                  context.l10n.pollsNotificationBanner(count),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onPrimaryContainer,
                     fontWeight: FontWeight.w500,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class WhosFrontingStep extends ConsumerWidget {
   const WhosFrontingStep({super.key});
@@ -33,7 +34,7 @@ class WhosFrontingStep extends ConsumerWidget {
         if (members.isEmpty) {
           return Center(
             child: Text(
-              'No members added yet.\nGo back to add members first.',
+              context.l10n.onboardingWhosFrontingNoMembers,
               style: TextStyle(
                 color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
                 fontSize: 15,
@@ -48,7 +49,7 @@ class WhosFrontingStep extends ConsumerWidget {
           child: Column(
             children: [
               Text(
-                'Tap to select who is currently fronting',
+                context.l10n.onboardingWhosFrontingSelectHint,
                 style: TextStyle(
                   color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
                   fontSize: 14,
