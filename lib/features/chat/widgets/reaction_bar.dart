@@ -5,6 +5,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -132,7 +133,7 @@ class ReactionBar extends ConsumerWidget {
                           member?.emoji ?? '?',
                           fontSize: 24,
                         ),
-                        title: Text(member?.name ?? 'Unknown'),
+                        title: Text(member?.name ?? context.l10n.unknown),
                       );
                     })
                     .toList(),
@@ -143,7 +144,7 @@ class ReactionBar extends ConsumerWidget {
                   child: CircularProgressIndicator(),
                 ),
               ),
-              error: (_, _) => const Text('Could not load reactions'),
+              error: (_, _) => Text(context.l10n.error),
             );
           },
         );

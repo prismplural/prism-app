@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -21,7 +22,7 @@ Future<String?> showCreatorTransferPicker(
 
   return PrismDialog.show<String>(
     context: context,
-    title: 'Select new conversation owner',
+    title: context.l10n.chatSelectNewOwner,
     builder: (ctx) {
       return Column(
         mainAxisSize: MainAxisSize.min,

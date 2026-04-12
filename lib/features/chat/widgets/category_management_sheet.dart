@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// A sheet for managing conversation categories (create, rename, reorder, delete).
 ///
@@ -57,7 +58,7 @@ class _CategoryManagementSheetState
       Haptics.success();
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Failed to create category: $e');
+        PrismToast.error(context, message: context.l10n.chatCategoriesCreateFailed(e));
       }
     }
   }
@@ -76,7 +77,7 @@ class _CategoryManagementSheetState
       setState(() => _editingId = null);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Failed to rename category: $e');
+        PrismToast.error(context, message: context.l10n.chatCategoriesRenameFailed(e));
       }
     }
   }
@@ -84,9 +85,9 @@ class _CategoryManagementSheetState
   Future<void> _confirmDelete(ConversationCategory category) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete "${category.name}"?',
-      message: 'Conversations in this category will become uncategorized.',
-      confirmLabel: 'Delete',
+      title: context.l10n.chatCategoriesDeleteTitle(category.name),
+      message: context.l10n.chatCategoriesDeleteMessage,
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (!confirmed) return;
@@ -98,7 +99,7 @@ class _CategoryManagementSheetState
           .deleteCategory(category.id);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Failed to delete category: $e');
+        PrismToast.error(context, message: context.l10n.chatCategoriesDeleteFailed(e));
       }
     }
   }
@@ -111,7 +112,7 @@ class _CategoryManagementSheetState
     return SafeArea(
       child: Column(
         children: [
-          const PrismSheetTopBar(title: 'Manage Categories'),
+          PrismSheetTopBar(title: context.l10n.chatCategoriesTitle),
           const SizedBox(height: 8),
           Expanded(
             child: categoriesAsync.when(
@@ -129,7 +130,7 @@ class _CategoryManagementSheetState
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24),
                         child: Text(
-                          'No categories yet',
+                          context.l10n.chatCategoriesNone,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -169,7 +170,7 @@ class _CategoryManagementSheetState
                                   ? PrismTextField(
                                       controller: _editController,
                                       autofocus: true,
-                                      hintText: 'Category name',
+                                      hintText: context.l10n.chatCategoriesCategoryNameHint,
                                       onSubmitted: (_) => _saveEdit(category),
                                     )
                                   : GestureDetector(
@@ -207,7 +208,7 @@ class _CategoryManagementSheetState
                         Expanded(
                           child: PrismTextField(
                             controller: _newCategoryController,
-                            hintText: 'New category name',
+                            hintText: context.l10n.chatCategoriesNewHint,
                             textCapitalization: TextCapitalization.sentences,
                             onSubmitted: (_) => _createCategory(),
                           ),
@@ -219,7 +220,7 @@ class _CategoryManagementSheetState
                           size: 40,
                           iconSize: 20,
                           onPressed: _createCategory,
-                          tooltip: 'Add category',
+                          tooltip: context.l10n.chatCategoriesAddTooltip,
                         ),
                       ],
                     ),

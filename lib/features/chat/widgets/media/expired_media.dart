@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -25,7 +26,7 @@ class ExpiredMedia extends StatelessWidget {
     final effectiveHeight = height ?? 80.0;
 
     return Semantics(
-      label: 'Media no longer available',
+      label: context.l10n.chatMediaNoLongerAvailable,
       child: TintedGlassSurface(
         borderRadius: BorderRadius.circular(12),
         width: effectiveWidth,
@@ -41,7 +42,7 @@ class ExpiredMedia extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Media no longer available',
+              context.l10n.chatMediaNoLongerAvailable,
               style: theme.textTheme.bodySmall?.copyWith(
                 color:
                     theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),

@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Bottom sheet for creating a new conversation (DM or group).
 ///
@@ -106,7 +107,7 @@ class _CreateConversationSheetState
       }
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: 'Failed to create conversation: $e');
+        PrismToast.error(context, message: context.l10n.chatCreateFailed(e));
         setState(() => _isCreating = false);
       }
     }
@@ -134,7 +135,7 @@ class _CreateConversationSheetState
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: 'New Conversation',
+            title: context.l10n.chatCreateTitle,
             trailing: _isCreating
                 ? SizedBox(
                     width: PrismTokens.topBarActionSize,
@@ -173,8 +174,8 @@ class _CreateConversationSheetState
                 // DM / Group toggle
                 PrismSegmentedControl<bool>(
                   segments: [
-                    const PrismSegment(value: true, label: 'Group'),
-                    const PrismSegment(value: false, label: 'Direct Message'),
+                    PrismSegment(value: true, label: context.l10n.chatCreateGroupTab),
+                    PrismSegment(value: false, label: context.l10n.chatCreateDirectMessageTab),
                   ],
                   selected: _isGroupChat,
                   onChanged: (value) {
@@ -204,8 +205,8 @@ class _CreateConversationSheetState
                       Expanded(
                         child: PrismTextField(
                           controller: _titleController,
-                          labelText: 'Group Name',
-                          hintText: 'e.g., System Discussion',
+                          labelText: context.l10n.chatCreateGroupName,
+                          hintText: context.l10n.chatCreateGroupNameHint,
                           onChanged: (_) => setState(() {}),
                         ),
                       ),
@@ -223,18 +224,19 @@ class _CreateConversationSheetState
                       if (categories.isEmpty) {
                         return const SizedBox.shrink();
                       }
+                      final noneLabel = context.l10n.chatInfoCategoryNone;
                       final currentName = _selectedCategoryId != null
                           ? categories
                                     .where((c) => c.id == _selectedCategoryId)
                                     .map((c) => c.name)
                                     .firstOrNull ??
-                                'None'
-                          : 'None';
+                                noneLabel
+                          : noneLabel;
                       return Semantics(
                         button: true,
-                        label: 'Category: $currentName',
+                        label: context.l10n.chatInfoCategorySemantics(currentName),
                         child: PrismListRow(
-                          title: const Text('Category'),
+                          title: Text(context.l10n.chatInfoCategory),
                           subtitle: Text(currentName),
                           trailing: Icon(AppIcons.chevronRightRounded),
                           onTap: () {
@@ -244,7 +246,7 @@ class _CreateConversationSheetState
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   PrismListRow(
-                                    title: const Text('None'),
+                                    title: Text(ctx.l10n.chatInfoCategoryNone),
                                     trailing: _selectedCategoryId == null
                                         ? Icon(AppIcons.checkRounded)
                                         : null,
@@ -284,8 +286,8 @@ class _CreateConversationSheetState
                   children: [
                     Text(
                       _isGroupChat
-                          ? 'Select participants (2+)'
-                          : 'Message as ${_currentFronterName(membersAsync)} with:',
+                          ? context.l10n.chatCreateSelectParticipants
+                          : context.l10n.chatCreateMessageAs(_currentFronterName(membersAsync)),
                       style: theme.textTheme.titleSmall,
                     ),
                     const Spacer(),
@@ -298,8 +300,8 @@ class _CreateConversationSheetState
                               );
                               return PrismButton(
                                 label: allSelected
-                                    ? 'Deselect All'
-                                    : 'Select All',
+                                    ? context.l10n.chatCreateDeselectAll
+                                    : context.l10n.chatCreateSelectAll,
                                 tone: PrismButtonTone.subtle,
                                 onPressed: () {
                                   setState(() {
@@ -327,7 +329,7 @@ class _CreateConversationSheetState
                       return Padding(
                         padding: const EdgeInsets.all(16),
                         child: Text(
-                          'No members available. Create members first.',
+                          context.l10n.chatCreateNoMembers,
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
@@ -369,7 +371,7 @@ class _CreateConversationSheetState
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
-                                      'Fronting',
+                                      context.l10n.chatCreateFronting,
                                       style: theme.textTheme.labelSmall
                                           ?.copyWith(
                                             color: theme.colorScheme.primary,
@@ -399,7 +401,7 @@ class _CreateConversationSheetState
                   error: (error, _) => Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Error loading members: $error',
+                      context.l10n.chatAddMembersFailed(error),
                       style: TextStyle(color: theme.colorScheme.error),
                     ),
                   ),
@@ -426,7 +428,7 @@ class _CreateConversationSheetState
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${_currentFronterName(membersAsync)} is currently fronting but not in this chat. You won\'t be able to see or send messages.',
+                            context.l10n.chatCreateFronterDeselectedWarning(_currentFronterName(membersAsync)),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.error,
                             ),

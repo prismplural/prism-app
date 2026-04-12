@@ -25,6 +25,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Main conversation list screen.
 class ChatScreen extends ConsumerStatefulWidget {
@@ -82,7 +83,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 size: 20,
               ),
               title: Text(
-                'Mark as Read',
+                ctx.l10n.chatMarkAsRead,
                 style: popupTheme.textTheme.bodyMedium,
               ),
               onTap: () {
@@ -103,7 +104,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 size: 20,
               ),
               title: Text(
-                isMuted ? 'Unmute' : 'Mute',
+                isMuted ? ctx.l10n.chatUnmute : ctx.l10n.chatMute,
                 style: popupTheme.textTheme.bodyMedium,
               ),
               onTap: () {
@@ -123,7 +124,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 color: popupTheme.colorScheme.error,
               ),
               title: Text(
-                'Delete',
+                ctx.l10n.delete,
                 style: popupTheme.textTheme.bodyMedium?.copyWith(
                   color: popupTheme.colorScheme.error,
                 ),
@@ -241,20 +242,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           slivers: [
             SliverPinnedTopBar(
               child: PrismTopBar(
-                title: 'Chat',
+                title: context.l10n.chatTitle,
                 leading: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     PrismTopBarAction(
                       icon: AppIcons.folderOutlined,
-                      tooltip: 'Manage categories',
+                      tooltip: context.l10n.chatManageCategories,
                       onPressed: () =>
                           CategoryManagementSheet.show(context),
                     ),
                     const SizedBox(width: 8),
                     PrismTopBarAction(
                       icon: AppIcons.search,
-                      tooltip: 'Search messages',
+                      tooltip: context.l10n.chatSearchMessages,
                       onPressed: () => context.go('${AppRoutePaths.chat}/search'),
                     ),
                   ],
@@ -266,8 +267,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           ? AppIcons.alternateEmail
                           : AppIcons.markChatUnreadOutlined,
                       tooltip: isMentionsOnly
-                          ? 'Badge: mentions only'
-                          : 'Badge: all messages',
+                          ? context.l10n.chatBadgeMentionsOnly
+                          : context.l10n.chatBadgeAllMessages,
                       onPressed: () {
                         final newPrefs = Map<String, String>.from(badgePrefs);
                         if (isMentionsOnly) {
@@ -285,13 +286,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       icon: showArchived
                           ? AppIcons.inventoryRounded
                           : AppIcons.inventoryOutlined,
-                      tooltip: showArchived ? 'Hide archived' : 'Show archived',
+                      tooltip: showArchived ? context.l10n.chatHideArchived : context.l10n.chatShowArchived,
                       onPressed: () =>
                           ref.read(showArchivedProvider.notifier).toggle(),
                     ),
                   PrismTopBarAction(
                     icon: AppIcons.add,
-                    tooltip: 'New conversation',
+                    tooltip: context.l10n.chatNewConversation,
                     onPressed: () => _showCreateSheet(context),
                   ),
                 ],
@@ -312,9 +313,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       hasScrollBody: false,
                       child: EmptyState(
                         icon: Icon(AppIcons.chatBubbleOutline),
-                        title: 'No conversations',
-                        subtitle: 'Start chatting with your system',
-                        actionLabel: 'New Conversation',
+                        title: context.l10n.chatNoConversations,
+                        subtitle: context.l10n.chatNoConversationsSubtitle,
+                        actionLabel: context.l10n.chatNewConversation,
                         onAction: () => _showCreateSheet(context),
                       ),
                     ),
@@ -373,7 +374,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     context: context,
                     theme: theme,
                     label: categories.isNotEmpty
-                        ? 'Uncategorized'
+                        ? context.l10n.chatUncategorized
                         : null,
                     conversations: grouped[null]!,
                     speakingAs: speakingAs,
@@ -395,7 +396,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Error loading conversations',
+                          context.l10n.chatErrorLoadingConversations,
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.error,
                           ),
@@ -426,9 +427,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   ) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: 'Delete Conversation',
-      message: 'Are you sure you want to delete this conversation? All messages will be permanently removed.',
-      confirmLabel: 'Delete',
+      title: context.l10n.chatDeleteConversationTitle,
+      message: context.l10n.chatDeleteConversationMessage,
+      confirmLabel: context.l10n.delete,
       destructive: true,
     );
     if (!confirmed) return false;

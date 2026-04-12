@@ -2417,4 +2417,466 @@ class AppLocalizationsEn extends AppLocalizations {
   String memberCustomFieldEnterHint(String fieldName) {
     return 'Enter $fieldName';
   }
+
+  @override
+  String get chatTitle => 'Chat';
+
+  @override
+  String get chatNewConversation => 'New Conversation';
+
+  @override
+  String get chatManageCategories => 'Manage categories';
+
+  @override
+  String get chatSearchMessages => 'Search messages';
+
+  @override
+  String get chatNoConversations => 'No conversations';
+
+  @override
+  String get chatNoConversationsSubtitle => 'Start chatting with your system';
+
+  @override
+  String get chatErrorLoadingConversations => 'Error loading conversations';
+
+  @override
+  String get chatUncategorized => 'Uncategorized';
+
+  @override
+  String get chatMarkAsRead => 'Mark as Read';
+
+  @override
+  String get chatMute => 'Mute';
+
+  @override
+  String get chatUnmute => 'Unmute';
+
+  @override
+  String get chatDeleteConversationTitle => 'Delete Conversation';
+
+  @override
+  String get chatDeleteConversationMessage =>
+      'Are you sure you want to delete this conversation? All messages will be permanently removed.';
+
+  @override
+  String get chatDeleteConversationFullMessage =>
+      'Are you sure you want to delete this conversation? All messages will be permanently removed. This cannot be undone.';
+
+  @override
+  String get chatBadgeMentionsOnly => 'Badge: mentions only';
+
+  @override
+  String get chatBadgeAllMessages => 'Badge: all messages';
+
+  @override
+  String get chatHideArchived => 'Hide archived';
+
+  @override
+  String get chatShowArchived => 'Show archived';
+
+  @override
+  String get chatConversationNotFound => 'Conversation not found';
+
+  @override
+  String get chatConversationInfo => 'Conversation info';
+
+  @override
+  String get chatNoMessages => 'No messages yet';
+
+  @override
+  String get chatStartConversation => 'Start the conversation!';
+
+  @override
+  String chatErrorLoadingMessages(Object error) {
+    return 'Error loading messages: $error';
+  }
+
+  @override
+  String get chatLoadingOlderMessages => 'Loading older messages';
+
+  @override
+  String get chatConversationFallback => 'Conversation';
+
+  @override
+  String get chatSearchPlaceholder => 'Search messages...';
+
+  @override
+  String get chatSearchHint => 'Find messages across your conversations';
+
+  @override
+  String get chatSearchKeepTyping => 'Keep typing to search...';
+
+  @override
+  String chatSearchNoResults(String query) {
+    return 'No messages found for \'$query\'';
+  }
+
+  @override
+  String get chatSearchTryDifferent => 'Try fewer or different words';
+
+  @override
+  String chatSearchError(Object error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String get chatMessagePlaceholder => 'Message';
+
+  @override
+  String get chatSendMessage => 'Send message';
+
+  @override
+  String get chatSendMessageDisabled => 'Send message, disabled';
+
+  @override
+  String get chatRecordVoiceNote => 'Record voice note';
+
+  @override
+  String chatSpeakingAs(String name) {
+    return 'Speaking as $name. Double tap to change.';
+  }
+
+  @override
+  String get chatChooseSpeakingMember => 'Choose speaking member';
+
+  @override
+  String get chatCancelReply => 'Cancel reply';
+
+  @override
+  String get chatAddAttachment => 'Add Attachment';
+
+  @override
+  String get chatCamera => 'Camera';
+
+  @override
+  String get chatPhotoLibrary => 'Photo Library';
+
+  @override
+  String get chatContextReply => 'Reply';
+
+  @override
+  String get chatContextCopyText => 'Copy Text';
+
+  @override
+  String get chatContextEditMessage => 'Edit Message';
+
+  @override
+  String get chatContextDelete => 'Delete';
+
+  @override
+  String get chatCopied => 'Copied';
+
+  @override
+  String get chatEditMessageTitle => 'Edit Message';
+
+  @override
+  String get chatMessageContentHint => 'Message content';
+
+  @override
+  String get chatDeleteMessageTitle => 'Delete Message';
+
+  @override
+  String get chatDeleteMessageMessage =>
+      'This message will be permanently deleted.';
+
+  @override
+  String get chatReplyQuoteDeleted => 'Original message deleted';
+
+  @override
+  String chatReplyQuoteSemantics(String authorName, String content) {
+    return 'Replying to $authorName: $content. Double-tap to scroll to message.';
+  }
+
+  @override
+  String get chatReplyQuoteDeletedSemantics => 'Original message deleted';
+
+  @override
+  String get chatMessageEdited => 'edited';
+
+  @override
+  String get chatInfoTitle => 'Info';
+
+  @override
+  String get chatInfoConversationTitle => 'Conversation title';
+
+  @override
+  String chatInfoCreatedAt(String date) {
+    return 'Created $date';
+  }
+
+  @override
+  String chatInfoParticipants(int count) {
+    return 'Participants ($count)';
+  }
+
+  @override
+  String get chatInfoAddMembers => 'Add members';
+
+  @override
+  String get chatInfoOwner => 'Owner';
+
+  @override
+  String get chatInfoAdmin => 'Admin';
+
+  @override
+  String get chatInfoUnknownMember => 'Unknown Member';
+
+  @override
+  String get chatInfoErrorLoadingMember => 'Error loading member';
+
+  @override
+  String get chatInfoCategory => 'Category';
+
+  @override
+  String get chatInfoCategoryNone => 'None';
+
+  @override
+  String chatInfoCategorySemantics(String name) {
+    return 'Category: $name';
+  }
+
+  @override
+  String get chatInfoDirectMessage => 'Direct Message';
+
+  @override
+  String get chatInfoGroupChat => 'Group Chat';
+
+  @override
+  String chatInfoCannotManage(String memberName) {
+    return '$memberName can\'t manage this conversation';
+  }
+
+  @override
+  String get chatInfoArchiveConversation => 'Archive conversation';
+
+  @override
+  String get chatInfoLeaveConversation => 'Leave conversation';
+
+  @override
+  String get chatInfoDeleteConversation => 'Delete conversation';
+
+  @override
+  String get chatInfoConversationArchived => 'Conversation archived';
+
+  @override
+  String chatInfoFailedSaveTitle(Object error) {
+    return 'Failed to save title: $error';
+  }
+
+  @override
+  String chatInfoFailedSaveEmoji(Object error) {
+    return 'Failed to save emoji: $error';
+  }
+
+  @override
+  String get chatLeaveConversationTitle => 'Leave Conversation';
+
+  @override
+  String get chatLeaveConversationMessage =>
+      'Leave this conversation? Your past messages will remain.';
+
+  @override
+  String get chatLeaveConversationConfirm => 'Leave';
+
+  @override
+  String get chatSelectNewOwner => 'Select new conversation owner';
+
+  @override
+  String get chatAddMembersTitle => 'Add Members';
+
+  @override
+  String get chatAddMembersAllAdded =>
+      'All active members are already in this conversation.';
+
+  @override
+  String chatAddMembersFailed(Object error) {
+    return 'Failed to add members: $error';
+  }
+
+  @override
+  String get chatCreateTitle => 'New Conversation';
+
+  @override
+  String get chatCreateGroupTab => 'Group';
+
+  @override
+  String get chatCreateDirectMessageTab => 'Direct Message';
+
+  @override
+  String get chatCreateGroupName => 'Group Name';
+
+  @override
+  String get chatCreateGroupNameHint => 'e.g., System Discussion';
+
+  @override
+  String get chatCreateSelectParticipants => 'Select participants (2+)';
+
+  @override
+  String chatCreateMessageAs(String name) {
+    return 'Message as $name with:';
+  }
+
+  @override
+  String get chatCreateSelectAll => 'Select All';
+
+  @override
+  String get chatCreateDeselectAll => 'Deselect All';
+
+  @override
+  String get chatCreateNoMembers =>
+      'No members available. Create members first.';
+
+  @override
+  String get chatCreateFronting => 'Fronting';
+
+  @override
+  String chatCreateFronterDeselectedWarning(String name) {
+    return '$name is currently fronting but not in this chat. You won\'t be able to see or send messages.';
+  }
+
+  @override
+  String chatCreateFailed(Object error) {
+    return 'Failed to create conversation: $error';
+  }
+
+  @override
+  String get chatCategoriesTitle => 'Manage Categories';
+
+  @override
+  String get chatCategoriesNone => 'No categories yet';
+
+  @override
+  String get chatCategoriesNewHint => 'New category name';
+
+  @override
+  String get chatCategoriesCategoryNameHint => 'Category name';
+
+  @override
+  String get chatCategoriesAddTooltip => 'Add category';
+
+  @override
+  String chatCategoriesDeleteTitle(String name) {
+    return 'Delete \"$name\"?';
+  }
+
+  @override
+  String get chatCategoriesDeleteMessage =>
+      'Conversations in this category will become uncategorized.';
+
+  @override
+  String chatCategoriesCreateFailed(Object error) {
+    return 'Failed to create category: $error';
+  }
+
+  @override
+  String chatCategoriesRenameFailed(Object error) {
+    return 'Failed to rename category: $error';
+  }
+
+  @override
+  String chatCategoriesDeleteFailed(Object error) {
+    return 'Failed to delete category: $error';
+  }
+
+  @override
+  String get chatNoMembersAvailable => 'No members available';
+
+  @override
+  String get chatErrorLoadingMembersShort => 'Error loading members';
+
+  @override
+  String get chatGifsTitle => 'GIFs';
+
+  @override
+  String get chatGifsSearchHint => 'Search for GIFs';
+
+  @override
+  String get chatGifsPoweredBy => 'Powered by KLIPY';
+
+  @override
+  String get chatGifsLoadFailed => 'Failed to load GIFs';
+
+  @override
+  String get chatGifsNotFound => 'No GIFs found';
+
+  @override
+  String get chatGifsNotFoundSubtitle => 'Try different search terms';
+
+  @override
+  String chatGifsFound(int count) {
+    return '$count GIFs found';
+  }
+
+  @override
+  String get chatGifSendButton => 'Send';
+
+  @override
+  String chatGifPreviewSemantics(String description) {
+    return 'GIF preview: $description. Send button below.';
+  }
+
+  @override
+  String chatGifCellSemantics(String description) {
+    return 'GIF: $description';
+  }
+
+  @override
+  String get chatGifCellSemanticsDefault => 'GIF: search result';
+
+  @override
+  String get chatMediaNoLongerAvailable => 'Media no longer available';
+
+  @override
+  String get chatAttachedImagePreview => 'Attached image preview';
+
+  @override
+  String get chatRemoveAttachment => 'Remove attachment';
+
+  @override
+  String chatVoiceNoteSemantics(String duration) {
+    return 'Voice note from message, $duration';
+  }
+
+  @override
+  String chatVoiceNoteLoading(String duration) {
+    return 'Loading voice note, $duration';
+  }
+
+  @override
+  String chatVoiceNotePause(String duration) {
+    return 'Pause voice note, $duration';
+  }
+
+  @override
+  String chatVoiceNotePlay(String duration) {
+    return 'Play voice note, $duration';
+  }
+
+  @override
+  String chatVoiceNoteSpeed(String speed) {
+    return 'Playback speed ${speed}x. Double tap to change.';
+  }
+
+  @override
+  String get chatVoiceRecorderCancel => 'Cancel recording';
+
+  @override
+  String get chatVoiceRecorderSend => 'Send voice note';
+
+  @override
+  String chatImageViewerSemantics(String caption) {
+    return 'Full screen image viewer. $caption. Pinch to zoom, swipe down to close.';
+  }
+
+  @override
+  String get chatImageViewerClose => 'Close viewer';
+
+  @override
+  String get chatImageViewerShare => 'Share image';
+
+  @override
+  String get chatConversationNoTitle => 'Conversation';
+
+  @override
+  String get chatTileNoMessages => 'No messages yet';
 }

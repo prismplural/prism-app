@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -58,7 +59,7 @@ class _AttachmentThumbnail extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Semantics(
-      label: 'Attached image preview',
+      label: context.l10n.chatAttachedImagePreview,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -89,7 +90,7 @@ class _AttachmentThumbnail extends StatelessWidget {
             top: -8,
             right: -8,
             child: Semantics(
-              label: 'Remove attachment',
+              label: context.l10n.chatRemoveAttachment,
               button: true,
               child: SizedBox(
                 width: 44,

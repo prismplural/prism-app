@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -62,7 +63,7 @@ class _VoiceBubbleState extends State<VoiceBubble> {
     final disableAnimations = MediaQuery.of(context).disableAnimations;
 
     return Semantics(
-      label: 'Voice note from message, $durationText',
+      label: context.l10n.chatVoiceNoteSemantics(durationText),
       child: TintedGlassSurface(
         borderRadius: BorderRadius.circular(20),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -72,10 +73,10 @@ class _VoiceBubbleState extends State<VoiceBubble> {
             // Play/pause button — minimum 44px touch target
             Semantics(
               label: widget.isLoading
-                  ? 'Loading voice note, $durationText'
+                  ? context.l10n.chatVoiceNoteLoading(durationText)
                   : widget.isPlaying
-                      ? 'Pause voice note, $durationText'
-                      : 'Play voice note, $durationText',
+                      ? context.l10n.chatVoiceNotePause(durationText)
+                      : context.l10n.chatVoiceNotePlay(durationText),
               button: true,
               child: SizedBox(
                 width: 44,
@@ -174,8 +175,10 @@ class _VoiceBubbleState extends State<VoiceBubble> {
             // Speed indicator chip
             if (widget.isPlaying || widget.onSpeedTap != null)
               Semantics(
-                label:
-                    'Playback speed ${widget.speed}x. Double tap to change.',
+                label: context.l10n.chatVoiceNoteSpeed(
+                    widget.speed == widget.speed.roundToDouble()
+                        ? widget.speed.toInt().toString()
+                        : widget.speed.toString()),
                 button: true,
                 child: SizedBox(
                   height: 44,
