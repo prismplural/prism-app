@@ -22,7 +22,9 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/desktop_breakpoint.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/shared/utils/pin_lock_decision.dart';
+import 'package:prism_plurality/shared/widgets/info_banner.dart';
 
 /// Gap between overflow row and primary row when the nav bar is expanded.
 const _kNavBarRowGap = 6.0;
@@ -167,6 +169,7 @@ class _AppShellState extends ConsumerState<AppShell>
     } else if (state == AppLifecycleState.resumed) {
       _checkLockOnResume();
       ref.invalidate(currentDateProvider);
+      _checkAuthPolicy();
     }
   }
 
@@ -183,6 +186,28 @@ class _AppShellState extends ConsumerState<AppShell>
     if (shouldLock) {
       setState(() => _locked = true);
     }
+  }
+
+  /// Check auth policy on app foreground — shows a PIN verification reminder
+  /// snackbar and invalidates the backup reminder provider so the InfoBanner
+  /// re-evaluates when the user returns to the app.
+  ///
+  /// PIN verification sheet wiring will be completed in Task 19.
+  Future<void> _checkAuthPolicy() async {
+    if (!mounted) return;
+    final authPolicy = ref.read(authPolicyServiceProvider);
+
+    final pinDue = await authPolicy.isPinVerificationDue();
+    if (!mounted) return;
+    if (pinDue) {
+      // Placeholder: Task 19 will replace this with the real PIN entry sheet.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PIN verification due')),
+      );
+    }
+
+    // Invalidate so the backup reminder banner re-checks on resume.
+    ref.invalidate(backupReminderDueProvider);
   }
 
   @override
@@ -258,6 +283,41 @@ class _AppShellState extends ConsumerState<AppShell>
 
     final accentColor = Theme.of(context).colorScheme.primary;
 
+    // Show backup-reminder banner when sync is configured and the reminder is due.
+    final syncHealth = ref.watch(syncHealthProvider);
+    final syncConfigured = syncHealth == SyncHealthState.healthy;
+    final backupReminderDue = ref
+        .watch(backupReminderDueProvider)
+        .maybeWhen(data: (due) => due, orElse: () => false);
+    final showBackupBanner = syncConfigured && backupReminderDue;
+
+    // Wraps the tab shell with an optional backup-reminder InfoBanner at the top.
+    Widget navContent(Widget child) {
+      if (!showBackupBanner) return child;
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: InfoBanner(
+              icon: AppIcons.warningAmberRounded,
+              iconColor: accentColor,
+              title: 'Check your recovery phrase',
+              message:
+                  'Make sure your BIP39 secret key is stored safely — you\'ll '
+                  'need it if you lose access to this device.',
+              buttonText: 'Dismiss',
+              onButtonPressed: () async {
+                final service = ref.read(authPolicyServiceProvider);
+                await service.recordReminderDismissed();
+                ref.invalidate(backupReminderDueProvider);
+              },
+            ),
+          ),
+          Expanded(child: child),
+        ],
+      );
+    }
+
     Widget shell;
 
     if (isDesktop) {
@@ -275,7 +335,7 @@ class _AppShellState extends ConsumerState<AppShell>
                   accentColor: accentColor,
                   onTap: onTabTap,
                 ),
-                Expanded(child: widget.navigationShell),
+                Expanded(child: navContent(widget.navigationShell)),
               ],
             ),
           ),
@@ -310,7 +370,7 @@ class _AppShellState extends ConsumerState<AppShell>
             body: BackdropGroup(
               child: Stack(
                 children: [
-                  widget.navigationShell,
+                  navContent(widget.navigationShell),
 
                   if (!hideNavBar) ...[
                     // Gradient fade
