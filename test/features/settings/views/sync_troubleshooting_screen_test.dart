@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/views/sync_troubleshooting_screen.dart';
@@ -17,7 +18,11 @@ void main() {
             const AsyncValue<String?>.data('sync-123'),
           ),
         ],
-        child: const MaterialApp(home: SyncTroubleshootingScreen()),
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: const SyncTroubleshootingScreen(),
+        ),
       ),
     );
 
