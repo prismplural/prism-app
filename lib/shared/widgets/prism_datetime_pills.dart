@@ -133,7 +133,7 @@ class _DatePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final formatted = DateFormat.yMMMd().format(dateTime);
+    final formatted = DateFormat.yMMMd(context.dateLocale).format(dateTime);
     return _Pill(
       text: formatted,
       onTap: () async {
