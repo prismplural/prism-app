@@ -2,8 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
-import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -11,7 +9,6 @@ import 'package:prism_plurality/features/onboarding/models/onboarding_data_count
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -62,9 +59,10 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
           onReject: () => ref.read(devicePairingProvider.notifier).reset(),
         );
       case PairingStep.enterPassword:
-        child = _PasswordView(
-          key: const ValueKey('password'),
+        child = _PairingPinCapture(
           onBack: () => ref.read(devicePairingProvider.notifier).reset(),
+          onPinEntered: (pin) =>
+              ref.read(devicePairingProvider.notifier).completeJoinerWithPin(pin),
         );
       case PairingStep.connecting:
         child = const _ConnectingView(key: ValueKey('connecting'));
@@ -432,28 +430,70 @@ class _SasVerificationView extends StatelessWidget {
   }
 }
 
-class _PasswordView extends ConsumerStatefulWidget {
-  const _PasswordView({super.key, required this.onBack});
+/// PIN entry widget for the pairing flow that captures the 6-digit pin
+/// and forwards it to the pairing notifier.
+class _PairingPinCapture extends StatefulWidget {
+  const _PairingPinCapture({
+    required this.onPinEntered,
+    required this.onBack,
+  });
 
+  final void Function(String pin) onPinEntered;
   final VoidCallback onBack;
 
   @override
-  ConsumerState<_PasswordView> createState() => _PasswordViewState();
+  State<_PairingPinCapture> createState() => _PairingPinCaptureState();
 }
 
-class _PasswordViewState extends ConsumerState<_PasswordView> {
-  final _passwordController = TextEditingController();
-  bool _obscure = true;
+class _PairingPinCaptureState extends State<_PairingPinCapture>
+    with SingleTickerProviderStateMixin {
+  String _pin = '';
+  static const _pinLength = 6;
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _shakeAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
+    ]).animate(CurvedAnimation(
+      parent: _shakeController,
+      curve: Curves.easeInOut,
+    ));
+  }
 
   @override
   void dispose() {
-    _passwordController.dispose();
+    _shakeController.dispose();
     super.dispose();
+  }
+
+  void _onDigit(String digit) {
+    if (_pin.length >= _pinLength) return;
+    setState(() => _pin += digit);
+    if (_pin.length == _pinLength) {
+      widget.onPinEntered(_pin);
+    }
+  }
+
+  void _onBackspace() {
+    if (_pin.isEmpty) return;
+    setState(() => _pin = _pin.substring(0, _pin.length - 1));
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -461,7 +501,10 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: _BackLink(label: context.l10n.back, onTap: widget.onBack),
+            child: _BackLink(
+              label: context.l10n.back,
+              onTap: widget.onBack,
+            ),
           ),
           const SizedBox(height: 24),
           Icon(AppIcons.lockOutline, color: AppColors.warmWhite, size: 48),
@@ -483,53 +526,96 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.warmWhite.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+          // PIN dot indicators
+          AnimatedBuilder(
+            animation: _shakeAnimation,
+            builder: (context, child) => Transform.translate(
+              offset: Offset(_shakeAnimation.value, 0),
+              child: child,
             ),
-            child: PrismTextField(
-              controller: _passwordController,
-              obscureText: _obscure,
-              style: const TextStyle(color: AppColors.warmWhite),
-              autofocus: true,
-              onSubmitted: (_) => _connect(),
-              hintText: context.l10n.onboardingSyncPasswordHint,
-              hintStyle: TextStyle(
-                color: AppColors.warmWhite.withValues(alpha: 0.4),
-              ),
-              fieldStyle: PrismTextFieldStyle.borderless,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              suffix: PrismFieldIconButton(
-                icon: _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-                color: AppColors.warmWhite.withValues(alpha: 0.75),
-                tooltip: _obscure ? context.l10n.showPassword : context.l10n.hidePassword,
-                onPressed: () => setState(() => _obscure = !_obscure),
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(_pinLength, (i) {
+                final filled = i < _pin.length;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: filled
+                          ? AppColors.warmWhite
+                          : AppColors.warmWhite.withValues(alpha: 0.2),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
-          const SizedBox(height: 24),
-          _ActionButton(
-            label: context.l10n.onboardingSyncFinishPairing,
-            color: Colors.purple,
-            onPressed: _connect,
-          ),
+          const SizedBox(height: 32),
+          // Numpad
+          for (var row = 0; row < 4; row++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: _buildRow(row),
+              ),
+            ),
           const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  void _connect() {
-    final password = _passwordController.text;
-    if (password.isEmpty) {
-      PrismToast.show(context, message: context.l10n.onboardingSyncEnterPasswordPrompt);
-      return;
+  List<Widget> _buildRow(int row) {
+    if (row < 3) {
+      return List.generate(3, (col) {
+        final digit = '${row * 3 + col + 1}';
+        return _NumpadButton(label: digit, onTap: () => _onDigit(digit));
+      });
     }
-    ref.read(devicePairingProvider.notifier).completeJoinerWithPassword(password);
+    return [
+      const SizedBox(width: 72, height: 72),
+      _NumpadButton(label: '0', onTap: () => _onDigit('0')),
+      _NumpadButton(icon: AppIcons.backspaceOutlined, onTap: _onBackspace),
+    ];
+  }
+}
+
+class _NumpadButton extends StatelessWidget {
+  const _NumpadButton({this.label, this.icon, required this.onTap});
+  final String? label;
+  final IconData? icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 72,
+        height: 72,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color(0x22FFFFFF),
+        ),
+        child: label != null
+            ? Text(
+                label!,
+                style: const TextStyle(
+                  color: AppColors.warmWhite,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                ),
+              )
+            : Icon(icon, size: 24, color: AppColors.warmWhite),
+      ),
+    );
   }
 }
 

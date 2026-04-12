@@ -231,6 +231,14 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     );
   }
 
+  /// Complete the joiner ceremony with the user's PIN (6-digit).
+  ///
+  /// Delegates to [completeJoinerWithPassword] — PIN is used as the sync
+  /// auth password, matching the onboarding flow where the PIN is the
+  /// Argon2id password for key derivation.
+  Future<void> completeJoinerWithPin(String pin) =>
+      completeJoinerWithPassword(pin);
+
   /// Complete the joiner ceremony with the user's password.
   Future<void> completeJoinerWithPassword(String password) async {
     if (password.trim().isEmpty) {
