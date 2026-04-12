@@ -48,7 +48,7 @@ class MemberDetailScreen extends ConsumerWidget {
       error: (e, _) => PrismPageScaffold(
         topBar: const PrismTopBar(title: '', showBackButton: true),
         body: Center(
-            child: Text('Error loading ${ref.read(terminologyProvider).singularLower}: $e')),
+            child: Text('Error loading ${readTerminology(context, ref).singularLower}: $e')),
       ),
       data: (member) {
         if (member == null) {
@@ -56,7 +56,7 @@ class MemberDetailScreen extends ConsumerWidget {
             topBar: const PrismTopBar(title: '', showBackButton: true),
             body: Center(
                 child: Text(
-                    '${ref.read(terminologyProvider).singular} not found')),
+                    '${readTerminology(context, ref).singular} not found')),
           );
         }
         return _MemberDetailBody(member: member);
@@ -251,7 +251,7 @@ class _MemberDetailBody extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final terms = ref.read(terminologyProvider);
+    final terms = readTerminology(context, ref);
     final confirmed = await PrismDialog.confirm(
       context: context,
       title: 'Delete ${terms.singularLower}?',
@@ -503,7 +503,7 @@ class _ConversationTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
     final title =
         conversation.title ?? conversation.emoji ?? context.l10n.memberConversationFallback;
 

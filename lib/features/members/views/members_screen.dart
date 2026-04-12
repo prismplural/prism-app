@@ -161,7 +161,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 
   Future<void> _openSearch(List<Member> members) async {
-    final terms = ref.read(terminologyProvider);
+    final terms = readTerminology(context, ref);
     final result = await showSearch<String?>(
       context: context,
       delegate: MemberSearchDelegate(
@@ -182,7 +182,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   ) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: context.l10n.terminologyDeleteItem(ref.read(terminologyProvider).singular),
+      title: context.l10n.terminologyDeleteItem(readTerminology(context, ref).singular),
       message: 'Are you sure you want to delete $memberName? This action cannot be undone.',
       confirmLabel: context.l10n.delete,
       destructive: true,
@@ -248,7 +248,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         ? ref.watch(allMembersProvider)
         : ref.watch(activeMembersProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     // Build a set of currently-fronting member IDs.
     final frontingIds = activeSessionsAsync.whenOrNull(

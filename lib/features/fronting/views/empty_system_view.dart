@@ -15,7 +15,7 @@ class EmptySystemView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     return Center(
       child: Padding(

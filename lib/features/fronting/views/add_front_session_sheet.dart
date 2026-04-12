@@ -130,7 +130,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
     final membersAsync = ref.watch(activeMembersProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final activeSessions = activeSessionsAsync.whenOrNull(data: (s) => s) ?? [];
@@ -149,6 +149,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
           children: _buildContent(
             context,
             theme,
+            terms,
             membersAsync,
             frontingMemberIds,
             hasActiveSession,
@@ -161,6 +162,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   List<Widget> _buildContent(
     BuildContext context,
     ThemeData theme,
+    Terminology terms,
     AsyncValue<List<Member>> membersAsync,
     Set<String> frontingMemberIds,
     bool hasActiveSession,

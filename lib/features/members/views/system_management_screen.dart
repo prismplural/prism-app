@@ -71,10 +71,10 @@ class _SystemManagementScreenState
   Future<void> _bulkDelete(List<Member> members) async {
     final confirmed = await PrismDialog.confirm(
       context: context,
-      title: context.l10n.terminologyDeleteSelected(ref.read(terminologyProvider).plural),
+      title: context.l10n.terminologyDeleteSelected(readTerminology(context, ref).plural),
       message:
           'Are you sure you want to delete ${_selectedIds.length} '
-          '${ref.read(terminologyProvider).singularLower}(s)? This action cannot be undone.',
+          '${readTerminology(context, ref).singularLower}(s)? This action cannot be undone.',
       confirmLabel: context.l10n.delete,
       destructive: true,
     );
@@ -103,7 +103,7 @@ class _SystemManagementScreenState
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
-        title: context.l10n.terminologyManage(ref.watch(terminologyProvider).plural),
+        title: context.l10n.terminologyManage(watchTerminology(context, ref).plural),
         showBackButton: true,
         trailing: _selectionMode
             ? PrismTopBarAction(
@@ -200,8 +200,8 @@ class _SystemManagementScreenState
                     ? Center(
                         child: Text(
                           _showInactive
-                              ? l10n.memberNoInactive(ref.read(terminologyProvider).pluralLower)
-                              : l10n.memberNoActive(ref.read(terminologyProvider).pluralLower),
+                              ? l10n.memberNoInactive(readTerminology(context, ref).pluralLower)
+                              : l10n.memberNoActive(readTerminology(context, ref).pluralLower),
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),

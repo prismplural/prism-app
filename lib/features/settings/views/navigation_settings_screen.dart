@@ -24,7 +24,7 @@ class NavigationSettingsScreen extends ConsumerWidget {
     final overflowTabs = ref.watch(navBarOverflowTabsProvider);
     final flags = ref.watch(featureFlagsProvider);
     final syncNavigationEnabled = ref.watch(syncNavigationEnabledProvider);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
     final theme = Theme.of(context);
 
     // All tab IDs currently placed (primary + overflow)

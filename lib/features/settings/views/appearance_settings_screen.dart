@@ -118,9 +118,9 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               child: PrismSectionCard(
                 child: PrismSwitchRow(
                   title:
-                    'Per-${ref.watch(terminologyProvider).singularLower} accent colors',
+                    'Per-${watchTerminology(context, ref).singularLower} accent colors',
                   subtitle:
-                    'Allow each ${ref.watch(terminologyProvider).singularLower} to have their own color',
+                    'Allow each ${watchTerminology(context, ref).singularLower} to have their own color',
                   value: settings.perMemberAccentColors,
                   onChanged: (value) {
                     ref
@@ -175,7 +175,7 @@ class _PreviewCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     return PrismSectionCard(
       child: Padding(

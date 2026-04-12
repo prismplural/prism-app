@@ -553,7 +553,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     final habitsBadgeEnabled = ref.watch(habitsBadgeEnabledProvider);
     final dueCount = habitsBadgeEnabled ? ref.watch(dueHabitsCountProvider) : 0;
     final chatUnreadCount = ref.watch(unreadConversationCountProvider);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1076,7 +1076,7 @@ class _FloatingSidebar extends ConsumerWidget {
     final habitsBadgeEnabled = ref.watch(habitsBadgeEnabledProvider);
     final dueCount = habitsBadgeEnabled ? ref.watch(dueHabitsCountProvider) : 0;
     final chatUnreadCount = ref.watch(unreadConversationCountProvider);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;

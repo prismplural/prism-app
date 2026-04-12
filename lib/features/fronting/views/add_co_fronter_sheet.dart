@@ -58,7 +58,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
     final membersAsync = ref.watch(activeMembersProvider);
 
     return Container(

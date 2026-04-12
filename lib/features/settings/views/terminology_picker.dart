@@ -129,7 +129,7 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final terms = ref.watch(terminologyProvider);
+    final terms = watchTerminology(context, ref);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
