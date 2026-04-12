@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -38,6 +39,30 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
     });
   }
 
+  @override
+  Widget build(BuildContext context) {
+    // Auto-cancel and surface error if recording fails (e.g. permission denied).
+    ref.listen<VoiceRecordingState>(voiceRecordingProvider, (_, next) {
+      if (next.status == VoiceRecordingStatus.error && mounted) {
+        final l10n = context.l10n;
+        final msg = switch (next.errorType) {
+          VoiceRecordingError.permissionDenied =>
+            l10n.voiceMicPermissionDenied,
+          VoiceRecordingError.permissionBlocked =>
+            l10n.voiceMicPermissionBlocked,
+          _ => l10n.voiceRecordingFailed,
+        };
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+        );
+        ref.read(voiceRecordingProvider.notifier).reset();
+        widget.onCancel();
+      }
+    });
+
+    return _buildContent(context);
+  }
+
   String _formatDuration(int ms) {
     final totalSeconds = ms ~/ 1000;
     final minutes = totalSeconds ~/ 60;
@@ -57,8 +82,7 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
     widget.onCancel();
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildContent(BuildContext context) {
     final state = ref.watch(voiceRecordingProvider);
     final theme = Theme.of(context);
     final isProcessing = state.status == VoiceRecordingStatus.processing;

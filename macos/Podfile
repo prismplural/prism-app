@@ -24,6 +24,10 @@ end
 
 require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
+$PermissionHandlerCapabilitiesMap = {
+  'PermissionGroupMicrophone' => true,
+}
+
 flutter_macos_podfile_setup
 
 target 'Runner' do
