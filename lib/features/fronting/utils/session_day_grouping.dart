@@ -25,9 +25,13 @@ class DisplaySession {
       (displayEnd ?? DateTime.now()).difference(displayStart);
 
   /// Formatted time range string (e.g. "11:00 PM – 2:00 AM" or "3:00 PM – ongoing").
-  String get timeRangeString {
-    final startStr = displayStart.toTimeString();
-    final endStr = displayEnd?.toTimeString();
+  ///
+  /// Pass [locale] (from context.dateLocale) to format times in the device's
+  /// regional format. "ongoing" is not yet translated — requires BuildContext.
+  // TODO(i18n): localize "ongoing" label — requires passing l10n or BuildContext
+  String timeRangeString([String? locale]) {
+    final startStr = displayStart.toTimeString(locale);
+    final endStr = displayEnd?.toTimeString(locale);
     if (isActive && !continuesNextDay) {
       return '$startStr \u2013 ongoing';
     } else if (continuesNextDay) {

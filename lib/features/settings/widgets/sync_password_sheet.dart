@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -57,7 +58,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
     } else {
       setState(() {
         _isLoading = false;
-        _error = 'Incorrect password. Please try again.';
+        _error = context.l10n.settingsSyncPasswordWrong;
       });
     }
   }
@@ -85,7 +86,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Enter your sync password',
+            context.l10n.settingsSyncPasswordTitle,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
@@ -93,7 +94,7 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Your sync password is needed to unlock encryption keys on this device.',
+            context.l10n.settingsSyncPasswordBody,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             ),
@@ -106,17 +107,17 @@ class _SyncPasswordSheetState extends ConsumerState<SyncPasswordSheet> {
             autofocus: true,
             enabled: !_isLoading,
             onSubmitted: (_) => _unlock(),
-            labelText: 'Password',
+            labelText: context.l10n.settingsSyncPasswordFieldLabel,
             suffix: PrismFieldIconButton(
               icon: _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-              tooltip: _obscure ? 'Show password' : 'Hide password',
+              tooltip: _obscure ? context.l10n.settingsSyncPasswordShow : context.l10n.settingsSyncPasswordHide,
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
             errorText: _error,
           ),
           const SizedBox(height: 16),
           PrismButton(
-            label: 'Unlock',
+            label: context.l10n.settingsSyncPasswordUnlock,
             onPressed: _unlock,
             isLoading: _isLoading,
           ),

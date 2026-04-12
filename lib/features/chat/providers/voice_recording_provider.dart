@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_sound/flutter_sound.dart';
@@ -107,11 +109,33 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
         return;
       }
 
+      // iOS: configure the audio session for playAndRecord before opening the
+      // recorder. Without this, just_audio leaves the session in playback-only
+      // mode and flutter_sound's openRecorder() fails.
+      final session = await AudioSession.instance;
+      await session.configure(AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+        avAudioSessionCategoryOptions:
+            AVAudioSessionCategoryOptions.allowBluetooth |
+                AVAudioSessionCategoryOptions.defaultToSpeaker,
+        avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+        avAudioSessionRouteSharingPolicy:
+            AVAudioSessionRouteSharingPolicy.defaultPolicy,
+        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+        androidAudioAttributes: const AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.speech,
+          flags: AndroidAudioFlags.none,
+          usage: AndroidAudioUsage.voiceCommunication,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+        androidWillPauseWhenDucked: true,
+      ));
+
       _recorder ??= FlutterSoundRecorder();
       await _recorder!.openRecorder();
 
       final dir = await getTemporaryDirectory();
-      _tempFilePath = '${dir.path}/voice_${_uuid.v4()}.ogg';
+      _tempFilePath = '${dir.path}/voice_${_uuid.v4()}.m4a';
 
       await _recorder!.setSubscriptionDuration(
         const Duration(milliseconds: 50),
@@ -119,9 +143,10 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
 
       await _recorder!.startRecorder(
         toFile: _tempFilePath,
-        codec: Codec.opusOGG,
-        sampleRate: 48000,
+        codec: Codec.aacMP4,
+        sampleRate: 44100,
         numChannels: 1,
+        bitRate: 32000,
       );
 
       _progressSub = _recorder!.onProgress!.listen((event) {
@@ -135,7 +160,8 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
       await HapticFeedback.mediumImpact();
 
       state = state.copyWith(status: VoiceRecordingStatus.recording);
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[VoiceRecording] startRecording failed: $e\n$st');
       state = const VoiceRecordingState(
         status: VoiceRecordingStatus.error,
         errorType: VoiceRecordingError.unknown,

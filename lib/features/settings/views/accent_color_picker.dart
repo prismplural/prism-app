@@ -3,6 +3,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -10,22 +11,21 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Preset colors available for accent color selection.
 class _PresetColor {
-  const _PresetColor(this.label, this.hex);
-  final String label;
+  const _PresetColor(this.hex);
   final String hex;
 }
 
 const _presetColors = [
-  _PresetColor('Prism Purple', '#B498C2'),
-  _PresetColor('Blue', '#2563EB'),
-  _PresetColor('Green', '#16A34A'),
-  _PresetColor('Red', '#DC2626'),
-  _PresetColor('Orange', '#EA580C'),
-  _PresetColor('Pink', '#DB2777'),
-  _PresetColor('Teal', '#0D9488'),
-  _PresetColor('Amber', '#D97706'),
-  _PresetColor('Indigo', '#4F46E5'),
-  _PresetColor('Gray', '#6B7280'),
+  _PresetColor('#B498C2'),
+  _PresetColor('#2563EB'),
+  _PresetColor('#16A34A'),
+  _PresetColor('#DC2626'),
+  _PresetColor('#EA580C'),
+  _PresetColor('#DB2777'),
+  _PresetColor('#0D9488'),
+  _PresetColor('#D97706'),
+  _PresetColor('#4F46E5'),
+  _PresetColor('#6B7280'),
 ];
 
 /// Parses a hex color string (with or without '#') into a [Color].
@@ -81,7 +81,7 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
 
     PrismDialog.show(
       context: context,
-      title: 'Pick a color',
+      title: context.l10n.settingsAccentColorPickerTitle,
       builder: (dialogContext) {
         return SingleChildScrollView(
           child: ColorPicker(
@@ -99,14 +99,14 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
       actions: [
         PrismButton(
           onPressed: () => Navigator.of(context).pop(),
-          label: 'Cancel',
+          label: context.l10n.cancel,
         ),
         PrismButton(
           onPressed: () {
             Navigator.of(context).pop();
             _selectColor(_toHex(pickerColor));
           },
-          label: 'Select',
+          label: context.l10n.settingsAccentColorSelect,
           tone: PrismButtonTone.filled,
         ),
       ],
@@ -116,6 +116,22 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
   bool _isPreset(String hex) {
     return _presetColors
         .any((c) => c.hex.toUpperCase() == hex.toUpperCase());
+  }
+
+  String _tooltipForPreset(BuildContext context, String hex) {
+    return switch (hex.toUpperCase()) {
+      '#B498C2' => context.l10n.settingsAccentColorPrismPurple,
+      '#2563EB' => context.l10n.settingsAccentColorBlue,
+      '#16A34A' => context.l10n.settingsAccentColorGreen,
+      '#DC2626' => context.l10n.settingsAccentColorRed,
+      '#EA580C' => context.l10n.settingsAccentColorOrange,
+      '#DB2777' => context.l10n.settingsAccentColorPink,
+      '#0D9488' => context.l10n.settingsAccentColorTeal,
+      '#D97706' => context.l10n.settingsAccentColorAmber,
+      '#4F46E5' => context.l10n.settingsAccentColorIndigo,
+      '#6B7280' => context.l10n.settingsAccentColorGray,
+      _ => hex,
+    };
   }
 
   @override
@@ -136,7 +152,7 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
                 color: systemAccent,
                 isSelected: true,
                 onTap: () {},
-                tooltip: 'System color',
+                tooltip: context.l10n.settingsAccentColorSystemColor,
               ),
             for (final preset in _presetColors)
               _ColorCircle(
@@ -146,7 +162,7 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
                 isSelected: !isMaterialYou &&
                     preset.hex.toUpperCase() == _selectedHex.toUpperCase(),
                 onTap: isMaterialYou ? () {} : () => _selectColor(preset.hex),
-                tooltip: preset.label,
+                tooltip: _tooltipForPreset(context, preset.hex),
               ),
             // Custom color picker button
             if (!isMaterialYou)
@@ -155,7 +171,7 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
                 isSelected: !_isPreset(_selectedHex),
                 isCustom: true,
                 onTap: _openColorPicker,
-                tooltip: 'Custom',
+                tooltip: context.l10n.settingsAccentColorCustom,
               ),
           ],
         ),
@@ -163,7 +179,7 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Text(
-              'Using your system color palette',
+              context.l10n.settingsAccentColorSystemPaletteNote,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context)
                         .colorScheme

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// A reusable circular icon button using Prism's glass treatment.
@@ -76,15 +77,11 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
                 height: widget.size,
                 child: widget.isLoading
                     ? Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: widget.accentIcon && widget.tint != null
-                                ? widget.tint!
-                                : theme.colorScheme.onSurface,
-                          ),
+                        child: PrismSpinner(
+                          color: widget.accentIcon && widget.tint != null
+                              ? widget.tint!
+                              : theme.colorScheme.onSurface,
+                          size: 20,
                         ),
                       )
                     : Icon(

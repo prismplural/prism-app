@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+
 enum PrismButtonTone { subtle, filled, destructive, outlined }
 
 enum PrismControlDensity { regular, compact }
@@ -53,7 +55,7 @@ class _PrismButtonState extends State<PrismButton> {
         ? 16.0
         : 24.0;
     final verticalPadding = density == PrismControlDensity.compact ? 8.0 : 12.0;
-    final borderRadius = density == PrismControlDensity.compact ? 10.0 : 14.0;
+    final borderRadius = density == PrismControlDensity.compact ? 999.0 : 999.0;
     final foregroundColor = switch (tone) {
       PrismButtonTone.filled => canPress
           ? theme.colorScheme.onPrimary
@@ -130,13 +132,9 @@ class _PrismButtonState extends State<PrismButton> {
                 border: Border.all(color: borderColor),
               ),
               child: widget.isLoading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: foregroundColor,
-                      ),
+                  ? PrismSpinner(
+                      color: foregroundColor,
+                      size: 20,
                     )
                   : Row(
                       mainAxisSize:
