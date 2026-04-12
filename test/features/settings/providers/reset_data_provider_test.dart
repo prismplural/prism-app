@@ -262,6 +262,43 @@ void main() {
       expect(await harness.syncShmFile.exists(), isFalse);
     });
 
+    test('sync reset deletes dynamic epoch_key_* and runtime_keys_* entries',
+        () async {
+      final harness = await _ResetHarness.create();
+      addTearDown(harness.dispose);
+
+      await harness.seedAllData();
+      // Seed a mix of dynamic keys that would have been left behind by
+      // the old reset path (which only deleted the static allow-list).
+      harness.secureStore.seedSyncValue('prism_sync.epoch_key_1', 'AAAA');
+      harness.secureStore.seedSyncValue('prism_sync.epoch_key_7', 'BBBB');
+      harness.secureStore.seedSyncValue(
+        'prism_sync.runtime_keys_default',
+        'CCCC',
+      );
+      // Foreign-prefixed entry should NOT be touched.
+      harness.secureStore.seedSyncValue('other_app.epoch_key_1', 'DDDD');
+
+      await harness.reset(ResetCategory.sync);
+
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.epoch_key_1'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.epoch_key_7'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('prism_sync.runtime_keys_default'),
+        isNull,
+      );
+      expect(
+        harness.secureStore.readSyncValue('other_app.epoch_key_1'),
+        'DDDD',
+      );
+    });
+
     // ── Full reset ──────────────────────────────────────────────────
 
     test(
@@ -778,6 +815,10 @@ class _FakeResetSecureStore implements ResetSecureStore {
   Future<void> delete(String key) async {
     _values.remove(key);
   }
+
+  @override
+  Future<Map<String, String>> readAll() async =>
+      Map<String, String>.from(_values);
 
   void seedSyncValue(String key, String value) {
     _values[key] = value;

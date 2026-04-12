@@ -357,7 +357,16 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       debugPrint('[BOOTSTRAP] Pushed $totalOps existing records to sync engine');
     }
 
-    // Trigger an immediate sync to push the bootstrap data to the relay
+    // Trigger an immediate sync to push the bootstrap data to the relay.
+    //
+    // UX follow-up (deferred, see Appendix B.3 of the 2026-04-11
+    // sync-robustness plan): with the inner retry rewrite, `syncNow` now
+    // throws `CoreError::Relay` on exhausted retries instead of burying the
+    // error in the result JSON. This path only logs in debug mode; a future
+    // improvement is to surface a `SyncSetupProgress.error` state variant
+    // so the user can retry without restarting the onboarding flow. The
+    // auto-sync driver will retry in the background regardless, so data is
+    // never lost — only the bootstrap UX is affected.
     state = state.copyWith(currentProgress: SyncSetupProgress.syncing);
     try {
       final result = await ffi.syncNow(handle: handle);
