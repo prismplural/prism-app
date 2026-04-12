@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' show min;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -297,22 +298,17 @@ Future<SyncHealthState> _autoConfigureIfReady(
       maxRetries: 3,
     );
 
-    // Safety-net backfill: derive and cache the DB key from sync state if
-    // the keychain slot is empty. With always-on encryption (Signal model),
+    // Safety-net backfill: derive and cache the local storage key if the
+    // keychain slot is empty. With always-on encryption (Signal model),
     // ensureLocalDatabaseKey() populates this slot at first launch, so this
     // guard is normally a no-op. It remains as defense-in-depth for edge
     // cases (e.g. upgrade from a very old version).
-    //
-    // CROSS-FILE INVARIANT: The `existingDbKey == null` check is critical.
-    // ensureLocalDatabaseKey() in database_encryption.dart may have already
-    // written a local CSPRNG key. This guard must NOT overwrite it — doing
-    // so would make the encrypted database unreadable.
     try {
       final existingDbKey = await readDatabaseKeyHex();
       if (existingDbKey == null) {
-        final dbKeyBytes = await ffi.databaseKey(handle: handle);
-        await cacheDatabaseKey(dbKeyBytes);
-        debugPrint('[SYNC] Backfilled database encryption key');
+        final lskBytes = await ffi.localStorageKey(handle: handle);
+        await cacheDatabaseKey(Uint8List.fromList(lskBytes));
+        debugPrint('[SYNC] Backfilled database encryption key from local_storage_key');
       }
     } catch (e) {
       debugPrint('[SYNC] Failed to backfill database key (non-fatal): $e');
@@ -514,32 +510,33 @@ Future<void> _seedRustStore(ffi.PrismSyncHandle handle) async {
 /// `_autoConfigureIfReady` uses this cached DEK to restore the unlocked
 /// state without re-deriving via Argon2id.
 ///
-/// Also derives and caches the database encryption key so the next app
-/// startup can open the database encrypted.
-Future<void> cacheRuntimeKeys(ffi.PrismSyncHandle handle) async {
+/// Also rotates both the Drift app DB and the Rust sync DB to the HKDF-derived
+/// local storage key (HKDF(DEK, DeviceSecret)) so the database is tied to
+/// both the sync group identity and the device identity.
+Future<void> cacheRuntimeKeys(
+  ffi.PrismSyncHandle handle,
+  AppDatabase db,
+) async {
   final dekBytes = await ffi.exportDek(handle: handle);
   final dekB64 = base64Encode(dekBytes);
   await _storage.write(key: kRuntimeDekKey, value: dekB64);
 
-  // Safety-net backfill: derive and cache the DB key from sync state if
-  // the keychain slot is empty. With always-on encryption (Signal model),
-  // ensureLocalDatabaseKey() populates this slot at first launch, so this
-  // is normally a no-op.
-  //
-  // CROSS-FILE INVARIANT: The `existingKey == null` check must be preserved.
-  // ensureLocalDatabaseKey() in database_encryption.dart writes a local
-  // CSPRNG key at first launch. Overwriting it here would make the local
-  // encrypted database unreadable.
+  // Rotate both DBs to derived key (HKDF(DEK, DeviceSecret))
   try {
-    final existingKey = await readDatabaseKeyHex();
-    if (existingKey == null) {
-      final dbKeyBytes = await ffi.databaseKey(handle: handle);
-      await cacheDatabaseKey(dbKeyBytes);
+    final lskBytes = Uint8List.fromList(
+      await ffi.localStorageKey(handle: handle),
+    );
+    final currentHexKey = await readDatabaseKeyHex();
+    final newHexKey =
+        lskBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    if (currentHexKey != newHexKey) {
+      await rotateDatabaseToKey(db: db, newKey: lskBytes);
+      await ffi.rekeyDb(handle: handle, newKey: lskBytes);
     }
   } catch (e) {
-    // Non-fatal: database encryption will be attempted on next startup
-    // when the DEK is available to re-derive the key.
-    debugPrint('[SYNC] Failed to cache database key: $e');
+    // Non-fatal: database will retain its current key. Rotation will be
+    // retried on the next unlock when cacheRuntimeKeys is called again.
+    debugPrint('[SYNC] Failed to rotate database to derived key: $e');
   }
 }
 
@@ -931,11 +928,11 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
 
   void setState(SyncHealthState value) => state = value;
 
-  /// Attempt to unlock the key hierarchy with the user's password.
+  /// Attempt to unlock the key hierarchy with the user's PIN.
   ///
   /// Returns true on success (state transitions to healthy).
-  /// Returns false on failure (wrong password or missing handle).
-  Future<bool> attemptUnlock(String password) async {
+  /// Returns false on failure (wrong PIN or missing handle).
+  Future<bool> attemptUnlock(String pin) async {
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) return false;
 
@@ -956,15 +953,15 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       }
       final secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonic);
 
-      // Unlock the key hierarchy — throws on wrong password
+      // Unlock the key hierarchy — throws on wrong PIN
       try {
         await ffi.unlock(
           handle: handle,
-          password: password,
+          password: pin,
           secretKey: secretKeyBytes,
         );
       } on Exception {
-        // Wrong password — don't change state, let UI show error and retry
+        // Wrong PIN — don't change state, let UI show error and retry
         return false;
       }
 
@@ -985,7 +982,7 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       }
 
       // Only cache after configureEngine succeeds
-      await cacheRuntimeKeys(handle);
+      await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
       state = SyncHealthState.healthy;
       return true;

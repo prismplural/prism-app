@@ -29,6 +29,15 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final file = await getDatabaseFile();
     await _excludeFromiCloudBackup(file.path);
+
+    // Crash-recovery: if the staging slot exists, a previous rekey call
+    // completed the PRAGMA rekey but crashed before writing the primary slot.
+    // Use the staging slot as the authoritative key and clean it up.
+    final stagingKey = await _readStagingKey();
+    if (stagingKey != null) {
+      await _recoverFromStagingKey(stagingKey);
+    }
+
     final hexKey = await readDatabaseKeyHex();
 
     // ── Path 1: No DB file on disk ──────────────────────────────────────
@@ -168,4 +177,20 @@ Future<void> _excludeFromiCloudBackup(String path) async {
   } catch (_) {
     // Non-fatal: if the channel call fails, the file is still encrypted.
   }
+}
+
+/// Read the staging key slot written by `rotateDatabaseToKey` for crash
+/// recovery. Returns the hex key string, or null if no staging slot exists.
+Future<String?> _readStagingKey() async {
+  final staging = await readStagingDatabaseKeyHex();
+  if (staging != null && validateHexKey(staging)) return staging;
+  return null;
+}
+
+/// Promote the staging key to the primary slot and remove the staging slot.
+Future<void> _recoverFromStagingKey(String stagingHexKey) async {
+  debugPrint(
+    '[DB_PROVIDER] Crash-recovery: promoting staging key to primary slot',
+  );
+  await promoteStagingDatabaseKey(stagingHexKey);
 }

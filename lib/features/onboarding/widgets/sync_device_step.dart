@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
-import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -61,9 +60,9 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
               ref.read(devicePairingProvider.notifier).confirmSas(),
           onReject: () => ref.read(devicePairingProvider.notifier).reset(),
         );
-      case PairingStep.enterPassword:
+      case PairingStep.enterPin:
         child = _PasswordView(
-          key: const ValueKey('password'),
+          key: const ValueKey('pin'),
           onBack: () => ref.read(devicePairingProvider.notifier).reset(),
         );
       case PairingStep.connecting:
@@ -442,12 +441,11 @@ class _PasswordView extends ConsumerStatefulWidget {
 }
 
 class _PasswordViewState extends ConsumerState<_PasswordView> {
-  final _passwordController = TextEditingController();
-  bool _obscure = true;
+  final _pinController = TextEditingController();
 
   @override
   void dispose() {
-    _passwordController.dispose();
+    _pinController.dispose();
     super.dispose();
   }
 
@@ -489,8 +487,9 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: PrismTextField(
-              controller: _passwordController,
-              obscureText: _obscure,
+              controller: _pinController,
+              obscureText: true,
+              keyboardType: TextInputType.number,
               style: const TextStyle(color: AppColors.warmWhite),
               autofocus: true,
               onSubmitted: (_) => _connect(),
@@ -502,12 +501,6 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 14,
-              ),
-              suffix: PrismFieldIconButton(
-                icon: _obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-                color: AppColors.warmWhite.withValues(alpha: 0.75),
-                tooltip: _obscure ? context.l10n.showPassword : context.l10n.hidePassword,
-                onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
           ),
@@ -524,12 +517,12 @@ class _PasswordViewState extends ConsumerState<_PasswordView> {
   }
 
   void _connect() {
-    final password = _passwordController.text;
-    if (password.isEmpty) {
+    final pin = _pinController.text.trim();
+    if (pin.isEmpty) {
       PrismToast.show(context, message: context.l10n.onboardingSyncEnterPasswordPrompt);
       return;
     }
-    ref.read(devicePairingProvider.notifier).completeJoinerWithPassword(password);
+    ref.read(devicePairingProvider.notifier).completeJoinerWithPin(pin);
   }
 }
 

@@ -123,6 +123,7 @@ class _FakeSharingSyncApi extends SharingSyncApi {
   @override
   Future<void> persistPasswordChangeState({
     required ffi.PrismSyncHandle handle,
+    required AppDatabase db,
   }) async {
     persistPasswordChangeCallCount += 1;
   }
@@ -269,6 +270,7 @@ void main() {
       oldPassword: 'old-password',
       newPassword: 'new-password',
       secretKey: const [1, 2, 3, 4],
+      db: db,
     );
 
     expect(nextGeneration, 5);

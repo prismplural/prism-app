@@ -429,13 +429,13 @@
   "@syncManageDevicesSubtitle": {
     "description": "Settings row subtitle: manage devices"
   },
-  "syncChangePassword": "Change Password",
+  "syncChangePassword": "Change PIN",
   "@syncChangePassword": {
-    "description": "Settings row title: change sync password"
+    "description": "Settings row title: change sync PIN"
   },
-  "syncChangePasswordSubtitle": "Update your sync encryption password",
+  "syncChangePasswordSubtitle": "Update your sync encryption PIN",
   "@syncChangePasswordSubtitle": {
-    "description": "Settings row subtitle: change sync password"
+    "description": "Settings row subtitle: change sync PIN"
   },
   "syncViewSecretKey": "View Secret Key",
   "@syncViewSecretKey": {
@@ -670,6 +670,10 @@
   "@syncSetupCompleteButton": {
     "description": "Complete button on sync setup secret key step"
   },
+  "syncSetupPinLabel": "App PIN",
+  "@syncSetupPinLabel": {
+    "description": "Label for the PIN field on the sync setup secret key step"
+  },
   "syncSetupPasswordTooShort": "Password must be at least 8 characters",
   "@syncSetupPasswordTooShort": {
     "description": "Validation error: password too short"
@@ -702,17 +706,17 @@
   "@syncSecretKeyTitle": {
     "description": "Sheet title when secret key is revealed"
   },
-  "syncVerifyPasswordTitle": "Verify Password",
+  "syncVerifyPasswordTitle": "Verify PIN",
   "@syncVerifyPasswordTitle": {
-    "description": "Sheet title when verifying password to reveal key"
+    "description": "Sheet title when verifying PIN to reveal key"
   },
-  "syncVerifyPasswordPrompt": "Enter your sync password to reveal your 12-word recovery phrase.",
+  "syncVerifyPasswordPrompt": "Enter your app PIN to reveal your 12-word recovery phrase.",
   "@syncVerifyPasswordPrompt": {
-    "description": "Prompt text in verify password sheet"
+    "description": "Prompt text in verify PIN sheet"
   },
-  "syncPasswordHint": "Sync password",
+  "syncPasswordHint": "PIN",
   "@syncPasswordHint": {
-    "description": "Hint text for sync password field"
+    "description": "Hint text for sync PIN field"
   },
   "syncShowPassword": "Show password",
   "@syncShowPassword": {
@@ -734,9 +738,9 @@
   "@syncEngineNotAvailable": {
     "description": "Error when sync engine handle is null"
   },
-  "syncIncorrectPassword": "Incorrect password. Please try again.",
+  "syncIncorrectPassword": "Incorrect PIN. Please try again.",
   "@syncIncorrectPassword": {
-    "description": "Error when password verification fails"
+    "description": "Error when PIN verification fails"
   },
   "syncAnErrorOccurred": "An error occurred: {error}",
   "@syncAnErrorOccurred": {
@@ -4632,25 +4636,25 @@
   "@onboardingSyncTheyDontMatch": {
     "description": "Button label to reject SAS codes"
   },
-  "onboardingSyncEnterPassword": "Enter your password",
+  "onboardingSyncEnterPassword": "Enter your PIN",
   "@onboardingSyncEnterPassword": {
-    "description": "Title on the password entry view during sync pairing"
+    "description": "Title on the PIN entry view during sync pairing"
   },
-  "onboardingSyncEnterPasswordDescription": "Enter your sync password to finish enrolling this device.",
+  "onboardingSyncEnterPasswordDescription": "Enter your app PIN to finish enrolling this device.",
   "@onboardingSyncEnterPasswordDescription": {
-    "description": "Description on the password entry view during sync pairing"
+    "description": "Description on the PIN entry view during sync pairing"
   },
-  "onboardingSyncPasswordHint": "Password",
+  "onboardingSyncPasswordHint": "PIN",
   "@onboardingSyncPasswordHint": {
-    "description": "Hint text for the password field in sync pairing"
+    "description": "Hint text for the PIN field in sync pairing"
   },
   "onboardingSyncFinishPairing": "Finish Pairing",
   "@onboardingSyncFinishPairing": {
-    "description": "Button label to complete sync pairing with password"
+    "description": "Button label to complete sync pairing with PIN"
   },
-  "onboardingSyncEnterPasswordPrompt": "Please enter your password.",
+  "onboardingSyncEnterPasswordPrompt": "Please enter your PIN.",
   "@onboardingSyncEnterPasswordPrompt": {
-    "description": "Toast shown when user taps Finish Pairing with empty password"
+    "description": "Toast shown when user taps Finish Pairing with empty PIN"
   },
   "onboardingSyncConnecting": "Pairing and syncing...",
   "@onboardingSyncConnecting": {
@@ -6233,6 +6237,71 @@
   "@settingsChangePasswordSuccessTitle": { "description": "Title on the success screen after changing password" },
   "settingsChangePasswordSuccessBody": "Your sync password has been updated on this device.",
   "@settingsChangePasswordSuccessBody": { "description": "Body text on the success screen after changing password" },
+  "settingsSyncPinTitle": "Enter your PIN",
+  "@settingsSyncPinTitle": { "description": "Title of the sync PIN unlock sheet" },
+  "settingsSyncPinBody": "Your app PIN is needed to unlock encryption keys on this device.",
+  "@settingsSyncPinBody": { "description": "Body text of the sync PIN unlock sheet" },
+  "settingsSyncPinFieldLabel": "PIN",
+  "@settingsSyncPinFieldLabel": { "description": "Label for the PIN text field in the sync PIN sheet" },
+  "settingsSyncPinWrong": "Incorrect PIN. Please try again.",
+  "@settingsSyncPinWrong": { "description": "Error shown when the sync PIN is incorrect" },
+  "settingsSyncPinUnlock": "Unlock",
+  "@settingsSyncPinUnlock": { "description": "Unlock button label in the sync PIN sheet" },
+  "settingsChangePinTitle": "Change PIN",
+  "@settingsChangePinTitle": { "description": "Title of the change PIN sheet" },
+  "settingsChangePinVerifyBody": "Enter your current PIN to continue.",
+  "@settingsChangePinVerifyBody": { "description": "Body text of the verify step in the change PIN flow" },
+  "settingsChangePinCurrentLabel": "Current PIN",
+  "@settingsChangePinCurrentLabel": { "description": "Label for the current PIN text field" },
+  "settingsChangePinContinue": "Continue",
+  "@settingsChangePinContinue": { "description": "Continue button in the verify step of change PIN" },
+  "settingsChangePinCurrentRequired": "Enter your current PIN.",
+  "@settingsChangePinCurrentRequired": { "description": "Validation error when current PIN field is empty" },
+  "settingsChangePinNoSecretKey": "Secret Key not found on this device. Re-pair to restore it.",
+  "@settingsChangePinNoSecretKey": { "description": "Error when the secret key is missing during PIN change" },
+  "settingsChangePinEngineUnavailable": "Sync engine not available.",
+  "@settingsChangePinEngineUnavailable": { "description": "Error when the sync engine handle is null during PIN change" },
+  "settingsChangePinIncorrect": "Incorrect PIN. Please try again.",
+  "@settingsChangePinIncorrect": { "description": "Error when the current PIN is wrong during verification" },
+  "settingsChangePinVerifyFailed": "Verification failed: {error}",
+  "@settingsChangePinVerifyFailed": {
+    "description": "Error when PIN verification fails with a known error message",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settingsChangePinGenericError": "An error occurred: {error}",
+  "@settingsChangePinGenericError": {
+    "description": "Generic error during PIN change flow",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settingsChangePinSessionExpired": "Session expired — please verify again.",
+  "@settingsChangePinSessionExpired": { "description": "Error shown when the verified session is lost (e.g. hot-reload)" },
+  "settingsChangePinWarnBody": "Your other devices will need to enter the new PIN when they next open Prism.",
+  "@settingsChangePinWarnBody": { "description": "Warning body text before changing the PIN" },
+  "settingsChangePinAction": "Change PIN",
+  "@settingsChangePinAction": { "description": "Button label for the change PIN action" },
+  "settingsChangePinNewBody": "Choose a new sync PIN.",
+  "@settingsChangePinNewBody": { "description": "Body text of the new PIN step" },
+  "settingsChangePinNewLabel": "New PIN",
+  "@settingsChangePinNewLabel": { "description": "Label for the new PIN text field" },
+  "settingsChangePinConfirmLabel": "Confirm new PIN",
+  "@settingsChangePinConfirmLabel": { "description": "Label for the confirm new PIN text field" },
+  "settingsChangePinNewRequired": "Enter a new PIN.",
+  "@settingsChangePinNewRequired": { "description": "Validation error when new PIN field is empty" },
+  "settingsChangePinSamePin": "Your sync PIN is already set to that.",
+  "@settingsChangePinSamePin": { "description": "Error when new PIN is the same as the current PIN" },
+  "settingsChangePinMismatch": "PINs don't match.",
+  "@settingsChangePinMismatch": { "description": "Error when new PIN and confirm PIN do not match" },
+  "settingsChangePinGenerationConflict": "Another device recently changed settings — please try again.",
+  "@settingsChangePinGenerationConflict": { "description": "Error when a generation conflict is detected during PIN change" },
+  "settingsChangePinFailed": "Failed to change PIN: {error}",
+  "@settingsChangePinFailed": {
+    "description": "Generic failure message when PIN change fails",
+    "placeholders": { "error": { "type": "String" } }
+  },
+  "settingsChangePinSuccessTitle": "PIN changed",
+  "@settingsChangePinSuccessTitle": { "description": "Title on the success screen after changing PIN" },
+  "settingsChangePinSuccessBody": "Your sync PIN has been updated on this device.",
+  "@settingsChangePinSuccessBody": { "description": "Body text on the success screen after changing PIN" },
   "settingsCreateEditFieldEditTitle": "Edit Field",
   "@settingsCreateEditFieldEditTitle": { "description": "Title of the edit field sheet" },
   "settingsCreateEditFieldNewTitle": "New Field",
