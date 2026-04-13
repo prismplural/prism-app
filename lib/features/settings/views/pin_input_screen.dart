@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
 
 /// The mode of the PIN input screen.
 enum PinInputMode {
@@ -44,7 +46,7 @@ class PinInputScreen extends ConsumerStatefulWidget {
 }
 
 class _PinInputScreenState extends ConsumerState<PinInputScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   String _pin = '';
   static const _pinLength = 6;
 
@@ -56,6 +58,10 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
+
+  late AnimationController _dotController;
+  late Animation<double> _dotScaleAnim;
+  int? _lastFilledDotIndex;
 
   @override
   void initState() {
@@ -74,11 +80,20 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
       parent: _shakeController,
       curve: Curves.easeInOut,
     ));
+    _dotController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _dotScaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _dotController, curve: Curves.easeOutBack));
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
+    _dotController.dispose();
     super.dispose();
   }
 
@@ -107,6 +122,11 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     if (_pin.length >= _pinLength || _isLockedOut) return;
     Haptics.light();
     setState(() => _pin += digit);
+    final mode = VisualEffectsModeX.of(context, ref);
+    if (mode.useAnimations) {
+      setState(() => _lastFilledDotIndex = _pin.length - 1);
+      _dotController.forward(from: 0);
+    }
     if (_pin.length == _pinLength) {
       _onPinComplete();
     }
@@ -169,6 +189,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
   }
 
   void _showError() {
+    setState(() => _lastFilledDotIndex = null);
     HapticFeedback.heavyImpact();
     _shakeController.forward(from: 0);
     setState(() => _pin = '');
@@ -189,6 +210,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     final biometricAvailable =
         ref.watch(isBiometricAvailableProvider).value ?? false;
     final showBiometric = widget.mode == PinInputMode.unlock && biometricAvailable;
+    final clampedSize = ((MediaQuery.of(context).size.width - 80) / 3).clamp(56.0, 72.0);
 
     return Material(
       color: theme.scaffoldBackgroundColor,
@@ -224,15 +246,22 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
                   final filled = i < _pin.length;
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: filled
-                            ? accentColor
-                            : accentColor.withValues(alpha: 0.15),
+                    child: AnimatedBuilder(
+                      animation: _dotScaleAnim,
+                      builder: (context, child) => Transform.scale(
+                        scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
+                        child: child,
+                      ),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: filled
+                              ? accentColor
+                              : accentColor.withValues(alpha: 0.15),
+                        ),
                       ),
                     ),
                   );
@@ -250,7 +279,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: _buildRow(row, showBiometric, theme),
+                        children: _buildRow(row, showBiometric, theme, clampedSize),
                       ),
                     ),
                 ],
@@ -263,72 +292,40 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     );
   }
 
-  List<Widget> _buildRow(int row, bool showBiometric, ThemeData theme) {
+  List<Widget> _buildRow(int row, bool showBiometric, ThemeData theme, double clampedSize) {
     if (row < 3) {
       // Rows 0-2: digits 1-9
       return List.generate(3, (col) {
         final digit = '${row * 3 + col + 1}';
-        return _NumpadButton(
+        return PinNumpadButton(
           label: digit,
           onTap: () => _onDigit(digit),
+          size: clampedSize,
         );
       });
     }
     // Row 3: biometric / 0 / backspace
     return [
       if (showBiometric)
-        _NumpadButton(
+        PinNumpadButton(
           icon: AppIcons.fingerprint,
           onTap: _onBiometric,
+          size: clampedSize,
+          semanticLabel: context.l10n.pinLockBiometricTitle,
         )
       else
-        const SizedBox(width: 72, height: 72),
-      _NumpadButton(
+        SizedBox(width: clampedSize, height: clampedSize),
+      PinNumpadButton(
         label: '0',
         onTap: () => _onDigit('0'),
+        size: clampedSize,
       ),
-      _NumpadButton(
+      PinNumpadButton(
         icon: AppIcons.backspaceOutlined,
         onTap: _onBackspace,
+        size: clampedSize,
+        semanticLabel: context.l10n.delete,
       ),
     ];
-  }
-}
-
-class _NumpadButton extends StatelessWidget {
-  const _NumpadButton({
-    this.label,
-    this.icon,
-    required this.onTap,
-  });
-
-  final String? label;
-  final IconData? icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 72,
-        height: 72,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        ),
-        child: label != null
-            ? Text(
-                label!,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-              )
-            : Icon(icon, size: 24, color: theme.colorScheme.onSurface),
-      ),
-    );
   }
 }
