@@ -9,9 +9,11 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
+import 'package:prism_plurality/core/services/biometric_service_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -238,7 +240,10 @@ class ResetDataNotifier extends Notifier<void> {
     _log('Resetting sync system');
     const prefix = 'prism_sync.';
 
-    // 1. Try to deregister from relay (best-effort — may fail if offline)
+    // 1. Try to deregister from relay (best-effort — may fail if offline).
+    //    If this is the last active device the relay rejects deregister with a
+    //    403 and tells us to delete the sync group instead — fall through to
+    //    deleteSyncGroup in that case so the relay drops all encrypted data.
     final handle = ref.read(resetSyncHandleProvider);
     if (handle != null) {
       try {
@@ -248,15 +253,39 @@ class ResetDataNotifier extends Notifier<void> {
           '${prefix}session_token',
         );
         if (syncId != null && deviceId != null && sessionToken != null) {
-          await ffi.deregisterDevice(
-            handle: handle,
-            syncId: syncId,
-            deviceId: deviceId,
-            sessionToken: sessionToken,
-          );
+          bool deregistered = false;
+          try {
+            await ffi.deregisterDevice(
+              handle: handle,
+              syncId: syncId,
+              deviceId: deviceId,
+              sessionToken: sessionToken,
+            );
+            deregistered = true;
+          } catch (e) {
+            final msg = e.toString();
+            if (msg.contains('last active device') || msg.contains('403')) {
+              // Sole device — the relay requires deleting the full group.
+              _log('Last device; attempting sync group deletion: $e');
+            } else {
+              _log('Relay deregister failed (non-fatal): $e');
+            }
+          }
+          if (!deregistered) {
+            try {
+              await ffi.deleteSyncGroup(
+                handle: handle,
+                syncId: syncId,
+                deviceId: deviceId,
+                sessionToken: sessionToken,
+              );
+            } catch (e) {
+              _log('Relay sync group delete failed (non-fatal): $e');
+            }
+          }
         }
       } catch (e) {
-        _log('Relay deregister failed (non-fatal): $e');
+        _log('Relay cleanup failed (non-fatal): $e');
       }
     }
 
@@ -302,7 +331,17 @@ class ResetDataNotifier extends Notifier<void> {
       _log('Dynamic secure-store cleanup failed (non-fatal): $e');
     }
 
-    // 3. Delete the Rust sync database
+    // 3. Clear the biometric-gated DEK copy. This is stored under a separate
+    //    Secure Enclave ACL (iOS biometryCurrentSet / Android biometric
+    //    Keystore) and is invisible to the standard readAll() scan above, so
+    //    it must be cleared explicitly via BiometricService.
+    try {
+      await ref.read(biometricServiceProvider).clear();
+    } catch (e) {
+      _log('Biometric DEK clear failed (non-fatal): $e');
+    }
+
+    // 4. Delete the Rust sync database
     try {
       final dir = await ref.read(resetDocumentsDirectoryProvider.future);
       final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
@@ -317,11 +356,11 @@ class ResetDataNotifier extends Notifier<void> {
       _log('DB file delete failed (non-fatal): $e');
     }
 
-    // 4. Clear sync diagnostics that live in the main app database.
+    // 5. Clear sync diagnostics that live in the main app database.
     await ref.read(syncQuarantineServiceProvider).clearAll();
     ref.invalidate(quarantinedItemsProvider);
 
-    // 5. Dispose the old FFI handle before invalidating the provider.
+    // 6. Dispose the old FFI handle before invalidating the provider.
     //    dispose() eagerly drops the Rust-side Arc<Mutex<PrismSync>>,
     //    releasing SQLite connections and WebSocket handles immediately
     //    rather than waiting for Dart GC to collect the orphaned object.
@@ -330,7 +369,7 @@ class ResetDataNotifier extends Notifier<void> {
     //    old handle's resources are freed before build() creates a new one.
     handle?.dispose();
 
-    // 6. Reset providers so UI reverts to setup state
+    // 7. Reset providers so UI reverts to setup state
     ref.invalidate(prismSyncHandleProvider);
     ref.invalidate(relayUrlProvider);
     ref.invalidate(syncIdProvider);
@@ -376,6 +415,16 @@ class ResetDataNotifier extends Notifier<void> {
 
     // Clear third-party credentials that are stored outside the main DB.
     await ref.read(resetSecureStoreProvider).delete('prism_pluralkit_token');
+
+    // Delete the encrypted media cache from disk. DB rows are already gone
+    // above; the cache files are encrypted ciphertexts stored separately under
+    // getApplicationSupportDirectory()/prism_media/. Without this they'd
+    // become orphaned blobs with no decryption key.
+    try {
+      await ref.read(downloadManagerProvider).clearCache();
+    } catch (e) {
+      _log('Media cache clear failed (non-fatal): $e');
+    }
 
     // Recreate default settings with onboarding reset. This must happen
     // BEFORE deleting DB files — deleting the WAL/SHM while the connection

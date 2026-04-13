@@ -10,6 +10,9 @@ import 'package:path/path.dart' as p;
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/services/media/download_manager.dart';
+import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/features/settings/providers/reset_data_provider.dart';
 
@@ -340,6 +343,7 @@ void main() {
         expect(await harness.syncWalFile.exists(), isFalse);
         expect(await harness.syncShmFile.exists(), isFalse);
         expect(await harness.appDbFile.exists(), isTrue);
+        expect(await harness.mediaCacheDir.exists(), isFalse);
       },
     );
 
@@ -371,6 +375,8 @@ void main() {
           reason: '$table should be empty after full reset',
         );
       }
+
+      expect(await harness.mediaCacheDir.exists(), isFalse);
     });
   });
 }
@@ -382,6 +388,7 @@ class _ResetHarness {
     required this.syncDbFile,
     required this.syncWalFile,
     required this.syncShmFile,
+    required this.mediaCacheDir,
     required this.db,
     required this.container,
     required this.secureStore,
@@ -392,6 +399,7 @@ class _ResetHarness {
   final File syncDbFile;
   final File syncWalFile;
   final File syncShmFile;
+  final Directory mediaCacheDir;
   final AppDatabase db;
   final ProviderContainer container;
   final _FakeResetSecureStore secureStore;
@@ -404,12 +412,22 @@ class _ResetHarness {
     final syncDbFile = File(p.join(tempDir.path, 'prism_sync.db'));
     final syncWalFile = File('${syncDbFile.path}-wal');
     final syncShmFile = File('${syncDbFile.path}-shm');
+    final mediaCacheDir = Directory(p.join(tempDir.path, 'prism_media'));
 
     final db = AppDatabase(NativeDatabase(appDbFile));
     final secureStore = _FakeResetSecureStore();
     final systemSettingsRepository = DriftSystemSettingsRepository(
       db.systemSettingsDao,
       null,
+    );
+
+    // DownloadManager is overridden with a cache dir inside tempDir so that
+    // clearCache() doesn't hit getApplicationSupportDirectory() (which requires
+    // a platform channel not available in unit tests).
+    final downloadManager = DownloadManager(
+      handle: null,
+      encryption: MediaEncryptionService(),
+      cacheDirOverride: mediaCacheDir,
     );
 
     final container = ProviderContainer(
@@ -421,6 +439,7 @@ class _ResetHarness {
         resetSecureStoreProvider.overrideWithValue(secureStore),
         resetDocumentsDirectoryProvider.overrideWith((ref) async => tempDir),
         resetSyncHandleProvider.overrideWithValue(null),
+        downloadManagerProvider.overrideWithValue(downloadManager),
       ],
     );
 
@@ -430,6 +449,7 @@ class _ResetHarness {
       syncDbFile: syncDbFile,
       syncWalFile: syncWalFile,
       syncShmFile: syncShmFile,
+      mediaCacheDir: mediaCacheDir,
       db: db,
       container: container,
       secureStore: secureStore,
@@ -756,6 +776,13 @@ class _ResetHarness {
         );
 
     // ── External state ────────────────────────────────────────────────
+    // Seed a fake encrypted media cache file (mirrors what DownloadManager
+    // writes at <appSupport>/prism_media/<mediaId>.enc).
+    await mediaCacheDir.create(recursive: true);
+    await File(p.join(mediaCacheDir.path, 'media-1.enc')).writeAsString(
+      'fake-ciphertext',
+    );
+
     await syncDbFile.writeAsString('sync-db');
     await syncWalFile.writeAsString('wal');
     await syncShmFile.writeAsString('shm');
