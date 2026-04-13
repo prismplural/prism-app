@@ -2,6 +2,18 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.3.2] - 2026-04-12
+
+### Fixed
+- Media error feedback: image and voice upload failures now surface a toast instead of silently succeeding
+- Download retry: tapping a failed image bubble now invalidates and retries the download (previously showed infinite spinner)
+- Media error detection: `mediaFileProvider` throws `StateError` on null bytes so Riverpod correctly surfaces `hasError` (was always `AsyncData(null)`)
+- Upload signals: `uploadPreparedOrThrow` / `uploadVoiceOrThrow` use Completer-based callbacks to propagate `UploadQueue` failures to callers
+- Reset gaps: biometric DEK (`biometric_dek` keychain entry) now cleared during sync reset alongside main key material
+- Reset gaps: `deregisterDevice` 403 (last device) now falls through to `deleteSyncGroup` so relay purges all blobs instead of orphaning them
+- Reset gaps: `downloadManager.clearCache()` called during full reset to delete encrypted `.enc` cache files from disk
+- Spanish i18n: added translations for `chatImageError`, `chatImageUploadFailed`, `chatVoiceNoteUploadFailed`
+
 ## [0.3.1] - 2026-04-12
 
 ### Fixed

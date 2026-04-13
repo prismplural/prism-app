@@ -327,7 +327,7 @@ void main() {
       await ctx.controller.close();
     });
 
-    ctx.controller.add(revokedCompletedEvent());
+    ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
     await Future<void>.delayed(settleAfterDebounce);
     expect(
       ctx.drainCount(),
@@ -363,7 +363,7 @@ void main() {
       expect(ctx.drainCount(), 0);
 
       // Revocation arrives while the drain is still queued.
-      ctx.controller.add(revokedCompletedEvent());
+      ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
       await Future<void>.delayed(settleAfterDebounce);
 
       expect(
@@ -392,7 +392,7 @@ void main() {
       });
 
       // Trigger revocation first.
-      ctx.controller.add(revokedCompletedEvent());
+      ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
       await Future<void>.delayed(settleAfterDebounce);
       expect(ctx.drainCount(), 0);
 
@@ -484,7 +484,7 @@ void main() {
       // Now fire a revoked-result SyncCompleted. This hits
       // `_handleDeviceRevokedFromAuthFailure` which calls
       // `_abortPendingDrainForRevoke()`, bumping the drain generation.
-      controller.add(revokedCompletedEvent());
+      controller.add(revokedCompletedEvent(remoteWipe: false));
       // Let the listener process the event.
       await Future<void>.delayed(const Duration(milliseconds: 5));
 
@@ -609,7 +609,7 @@ void main() {
       // Fire a revoked-result SyncCompleted; the notifier calls
       // `_handleDeviceRevokedFromAuthFailure` -> `_abortPendingDrainForRevoke`
       // which schedules the delayed re-cleanup.
-      ctx.controller.add(revokedCompletedEvent());
+      ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
       // Before the delay elapses, no re-cleanup has fired.
       await Future<void>.delayed(const Duration(milliseconds: 5));
       // Wait past the override delay.
@@ -653,7 +653,7 @@ void main() {
         await ctx.controller.close();
       });
 
-      ctx.controller.add(revokedCompletedEvent());
+      ctx.controller.add(revokedCompletedEvent(remoteWipe: false));
       await Future<void>.delayed(const Duration(milliseconds: 5));
 
       // Simulate "fresh handle appeared" by resetting the flag.
@@ -729,7 +729,7 @@ void main() {
       await drainStarted.future.timeout(const Duration(seconds: 2));
 
       // 3. Revoke fires → generation bumps.
-      controller.add(revokedCompletedEvent());
+      controller.add(revokedCompletedEvent(remoteWipe: false));
       await Future<void>.delayed(const Duration(milliseconds: 5));
 
       // 4. Simulate fresh handle → flag clears, generation stays.

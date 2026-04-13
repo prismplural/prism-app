@@ -22,12 +22,14 @@ class UploadTask {
   final String contentHash;
   final Uint8List encryptedData;
   final void Function()? onSuccess;
+  final void Function(String error)? onFailure;
 
   const UploadTask({
     required this.mediaId,
     required this.contentHash,
     required this.encryptedData,
     this.onSuccess,
+    this.onFailure,
   });
 }
 
@@ -89,6 +91,7 @@ class UploadQueue {
       } catch (e) {
         if (attempt == maxRetries - 1) {
           _emitProgress(task.mediaId, UploadState.failed, error: e.toString());
+          task.onFailure?.call(e.toString());
           return;
         }
         await Future<void>.delayed(baseDelay * (1 << attempt));

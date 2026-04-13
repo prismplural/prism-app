@@ -30,6 +30,7 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// Message composition widget with inline "speaking as" avatar and text input.
 class MessageInput extends ConsumerStatefulWidget {
@@ -316,7 +317,11 @@ class _MessageInputState extends ConsumerState<MessageInput> {
           previewUrl: '',
         ));
 
-        await mediaService.uploadPrepared(data);
+        try {
+          await mediaService.uploadPreparedOrThrow(data);
+        } catch (_) {
+          if (mounted) PrismToast.error(context, message: context.l10n.chatImageUploadFailed);
+        }
       }
 
       _controller.removeListener(_onTextChanged);
@@ -378,7 +383,11 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         previewUrl: '',
       ));
 
-      await mediaService.uploadVoice(data);
+      try {
+        await mediaService.uploadVoiceOrThrow(data);
+      } catch (_) {
+        if (mounted) PrismToast.error(context, message: context.l10n.chatVoiceNoteUploadFailed);
+      }
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
