@@ -2,6 +2,53 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.3.0] - 2026-04-12
+
+### Added
+- PQ local storage encryption: DB encryption keys now derived from DEK+DeviceSecret
+  via HKDF (prism_local_storage_v2) — stolen keychain no longer decrypts data without PIN
+- PIN auth system: 6-digit PIN replaces freeform password for all Argon2id derivation
+- Biometric unlock: iOS Face ID/Touch ID via Secure Enclave-enforced
+  `biometry_current_set` keychain items; Android via `AndroidOptions.biometric(enforceBiometrics: true)`
+- Recovery phrase onboarding: blurred 12-word BIP39 display with tap-to-reveal,
+  copy button, 3-word confirmation step
+- `SyncStorage::rekey` trait + `RusqliteSyncStorage` PRAGMA rekey implementation
+- `derive_local_storage_key` HKDF function in prism-sync-crypto crate
+- FFI: `localStorageKey()` and `rekeyDb()` Dart bindings
+- `BiometricService` with real platform biometric binding (not just auth-before-write)
+- `AuthPolicyService`: 30-day periodic PIN verification + recovery phrase reminder
+- `ChangePinSheet`: full PIN change flow with current PIN verify → warning → new PIN
+- `SyncPinSheet`: 6-digit numpad sheet replaces password prompt for sync re-auth
+- Media caching: `DownloadManager` caches ciphertext (.enc files) — no plaintext ever written to disk
+- In-memory image cache at provider level to avoid re-decryption on widget rebuild
+- Self-hosting guide with Docker and Kubernetes deployment configs
+- CLA for app/ and sync/ public repo extraction
+
+### Fixed
+- Android biometric: `AndroidOptions()` was hardware-backed but not biometric-bound;
+  fixed to `AndroidOptions.biometric(enforceBiometrics: true)` so reads require biometric prompt
+- Staging key crash recovery: startup now verifies DB opens with staging key before promoting
+  (crash before PRAGMA rekey left staging slot stale — blind promotion made DB unopenable)
+- Two-DB rotation order: Rust sync DB now rekeyed before Drift DB so crash during rotation
+  is safely recoverable on next launch
+- PIN length validation: 6-digit guard added to sync setup and change PIN flows before
+  submitting to Argon2id path
+- SyncPinSheet brute-force lockout: `_failedAttempts` and `_lockedUntil` persisted to
+  SharedPreferences so lockout survives sheet dismissal and app restarts
+- AuthPolicyService: future timestamp treated as missing (prevents clock-rollback bypass
+  of periodic PIN check)
+- ChangePinSheet: 5-attempt / 60-second lockout on current PIN verification step
+- Relay: default RUST_LOG to info; fix self-hosting documentation
+
+### Changed
+- Onboarding flow: welcome → PIN setup → recovery phrase → confirm phrase → biometric setup → …
+- Sync setup: PIN from onboarding used for `createSyncGroup`; password entry step removed
+- Device pairing: uses PIN via `PinInputScreen` instead of text field password entry
+- AppShell: `SyncPinSheet` shown for `needsPassword` state instead of `SyncPasswordSheet`
+- `PrismDialog` actions: `Row` → `Wrap` to prevent overflow in narrow viewports
+- `PrismButton` loading state: `CircularProgressIndicator` → `PrismSpinner`
+- GIF picker error state: "Retry" → "Try Again" (l10n key `tryAgain`)
+
 ## [0.2.14] - 2026-04-11
 
 ### Added
