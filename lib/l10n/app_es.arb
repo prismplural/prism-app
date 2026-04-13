@@ -1583,5 +1583,26 @@
   "terminologyNoFound": "No se encontraron {term}",
   "terminologyLoadError": "Error al cargar {term}: {error}",
   "terminologyAddFirstSubtitle": "Agrega tu primer {term} del sistema para comenzar",
-  "pollsVotingAsSelectPrompt": "Selecciona un {term} para votar"
+  "pollsVotingAsSelectPrompt": "Selecciona un {term} para votar",
+
+  "onboardingPinSetupTitle": "Establece tu PIN",
+  "onboardingPinSetupSubtitle": "Usarás este PIN de 6 dígitos para bloquear Prism y recuperar el acceso si lo necesitas.",
+  "onboardingPinConfirmTitle": "Confirma tu PIN",
+  "onboardingPinMismatchError": "Los PINs no coinciden. Inténtalo de nuevo.",
+  "onboardingRecoveryPhraseTitle": "Guarda tu frase de recuperación",
+  "onboardingRecoveryPhraseSubtitle": "Anota estas 12 palabras en un lugar seguro. Son la única forma de recuperar tus datos si pierdes tu PIN.",
+  "onboardingRevealPhrase": "Toca para revelar",
+  "onboardingIveWrittenItDown": "Ya la anoté",
+  "onboardingConfirmPhraseTitle": "Verifica tu frase",
+  "onboardingConfirmPhraseSubtitle": "Selecciona la palabra correcta para cada posición.",
+  "onboardingBiometricTitle": "Desbloquea con biometría",
+  "onboardingBiometricSubtitle": "Usa Face ID o Touch ID para desbloquear Prism rápidamente.",
+  "onboardingBiometricEnable": "Activar",
+  "onboardingBiometricSkip": "Ahora no",
+  "syncPinSheetTitle": "Ingresa tu PIN",
+  "syncPinSheetSubtitle": "Tu PIN es necesario para desbloquear Prism.",
+  "changePinSheetTitle": "Cambiar PIN",
+  "periodicPinVerificationTitle": "Es hora de verificar tu PIN",
+  "backupReminderBannerText": "¿Has guardado tu frase de recuperación?",
+  "backupReminderBannerAction": "Ver"
 }

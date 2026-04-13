@@ -6504,5 +6504,86 @@
   "@pollsVotingAsSelectPrompt": {
     "description": "Toast when trying to vote without selecting a member to vote as — {term} is user's chosen singular lowercase",
     "placeholders": { "term": { "type": "String" } }
+  },
+
+  "onboardingPinSetupTitle": "Set your PIN",
+  "@onboardingPinSetupTitle": {
+    "description": "Title for onboarding PIN setup step"
+  },
+  "onboardingPinSetupSubtitle": "You'll use this 6-digit PIN to lock Prism and recover access if needed.",
+  "@onboardingPinSetupSubtitle": {
+    "description": "Subtitle for onboarding PIN setup step"
+  },
+  "onboardingPinConfirmTitle": "Confirm your PIN",
+  "@onboardingPinConfirmTitle": {
+    "description": "Title for onboarding PIN confirmation step"
+  },
+  "onboardingPinMismatchError": "PINs don't match. Try again.",
+  "@onboardingPinMismatchError": {
+    "description": "Error message shown when PINs entered during onboarding don't match"
+  },
+  "onboardingRecoveryPhraseTitle": "Save your recovery phrase",
+  "@onboardingRecoveryPhraseTitle": {
+    "description": "Title for onboarding recovery phrase backup step"
+  },
+  "onboardingRecoveryPhraseSubtitle": "Write these 12 words somewhere safe. They're the only way to recover your data if you lose your PIN.",
+  "@onboardingRecoveryPhraseSubtitle": {
+    "description": "Subtitle for onboarding recovery phrase backup step"
+  },
+  "onboardingRevealPhrase": "Tap to reveal",
+  "@onboardingRevealPhrase": {
+    "description": "Label on the blurred recovery phrase — tap to show the words"
+  },
+  "onboardingIveWrittenItDown": "I've written it down",
+  "@onboardingIveWrittenItDown": {
+    "description": "Button to confirm the user has backed up their recovery phrase"
+  },
+  "onboardingConfirmPhraseTitle": "Verify your phrase",
+  "@onboardingConfirmPhraseTitle": {
+    "description": "Title for onboarding recovery phrase confirmation step"
+  },
+  "onboardingConfirmPhraseSubtitle": "Select the correct word for each position.",
+  "@onboardingConfirmPhraseSubtitle": {
+    "description": "Subtitle for onboarding recovery phrase confirmation step"
+  },
+  "onboardingBiometricTitle": "Unlock with biometrics",
+  "@onboardingBiometricTitle": {
+    "description": "Title for onboarding biometric opt-in step"
+  },
+  "onboardingBiometricSubtitle": "Use Face ID or Touch ID to unlock Prism quickly.",
+  "@onboardingBiometricSubtitle": {
+    "description": "Subtitle for onboarding biometric opt-in step"
+  },
+  "onboardingBiometricEnable": "Enable",
+  "@onboardingBiometricEnable": {
+    "description": "Button to enable biometric unlock during onboarding"
+  },
+  "onboardingBiometricSkip": "Not now",
+  "@onboardingBiometricSkip": {
+    "description": "Button to skip biometric setup during onboarding"
+  },
+  "syncPinSheetTitle": "Enter your PIN",
+  "@syncPinSheetTitle": {
+    "description": "Title for the PIN entry sheet used to authenticate sync"
+  },
+  "syncPinSheetSubtitle": "Your PIN is required to unlock Prism.",
+  "@syncPinSheetSubtitle": {
+    "description": "Subtitle for the PIN entry sheet used to authenticate sync"
+  },
+  "changePinSheetTitle": "Change PIN",
+  "@changePinSheetTitle": {
+    "description": "Title for the change PIN sheet"
+  },
+  "periodicPinVerificationTitle": "Time to verify your PIN",
+  "@periodicPinVerificationTitle": {
+    "description": "Title shown for the periodic PIN re-verification prompt"
+  },
+  "backupReminderBannerText": "Have you backed up your recovery phrase?",
+  "@backupReminderBannerText": {
+    "description": "Message shown in the backup reminder info banner on the home screen"
+  },
+  "backupReminderBannerAction": "View",
+  "@backupReminderBannerAction": {
+    "description": "Action button label on the backup reminder banner"
   }
 }
