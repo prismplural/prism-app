@@ -6,8 +6,9 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Educational screen explaining how data is protected in Prism.
 ///
-/// Covers local encryption, zero-knowledge sync, and best practices.
-/// All content is informational — no interactive controls.
+/// Prose-first: lead + body set the plain-language promise; a collapsible
+/// "How it works" section surfaces the technical cryptographic detail for
+/// users who want it.  No status indicators or checklist tiles.
 class AdpInfoScreen extends StatelessWidget {
   const AdpInfoScreen({super.key});
 
@@ -16,153 +17,120 @@ class AdpInfoScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(title: 'Encryption & Privacy', showBackButton: true),
+      topBar: const PrismTopBar(
+        title: 'Encryption & Privacy',
+        showBackButton: true,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: ListView(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, NavBarInset.of(context)),
+        padding: EdgeInsets.fromLTRB(16, 24, 16, NavBarInset.of(context)),
         children: [
-          // ── How Your Data is Protected ──────────────
-          const _SectionTitle(title: 'How Your Data is Protected'),
-          const SizedBox(height: 8),
-          _InfoCard(
-            icon: AppIcons.lockOutline,
-            title: 'Encryption',
-            body:
-                'Your local database is always encrypted at rest using '
-                'AES-256. A device-generated encryption key is stored '
-                'in the platform keychain. When sync is enabled, your '
-                'data is additionally encrypted end-to-end with '
-                'XChaCha20-Poly1305 before leaving your device.',
+          // ── Lock icon ──────────────────────────────────────────────────────
+          Center(
+            child: Icon(
+              AppIcons.duotoneLock,
+              size: 56,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Lead ───────────────────────────────────────────────────────────
+          Text(
+            'Your data is encrypted on this device with keys only your PIN can unlock.',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          _InfoCard(
-            icon: AppIcons.accountTreeOutlined,
-            title: 'Key Hierarchy',
-            body: null,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Two layers of encryption protect your data:',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
-                Semantics(
-                  label: 'Device encryption: a random key generated on your '
-                      'device encrypts the local database using AES-256. '
-                      'Sync encryption: your password and recovery phrase '
-                      'derive a master key, which wraps a data encryption '
-                      'key, which derives sync, identity, and pairing keys.',
-                  child: ExcludeSemantics(
-                    child: DefaultTextStyle(
-                      style: theme.textTheme.bodySmall!.copyWith(
-                        fontFamily: 'monospace',
-                        height: 1.6,
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Device (always active)'),
-                          Text('  Random Key → AES-256 → Local DB'),
-                          Text(''),
-                          Text('Sync (when enabled)'),
-                          Text('  Password + Recovery Phrase'),
-                          Text('    └─ MEK (Master Encryption Key)'),
-                          Text('         └─ DEK (Data Encryption Key)'),
-                          Text('              ├─ Sync Key'),
-                          Text('              ├─ Identity Key'),
-                          Text('              └─ Pairing Key'),
-                        ],
-                      ),
+
+          // ── Body ───────────────────────────────────────────────────────────
+          Text(
+            "Even if someone copies this device's storage, they can't read "
+            'your data without your PIN and recovery phrase.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+
+          // ── Zero-knowledge note ────────────────────────────────────────────
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    AppIcons.cloudOffOutlined,
+                    size: 24,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'When sync is enabled, data is encrypted on your device '
+                      'before it leaves. The server only stores encrypted blobs '
+                      'it cannot read.',
+                      style: theme.textTheme.bodyMedium,
                     ),
                   ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── "How it works" collapsible ────────────────────────────────────
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: ExpansionTile(
+              leading: Icon(
+                AppIcons.shieldOutlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text(
+                'How it works',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              expandedCrossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+                const _TechItem(
+                  title: 'Database encryption',
+                  body: 'HKDF-SHA256(DEK, DeviceSecret) — per-device, '
+                      'PIN-derived key. Your device generates this key; '
+                      'no server ever sees it.',
+                ),
+                const SizedBox(height: 12),
+                const _TechItem(
+                  title: 'Message encryption',
+                  body: 'XChaCha20-Poly1305 with per-message keys derived '
+                      'from your Data Encryption Key (DEK).',
+                ),
+                const SizedBox(height: 12),
+                const _TechItem(
+                  title: 'Post-quantum device identity',
+                  body: 'ML-KEM-768 (key exchange) and ML-DSA-65 (signatures) '
+                      'protect against future quantum attacks on device '
+                      'authentication.',
+                ),
+                const SizedBox(height: 12),
+                const _TechItem(
+                  title: 'Recovery',
+                  body: 'Your 12-word BIP39 recovery phrase re-derives all '
+                      'keys. Store it somewhere safe — it is the only way to '
+                      'recover your data if you lose your PIN.',
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: 24),
-
-          // ── Zero-Knowledge Sync ─────────────────────
-          const _SectionTitle(title: 'Zero-Knowledge Sync'),
-          const SizedBox(height: 8),
-          _InfoCard(
-            icon: AppIcons.cloudOffOutlined,
-            title: 'Server Never Sees Your Data',
-            body:
-                'When sync is enabled, all data is encrypted on your '
-                'device before it leaves. The server only stores '
-                'encrypted blobs it cannot read.',
-          ),
-          const SizedBox(height: 12),
-          _InfoCard(
-            icon: AppIcons.vpnKeyOutlined,
-            title: 'Only You Hold the Keys',
-            body:
-                'Encryption and decryption happen entirely on your '
-                'device. No keys are ever transmitted to the server.',
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── What This Means ─────────────────────────
-          const _SectionTitle(title: 'What This Means'),
-          const SizedBox(height: 8),
-          _InfoCard(
-            icon: AppIcons.shieldOutlined,
-            title: 'Server Compromise Protection',
-            body:
-                'Even if the server is compromised, your data remains '
-                'safe because only encrypted data is stored remotely.',
-          ),
-          const SizedBox(height: 12),
-          _InfoCard(
-            icon: AppIcons.noEncryptionOutlined,
-            title: 'Password Never Transmitted',
-            body:
-                'Your password is used locally to derive encryption '
-                'keys and is never sent to any server.',
-          ),
-          const SizedBox(height: 12),
-          _InfoCard(
-            icon: AppIcons.devicesOutlined,
-            title: 'Per-Device Identity',
-            body:
-                'Each device generates its own identity key pair. '
-                'Devices must be explicitly authorised to join your sync '
-                'group.',
-          ),
-
-          const SizedBox(height: 24),
-
-          // ── Best Practices ──────────────────────────
-          const _SectionTitle(title: 'Best Practices'),
-          const SizedBox(height: 8),
-          _InfoCard(
-            icon: AppIcons.passwordOutlined,
-            title: 'Use a Strong Password',
-            body:
-                'Choose a unique, strong password that you do not '
-                'reuse elsewhere. This is the root of your key '
-                'hierarchy.',
-          ),
-          const SizedBox(height: 12),
-          _InfoCard(
-            icon: AppIcons.phonelinkLockOutlined,
-            title: 'Enable Device Lock Screen',
-            body:
-                'A device passcode or biometric lock adds an extra '
-                'layer of protection against physical access.',
-          ),
-          const SizedBox(height: 12),
-          _InfoCard(
-            icon: AppIcons.systemUpdateOutlined,
-            title: 'Keep the App Updated',
-            body:
-                'Updates include the latest security patches and '
-                'encryption improvements.',
-          ),
-
           const SizedBox(height: 32),
         ],
       ),
@@ -170,67 +138,29 @@ class AdpInfoScreen extends StatelessWidget {
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title});
+/// A single technical detail row inside the "How it works" expansion.
+class _TechItem extends StatelessWidget {
+  const _TechItem({required this.title, required this.body});
+
   final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-    );
-  }
-}
-
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({
-    required this.icon,
-    required this.title,
-    this.body,
-    this.child,
-  });
-
-  final IconData icon;
-  final String title;
-  final String? body;
-  final Widget? child;
+  final String body;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 28, color: theme.colorScheme.primary),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (body != null)
-                    Text(body!, style: theme.textTheme.bodyMedium),
-                  ?child,
-                ],
-              ),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: theme.colorScheme.primary,
+          ),
         ),
-      ),
+        const SizedBox(height: 4),
+        Text(body, style: theme.textTheme.bodySmall),
+      ],
     );
   }
 }
