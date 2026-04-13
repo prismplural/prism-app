@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 import '../../helpers/widget_test_helpers.dart';
 
@@ -69,7 +70,7 @@ void main() {
         PrismButton(label: 'Go', onPressed: () {}, isLoading: true),
       ));
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(PrismSpinner), findsOneWidget);
       expect(find.text('Go'), findsNothing);
     });
 
