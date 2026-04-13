@@ -5674,4 +5674,69 @@ class AppLocalizationsEn extends AppLocalizations {
   String pollsVotingAsSelectPrompt(String term) {
     return 'Select a $term to vote as';
   }
+
+  @override
+  String get onboardingPinSetupTitle => 'Set your PIN';
+
+  @override
+  String get onboardingPinSetupSubtitle =>
+      'You\'ll use this 6-digit PIN to lock Prism and recover access if needed.';
+
+  @override
+  String get onboardingPinConfirmTitle => 'Confirm your PIN';
+
+  @override
+  String get onboardingPinMismatchError => 'PINs don\'t match. Try again.';
+
+  @override
+  String get onboardingRecoveryPhraseTitle => 'Save your recovery phrase';
+
+  @override
+  String get onboardingRecoveryPhraseSubtitle =>
+      'Write these 12 words somewhere safe. They\'re the only way to recover your data if you lose your PIN.';
+
+  @override
+  String get onboardingRevealPhrase => 'Tap to reveal';
+
+  @override
+  String get onboardingIveWrittenItDown => 'I\'ve written it down';
+
+  @override
+  String get onboardingConfirmPhraseTitle => 'Verify your phrase';
+
+  @override
+  String get onboardingConfirmPhraseSubtitle =>
+      'Select the correct word for each position.';
+
+  @override
+  String get onboardingBiometricTitle => 'Unlock with biometrics';
+
+  @override
+  String get onboardingBiometricSubtitle =>
+      'Use Face ID or Touch ID to unlock Prism quickly.';
+
+  @override
+  String get onboardingBiometricEnable => 'Enable';
+
+  @override
+  String get onboardingBiometricSkip => 'Not now';
+
+  @override
+  String get syncPinSheetTitle => 'Enter your PIN';
+
+  @override
+  String get syncPinSheetSubtitle => 'Your PIN is required to unlock Prism.';
+
+  @override
+  String get changePinSheetTitle => 'Change PIN';
+
+  @override
+  String get periodicPinVerificationTitle => 'Time to verify your PIN';
+
+  @override
+  String get backupReminderBannerText =>
+      'Have you backed up your recovery phrase?';
+
+  @override
+  String get backupReminderBannerAction => 'View';
 }
