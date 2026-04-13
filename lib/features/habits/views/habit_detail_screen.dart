@@ -109,7 +109,7 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
       bodyPadding: EdgeInsets.zero,
       body: habitAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (_, _) => Center(child: Text(context.l10n.error)),
         data: (habit) {
           if (habit == null) {
             return const Center(child: Text('Habit not found'));
@@ -157,9 +157,9 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                     padding: EdgeInsets.all(16),
                     child: PrismLoadingState(),
                   ),
-                  error: (e, _) => Padding(
+                  error: (_, _) => Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text('Error loading stats: $e'),
+                    child: Text(context.l10n.error),
                   ),
                   data: (stats) => _StatsRow(
                     stats: stats,
@@ -174,9 +174,9 @@ class _HabitDetailScreenState extends ConsumerState<HabitDetailScreen> {
                 ),
                 completionsAsync.when(
                   loading: () => const SizedBox.shrink(),
-                  error: (e, _) => Padding(
+                  error: (_, _) => Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text('Error: $e'),
+                    child: Text(context.l10n.error),
                   ),
                   data: (completions) {
                     if (completions.isEmpty) {

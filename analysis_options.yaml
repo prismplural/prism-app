@@ -14,3 +14,6 @@ linter:
     prefer_final_locals: true
     unnecessary_lambdas: true
     unnecessary_this: true
+    unawaited_futures: true
+    cancel_subscriptions: true
+    close_sinks: true

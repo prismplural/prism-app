@@ -40,6 +40,7 @@ class PluralKitRateLimitError extends PluralKitApiError {
 /// All requests require an API token set via the constructor.
 class PluralKitClient {
   static const _baseUrl = 'https://api.pluralkit.me/v2';
+  static const _httpTimeout = Duration(seconds: 15);
 
   final String _token;
   final http.Client _http;
@@ -79,7 +80,7 @@ class PluralKitClient {
       Uri.parse(url),
       headers: _headers,
       body: jsonEncode(body),
-    );
+    ).timeout(_httpTimeout);
     return _handleResponse(response);
   }
 
@@ -88,7 +89,7 @@ class PluralKitClient {
       Uri.parse(url),
       headers: _headers,
       body: jsonEncode(body),
-    );
+    ).timeout(_httpTimeout);
     return _handleResponse(response);
   }
 
@@ -96,7 +97,7 @@ class PluralKitClient {
     final response = await _http.delete(
       Uri.parse(url),
       headers: _headers,
-    );
+    ).timeout(_httpTimeout);
     return _handleResponse(response);
   }
 
@@ -107,7 +108,7 @@ class PluralKitClient {
     final response = await _http.get(
       Uri.parse('$_baseUrl/systems/@me'),
       headers: _headers,
-    );
+    ).timeout(_httpTimeout);
     final json = _handleResponse(response) as Map<String, dynamic>;
     return PKSystem.fromJson(json);
   }
@@ -117,7 +118,7 @@ class PluralKitClient {
     final response = await _http.get(
       Uri.parse('$_baseUrl/systems/@me/members'),
       headers: _headers,
-    );
+    ).timeout(_httpTimeout);
     final json = _handleResponse(response) as List<dynamic>;
     return json
         .map((e) => PKMember.fromJson(e as Map<String, dynamic>))
@@ -141,7 +142,7 @@ class PluralKitClient {
 
     final uri = Uri.parse('$_baseUrl/systems/@me/switches')
         .replace(queryParameters: params);
-    final response = await _http.get(uri, headers: _headers);
+    final response = await _http.get(uri, headers: _headers).timeout(_httpTimeout);
     final json = _handleResponse(response) as List<dynamic>;
     return json
         .map((e) => PKSwitch.fromJson(e as Map<String, dynamic>))
@@ -185,7 +186,7 @@ class PluralKitClient {
 
   /// Download raw bytes from a URL (e.g. avatar images).
   Future<List<int>> downloadBytes(String url) async {
-    final response = await _http.get(Uri.parse(url));
+    final response = await _http.get(Uri.parse(url)).timeout(_httpTimeout);
     if (response.statusCode != 200) {
       throw PluralKitApiError(
           response.statusCode, 'Failed to download $url');

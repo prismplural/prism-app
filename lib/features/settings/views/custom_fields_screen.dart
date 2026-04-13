@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -110,7 +112,7 @@ class _FieldsList extends ConsumerWidget {
     );
     if (confirmed) {
       Haptics.heavy();
-      ref.read(customFieldNotifierProvider.notifier).deleteField(field.id);
+      unawaited(ref.read(customFieldNotifierProvider.notifier).deleteField(field.id));
       if (context.mounted) {
         PrismToast.show(context, message: context.l10n.settingsCustomFieldsDeletedToast(field.name));
       }

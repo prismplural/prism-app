@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -173,7 +175,7 @@ class _CommentTile extends ConsumerWidget {
       destructive: true,
     );
     if (confirmed) {
-      ref.read(commentNotifierProvider.notifier).deleteComment(comment.id);
+      unawaited(ref.read(commentNotifierProvider.notifier).deleteComment(comment.id));
     }
   }
 }

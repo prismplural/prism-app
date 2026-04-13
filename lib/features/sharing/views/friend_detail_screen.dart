@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -166,7 +168,7 @@ class FriendDetailScreen extends ConsumerWidget {
       destructive: true,
     );
     if (confirmed) {
-      ref.read(friendsProvider.notifier).removeFriend(friend.id);
+      unawaited(ref.read(friendsProvider.notifier).removeFriend(friend.id));
       if (context.mounted) Navigator.of(context).pop();
     }
   }
@@ -309,7 +311,7 @@ class _VerifyCard extends ConsumerWidget {
     }
 
     if (!context.mounted) return;
-    PrismDialog.show(
+    unawaited(PrismDialog.show(
       context: context,
       title: context.l10n.sharingSecurityFingerprintTitle,
       builder: (_) => Column(
@@ -350,7 +352,7 @@ class _VerifyCard extends ConsumerWidget {
           tone: PrismButtonTone.filled,
         ),
       ],
-    );
+    ));
   }
 }
 

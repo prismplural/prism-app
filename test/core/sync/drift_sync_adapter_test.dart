@@ -75,7 +75,7 @@ void main() {
 
       var batchComplete = false;
       final completeFuture = syncAdapter.completeSyncBatch();
-      completeFuture.then((_) => batchComplete = true);
+      unawaited(completeFuture.then((_) => batchComplete = true));
 
       await Future<void>.delayed(Duration.zero);
       expect(batchComplete, isFalse);

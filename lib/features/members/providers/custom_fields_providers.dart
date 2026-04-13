@@ -13,14 +13,14 @@ final customFieldsProvider = StreamProvider<List<CustomField>>((ref) {
 
 /// Watches a single custom field by ID.
 final customFieldByIdProvider =
-    StreamProvider.family<CustomField?, String>((ref, id) {
+    StreamProvider.autoDispose.family<CustomField?, String>((ref, id) {
   final repo = ref.watch(customFieldsRepositoryProvider);
   return repo.watchFieldById(id);
 });
 
 /// Watches all custom field values for a given member.
 final memberCustomFieldValuesProvider =
-    StreamProvider.family<List<CustomFieldValue>, String>((ref, memberId) {
+    StreamProvider.autoDispose.family<List<CustomFieldValue>, String>((ref, memberId) {
   final repo = ref.watch(customFieldsRepositoryProvider);
   return repo.watchValuesForMember(memberId);
 });

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,10 +66,10 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     final service = ref.read(pinLockServiceProvider);
     await service.clearPin();
     ref.invalidate(isPinSetProvider);
-    ref.read(settingsNotifierProvider.notifier).updatePinLockEnabled(false);
-    ref
+    unawaited(ref.read(settingsNotifierProvider.notifier).updatePinLockEnabled(false));
+    unawaited(ref
         .read(settingsNotifierProvider.notifier)
-        .updateBiometricLockEnabled(false);
+        .updateBiometricLockEnabled(false));
   }
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -228,7 +230,7 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
       destructive: true,
     );
     if (confirmed) {
-      ref.read(friendsProvider.notifier).removeFriend(friend.id);
+      unawaited(ref.read(friendsProvider.notifier).removeFriend(friend.id));
     }
   }
 

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 class FirstDeviceAdmissionService {
+  static const _httpTimeout = Duration(seconds: 15);
   static const _channel = MethodChannel(
     'com.prism.prism_plurality/first_device_admission',
   );
@@ -23,7 +24,7 @@ class FirstDeviceAdmissionService {
     if (registrationToken != null && registrationToken.isNotEmpty) {
       nonceHeaders['X-Registration-Token'] = registrationToken;
     }
-    final nonceResp = await http.get(nonceUri, headers: nonceHeaders);
+    final nonceResp = await http.get(nonceUri, headers: nonceHeaders).timeout(_httpTimeout);
     if (nonceResp.statusCode < 200 || nonceResp.statusCode >= 300) {
       throw Exception(
         'Failed to prepare registration challenge: HTTP ${nonceResp.statusCode}',

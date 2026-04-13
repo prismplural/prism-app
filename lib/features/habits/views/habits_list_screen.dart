@@ -38,7 +38,7 @@ class HabitsListScreen extends ConsumerWidget {
       body: habitsAsync.when(
         skipLoadingOnReload: true,
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (_, _) => Center(child: Text(context.l10n.error)),
         data: (habits) {
           final todayCompletions = todayAsync.value ?? <HabitCompletion>[];
           final allCompletions =

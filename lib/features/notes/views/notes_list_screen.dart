@@ -45,7 +45,7 @@ class NotesListScreen extends ConsumerWidget {
       bodyPadding: EdgeInsets.zero,
       body: notesAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (_, _) => Center(child: Text(context.l10n.error)),
         data: (notes) {
           if (notes.isEmpty) {
             return EmptyState(

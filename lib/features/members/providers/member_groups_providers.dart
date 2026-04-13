@@ -20,21 +20,21 @@ final groupMemberCountsProvider = StreamProvider<Map<String, int>>((ref) {
 
 /// Watches groups that a specific member belongs to.
 final memberGroupsProvider =
-    StreamProvider.family<List<MemberGroup>, String>((ref, memberId) {
+    StreamProvider.autoDispose.family<List<MemberGroup>, String>((ref, memberId) {
   final repo = ref.watch(memberGroupsRepositoryProvider);
   return repo.watchGroupsForMember(memberId);
 });
 
 /// Watches entries (group–member links) for a specific group.
 final groupEntriesProvider =
-    StreamProvider.family<List<MemberGroupEntry>, String>((ref, groupId) {
+    StreamProvider.autoDispose.family<List<MemberGroupEntry>, String>((ref, groupId) {
   final repo = ref.watch(memberGroupsRepositoryProvider);
   return repo.watchGroupEntries(groupId);
 });
 
 /// Watches a single group by ID.
 final groupByIdProvider =
-    StreamProvider.family<MemberGroup?, String>((ref, id) {
+    StreamProvider.autoDispose.family<MemberGroup?, String>((ref, id) {
   final repo = ref.watch(memberGroupsRepositoryProvider);
   return repo.watchGroupById(id);
 });

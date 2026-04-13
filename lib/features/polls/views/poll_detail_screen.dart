@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -209,7 +211,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     );
     if (confirmed) {
       Haptics.heavy();
-      ref.read(pollNotifierProvider.notifier).closePoll(widget.poll.id);
+      unawaited(ref.read(pollNotifierProvider.notifier).closePoll(widget.poll.id));
     }
   }
 
@@ -223,7 +225,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     );
     if (confirmed) {
       Haptics.heavy();
-      ref.read(pollNotifierProvider.notifier).deletePoll(widget.poll.id);
+      unawaited(ref.read(pollNotifierProvider.notifier).deletePoll(widget.poll.id));
       if (mounted) context.go(AppRoutePaths.polls);
     }
   }
@@ -372,7 +374,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                   );
                 },
                 loading: () => const PrismLoadingState(),
-                error: (e, _) => Text('Error: $e'),
+                error: (_, _) => Text(context.l10n.error),
               ),
               const SizedBox(height: 24),
             ],

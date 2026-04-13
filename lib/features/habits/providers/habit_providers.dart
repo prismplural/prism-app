@@ -41,14 +41,21 @@ final habitsProvider = StreamProvider<List<Habit>>((ref) {
 });
 
 /// Watches a single habit by ID.
-final habitByIdProvider = StreamProvider.family<Habit?, String>((ref, id) {
+final habitByIdProvider = StreamProvider.autoDispose.family<Habit?, String>((ref, id) {
+  final link = ref.keepAlive();
+  Timer? timer;
+  ref.onDispose(() => timer?.cancel());
+  ref.onCancel(() {
+    timer = Timer(const Duration(seconds: 30), link.close);
+  });
+  ref.onResume(() => timer?.cancel());
   final repo = ref.watch(habitRepositoryProvider);
   return repo.watchHabitById(id);
 });
 
 /// Watches completions for a specific habit.
 final habitCompletionsProvider =
-    StreamProvider.family<List<HabitCompletion>, String>((ref, habitId) {
+    StreamProvider.autoDispose.family<List<HabitCompletion>, String>((ref, habitId) {
       final repo = ref.watch(habitRepositoryProvider);
       return repo.watchCompletionsForHabit(habitId);
     });
@@ -104,7 +111,7 @@ final dueHabitsCountProvider = Provider<int>((ref) {
 
 /// Stats for a habit over a given timeframe.
 final habitStatsProvider =
-    FutureProvider.family<
+    FutureProvider.autoDispose.family<
       HabitStats,
       ({String habitId, StatisticsTimeframe timeframe})
     >((ref, params) async {

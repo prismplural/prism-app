@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -299,7 +301,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
   }
 
   void _confirmReset(BuildContext context, WidgetRef ref) {
-    PrismDialog.confirm(
+    unawaited(PrismDialog.confirm(
       context: context,
       title: context.l10n.syncTroubleshootingResetTitle,
       message: context.l10n.syncTroubleshootingResetMessage,
@@ -312,11 +314,11 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
           .reset(ResetCategory.sync);
       if (!context.mounted) return;
       PrismToast.show(context, message: context.l10n.syncTroubleshootingResetSuccess);
-    });
+    }));
   }
 
   void _confirmRepair(BuildContext context, WidgetRef ref) {
-    showDialog<String>(
+    unawaited(showDialog<String>(
       context: context,
       builder: (dialogContext) {
         return Dialog(
@@ -350,7 +352,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     ).then((result) async {
       if (result == 'export') {
         if (!context.mounted) return;
-        context.push(AppRoutePaths.settingsImportExport);
+        unawaited(context.push(AppRoutePaths.settingsImportExport));
         return;
       }
       if (result != 'repair') return;
@@ -360,7 +362,7 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
       if (!context.mounted) return;
       PrismToast.show(context, message: context.l10n.syncTroubleshootingCredentialsCleared);
       context.go(AppRoutePaths.syncSetup);
-    });
+    }));
   }
 
   String _formatDateTime(DateTime dt) {

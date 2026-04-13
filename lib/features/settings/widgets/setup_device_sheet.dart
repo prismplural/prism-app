@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -29,14 +30,14 @@ class SetupDeviceSheet {
 
     if (!context.mounted) return;
 
-    PrismSheet.showFullScreen(
+    unawaited(PrismSheet.showFullScreen(
       context: context,
       builder: (ctx, sc) => _SetupDeviceSheetContent(
         handle: handle,
         relayUrl: relayUrl,
         scrollController: sc,
       ),
-    );
+    ));
   }
 }
 

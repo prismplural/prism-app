@@ -6,14 +6,14 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 
 /// Watches notes for a specific member.
 final memberNotesProvider =
-    StreamProvider.family<List<Note>, String>((ref, memberId) {
+    StreamProvider.autoDispose.family<List<Note>, String>((ref, memberId) {
   final repo = ref.watch(notesRepositoryProvider);
   return repo.watchNotesForMember(memberId);
 });
 
 /// Watches recent notes for a member (limited, for preview sections).
 final recentMemberNotesProvider =
-    StreamProvider.family<List<Note>, String>((ref, memberId) {
+    StreamProvider.autoDispose.family<List<Note>, String>((ref, memberId) {
   final repo = ref.watch(notesRepositoryProvider);
   return repo.watchRecentNotesForMember(memberId);
 });

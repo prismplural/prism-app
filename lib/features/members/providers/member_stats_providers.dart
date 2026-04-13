@@ -19,7 +19,7 @@ class MemberFrontingStats {
 /// Provides fronting stats (total sessions, total duration, last fronted)
 /// for a given member ID.
 final memberFrontingStatsProvider =
-    FutureProvider.family<MemberFrontingStats, String>((ref, memberId) async {
+    FutureProvider.autoDispose.family<MemberFrontingStats, String>((ref, memberId) async {
   final repo = ref.watch(frontingSessionRepositoryProvider);
   final sessions = await repo.getSessionsForMember(memberId);
 
@@ -49,7 +49,7 @@ final memberFrontingStatsProvider =
 
 /// Provides the last 5 fronting sessions for a given member ID.
 final memberRecentSessionsProvider =
-    FutureProvider.family<List<FrontingSession>, String>((ref, memberId) async {
+    FutureProvider.autoDispose.family<List<FrontingSession>, String>((ref, memberId) async {
   final repo = ref.watch(frontingSessionRepositoryProvider);
   final sessions = await repo.getSessionsForMember(memberId);
 
@@ -62,7 +62,7 @@ final memberRecentSessionsProvider =
 
 /// Provides conversations that include a given member as a participant.
 final memberConversationsProvider =
-    FutureProvider.family<List<Conversation>, String>((ref, memberId) async {
+    FutureProvider.autoDispose.family<List<Conversation>, String>((ref, memberId) async {
   final repo = ref.watch(conversationRepositoryProvider);
   return repo.getConversationsForMember(memberId);
 });

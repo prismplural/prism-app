@@ -87,6 +87,7 @@ void main() {
     ProviderSubscription<AsyncValue<SyncEvent>> eventSubscription,
     int Function() drainCount,
   }) bindContainer() {
+    // ignore: close_sinks
     final controller = StreamController<SyncEvent>.broadcast();
     var count = 0;
     debugDrainRustStoreOverride = () async {

@@ -213,6 +213,7 @@ class DownloadManager {
   }
 
   void _emitProgress(String mediaId, DownloadState state, {String? error}) {
+    // ignore: close_sinks
     final controller = _progressControllers[mediaId];
     if (controller != null && !controller.isClosed) {
       controller.add(DownloadProgress(

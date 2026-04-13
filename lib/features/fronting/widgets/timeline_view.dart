@@ -113,7 +113,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
             // (avoids flicker when session limit increases on scroll).
             skipLoadingOnReload: true,
             loading: () => const Center(child: PrismLoadingState()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (_, _) => Center(child: Text(context.l10n.error)),
             data: (data) {
               final rows = data.memberRows;
               final sleepSessions = data.sleepSessions;

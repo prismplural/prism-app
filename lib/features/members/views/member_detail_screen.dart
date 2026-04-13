@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -261,7 +263,7 @@ class _MemberDetailBody extends ConsumerWidget {
       destructive: true,
     );
     if (confirmed) {
-      ref.read(membersNotifierProvider.notifier).deleteMember(member.id);
+      unawaited(ref.read(membersNotifierProvider.notifier).deleteMember(member.id));
       if (context.mounted) Navigator.of(context).pop();
     }
   }

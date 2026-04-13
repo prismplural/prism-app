@@ -100,6 +100,7 @@ class UploadQueue {
   }
 
   void _emitProgress(String mediaId, UploadState state, {String? error}) {
+    // ignore: close_sinks
     final controller = _progressControllers[mediaId];
     if (controller != null && !controller.isClosed) {
       controller.add(UploadProgress(
