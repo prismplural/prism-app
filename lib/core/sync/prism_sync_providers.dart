@@ -22,6 +22,7 @@ import 'package:prism_plurality/core/database/daos/sync_quarantine_dao.dart';
 import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
+import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 
 // Dart-side sync integration — manages the Rust FFI handle lifecycle, keychain
@@ -1682,7 +1683,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
 
     // If remote wipe was requested, delete the sync database.
     if (wipe) {
-      await _wipeSyncDatabase();
+      await _wipeLocalData();
     }
 
     // Clear sync credentials from keychain.
@@ -1701,7 +1702,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     try {
       if (remoteWipe) {
         debugPrint('[SYNC] Device flagged for remote wipe — wiping sync data');
-        await _wipeSyncDatabase();
+        await _wipeLocalData();
       }
       await _clearSyncCredentials();
       ref
@@ -1716,8 +1717,10 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     }
   }
 
-  /// Delete the sync database file and its WAL/SHM companions.
-  Future<void> _wipeSyncDatabase() async {
+  /// Delete the sync database file and its WAL/SHM companions, clear all
+  /// synced content from the Drift app database, and clear the media cache.
+  Future<void> _wipeLocalData() async {
+    // 1. Delete the Rust sync DB files.
     try {
       final dir = await getApplicationDocumentsDirectory();
       final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
@@ -1730,6 +1733,48 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
       debugPrint('[SYNC] Sync database wiped');
     } catch (e) {
       debugPrint('[SYNC] Failed to delete sync DB (non-fatal): $e');
+    }
+
+    // 2. Delete all synced content rows from the Drift app database.
+    try {
+      final db = ref.read(databaseProvider);
+      await db.transaction(() async {
+        await db.customStatement('DELETE FROM habit_completions');
+        await db.customStatement('DELETE FROM habits');
+        await db.customStatement('DELETE FROM poll_votes');
+        await db.customStatement('DELETE FROM poll_options');
+        await db.customStatement('DELETE FROM polls');
+        await db.customStatement('DELETE FROM chat_messages');
+        await db.customStatement('DELETE FROM conversation_categories');
+        await db.customStatement('DELETE FROM conversations');
+        await db.customStatement('DELETE FROM front_session_comments');
+        await db.customStatement('DELETE FROM fronting_sessions');
+        await db.customStatement('DELETE FROM sleep_sessions');
+        await db.customStatement('DELETE FROM custom_field_values');
+        await db.customStatement('DELETE FROM custom_fields');
+        await db.customStatement('DELETE FROM member_group_entries');
+        await db.customStatement('DELETE FROM member_groups');
+        await db.customStatement('DELETE FROM notes');
+        await db.customStatement('DELETE FROM reminders');
+        await db.customStatement('DELETE FROM friends');
+        await db.customStatement('DELETE FROM sharing_requests');
+        await db.customStatement('DELETE FROM media_attachments');
+        await db.customStatement('DELETE FROM members');
+        await db.customStatement('DELETE FROM plural_kit_sync_state');
+        await db.customStatement('DELETE FROM system_settings');
+        await db.customStatement('DELETE FROM sync_quarantine');
+      });
+      debugPrint('[SYNC] App database content wiped');
+    } catch (e) {
+      debugPrint('[SYNC] Failed to wipe app DB content (non-fatal): $e');
+    }
+
+    // 3. Clear the media cache.
+    try {
+      await ref.read(downloadManagerProvider).clearCache();
+      debugPrint('[SYNC] Media cache cleared');
+    } catch (e) {
+      debugPrint('[SYNC] Failed to clear media cache (non-fatal): $e');
     }
   }
 
