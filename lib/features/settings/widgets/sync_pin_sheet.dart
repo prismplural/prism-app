@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
+import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -29,7 +31,7 @@ class SyncPinSheet extends ConsumerStatefulWidget {
 }
 
 class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   String _pin = '';
   static const _pinLength = 6;
   bool _isLoading = false;
@@ -46,6 +48,10 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
+
+  late AnimationController _dotController;
+  late Animation<double> _dotScaleAnim;
+  int? _lastFilledDotIndex;
 
   @override
   void initState() {
@@ -64,6 +70,14 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
       parent: _shakeController,
       curve: Curves.easeInOut,
     ));
+    _dotController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _dotScaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _dotController, curve: Curves.easeOutBack));
     _loadLockoutState();
   }
 
@@ -101,6 +115,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   @override
   void dispose() {
     _shakeController.dispose();
+    _dotController.dispose();
     super.dispose();
   }
 
@@ -133,6 +148,11 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
       _pin += digit;
       _hasError = false;
     });
+    final mode = VisualEffectsModeX.of(context, ref);
+    if (mode.useAnimations) {
+      setState(() => _lastFilledDotIndex = _pin.length - 1);
+      _dotController.forward(from: 0);
+    }
     if (_pin.length == _pinLength) {
       _onPinComplete();
     }
@@ -183,7 +203,10 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   void _showError() {
     HapticFeedback.heavyImpact();
     _shakeController.forward(from: 0);
-    setState(() => _pin = '');
+    setState(() {
+      _pin = '';
+      _lastFilledDotIndex = null;
+    });
   }
 
   @override
@@ -236,15 +259,22 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
                 final filled = i < _pin.length;
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: filled
-                          ? accentColor
-                          : accentColor.withValues(alpha: 0.15),
+                  child: AnimatedBuilder(
+                    animation: _dotScaleAnim,
+                    builder: (context, child) => Transform.scale(
+                      scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
+                      child: child,
+                    ),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: filled
+                            ? accentColor
+                            : accentColor.withValues(alpha: 0.15),
+                      ),
                     ),
                   ),
                 );
@@ -259,7 +289,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: _buildRow(row, theme, accentColor),
+                  children: _buildRow(row),
                 ),
               )
           else
@@ -272,68 +302,30 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     );
   }
 
-  List<Widget> _buildRow(int row, ThemeData theme, Color accentColor) {
+  List<Widget> _buildRow(int row) {
     if (row < 3) {
       return List.generate(3, (col) {
         final digit = '${row * 3 + col + 1}';
-        return _SheetNumpadButton(
+        return PinNumpadButton(
           label: digit,
           onTap: () => _onDigit(digit),
-          theme: theme,
+          size: 64,
         );
       });
     }
     return [
       const SizedBox(width: 64, height: 64),
-      _SheetNumpadButton(
+      PinNumpadButton(
         label: '0',
         onTap: () => _onDigit('0'),
-        theme: theme,
+        size: 64,
       ),
-      _SheetNumpadButton(
+      PinNumpadButton(
         icon: AppIcons.backspaceOutlined,
         onTap: _onBackspace,
-        theme: theme,
+        size: 64,
+        semanticLabel: context.l10n.delete,
       ),
     ];
-  }
-}
-
-class _SheetNumpadButton extends StatelessWidget {
-  const _SheetNumpadButton({
-    this.label,
-    this.icon,
-    required this.onTap,
-    required this.theme,
-  });
-
-  final String? label;
-  final IconData? icon;
-  final VoidCallback onTap;
-  final ThemeData theme;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 64,
-        height: 64,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        ),
-        child: label != null
-            ? Text(
-                label!,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-              )
-            : Icon(icon, size: 22, color: theme.colorScheme.onSurface),
-      ),
-    );
   }
 }
