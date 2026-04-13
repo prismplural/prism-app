@@ -333,6 +333,7 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
       width: w,
       height: h,
       fit: BoxFit.cover,
+      semanticLabel: widget.contentDescription ?? 'GIF',
       errorBuilder: (_, _, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) setState(() => _hasPreviewError = true);

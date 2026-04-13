@@ -34,16 +34,18 @@ class PrismSwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PrismListRow(
-      title: Text(title),
-      subtitle: subtitle != null ? Text(subtitle!) : null,
-      leading: icon != null ? _IconCircle(icon: icon!, color: iconColor, enabled: enabled) : null,
-      trailing: Switch.adaptive(
-        value: value,
-        onChanged: enabled ? onChanged : null,
+    return MergeSemantics(
+      child: PrismListRow(
+        title: Text(title),
+        subtitle: subtitle != null ? Text(subtitle!) : null,
+        leading: icon != null ? _IconCircle(icon: icon!, color: iconColor, enabled: enabled) : null,
+        trailing: Switch.adaptive(
+          value: value,
+          onChanged: enabled ? onChanged : null,
+        ),
+        onTap: enabled ? () => onChanged(!value) : null,
+        enabled: enabled,
       ),
-      onTap: enabled ? () => onChanged(!value) : null,
-      enabled: enabled,
     );
   }
 }

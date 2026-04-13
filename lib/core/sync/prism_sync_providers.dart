@@ -848,7 +848,7 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
 
   return createSyncEventStream(handle).asyncMap((event) async {
     if (kDebugMode) {
-      print(
+      debugPrint(
         '[SYNC_STREAM] Event type=${event.type}, changes=${event.changes.length}',
       );
     }
@@ -856,7 +856,7 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       await _applyRemoteChanges(db, syncAdapter.adapter, event);
       await syncAdapter.completeSyncBatch();
       if (kDebugMode) {
-        print('[SYNC_STREAM] Applied ${event.changes.length} remote changes');
+        debugPrint('[SYNC_STREAM] Applied ${event.changes.length} remote changes');
       }
     }
     return event;
@@ -975,7 +975,7 @@ Future<void> _applyRemoteChanges(
           final fields = (change['fields'] as Map<String, dynamic>?) ?? {};
 
           if (kDebugMode) {
-            print(
+            debugPrint(
               '[SYNC_APPLY] table=$table id=$entityId delete=$isDelete fields=${fields.keys.toList()}',
             );
           }

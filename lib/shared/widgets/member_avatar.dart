@@ -20,6 +20,7 @@ class MemberAvatar extends StatelessWidget {
     this.size = 40,
     this.showBorder = false,
     this.tintOverride,
+    this.opacity = 1.0,
   });
 
   final Uint8List? avatarImageData;
@@ -32,6 +33,10 @@ class MemberAvatar extends StatelessWidget {
   /// When set, overrides the derived member/theme color for the glass tint.
   final Color? tintOverride;
 
+  /// Visual opacity (0.0–1.0). Applied at the paint level without a
+  /// compositing layer, so it is safe to use in scrolling surfaces.
+  final double opacity;
+
   Color _circleColor(BuildContext context) {
     if (tintOverride != null) return tintOverride!;
     if (customColorEnabled && customColorHex != null) {
@@ -43,6 +48,8 @@ class MemberAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _circleColor(context);
+    final dimmed = opacity < 1.0;
+    final tint = dimmed ? color.withValues(alpha: color.a * opacity) : color;
 
     Widget child;
     if (avatarImageData != null && avatarImageData!.isNotEmpty) {
@@ -51,7 +58,7 @@ class MemberAvatar extends StatelessWidget {
       final pixelSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
       child = TintedGlassSurface.circle(
         size: size,
-        tint: color,
+        tint: tint,
         child: ClipOval(
           child: Image.memory(
             avatarImageData!,
@@ -60,12 +67,19 @@ class MemberAvatar extends StatelessWidget {
             cacheWidth: pixelSize,
             cacheHeight: pixelSize,
             fit: BoxFit.cover,
+            color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
+            colorBlendMode: dimmed ? BlendMode.modulate : null,
             errorBuilder: (_, _, _) => _centeredEmoji(size),
           ),
         ),
       );
     } else {
-      child = _emojiCircle(color);
+      child = _emojiCircle(tint);
+      // Emoji glyphs are platform-rendered and cannot be tinted via paint-level
+      // alpha, so we fall back to Opacity for the small circle widget.
+      if (dimmed) {
+        child = Opacity(opacity: opacity, child: child);
+      }
     }
 
     if (showBorder) {

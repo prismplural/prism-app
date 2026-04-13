@@ -2,6 +2,21 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.3.1] - 2026-04-12
+
+### Fixed
+- Performance: departed member avatars use paint-level opacity instead of compositing ColorFiltered layer
+- Performance: archived conversation tiles use simple Opacity instead of ColorFiltered greyscale matrix
+- Performance: message highlight animation uses TweenAnimationBuilder child parameter to avoid per-frame widget recreation
+- Performance: data import batch-fetches poll options and habit completions instead of N+1 per-entity queries
+- Performance: friend detail fingerprint row caches future in state instead of recreating on every build; reacts to key changes via didUpdateWidget
+- Accessibility: PrismInlineIconButton default size increased from 32dp to 44dp (iOS HIG minimum)
+- Accessibility: PrismCheckboxRow and PrismSwitchRow wrapped in MergeSemantics for single accessible node
+- Accessibility: GIF images include contentDescription as semanticLabel for screen readers
+- Accessibility: image bubble loading states wrapped in Semantics label
+- Security: PIN text field disables keyboard suggestions and autocorrect to prevent cache leaks
+- Debug: sync event print() calls replaced with debugPrint() (stripped from release builds)
+
 ## [0.3.0] - 2026-04-12
 
 ### Added

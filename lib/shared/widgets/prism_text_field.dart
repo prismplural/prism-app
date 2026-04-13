@@ -204,6 +204,8 @@ class PrismTextField extends StatelessWidget {
       enabled: enabled,
       autofocus: autofocus,
       obscureText: obscureText,
+      enableSuggestions: !obscureText,
+      autocorrect: !obscureText,
       textCapitalization: textCapitalization,
       minLines: minLines,
       maxLines: maxLines,

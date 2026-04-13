@@ -54,17 +54,19 @@ class PrismCheckboxRow extends StatelessWidget {
             );
     }
 
-    return PrismListRow(
-      title: title,
-      subtitle: subtitle,
-      leading: checkboxAffinity == PrismCheckboxAffinity.leading
-          ? checkbox
-          : leading,
-      trailing: resolvedTrailing,
-      enabled: enabled,
-      dense: dense,
-      padding: padding,
-      onTap: enabled ? () => onChanged(!value) : null,
+    return MergeSemantics(
+      child: PrismListRow(
+        title: title,
+        subtitle: subtitle,
+        leading: checkboxAffinity == PrismCheckboxAffinity.leading
+            ? checkbox
+            : leading,
+        trailing: resolvedTrailing,
+        enabled: enabled,
+        dense: dense,
+        padding: padding,
+        onTap: enabled ? () => onChanged(!value) : null,
+      ),
     );
   }
 }

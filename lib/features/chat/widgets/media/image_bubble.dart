@@ -118,27 +118,33 @@ class ImageBubble extends StatelessWidget {
 
     // Loading state — show BlurHash placeholder if available, else spinner
     if (blurhash != null && blurhash!.isNotEmpty) {
-      return ExcludeSemantics(
-        child: _BlurhashPlaceholder(
-          blurhash: blurhash!,
-          width: w,
-          height: h,
+      return Semantics(
+        label: 'Image loading',
+        child: ExcludeSemantics(
+          child: _BlurhashPlaceholder(
+            blurhash: blurhash!,
+            width: w,
+            height: h,
+          ),
         ),
       );
     }
 
-    return ExcludeSemantics(
-      child: Container(
-        width: w,
-        height: h,
-        color: theme.brightness == Brightness.dark
-            ? AppColors.charcoalSurface
-            : AppColors.parchmentElevated,
-        child: const Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
+    return Semantics(
+      label: 'Image loading',
+      child: ExcludeSemantics(
+        child: Container(
+          width: w,
+          height: h,
+          color: theme.brightness == Brightness.dark
+              ? AppColors.charcoalSurface
+              : AppColors.parchmentElevated,
+          child: const Center(
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ),
         ),
       ),
