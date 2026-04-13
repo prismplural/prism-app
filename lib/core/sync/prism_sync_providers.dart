@@ -247,6 +247,23 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     // Persist any Rust state changes from configureEngine (prevents credential
     // loss if the app crashes before an explicit drain happens).
     if (health == SyncHealthState.healthy) {
+      // Check and repair DB key mismatch from a prior crash between Drift and
+      // sync DB rotations. If the previous session crashed between the two
+      // rotations, the sync DB still has the old key. Now that runtime keys are
+      // restored we can derive localStorageKey() and retry the rotation.
+      //
+      // On normal startups both keys already match LSK so this is a fast no-op
+      // (two HKDF derivations + two keychain reads, no PRAGMA rekey).
+      try {
+        await cacheRuntimeKeys(handle, ref.read(databaseProvider));
+      } catch (e, st) {
+        ErrorReportingService.instance.report(
+          'Startup key-rotation check failed: $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      }
+
       // One-time migration: re-emit enum fields as ints to overwrite any
       // legacy string-encoded winning values still in field_versions from
       // before the .name → .index fix.
