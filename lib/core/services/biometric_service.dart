@@ -22,9 +22,27 @@ class BiometricService {
                 accessibility: KeychainAccessibility.first_unlock_this_device,
                 accessControlFlags: [AccessControlFlag.biometryCurrentSet],
               ),
-              // Android: use default Keystore-backed storage (same as the
-              // centralized secureStorage instance).
-              aOptions: AndroidOptions(),
+              // Android: AES-GCM key in Android Keystore with
+              // setUserAuthenticationRequired(true) — reading (and writing)
+              // the item requires a biometric/PIN prompt. This is the closest
+              // Android analog to iOS biometryCurrentSet. Requires API 28+.
+              //
+              // resetOnError: true — if the key is permanently invalidated
+              // (user enrolled a new fingerprint or removed all biometrics),
+              // the stored DEK is cleared and authenticate() returns null.
+              // The caller should fall back to PIN entry; the user can
+              // re-enroll biometrics in settings after unlocking with PIN.
+              //
+              // Note: enforceBiometrics: true throws if no biometric or device
+              // credential is enrolled. isAvailable() must be checked before
+              // calling enroll() or the write will fail.
+              aOptions: AndroidOptions.biometric(
+                enforceBiometrics: true,
+                resetOnError: true,
+                biometricPromptTitle: 'Unlock Prism',
+                biometricPromptSubtitle:
+                    'Use your fingerprint or face to continue',
+              ),
             );
 
   final LocalAuthentication _localAuth;
@@ -36,15 +54,19 @@ class BiometricService {
     return _localAuth.canCheckBiometrics;
   }
 
-  /// Enroll: write DEK to biometric-protected keychain item.
-  /// iOS: writing does NOT require biometric — only reading does.
+  /// Enroll: write DEK to biometric-protected storage.
+  /// iOS: writing does NOT require biometric — only reading does (Secure Enclave).
+  /// Android: writing DOES trigger a biometric/PIN prompt (enforceBiometrics).
+  /// Call isAvailable() before this to avoid a throw on devices with no
+  /// enrolled biometric or device credential.
   Future<void> enroll(Uint8List dekBytes) async {
     await _storage.write(key: _bioKey, value: base64Encode(dekBytes));
   }
 
-  /// Authenticate: reading the biometric keychain item triggers Face ID/Touch ID.
-  /// iOS: platform enforces biometric at read time.
-  /// Returns null on cancellation or failure.
+  /// Authenticate: reading the stored DEK triggers Face ID/Touch ID (iOS) or
+  /// fingerprint/face prompt (Android). Returns null on cancellation, failure,
+  /// or if the key was permanently invalidated by a biometric enrollment change
+  /// (resetOnError cleared the stored value). Callers must fall back to PIN.
   Future<Uint8List?> authenticate() async {
     try {
       final b64 = await _storage.read(key: _bioKey);
@@ -59,6 +81,10 @@ class BiometricService {
     await _storage.delete(key: _bioKey);
   }
 
+  /// Whether a biometric-protected DEK is stored.
+  /// WARNING: On Android, this triggers a biometric/PIN prompt because the
+  /// read path is protected by enforceBiometrics. Do not use this for
+  /// UI enrollment-state checks — use a separate SharedPreferences flag.
   Future<bool> isEnrolled() async {
     final b64 = await _storage.read(key: _bioKey);
     return b64 != null;
