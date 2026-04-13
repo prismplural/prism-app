@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
@@ -328,6 +330,100 @@ void main() {
           () => notifier.seek(const Duration(seconds: 30)),
           returnsNormally,
         );
+      });
+    });
+
+    // ════════════════════════════════════════════════════════════════════════
+    // temp file deletion — security invariant
+    //
+    // Plaintext audio files written to the temp directory by DownloadManager
+    // must be deleted as soon as playback ends or the provider is disposed.
+    // These tests use [setTempFileForTesting] to inject a temp file without
+    // needing a live audio player.
+    // ════════════════════════════════════════════════════════════════════════
+
+    group('temp file deletion', () {
+      test('stop() deletes the temp file', () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(voicePlaybackProvider.notifier);
+
+        // Create a real temp file to verify deletion.
+        final tmpFile = await File(
+          '${Directory.systemTemp.path}/vp_test_stop.m4a',
+        ).create();
+        addTearDown(() async {
+          if (tmpFile.existsSync()) await tmpFile.delete();
+        });
+
+        notifier.setTempFileForTesting(tmpFile);
+        expect(tmpFile.existsSync(), isTrue, reason: 'file must exist before stop()');
+
+        notifier.stop();
+
+        // File deletion is fire-and-forget; give the event loop a turn.
+        await Future<void>.delayed(Duration.zero);
+
+        expect(tmpFile.existsSync(), isFalse,
+            reason: 'temp file must be deleted after stop()');
+      });
+
+      test('container disposal deletes the temp file', () async {
+        final container = ProviderContainer();
+
+        final notifier = container.read(voicePlaybackProvider.notifier);
+
+        final tmpFile = await File(
+          '${Directory.systemTemp.path}/vp_test_dispose.m4a',
+        ).create();
+        addTearDown(() async {
+          if (tmpFile.existsSync()) await tmpFile.delete();
+        });
+
+        notifier.setTempFileForTesting(tmpFile);
+        expect(tmpFile.existsSync(), isTrue);
+
+        // Disposing the container triggers ref.onDispose → _disposePlayer()
+        // → _deleteTempFile().
+        container.dispose();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(tmpFile.existsSync(), isFalse,
+            reason: 'temp file must be deleted when provider is disposed');
+      });
+
+      test('setTempFileForTesting(null) after stop does not throw', () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(voicePlaybackProvider.notifier);
+
+        // No temp file set — stop should not throw.
+        expect(notifier.stop, returnsNormally);
+
+        // Explicitly set to null and stop again — still no throw.
+        notifier.setTempFileForTesting(null);
+        expect(notifier.stop, returnsNormally);
+      });
+
+      test('stop() with already-deleted temp file does not throw', () async {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+
+        final notifier = container.read(voicePlaybackProvider.notifier);
+
+        // Create and immediately delete the file to simulate OS cleanup.
+        final tmpFile = await File(
+          '${Directory.systemTemp.path}/vp_test_missing.m4a',
+        ).create();
+        await tmpFile.delete();
+
+        notifier.setTempFileForTesting(tmpFile);
+
+        // stop() must not throw even when the file is already gone.
+        expect(notifier.stop, returnsNormally);
+        await Future<void>.delayed(Duration.zero);
       });
     });
   });
