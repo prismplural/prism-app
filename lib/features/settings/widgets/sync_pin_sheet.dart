@@ -1,19 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-<<<<<<< HEAD
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
-import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
-
-/// Modal sheet that prompts for the app PIN when the cached DEK is missing
-/// but other credentials exist (e.g. after an app update that introduced
-/// Signal-style key caching).
-=======
-import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -23,18 +12,13 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 ///
 /// Replaces [SyncPasswordSheet] in devices set up with PIN-based auth.
 /// The PIN is used as the Argon2id password for the key hierarchy.
->>>>>>> worktree-agent-a6254940
 class SyncPinSheet extends ConsumerStatefulWidget {
   const SyncPinSheet({super.key});
 
   static Future<void> show(BuildContext context) {
     return PrismSheet.show(
       context: context,
-<<<<<<< HEAD
-      isDismissible: true,
-=======
       isDismissible: false, // User must enter their PIN to proceed
->>>>>>> worktree-agent-a6254940
       builder: (_) => const SyncPinSheet(),
     );
   }
@@ -43,31 +27,6 @@ class SyncPinSheet extends ConsumerStatefulWidget {
   ConsumerState<SyncPinSheet> createState() => _SyncPinSheetState();
 }
 
-<<<<<<< HEAD
-class _SyncPinSheetState extends ConsumerState<SyncPinSheet> {
-  final _controller = TextEditingController();
-  bool _isLoading = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _unlock() async {
-    final pin = _controller.text.trim();
-    if (pin.isEmpty) return;
-
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    final success = await ref
-        .read(syncHealthProvider.notifier)
-        .attemptUnlock(pin);
-=======
 class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     with SingleTickerProviderStateMixin {
   String _pin = '';
@@ -123,12 +82,12 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     return _lockedUntil!.difference(DateTime.now()).inSeconds.clamp(0, 9999);
   }
 
-  String get _subtitle {
+  String _subtitle(BuildContext context) {
     if (_isLockedOut) {
       return 'Too many attempts. Try again in ${_lockoutSecondsRemaining}s';
     }
     if (_hasError) return 'Incorrect PIN. Try again.';
-    return 'Enter your 6-digit PIN to unlock sync';
+    return context.l10n.syncPinSheetSubtitle;
   }
 
   void _onDigit(String digit) {
@@ -160,25 +119,12 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     final success = await ref
         .read(syncHealthProvider.notifier)
         .attemptUnlock(_pin);
->>>>>>> worktree-agent-a6254940
 
     if (!mounted) return;
 
     if (success) {
       Navigator.of(context).pop();
     } else {
-<<<<<<< HEAD
-      setState(() {
-        _isLoading = false;
-        _error = context.l10n.settingsSyncPinWrong;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-=======
       _failedAttempts++;
       if (_failedAttempts >= _maxAttempts) {
         final multiplier = _failedAttempts ~/ _maxAttempts;
@@ -204,7 +150,6 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accentColor = theme.colorScheme.primary;
->>>>>>> worktree-agent-a6254940
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Padding(
@@ -218,21 +163,10 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-<<<<<<< HEAD
-          Icon(
-            AppIcons.lockOutline,
-            size: 40,
-            color: theme.colorScheme.primary,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            context.l10n.settingsSyncPinTitle,
-=======
           Icon(AppIcons.lockOutline, size: 40, color: accentColor),
           const SizedBox(height: 12),
           Text(
-            'Unlock sync',
->>>>>>> worktree-agent-a6254940
+            context.l10n.syncPinSheetTitle,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
@@ -240,33 +174,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
           ),
           const SizedBox(height: 4),
           Text(
-<<<<<<< HEAD
-            context.l10n.settingsSyncPinBody,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          PrismTextField(
-            controller: _controller,
-            obscureText: true,
-            autofocus: true,
-            enabled: !_isLoading,
-            onSubmitted: (_) => _unlock(),
-            labelText: context.l10n.settingsSyncPinFieldLabel,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            errorText: _error,
-          ),
-          const SizedBox(height: 16),
-          PrismButton(
-            label: context.l10n.settingsSyncPinUnlock,
-            onPressed: _unlock,
-            isLoading: _isLoading,
-          ),
-=======
-            _subtitle,
+            _subtitle(context),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: _hasError
                   ? theme.colorScheme.error
@@ -319,13 +227,10 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator()),
             ),
->>>>>>> worktree-agent-a6254940
         ],
       ),
     );
   }
-<<<<<<< HEAD
-=======
 
   List<Widget> _buildRow(int row, ThemeData theme, Color accentColor) {
     if (row < 3) {
@@ -391,5 +296,4 @@ class _SheetNumpadButton extends StatelessWidget {
       ),
     );
   }
->>>>>>> worktree-agent-a6254940
 }

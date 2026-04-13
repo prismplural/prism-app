@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -299,7 +300,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
       // 7. Export raw DEK and cache it (Signal-style: bypasses Argon2id on
       //    next launch). Also derives and caches the database key.
-      await cacheRuntimeKeys(handle);
+      await cacheRuntimeKeys(handle, ref.read(databaseProvider));
       final dekBytes = await ffi.exportDek(handle: handle);
 
       // 8. Store the PIN hash via PinLockService.

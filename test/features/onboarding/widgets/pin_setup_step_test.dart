@@ -5,6 +5,7 @@ import 'package:prism_plurality/core/services/pin_lock_service.dart';
 import 'package:prism_plurality/features/onboarding/widgets/pin_setup_step.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 /// A fake [PinLockService] that records [storePin] calls without touching
 /// platform secure storage.
@@ -33,6 +34,8 @@ Widget _buildWidget({
       isBiometricAvailableProvider.overrideWith((_) async => false),
     ],
     child: MaterialApp(
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
         body: PinSetupStep(onPinConfirmed: onPinConfirmed),
       ),
