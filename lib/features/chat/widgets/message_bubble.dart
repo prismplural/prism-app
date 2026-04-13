@@ -708,6 +708,9 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       imageBytes: mediaAsync.value,
       isLoading: mediaAsync.isLoading,
       hasError: mediaAsync.hasError,
+      onRetry: mediaAsync.hasError
+          ? () => ref.invalidate(mediaFileProvider(params))
+          : null,
       width: attachment.width > 0 ? attachment.width.toDouble() : null,
       height: attachment.height > 0 ? attachment.height.toDouble() : null,
       blurhash: attachment.blurhash.isNotEmpty ? attachment.blurhash : null,

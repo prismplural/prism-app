@@ -5126,6 +5126,24 @@ abstract class AppLocalizations {
   /// **'Failed to load voice note. Tap to retry.'**
   String get chatVoiceNoteError;
 
+  /// Semantics label for image attachment error state with retry
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load image. Tap to retry.'**
+  String get chatImageError;
+
+  /// Toast shown when an image upload fails
+  ///
+  /// In en, this message translates to:
+  /// **'Image failed to send'**
+  String get chatImageUploadFailed;
+
+  /// Toast shown when a voice note upload fails
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note failed to send'**
+  String get chatVoiceNoteUploadFailed;
+
   /// Semantics label for cancel recording button
   ///
   /// In en, this message translates to:

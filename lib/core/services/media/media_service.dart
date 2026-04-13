@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -146,6 +147,46 @@ class MediaService {
       contentHash: data.contentHash,
       encryptedData: data.encryptedAudio,
     ));
+  }
+
+  /// Like [uploadPrepared] but throws [StateError] if either upload fails.
+  /// Uses per-task Completers so it works whether the queue is idle or busy.
+  Future<void> uploadPreparedOrThrow(MediaAttachmentData data) async {
+    final imageCompleter = Completer<void>();
+    final thumbCompleter = Completer<void>();
+
+    await uploadQueue.enqueue(UploadTask(
+      mediaId: data.mediaId,
+      contentHash: data.contentHash,
+      encryptedData: data.encryptedImage,
+      onSuccess: imageCompleter.complete,
+      onFailure: (e) => imageCompleter.completeError(StateError(e)),
+    ));
+    await uploadQueue.enqueue(UploadTask(
+      mediaId: data.thumbnailMediaId,
+      contentHash: data.thumbnailContentHash,
+      encryptedData: data.encryptedThumbnail,
+      onSuccess: thumbCompleter.complete,
+      onFailure: (e) => thumbCompleter.completeError(StateError(e)),
+    ));
+
+    await imageCompleter.future;
+    await thumbCompleter.future;
+  }
+
+  /// Like [uploadVoice] but throws [StateError] if the upload fails.
+  Future<void> uploadVoiceOrThrow(VoiceAttachmentData data) async {
+    final completer = Completer<void>();
+
+    await uploadQueue.enqueue(UploadTask(
+      mediaId: data.mediaId,
+      contentHash: data.contentHash,
+      encryptedData: data.encryptedAudio,
+      onSuccess: completer.complete,
+      onFailure: (e) => completer.completeError(StateError(e)),
+    ));
+
+    await completer.future;
   }
 
   Future<Uint8List?> getMedia({

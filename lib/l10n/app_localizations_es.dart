@@ -2984,6 +2984,15 @@ class AppLocalizationsEs extends AppLocalizations {
       'Error al cargar la nota de voz. Toca para reintentar.';
 
   @override
+  String get chatImageError => 'Failed to load image. Tap to retry.';
+
+  @override
+  String get chatImageUploadFailed => 'Image failed to send';
+
+  @override
+  String get chatVoiceNoteUploadFailed => 'Voice note failed to send';
+
+  @override
   String get chatVoiceRecorderCancel => 'Cancelar grabación';
 
   @override

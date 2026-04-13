@@ -4010,6 +4010,18 @@
   "@chatVoiceNoteError": {
     "description": "Semantics label for voice note error state with retry"
   },
+  "chatImageError": "Failed to load image. Tap to retry.",
+  "@chatImageError": {
+    "description": "Semantics label for image attachment error state with retry"
+  },
+  "chatImageUploadFailed": "Image failed to send",
+  "@chatImageUploadFailed": {
+    "description": "Toast shown when an image upload fails"
+  },
+  "chatVoiceNoteUploadFailed": "Voice note failed to send",
+  "@chatVoiceNoteUploadFailed": {
+    "description": "Toast shown when a voice note upload fails"
+  },
   "chatVoiceRecorderCancel": "Cancel recording",
   "@chatVoiceRecorderCancel": {
     "description": "Semantics label for cancel recording button"

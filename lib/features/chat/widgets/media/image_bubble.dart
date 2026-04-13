@@ -6,6 +6,7 @@ import 'package:blurhash_dart/blurhash_dart.dart';
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/chat/widgets/media/image_viewer.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -19,6 +20,7 @@ class ImageBubble extends StatelessWidget {
     this.imageBytes,
     this.isLoading = false,
     this.hasError = false,
+    this.onRetry,
     this.width,
     this.height,
     this.caption,
@@ -33,6 +35,9 @@ class ImageBubble extends StatelessWidget {
 
   /// Whether the download/decrypt failed.
   final bool hasError;
+
+  /// Called when the user taps the error placeholder to retry a failed download.
+  final VoidCallback? onRetry;
 
   /// Display width constraint.
   final double? width;
@@ -75,7 +80,7 @@ class ImageBubble extends StatelessWidget {
           ? 'Image attachment. Double tap to view full screen.'
           : isLoading
               ? 'Image attachment loading.'
-              : 'Image attachment failed to load.',
+              : context.l10n.chatImageError,
       child: GestureDetector(
         onTap: imageBytes != null
             ? () => ImageViewer.show(
@@ -108,12 +113,12 @@ class ImageBubble extends StatelessWidget {
         fit: BoxFit.cover,
         width: w,
         height: h,
-        errorBuilder: (_, _, _) => _ErrorPlaceholder(width: w, height: h),
+        errorBuilder: (_, _, _) => _ErrorPlaceholder(width: w, height: h, onRetry: onRetry),
       );
     }
 
     if (hasError) {
-      return _ErrorPlaceholder(width: w, height: h);
+      return _ErrorPlaceholder(width: w, height: h, onRetry: onRetry);
     }
 
     // Loading state — show BlurHash placeholder if available, else spinner
@@ -224,25 +229,50 @@ class _BlurhashPlaceholderState extends State<_BlurhashPlaceholder> {
 }
 
 class _ErrorPlaceholder extends StatelessWidget {
-  const _ErrorPlaceholder({required this.width, required this.height});
+  const _ErrorPlaceholder({
+    required this.width,
+    required this.height,
+    this.onRetry,
+  });
 
   final double width;
   final double height;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      width: width,
-      height: height,
-      color: theme.brightness == Brightness.dark
-          ? AppColors.charcoalSurface
-          : AppColors.parchmentElevated,
-      child: Center(
-        child: Icon(
-          AppIcons.imageOutlined,
-          size: 32,
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+    return GestureDetector(
+      onTap: onRetry,
+      child: Container(
+        width: width,
+        height: height,
+        color: theme.brightness == Brightness.dark
+            ? AppColors.charcoalSurface
+            : AppColors.parchmentElevated,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                onRetry != null ? AppIcons.refresh : AppIcons.imageOutlined,
+                size: 28,
+                color: onRetry != null
+                    ? theme.colorScheme.error
+                    : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              ),
+              if (onRetry != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n.chatImageError,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

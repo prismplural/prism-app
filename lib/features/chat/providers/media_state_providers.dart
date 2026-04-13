@@ -65,13 +65,15 @@ final mediaFileProvider =
       plaintextHash: params.plaintextHash,
     );
 
-    if (bytes != null) {
-      // Evict oldest entry when at capacity (FIFO).
-      if (_imageMemoryCache.length >= _maxImageCacheEntries) {
-        _imageMemoryCache.remove(_imageMemoryCache.keys.first);
-      }
-      _imageMemoryCache[params.mediaId] = bytes;
+    if (bytes == null) {
+      throw StateError('Failed to download media: ${params.mediaId}');
     }
+
+    // Evict oldest entry when at capacity (FIFO).
+    if (_imageMemoryCache.length >= _maxImageCacheEntries) {
+      _imageMemoryCache.remove(_imageMemoryCache.keys.first);
+    }
+    _imageMemoryCache[params.mediaId] = bytes;
 
     return bytes;
   },
