@@ -6,6 +6,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Modal sheet that prompts for the 6-digit sync PIN when the cached DEK is
 /// missing but other credentials exist (e.g. after an app update or restart).
@@ -34,11 +35,14 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
   bool _isLoading = false;
   bool _hasError = false;
 
-  // Brute-force throttling
+  // Brute-force throttling — persisted to SharedPreferences so lockout
+  // survives sheet dismissal and app restarts.
   int _failedAttempts = 0;
   DateTime? _lockedUntil;
   static const _maxAttempts = 5;
   static const _baseLockoutSeconds = 30;
+  static const _prefsKeyAttempts = 'prism.sync_pin_failed_attempts';
+  static const _prefsKeyLockedUntil = 'prism.sync_pin_locked_until_ms';
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
@@ -60,6 +64,38 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
       parent: _shakeController,
       curve: Curves.easeInOut,
     ));
+    _loadLockoutState();
+  }
+
+  Future<void> _loadLockoutState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final attempts = prefs.getInt(_prefsKeyAttempts) ?? 0;
+    final lockedUntilMs = prefs.getInt(_prefsKeyLockedUntil);
+    final lockedUntil = lockedUntilMs != null
+        ? DateTime.fromMillisecondsSinceEpoch(lockedUntilMs)
+        : null;
+    if (!mounted) return;
+    setState(() {
+      _failedAttempts = attempts;
+      _lockedUntil = lockedUntil;
+    });
+  }
+
+  Future<void> _saveLockoutState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_prefsKeyAttempts, _failedAttempts);
+    if (_lockedUntil != null) {
+      await prefs.setInt(
+          _prefsKeyLockedUntil, _lockedUntil!.millisecondsSinceEpoch);
+    } else {
+      await prefs.remove(_prefsKeyLockedUntil);
+    }
+  }
+
+  Future<void> _clearLockoutState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefsKeyAttempts);
+    await prefs.remove(_prefsKeyLockedUntil);
   }
 
   @override
@@ -123,6 +159,8 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     if (!mounted) return;
 
     if (success) {
+      await _clearLockoutState();
+      if (!mounted) return;
       Navigator.of(context).pop();
     } else {
       _failedAttempts++;
@@ -132,6 +170,8 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
           Duration(seconds: _baseLockoutSeconds * multiplier),
         );
       }
+      await _saveLockoutState();
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _hasError = true;
