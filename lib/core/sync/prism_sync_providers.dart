@@ -24,6 +24,19 @@ import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 
+// Dart-side sync integration — manages the Rust FFI handle lifecycle, keychain
+// persistence (seed/drain), health state machine, and sync event routing.
+//
+// Keychain keys (all prefixed prism_sync.*) are written by both Dart (during
+// setup/pairing) and Rust FFI (drainRustStore). If you rename a key here, also
+// update the Rust SecureStore drain in prism-sync-ffi/src/api.rs and the key
+// table in app/CLAUDE.md.
+//
+// Signal model: the raw DEK is cached in runtime_dek after first Argon2id
+// unlock so subsequent launches can fast-restore without the password. See
+// _autoConfigureIfReady() for the state machine that decides healthy vs
+// needsPassword vs disconnected.
+
 const _prismSyncStructuredErrorPrefix = 'PRISM_SYNC_ERROR_JSON:';
 
 class PrismSyncStructuredError {
@@ -238,10 +251,16 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
 
 /// Determine sync health and auto-configure if possible.
 ///
-/// Returns [SyncHealthState.healthy] if sync is configured (or not paired).
-/// Returns [SyncHealthState.needsPassword] if runtime_dek is missing but
-/// other credentials exist (user must enter password once).
-/// Returns [SyncHealthState.disconnected] if credentials are gone.
+/// Sync health state machine:
+///   healthy       — sync configured and working (or unpaired, which is OK)
+///   needsPassword — runtime_dek missing, wrapped_dek exists → password modal
+///                   (shown by AppShell listening to syncHealthProvider)
+///   disconnected  — credentials gone → reconnect card in sync settings
+///
+/// Transitions:
+///   startup → this method → one of the three states
+///   DeviceRevoked WebSocket event → disconnected
+///   password entry → Argon2id unlock → healthy
 Future<SyncHealthState> _autoConfigureIfReady(
   ffi.PrismSyncHandle handle,
 ) async {
@@ -530,8 +549,21 @@ Future<void> cacheRuntimeKeys(
     final newHexKey =
         lskBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
     if (currentHexKey != newHexKey) {
-      await rotateDatabaseToKey(db: db, newKey: lskBytes);
+      // Order matters: re-key the Rust sync DB first, then the Drift DB.
+      //
+      // The Rust sync DB key is derived on every startup via localStorageKey()
+      // (HKDF(DEK, DeviceSecret)) — no separate keychain slot. A crash after
+      // rekeyDb() but before rotateDatabaseToKey() completes means the sync DB
+      // has the new key while the Drift DB still has the old one. On the next
+      // launch, cacheRuntimeKeys() sees the mismatch and retries the Drift
+      // rotation — safe because the sync DB is already on the correct key.
+      //
+      // If the order were reversed (Drift first), a crash after rotateDatabaseToKey
+      // would leave the keychain updated to the new key while the sync DB still
+      // has the old key. createPrismSync() would then try to open the sync DB
+      // with the new key and fail permanently.
       await ffi.rekeyDb(handle: handle, newKey: lskBytes);
+      await rotateDatabaseToKey(db: db, newKey: lskBytes);
     }
   } catch (e) {
     // Non-fatal: database will retain its current key. Rotation will be

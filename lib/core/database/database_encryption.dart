@@ -66,11 +66,22 @@ Future<String?> readStagingDatabaseKeyHex() async {
 
 /// Promote the staging key to the primary slot and clean up the staging slot.
 ///
-/// Called during startup crash recovery when a staging slot is found.
+/// Called during startup crash recovery when the staging key has been verified
+/// to open the database (PRAGMA rekey completed before the crash).
 Future<void> promoteStagingDatabaseKey(String stagingHexKey) async {
   await _storage.write(key: kDatabaseKeyStorageKey, value: stagingHexKey);
   await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
   debugPrint('[DB_ENCRYPT] Promoted staging key to primary slot');
+}
+
+/// Discard the staging key slot without promoting it.
+///
+/// Called during startup crash recovery when the staging key does NOT open the
+/// database — meaning the crash happened before PRAGMA rekey, so the DB still
+/// has the old primary key and the staging slot is stale.
+Future<void> discardStagingDatabaseKey() async {
+  await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+  debugPrint('[DB_ENCRYPT] Discarded stale staging key (crash before rekey)');
 }
 
 /// Cache the database encryption key in secure storage.
@@ -165,7 +176,7 @@ Future<void> rotateDatabaseToKey({
 void Function(raw.Database) makeCipherSetup(String hexKey) {
   assert(validateHexKey(hexKey), 'Invalid hex key: expected 64 lowercase hex chars');
   return (raw.Database db) {
-    // Set the encryption key. The x'...' syntax passes raw key bytes.
+    // x'...' hex syntax passes raw key bytes (avoids SQL string escaping issues).
     db.execute("PRAGMA key = \"x'$hexKey'\";");
   };
 }

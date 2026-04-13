@@ -5339,6 +5339,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsChangePinNewRequired => 'Ingresa un nuevo PIN.';
 
   @override
+  String get settingsChangePinInvalidLength =>
+      'El PIN debe tener exactamente 6 dígitos.';
+
+  @override
   String get settingsChangePinSamePin =>
       'Tu PIN de sincronización ya está configurado con ese valor.';
 

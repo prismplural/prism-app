@@ -6287,6 +6287,8 @@
   "@settingsChangePinConfirmLabel": { "description": "Label for the confirm new PIN text field" },
   "settingsChangePinNewRequired": "Enter a new PIN.",
   "@settingsChangePinNewRequired": { "description": "Validation error when new PIN field is empty" },
+  "settingsChangePinInvalidLength": "PIN must be exactly 6 digits.",
+  "@settingsChangePinInvalidLength": { "description": "Validation error when new PIN is not 6 digits" },
   "settingsChangePinSamePin": "Your sync PIN is already set to that.",
   "@settingsChangePinSamePin": { "description": "Error when new PIN is the same as the current PIN" },
   "settingsChangePinMismatch": "PINs don't match.",

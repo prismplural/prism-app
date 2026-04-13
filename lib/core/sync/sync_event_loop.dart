@@ -3,6 +3,11 @@ import 'dart:convert';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 /// Parsed sync event from the Rust FFI layer.
+///
+/// Event types (from prism-sync-core/src/events.rs): RemoteChanges,
+/// SyncCompleted, SyncStarted, Error, DeviceRevoked, EpochRotated,
+/// WebSocketStateChanged. Use the boolean getters (isRemoteChanges, etc.)
+/// to discriminate before accessing type-specific fields.
 class SyncEvent {
   final String type;
   final Map<String, dynamic> data;

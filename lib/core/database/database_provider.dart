@@ -30,12 +30,14 @@ LazyDatabase _openConnection() {
     final file = await getDatabaseFile();
     await _excludeFromiCloudBackup(file.path);
 
-    // Crash-recovery: if the staging slot exists, a previous rekey call
-    // completed the PRAGMA rekey but crashed before writing the primary slot.
-    // Use the staging slot as the authoritative key and clean it up.
+    // Crash-recovery: if the staging slot exists, a previous rekey call may
+    // have completed PRAGMA rekey but crashed before writing the primary slot.
+    // Verify the staging key actually opens the DB before promoting — if the
+    // crash happened before PRAGMA rekey, the staging key was written but the
+    // DB was never rekeyed, so promoting it would make the DB unopenable.
     final stagingKey = await _readStagingKey();
     if (stagingKey != null) {
-      await _recoverFromStagingKey(stagingKey);
+      await _recoverFromStagingKey(stagingKey, file.path);
     }
 
     final hexKey = await readDatabaseKeyHex();
@@ -187,10 +189,32 @@ Future<String?> _readStagingKey() async {
   return null;
 }
 
-/// Promote the staging key to the primary slot and remove the staging slot.
-Future<void> _recoverFromStagingKey(String stagingHexKey) async {
-  debugPrint(
-    '[DB_PROVIDER] Crash-recovery: promoting staging key to primary slot',
-  );
-  await promoteStagingDatabaseKey(stagingHexKey);
+/// Promote the staging key to the primary slot if — and only if — the DB
+/// actually opens with that key.
+///
+/// Two crash scenarios:
+/// 1. Crash AFTER PRAGMA rekey, BEFORE primary-slot write → staging key opens
+///    the DB. Safe to promote.
+/// 2. Crash BEFORE PRAGMA rekey (during or after staging-slot write) → staging
+///    key does NOT open the DB (old key still applies). Discard staging slot;
+///    startup proceeds with the existing primary key.
+Future<void> _recoverFromStagingKey(
+    String stagingHexKey, String dbPath) async {
+  if (!File(dbPath).existsSync()) {
+    // No DB file yet — staging slot is stale. Clean it up.
+    await discardStagingDatabaseKey();
+    return;
+  }
+
+  if (_tryOpenEncrypted(dbPath, stagingHexKey)) {
+    // PRAGMA rekey completed. Staging key is the real key — promote it.
+    debugPrint(
+      '[DB_PROVIDER] Crash-recovery: staging key verified — promoting to primary slot',
+    );
+    await promoteStagingDatabaseKey(stagingHexKey);
+  } else {
+    // PRAGMA rekey did not complete. DB still has the old key.
+    // Discard the staging slot; startup will use the existing primary key.
+    await discardStagingDatabaseKey();
+  }
 }

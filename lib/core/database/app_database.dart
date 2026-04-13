@@ -82,6 +82,9 @@ class AppDatabase extends _$AppDatabase {
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (migrator, from, to) async {
+      // Migrations v1-v29 were consolidated into the initial schema to keep
+      // this file maintainable. Devices with schema <30 must export data,
+      // do a fresh install, and re-import.
       if (from < 30) {
         throw UnsupportedError(
           'Upgrade paths before schema v30 have been squashed. '

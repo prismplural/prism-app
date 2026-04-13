@@ -7,6 +7,13 @@ import 'package:prism_sync_drift/prism_sync_drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 
+/// Applies remote CRDT changes from the Rust sync engine to the local Drift DB.
+///
+/// Type mismatches from newer schema versions are handled gracefully (null-coerced
+/// via _asString/_asInt/_asBool helpers, anomalies quarantined) rather than
+/// failing the sync cycle. If you add a new synced entity, add a corresponding
+/// _fooEntity() builder below and register it in buildSyncAdapterWithCompletion.
+///
 /// Wraps [DriftSyncAdapter] with a [Completer]-based batch completion signal
 /// so callers can await the end of a remote-change batch instead of relying
 /// on a hardcoded delay.
@@ -91,8 +98,10 @@ SyncAdapterWithCompletion buildSyncAdapterWithCompletion(
 // ---------------------------------------------------------------------------
 // Safe type-cast helpers
 // ---------------------------------------------------------------------------
-// These avoid TypeError when remote data has unexpected types. For non-nullable
-// fields a null return means "bad data — skip this field" (use Value.absent()).
+// Remote changes may have unexpected types if a peer runs a newer app version
+// with different schema, or if data was corrupted. Strategy: return null on
+// mismatch so the field is skipped (Value.absent()), not the whole entity.
+// Never throw — let the sync cycle continue.
 
 String? _asString(dynamic value) => value is String ? value : null;
 

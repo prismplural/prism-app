@@ -1,5 +1,16 @@
 import 'package:drift/drift.dart';
 
+/// Singleton settings row (id='singleton').
+///
+/// Fields fall into two sync tiers:
+/// - **Synced** — appearance, terminology, feature toggles, timing mode.
+///   Changes propagate to all devices via CRDT.
+/// - **Device-local** — font scale, biometric lock, autoLock, display font,
+///   nav bar layout, habit badge. Stays on this device only.
+///
+/// When adding a new setting, decide which tier it belongs to and add it to
+/// the appropriate section below. Synced fields also need a sync_schema.dart
+/// entry and a DriftSyncAdapter handler in drift_sync_adapter.dart.
 @DataClassName('SystemSettingsData')
 class SystemSettingsTable extends Table {
   TextColumn get id => text().withDefault(const Constant('singleton'))();
