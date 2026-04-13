@@ -12,13 +12,21 @@ import 'package:prism_plurality/core/services/secure_storage.dart';
 // Secure storage keys
 // ---------------------------------------------------------------------------
 
-/// Hex-encoded 32-byte database encryption key stored in the platform keychain.
-///
-/// On first launch this is populated with a CSPRNG-generated random key
-/// (Signal model). If sync is set up later, the existing key is preserved —
-/// see the guard in `cacheRuntimeKeys()` at prism_sync_providers.dart which
-/// checks `existingKey == null` before writing the HKDF-derived key.
+/// Hex-encoded 32-byte key for the Drift app database (`prism.db`).
 const kDatabaseKeyStorageKey = 'prism_sync.database_key';
+
+/// Hex-encoded 32-byte key for the Rust sync database (`prism_sync.db`).
+///
+/// Stored separately from [kDatabaseKeyStorageKey] so that crash-safe rotation
+/// of the two databases can be staged independently. Both keys converge to the
+/// same HKDF-derived local-storage key after `cacheRuntimeKeys` completes, but
+/// are rotated one at a time (Drift first, then Rust) with their own staging
+/// slots for crash recovery.
+///
+/// For existing installs that pre-date this slot, [ensureLocalSyncDatabaseKey]
+/// seeds it from [kDatabaseKeyStorageKey] so `createPrismSync` keeps opening
+/// the sync DB with the same key it was using before.
+const kSyncDatabaseKeyStorageKey = 'prism_sync.sync_database_key';
 
 const _storage = secureStorage;
 
@@ -133,8 +141,113 @@ Future<String> ensureLocalDatabaseKey() async {
 /// BEFORE calling this — otherwise next launch has no key for an encrypted DB.
 Future<void> clearDatabaseEncryptionState() async {
   await _storage.delete(key: kDatabaseKeyStorageKey);
-  // Also clear any leftover staging slot.
   await _storage.delete(key: '${kDatabaseKeyStorageKey}_staging');
+  // Also clear the sync DB dedicated slot and its staging slot.
+  await _storage.delete(key: kSyncDatabaseKeyStorageKey);
+  await _storage.delete(key: '${kSyncDatabaseKeyStorageKey}_staging');
+}
+
+// ---------------------------------------------------------------------------
+// Rust sync database key management (prism_sync.db)
+// ---------------------------------------------------------------------------
+//
+// The Rust sync database uses a DEDICATED keychain slot so its key can be
+// rotated independently from the Drift app database. Both converge to the
+// same HKDF-derived local-storage key after cacheRuntimeKeys completes, but
+// they are rotated one at a time (Drift first, Rust second) so a crash between
+// the two rotations is safely recoverable via each DB's own staging slot.
+
+/// Read the Rust sync database key from secure storage.
+Future<String?> readSyncDatabaseKeyHex() async {
+  final hex = await _storage.read(key: kSyncDatabaseKeyStorageKey);
+  if (hex != null && !validateHexKey(hex)) {
+    debugPrint(
+      '[DB_ENCRYPT] Invalid sync DB key in keychain (${hex.length} chars) — treating as missing',
+    );
+    return null;
+  }
+  return hex;
+}
+
+/// Read the staging sync database key from secure storage.
+Future<String?> readStagingSyncDatabaseKeyHex() async {
+  final hex =
+      await _storage.read(key: '${kSyncDatabaseKeyStorageKey}_staging');
+  if (hex != null && !validateHexKey(hex)) {
+    debugPrint('[DB_ENCRYPT] Invalid sync DB staging key — ignoring');
+    return null;
+  }
+  return hex;
+}
+
+/// Promote the sync DB staging key to the primary slot.
+Future<void> promoteStagingSyncDatabaseKey(String stagingHexKey) async {
+  await _storage.write(key: kSyncDatabaseKeyStorageKey, value: stagingHexKey);
+  await _storage.delete(key: '${kSyncDatabaseKeyStorageKey}_staging');
+  debugPrint('[DB_ENCRYPT] Promoted sync DB staging key to primary slot');
+}
+
+/// Discard the sync DB staging slot without promoting it.
+Future<void> discardStagingSyncDatabaseKey() async {
+  await _storage.delete(key: '${kSyncDatabaseKeyStorageKey}_staging');
+  debugPrint('[DB_ENCRYPT] Discarded stale sync DB staging key');
+}
+
+/// Ensure a Rust sync database key exists in the platform keychain.
+///
+/// For existing installs (before this slot was introduced), seeds the sync
+/// slot from the Drift [kDatabaseKeyStorageKey] slot so that `createPrismSync`
+/// continues to open the sync DB with the same key it was using before the
+/// split. On fresh installs both slots are generated independently.
+Future<String> ensureLocalSyncDatabaseKey() async {
+  final existing = await readSyncDatabaseKeyHex();
+  if (existing != null) return existing;
+
+  // Migration path: the sync DB was previously opened with the Drift key.
+  // Copy it to the new dedicated slot so the DB remains openable.
+  final driftKey = await readDatabaseKeyHex();
+  if (driftKey != null) {
+    await _storage.write(key: kSyncDatabaseKeyStorageKey, value: driftKey);
+    debugPrint(
+      '[DB_ENCRYPT] Migrated sync DB key from Drift slot to dedicated slot',
+    );
+    return driftKey;
+  }
+
+  // Neither slot exists — generate a fresh key.
+  final rng = Random.secure();
+  final bytes = Uint8List(32);
+  for (var i = 0; i < 32; i++) {
+    bytes[i] = rng.nextInt(256);
+  }
+  final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  await _storage.write(key: kSyncDatabaseKeyStorageKey, value: hex);
+  debugPrint('[DB_ENCRYPT] Generated and cached new sync database key');
+  return hex;
+}
+
+// ---------------------------------------------------------------------------
+// Shared probe utility
+// ---------------------------------------------------------------------------
+
+/// Try to open an encrypted SQLite file at [path] with [hexKey].
+/// Returns true if the file exists, opens, and responds to a query.
+///
+/// Used by both the Drift crash-recovery path (database_provider.dart) and
+/// the Rust sync DB staging-recovery path (prism_sync_providers.dart).
+bool tryOpenEncryptedDb(String path, String hexKey) {
+  try {
+    final db = raw.sqlite3.open(path);
+    try {
+      db.execute("PRAGMA key = \"x'$hexKey'\";");
+      db.select('SELECT count(*) FROM sqlite_master;');
+      return true;
+    } finally {
+      db.close();
+    }
+  } catch (_) {
+    return false;
+  }
 }
 
 /// Rotate the DB encryption key using PRAGMA rekey on an open Drift connection.
@@ -150,7 +263,11 @@ Future<void> rotateDatabaseToKey({
   required AppDatabase db,
   required Uint8List newKey,
 }) async {
-  assert(newKey.length == 32);
+  if (newKey.length != 32) {
+    throw ArgumentError(
+      'rotateDatabaseToKey: key must be exactly 32 bytes, got ${newKey.length}',
+    );
+  }
   final newHexKey =
       newKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   // Write staging slot first — crash recovery: if we crash after PRAGMA rekey

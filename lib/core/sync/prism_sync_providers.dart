@@ -195,7 +195,30 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     final previousHandle = _handle;
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
-    final databaseKeyHex = await ensureLocalDatabaseKey();
+
+    // Crash recovery for the Rust sync DB staging slot.
+    //
+    // If a previous cacheRuntimeKeys() wrote the sync DB staging slot but
+    // crashed between rekeyDb() and the primary slot write, we need to detect
+    // which state the DB is in and promote or discard the staging slot before
+    // passing any key to createPrismSync.
+    final syncStagingKey = await readStagingSyncDatabaseKeyHex();
+    if (syncStagingKey != null) {
+      if (File(dbPath).existsSync() &&
+          tryOpenEncryptedDb(dbPath, syncStagingKey)) {
+        // rekeyDb() completed — promote the staging key to the primary slot.
+        debugPrint(
+          '[SYNC] Crash-recovery: sync DB staging key verified — promoting',
+        );
+        await promoteStagingSyncDatabaseKey(syncStagingKey);
+      } else {
+        // rekeyDb() did NOT complete — staging key is stale. The DB still has
+        // the key from the primary slot; discard staging and proceed normally.
+        await discardStagingSyncDatabaseKey();
+      }
+    }
+
+    final databaseKeyHex = await ensureLocalSyncDatabaseKey();
     final databaseKey = await ffi.hexDecode(hexStr: databaseKeyHex);
     final handle = await ffi.createPrismSync(
       relayUrl: relayUrl,
@@ -540,36 +563,90 @@ Future<void> cacheRuntimeKeys(
   final dekB64 = base64Encode(dekBytes);
   await _storage.write(key: kRuntimeDekKey, value: dekB64);
 
-  // Rotate both DBs to derived key (HKDF(DEK, DeviceSecret))
+  // Rotate both DBs to the HKDF-derived local storage key.
+  //
+  // Each DB has its own dedicated keychain slot and staging slot for crash
+  // safety. The two databases are rotated independently:
+  //
+  //   1. Drift app DB (prism.db): uses rotateDatabaseToKey() which writes a
+  //      staging slot, issues PRAGMA rekey, updates the primary slot, and
+  //      deletes the staging slot. Crash recovery is handled in
+  //      database_provider.dart _openConnection() on the next startup.
+  //
+  //   2. Rust sync DB (prism_sync.db): uses the same staging protocol via
+  //      rotateSyncDatabaseKey(). Crash recovery is handled in createHandle()
+  //      on the next startup before createPrismSync() is called.
+  //
+  // Order: Drift first, Rust second.
+  //
+  // A crash between the two rotations leaves Drift on LSK (new key) and Rust
+  // on the old key. On the next launch:
+  //   - createHandle() opens the sync DB with the old key (primary sync slot
+  //     was not yet updated) — succeeds.
+  //   - _autoConfigureIfReady → cacheRuntimeKeys: reads both slots, sees
+  //     sync slot ≠ LSK, retries the sync DB rotation only.
+  //
+  // This ordering is safe because each DB's slot is updated atomically within
+  // its own staging protocol, and the mismatch check below covers BOTH slots.
   try {
     final lskBytes = Uint8List.fromList(
       await ffi.localStorageKey(handle: handle),
     );
-    final currentHexKey = await readDatabaseKeyHex();
     final newHexKey =
         lskBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    if (currentHexKey != newHexKey) {
-      // Order matters: re-key the Rust sync DB first, then the Drift DB.
-      //
-      // The Rust sync DB key is derived on every startup via localStorageKey()
-      // (HKDF(DEK, DeviceSecret)) — no separate keychain slot. A crash after
-      // rekeyDb() but before rotateDatabaseToKey() completes means the sync DB
-      // has the new key while the Drift DB still has the old one. On the next
-      // launch, cacheRuntimeKeys() sees the mismatch and retries the Drift
-      // rotation — safe because the sync DB is already on the correct key.
-      //
-      // If the order were reversed (Drift first), a crash after rotateDatabaseToKey
-      // would leave the keychain updated to the new key while the sync DB still
-      // has the old key. createPrismSync() would then try to open the sync DB
-      // with the new key and fail permanently.
-      await ffi.rekeyDb(handle: handle, newKey: lskBytes);
+
+    // Check Drift slot.
+    final currentDriftKey = await readDatabaseKeyHex();
+    if (currentDriftKey != newHexKey) {
       await rotateDatabaseToKey(db: db, newKey: lskBytes);
     }
+
+    // Check sync DB slot independently — it may lag if a previous rotation
+    // crashed between the Drift and Rust rotations.
+    final currentSyncKey = await readSyncDatabaseKeyHex();
+    if (currentSyncKey != newHexKey) {
+      await _rotateSyncDatabaseKey(handle: handle, newKey: lskBytes);
+    }
   } catch (e) {
-    // Non-fatal: database will retain its current key. Rotation will be
+    // Non-fatal: databases will retain their current keys. Rotation will be
     // retried on the next unlock when cacheRuntimeKeys is called again.
-    debugPrint('[SYNC] Failed to rotate database to derived key: $e');
+    debugPrint('[SYNC] Failed to rotate database keys to derived key: $e');
   }
+}
+
+/// Rotate the Rust sync database to [newKey] using the same staging protocol
+/// as [rotateDatabaseToKey] for the Drift app database.
+///
+/// 1. Write staging slot — crash recovery on next startup if we die here or
+///    between rekeyDb() and the primary-slot write.
+/// 2. rekeyDb() — re-encrypts prism_sync.db in place.
+/// 3. Write primary slot.
+/// 4. Delete staging slot.
+///
+/// Crash recovery is handled in [PrismSyncHandleNotifier.createHandle] before
+/// [ffi.createPrismSync] is called, mirroring the Drift recovery in
+/// _openConnection() in database_provider.dart.
+Future<void> _rotateSyncDatabaseKey({
+  required ffi.PrismSyncHandle handle,
+  required Uint8List newKey,
+}) async {
+  if (newKey.length != 32) {
+    throw ArgumentError(
+      '_rotateSyncDatabaseKey: key must be exactly 32 bytes, got ${newKey.length}',
+    );
+  }
+  final newHexKey =
+      newKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  // Write staging slot before rekeyDb — crash before rekeyDb means staging key
+  // ≠ DB key, so createHandle discards the staging slot on next startup.
+  await _storage.write(
+    key: '${kSyncDatabaseKeyStorageKey}_staging',
+    value: newHexKey,
+  );
+  await ffi.rekeyDb(handle: handle, newKey: newKey);
+  await _storage.write(key: kSyncDatabaseKeyStorageKey, value: newHexKey);
+  await _storage.delete(key: '${kSyncDatabaseKeyStorageKey}_staging');
+  debugPrint('[SYNC] Rust sync DB rotated to HKDF-derived local storage key');
 }
 
 /// Pure, testable core of the keychain-write phase of `drainRustStore`.
