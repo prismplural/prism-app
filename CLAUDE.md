@@ -36,10 +36,10 @@ flutter_rust_bridge_codegen generate          # Regenerate Dart bindings after A
 
 ### Key Hierarchy
 ```
-Password + SecretKey (BIP39 mnemonic) → Argon2id (64 MiB, 3 iterations, parallelism=1) → MEK
+PIN (6-digit) + SecretKey (BIP39 mnemonic) → Argon2id (64 MiB, 3 iterations, parallelism=1) → MEK
 MEK wraps random DEK via XSalsa20-Poly1305
   DEK → HKDF-SHA256(info="epoch_sync\0", salt=epoch.to_be_bytes()) → Epoch 0 sync key (XChaCha20-Poly1305)
-  DEK → HKDF-SHA256(info="prism_database_key") → Database key
+  DEK+DeviceSecret → HKDF-SHA256(IKM=DEK, salt=DeviceSecret, info="prism_local_storage_v2") → Local storage key (DB + media keys)
   DEK → HKDF-SHA256(info="prism_group_invite") → Group invite secret (reserved)
 DeviceSecret (32 bytes, per-device CSPRNG — NOT derived from DEK)
   → HKDF-SHA256(info="prism_device_ed25519", salt=device_id) → Ed25519 signing keypair
@@ -48,7 +48,7 @@ DeviceSecret (32 bytes, per-device CSPRNG — NOT derived from DEK)
   → HKDF-SHA256(info="prism_device_ml_kem_768", salt=device_id, len=64) → ML-KEM-768 PQ KEM keypair
   → HKDF-SHA256(info="prism_device_xwing_rekey", salt=device_id) → X-Wing hybrid KEM keypair
 ```
-- Password changes = re-wrap DEK only, no data re-encryption
+- PIN changes = re-wrap DEK only, no data re-encryption
 - SecretKey is a BIP39 12-word mnemonic (128-bit entropy)
 - Later epoch keys (>0) delivered via X-Wing KEM during device revocation/rekeying
 - Batch signatures use hybrid Ed25519 + ML-DSA-65 (protocol V3)
@@ -57,7 +57,7 @@ DeviceSecret (32 bytes, per-device CSPRNG — NOT derived from DEK)
 On first setup, the raw DEK is cached in the platform keychain (`prism_sync.runtime_dek`) so subsequent app launches bypass the expensive Argon2id derivation. The Rust FFI provides:
 - `restoreRuntimeKeys(handle, dek, deviceSecret)` — fast restore from keychain
 - `exportDek(handle)` — export raw DEK after first unlock for caching
-- `ffi.unlock(handle, password, secretKey)` — full Argon2id path (fallback only)
+- `ffi.unlock(handle, pin, secretKey)` — full Argon2id path (fallback only; `pin` is the 6-digit PIN string)
 
 ### Secure Storage Configuration
 **All sync credentials use a centralized `FlutterSecureStorage` instance** defined in `lib/core/services/secure_storage.dart`:
@@ -80,11 +80,12 @@ On first setup, the raw DEK is cached in the platform keychain (`prism_sync.runt
 | `epoch` | base64(epoch counter) | Rust (drain) |
 | `mnemonic` | base64(BIP39 phrase) | Rust (drain) |
 | `runtime_dek` | base64(raw 32-byte DEK) | Dart (`cacheRuntimeKeys`) |
+| `biometric_dek` | base64(raw 32-byte DEK, biometric-gated) | Dart (`BiometricService.enroll`) |
 
 ### Sync Health System
 `SyncHealthState` enum tracks sync credential health:
 - `healthy` — sync configured and working (or not paired)
-- `needsPassword` — `runtime_dek` missing but `wrapped_dek` exists (shows password modal via `AppShell` listener)
+- `needsPassword` — `runtime_dek` missing but `wrapped_dek` exists (shows `SyncPinSheet` PIN prompt via `AppShell` listener)
 - `disconnected` — credentials wiped or device revoked (shows reconnect card in sync settings)
 
 `DeviceRevoked` events from the relay WebSocket automatically transition to `disconnected`.
