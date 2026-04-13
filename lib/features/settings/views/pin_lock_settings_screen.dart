@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
 
 /// Settings screen for PIN lock, biometric unlock, and auto-lock delay.
 class PinLockSettingsScreen extends ConsumerStatefulWidget {
@@ -303,12 +304,16 @@ class _CapturePinScreen extends StatefulWidget {
 }
 
 class _CapturePinScreenState extends State<_CapturePinScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   String _pin = '';
   static const _pinLength = 6;
 
   late AnimationController _shakeController;
   late Animation<double> _shakeAnimation;
+
+  late AnimationController _dotController;
+  late Animation<double> _dotScaleAnim;
+  int? _lastFilledDotIndex;
 
   @override
   void initState() {
@@ -327,11 +332,20 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
         ]).animate(
           CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
         );
+    _dotController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _dotScaleAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _dotController, curve: Curves.easeOutBack));
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
+    _dotController.dispose();
     super.dispose();
   }
 
@@ -355,6 +369,10 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
     if (_pin.length >= _pinLength) return;
     Haptics.light();
     setState(() => _pin += digit);
+    if (!MediaQuery.of(context).disableAnimations) {
+      setState(() => _lastFilledDotIndex = _pin.length - 1);
+      _dotController.forward(from: 0);
+    }
     if (_pin.length == _pinLength) {
       _onPinComplete();
     }
@@ -381,7 +399,10 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
   void _showError() {
     HapticFeedback.heavyImpact();
     _shakeController.forward(from: 0);
-    setState(() => _pin = '');
+    setState(() {
+      _pin = '';
+      _lastFilledDotIndex = null;
+    });
   }
 
   @override
@@ -434,15 +455,22 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
                   final filled = i < _pin.length;
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      width: 16,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: filled
-                            ? accentColor
-                            : accentColor.withValues(alpha: 0.15),
+                    child: AnimatedBuilder(
+                      animation: _dotScaleAnim,
+                      builder: (context, child) => Transform.scale(
+                        scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
+                        child: child,
+                      ),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 16,
+                        height: 16,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: filled
+                              ? accentColor
+                              : accentColor.withValues(alpha: 0.15),
+                        ),
                       ),
                     ),
                   );
@@ -459,7 +487,7 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: _buildRow(row),
+                        children: _buildRow(context, row),
                       ),
                     ),
                 ],
@@ -472,53 +500,22 @@ class _CapturePinScreenState extends State<_CapturePinScreen>
     );
   }
 
-  List<Widget> _buildRow(int row) {
+  List<Widget> _buildRow(BuildContext context, int row) {
     if (row < 3) {
       return List.generate(3, (col) {
         final digit = '${row * 3 + col + 1}';
-        return _NumpadKey(label: digit, onTap: () => _onDigit(digit));
+        return PinNumpadButton(label: digit, onTap: () => _onDigit(digit), size: 72);
       });
     }
     return [
       const SizedBox(width: 72, height: 72),
-      _NumpadKey(label: '0', onTap: () => _onDigit('0')),
-      _NumpadKey(icon: AppIcons.backspaceOutlined, onTap: _onBackspace),
-    ];
-  }
-}
-
-class _NumpadKey extends StatelessWidget {
-  const _NumpadKey({this.label, this.icon, required this.onTap});
-
-  final String? label;
-  final IconData? icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 72,
-        height: 72,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: theme.colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.5,
-          ),
-        ),
-        child: label != null
-            ? Text(
-                label!,
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
-                ),
-              )
-            : Icon(icon, size: 24, color: theme.colorScheme.onSurface),
+      PinNumpadButton(label: '0', onTap: () => _onDigit('0'), size: 72),
+      PinNumpadButton(
+        icon: AppIcons.backspaceOutlined,
+        onTap: _onBackspace,
+        size: 72,
+        semanticLabel: context.l10n.delete,
       ),
-    );
+    ];
   }
 }
