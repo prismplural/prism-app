@@ -117,6 +117,7 @@ class KlipyService {
   static const _baseUrl = 'https://api.klipy.com';
   static const _contentFilter = 'medium';
   static const _defaultLimit = 30;
+  static const _httpTimeout = Duration(seconds: 15);
 
   final http.Client _http;
 
@@ -187,7 +188,7 @@ class KlipyService {
       response = await _http.get(uri, headers: {
         'Accept': 'application/json',
         'User-Agent': 'PrismPlurality/1.0',
-      });
+      }).timeout(_httpTimeout);
     } on Exception {
       // Network errors (DNS, timeout, etc.) — let them propagate.
       rethrow;

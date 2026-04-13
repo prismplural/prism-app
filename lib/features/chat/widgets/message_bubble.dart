@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -303,7 +305,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       destructive: true,
     );
     if (confirmed) {
-      ref.read(chatNotifierProvider.notifier).deleteMessage(widget.message.id);
+      unawaited(ref.read(chatNotifierProvider.notifier).deleteMessage(widget.message.id));
     }
   }
 

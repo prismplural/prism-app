@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -19,7 +21,14 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 /// Provider to watch a single note by ID.
 final noteByIdProvider =
-    StreamProvider.family<Note?, String>((ref, id) async* {
+    StreamProvider.autoDispose.family<Note?, String>((ref, id) async* {
+  final link = ref.keepAlive();
+  Timer? timer;
+  ref.onDispose(() => timer?.cancel());
+  ref.onCancel(() {
+    timer = Timer(const Duration(seconds: 30), link.close);
+  });
+  ref.onResume(() => timer?.cancel());
   final repo = ref.watch(notesRepositoryProvider);
   final note = await repo.getNoteById(id);
   yield note;
@@ -41,9 +50,9 @@ class NoteDetailScreen extends ConsumerWidget {
         topBar: PrismTopBar(title: l10n.memberNoteTitle, showBackButton: true),
         body: const PrismLoadingState(),
       ),
-      error: (e, _) => PrismPageScaffold(
+      error: (_, _) => PrismPageScaffold(
         topBar: PrismTopBar(title: l10n.memberNoteTitle, showBackButton: true),
-        body: Center(child: Text('Error: $e')),
+        body: Center(child: Text(l10n.error)),
       ),
       data: (note) {
         if (note == null) {
@@ -156,7 +165,7 @@ class _NoteDetailBody extends ConsumerWidget {
       destructive: true,
     );
     if (confirmed) {
-      ref.read(noteNotifierProvider.notifier).deleteNote(note.id);
+      unawaited(ref.read(noteNotifierProvider.notifier).deleteNote(note.id));
       if (context.mounted) Navigator.of(context).pop();
     }
   }

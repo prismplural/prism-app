@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -145,7 +147,7 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
       await controller.setVolume(0.0);
       await controller.initialize();
       if (!mounted) {
-        controller.dispose();
+        unawaited(controller.dispose());
         return;
       }
       setState(() => _isVideoInitialized = true);

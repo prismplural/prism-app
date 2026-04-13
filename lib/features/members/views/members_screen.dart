@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -171,7 +173,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       ),
     );
     if (result != null && mounted) {
-      context.push(_memberPath(context, result));
+      unawaited(context.push(_memberPath(context, result)));
     }
   }
 
@@ -189,7 +191,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     );
     if (confirmed) {
       Haptics.heavy();
-      ref.read(membersNotifierProvider.notifier).deleteMember(memberId);
+      unawaited(ref.read(membersNotifierProvider.notifier).deleteMember(memberId));
     }
     return confirmed;
   }
@@ -210,7 +212,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
   Future<void> _reorderBy(List<Member> members, int Function(Member a, Member b) compare) async {
     final sorted = [...members]..sort(compare);
-    ref.read(membersNotifierProvider.notifier).reorderMembers(sorted);
+    unawaited(ref.read(membersNotifierProvider.notifier).reorderMembers(sorted));
     Haptics.selection();
     if (mounted) PrismToast.show(context, message: context.l10n.memberOrderUpdated);
   }
@@ -229,7 +231,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       final bCount = statsMap[b.id] ?? 0;
       return descending ? bCount.compareTo(aCount) : aCount.compareTo(bCount);
     });
-    ref.read(membersNotifierProvider.notifier).reorderMembers(sorted);
+    unawaited(ref.read(membersNotifierProvider.notifier).reorderMembers(sorted));
     Haptics.selection();
     if (mounted) PrismToast.show(context, message: context.l10n.memberOrderUpdated);
   }

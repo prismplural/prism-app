@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -434,9 +436,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     if (!confirmed) return false;
     Haptics.heavy();
-    ref
+    unawaited(ref
         .read(chatNotifierProvider.notifier)
-        .deleteConversation(conversation.id);
+        .deleteConversation(conversation.id));
     return true;
   }
 

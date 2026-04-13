@@ -116,7 +116,7 @@ class _SystemManagementScreenState
       bodyPadding: EdgeInsets.zero,
       body: membersAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (_, _) => Center(child: Text(l10n.error)),
         data: (allMembers) {
           final activeMembers = allMembers.where((m) => m.isActive).toList();
           final inactiveMembers = allMembers.where((m) => !m.isActive).toList();

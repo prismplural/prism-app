@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
@@ -472,7 +474,7 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
       if (!confirmed || !mounted) return;
     }
 
-    _runGeneration(preset);
+    unawaited(_runGeneration(preset));
   }
 
   Future<void> _runGeneration(StressPreset preset) async {

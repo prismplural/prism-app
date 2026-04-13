@@ -176,7 +176,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       );
 
       // Automatically start polling for SAS after showing the QR
-      _waitForSas(handle, myGeneration);
+      unawaited(_waitForSas(handle, myGeneration));
     } catch (e) {
       final structuredError = PrismSyncStructuredError.tryParse(e);
       if (_generation != myGeneration) return;

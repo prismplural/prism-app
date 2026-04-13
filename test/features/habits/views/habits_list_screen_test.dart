@@ -445,6 +445,7 @@ class _FakeHabitRepository implements HabitRepository {
       }).toList();
     }
 
+    // ignore: close_sinks
     final controller = StreamController<List<HabitCompletion>>();
     controller.add(filter(_allCompletions));
     final sub = _allCompletionsController.stream.listen((value) {
@@ -469,6 +470,7 @@ class _FakeHabitRepository implements HabitRepository {
       }).toList();
     }
 
+    // ignore: close_sinks
     final controller = StreamController<List<HabitCompletion>>();
     controller.add(filter(_allCompletions));
     final sub = _allCompletionsController.stream.listen((value) {
@@ -482,6 +484,7 @@ class _FakeHabitRepository implements HabitRepository {
   Stream<List<HabitCompletion>> watchCompletionsForHabit(String habitId) {
     List<HabitCompletion> filter(List<HabitCompletion> source) =>
         source.where((c) => c.habitId == habitId).toList();
+    // ignore: close_sinks
     final controller = StreamController<List<HabitCompletion>>();
     controller.add(filter(_allCompletions));
     final sub = _allCompletionsController.stream.listen((value) {

@@ -6,14 +6,14 @@ import 'package:prism_plurality/core/database/database_providers.dart';
 
 /// Watches comments for a specific session.
 final sessionCommentsProvider =
-    StreamProvider.family<List<FrontSessionComment>, String>((ref, sessionId) {
+    StreamProvider.autoDispose.family<List<FrontSessionComment>, String>((ref, sessionId) {
   final repo = ref.watch(frontSessionCommentsRepositoryProvider);
   return repo.watchCommentsForSession(sessionId);
 });
 
 /// Watches comment count for a specific session.
 final commentCountProvider =
-    StreamProvider.family<int, String>((ref, sessionId) {
+    StreamProvider.autoDispose.family<int, String>((ref, sessionId) {
   final repo = ref.watch(frontSessionCommentsRepositoryProvider);
   return repo.watchCommentCount(sessionId);
 });

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -50,7 +52,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     );
     if (confirmed) {
       Haptics.heavy();
-      ref.read(groupNotifierProvider.notifier).deleteGroup(group.id);
+      unawaited(ref.read(groupNotifierProvider.notifier).deleteGroup(group.id));
       if (mounted) {
         PrismToast.show(context, message: context.l10n.memberGroupDeleted(group.name));
       }

@@ -28,7 +28,7 @@ class QuickFrontSection extends ConsumerWidget {
         height: 100,
         child: PrismLoadingState(),
       ),
-      error: (e, _) => Text('Error: $e'),
+      error: (_, _) => Text(context.l10n.error),
       data: (members) {
         final activeSessions = sessionsAsync.value ?? [];
         // Collect all member IDs with an open session

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -85,11 +86,11 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     if (image == null) return;
 
     final bytes = await image.readAsBytes();
-    ref.read(settingsNotifierProvider.notifier).updateSystemAvatarData(bytes);
+    unawaited(ref.read(settingsNotifierProvider.notifier).updateSystemAvatarData(bytes));
   }
 
   Future<void> _removeAvatar() async {
-    ref.read(settingsNotifierProvider.notifier).updateSystemAvatarData(null);
+    unawaited(ref.read(settingsNotifierProvider.notifier).updateSystemAvatarData(null));
   }
 
   @override

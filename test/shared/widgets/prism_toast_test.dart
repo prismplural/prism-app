@@ -36,12 +36,22 @@ void main() {
         ),
       );
 
-      PrismToast.show(nestedOverlayContext, message: 'First toast');
+      // Show first toast with a long duration to prevent auto-dismiss
+      // from racing with assertions (fixes flaky test under slow CI).
+      PrismToast.show(
+        nestedOverlayContext,
+        message: 'First toast',
+        duration: const Duration(minutes: 5),
+      );
       await tester.pump();
 
       expect(find.text('First toast'), findsOneWidget);
 
-      PrismToast.show(nestedOverlayContext, message: 'Second toast');
+      PrismToast.show(
+        nestedOverlayContext,
+        message: 'Second toast',
+        duration: const Duration(minutes: 5),
+      );
       await tester.pump();
 
       expect(find.text('First toast'), findsNothing);
@@ -77,7 +87,12 @@ void main() {
       ),
     );
 
-    PrismToast.show(context, message: 'Dismiss me');
+    PrismToast.show(
+      context,
+      message: 'Dismiss me',
+      duration: const Duration(minutes: 5),
+    );
+    // Settle the entrance animation so the dismiss button is tappable.
     await tester.pumpAndSettle();
 
     expect(find.text('Dismiss me'), findsOneWidget);

@@ -270,7 +270,7 @@ class _EditFrontSessionScreenState
       bodyPadding: EdgeInsets.zero,
       body: sessionAsync.when(
         loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (_, _) => Center(child: Text(context.l10n.error)),
         data: (session) {
           if (session == null) {
             return Center(child: Text(context.l10n.frontingSessionNotFound));
@@ -343,7 +343,7 @@ class _EditFrontSessionScreenState
               const SizedBox(height: 12),
               membersAsync.when(
                 loading: () => const PrismLoadingState(),
-                error: (e, _) => Text('Error: $e'),
+                error: (_, _) => Text(context.l10n.error),
                 data: (members) => _MemberSelector(
                   members: members,
                   selectedId: _memberId,

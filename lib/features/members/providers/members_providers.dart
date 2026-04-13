@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,7 +22,14 @@ final activeMembersProvider = StreamProvider<List<Member>>((ref) {
 
 /// Single member by ID.
 final memberByIdProvider =
-    StreamProvider.family<Member?, String>((ref, id) {
+    StreamProvider.autoDispose.family<Member?, String>((ref, id) {
+  final link = ref.keepAlive();
+  Timer? timer;
+  ref.onDispose(() => timer?.cancel());
+  ref.onCancel(() {
+    timer = Timer(const Duration(seconds: 30), link.close);
+  });
+  ref.onResume(() => timer?.cancel());
   final repo = ref.watch(memberRepositoryProvider);
   return repo.watchMemberById(id);
 });
