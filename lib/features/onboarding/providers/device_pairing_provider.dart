@@ -231,11 +231,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     );
   }
 
-<<<<<<< HEAD
-  /// Complete the joiner ceremony with the user's PIN.
-  Future<void> completeJoinerWithPin(String pin) async {
-    if (pin.trim().isEmpty) {
-=======
   /// Complete the joiner ceremony with the user's PIN (6-digit).
   ///
   /// Delegates to [completeJoinerWithPassword] — PIN is used as the sync
@@ -247,7 +242,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// Complete the joiner ceremony with the user's password.
   Future<void> completeJoinerWithPassword(String password) async {
     if (password.trim().isEmpty) {
->>>>>>> worktree-agent-a6254940
       state = state.copyWith(
         step: PairingStep.error,
         errorMessage: 'PIN cannot be empty.',
@@ -276,7 +270,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
         await pairingApi.completeJoinerCeremony(
           handle: handle,
-          password: pin,
+          password: password,
         );
 
         if (_generation != myGeneration) return;

@@ -2,10 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
-<<<<<<< HEAD
-import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
-=======
->>>>>>> worktree-agent-a6254940
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -62,14 +58,9 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
               ref.read(devicePairingProvider.notifier).confirmSas(),
           onReject: () => ref.read(devicePairingProvider.notifier).reset(),
         );
-<<<<<<< HEAD
       case PairingStep.enterPin:
-        child = _PasswordView(
-          key: const ValueKey('pin'),
-=======
-      case PairingStep.enterPassword:
         child = _PairingPinCapture(
->>>>>>> worktree-agent-a6254940
+          key: const ValueKey('pin'),
           onBack: () => ref.read(devicePairingProvider.notifier).reset(),
           onPinEntered: (pin) =>
               ref.read(devicePairingProvider.notifier).completeJoinerWithPin(pin),
@@ -444,6 +435,7 @@ class _SasVerificationView extends StatelessWidget {
 /// and forwards it to the pairing notifier.
 class _PairingPinCapture extends StatefulWidget {
   const _PairingPinCapture({
+    super.key,
     required this.onPinEntered,
     required this.onBack,
   });
@@ -455,14 +447,6 @@ class _PairingPinCapture extends StatefulWidget {
   State<_PairingPinCapture> createState() => _PairingPinCaptureState();
 }
 
-<<<<<<< HEAD
-class _PasswordViewState extends ConsumerState<_PasswordView> {
-  final _pinController = TextEditingController();
-
-  @override
-  void dispose() {
-    _pinController.dispose();
-=======
 class _PairingPinCaptureState extends State<_PairingPinCapture>
     with SingleTickerProviderStateMixin {
   String _pin = '';
@@ -492,7 +476,6 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
   @override
   void dispose() {
     _shakeController.dispose();
->>>>>>> worktree-agent-a6254940
     super.dispose();
   }
 
@@ -552,24 +535,6 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
               offset: Offset(_shakeAnimation.value, 0),
               child: child,
             ),
-<<<<<<< HEAD
-            child: PrismTextField(
-              controller: _pinController,
-              obscureText: true,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: AppColors.warmWhite),
-              autofocus: true,
-              onSubmitted: (_) => _connect(),
-              hintText: context.l10n.onboardingSyncPasswordHint,
-              hintStyle: TextStyle(
-                color: AppColors.warmWhite.withValues(alpha: 0.4),
-              ),
-              fieldStyle: PrismTextFieldStyle.borderless,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-=======
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(_pinLength, (i) {
@@ -589,7 +554,6 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
                   ),
                 );
               }),
->>>>>>> worktree-agent-a6254940
             ),
           ),
           const SizedBox(height: 32),
@@ -608,15 +572,6 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
     );
   }
 
-<<<<<<< HEAD
-  void _connect() {
-    final pin = _pinController.text.trim();
-    if (pin.isEmpty) {
-      PrismToast.show(context, message: context.l10n.onboardingSyncEnterPasswordPrompt);
-      return;
-    }
-    ref.read(devicePairingProvider.notifier).completeJoinerWithPin(pin);
-=======
   List<Widget> _buildRow(int row) {
     if (row < 3) {
       return List.generate(3, (col) {
@@ -663,7 +618,6 @@ class _NumpadButton extends StatelessWidget {
             : Icon(icon, size: 24, color: AppColors.warmWhite),
       ),
     );
->>>>>>> worktree-agent-a6254940
   }
 }
 

@@ -268,7 +268,8 @@ void main() {
         await pumpEventQueue();
 
         var state = container.read(devicePairingProvider);
-        expect(state.step, PairingStep.waitingForSas);
+        // Implementation keeps showingRequest (QR visible) while polling for SAS.
+        expect(state.step, PairingStep.showingRequest);
         expect(state.requestQrPayload, [9, 8, 7]);
         expect(state.requestDeviceId, 'joiner-device');
 

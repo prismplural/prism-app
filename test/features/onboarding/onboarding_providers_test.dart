@@ -79,11 +79,11 @@ void main() {
         OnboardingStep.welcome,
       );
 
-      // next() from welcome should skip syncDevice and importedDataReady
+      // next() from welcome proceeds to pinSetup (new PIN auth step).
       notifier.next();
       expect(
         container.read(onboardingProvider).currentStep,
-        OnboardingStep.importData,
+        OnboardingStep.pinSetup,
       );
     });
 
