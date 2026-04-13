@@ -11,7 +11,6 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
-import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -303,9 +302,8 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       await cacheRuntimeKeys(handle, ref.read(databaseProvider));
       final dekBytes = await ffi.exportDek(handle: handle);
 
-      // 8. Store the PIN hash via PinLockService.
-      final pinService = ref.read(pinLockServiceProvider);
-      await pinService.storePin(pin);
+      // 8. PIN hash already stored by PinSetupStep.onPinEntered before
+      //    calling onPinConfirmed — no second storePin() call here.
 
       // 9. Also use the PIN as the sync auth password — record it in the
       //    pendingMnemonicProvider so the secret-key screen can show it if

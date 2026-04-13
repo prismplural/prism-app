@@ -51,7 +51,12 @@ class BiometricService {
   static const _bioKey = 'prism_sync.biometric_dek';
 
   Future<bool> isAvailable() async {
-    return _localAuth.canCheckBiometrics;
+    // Both checks required: canCheckBiometrics is true even on devices where
+    // biometric hardware exists but nothing is enrolled. isDeviceSupported()
+    // confirms the device can actually perform biometric auth.
+    final canCheck = await _localAuth.canCheckBiometrics;
+    final supported = await _localAuth.isDeviceSupported();
+    return canCheck && supported;
   }
 
   /// Enroll: write DEK to biometric-protected storage.

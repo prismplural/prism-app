@@ -49,6 +49,19 @@ void main() {
 
       expect(await service.isPinVerificationDue(), isTrue);
     });
+
+    test('returns true when stored timestamp is in the future (clock rollback)',
+        () async {
+      final prefs = await SharedPreferences.getInstance();
+      final future = DateTime.now().add(const Duration(days: 1));
+      await prefs.setInt(
+        'prism.last_pin_verified',
+        future.millisecondsSinceEpoch,
+      );
+
+      // Future timestamps are treated as missing — require re-verification.
+      expect(await service.isPinVerificationDue(), isTrue);
+    });
   });
 
   // ── recordPinVerified ─────────────────────────────────────────────────────
@@ -107,6 +120,19 @@ void main() {
         old.millisecondsSinceEpoch,
       );
 
+      expect(await service.isBackupReminderDue(), isTrue);
+    });
+
+    test('returns true when stored timestamp is in the future (clock rollback)',
+        () async {
+      final prefs = await SharedPreferences.getInstance();
+      final future = DateTime.now().add(const Duration(days: 1));
+      await prefs.setInt(
+        'prism.last_recovery_reminder',
+        future.millisecondsSinceEpoch,
+      );
+
+      // Future timestamps are treated as missing — require re-verification.
       expect(await service.isBackupReminderDue(), isTrue);
     });
   });
