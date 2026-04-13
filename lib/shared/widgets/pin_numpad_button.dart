@@ -90,6 +90,7 @@ class _PinNumpadButtonState extends ConsumerState<PinNumpadButton> {
     return Semantics(
       label: widget.semanticLabel ?? widget.label,
       button: true,
+      excludeSemantics: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onTap,
