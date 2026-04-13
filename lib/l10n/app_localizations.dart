@@ -9799,6 +9799,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select a {term} to vote as'**
   String pollsVotingAsSelectPrompt(String term);
+
+  /// Title for onboarding PIN setup step
+  ///
+  /// In en, this message translates to:
+  /// **'Set your PIN'**
+  String get onboardingPinSetupTitle;
+
+  /// Subtitle for onboarding PIN setup step
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ll use this 6-digit PIN to lock Prism and recover access if needed.'**
+  String get onboardingPinSetupSubtitle;
+
+  /// Title for onboarding PIN confirmation step
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your PIN'**
+  String get onboardingPinConfirmTitle;
+
+  /// Error message shown when PINs entered during onboarding don't match
+  ///
+  /// In en, this message translates to:
+  /// **'PINs don\'t match. Try again.'**
+  String get onboardingPinMismatchError;
+
+  /// Title for onboarding recovery phrase backup step
+  ///
+  /// In en, this message translates to:
+  /// **'Save your recovery phrase'**
+  String get onboardingRecoveryPhraseTitle;
+
+  /// Subtitle for onboarding recovery phrase backup step
+  ///
+  /// In en, this message translates to:
+  /// **'Write these 12 words somewhere safe. They\'re the only way to recover your data if you lose your PIN.'**
+  String get onboardingRecoveryPhraseSubtitle;
+
+  /// Label on the blurred recovery phrase — tap to show the words
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to reveal'**
+  String get onboardingRevealPhrase;
+
+  /// Button to confirm the user has backed up their recovery phrase
+  ///
+  /// In en, this message translates to:
+  /// **'I\'ve written it down'**
+  String get onboardingIveWrittenItDown;
+
+  /// Title for onboarding recovery phrase confirmation step
+  ///
+  /// In en, this message translates to:
+  /// **'Verify your phrase'**
+  String get onboardingConfirmPhraseTitle;
+
+  /// Subtitle for onboarding recovery phrase confirmation step
+  ///
+  /// In en, this message translates to:
+  /// **'Select the correct word for each position.'**
+  String get onboardingConfirmPhraseSubtitle;
+
+  /// Title for onboarding biometric opt-in step
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock with biometrics'**
+  String get onboardingBiometricTitle;
+
+  /// Subtitle for onboarding biometric opt-in step
+  ///
+  /// In en, this message translates to:
+  /// **'Use Face ID or Touch ID to unlock Prism quickly.'**
+  String get onboardingBiometricSubtitle;
+
+  /// Button to enable biometric unlock during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get onboardingBiometricEnable;
+
+  /// Button to skip biometric setup during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get onboardingBiometricSkip;
+
+  /// Title for the PIN entry sheet used to authenticate sync
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your PIN'**
+  String get syncPinSheetTitle;
+
+  /// Subtitle for the PIN entry sheet used to authenticate sync
+  ///
+  /// In en, this message translates to:
+  /// **'Your PIN is required to unlock Prism.'**
+  String get syncPinSheetSubtitle;
+
+  /// Title for the change PIN sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Change PIN'**
+  String get changePinSheetTitle;
+
+  /// Title shown for the periodic PIN re-verification prompt
+  ///
+  /// In en, this message translates to:
+  /// **'Time to verify your PIN'**
+  String get periodicPinVerificationTitle;
+
+  /// Message shown in the backup reminder info banner on the home screen
+  ///
+  /// In en, this message translates to:
+  /// **'Have you backed up your recovery phrase?'**
+  String get backupReminderBannerText;
+
+  /// Action button label on the backup reminder banner
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get backupReminderBannerAction;
 }
 
 class _AppLocalizationsDelegate

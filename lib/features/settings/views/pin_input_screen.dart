@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -81,22 +82,24 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     super.dispose();
   }
 
-  String get _title {
+  String _title(BuildContext context) {
+    final l10n = context.l10n;
     return switch (widget.mode) {
-      PinInputMode.set => 'Set PIN',
-      PinInputMode.confirm => 'Confirm PIN',
-      PinInputMode.unlock => 'Enter PIN',
+      PinInputMode.set => l10n.pinLockSetTitle,
+      PinInputMode.confirm => l10n.pinLockConfirmTitle,
+      PinInputMode.unlock => l10n.pinLockEnterTitle,
     };
   }
 
-  String get _subtitle {
+  String _subtitle(BuildContext context) {
     if (_isLockedOut) {
       return 'Too many attempts. Try again in ${_lockoutRemainingSeconds}s';
     }
+    final l10n = context.l10n;
     return switch (widget.mode) {
-      PinInputMode.set => 'Choose a $_pinLength-digit PIN',
-      PinInputMode.confirm => 'Re-enter your PIN to confirm',
-      PinInputMode.unlock => 'Enter your PIN to unlock',
+      PinInputMode.set => l10n.pinLockSetSubtitle,
+      PinInputMode.confirm => l10n.pinLockConfirmSubtitle,
+      PinInputMode.unlock => l10n.pinLockUnlockSubtitle,
     };
   }
 
@@ -195,14 +198,14 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
             const Spacer(flex: 2),
             // Title
             Text(
-              _title,
+              _title(context),
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              _subtitle,
+              _subtitle(context),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

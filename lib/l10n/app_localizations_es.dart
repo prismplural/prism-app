@@ -5774,4 +5774,71 @@ class AppLocalizationsEs extends AppLocalizations {
   String pollsVotingAsSelectPrompt(String term) {
     return 'Selecciona un $term para votar';
   }
+
+  @override
+  String get onboardingPinSetupTitle => 'Establece tu PIN';
+
+  @override
+  String get onboardingPinSetupSubtitle =>
+      'Usarás este PIN de 6 dígitos para bloquear Prism y recuperar el acceso si lo necesitas.';
+
+  @override
+  String get onboardingPinConfirmTitle => 'Confirma tu PIN';
+
+  @override
+  String get onboardingPinMismatchError =>
+      'Los PINs no coinciden. Inténtalo de nuevo.';
+
+  @override
+  String get onboardingRecoveryPhraseTitle => 'Guarda tu frase de recuperación';
+
+  @override
+  String get onboardingRecoveryPhraseSubtitle =>
+      'Anota estas 12 palabras en un lugar seguro. Son la única forma de recuperar tus datos si pierdes tu PIN.';
+
+  @override
+  String get onboardingRevealPhrase => 'Toca para revelar';
+
+  @override
+  String get onboardingIveWrittenItDown => 'Ya la anoté';
+
+  @override
+  String get onboardingConfirmPhraseTitle => 'Verifica tu frase';
+
+  @override
+  String get onboardingConfirmPhraseSubtitle =>
+      'Selecciona la palabra correcta para cada posición.';
+
+  @override
+  String get onboardingBiometricTitle => 'Desbloquea con biometría';
+
+  @override
+  String get onboardingBiometricSubtitle =>
+      'Usa Face ID o Touch ID para desbloquear Prism rápidamente.';
+
+  @override
+  String get onboardingBiometricEnable => 'Activar';
+
+  @override
+  String get onboardingBiometricSkip => 'Ahora no';
+
+  @override
+  String get syncPinSheetTitle => 'Ingresa tu PIN';
+
+  @override
+  String get syncPinSheetSubtitle =>
+      'Tu PIN es necesario para desbloquear Prism.';
+
+  @override
+  String get changePinSheetTitle => 'Cambiar PIN';
+
+  @override
+  String get periodicPinVerificationTitle => 'Es hora de verificar tu PIN';
+
+  @override
+  String get backupReminderBannerText =>
+      '¿Has guardado tu frase de recuperación?';
+
+  @override
+  String get backupReminderBannerAction => 'Ver';
 }
