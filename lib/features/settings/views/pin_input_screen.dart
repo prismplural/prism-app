@@ -87,7 +87,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     _dotScaleAnim = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.2), weight: 1),
       TweenSequenceItem(tween: Tween(begin: 1.2, end: 1.0), weight: 1),
-    ]).animate(CurvedAnimation(parent: _dotController, curve: Curves.easeOutBack));
+    ]).animate(_dotController);
   }
 
   @override
