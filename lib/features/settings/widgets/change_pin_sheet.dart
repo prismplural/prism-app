@@ -44,6 +44,22 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
   _Step _step = _Step.verify;
   bool _isLoading = false;
 
+  // Step 1 — brute-force throttle (widget-local; user must be authenticated
+  // to reach settings, and Argon2id already imposes ~1-2s per attempt).
+  int _failedVerifyAttempts = 0;
+  DateTime? _verifyLockedUntil;
+  static const _maxVerifyAttempts = 5;
+  static const _verifyLockoutSeconds = 60;
+
+  bool get _isVerifyLockedOut {
+    if (_verifyLockedUntil == null) return false;
+    if (DateTime.now().isAfter(_verifyLockedUntil!)) {
+      _verifyLockedUntil = null;
+      return false;
+    }
+    return true;
+  }
+
   // Step 1
   final _currentController = TextEditingController();
   String? _currentError;
@@ -86,6 +102,14 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
   // ── Step 1: verify current PIN ─────────────────────────────────────────────
 
   Future<void> _verifyCurrent() async {
+    if (_isVerifyLockedOut) {
+      final secs =
+          _verifyLockedUntil!.difference(DateTime.now()).inSeconds.clamp(0, 9999);
+      setState(() =>
+          _currentError = 'Too many attempts. Try again in ${secs}s.');
+      return;
+    }
+
     final pin = _currentController.text;
     if (pin.isEmpty) {
       setState(() => _currentError = context.l10n.settingsChangePinCurrentRequired);
@@ -145,6 +169,13 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         if (!mounted) return;
         final isWrongPin = msg.contains('wrong password') ||
             msg.contains('secretbox open failed');
+        if (isWrongPin) {
+          _failedVerifyAttempts++;
+          if (_failedVerifyAttempts >= _maxVerifyAttempts) {
+            _verifyLockedUntil = DateTime.now()
+                .add(const Duration(seconds: _verifyLockoutSeconds));
+          }
+        }
         setState(() {
           _isLoading = false;
           _currentError = isWrongPin

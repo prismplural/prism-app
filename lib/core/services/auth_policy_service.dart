@@ -22,7 +22,10 @@ class AuthPolicyService {
     final ts = prefs.getInt(_pinVerifiedKey);
     if (ts == null) return true;
     final last = DateTime.fromMillisecondsSinceEpoch(ts);
-    return DateTime.now().difference(last).inDays >= _pinPeriodDays;
+    final now = DateTime.now();
+    // Future timestamp = clock rollback or tampered prefs → treat as missing.
+    if (last.isAfter(now)) return true;
+    return now.difference(last).inDays >= _pinPeriodDays;
   }
 
   /// Records that the user has just successfully verified their PIN.
@@ -42,7 +45,10 @@ class AuthPolicyService {
     final ts = prefs.getInt(_reminderKey);
     if (ts == null) return true;
     final last = DateTime.fromMillisecondsSinceEpoch(ts);
-    return DateTime.now().difference(last).inDays >= _reminderPeriodDays;
+    final now = DateTime.now();
+    // Future timestamp = clock rollback or tampered prefs → treat as missing.
+    if (last.isAfter(now)) return true;
+    return now.difference(last).inDays >= _reminderPeriodDays;
   }
 
   /// Records that the user has just dismissed the backup reminder.
