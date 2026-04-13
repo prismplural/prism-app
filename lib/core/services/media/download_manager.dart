@@ -21,14 +21,39 @@ class DownloadProgress {
   });
 }
 
+/// Typedef for the FFI download function. Allows injection in tests without
+/// hitting the real flutter_rust_bridge native layer.
+typedef DownloadMediaFn = Future<Uint8List> Function({
+  required ffi.PrismSyncHandle handle,
+  required String mediaId,
+});
+
 class DownloadManager {
   DownloadManager({
     required this.handle,
     required this.encryption,
-  });
+    Directory? cacheDirOverride,
+    DownloadMediaFn? downloadMediaFn,
+  })  : _cacheDirOverride = cacheDirOverride,
+        _downloadMediaFn = downloadMediaFn ?? _defaultDownloadMediaFn;
 
   final ffi.PrismSyncHandle? handle;
   final MediaEncryptionService encryption;
+
+  /// Optional override for the cache directory; used in tests to avoid
+  /// requiring the path_provider platform channel.
+  final Directory? _cacheDirOverride;
+
+  /// Injectable download function; defaults to [ffi.downloadMedia].
+  /// Swap out in tests to avoid hitting the real FFI layer.
+  final DownloadMediaFn _downloadMediaFn;
+
+  static Future<Uint8List> _defaultDownloadMediaFn({
+    required ffi.PrismSyncHandle handle,
+    required String mediaId,
+  }) {
+    return ffi.downloadMedia(handle: handle, mediaId: mediaId);
+  }
 
   Future<Directory>? _cacheDirFuture;
 
@@ -51,10 +76,32 @@ class DownloadManager {
     required String plaintextHash,
     String fileExtension = '',
   }) async {
-    final cacheFile = await _cacheFileFor(mediaId, fileExtension);
-    if (cacheFile.existsSync()) {
-      _emitProgress(mediaId, DownloadState.completed);
-      return cacheFile.readAsBytes();
+    // 1. Check encrypted cache (.enc file). If it exists, decrypt and return.
+    final encFile = await _cacheFileFor(
+      mediaId,
+      fileExtension: fileExtension,
+      encrypted: true,
+    );
+    if (encFile.existsSync()) {
+      _emitProgress(mediaId, DownloadState.decrypting);
+      final ciphertext = encFile.readAsBytesSync();
+      return _decryptMedia(
+        ciphertext: ciphertext,
+        key: encryptionKey,
+        ciphertextHash: ciphertextHash,
+        plaintextHash: plaintextHash,
+      );
+    }
+
+    // 2. Delete old plaintext cache if present. Security invariant: we never
+    //    serve plaintext from disk — always re-download as ciphertext instead.
+    final plainFile = await _cacheFileFor(
+      mediaId,
+      fileExtension: fileExtension,
+      encrypted: false,
+    );
+    if (plainFile.existsSync()) {
+      await plainFile.delete();
     }
 
     await _acquireSlot();
@@ -65,24 +112,23 @@ class DownloadManager {
         throw StateError('Sync handle not available');
       }
 
-      final ciphertext = await ffi
-          .downloadMedia(
-            handle: handle!,
-            mediaId: mediaId,
-          )
-          .timeout(const Duration(seconds: 30));
+      final ciphertext = await _downloadMediaFn(
+        handle: handle!,
+        mediaId: mediaId,
+      ).timeout(const Duration(seconds: 30));
 
       _emitProgress(mediaId, DownloadState.decrypting);
 
-      final plaintext = await encryption.decryptMedia(
+      final plaintext = await _decryptMedia(
         ciphertext: ciphertext,
         key: encryptionKey,
-        expectedCiphertextHash: ciphertextHash,
-        expectedPlaintextHash: plaintextHash,
+        ciphertextHash: ciphertextHash,
+        plaintextHash: plaintextHash,
       );
 
-      await cacheFile.parent.create(recursive: true);
-      await cacheFile.writeAsBytes(plaintext);
+      // Cache ciphertext, NOT plaintext. Plaintext lives only in memory.
+      await encFile.parent.create(recursive: true);
+      await encFile.writeAsBytes(ciphertext);
 
       _emitProgress(mediaId, DownloadState.completed);
       return plaintext;
@@ -104,6 +150,8 @@ class DownloadManager {
     // Android's ExoPlayer does byte-header detection and doesn't need it, but
     // using an extension is correct on both platforms.
     const ext = '.m4a';
+
+    // Get decrypted bytes (from .enc cache or fresh download).
     final bytes = await getMedia(
       mediaId: mediaId,
       encryptionKey: encryptionKey,
@@ -113,7 +161,17 @@ class DownloadManager {
     );
     if (bytes == null) return null;
 
-    return _cacheFileFor(mediaId, ext);
+    // Write decrypted bytes to the TEMP directory — NOT the cache directory.
+    // The .enc ciphertext remains in the persistent cache (written by getMedia
+    // above). The temp plaintext file is explicitly deleted after playback
+    // by the voice playback provider.
+    final tempDir = _cacheDirOverride != null
+        ? Directory('${_cacheDirOverride.path}/tmp')
+        : await getTemporaryDirectory();
+    await tempDir.create(recursive: true);
+    final tempFile = File('${tempDir.path}/$mediaId.m4a');
+    await tempFile.writeAsBytes(bytes);
+    return tempFile;
   }
 
   Future<void> clearCache() async {
@@ -166,6 +224,9 @@ class DownloadManager {
   }
 
   Future<Directory> _cacheDir() {
+    if (_cacheDirOverride != null) {
+      return Future.value(_cacheDirOverride);
+    }
     return _cacheDirFuture ??= _resolveCacheDir();
   }
 
@@ -177,9 +238,37 @@ class DownloadManager {
     return Directory('${cacheBase.path}/prism_media');
   }
 
-  Future<File> _cacheFileFor(String mediaId, [String fileExtension = '']) async {
+  Future<File> _cacheFileFor(
+    String mediaId, {
+    String fileExtension = '',
+    bool encrypted = false,
+  }) async {
     final dir = await _cacheDir();
-    return File('${dir.path}/$mediaId$fileExtension');
+    final suffix = encrypted ? '.enc' : '';
+    return File('${dir.path}/$mediaId$fileExtension$suffix');
+  }
+
+  /// Decrypts [ciphertext] using [MediaEncryptionService].
+  ///
+  /// NOTE: [MediaEncryptionService.decryptMedia] calls [ffi.decryptXchacha]
+  /// via flutter_rust_bridge (FRB). FRB manages its own Dart isolate and does
+  /// NOT support being called from a [compute()] isolate — doing so causes a
+  /// "Cannot use native extensions from an isolate not spawned by the VM"
+  /// error. Therefore, decryption runs directly on the main isolate. For
+  /// typical media sizes this is fast enough (XChaCha20-Poly1305 is ~1 GB/s
+  /// on modern hardware) and keeps the code correct.
+  Future<Uint8List> _decryptMedia({
+    required Uint8List ciphertext,
+    required Uint8List key,
+    required String ciphertextHash,
+    required String plaintextHash,
+  }) async {
+    return encryption.decryptMedia(
+      ciphertext: ciphertext,
+      key: key,
+      expectedCiphertextHash: ciphertextHash,
+      expectedPlaintextHash: plaintextHash,
+    );
   }
 
   void dispose() {

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -49,6 +50,18 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
   StreamSubscription<Duration?>? _durationSub;
   StreamSubscription<dynamic>? _errorSub;
 
+  /// The current temp plaintext audio file. Created by [getMediaFile] in
+  /// [DownloadManager] and written to [getTemporaryDirectory]. Deleted
+  /// explicitly when playback completes or the provider is disposed so that
+  /// plaintext never persists beyond the active playback session.
+  File? _tempFile;
+
+  /// Sets [_tempFile] directly. Exposed for unit tests so the deletion
+  /// lifecycle can be verified without a live audio player.
+  @visibleForTesting
+  // ignore: use_setters_to_change_properties
+  void setTempFileForTesting(File? file) => _tempFile = file;
+
   @override
   VoicePlaybackState build() {
     ref.onDispose(_disposePlayer);
@@ -72,6 +85,9 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
 
     // Load a different note, first play, or retry after error.
     _disposePlayer();
+
+    // Track the new temp file — will be deleted on completion or dispose.
+    _tempFile = audioFile;
 
     // Clear error and mark loading state before the async work.
     state = VoicePlaybackState(
@@ -108,6 +124,8 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
           _player?.seek(Duration.zero);
           _player?.pause();
           state = state.copyWith(isPlaying: false, position: Duration.zero);
+          // Playback finished — delete the temp plaintext file.
+          _deleteTempFile();
         } else {
           state = state.copyWith(isPlaying: ps.playing);
         }
@@ -160,6 +178,23 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
     _errorSub = null;
     _player?.dispose();
     _player = null;
+    // Delete temp plaintext file when the player is disposed (stop, load new
+    // track, or provider disposal). Errors are silenced — best-effort cleanup.
+    _deleteTempFile();
+  }
+
+  /// Deletes [_tempFile] and clears the reference. Errors are silenced so that
+  /// a missing file (e.g. already cleaned up by the OS) doesn't surface to the
+  /// user. Called after playback completes and when the player is disposed.
+  void _deleteTempFile() {
+    final file = _tempFile;
+    _tempFile = null;
+    if (file == null) return;
+    file.delete().onError((error, _) {
+      // Best-effort: log in debug mode but don't surface to the user.
+      debugPrint('[VoicePlayback] Could not delete temp file: ${file.path} ($error)');
+      return file; // Return the file to satisfy the Future<File> type
+    });
   }
 }
 
