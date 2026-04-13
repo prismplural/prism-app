@@ -32,6 +32,7 @@ import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/providers/backup_reminder_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 class FrontingScreen extends ConsumerStatefulWidget {
@@ -144,6 +145,11 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
               sleepSession: sleepSession,
             ),
           ),
+        ),
+
+        // 0. Backup reminder banner (shown until dismissed)
+        SliverToBoxAdapter(
+          child: _BackupReminderBanner(theme: theme),
         ),
 
         // 1. Quick Front (always at top, matching SwiftUI)
@@ -448,4 +454,43 @@ class _MenuItem {
   final String label;
   final void Function(VoidCallback close) onTap;
   final bool enabled;
+}
+
+/// Banner reminding the user to back up their recovery phrase.
+///
+/// Hidden when:
+/// - no PIN is set (encryption not active), or
+/// - the user has already dismissed the reminder.
+class _BackupReminderBanner extends ConsumerWidget {
+  const _BackupReminderBanner({required this.theme});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reminderDue =
+        ref.watch(backupReminderDueProvider).maybeWhen(
+          data: (v) => v,
+          orElse: () => false,
+        );
+    if (!reminderDue) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: InfoBanner(
+        icon: AppIcons.key,
+        iconColor: theme.colorScheme.tertiary,
+        title: context.l10n.backupReminderBannerText,
+        message: '',
+        buttonText: context.l10n.backupReminderBannerAction,
+        onButtonPressed: () async {
+          await recordReminderDismissed();
+          ref.invalidate(backupReminderDueProvider);
+          if (context.mounted) {
+            context.go('/settings');
+          }
+        },
+      ),
+    );
+  }
 }
