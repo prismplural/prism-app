@@ -384,14 +384,13 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     );
 
     if (isDeparted) {
-      return ColorFiltered(
-        colorFilter: const ColorFilter.matrix(<double>[
-          1, 0, 0, 0, 0, // R
-          0, 1, 0, 0, 0, // G
-          0, 0, 1, 0, 0, // B
-          0, 0, 0, 0.5, 0, // A
-        ]),
-        child: avatar,
+      return MemberAvatar(
+        avatarImageData: author?.avatarImageData,
+        emoji: author?.emoji ?? '?',
+        customColorEnabled: author?.customColorEnabled ?? false,
+        customColorHex: author?.customColorHex,
+        size: size,
+        opacity: 0.5,
       );
     }
     return avatar;
@@ -581,9 +580,11 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
             tween: Tween(begin: 0.08, end: 0.0),
             duration: const Duration(milliseconds: 1200),
             curve: Curves.easeOut,
-            builder: (context, value, _) => ColoredBox(
+            builder: (context, value, child) => ColoredBox(
               color: theme.colorScheme.primary.withValues(alpha: value),
+              child: child,
             ),
+            child: const SizedBox.expand(),
           ),
         ),
         slideWidget,

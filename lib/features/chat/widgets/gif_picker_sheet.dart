@@ -231,6 +231,7 @@ class _GifCell extends StatelessWidget {
               child: Image.network(
                 gif.previewUrl,
                 fit: BoxFit.cover,
+                semanticLabel: gif.contentDescription ?? 'GIF',
                 frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                   if (wasSynchronouslyLoaded || frame != null) return child;
                   return Container(color: placeholderColor);

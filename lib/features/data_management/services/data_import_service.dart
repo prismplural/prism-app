@@ -462,14 +462,11 @@ class DataImportService {
         pollsCreated++;
       }
 
-      // Preload existing poll option IDs to avoid per-record queries
-      final existingOptionIds = <String>{};
-      for (final p in existingPolls) {
-        final opts = await pollRepository.getOptionsForPoll(p.id);
-        for (final opt in opts) {
-          existingOptionIds.add(opt.id);
-        }
-      }
+      // Batch-load all existing poll option IDs in one query.
+      final allOptions = await pollRepository.getAllOptions();
+      final existingOptionIds = <String>{
+        for (final opt in allOptions) opt.id,
+      };
       for (final o in export.pollOptions) {
         if (existingOptionIds.contains(o.id)) continue;
 
@@ -618,14 +615,11 @@ class DataImportService {
 
       // 9. Import habit completions
       var habitCompletionsCreated = 0;
-      // Preload existing completion IDs to avoid per-record queries
-      final existingCompletionIds = <String>{};
-      for (final h in existingHabits) {
-        final completions = await habitRepository.getCompletionsForHabit(h.id);
-        for (final c in completions) {
-          existingCompletionIds.add(c.id);
-        }
-      }
+      // Batch-load all existing completion IDs in one query.
+      final allCompletions = await habitRepository.getAllCompletions();
+      final existingCompletionIds = <String>{
+        for (final c in allCompletions) c.id,
+      };
       for (final c in export.habitCompletions) {
         if (existingCompletionIds.contains(c.id)) continue;
 

@@ -354,19 +354,45 @@ class _VerifyCard extends ConsumerWidget {
   }
 }
 
-class _FingerprintRow extends ConsumerWidget {
+class _FingerprintRow extends ConsumerStatefulWidget {
   const _FingerprintRow({required this.friend});
 
   final Friend friend;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final sharingService = ref.watch(sharingServiceProvider);
+  ConsumerState<_FingerprintRow> createState() => _FingerprintRowState();
+}
+
+class _FingerprintRowState extends ConsumerState<_FingerprintRow> {
+  Future<String>? _fingerprintFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFuture();
+  }
+
+  @override
+  void didUpdateWidget(covariant _FingerprintRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.friend.publicKeyHex != widget.friend.publicKeyHex) {
+      _initFuture();
+    }
+  }
+
+  void _initFuture() {
+    final sharingService = ref.read(sharingServiceProvider);
+    _fingerprintFuture = sharingService?.fingerprintForFriend(widget.friend);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final fallback = widget.friend.publicKeyHex;
+
     return FutureBuilder<String>(
-      future: sharingService?.fingerprintForFriend(friend),
+      future: _fingerprintFuture,
       builder: (context, snapshot) {
-        final theme = Theme.of(context);
-        final fallback = friend.publicKeyHex;
         final label = snapshot.hasData ? context.l10n.sharingFingerprint : context.l10n.sharingIdentity;
         final value = snapshot.data ?? _truncate(fallback);
         return PrismListRow(

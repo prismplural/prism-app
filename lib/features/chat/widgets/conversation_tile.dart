@@ -46,15 +46,12 @@ class ConversationTile extends ConsumerWidget {
       onTap: onTap,
     );
 
-    // Dim archived conversations.
+    // Dim archived conversations. Opacity is acceptable here — each tile is a
+    // shallow subtree and the engine folds constant opacity into the paint.
     if (tileData.isArchived) {
-      tile = ColorFiltered(
-        colorFilter: const ColorFilter.matrix(<double>[
-          1, 0, 0, 0, 0,
-          0, 1, 0, 0, 0,
-          0, 0, 1, 0, 0,
-          0, 0, 0, 0.6, 0,
-        ]),
+      tile = Opacity(
+        opacity: 0.6,
+        alwaysIncludeSemantics: true,
         child: tile,
       );
     }

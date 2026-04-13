@@ -52,6 +52,7 @@ class GifPreviewOverlay extends StatelessWidget {
                 child: Image.network(
                   gif.previewUrl,
                   fit: BoxFit.cover,
+                  semanticLabel: gif.contentDescription,
                   errorBuilder: (context, error, stack) => Container(
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: Center(
