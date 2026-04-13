@@ -193,7 +193,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Failed to load GIFs'), findsOneWidget);
-      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Try Again'), findsOneWidget);
 
       await _cleanTearDown(tester);
     });

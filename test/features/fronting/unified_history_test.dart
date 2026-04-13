@@ -141,9 +141,9 @@ void main() {
       );
 
       // DateFormat.jm() produces locale-dependent output like "9:00 AM"
-      expect(display.timeRangeString, contains('\u2013'));
-      expect(display.timeRangeString, contains('AM'));
-      expect(display.timeRangeString, contains('PM'));
+      expect(display.timeRangeString(), contains('\u2013'));
+      expect(display.timeRangeString(), contains('AM'));
+      expect(display.timeRangeString(), contains('PM'));
     });
 
     test('active session with no end shows ongoing', () {
@@ -157,8 +157,8 @@ void main() {
         displayEnd: null,
       );
 
-      expect(display.timeRangeString, endsWith('ongoing'));
-      expect(display.timeRangeString, contains('PM'));
+      expect(display.timeRangeString(), endsWith('ongoing'));
+      expect(display.timeRangeString(), contains('PM'));
     });
 
     test('session that continues next day shows midnight end', () {
@@ -174,8 +174,8 @@ void main() {
         continuesNextDay: true,
       );
 
-      expect(display.timeRangeString, contains('12:00 AM'));
-      expect(display.timeRangeString, contains('PM'));
+      expect(display.timeRangeString(), contains('12:00 AM'));
+      expect(display.timeRangeString(), contains('PM'));
     });
   });
 
