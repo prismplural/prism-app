@@ -233,9 +233,13 @@ Future<String> ensureLocalSyncDatabaseKey() async {
 /// Try to open an encrypted SQLite file at [path] with [hexKey].
 /// Returns true if the file exists, opens, and responds to a query.
 ///
+/// Returns false immediately if the file does not exist (SQLite would otherwise
+/// create an empty file, making the probe meaningless for crash recovery).
+///
 /// Used by both the Drift crash-recovery path (database_provider.dart) and
 /// the Rust sync DB staging-recovery path (prism_sync_providers.dart).
 bool tryOpenEncryptedDb(String path, String hexKey) {
+  if (!File(path).existsSync()) return false;
   try {
     final db = raw.sqlite3.open(path);
     try {
