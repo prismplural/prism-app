@@ -196,6 +196,10 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
     if (newPin.isEmpty) {
       newErr = context.l10n.settingsChangePinNewRequired;
+    } else if (newPin.length != 6) {
+      // SyncPinSheet requires exactly 6 digits — a different length would make
+      // the sync password impossible to enter via the unlock sheet.
+      newErr = context.l10n.settingsChangePinInvalidLength;
     } else if (newPin == _verifiedCurrentPin) {
       newErr = context.l10n.settingsChangePinSamePin;
     } else if (newPin != confirmPin) {

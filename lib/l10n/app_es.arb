@@ -1500,6 +1500,7 @@
   "settingsChangePinNewLabel": "Nuevo PIN",
   "settingsChangePinConfirmLabel": "Confirmar nuevo PIN",
   "settingsChangePinNewRequired": "Ingresa un nuevo PIN.",
+  "settingsChangePinInvalidLength": "El PIN debe tener exactamente 6 dígitos.",
   "settingsChangePinSamePin": "Tu PIN de sincronización ya está configurado con ese valor.",
   "settingsChangePinMismatch": "Los PINs no coinciden.",
   "settingsChangePinGenerationConflict": "Otro dispositivo cambió la configuración recientemente — inténtalo de nuevo.",

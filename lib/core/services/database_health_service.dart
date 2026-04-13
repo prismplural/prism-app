@@ -45,7 +45,6 @@ class DatabaseHealthService {
       'conversations': allConversations.length,
     };
 
-    // Check for sessions where startTime > endTime.
     for (final session in allSessions) {
       if (session.endTime != null &&
           session.startTime.isAfter(session.endTime!)) {
@@ -56,7 +55,6 @@ class DatabaseHealthService {
       }
     }
 
-    // Check for duplicate member names.
     final nameCount = <String, int>{};
     for (final member in allMembers) {
       nameCount[member.name] = (nameCount[member.name] ?? 0) + 1;
@@ -69,7 +67,6 @@ class DatabaseHealthService {
       }
     }
 
-    // Count total messages across all conversations.
     var totalMessages = 0;
     for (final convo in allConversations) {
       final msgs = await messages.getMessagesForConversation(convo.id);

@@ -120,6 +120,10 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       state = state.copyWith(error: 'PIN cannot be empty.');
       return false;
     }
+    if (pin.length != 6) {
+      state = state.copyWith(error: 'PIN must be exactly 6 digits.');
+      return false;
+    }
 
     final mnemonic = state.mnemonic;
     if (mnemonic == null) return false;

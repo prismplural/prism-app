@@ -24,6 +24,13 @@ final onboardingCommitServiceProvider = Provider<OnboardingCommitService>((
   );
 });
 
+/// Commits the collected onboarding state to the database in a single transaction.
+///
+/// All changes (settings, members, conversations, initial session) are atomic —
+/// if any step fails, everything rolls back. Re-running after a partial failure
+/// is safe: we check existingTitles and hasCompletedOnboarding to avoid
+/// duplicates. Called at the end of the onboarding flow and after importing
+/// data from another app.
 class OnboardingCommitService {
   OnboardingCommitService({
     required AppDatabase database,

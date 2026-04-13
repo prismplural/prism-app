@@ -9092,6 +9092,12 @@ abstract class AppLocalizations {
   /// **'Enter a new PIN.'**
   String get settingsChangePinNewRequired;
 
+  /// Validation error when new PIN is not 6 digits
+  ///
+  /// In en, this message translates to:
+  /// **'PIN must be exactly 6 digits.'**
+  String get settingsChangePinInvalidLength;
+
   /// Error when new PIN is the same as the current PIN
   ///
   /// In en, this message translates to:
