@@ -1,14 +1,15 @@
+import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 
 /// Service that manages habit reminder notifications.
 class HabitNotificationService {
-  HabitNotificationService();
+  HabitNotificationService(this._localService);
 
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  final LocalNotificationService _localService;
 
   static const _channelId = 'habit_reminders';
   static const _channelName = 'Habit Reminders';
@@ -18,48 +19,16 @@ class HabitNotificationService {
   /// notifications which use 1000-2000).
   static const _habitNotificationIdBase = 3000;
 
-  bool _initialized = false;
-
-  /// Initialize the notification plugin with platform-specific settings.
-  Future<void> initialize() async {
-    if (_initialized) return;
-
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    const darwinSettings = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
-    );
-
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: darwinSettings,
-      macOS: darwinSettings,
-    );
-
-    await _plugin.initialize(settings: initSettings);
-    _initialized = true;
-  }
-
   /// Schedule notifications for a habit based on its frequency and reminder
   /// time.
   Future<void> scheduleForHabit(Habit habit) async {
-    await _ensureInitialized();
+    // Guard: inactive or notifications disabled → cancel and return
+    if (!habit.isActive || !habit.notificationsEnabled) {
+      await cancelForHabit(habit.id);
+      return;
+    }
 
-    // Cancel existing notifications for this habit first.
-    await cancelForHabit(habit.id);
-
-    if (!habit.notificationsEnabled || habit.reminderTime == null) return;
-
-    // Parse reminder time (reserved for future exact scheduling support).
-    // ignore: unused_local_variable
-    final timeParts = habit.reminderTime!.split(':');
-    if (timeParts.length != 2) return;
-
-    const title = 'Habit Reminder';
-    final body =
-        habit.notificationMessage ?? 'Time to complete: ${habit.name}';
+    final time = _parseTime(habit.reminderTime) ?? const TimeOfDay(hour: 9, minute: 0);
 
     const androidDetails = AndroidNotificationDetails(
       _channelId,
@@ -68,85 +37,102 @@ class HabitNotificationService {
       importance: Importance.defaultImportance,
       priority: Priority.defaultPriority,
     );
-
     const darwinDetails = DarwinNotificationDetails();
-
     const details = NotificationDetails(
       android: androidDetails,
       iOS: darwinDetails,
       macOS: darwinDetails,
     );
 
+    final title = 'Habit Reminder';
+    final body = habit.notificationMessage ?? 'Time to complete: ${habit.name}';
+
+    // Cancel all existing IDs for this habit before rescheduling
+    await cancelForHabit(habit.id);
+
     switch (habit.frequency) {
       case HabitFrequency.daily:
       case HabitFrequency.custom:
-        // Schedule a daily repeating notification.
-        await _plugin.periodicallyShow(
-          id: _notificationId(habit.id, 0),
+        await _localService.scheduleExactDaily(
+          id: _baseId(habit.id),
           title: title,
           body: body,
-          repeatInterval: RepeatInterval.daily,
-          notificationDetails: details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          time: time,
+          details: details,
         );
 
       case HabitFrequency.weekly:
-        // Schedule one notification per required weekday.
         final days = habit.weeklyDays ?? [];
+        if (days.isEmpty) return;
         for (var i = 0; i < days.length; i++) {
-          await _plugin.periodicallyShow(
-            id: _notificationId(habit.id, i),
+          await _localService.scheduleExactWeekly(
+            id: _baseId(habit.id) + i,
             title: title,
             body: body,
-            repeatInterval: RepeatInterval.weekly,
-            notificationDetails: details,
-            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            time: time,
+            weekday: days[i],
+            details: details,
           );
         }
 
       case HabitFrequency.interval:
-        // For interval-based habits, use daily repeating and rely on the
-        // provider to reschedule after each completion.
-        await _plugin.periodicallyShow(
-          id: _notificationId(habit.id, 0),
-          title: title,
-          body: body,
-          repeatInterval: RepeatInterval.daily,
-          notificationDetails: details,
-          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        );
+        final intervalDays = habit.intervalDays ?? 1;
+        if (intervalDays <= 1) {
+          await _localService.scheduleExactDaily(
+            id: _baseId(habit.id),
+            title: title,
+            body: body,
+            time: time,
+            details: details,
+          );
+        } else {
+          await _localService.scheduleExactInterval(
+            idBase: _baseId(habit.id),
+            title: title,
+            body: body,
+            time: time,
+            intervalDays: intervalDays,
+            details: details,
+          );
+        }
     }
   }
 
   /// Cancel all notifications for a specific habit.
-  Future<void> cancelForHabit(String habitId) async {
-    // Cancel up to 7 possible notification IDs (one per weekday).
-    for (var i = 0; i < 7; i++) {
-      await _plugin.cancel(id: _notificationId(habitId, i));
-    }
+  Future<void> cancelForHabit(String id) async {
+    await _localService.cancelRange(
+      _baseId(id),
+      LocalNotificationService.maxIntervalOccurrences,
+    );
   }
 
-  /// Cancel all habit notifications.
-  Future<void> cancelAll() async {
-    // This cancels ALL notifications, use with care.
-    // In practice, we cancel per-habit.
-    await _plugin.cancelAll();
+  /// Reschedule notifications for all habits.
+  Future<void> rescheduleAll(List<Habit> habits) async {
+    for (final habit in habits) {
+      await scheduleForHabit(habit);
+    }
   }
 
   // ── Helpers ──────────────────────────────────────────────────────
 
-  Future<void> _ensureInitialized() async {
-    if (!_initialized) await initialize();
-  }
+  /// Generates a stable base notification ID from a habit ID string.
+  int _baseId(String id) =>
+      _habitNotificationIdBase + (id.hashCode.abs() % 10000);
 
-  /// Generates a stable notification ID from habit ID and index.
-  int _notificationId(String habitId, int index) {
-    return _habitNotificationIdBase + (habitId.hashCode.abs() % 10000) + index;
+  /// Parses a "HH:mm" reminder time string into a [TimeOfDay].
+  TimeOfDay? _parseTime(String? time) {
+    if (time == null) return null;
+    final parts = time.split(':');
+    if (parts.length != 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return TimeOfDay(hour: hour, minute: minute);
   }
 }
 
 /// Provides the [HabitNotificationService] singleton instance.
 final habitNotificationServiceProvider =
     Provider<HabitNotificationService>((ref) {
-  return HabitNotificationService();
+  return HabitNotificationService(ref.watch(localNotificationServiceProvider));
 });
