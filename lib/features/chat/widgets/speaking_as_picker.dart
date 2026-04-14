@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Horizontal scrollable row of member avatars for selecting who is "speaking."
 class SpeakingAsPicker extends ConsumerWidget {
@@ -75,13 +76,12 @@ class SpeakingAsPicker extends ConsumerWidget {
           ),
         );
       },
-      loading: () => const SizedBox(
+      loading: () => SizedBox(
         height: 56,
         child: Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          child: PrismSpinner(
+            color: Theme.of(context).colorScheme.primary,
+            size: 24,
           ),
         ),
       ),

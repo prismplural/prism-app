@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Grid card showing duration statistics for a member.
 class DurationStatsCard extends StatelessWidget {
@@ -12,59 +13,57 @@ class DurationStatsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Duration Stats',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+    return PrismSurface(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Duration Stats',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _StatItem(
-                    label: 'Sessions',
-                    value: '${stat.sessionCount}',
-                    theme: theme),
-                _StatItem(
-                    label: 'Total',
-                    value: _fmt(stat.totalTime),
-                    theme: theme),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _StatItem(
-                    label: 'Average',
-                    value: _fmt(stat.averageDuration),
-                    theme: theme),
-                _StatItem(
-                    label: 'Median',
-                    value: _fmt(stat.medianDuration),
-                    theme: theme),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _StatItem(
-                    label: 'Shortest',
-                    value: _fmt(stat.shortestSession),
-                    theme: theme),
-                _StatItem(
-                    label: 'Longest',
-                    value: _fmt(stat.longestSession),
-                    theme: theme),
-              ],
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _StatItem(
+                  label: 'Sessions',
+                  value: '${stat.sessionCount}',
+                  theme: theme),
+              _StatItem(
+                  label: 'Total',
+                  value: _fmt(stat.totalTime),
+                  theme: theme),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _StatItem(
+                  label: 'Average',
+                  value: _fmt(stat.averageDuration),
+                  theme: theme),
+              _StatItem(
+                  label: 'Median',
+                  value: _fmt(stat.medianDuration),
+                  theme: theme),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _StatItem(
+                  label: 'Shortest',
+                  value: _fmt(stat.shortestSession),
+                  theme: theme),
+              _StatItem(
+                  label: 'Longest',
+                  value: _fmt(stat.longestSession),
+                  theme: theme),
+            ],
+          ),
+        ],
       ),
     );
   }

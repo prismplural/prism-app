@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// Displays a voice note attachment inside a chat message bubble.
@@ -87,11 +88,10 @@ class _VoiceBubbleState extends State<VoiceBubble> {
                 width: 44,
                 height: 44,
                 child: widget.isLoading
-                    ? const Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                    ? Center(
+                        child: PrismSpinner(
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 18,
                         ),
                       )
                     : widget.hasError

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Card displaying the results of the last PluralKit sync.
 class PkSyncSummaryCard extends StatelessWidget {
@@ -14,60 +15,58 @@ class PkSyncSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.pluralkitLastSyncSummary,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+    return PrismSurface(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.pluralkitLastSyncSummary,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 12),
-            if (summary.totalChanges == 0)
-              Text(
-                context.l10n.pluralkitUpToDate,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              )
-            else ...[
-              if (summary.membersPulled > 0)
-                _SummaryRow(
-                  icon: AppIcons.download,
-                  label: context.l10n.pluralkitMembersPulled(summary.membersPulled),
-                  color: theme.colorScheme.primary,
-                ),
-              if (summary.membersPushed > 0)
-                _SummaryRow(
-                  icon: AppIcons.upload,
-                  label: context.l10n.pluralkitMembersPushed(summary.membersPushed),
-                  color: theme.colorScheme.tertiary,
-                ),
-              if (summary.switchesPulled > 0)
-                _SummaryRow(
-                  icon: AppIcons.download,
-                  label: context.l10n.pluralkitSwitchesPulled(summary.switchesPulled),
-                  color: theme.colorScheme.primary,
-                ),
-              if (summary.switchesPushed > 0)
-                _SummaryRow(
-                  icon: AppIcons.upload,
-                  label: context.l10n.pluralkitSwitchesPushed(summary.switchesPushed),
-                  color: theme.colorScheme.tertiary,
-                ),
-              if (summary.membersSkipped > 0)
-                _SummaryRow(
-                  icon: AppIcons.skipNext,
-                  label: context.l10n.pluralkitMembersUnchanged(summary.membersSkipped),
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-            ],
+          ),
+          const SizedBox(height: 12),
+          if (summary.totalChanges == 0)
+            Text(
+              context.l10n.pluralkitUpToDate,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            )
+          else ...[
+            if (summary.membersPulled > 0)
+              _SummaryRow(
+                icon: AppIcons.download,
+                label: context.l10n.pluralkitMembersPulled(summary.membersPulled),
+                color: theme.colorScheme.primary,
+              ),
+            if (summary.membersPushed > 0)
+              _SummaryRow(
+                icon: AppIcons.upload,
+                label: context.l10n.pluralkitMembersPushed(summary.membersPushed),
+                color: theme.colorScheme.tertiary,
+              ),
+            if (summary.switchesPulled > 0)
+              _SummaryRow(
+                icon: AppIcons.download,
+                label: context.l10n.pluralkitSwitchesPulled(summary.switchesPulled),
+                color: theme.colorScheme.primary,
+              ),
+            if (summary.switchesPushed > 0)
+              _SummaryRow(
+                icon: AppIcons.upload,
+                label: context.l10n.pluralkitSwitchesPushed(summary.switchesPushed),
+                color: theme.colorScheme.tertiary,
+              ),
+            if (summary.membersSkipped > 0)
+              _SummaryRow(
+                icon: AppIcons.skipNext,
+                label: context.l10n.pluralkitMembersUnchanged(summary.membersSkipped),
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
           ],
-        ),
+        ],
       ),
     );
   }

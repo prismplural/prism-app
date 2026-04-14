@@ -23,6 +23,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -427,33 +428,23 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
 
   Future<void> _showPresetPicker(BuildContext context) async {
     final presets = _availablePresets;
-    final preset = await showModalBottomSheet<StressPreset>(
+    final preset = await PrismSheet.show<StressPreset>(
       context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Builder(
-                builder: (context) => Text(
-                  context.l10n.debugSelectPreset,
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
+      title: context.l10n.debugSelectPreset,
+      builder: (context) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final p in presets)
+            PrismListRow(
+              title: Text(p.label),
+              subtitle: Text(
+                '${p.members} members, ${p.sessions} sessions '
+                '\u2022 ~${p.estimatedSizeMb}MB, ~${p.estimatedSeconds}s',
               ),
+              onTap: () => Navigator.pop(context, p),
             ),
-            for (final p in presets)
-              ListTile(
-                title: Text(p.label),
-                subtitle: Text(
-                  '${p.members} members, ${p.sessions} sessions '
-                  '\u2022 ~${p.estimatedSizeMb}MB, ~${p.estimatedSeconds}s',
-                ),
-                onTap: () => Navigator.pop(context, p),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          const SizedBox(height: 8),
+        ],
       ),
     );
 

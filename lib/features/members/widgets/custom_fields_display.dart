@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/members/providers/custom_fields_provide
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 
 /// Displays custom field values on a member detail screen.
 class CustomFieldsDisplay extends ConsumerWidget {
@@ -71,9 +72,7 @@ class CustomFieldsDisplay extends ConsumerWidget {
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: Card(
-              margin: EdgeInsets.zero,
-              clipBehavior: Clip.antiAlias,
+            child: PrismSectionCard(
               child: Column(
                 children: [
                   for (var i = 0; i < fieldsWithValues.length; i++) ...[

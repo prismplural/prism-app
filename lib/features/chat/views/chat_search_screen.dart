@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 class ChatSearchScreen extends ConsumerStatefulWidget {
   const ChatSearchScreen({super.key});
@@ -225,10 +226,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                   },
                 );
               },
-              loading: () => const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
-              ),
+              loading: () => const PrismLoadingState.sliver(),
               error: (error, _) => SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(child: Text(context.l10n.chatSearchError(error))),

@@ -23,6 +23,8 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_chips.dart';
@@ -581,9 +583,7 @@ class _SectionCard extends StatelessWidget {
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: Card(
-              margin: EdgeInsets.zero,
-              clipBehavior: Clip.antiAlias,
+            child: PrismSectionCard(
               child: child,
             ),
           ),
@@ -707,16 +707,13 @@ class _DetailSection extends StatelessWidget {
           const SizedBox(height: 8),
           SizedBox(
             width: double.infinity,
-            child: Card(
-              margin: EdgeInsets.zero,
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: child ??
-                    Text(
-                      content!,
-                      style: theme.textTheme.bodyLarge,
-                    ),
-              ),
+            child: PrismSurface(
+              padding: const EdgeInsets.all(16),
+              child: child ??
+                  Text(
+                    content!,
+                    style: theme.textTheme.bodyLarge,
+                  ),
             ),
           ),
         ],

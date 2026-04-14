@@ -21,6 +21,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
@@ -340,10 +341,9 @@ class _ConfiguredView extends ConsumerWidget {
                   showChevron: false,
                   enabled: canSyncNow,
                   trailing: isSyncActive
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                      ? PrismSpinner(
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
                         )
                       : null,
                   onTap: canSyncNow

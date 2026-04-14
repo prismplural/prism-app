@@ -8,10 +8,12 @@ import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitize
 import 'package:prism_plurality/features/fronting/sanitization/fronting_fix_preview.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/ui/validation_issue_tile.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -53,7 +55,7 @@ class _FrontingSanitizationScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(),
+            const PrismLoadingState(),
             const SizedBox(height: 16),
             Text(context.l10n.frontingSanitizationScanning),
           ],
@@ -464,101 +466,99 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
+    return PrismSurface(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Plan title
-            Text(
-              plan.title,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Plan title
+          Text(
+            plan.title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 4),
-            // Plan description
-            Text(
-              plan.description,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+          ),
+          const SizedBox(height: 4),
+          // Plan description
+          Text(
+            plan.description,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            // Expanded preview
-            if (isExpanded) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      preview.summary,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
+          ),
+          // Expanded preview
+          if (isExpanded) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    preview.summary,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.w500,
                     ),
-                    if (preview.bulletPoints.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      for (final bullet in preview.bulletPoints)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '• ',
+                  ),
+                  if (preview.bulletPoints.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    for (final bullet in preview.bulletPoints)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '• ',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                bullet,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                              Expanded(
-                                child: Text(
-                                  bullet,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                    ],
+                      ),
                   ],
-                ),
+                ],
               ),
-            ],
-            const SizedBox(height: 12),
-            // Actions
-            Row(
-              children: [
-                PrismButton(
-                  label: isExpanded ? context.l10n.frontingSanitizationHidePreview : context.l10n.frontingSanitizationPreview,
-                  onPressed: onTogglePreview,
-                  enabled: !applying,
-                  tone: PrismButtonTone.subtle,
-                  density: PrismControlDensity.compact,
-                ),
-                const Spacer(),
-                PrismButton(
-                  label: context.l10n.frontingSanitizationApply,
-                  onPressed: onApply,
-                  enabled: !applying,
-                  isLoading: applying,
-                  tone: PrismButtonTone.filled,
-                  density: PrismControlDensity.compact,
-                ),
-              ],
             ),
           ],
-        ),
+          const SizedBox(height: 12),
+          // Actions
+          Row(
+            children: [
+              PrismButton(
+                label: isExpanded ? context.l10n.frontingSanitizationHidePreview : context.l10n.frontingSanitizationPreview,
+                onPressed: onTogglePreview,
+                enabled: !applying,
+                tone: PrismButtonTone.subtle,
+                density: PrismControlDensity.compact,
+              ),
+              const Spacer(),
+              PrismButton(
+                label: context.l10n.frontingSanitizationApply,
+                onPressed: onApply,
+                enabled: !applying,
+                isLoading: applying,
+                tone: PrismButtonTone.filled,
+                density: PrismControlDensity.compact,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

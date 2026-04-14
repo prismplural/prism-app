@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Horizontal bar chart comparing fronting time per member.
 class MemberComparisonChart extends ConsumerWidget {
@@ -18,28 +19,26 @@ class MemberComparisonChart extends ConsumerWidget {
 
     final maxTime = memberStats.first.totalTime.inMinutes;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Fronting Time by Member',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+    return PrismSurface(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Fronting Time by Member',
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 16),
-            for (final stat in memberStats) ...[
-              _MemberBar(
-                stat: stat,
-                maxMinutes: maxTime,
-              ),
-              const SizedBox(height: 8),
-            ],
+          ),
+          const SizedBox(height: 16),
+          for (final stat in memberStats) ...[
+            _MemberBar(
+              stat: stat,
+              maxMinutes: maxTime,
+            ),
+            const SizedBox(height: 8),
           ],
-        ),
+        ],
       ),
     );
   }

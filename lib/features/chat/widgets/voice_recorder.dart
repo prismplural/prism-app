@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:permission_handler/permission_handler.dart';
-
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// Replaces the text field area during active voice recording.
@@ -54,18 +54,7 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
             l10n.voiceMicPermissionBlocked,
           _ => l10n.voiceRecordingFailed,
         };
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            behavior: SnackBarBehavior.floating,
-            action: next.errorType == VoiceRecordingError.permissionBlocked
-                ? SnackBarAction(
-                    label: l10n.openSettings,
-                    onPressed: openAppSettings,
-                  )
-                : null,
-          ),
-        );
+        PrismToast.error(context, message: msg);
         ref.read(voiceRecordingProvider.notifier).reset();
         widget.onCancel();
       }
@@ -110,13 +99,9 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
             Expanded(
               child: isProcessing
                   ? Center(
-                      child: SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.primary,
-                        ),
+                      child: PrismSpinner(
+                        color: theme.colorScheme.primary,
+                        size: 18,
                       ),
                     )
                   : Row(
@@ -272,13 +257,9 @@ class _VoiceSendButtonState extends State<_VoiceSendButton> {
                     ? TintedGlassSurface.circle(
                         size: 34,
                         tint: primary,
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: primary,
-                          ),
+                        child: PrismSpinner(
+                          color: primary,
+                          size: 18,
                         ),
                       )
                     : TintedGlassSurface.circle(

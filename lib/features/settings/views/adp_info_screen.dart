@@ -3,6 +3,8 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_expandable_section.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Educational screen explaining how data is protected in Prism.
 ///
@@ -57,79 +59,67 @@ class AdpInfoScreen extends StatelessWidget {
           const SizedBox(height: 32),
 
           // ── Zero-knowledge note ────────────────────────────────────────────
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    AppIcons.cloudOffOutlined,
-                    size: 24,
-                    color: theme.colorScheme.primary,
+          PrismSurface(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  AppIcons.cloudOffOutlined,
+                  size: 24,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'When sync is enabled, data is encrypted on your device '
+                    'before it leaves. The server only stores encrypted blobs '
+                    'it cannot read.',
+                    style: theme.textTheme.bodyMedium,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'When sync is enabled, data is encrypted on your device '
-                      'before it leaves. The server only stores encrypted blobs '
-                      'it cannot read.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
 
           // ── "How it works" collapsible ────────────────────────────────────
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: ExpansionTile(
-              leading: Icon(
-                AppIcons.shieldOutlined,
-                color: theme.colorScheme.primary,
-              ),
-              title: Text(
-                'How it works',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              expandedCrossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Divider(height: 1),
-                const SizedBox(height: 16),
-                const _TechItem(
-                  title: 'Database encryption',
-                  body: 'HKDF-SHA256(DEK, DeviceSecret) — per-device, '
-                      'PIN-derived key. Your device generates this key; '
-                      'no server ever sees it.',
-                ),
-                const SizedBox(height: 12),
-                const _TechItem(
-                  title: 'Message encryption',
-                  body: 'XChaCha20-Poly1305 with per-message keys derived '
-                      'from your Data Encryption Key (DEK).',
-                ),
-                const SizedBox(height: 12),
-                const _TechItem(
-                  title: 'Post-quantum device identity',
-                  body: 'ML-KEM-768 (key exchange) and ML-DSA-65 (signatures) '
-                      'protect against future quantum attacks on device '
-                      'authentication.',
-                ),
-                const SizedBox(height: 12),
-                const _TechItem(
-                  title: 'Recovery',
-                  body: 'Your 12-word BIP39 recovery phrase re-derives all '
-                      'keys. Store it somewhere safe — it is the only way to '
-                      'recover your data if you lose your PIN.',
-                ),
-              ],
+          PrismExpandableSection(
+            leading: Icon(
+              AppIcons.shieldOutlined,
+              color: theme.colorScheme.primary,
             ),
+            title: Text(
+              'How it works',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            children: [
+              const _TechItem(
+                title: 'Database encryption',
+                body: 'HKDF-SHA256(DEK, DeviceSecret) — per-device, '
+                    'PIN-derived key. Your device generates this key; '
+                    'no server ever sees it.',
+              ),
+              const _TechItem(
+                title: 'Message encryption',
+                body: 'XChaCha20-Poly1305 with per-message keys derived '
+                    'from your Data Encryption Key (DEK).',
+              ),
+              const _TechItem(
+                title: 'Post-quantum device identity',
+                body: 'ML-KEM-768 (key exchange) and ML-DSA-65 (signatures) '
+                    'protect against future quantum attacks on device '
+                    'authentication.',
+              ),
+              const _TechItem(
+                title: 'Recovery',
+                body: 'Your 12-word BIP39 recovery phrase re-derives all '
+                    'keys. Store it somewhere safe — it is the only way to '
+                    'recover your data if you lose your PIN.',
+              ),
+            ],
           ),
           const SizedBox(height: 32),
         ],

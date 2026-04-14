@@ -18,6 +18,7 @@ import 'package:prism_plurality/features/migration/services/sp_importer.dart'
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Import Data step — lets user choose between PluralKit, Simply Plural,
 /// or skipping entirely (default: no import selected).
@@ -858,7 +859,12 @@ class _PrismExportImportFlowState
         padding: const EdgeInsets.all(32),
         child: Column(
           children: [
-            CircularProgressIndicator(color: textColor),
+            PrismSpinner(
+              color: textColor,
+              size: 52,
+              dotCount: 8,
+              duration: const Duration(milliseconds: 3000),
+            ),
             const SizedBox(height: 16),
             Text(
               context.l10n.onboardingPrismExportImporting,
@@ -1000,7 +1006,12 @@ class _SimplyPluralImportFlowState
                 padding: const EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    CircularProgressIndicator(color: textColor),
+                    PrismSpinner(
+                      color: textColor,
+                      size: 52,
+                      dotCount: 8,
+                      duration: const Duration(milliseconds: 3000),
+                    ),
                     const SizedBox(height: 16),
                     Text(context.l10n.onboardingSimplyPluralReadingFile, style: TextStyle(color: textColor)),
                   ],
@@ -1071,7 +1082,12 @@ class _SimplyPluralImportFlowState
                 padding: const EdgeInsets.all(32),
                 child: Column(
                   children: [
-                    CircularProgressIndicator(color: textColor),
+                    PrismSpinner(
+                      color: textColor,
+                      size: 52,
+                      dotCount: 8,
+                      duration: const Duration(milliseconds: 3000),
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       migration.progressLabel.isNotEmpty
@@ -1231,13 +1247,9 @@ class _ActionButtonState extends State<_ActionButton> {
           ),
           child: Center(
             child: widget.isLoading
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: buttonTextColor,
-                    ),
+                ? PrismSpinner(
+                    color: buttonTextColor,
+                    size: 20,
                   )
                 : Text(
                     widget.label,

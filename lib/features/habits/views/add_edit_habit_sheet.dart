@@ -20,6 +20,7 @@ import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -54,7 +55,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
   bool _onlyNotifyWhenFronting = false;
   bool _isPrivate = false;
 
-  // Track initial notification state for save snackbar.
+  // Track initial notification state for save toast.
   bool _wasNotificationsEnabled = false;
   String? _initialReminderTime;
 
@@ -405,16 +406,10 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     }
 
     if (mounted) {
-      // Show snackbar when reminders are first enabled or the time changes.
+      // Show toast when reminders are first enabled or the time changes.
       if (_notificationsEnabled &&
           (!_wasNotificationsEnabled || _reminderTime != _initialReminderTime)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              context.l10n.habitsReminderSetFor(_formatReminderTime(context)),
-            ),
-          ),
-        );
+        PrismToast.success(context, message: context.l10n.habitsReminderSetFor(_formatReminderTime(context)));
       }
       context.pop();
     }

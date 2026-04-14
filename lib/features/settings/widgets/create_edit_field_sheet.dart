@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -114,13 +115,9 @@ class _CreateEditFieldSheetState extends ConsumerState<CreateEditFieldSheet> {
                     width: PrismTokens.topBarActionSize,
                     height: PrismTokens.topBarActionSize,
                     child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.primary,
-                        ),
+                      child: PrismSpinner(
+                        color: theme.colorScheme.primary,
+                        size: 20,
                       ),
                     ),
                   )

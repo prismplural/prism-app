@@ -282,8 +282,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         if (hasMore && index == groupItems.length) {
                           return const Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(
-                                child: CircularProgressIndicator.adaptive()),
+                            child: PrismLoadingState(),
                           );
                         }
                         final item = groupItems[index];

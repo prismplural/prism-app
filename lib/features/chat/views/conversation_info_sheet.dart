@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -233,10 +234,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
               PrismSheetTopBar(
                 title: conversation.title ?? context.l10n.chatConversationInfo,
                 trailing: _saving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                    ? PrismSpinner(
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
                       )
                     : null,
               ),

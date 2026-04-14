@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Area chart showing daily fronting activity across a date range.
 ///
@@ -52,10 +53,9 @@ class FrontingActivityChart extends StatelessWidget {
           'Peak: ${peakHours}h on $peakDate. '
           'Average: ${avgHours}h per day.',
       excludeSemantics: true,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-          child: Column(
+      child: PrismSurface(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+        child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -150,7 +150,6 @@ class FrontingActivityChart extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 

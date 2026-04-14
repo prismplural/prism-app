@@ -6,6 +6,8 @@ import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 class PermissionsStep extends ConsumerStatefulWidget {
   const PermissionsStep({super.key});
@@ -71,7 +73,7 @@ class _PermissionsStepState extends ConsumerState<PermissionsStep> {
     final l10n = context.l10n;
 
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const PrismLoadingState();
     }
 
     return Padding(
@@ -184,19 +186,18 @@ class _PermissionRow extends StatelessWidget {
                 size: 24,
               )
             else if (isDeniedPermanently)
-              TextButton(
-                onPressed: () => openAppSettings(),
-                child: Text(
-                  openSettingsLabel,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
+              PrismButton(
+                label: openSettingsLabel,
+                onPressed: openAppSettings,
+                tone: PrismButtonTone.subtle,
+                density: PrismControlDensity.compact,
               )
             else
-              FilledButton.tonal(
+              PrismButton(
+                label: allowLabel,
                 onPressed: onRequest,
-                child: Text(allowLabel),
+                tone: PrismButtonTone.filled,
+                density: PrismControlDensity.compact,
               ),
           ],
         ),

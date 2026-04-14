@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -98,26 +99,7 @@ class _ReminderTile extends ConsumerWidget {
       ),
       onDismissed: (_) {
         notifier.deleteReminder(reminder.id);
-        // Uses SnackBar instead of PrismToast because the undo action
-        // requires a tap-able button, which PrismToast does not support.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.remindersDeletedSnackbar(reminder.name)),
-            action: SnackBarAction(
-              label: context.l10n.remindersUndoAction,
-              onPressed: () {
-                notifier.createReminder(
-                  name: reminder.name,
-                  message: reminder.message,
-                  trigger: reminder.trigger,
-                  intervalDays: reminder.intervalDays,
-                  timeOfDay: reminder.timeOfDay,
-                  delayHours: reminder.delayHours,
-                );
-              },
-            ),
-          ),
-        );
+        PrismToast.show(context, message: context.l10n.remindersDeletedSnackbar(reminder.name));
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

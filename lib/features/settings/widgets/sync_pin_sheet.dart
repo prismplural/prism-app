@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Modal sheet that prompts for the 6-digit sync PIN when the cached DEK is
@@ -295,7 +296,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
           else
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
+              child: PrismLoadingState(),
             ),
         ],
       ),
