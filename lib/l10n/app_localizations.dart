@@ -524,6 +524,24 @@ abstract class AppLocalizations {
   /// **'Terminology'**
   String get appearanceTerminology;
 
+  /// Section title for language picker in appearance settings
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get appearanceLanguage;
+
+  /// Option to use the system/device language
+  ///
+  /// In en, this message translates to:
+  /// **'System default'**
+  String get appearanceLanguageSystem;
+
+  /// Footer note below the language picker
+  ///
+  /// In en, this message translates to:
+  /// **'More languages coming soon'**
+  String get appearanceLanguageFooter;
+
   /// Appearance settings section: Preview
   ///
   /// In en, this message translates to:

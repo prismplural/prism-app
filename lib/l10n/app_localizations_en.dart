@@ -243,6 +243,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appearanceTerminology => 'Terminology';
 
   @override
+  String get appearanceLanguage => 'Language';
+
+  @override
+  String get appearanceLanguageSystem => 'System default';
+
+  @override
+  String get appearanceLanguageFooter => 'More languages coming soon';
+
+  @override
   String get appearancePreview => 'Preview';
 
   @override

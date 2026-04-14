@@ -19,6 +19,7 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
@@ -159,6 +160,17 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               ),
             ),
             PrismSection(
+              title: context.l10n.appearanceLanguage,
+              child: PrismSectionCard(
+                child: _LanguagePicker(
+                  current: settings.localeOverride,
+                  onChanged: (code) => ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateLocaleOverride(code),
+                ),
+              ),
+            ),
+            PrismSection(
               title: context.l10n.appearancePreview,
               child: _PreviewCard(settings: settings),
             ),
@@ -208,6 +220,95 @@ class _PreviewCard extends ConsumerWidget {
               ),
             ),
             PrismPill(label: context.l10n.appearanceFronting),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LanguagePicker extends StatelessWidget {
+  const _LanguagePicker({
+    required this.current,
+    required this.onChanged,
+  });
+
+  final String? current;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _LanguageRow(
+          title: context.l10n.appearanceLanguageSystem,
+          isSelected: current == null || current!.isEmpty,
+          onTap: () => onChanged(null),
+          theme: theme,
+        ),
+        _LanguageRow(
+          title: 'English',
+          isSelected: current == 'en',
+          onTap: () => onChanged('en'),
+          theme: theme,
+        ),
+        _LanguageRow(
+          title: 'Español',
+          isSelected: current == 'es',
+          onTap: () => onChanged('es'),
+          theme: theme,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          child: Text(
+            context.l10n.appearanceLanguageFooter,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LanguageRow extends StatelessWidget {
+  const _LanguageRow({
+    required this.title,
+    required this.isSelected,
+    required this.onTap,
+    required this.theme,
+  });
+
+  final String title;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.bodyLarge,
+              ),
+            ),
+            if (isSelected)
+              Icon(
+                AppIcons.check,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
           ],
         ),
       ),
