@@ -183,43 +183,51 @@ final habitStatsProvider =
     });
 
 /// Notifier for habit CRUD and completion actions.
-class HabitNotifier extends Notifier<void> {
+class HabitNotifier extends AsyncNotifier<void> {
   static const _uuid = Uuid();
 
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<void> createHabit(Habit habit) async {
-    final repo = ref.read(habitRepositoryProvider);
-    await repo.createHabit(habit);
-    // Schedule notifications if enabled.
-    final notifService = ref.read(habitNotificationServiceProvider);
-    await notifService.scheduleForHabit(habit);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(habitRepositoryProvider);
+      await repo.createHabit(habit);
+      // Schedule notifications if enabled.
+      final notifService = ref.read(habitNotificationServiceProvider);
+      await notifService.scheduleForHabit(habit);
+    });
   }
 
   Future<void> updateHabit(Habit habit) async {
-    final repo = ref.read(habitRepositoryProvider);
-    await repo.updateHabit(habit);
-    // Reschedule notifications.
-    final notifService = ref.read(habitNotificationServiceProvider);
-    await notifService.scheduleForHabit(habit);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(habitRepositoryProvider);
+      await repo.updateHabit(habit);
+      // Reschedule notifications.
+      final notifService = ref.read(habitNotificationServiceProvider);
+      await notifService.scheduleForHabit(habit);
+    });
   }
 
   Future<void> deleteHabit(String id) async {
-    final repo = ref.read(habitRepositoryProvider);
-    // Cancel notifications before deleting.
-    final notifService = ref.read(habitNotificationServiceProvider);
-    await notifService.cancelForHabit(id);
-    await repo.deleteHabit(id);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(habitRepositoryProvider);
+      // Cancel notifications before deleting.
+      final notifService = ref.read(habitNotificationServiceProvider);
+      await notifService.cancelForHabit(id);
+      await repo.deleteHabit(id);
+    });
   }
 
   Future<void> toggleActive(String id) async {
-    final repo = ref.read(habitRepositoryProvider);
-    final habit = await repo.getHabitById(id);
-    if (habit == null) return;
-    await repo.updateHabit(
-      habit.copyWith(isActive: !habit.isActive, modifiedAt: DateTime.now()),
-    );
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(habitRepositoryProvider);
+      final habit = await repo.getHabitById(id);
+      if (habit == null) return;
+      await repo.updateHabit(
+        habit.copyWith(isActive: !habit.isActive, modifiedAt: DateTime.now()),
+      );
+    });
   }
 
   /// Complete a habit and recalculate streaks.
@@ -231,40 +239,42 @@ class HabitNotifier extends Notifier<void> {
     bool wasFronting = false,
     DateTime? completedAt,
   }) async {
-    final repo = ref.read(habitRepositoryProvider);
-    final now = DateTime.now();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(habitRepositoryProvider);
+      final now = DateTime.now();
 
-    final completion = HabitCompletion(
-      id: _uuid.v4(),
-      habitId: habitId,
-      completedAt: completedAt ?? now,
-      completedByMemberId: completedByMemberId,
-      notes: notes,
-      wasFronting: wasFronting,
-      rating: rating,
-      createdAt: now,
-      modifiedAt: now,
-    );
-    await repo.createCompletion(completion);
-
-    // Update habit stats
-    final habit = await repo.getHabitById(habitId);
-    if (habit == null) return;
-
-    final completions = await repo.getCompletionsForHabit(habitId);
-    final currentStreak = _calculateCurrentStreak(habit, completions);
-    final bestStreak = currentStreak > habit.bestStreak
-        ? currentStreak
-        : habit.bestStreak;
-
-    await repo.updateHabit(
-      habit.copyWith(
-        totalCompletions: habit.totalCompletions + 1,
-        currentStreak: currentStreak,
-        bestStreak: bestStreak,
+      final completion = HabitCompletion(
+        id: _uuid.v4(),
+        habitId: habitId,
+        completedAt: completedAt ?? now,
+        completedByMemberId: completedByMemberId,
+        notes: notes,
+        wasFronting: wasFronting,
+        rating: rating,
+        createdAt: now,
         modifiedAt: now,
-      ),
-    );
+      );
+      await repo.createCompletion(completion);
+
+      // Update habit stats
+      final habit = await repo.getHabitById(habitId);
+      if (habit == null) return;
+
+      final completions = await repo.getCompletionsForHabit(habitId);
+      final currentStreak = _calculateCurrentStreak(habit, completions);
+      final bestStreak = currentStreak > habit.bestStreak
+          ? currentStreak
+          : habit.bestStreak;
+
+      await repo.updateHabit(
+        habit.copyWith(
+          totalCompletions: habit.totalCompletions + 1,
+          currentStreak: currentStreak,
+          bestStreak: bestStreak,
+          modifiedAt: now,
+        ),
+      );
+    });
   }
 
   /// Remove a completion and recalculate streaks.
@@ -272,30 +282,32 @@ class HabitNotifier extends Notifier<void> {
     required String habitId,
     required String completionId,
   }) async {
-    final repo = ref.read(habitRepositoryProvider);
-    await repo.deleteCompletion(completionId);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(habitRepositoryProvider);
+      await repo.deleteCompletion(completionId);
 
-    final habit = await repo.getHabitById(habitId);
-    if (habit == null) return;
+      final habit = await repo.getHabitById(habitId);
+      if (habit == null) return;
 
-    final completions = await repo.getCompletionsForHabit(habitId);
-    final currentStreak = _calculateCurrentStreak(habit, completions);
-    // bestStreak is a ratchet: never decreases
-    final bestStreak = currentStreak > habit.bestStreak
-        ? currentStreak
-        : habit.bestStreak;
+      final completions = await repo.getCompletionsForHabit(habitId);
+      final currentStreak = _calculateCurrentStreak(habit, completions);
+      // bestStreak is a ratchet: never decreases
+      final bestStreak = currentStreak > habit.bestStreak
+          ? currentStreak
+          : habit.bestStreak;
 
-    await repo.updateHabit(
-      habit.copyWith(
-        totalCompletions: (habit.totalCompletions - 1).clamp(
-          0,
-          double.maxFinite.toInt(),
+      await repo.updateHabit(
+        habit.copyWith(
+          totalCompletions: (habit.totalCompletions - 1).clamp(
+            0,
+            double.maxFinite.toInt(),
+          ),
+          currentStreak: currentStreak,
+          bestStreak: bestStreak,
+          modifiedAt: DateTime.now(),
         ),
-        currentStreak: currentStreak,
-        bestStreak: bestStreak,
-        modifiedAt: DateTime.now(),
-      ),
-    );
+      );
+    });
   }
 
   // ── Streak Calculation ───────────────────────────────────────────
@@ -432,6 +444,6 @@ class HabitNotifier extends Notifier<void> {
   }
 }
 
-final habitNotifierProvider = NotifierProvider<HabitNotifier, void>(
+final habitNotifierProvider = AsyncNotifierProvider<HabitNotifier, void>(
   HabitNotifier.new,
 );

@@ -17,9 +17,9 @@ final activeRemindersProvider = StreamProvider<List<Reminder>>((ref) {
 });
 
 /// Reminders notifier for CRUD operations.
-class RemindersNotifier extends Notifier<void> {
+class RemindersNotifier extends AsyncNotifier<void> {
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<void> createReminder({
     required String name,
@@ -29,42 +29,50 @@ class RemindersNotifier extends Notifier<void> {
     String? timeOfDay,
     int? delayHours,
   }) async {
-    final repo = ref.read(remindersRepositoryProvider);
-    final now = DateTime.now();
-    final reminder = Reminder(
-      id: const Uuid().v4(),
-      name: name,
-      message: message,
-      trigger: trigger,
-      intervalDays: intervalDays,
-      timeOfDay: timeOfDay,
-      delayHours: delayHours,
-      isActive: true,
-      createdAt: now,
-      modifiedAt: now,
-    );
-    await repo.create(reminder);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(remindersRepositoryProvider);
+      final now = DateTime.now();
+      final reminder = Reminder(
+        id: const Uuid().v4(),
+        name: name,
+        message: message,
+        trigger: trigger,
+        intervalDays: intervalDays,
+        timeOfDay: timeOfDay,
+        delayHours: delayHours,
+        isActive: true,
+        createdAt: now,
+        modifiedAt: now,
+      );
+      await repo.create(reminder);
+    });
   }
 
   Future<void> updateReminder(Reminder reminder) async {
-    final repo = ref.read(remindersRepositoryProvider);
-    await repo.update(reminder.copyWith(modifiedAt: DateTime.now()));
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(remindersRepositoryProvider);
+      await repo.update(reminder.copyWith(modifiedAt: DateTime.now()));
+    });
   }
 
   Future<void> toggleActive(Reminder reminder) async {
-    final repo = ref.read(remindersRepositoryProvider);
-    await repo.update(reminder.copyWith(
-      isActive: !reminder.isActive,
-      modifiedAt: DateTime.now(),
-    ));
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(remindersRepositoryProvider);
+      await repo.update(reminder.copyWith(
+        isActive: !reminder.isActive,
+        modifiedAt: DateTime.now(),
+      ));
+    });
   }
 
   Future<void> deleteReminder(String id) async {
-    final repo = ref.read(remindersRepositoryProvider);
-    await repo.delete(id);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(remindersRepositoryProvider);
+      await repo.delete(id);
+    });
   }
 }
 
-final remindersNotifierProvider = NotifierProvider<RemindersNotifier, void>(
+final remindersNotifierProvider = AsyncNotifierProvider<RemindersNotifier, void>(
   RemindersNotifier.new,
 );

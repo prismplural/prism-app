@@ -26,11 +26,11 @@ final memberCustomFieldValuesProvider =
 });
 
 /// Notifier for custom field CRUD operations.
-class CustomFieldNotifier extends Notifier<void> {
+class CustomFieldNotifier extends AsyncNotifier<void> {
   static const _uuid = Uuid();
 
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<void> createField({
     required String name,
@@ -38,45 +38,53 @@ class CustomFieldNotifier extends Notifier<void> {
     DatePrecision? datePrecision,
     int displayOrder = 0,
   }) async {
-    final repo = ref.read(customFieldsRepositoryProvider);
-    final field = CustomField(
-      id: _uuid.v4(),
-      name: name,
-      fieldType: fieldType,
-      datePrecision: datePrecision,
-      displayOrder: displayOrder,
-      createdAt: DateTime.now(),
-    );
-    await repo.createField(field);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      final field = CustomField(
+        id: _uuid.v4(),
+        name: name,
+        fieldType: fieldType,
+        datePrecision: datePrecision,
+        displayOrder: displayOrder,
+        createdAt: DateTime.now(),
+      );
+      await repo.createField(field);
+    });
   }
 
   Future<void> updateField(CustomField field) async {
-    final repo = ref.read(customFieldsRepositoryProvider);
-    await repo.updateField(field);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      await repo.updateField(field);
+    });
   }
 
   Future<void> deleteField(String id) async {
-    final repo = ref.read(customFieldsRepositoryProvider);
-    await repo.deleteField(id);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      await repo.deleteField(id);
+    });
   }
 
   Future<void> reorderFields(List<CustomField> fields) async {
-    final repo = ref.read(customFieldsRepositoryProvider);
-    for (int i = 0; i < fields.length; i++) {
-      await repo.updateField(fields[i].copyWith(displayOrder: i));
-    }
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      for (int i = 0; i < fields.length; i++) {
+        await repo.updateField(fields[i].copyWith(displayOrder: i));
+      }
+    });
   }
 }
 
 final customFieldNotifierProvider =
-    NotifierProvider<CustomFieldNotifier, void>(CustomFieldNotifier.new);
+    AsyncNotifierProvider<CustomFieldNotifier, void>(CustomFieldNotifier.new);
 
 /// Notifier for custom field value mutations.
-class CustomFieldValueNotifier extends Notifier<void> {
+class CustomFieldValueNotifier extends AsyncNotifier<void> {
   static const _uuid = Uuid();
 
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<void> setValue({
     required String customFieldId,
@@ -84,27 +92,33 @@ class CustomFieldValueNotifier extends Notifier<void> {
     required String value,
     String? existingId,
   }) async {
-    final repo = ref.read(customFieldsRepositoryProvider);
-    final fieldValue = CustomFieldValue(
-      id: existingId ?? _uuid.v4(),
-      customFieldId: customFieldId,
-      memberId: memberId,
-      value: value,
-    );
-    await repo.upsertValue(fieldValue);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      final fieldValue = CustomFieldValue(
+        id: existingId ?? _uuid.v4(),
+        customFieldId: customFieldId,
+        memberId: memberId,
+        value: value,
+      );
+      await repo.upsertValue(fieldValue);
+    });
   }
 
   Future<void> deleteValue(String id) async {
-    final repo = ref.read(customFieldsRepositoryProvider);
-    await repo.deleteValue(id);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      await repo.deleteValue(id);
+    });
   }
 
   Future<void> deleteValuesForMember(String memberId) async {
-    final repo = ref.read(customFieldsRepositoryProvider);
-    await repo.deleteValuesForMember(memberId);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(customFieldsRepositoryProvider);
+      await repo.deleteValuesForMember(memberId);
+    });
   }
 }
 
 final customFieldValueNotifierProvider =
-    NotifierProvider<CustomFieldValueNotifier, void>(
+    AsyncNotifierProvider<CustomFieldValueNotifier, void>(
         CustomFieldValueNotifier.new);

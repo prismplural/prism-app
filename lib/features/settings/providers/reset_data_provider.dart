@@ -76,9 +76,9 @@ enum ResetCategory {
   final String description;
 }
 
-class ResetDataNotifier extends Notifier<void> {
+class ResetDataNotifier extends AsyncNotifier<void> {
   @override
-  void build() {}
+  Future<void> build() async {}
 
   void _log(String message) {
     ErrorReportingService.instance.report(
@@ -113,24 +113,26 @@ class ResetDataNotifier extends Notifier<void> {
 
   /// Reset a specific category of data.
   Future<void> reset(ResetCategory category) async {
-    switch (category) {
-      case ResetCategory.members:
-        await _resetMembers();
-      case ResetCategory.fronting:
-        await _resetFronting();
-      case ResetCategory.chat:
-        await _resetChat();
-      case ResetCategory.polls:
-        await _resetPolls();
-      case ResetCategory.habits:
-        await _resetHabits();
-      case ResetCategory.sleep:
-        await _resetSleep();
-      case ResetCategory.sync:
-        await _resetSyncSystem();
-      case ResetCategory.all:
-        await _resetAll();
-    }
+    state = await AsyncValue.guard(() async {
+      switch (category) {
+        case ResetCategory.members:
+          await _resetMembers();
+        case ResetCategory.fronting:
+          await _resetFronting();
+        case ResetCategory.chat:
+          await _resetChat();
+        case ResetCategory.polls:
+          await _resetPolls();
+        case ResetCategory.habits:
+          await _resetHabits();
+        case ResetCategory.sleep:
+          await _resetSleep();
+        case ResetCategory.sync:
+          await _resetSyncSystem();
+        case ResetCategory.all:
+          await _resetAll();
+      }
+    });
   }
 
   Future<void> _resetMembers() async {
@@ -482,6 +484,6 @@ class ResetDataNotifier extends Notifier<void> {
   }
 }
 
-final resetDataNotifierProvider = NotifierProvider<ResetDataNotifier, void>(
+final resetDataNotifierProvider = AsyncNotifierProvider<ResetDataNotifier, void>(
   ResetDataNotifier.new,
 );

@@ -43,11 +43,11 @@ final memberNameMapProvider = Provider<Map<String, String>>((ref) {
 });
 
 /// Member CRUD notifier.
-class MembersNotifier extends Notifier<void> {
+class MembersNotifier extends AsyncNotifier<void> {
   static const _uuid = Uuid();
 
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<void> createMember({
     String? id,
@@ -60,44 +60,52 @@ class MembersNotifier extends Notifier<void> {
     bool isAdmin = false,
     String? customColorHex,
   }) async {
-    final repo = ref.read(memberRepositoryProvider);
-    final member = Member(
-      id: id ?? _uuid.v4(),
-      name: name,
-      pronouns: pronouns,
-      emoji: emoji,
-      age: age,
-      bio: bio,
-      avatarImageData: avatarImageData,
-      isAdmin: isAdmin,
-      customColorEnabled: customColorHex != null,
-      customColorHex: customColorHex,
-      createdAt: DateTime.now(),
-    );
-    await repo.createMember(member);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberRepositoryProvider);
+      final member = Member(
+        id: id ?? _uuid.v4(),
+        name: name,
+        pronouns: pronouns,
+        emoji: emoji,
+        age: age,
+        bio: bio,
+        avatarImageData: avatarImageData,
+        isAdmin: isAdmin,
+        customColorEnabled: customColorHex != null,
+        customColorHex: customColorHex,
+        createdAt: DateTime.now(),
+      );
+      await repo.createMember(member);
+    });
   }
 
   Future<void> updateMember(Member member) async {
-    final repo = ref.read(memberRepositoryProvider);
-    await repo.updateMember(member);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberRepositoryProvider);
+      await repo.updateMember(member);
+    });
   }
 
   Future<void> deleteMember(String id) async {
-    final repo = ref.read(memberRepositoryProvider);
-    await repo.deleteMember(id);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberRepositoryProvider);
+      await repo.deleteMember(id);
+    });
   }
 
   Future<void> reorderMembers(List<Member> members) async {
-    final repo = ref.read(memberRepositoryProvider);
-    final db = ref.read(databaseProvider);
-    await db.transaction(() async {
-      for (var i = 0; i < members.length; i++) {
-        if (members[i].displayOrder == i) continue;
-        await repo.updateMember(members[i].copyWith(displayOrder: i));
-      }
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberRepositoryProvider);
+      final db = ref.read(databaseProvider);
+      await db.transaction(() async {
+        for (var i = 0; i < members.length; i++) {
+          if (members[i].displayOrder == i) continue;
+          await repo.updateMember(members[i].copyWith(displayOrder: i));
+        }
+      });
     });
   }
 }
 
 final membersNotifierProvider =
-    NotifierProvider<MembersNotifier, void>(MembersNotifier.new);
+    AsyncNotifierProvider<MembersNotifier, void>(MembersNotifier.new);

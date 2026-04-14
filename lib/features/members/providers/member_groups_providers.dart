@@ -40,48 +40,60 @@ final groupByIdProvider =
 });
 
 /// Notifier for group CRUD and membership mutations.
-class GroupNotifier extends Notifier<void> {
+class GroupNotifier extends AsyncNotifier<void> {
   static const _uuid = Uuid();
 
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<void> createGroup(MemberGroup group) async {
-    final repo = ref.read(memberGroupsRepositoryProvider);
-    await repo.createGroup(group);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberGroupsRepositoryProvider);
+      await repo.createGroup(group);
+    });
   }
 
   Future<void> updateGroup(MemberGroup group) async {
-    final repo = ref.read(memberGroupsRepositoryProvider);
-    await repo.updateGroup(group);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberGroupsRepositoryProvider);
+      await repo.updateGroup(group);
+    });
   }
 
   Future<void> reorderGroups(List<MemberGroup> groups) async {
-    final repo = ref.read(memberGroupsRepositoryProvider);
-    for (int i = 0; i < groups.length; i++) {
-      if (groups[i].displayOrder != i) {
-        await repo.updateGroup(groups[i].copyWith(displayOrder: i));
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberGroupsRepositoryProvider);
+      for (int i = 0; i < groups.length; i++) {
+        if (groups[i].displayOrder != i) {
+          await repo.updateGroup(groups[i].copyWith(displayOrder: i));
+        }
       }
-    }
+    });
   }
 
   Future<void> deleteGroup(String groupId) async {
-    final repo = ref.read(memberGroupsRepositoryProvider);
-    await repo.deleteGroup(groupId);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberGroupsRepositoryProvider);
+      await repo.deleteGroup(groupId);
+    });
   }
 
   Future<void> addMemberToGroup(String groupId, String memberId) async {
-    final repo = ref.read(memberGroupsRepositoryProvider);
-    final entryId = _uuid.v4();
-    await repo.addMemberToGroup(groupId, memberId, entryId);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberGroupsRepositoryProvider);
+      final entryId = _uuid.v4();
+      await repo.addMemberToGroup(groupId, memberId, entryId);
+    });
   }
 
   Future<void> removeMemberFromGroup(
       String groupId, String memberId) async {
-    final repo = ref.read(memberGroupsRepositoryProvider);
-    await repo.removeMemberFromGroup(groupId, memberId);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberGroupsRepositoryProvider);
+      await repo.removeMemberFromGroup(groupId, memberId);
+    });
   }
 }
 
 final groupNotifierProvider =
-    NotifierProvider<GroupNotifier, void>(GroupNotifier.new);
+    AsyncNotifierProvider<GroupNotifier, void>(GroupNotifier.new);
