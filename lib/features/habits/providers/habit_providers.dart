@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -224,6 +225,12 @@ class HabitNotifier extends AsyncNotifier<void> {
       final repo = ref.read(habitRepositoryProvider);
       final habit = await repo.getHabitById(id);
       if (habit == null) return;
+      // Cancel notifications when deactivating; listener handles rescheduling on reactivate.
+      // habit.isActive is the CURRENT value — true means it's about to become inactive.
+      if (habit.isActive) {
+        final notifService = ref.read(habitNotificationServiceProvider);
+        await notifService.cancelForHabit(id);
+      }
       await repo.updateHabit(
         habit.copyWith(isActive: !habit.isActive, modifiedAt: DateTime.now()),
       );
@@ -447,3 +454,29 @@ class HabitNotifier extends AsyncNotifier<void> {
 final habitNotifierProvider = AsyncNotifierProvider<HabitNotifier, void>(
   HabitNotifier.new,
 );
+
+/// Watches all active habits and reschedules notifications on any change,
+/// including sync-driven updates from other devices. Mirrors the
+/// [reminderSchedulerListenerProvider] pattern with a 500ms debounce to
+/// batch rapid consecutive changes (e.g., bulk sync).
+final habitNotificationListenerProvider = Provider<void>((ref) {
+  final service = ref.watch(habitNotificationServiceProvider);
+  Timer? debounceTimer;
+  ref.onDispose(() => debounceTimer?.cancel());
+
+  ref.listen(
+    habitsProvider,
+    (previous, next) {
+      final habits = next.value;
+      if (habits != null) {
+        debounceTimer?.cancel();
+        debounceTimer = Timer(const Duration(milliseconds: 500), () {
+          service.rescheduleAll(habits).catchError((e) {
+            debugPrint('Habit notification reschedule failed (non-fatal): $e');
+          });
+        });
+      }
+    },
+    fireImmediately: true,
+  );
+});
