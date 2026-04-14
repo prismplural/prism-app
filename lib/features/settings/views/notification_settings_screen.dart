@@ -122,6 +122,16 @@ class NotificationSettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
+          if (Theme.of(context).platform == TargetPlatform.android)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Text(
+                context.l10n.notificationsAndroidFootnote,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
         ],
       ),
     );
