@@ -11,7 +11,6 @@ void main() {
     test('hasUnread: lastRead null and activity after creation is unread', () {
       final createdAt = DateTime(2026, 1, 1);
       final lastActivityAt = DateTime(2026, 1, 2);
-      DateTime? lastRead;
 
       final hasUnread = lastActivityAt.isAfter(createdAt);
 
