@@ -265,7 +265,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final step = onboarding.currentStep;
     final n = ref.read(onboardingProvider.notifier);
     return switch (step) {
-      OnboardingStep.welcome => const WelcomeStep(key: ValueKey('welcome')),
+      OnboardingStep.welcome => WelcomeStep(
+        key: const ValueKey('welcome'),
+        onSyncDevice: n.enterSyncDeviceFlowFromWelcome,
+      ),
       OnboardingStep.pinSetup => PinSetupStep(
         key: const ValueKey('pin-setup'),
         onPinConfirmed: n.onPinConfirmed,

@@ -3468,11 +3468,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingSyncTheyDontMatch => 'No coinciden';
 
   @override
-  String get onboardingSyncEnterPassword => 'Ingresa tu PIN';
+  String get onboardingSyncEnterPassword => 'Ingresa tu PIN de sincronización';
 
   @override
   String get onboardingSyncEnterPasswordDescription =>
-      'Ingresa tu PIN de la app para terminar de registrar este dispositivo.';
+      'Ingresa el PIN de 6 dígitos del dispositivo con el que te estás sincronizando.';
 
   @override
   String get onboardingSyncConnecting => 'Emparejando y sincronizando...';
@@ -5429,6 +5429,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingWelcomeSubtitle => 'Tu sistema, a tu manera.';
+
+  @override
+  String get onboardingWelcomeSyncLink => 'Ya uso Prism en otro dispositivo';
 
   @override
   String get onboardingBiometricSetupTitle => 'Habilitar biometría';

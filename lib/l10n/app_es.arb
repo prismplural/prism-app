@@ -978,8 +978,8 @@
   "onboardingSyncVerifyDescription": "Confirma que estas palabras coinciden con las que se muestran en tu dispositivo existente.",
   "onboardingSyncTheyMatch": "Coinciden",
   "onboardingSyncTheyDontMatch": "No coinciden",
-  "onboardingSyncEnterPassword": "Ingresa tu PIN",
-  "onboardingSyncEnterPasswordDescription": "Ingresa tu PIN de la app para terminar de registrar este dispositivo.",
+  "onboardingSyncEnterPassword": "Ingresa tu PIN de sincronización",
+  "onboardingSyncEnterPasswordDescription": "Ingresa el PIN de 6 dígitos del dispositivo con el que te estás sincronizando.",
   "onboardingSyncConnecting": "Emparejando y sincronizando...",
   "onboardingSyncConnectingSubtitle": "Esto puede tardar un momento mientras se registra el dispositivo.",
   "onboardingSyncDataStillSyncing": "Algunos datos aún se están sincronizando y aparecerán en breve.",
@@ -1526,6 +1526,7 @@
 
   "onboardingWelcomeTitle": "Bienvenide a Prism",
   "onboardingWelcomeSubtitle": "Tu sistema, a tu manera.",
+  "onboardingWelcomeSyncLink": "Ya uso Prism en otro dispositivo",
   "onboardingBiometricSetupTitle": "Habilitar biometría",
   "onboardingBiometricSetupSubtitle": "Usa Face ID o Touch ID para desbloquear.",
   "onboardingSyncDeviceTitle": "Sincronizar desde dispositivo",

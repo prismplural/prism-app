@@ -3403,11 +3403,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingSyncTheyDontMatch => 'They Don\'t Match';
 
   @override
-  String get onboardingSyncEnterPassword => 'Enter your PIN';
+  String get onboardingSyncEnterPassword => 'Enter your sync PIN';
 
   @override
   String get onboardingSyncEnterPasswordDescription =>
-      'Enter your app PIN to finish enrolling this device.';
+      'Enter the 6-digit PIN from the device you\'re syncing with.';
 
   @override
   String get onboardingSyncConnecting => 'Pairing and syncing...';
@@ -5335,6 +5335,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingWelcomeSubtitle => 'Your system, your way.';
+
+  @override
+  String get onboardingWelcomeSyncLink =>
+      'I already use Prism on another device';
 
   @override
   String get onboardingBiometricSetupTitle => 'Enable biometrics';

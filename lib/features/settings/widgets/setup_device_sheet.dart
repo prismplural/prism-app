@@ -76,8 +76,6 @@ class _SetupDeviceSheetContentState
   String? _sasDecimal;
   String? _error;
   MobileScannerController? _joinerScannerController;
-  final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
   MobileScannerController _ensureJoinerScanner() {
     return _joinerScannerController ??= MobileScannerController();
@@ -86,21 +84,18 @@ class _SetupDeviceSheetContentState
   @override
   void dispose() {
     _joinerScannerController?.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
   void _reset() {
     _joinerScannerController?.dispose();
     _joinerScannerController = null;
-    _passwordController.clear();
     setState(() {
       _step = _InitiatorStep.prompt;
       _joinerScanned = false;
       _sasWords = null;
       _sasDecimal = null;
       _error = null;
-      _obscurePassword = true;
     });
   }
 
@@ -135,11 +130,10 @@ class _SetupDeviceSheetContentState
     }
   }
 
-  Future<void> _completeInitiator() async {
-    final password = _passwordController.text;
-    if (password.trim().isEmpty) {
+  Future<void> _completeInitiator(String pin) async {
+    if (pin.trim().isEmpty) {
       setState(() {
-        _error = 'Password cannot be empty.';
+        _error = 'PIN cannot be empty.';
         _step = _InitiatorStep.error;
       });
       return;
@@ -177,7 +171,7 @@ class _SetupDeviceSheetContentState
       final pairingApi = ref.read(pairingCeremonyApiProvider);
       await pairingApi.completeInitiatorCeremony(
         handle: widget.handle,
-        password: password,
+        password: pin,
       );
 
       // Drain store after completion (may mutate epoch / credentials)
@@ -248,12 +242,8 @@ class _SetupDeviceSheetContentState
         onConfirm: () => setState(() => _step = _InitiatorStep.passwordEntry),
         onReject: _reset,
       ),
-      _InitiatorStep.passwordEntry => _InitiatorPasswordView(
-        controller: _passwordController,
-        obscure: _obscurePassword,
-        onToggleObscure: () =>
-            setState(() => _obscurePassword = !_obscurePassword),
-        onSubmit: _completeInitiator,
+      _InitiatorStep.passwordEntry => _InitiatorPinView(
+        onPinEntered: _completeInitiator,
         onBack: () => setState(() => _step = _InitiatorStep.sasVerification),
       ),
       _InitiatorStep.completing => const Center(
@@ -487,21 +477,62 @@ class _SasVerificationView extends StatelessWidget {
   }
 }
 
-/// Password entry for the initiator after SAS verification.
-class _InitiatorPasswordView extends StatelessWidget {
-  const _InitiatorPasswordView({
-    required this.controller,
-    required this.obscure,
-    required this.onToggleObscure,
-    required this.onSubmit,
+/// PIN entry for the initiator after SAS verification.
+class _InitiatorPinView extends StatefulWidget {
+  const _InitiatorPinView({
+    required this.onPinEntered,
     required this.onBack,
   });
 
-  final TextEditingController controller;
-  final bool obscure;
-  final VoidCallback onToggleObscure;
-  final VoidCallback onSubmit;
+  final void Function(String pin) onPinEntered;
   final VoidCallback onBack;
+
+  @override
+  State<_InitiatorPinView> createState() => _InitiatorPinViewState();
+}
+
+class _InitiatorPinViewState extends State<_InitiatorPinView>
+    with SingleTickerProviderStateMixin {
+  String _pin = '';
+  static const _pinLength = 6;
+
+  late AnimationController _shakeController;
+  late Animation<double> _shakeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _shakeAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 10, end: -6), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -6, end: 0), weight: 1),
+    ]).animate(
+        CurvedAnimation(parent: _shakeController, curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    super.dispose();
+  }
+
+  void _onDigit(String digit) {
+    if (_pin.length >= _pinLength) return;
+    setState(() => _pin += digit);
+    if (_pin.length == _pinLength) {
+      widget.onPinEntered(_pin);
+    }
+  }
+
+  void _onBackspace() {
+    if (_pin.isEmpty) return;
+    setState(() => _pin = _pin.substring(0, _pin.length - 1));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -514,16 +545,16 @@ class _InitiatorPasswordView extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: PrismButton(
             label: 'Back',
-            onPressed: onBack,
+            onPressed: widget.onBack,
             icon: AppIcons.arrowBackIosNew,
             tone: PrismButtonTone.subtle,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         Icon(AppIcons.lockOutline, color: theme.colorScheme.primary, size: 40),
         const SizedBox(height: 16),
         Text(
-          'Enter Sync Password',
+          'Enter your PIN',
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -531,37 +562,119 @@ class _InitiatorPasswordView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Enter your sync password to complete the pairing.',
+          'Enter your 6-digit PIN to share credentials with the new device.',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 24),
-        TextField(
-          controller: controller,
-          obscureText: obscure,
-          autofocus: true,
-          onSubmitted: (_) => onSubmit(),
-          decoration: InputDecoration(
-            hintText: 'Password',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            suffixIcon: IconButton(
-              icon: Icon(
-                obscure ? AppIcons.visibilityOff : AppIcons.visibility,
-              ),
-              onPressed: onToggleObscure,
-              tooltip: obscure ? 'Show password' : 'Hide password',
-            ),
+        const SizedBox(height: 32),
+        // PIN dot indicators
+        AnimatedBuilder(
+          animation: _shakeAnimation,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(_shakeAnimation.value, 0),
+            child: child,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_pinLength, (i) {
+              final filled = i < _pin.length;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: filled
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.primary.withValues(alpha: 0.2),
+                  ),
+                ),
+              );
+            }),
           ),
         ),
-        const SizedBox(height: 24),
-        PrismButton(
-          label: 'Complete Pairing',
-          icon: AppIcons.check,
-          onPressed: onSubmit,
-        ),
+        const SizedBox(height: 32),
+        // Numpad
+        for (var row = 0; row < 4; row++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: _buildRow(row, theme),
+            ),
+          ),
       ],
+    );
+  }
+
+  List<Widget> _buildRow(int row, ThemeData theme) {
+    if (row < 3) {
+      return List.generate(3, (col) {
+        final digit = '${row * 3 + col + 1}';
+        return _InitiatorNumpadButton(
+          label: digit,
+          onTap: () => _onDigit(digit),
+          theme: theme,
+        );
+      });
+    }
+    return [
+      const SizedBox(width: 72, height: 72),
+      _InitiatorNumpadButton(
+        label: '0',
+        onTap: () => _onDigit('0'),
+        theme: theme,
+      ),
+      _InitiatorNumpadButton(
+        icon: AppIcons.backspaceOutlined,
+        onTap: _onBackspace,
+        theme: theme,
+      ),
+    ];
+  }
+}
+
+class _InitiatorNumpadButton extends StatelessWidget {
+  const _InitiatorNumpadButton({
+    this.label,
+    this.icon,
+    required this.onTap,
+    required this.theme,
+  });
+
+  final String? label;
+  final IconData? icon;
+  final VoidCallback onTap;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 72,
+        height: 72,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        ),
+        child: label != null
+            ? Text(
+                label!,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                ),
+              )
+            : Icon(icon, size: 24, color: theme.colorScheme.onSurface),
+      ),
     );
   }
 }
