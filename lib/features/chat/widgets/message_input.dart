@@ -571,7 +571,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  if (_showMicButton)
+                  if (_showMicButton && ref.watch(voiceNotesEnabledProvider))
                     _MicButton(
                       size: inputHeight,
                       onPressed: () {

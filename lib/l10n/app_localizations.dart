@@ -2468,6 +2468,18 @@ abstract class AppLocalizations {
   /// **'Search and send GIFs in chat'**
   String get featureChatGifSearchSubtitle;
 
+  /// Title for voice notes feature toggle in chat settings
+  ///
+  /// In en, this message translates to:
+  /// **'Voice Notes'**
+  String get featureChatVoiceNotes;
+
+  /// Subtitle for voice notes feature toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Send voice messages in chat'**
+  String get featureChatVoiceNotesSubtitle;
+
   /// Description text on fronting feature settings screen
   ///
   /// In en, this message translates to:
