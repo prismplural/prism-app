@@ -5,8 +5,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'core/router/app_router.dart';
+import 'core/services/notification_providers.dart';
 import 'core/services/reminder_scheduler_service.dart';
 import 'core/sync/prism_sync_providers.dart';
+import 'features/habits/providers/habit_providers.dart';
 import 'domain/models/system_settings.dart';
 import 'features/settings/providers/settings_providers.dart';
 import 'shared/theme/app_colors.dart';
@@ -77,6 +79,10 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     ref.listen(syncEventLogProvider, (previous, next) {});
     // Keep the reminder scheduler alive — reschedules on reminder/front changes.
     ref.listen(reminderSchedulerListenerProvider, (previous, next) {});
+    // Keep the habit notification listener alive — reschedules on habit changes.
+    ref.listen(habitNotificationListenerProvider, (_, _) {});
+    // Keep the fronting reminder listener alive — schedules/cancels based on settings.
+    ref.listen(frontingReminderListenerProvider, (_, _) {});
 
     final router = ref.watch(routerProvider);
     final brightness = ref.watch(themeBrightnessProvider);
