@@ -65,8 +65,8 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Save this key now. You\'ll need it to set up new devices. '
-                    'Prism cannot recover it if lost.',
+                    'Save this now — you\'ll need it to set up new devices. '
+                    'It can\'t be recovered if lost.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onErrorContainer,
                     ),
@@ -75,14 +75,9 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
               ],
             ),
           ),
-          const SizedBox(height: 32),
-          Text(
-            'Your 12-word recovery phrase:',
-            style: theme.textTheme.titleMedium,
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
@@ -92,10 +87,12 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             ),
             child: Wrap(
               spacing: 8,
-              runSpacing: 8,
+              runSpacing: 4,
               children: [
                 for (var i = 0; i < words.length; i++)
                   Chip(
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.compact,
                     label: Text(
                       '${i + 1}. ${words[i]}',
                       style: const TextStyle(
