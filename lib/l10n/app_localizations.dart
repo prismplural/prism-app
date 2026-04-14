@@ -1256,6 +1256,12 @@ abstract class AppLocalizations {
   /// **'Fronting reminders send periodic notifications to help you stay aware of who is fronting. This can be useful for logging switches and maintaining awareness throughout the day.'**
   String get notificationsAboutText;
 
+  /// Android-only footnote below notification settings about text
+  ///
+  /// In en, this message translates to:
+  /// **'On Android, reminders may arrive a few minutes late.'**
+  String get notificationsAndroidFootnote;
+
   /// Reminder interval: 15 minutes
   ///
   /// In en, this message translates to:
@@ -6068,6 +6074,12 @@ abstract class AppLocalizations {
   /// **'Not set'**
   String get habitsReminderTimeNotSet;
 
+  /// Snackbar message after saving a habit reminder time
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder set for {time}'**
+  String habitsReminderSetFor(String time);
+
   /// Label for the custom notification message field
   ///
   /// In en, this message translates to:
@@ -6097,6 +6109,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Only notify when fronting'**
   String get habitsOnlyNotifyWhenFronting;
+
+  /// Helper text below the only-notify-when-fronting toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders will fire even if this member isn\'t fronting — fronting-aware delivery requires background access.'**
+  String get habitsOnlyFrontingCaveat;
 
   /// Switch title for private habit toggle
   ///

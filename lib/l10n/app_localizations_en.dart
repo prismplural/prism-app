@@ -639,6 +639,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Fronting reminders send periodic notifications to help you stay aware of who is fronting. This can be useful for logging switches and maintaining awareness throughout the day.';
 
   @override
+  String get notificationsAndroidFootnote =>
+      'On Android, reminders may arrive a few minutes late.';
+
+  @override
   String get notificationsInterval15m => '15 minutes';
 
   @override
@@ -3457,6 +3461,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get habitsReminderTimeNotSet => 'Not set';
 
   @override
+  String habitsReminderSetFor(String time) {
+    return 'Reminder set for $time';
+  }
+
+  @override
   String get habitsCustomMessageField => 'Custom message (optional)';
 
   @override
@@ -3470,6 +3479,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get habitsOnlyNotifyWhenFronting => 'Only notify when fronting';
+
+  @override
+  String get habitsOnlyFrontingCaveat =>
+      'Reminders will fire even if this member isn\'t fronting — fronting-aware delivery requires background access.';
 
   @override
   String get habitsPrivate => 'Private';
