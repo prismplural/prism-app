@@ -19,6 +19,23 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // F1: Global error boundaries — install immediately so startup failures are reported.
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    ErrorReportingService.instance.report(
+      details.exceptionAsString(),
+      stackTrace: details.stack,
+    );
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    ErrorReportingService.instance.report(
+      error.toString(),
+      stackTrace: stack,
+    );
+    return kReleaseMode; // In debug, let the error propagate to show the error overlay
+  };
+
   tz.initializeTimeZones();
   if (!kIsWeb) {
     final localTz = await FlutterTimezone.getLocalTimezone();
@@ -40,35 +57,21 @@ void main() async {
     await RustLib.init();
   }
 
-  // F1: Global error boundaries — report uncaught errors to ErrorReportingService.
-  FlutterError.onError = (details) {
-    FlutterError.presentError(details);
-    ErrorReportingService.instance.report(
-      details.exceptionAsString(),
-      stackTrace: details.stack,
-    );
-  };
-
-  PlatformDispatcher.instance.onError = (error, stack) {
-    ErrorReportingService.instance.report(
-      error.toString(),
-      stackTrace: stack,
-    );
-    return true; // Prevent the error from propagating
-  };
-
   // F5: Show a plain error message instead of the red/yellow error screen in
   // release builds. Cannot use Theme.of or l10n here — runs outside the widget tree.
   if (kReleaseMode) {
     ErrorWidget.builder = (FlutterErrorDetails details) {
-      return Material(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              'Something went wrong. Please restart the app.',
-              style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-              textAlign: TextAlign.center,
+      return Directionality(
+        textDirection: TextDirection.ltr,
+        child: Material(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Something went wrong. Please restart the app.',
+                style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
         ),
