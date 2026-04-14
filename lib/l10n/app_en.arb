@@ -868,6 +868,10 @@
   "@notificationsAboutText": {
     "description": "About text at the bottom of notification settings"
   },
+  "notificationsAndroidFootnote": "On Android, reminders may arrive a few minutes late.",
+  "@notificationsAndroidFootnote": {
+    "description": "Android-only footnote below notification settings about text"
+  },
   "notificationsInterval15m": "15 minutes",
   "@notificationsInterval15m": {
     "description": "Reminder interval: 15 minutes"
@@ -4666,6 +4670,15 @@
   "@habitsReminderTimeNotSet": {
     "description": "Trailing text when reminder time is not set"
   },
+  "habitsReminderSetFor": "Reminder set for {time}",
+  "@habitsReminderSetFor": {
+    "description": "Snackbar message after saving a habit reminder time",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "habitsCustomMessageField": "Custom message (optional)",
   "@habitsCustomMessageField": {
     "description": "Label for the custom notification message field"
@@ -4685,6 +4698,10 @@
   "habitsOnlyNotifyWhenFronting": "Only notify when fronting",
   "@habitsOnlyNotifyWhenFronting": {
     "description": "Switch title for fronting-only notification in assignment section"
+  },
+  "habitsOnlyFrontingCaveat": "Reminders will fire even if this member isn't fronting — fronting-aware delivery requires background access.",
+  "@habitsOnlyFrontingCaveat": {
+    "description": "Helper text below the only-notify-when-fronting toggle"
   },
   "habitsPrivate": "Private",
   "@habitsPrivate": {

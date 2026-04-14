@@ -54,6 +54,10 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
   bool _onlyNotifyWhenFronting = false;
   bool _isPrivate = false;
 
+  // Track initial notification state for save snackbar.
+  bool _wasNotificationsEnabled = false;
+  String? _initialReminderTime;
+
   bool get _isEditing => widget.existingHabit != null;
 
   @override
@@ -76,6 +80,8 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     _notificationsEnabled = habit?.notificationsEnabled ?? false;
     _reminderTime = habit?.reminderTime;
     _assignedMemberId = habit?.assignedMemberId;
+    _wasNotificationsEnabled = _notificationsEnabled;
+    _initialReminderTime = _reminderTime;
     _onlyNotifyWhenFronting = habit?.onlyNotifyWhenFronting ?? false;
     _isPrivate = habit?.isPrivate ?? false;
   }
@@ -216,12 +222,18 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 PrismSwitchRow(
                   title: context.l10n.habitsEnableReminders,
                   value: _notificationsEnabled,
-                  onChanged: (v) => setState(() => _notificationsEnabled = v),
+                  onChanged: (v) => setState(() {
+                    _notificationsEnabled = v;
+                    // Pre-populate 9:00 AM when enabling notifications for the first time.
+                    if (v && _reminderTime == null) {
+                      _reminderTime = '09:00';
+                    }
+                  }),
                 ),
                 if (_notificationsEnabled) ...[
                   PrismListRow(
                     title: Text(context.l10n.habitsReminderTime),
-                    trailing: Text(_reminderTime ?? context.l10n.habitsReminderTimeNotSet),
+                    trailing: Text(_formatReminderTime(context)),
                     onTap: _pickTime,
                   ),
                   PrismTextField(
@@ -275,13 +287,27 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                     onChanged: (v) => setState(() => _assignedMemberId = v),
                   ),
                 ),
-                if (_assignedMemberId != null)
+                if (_assignedMemberId != null) ...[
                   PrismSwitchRow(
                     title: context.l10n.habitsOnlyNotifyWhenFronting,
                     value: _onlyNotifyWhenFronting,
                     onChanged: (v) =>
                         setState(() => _onlyNotifyWhenFronting = v),
                   ),
+                  if (_onlyNotifyWhenFronting)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        context.l10n.habitsOnlyFrontingCaveat,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                ],
 
                 const SizedBox(height: 24),
 
@@ -300,6 +326,14 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
         ],
       ),
     );
+  }
+
+  /// Returns a locale-formatted time string (e.g. "9:00 AM") from the stored
+  /// HH:mm [_reminderTime]. Falls back to "Not set" if no time is stored.
+  String _formatReminderTime(BuildContext context) {
+    final parsed = _parseTime(_reminderTime);
+    if (parsed == null) return context.l10n.habitsReminderTimeNotSet;
+    return parsed.format(context);
   }
 
   Future<void> _pickTime() async {
@@ -370,7 +404,20 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
       await notifier.createHabit(habit);
     }
 
-    if (mounted) context.pop();
+    if (mounted) {
+      // Show snackbar when reminders are first enabled or the time changes.
+      if (_notificationsEnabled &&
+          (!_wasNotificationsEnabled || _reminderTime != _initialReminderTime)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.habitsReminderSetFor(_formatReminderTime(context)),
+            ),
+          ),
+        );
+      }
+      context.pop();
+    }
   }
 }
 
