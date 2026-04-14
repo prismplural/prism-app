@@ -2,6 +2,19 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.3.4] - 2026-04-13
+
+### Added
+- Voice notes settings toggle: disable mic button in chat compose independently of chat feature
+- In-app language switcher: override device locale from Appearance settings (English, Spanish, system default)
+- Permissions onboarding step: request notification + microphone permissions with rationale during setup
+- iOS backup exclusion: sync database and media cache now excluded from iCloud backup
+
+### Fixed
+- SystemSettingsMapper missing voiceNotesEnabled and localeOverride fields (silent fallback to defaults on read)
+- Migration test expected schema version updated to match v41
+- Sync group deletion now cleans up sharing tables, media files, and admin tooling
+
 ## [0.3.3] - 2026-04-13
 
 ### Improved
