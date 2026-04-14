@@ -31,6 +31,8 @@ void main() {
         habitsEnabled: true,
         sleepTrackingEnabled: true,
         gifSearchEnabled: true,
+        voiceNotesEnabled: true,
+        localeOverride: null,
         quickSwitchThresholdSeconds: 30,
         identityGeneration: 0,
         chatLogsFront: false,

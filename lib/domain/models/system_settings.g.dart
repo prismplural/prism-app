@@ -36,6 +36,7 @@ _SystemSettings _$SystemSettingsFromJson(
   habitsEnabled: json['habitsEnabled'] as bool? ?? true,
   sleepTrackingEnabled: json['sleepTrackingEnabled'] as bool? ?? true,
   gifSearchEnabled: json['gifSearchEnabled'] as bool? ?? true,
+  voiceNotesEnabled: json['voiceNotesEnabled'] as bool? ?? true,
   quickSwitchThresholdSeconds:
       (json['quickSwitchThresholdSeconds'] as num?)?.toInt() ?? 30,
   identityGeneration: (json['identityGeneration'] as num?)?.toInt() ?? 0,
@@ -52,6 +53,7 @@ _SystemSettings _$SystemSettingsFromJson(
   systemDescription: json['systemDescription'] as String?,
   systemAvatarData: _uint8ListFromJson(json['systemAvatarData'] as String?),
   remindersEnabled: json['remindersEnabled'] as bool? ?? true,
+  localeOverride: json['localeOverride'] as String?,
   fontScale: (json['fontScale'] as num?)?.toDouble() ?? 1.0,
   fontFamily:
       $enumDecodeNullable(_$FontFamilyEnumMap, json['fontFamily']) ??
@@ -99,6 +101,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'habitsEnabled': instance.habitsEnabled,
   'sleepTrackingEnabled': instance.sleepTrackingEnabled,
   'gifSearchEnabled': instance.gifSearchEnabled,
+  'voiceNotesEnabled': instance.voiceNotesEnabled,
   'quickSwitchThresholdSeconds': instance.quickSwitchThresholdSeconds,
   'identityGeneration': instance.identityGeneration,
   'chatLogsFront': instance.chatLogsFront,
@@ -112,6 +115,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'systemDescription': instance.systemDescription,
   'systemAvatarData': _uint8ListToJson(instance.systemAvatarData),
   'remindersEnabled': instance.remindersEnabled,
+  'localeOverride': instance.localeOverride,
   'fontScale': instance.fontScale,
   'fontFamily': _$FontFamilyEnumMap[instance.fontFamily]!,
   'pinLockEnabled': instance.pinLockEnabled,

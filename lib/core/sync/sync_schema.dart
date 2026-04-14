@@ -90,6 +90,8 @@ const String prismSyncSchema = '''
         "theme_style": "Int",
         "chat_enabled": "Bool",
         "gif_search_enabled": "Bool",
+        "voice_notes_enabled": "Bool",
+        "locale_override": "String",
         "polls_enabled": "Bool",
         "habits_enabled": "Bool",
         "sleep_tracking_enabled": "Bool",

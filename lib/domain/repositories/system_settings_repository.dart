@@ -26,6 +26,8 @@ abstract class SystemSettingsRepository {
   Future<void> updateHabitsEnabled(bool value);
   Future<void> updateSleepTrackingEnabled(bool value);
   Future<void> updateGifSearchEnabled(bool value);
+  Future<void> updateVoiceNotesEnabled(bool value);
+  Future<void> updateLocaleOverride(String? value);
   Future<void> updateChatLogsFront(bool value);
   Future<void> updateSyncThemeEnabled(bool value);
   Future<void> updateHasCompletedOnboarding(bool value);

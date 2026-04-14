@@ -146,6 +146,12 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateGifSearchEnabled(bool value) async =>
       updateSettings(settings.copyWith(gifSearchEnabled: value));
   @override
+  Future<void> updateVoiceNotesEnabled(bool value) async =>
+      updateSettings(settings.copyWith(voiceNotesEnabled: value));
+  @override
+  Future<void> updateLocaleOverride(String? value) async =>
+      updateSettings(settings.copyWith(localeOverride: value));
+  @override
   Future<void> updateChatLogsFront(bool value) async =>
       updateSettings(settings.copyWith(chatLogsFront: value));
   @override

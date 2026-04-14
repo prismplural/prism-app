@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' show Locale;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -189,6 +190,20 @@ class SettingsNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
       await repo.updateGifSearchEnabled(value);
+    });
+  }
+
+  Future<void> updateVoiceNotesEnabled(bool value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateVoiceNotesEnabled(value);
+    });
+  }
+
+  Future<void> updateLocaleOverride(String? value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateLocaleOverride(value);
     });
   }
 
@@ -485,6 +500,28 @@ final gifSearchEnabledProvider = Provider<bool>((ref) {
             data: (s) => s.gifSearchEnabled,
           ) ??
       true;
+});
+
+/// Narrow provider for `voiceNotesEnabled` flag.
+final voiceNotesEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.voiceNotesEnabled,
+          ) ??
+      true;
+});
+
+/// Narrow provider for locale override. Returns null for system default.
+final localeOverrideProvider = Provider<Locale?>((ref) {
+  final code = ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.localeOverride,
+          );
+  if (code == null || code.isEmpty) return null;
+  const supported = [Locale('en'), Locale('es')];
+  final locale = Locale(code);
+  if (supported.any((l) => l.languageCode == locale.languageCode)) {
+    return locale;
+  }
+  return null;
 });
 
 /// Narrow provider for `pollsEnabled` flag.

@@ -664,6 +664,8 @@ DriftSyncEntity _systemSettingsEntity(
         'habits_enabled': r.habitsEnabled,
         'sleep_tracking_enabled': r.sleepTrackingEnabled,
         'gif_search_enabled': r.gifSearchEnabled,
+        'voice_notes_enabled': r.voiceNotesEnabled,
+        'locale_override': r.localeOverride,
         'quick_switch_threshold_seconds': r.quickSwitchThresholdSeconds,
         // has_completed_onboarding excluded — local-only (see applyFields)
         'chat_logs_front': r.chatLogsFront,
@@ -714,6 +716,8 @@ DriftSyncEntity _systemSettingsEntity(
         habitsEnabled: f.boolField('habits_enabled'),
         sleepTrackingEnabled: f.boolField('sleep_tracking_enabled'),
         gifSearchEnabled: f.boolField('gif_search_enabled'),
+        voiceNotesEnabled: f.boolField('voice_notes_enabled'),
+        localeOverride: f.stringFieldNullable('locale_override'),
         quickSwitchThresholdSeconds: f.intField(
           'quick_switch_threshold_seconds',
         ),
@@ -767,6 +771,8 @@ DriftSyncEntity _systemSettingsEntity(
         'habits_enabled': row.habitsEnabled,
         'sleep_tracking_enabled': row.sleepTrackingEnabled,
         'gif_search_enabled': row.gifSearchEnabled,
+        'voice_notes_enabled': row.voiceNotesEnabled,
+        'locale_override': row.localeOverride,
         'quick_switch_threshold_seconds': row.quickSwitchThresholdSeconds,
         // has_completed_onboarding excluded — local-only (see applyFields)
         'chat_logs_front': row.chatLogsFront,
