@@ -2,6 +2,23 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.3.7] - 2026-04-14
+
+### Added
+- Stock Material guard test: CI test that fails when agents use stock Material widgets that have Prism replacements, and warns on components without replacements yet
+
+### Changed
+- Replaced all stock Material components with Prism design system equivalents across ~35 files:
+  - CircularProgressIndicator → PrismSpinner / PrismLoadingState
+  - Card → PrismSurface / PrismSectionCard
+  - SnackBar / ScaffoldMessenger → PrismToast
+  - ListTile → PrismListRow
+  - showDialog → PrismDialog.show
+  - showModalBottomSheet → PrismSheet.show
+  - ExpansionTile → PrismExpandableSection
+  - TextButton / FilledButton → PrismButton
+  - AppBar → PrismTopBar (allowlisted for image viewer)
+
 ## [0.3.6] - 2026-04-14
 
 ### Fixed
