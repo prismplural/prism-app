@@ -48,9 +48,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loading => 'Loading…';
 
   @override
-  String get noResults => 'No results';
-
-  @override
   String get tryAgain => 'Try Again';
 
   @override
@@ -124,11 +121,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get destructiveAction => 'Destructive action';
-
-  @override
-  String searchMembers(String termPlural) {
-    return 'Search $termPlural...';
-  }
 
   @override
   String noMembersFound(String termPlural) {
@@ -258,9 +250,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appearanceFronting => 'Fronting';
-
-  @override
-  String get appearanceUsingSystemPalette => 'Using your system color palette';
 
   @override
   String get syncTitle => 'Sync';
@@ -437,9 +426,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSetupIntroTitle => 'Set Up Sync';
 
   @override
-  String get syncSetupPasswordTitle => 'Create Password';
-
-  @override
   String get syncSetupSecretKeyTitle => 'Your Secret Key';
 
   @override
@@ -470,34 +456,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSetupRelayUrlError => 'Relay URL must start with https://';
 
   @override
-  String get syncSetupPasswordIntro =>
-      'Create a password to protect your encryption keys.';
-
-  @override
-  String get syncSetupPasswordHelp =>
-      'You\'ll need this password each time you set up a new device.';
-
-  @override
-  String get syncSetupPasswordLabel => 'Password';
-
-  @override
-  String get syncSetupConfirmPasswordLabel => 'Confirm password';
-
-  @override
-  String get syncSetupContinueButton => 'Continue';
-
-  @override
   String get syncSetupCompleteButton => 'Complete setup';
 
   @override
   String get syncSetupPinLabel => 'App PIN';
-
-  @override
-  String get syncSetupPasswordTooShort =>
-      'Password must be at least 8 characters';
-
-  @override
-  String get syncSetupPasswordMismatch => 'Passwords do not match';
 
   @override
   String get syncSetupProgressCreatingGroup => 'Creating sync group...';
@@ -526,12 +488,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get syncPasswordHint => 'PIN';
-
-  @override
-  String get syncShowPassword => 'Show password';
-
-  @override
-  String get syncHidePassword => 'Hide password';
 
   @override
   String get syncRevealSecretKey => 'Reveal Secret Key';
@@ -1090,9 +1046,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get devicesNoOtherDevicesSubtitle =>
       'Only this device is registered in the sync group.';
-
-  @override
-  String get devicesThisDevicePill => 'This Device';
 
   @override
   String get devicesStatusActive => 'Active';
@@ -2176,11 +2129,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String memberEmptyList(String termPlural) {
-    return 'No $termPlural yet';
-  }
-
-  @override
   String get memberGroupEmptyList => 'No groups yet';
 
   @override
@@ -2556,9 +2504,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatLoadingOlderMessages => 'Loading older messages';
-
-  @override
-  String get chatConversationFallback => 'Conversation';
 
   @override
   String get chatSearchPlaceholder => 'Search messages...';
@@ -3446,15 +3391,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter your app PIN to finish enrolling this device.';
 
   @override
-  String get onboardingSyncPasswordHint => 'PIN';
-
-  @override
-  String get onboardingSyncFinishPairing => 'Finish Pairing';
-
-  @override
-  String get onboardingSyncEnterPasswordPrompt => 'Please enter your PIN.';
-
-  @override
   String get onboardingSyncConnecting => 'Pairing and syncing...';
 
   @override
@@ -3471,9 +3407,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get onboardingSyncWelcomeBackDescription =>
       'Your device has been paired and your data is ready.';
-
-  @override
-  String get onboardingSyncPairingFailed => 'Pairing failed';
 
   @override
   String get onboardingSyncUnknownError => 'An unknown error occurred.';
@@ -3888,9 +3821,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pollsDetailVoteAs => 'Vote as';
 
   @override
-  String get pollsDetailSelectToVoteAs => 'to vote as';
-
-  @override
   String get pollsDetailNoMembers => 'No members available';
 
   @override
@@ -3942,25 +3872,6 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0 your vote';
   }
-
-  @override
-  String get notesTitle => 'Notes';
-
-  @override
-  String get notesNewNoteTooltip => 'New note';
-
-  @override
-  String get notesEmptyTitle => 'No notes yet';
-
-  @override
-  String get notesEmptySubtitle =>
-      'Create notes to keep track of thoughts and observations';
-
-  @override
-  String get notesNewNoteAction => 'New Note';
-
-  @override
-  String get notesUntitled => 'Untitled';
 
   @override
   String get migrationImportData => 'Import Data';
@@ -5072,136 +4983,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Using your system color palette';
 
   @override
-  String get settingsSyncPasswordTitle => 'Enter your sync password';
-
-  @override
-  String get settingsSyncPasswordBody =>
-      'Your sync password is needed to unlock encryption keys on this device.';
-
-  @override
-  String get settingsSyncPasswordFieldLabel => 'Password';
-
-  @override
-  String get settingsSyncPasswordShow => 'Show password';
-
-  @override
-  String get settingsSyncPasswordHide => 'Hide password';
-
-  @override
-  String get settingsSyncPasswordWrong =>
-      'Incorrect password. Please try again.';
-
-  @override
-  String get settingsSyncPasswordUnlock => 'Unlock';
-
-  @override
-  String get settingsChangePasswordTitle => 'Change Password';
-
-  @override
-  String get settingsChangePasswordVerifyBody =>
-      'Enter your current sync password to continue.';
-
-  @override
-  String get settingsChangePasswordCurrentLabel => 'Current password';
-
-  @override
-  String get settingsChangePasswordShowPassword => 'Show password';
-
-  @override
-  String get settingsChangePasswordHidePassword => 'Hide password';
-
-  @override
-  String get settingsChangePasswordContinue => 'Continue';
-
-  @override
-  String get settingsChangePasswordCurrentRequired =>
-      'Enter your current password.';
-
-  @override
-  String get settingsChangePasswordNoSecretKey =>
-      'Secret Key not found on this device. Re-pair to restore it.';
-
-  @override
-  String get settingsChangePasswordEngineUnavailable =>
-      'Sync engine not available.';
-
-  @override
-  String get settingsChangePasswordIncorrect =>
-      'Incorrect password. Please try again.';
-
-  @override
-  String settingsChangePasswordVerifyFailed(String error) {
-    return 'Verification failed: $error';
-  }
-
-  @override
-  String settingsChangePasswordGenericError(String error) {
-    return 'An error occurred: $error';
-  }
-
-  @override
-  String get settingsChangePasswordSessionExpired =>
-      'Session expired — please verify again.';
-
-  @override
-  String get settingsChangePasswordWarnBody =>
-      'Your other devices will need to enter the new password when they next open Prism.';
-
-  @override
-  String get settingsChangePasswordAction => 'Change Password';
-
-  @override
-  String get settingsChangePasswordNewBody => 'Choose a new sync password.';
-
-  @override
-  String get settingsChangePasswordNewLabel => 'New password';
-
-  @override
-  String get settingsChangePasswordConfirmLabel => 'Confirm new password';
-
-  @override
-  String get settingsChangePasswordNewRequired => 'Enter a new password.';
-
-  @override
-  String get settingsChangePasswordSamePassword =>
-      'Your sync password is already set to that.';
-
-  @override
-  String get settingsChangePasswordMismatch => 'Passwords don\'t match.';
-
-  @override
-  String get settingsChangePasswordGenerationConflict =>
-      'Another device recently changed settings — please try again.';
-
-  @override
-  String settingsChangePasswordFailed(String error) {
-    return 'Failed to change password: $error';
-  }
-
-  @override
-  String get settingsChangePasswordSuccessTitle => 'Password changed';
-
-  @override
-  String get settingsChangePasswordSuccessBody =>
-      'Your sync password has been updated on this device.';
-
-  @override
-  String get settingsSyncPinTitle => 'Enter your PIN';
-
-  @override
-  String get settingsSyncPinBody =>
-      'Your app PIN is needed to unlock encryption keys on this device.';
-
-  @override
-  String get settingsSyncPinFieldLabel => 'PIN';
-
-  @override
-  String get settingsSyncPinWrong => 'Incorrect PIN. Please try again.';
-
-  @override
-  String get settingsSyncPinUnlock => 'Unlock';
-
-  @override
   String get settingsChangePinTitle => 'Change PIN';
 
   @override
@@ -5676,23 +5457,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'You\'ll use this 6-digit PIN to lock Prism and recover access if needed.';
 
   @override
-  String get onboardingPinConfirmTitle => 'Confirm your PIN';
-
-  @override
-  String get onboardingPinMismatchError => 'PINs don\'t match. Try again.';
-
-  @override
   String get onboardingRecoveryPhraseTitle => 'Save your recovery phrase';
 
   @override
   String get onboardingRecoveryPhraseSubtitle =>
       'Write these 12 words somewhere safe. They\'re the only way to recover your data if you lose your PIN.';
-
-  @override
-  String get onboardingRevealPhrase => 'Tap to reveal';
-
-  @override
-  String get onboardingIveWrittenItDown => 'I\'ve written it down';
 
   @override
   String get onboardingConfirmPhraseTitle => 'Verify your phrase';
@@ -5702,29 +5471,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Select the correct word for each position.';
 
   @override
-  String get onboardingBiometricTitle => 'Unlock with biometrics';
-
-  @override
-  String get onboardingBiometricSubtitle =>
-      'Use Face ID or Touch ID to unlock Prism quickly.';
-
-  @override
-  String get onboardingBiometricEnable => 'Enable';
-
-  @override
-  String get onboardingBiometricSkip => 'Not now';
-
-  @override
   String get syncPinSheetTitle => 'Enter your PIN';
 
   @override
   String get syncPinSheetSubtitle => 'Your PIN is required to unlock Prism.';
-
-  @override
-  String get changePinSheetTitle => 'Change PIN';
-
-  @override
-  String get periodicPinVerificationTitle => 'Time to verify your PIN';
 
   @override
   String get backupReminderBannerText =>

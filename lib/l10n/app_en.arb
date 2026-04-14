@@ -52,10 +52,6 @@
   "@loading": {
     "description": "Generic loading state label"
   },
-  "noResults": "No results",
-  "@noResults": {
-    "description": "Empty search results label"
-  },
   "tryAgain": "Try Again",
   "@tryAgain": {
     "description": "Retry action button label"
@@ -175,15 +171,6 @@
   "destructiveAction": "Destructive action",
   "@destructiveAction": {
     "description": "Semantics hint for destructive action buttons"
-  },
-  "searchMembers": "Search {termPlural}...",
-  "@searchMembers": {
-    "description": "Search hint in member search",
-    "placeholders": {
-      "termPlural": {
-        "type": "String"
-      }
-    }
   },
   "noMembersFound": "No {termPlural} found",
   "@noMembersFound": {
@@ -364,10 +351,6 @@
   "appearanceFronting": "Fronting",
   "@appearanceFronting": {
     "description": "Fronting pill label in the appearance preview card"
-  },
-  "appearanceUsingSystemPalette": "Using your system color palette",
-  "@appearanceUsingSystemPalette": {
-    "description": "Label shown below accent color picker when Material You is active"
   },
   "syncTitle": "Sync",
   "@syncTitle": {
@@ -606,10 +589,6 @@
   "@syncSetupIntroTitle": {
     "description": "Sync setup screen title: intro step"
   },
-  "syncSetupPasswordTitle": "Create Password",
-  "@syncSetupPasswordTitle": {
-    "description": "Sync setup screen title: password step"
-  },
   "syncSetupSecretKeyTitle": "Your Secret Key",
   "@syncSetupSecretKeyTitle": {
     "description": "Sync setup screen title: secret key step"
@@ -646,26 +625,6 @@
   "@syncSetupRelayUrlError": {
     "description": "Validation error for relay URL field"
   },
-  "syncSetupPasswordIntro": "Create a password to protect your encryption keys.",
-  "@syncSetupPasswordIntro": {
-    "description": "Intro text for the sync setup password step"
-  },
-  "syncSetupPasswordHelp": "You'll need this password each time you set up a new device.",
-  "@syncSetupPasswordHelp": {
-    "description": "Help text below password intro"
-  },
-  "syncSetupPasswordLabel": "Password",
-  "@syncSetupPasswordLabel": {
-    "description": "Label for password field in sync setup"
-  },
-  "syncSetupConfirmPasswordLabel": "Confirm password",
-  "@syncSetupConfirmPasswordLabel": {
-    "description": "Label for confirm password field in sync setup"
-  },
-  "syncSetupContinueButton": "Continue",
-  "@syncSetupContinueButton": {
-    "description": "Continue button on sync setup password step"
-  },
   "syncSetupCompleteButton": "Complete setup",
   "@syncSetupCompleteButton": {
     "description": "Complete button on sync setup secret key step"
@@ -673,14 +632,6 @@
   "syncSetupPinLabel": "App PIN",
   "@syncSetupPinLabel": {
     "description": "Label for the PIN field on the sync setup secret key step"
-  },
-  "syncSetupPasswordTooShort": "Password must be at least 8 characters",
-  "@syncSetupPasswordTooShort": {
-    "description": "Validation error: password too short"
-  },
-  "syncSetupPasswordMismatch": "Passwords do not match",
-  "@syncSetupPasswordMismatch": {
-    "description": "Validation error: passwords do not match"
   },
   "syncSetupProgressCreatingGroup": "Creating sync group...",
   "@syncSetupProgressCreatingGroup": {
@@ -717,14 +668,6 @@
   "syncPasswordHint": "PIN",
   "@syncPasswordHint": {
     "description": "Hint text for sync PIN field"
-  },
-  "syncShowPassword": "Show password",
-  "@syncShowPassword": {
-    "description": "Tooltip for show password icon button"
-  },
-  "syncHidePassword": "Hide password",
-  "@syncHidePassword": {
-    "description": "Tooltip for hide password icon button"
   },
   "syncRevealSecretKey": "Reveal Secret Key",
   "@syncRevealSecretKey": {
@@ -1474,10 +1417,6 @@
   "devicesNoOtherDevicesSubtitle": "Only this device is registered in the sync group.",
   "@devicesNoOtherDevicesSubtitle": {
     "description": "Empty state subtitle in device management"
-  },
-  "devicesThisDevicePill": "This Device",
-  "@devicesThisDevicePill": {
-    "description": "Pill label for the current device"
   },
   "devicesStatusActive": "Active",
   "@devicesStatusActive": {
@@ -2922,15 +2861,6 @@
       }
     }
   },
-  "memberEmptyList": "No {termPlural} yet",
-  "@memberEmptyList": {
-    "description": "Empty state when there are no members in a group",
-    "placeholders": {
-      "termPlural": {
-        "type": "String"
-      }
-    }
-  },
   "memberGroupEmptyList": "No groups yet",
   "@memberGroupEmptyList": {
     "description": "Empty state title on the groups screen"
@@ -3464,10 +3394,6 @@
   "chatLoadingOlderMessages": "Loading older messages",
   "@chatLoadingOlderMessages": {
     "description": "Accessibility announcement when loading older messages"
-  },
-  "chatConversationFallback": "Conversation",
-  "@chatConversationFallback": {
-    "description": "Fallback title for a conversation with no title"
   },
   "chatSearchPlaceholder": "Search messages...",
   "@chatSearchPlaceholder": {
@@ -4656,18 +4582,6 @@
   "@onboardingSyncEnterPasswordDescription": {
     "description": "Description on the PIN entry view during sync pairing"
   },
-  "onboardingSyncPasswordHint": "PIN",
-  "@onboardingSyncPasswordHint": {
-    "description": "Hint text for the PIN field in sync pairing"
-  },
-  "onboardingSyncFinishPairing": "Finish Pairing",
-  "@onboardingSyncFinishPairing": {
-    "description": "Button label to complete sync pairing with PIN"
-  },
-  "onboardingSyncEnterPasswordPrompt": "Please enter your PIN.",
-  "@onboardingSyncEnterPasswordPrompt": {
-    "description": "Toast shown when user taps Finish Pairing with empty PIN"
-  },
   "onboardingSyncConnecting": "Pairing and syncing...",
   "@onboardingSyncConnecting": {
     "description": "Title shown while connecting and syncing during pairing"
@@ -4687,10 +4601,6 @@
   "onboardingSyncWelcomeBackDescription": "Your device has been paired and your data is ready.",
   "@onboardingSyncWelcomeBackDescription": {
     "description": "Description on the sync pairing success screen"
-  },
-  "onboardingSyncPairingFailed": "Pairing failed",
-  "@onboardingSyncPairingFailed": {
-    "description": "Title shown when sync device pairing fails"
   },
   "onboardingSyncUnknownError": "An unknown error occurred.",
   "@onboardingSyncUnknownError": {
@@ -5280,10 +5190,6 @@
   "@pollsDetailVoteAs": {
     "description": "Label above the vote-as member picker"
   },
-  "pollsDetailSelectToVoteAs": "to vote as",
-  "@pollsDetailSelectToVoteAs": {
-    "description": "Suffix in the toast shown when no member is selected to vote as (prepended by terminology select text)"
-  },
   "pollsDetailNoMembers": "No members available",
   "@pollsDetailNoMembers": {
     "description": "Message shown when no members are available for voting"
@@ -5352,18 +5258,6 @@
     }
   },
 
-  "notesTitle": "Notes",
-  "@notesTitle": { "description": "Notes screen title" },
-  "notesNewNoteTooltip": "New note",
-  "@notesNewNoteTooltip": { "description": "Tooltip for the new note button in notes list" },
-  "notesEmptyTitle": "No notes yet",
-  "@notesEmptyTitle": { "description": "Empty state title when there are no notes" },
-  "notesEmptySubtitle": "Create notes to keep track of thoughts and observations",
-  "@notesEmptySubtitle": { "description": "Empty state subtitle for notes list" },
-  "notesNewNoteAction": "New Note",
-  "@notesNewNoteAction": { "description": "Action button label to create a new note" },
-  "notesUntitled": "Untitled",
-  "@notesUntitled": { "description": "Fallback title for a note with no title or body" },
 
   "migrationImportData": "Import Data",
   "@migrationImportData": { "description": "Migration screen top bar title" },
@@ -6176,89 +6070,6 @@
   "@settingsAccentColorSelect": { "description": "Confirm button label in the color picker dialog" },
   "settingsAccentColorSystemPaletteNote": "Using your system color palette",
   "@settingsAccentColorSystemPaletteNote": { "description": "Note shown below color swatches when Material You is active" },
-  "settingsSyncPasswordTitle": "Enter your sync password",
-  "@settingsSyncPasswordTitle": { "description": "Title of the sync password unlock sheet" },
-  "settingsSyncPasswordBody": "Your sync password is needed to unlock encryption keys on this device.",
-  "@settingsSyncPasswordBody": { "description": "Body text of the sync password unlock sheet" },
-  "settingsSyncPasswordFieldLabel": "Password",
-  "@settingsSyncPasswordFieldLabel": { "description": "Label for the password text field in the sync password sheet" },
-  "settingsSyncPasswordShow": "Show password",
-  "@settingsSyncPasswordShow": { "description": "Tooltip to show the password in the sync password sheet" },
-  "settingsSyncPasswordHide": "Hide password",
-  "@settingsSyncPasswordHide": { "description": "Tooltip to hide the password in the sync password sheet" },
-  "settingsSyncPasswordWrong": "Incorrect password. Please try again.",
-  "@settingsSyncPasswordWrong": { "description": "Error shown when the sync password is incorrect" },
-  "settingsSyncPasswordUnlock": "Unlock",
-  "@settingsSyncPasswordUnlock": { "description": "Unlock button label in the sync password sheet" },
-  "settingsChangePasswordTitle": "Change Password",
-  "@settingsChangePasswordTitle": { "description": "Title of the change password sheet" },
-  "settingsChangePasswordVerifyBody": "Enter your current sync password to continue.",
-  "@settingsChangePasswordVerifyBody": { "description": "Body text of the verify step in the change password flow" },
-  "settingsChangePasswordCurrentLabel": "Current password",
-  "@settingsChangePasswordCurrentLabel": { "description": "Label for the current password text field" },
-  "settingsChangePasswordShowPassword": "Show password",
-  "@settingsChangePasswordShowPassword": { "description": "Tooltip to show password in change password sheet" },
-  "settingsChangePasswordHidePassword": "Hide password",
-  "@settingsChangePasswordHidePassword": { "description": "Tooltip to hide password in change password sheet" },
-  "settingsChangePasswordContinue": "Continue",
-  "@settingsChangePasswordContinue": { "description": "Continue button in the verify step of change password" },
-  "settingsChangePasswordCurrentRequired": "Enter your current password.",
-  "@settingsChangePasswordCurrentRequired": { "description": "Validation error when current password field is empty" },
-  "settingsChangePasswordNoSecretKey": "Secret Key not found on this device. Re-pair to restore it.",
-  "@settingsChangePasswordNoSecretKey": { "description": "Error when the secret key is missing during password change" },
-  "settingsChangePasswordEngineUnavailable": "Sync engine not available.",
-  "@settingsChangePasswordEngineUnavailable": { "description": "Error when the sync engine handle is null during password change" },
-  "settingsChangePasswordIncorrect": "Incorrect password. Please try again.",
-  "@settingsChangePasswordIncorrect": { "description": "Error when the current password is wrong during verification" },
-  "settingsChangePasswordVerifyFailed": "Verification failed: {error}",
-  "@settingsChangePasswordVerifyFailed": {
-    "description": "Error when password verification fails with a known error message",
-    "placeholders": { "error": { "type": "String" } }
-  },
-  "settingsChangePasswordGenericError": "An error occurred: {error}",
-  "@settingsChangePasswordGenericError": {
-    "description": "Generic error during password change flow",
-    "placeholders": { "error": { "type": "String" } }
-  },
-  "settingsChangePasswordSessionExpired": "Session expired — please verify again.",
-  "@settingsChangePasswordSessionExpired": { "description": "Error shown when the verified session is lost (e.g. hot-reload)" },
-  "settingsChangePasswordWarnBody": "Your other devices will need to enter the new password when they next open Prism.",
-  "@settingsChangePasswordWarnBody": { "description": "Warning body text before changing the password" },
-  "settingsChangePasswordAction": "Change Password",
-  "@settingsChangePasswordAction": { "description": "Button label for the change password action" },
-  "settingsChangePasswordNewBody": "Choose a new sync password.",
-  "@settingsChangePasswordNewBody": { "description": "Body text of the new password step" },
-  "settingsChangePasswordNewLabel": "New password",
-  "@settingsChangePasswordNewLabel": { "description": "Label for the new password text field" },
-  "settingsChangePasswordConfirmLabel": "Confirm new password",
-  "@settingsChangePasswordConfirmLabel": { "description": "Label for the confirm new password text field" },
-  "settingsChangePasswordNewRequired": "Enter a new password.",
-  "@settingsChangePasswordNewRequired": { "description": "Validation error when new password field is empty" },
-  "settingsChangePasswordSamePassword": "Your sync password is already set to that.",
-  "@settingsChangePasswordSamePassword": { "description": "Error when new password is the same as the current password" },
-  "settingsChangePasswordMismatch": "Passwords don't match.",
-  "@settingsChangePasswordMismatch": { "description": "Error when new password and confirm password do not match" },
-  "settingsChangePasswordGenerationConflict": "Another device recently changed settings — please try again.",
-  "@settingsChangePasswordGenerationConflict": { "description": "Error when a generation conflict is detected during password change" },
-  "settingsChangePasswordFailed": "Failed to change password: {error}",
-  "@settingsChangePasswordFailed": {
-    "description": "Generic failure message when password change fails",
-    "placeholders": { "error": { "type": "String" } }
-  },
-  "settingsChangePasswordSuccessTitle": "Password changed",
-  "@settingsChangePasswordSuccessTitle": { "description": "Title on the success screen after changing password" },
-  "settingsChangePasswordSuccessBody": "Your sync password has been updated on this device.",
-  "@settingsChangePasswordSuccessBody": { "description": "Body text on the success screen after changing password" },
-  "settingsSyncPinTitle": "Enter your PIN",
-  "@settingsSyncPinTitle": { "description": "Title of the sync PIN unlock sheet" },
-  "settingsSyncPinBody": "Your app PIN is needed to unlock encryption keys on this device.",
-  "@settingsSyncPinBody": { "description": "Body text of the sync PIN unlock sheet" },
-  "settingsSyncPinFieldLabel": "PIN",
-  "@settingsSyncPinFieldLabel": { "description": "Label for the PIN text field in the sync PIN sheet" },
-  "settingsSyncPinWrong": "Incorrect PIN. Please try again.",
-  "@settingsSyncPinWrong": { "description": "Error shown when the sync PIN is incorrect" },
-  "settingsSyncPinUnlock": "Unlock",
-  "@settingsSyncPinUnlock": { "description": "Unlock button label in the sync PIN sheet" },
   "settingsChangePinTitle": "Change PIN",
   "@settingsChangePinTitle": { "description": "Title of the change PIN sheet" },
   "settingsChangePinVerifyBody": "Enter your current PIN to continue.",
@@ -6601,14 +6412,6 @@
   "@onboardingPinSetupSubtitle": {
     "description": "Subtitle for onboarding PIN setup step"
   },
-  "onboardingPinConfirmTitle": "Confirm your PIN",
-  "@onboardingPinConfirmTitle": {
-    "description": "Title for onboarding PIN confirmation step"
-  },
-  "onboardingPinMismatchError": "PINs don't match. Try again.",
-  "@onboardingPinMismatchError": {
-    "description": "Error message shown when PINs entered during onboarding don't match"
-  },
   "onboardingRecoveryPhraseTitle": "Save your recovery phrase",
   "@onboardingRecoveryPhraseTitle": {
     "description": "Title for onboarding recovery phrase backup step"
@@ -6616,14 +6419,6 @@
   "onboardingRecoveryPhraseSubtitle": "Write these 12 words somewhere safe. They're the only way to recover your data if you lose your PIN.",
   "@onboardingRecoveryPhraseSubtitle": {
     "description": "Subtitle for onboarding recovery phrase backup step"
-  },
-  "onboardingRevealPhrase": "Tap to reveal",
-  "@onboardingRevealPhrase": {
-    "description": "Label on the blurred recovery phrase — tap to show the words"
-  },
-  "onboardingIveWrittenItDown": "I've written it down",
-  "@onboardingIveWrittenItDown": {
-    "description": "Button to confirm the user has backed up their recovery phrase"
   },
   "onboardingConfirmPhraseTitle": "Verify your phrase",
   "@onboardingConfirmPhraseTitle": {
@@ -6633,22 +6428,6 @@
   "@onboardingConfirmPhraseSubtitle": {
     "description": "Subtitle for onboarding recovery phrase confirmation step"
   },
-  "onboardingBiometricTitle": "Unlock with biometrics",
-  "@onboardingBiometricTitle": {
-    "description": "Title for onboarding biometric opt-in step"
-  },
-  "onboardingBiometricSubtitle": "Use Face ID or Touch ID to unlock Prism quickly.",
-  "@onboardingBiometricSubtitle": {
-    "description": "Subtitle for onboarding biometric opt-in step"
-  },
-  "onboardingBiometricEnable": "Enable",
-  "@onboardingBiometricEnable": {
-    "description": "Button to enable biometric unlock during onboarding"
-  },
-  "onboardingBiometricSkip": "Not now",
-  "@onboardingBiometricSkip": {
-    "description": "Button to skip biometric setup during onboarding"
-  },
   "syncPinSheetTitle": "Enter your PIN",
   "@syncPinSheetTitle": {
     "description": "Title for the PIN entry sheet used to authenticate sync"
@@ -6656,14 +6435,6 @@
   "syncPinSheetSubtitle": "Your PIN is required to unlock Prism.",
   "@syncPinSheetSubtitle": {
     "description": "Subtitle for the PIN entry sheet used to authenticate sync"
-  },
-  "changePinSheetTitle": "Change PIN",
-  "@changePinSheetTitle": {
-    "description": "Title for the change PIN sheet"
-  },
-  "periodicPinVerificationTitle": "Time to verify your PIN",
-  "@periodicPinVerificationTitle": {
-    "description": "Title shown for the periodic PIN re-verification prompt"
   },
   "backupReminderBannerText": "Have you backed up your recovery phrase?",
   "@backupReminderBannerText": {
