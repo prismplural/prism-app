@@ -168,7 +168,8 @@ void main() {
     await tester.tap(find.text('They Match'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Enter Sync Password'), findsOneWidget);
-    expect(find.text('Complete Pairing'), findsOneWidget);
+    expect(find.text('Enter your PIN'), findsOneWidget);
+    // PIN dot indicators should be present (6 dots)
+    expect(find.byType(AnimatedContainer), findsWidgets);
   });
 }

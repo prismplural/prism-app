@@ -5,13 +5,15 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class WelcomeStep extends StatelessWidget {
-  const WelcomeStep({super.key});
+  const WelcomeStep({super.key, this.onSyncDevice});
+
+  final VoidCallback? onSyncDevice;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -36,6 +38,25 @@ class WelcomeStep extends StatelessWidget {
             description: context.l10n.onboardingWelcomeBuiltForYouDescription,
             isDark: isDark,
           ),
+          const SizedBox(height: 32),
+          if (onSyncDevice != null)
+            GestureDetector(
+              onTap: onSyncDevice,
+              child: Text(
+                context.l10n.onboardingWelcomeSyncLink,
+                style: TextStyle(
+                  color: isDark
+                      ? AppColors.mutedTextDark
+                      : AppColors.mutedTextLight,
+                  fontSize: 14,
+                  decoration: TextDecoration.underline,
+                  decorationColor: isDark
+                      ? AppColors.mutedTextDark
+                      : AppColors.mutedTextLight,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
         ],
       ),
     );

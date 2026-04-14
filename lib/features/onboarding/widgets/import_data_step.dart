@@ -43,9 +43,6 @@ class _ImportDataStepState extends ConsumerState<ImportDataStep> {
           onSelect: (source) {
             setState(() => _selected = source);
           },
-          onSyncDevice: () {
-            ref.read(onboardingProvider.notifier).enterSyncDeviceFlow();
-          },
         ),
         _ImportSource.pluralKit => _PluralKitImportFlow(
           key: const ValueKey('pk'),
@@ -72,11 +69,9 @@ class _SourcePicker extends StatelessWidget {
   const _SourcePicker({
     super.key,
     required this.onSelect,
-    required this.onSyncDevice,
   });
 
   final void Function(_ImportSource) onSelect;
-  final VoidCallback onSyncDevice;
 
   @override
   Widget build(BuildContext context) {
@@ -97,14 +92,6 @@ class _SourcePicker extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          _SourceCard(
-            icon: AppIcons.devices,
-            color: Colors.teal,
-            title: context.l10n.onboardingImportSyncWithDevice,
-            description: context.l10n.onboardingImportSyncWithDeviceDescription,
-            onTap: onSyncDevice,
-          ),
-          const SizedBox(height: 16),
           _SourceCard(
             icon: AppIcons.sync,
             color: Colors.cyan,

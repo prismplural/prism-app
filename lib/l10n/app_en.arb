@@ -4598,11 +4598,11 @@
   "@onboardingSyncTheyDontMatch": {
     "description": "Button label to reject SAS codes"
   },
-  "onboardingSyncEnterPassword": "Enter your PIN",
+  "onboardingSyncEnterPassword": "Enter your sync PIN",
   "@onboardingSyncEnterPassword": {
     "description": "Title on the PIN entry view during sync pairing"
   },
-  "onboardingSyncEnterPasswordDescription": "Enter your app PIN to finish enrolling this device.",
+  "onboardingSyncEnterPasswordDescription": "Enter the 6-digit PIN from the device you're syncing with.",
   "@onboardingSyncEnterPasswordDescription": {
     "description": "Description on the PIN entry view during sync pairing"
   },
@@ -6322,6 +6322,10 @@
   "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },
   "onboardingWelcomeSubtitle": "Your system, your way.",
   "@onboardingWelcomeSubtitle": { "description": "Header subtitle for the onboarding welcome step" },
+  "onboardingWelcomeSyncLink": "I already use Prism on another device",
+  "@onboardingWelcomeSyncLink": {
+    "description": "Link on welcome step to enter sync-from-device flow before PIN setup"
+  },
   "onboardingBiometricSetupTitle": "Enable biometrics",
   "@onboardingBiometricSetupTitle": { "description": "Header title for the onboarding biometric setup step" },
   "onboardingBiometricSetupSubtitle": "Use Face ID or Touch ID to unlock.",

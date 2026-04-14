@@ -11,6 +11,7 @@ import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 enum PairingStep {
@@ -124,6 +125,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// out if the counter has moved on (i.e. a cancel or a new attempt started).
   int _generation = 0;
 
+  /// PIN to store as app lock PIN after successful pairing. Set by
+  /// [completeJoinerWithPin] so that [_bootstrapAfterJoin] can persist it
+  /// once all credentials are in place.
+  String? _pendingPin;
+
   @override
   PairingState build() {
     _generation++;
@@ -132,6 +138,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
   void reset() {
     _generation++;
+    _pendingPin = null;
     state = const PairingState();
   }
 
@@ -139,6 +146,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// user navigates away (e.g. leaveSyncDeviceFlow).
   void cancel() {
     _generation++;
+    _pendingPin = null;
     if (state.step == PairingStep.connecting) {
       state = const PairingState();
     }
@@ -235,9 +243,12 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   ///
   /// Delegates to [completeJoinerWithPassword] — PIN is used as the sync
   /// auth password, matching the onboarding flow where the PIN is the
-  /// Argon2id password for key derivation.
-  Future<void> completeJoinerWithPin(String pin) =>
-      completeJoinerWithPassword(pin);
+  /// Argon2id password for key derivation. The PIN is saved so that
+  /// [_bootstrapAfterJoin] can store it as the app lock PIN.
+  Future<void> completeJoinerWithPin(String pin) {
+    _pendingPin = pin;
+    return completeJoinerWithPassword(pin);
+  }
 
   /// Complete the joiner ceremony with the user's password.
   Future<void> completeJoinerWithPassword(String password) async {
@@ -278,6 +289,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         await _bootstrapAfterJoin(handle, myGeneration);
       }).timeout(const Duration(seconds: 60));
     } on TimeoutException {
+      _pendingPin = null;
       await _cleanupKeychainOnFailure();
       if (_generation != myGeneration) return;
       state = state.copyWith(
@@ -287,6 +299,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         errorCode: null,
       );
     } catch (e) {
+      _pendingPin = null;
       final structuredError = PrismSyncStructuredError.tryParse(e);
       await _cleanupKeychainOnFailure();
       if (_generation != myGeneration) return;
@@ -418,6 +431,24 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
     await cacheRuntimeKeys(handle, ref.read(databaseProvider));
 
+    // Store Device 1's PIN as this device's app lock PIN so the user
+    // has one PIN across all devices. Non-fatal: credentials are already
+    // persisted, so a failure here shouldn't wipe the successful pairing.
+    if (_pendingPin != null) {
+      try {
+        final pinService = ref.read(pinLockServiceProvider);
+        await pinService.storePin(_pendingPin!);
+      } catch (e, st) {
+        ErrorReportingService.instance.report(
+          'Failed to store app-lock PIN after pairing (non-fatal): $e',
+          severity: ErrorSeverity.warning,
+          stackTrace: st,
+        );
+      } finally {
+        _pendingPin = null;
+      }
+    }
+
     final counts = await _countLocalData();
     if (kDebugMode) {
       print(
@@ -470,13 +501,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// preserve them. If not, defaults are fine — the user can customize
   /// from Settings later.
   Future<void> completeOnboarding() async {
-    // Guard: don't mark onboarding complete if no members exist yet.
-    // This prevents Device B from skipping onboarding when the CRDT-synced
-    // hasCompletedOnboarding flag arrives before member data.
-    final memberRepo = ref.read(memberRepositoryProvider);
-    final members = await memberRepo.getAllMembers();
-    if (members.isEmpty) return;
-
     final settingsRepo = ref.read(systemSettingsRepositoryProvider);
     final current = await settingsRepo.getSettings();
     if (!current.hasCompletedOnboarding) {

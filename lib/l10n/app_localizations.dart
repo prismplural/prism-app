@@ -5969,13 +5969,13 @@ abstract class AppLocalizations {
   /// Title on the PIN entry view during sync pairing
   ///
   /// In en, this message translates to:
-  /// **'Enter your PIN'**
+  /// **'Enter your sync PIN'**
   String get onboardingSyncEnterPassword;
 
   /// Description on the PIN entry view during sync pairing
   ///
   /// In en, this message translates to:
-  /// **'Enter your app PIN to finish enrolling this device.'**
+  /// **'Enter the 6-digit PIN from the device you\'re syncing with.'**
   String get onboardingSyncEnterPasswordDescription;
 
   /// Title shown while connecting and syncing during pairing
@@ -9235,6 +9235,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your system, your way.'**
   String get onboardingWelcomeSubtitle;
+
+  /// Link on welcome step to enter sync-from-device flow before PIN setup
+  ///
+  /// In en, this message translates to:
+  /// **'I already use Prism on another device'**
+  String get onboardingWelcomeSyncLink;
 
   /// Header title for the onboarding biometric setup step
   ///

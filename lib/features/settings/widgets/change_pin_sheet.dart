@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
+import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -271,6 +272,11 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
         secretKey: _secretKeyBytes!,
         db: ref.read(databaseProvider),
       );
+
+      // Also update the local app-lock PIN hash so that the unlock PIN
+      // stays in sync with the sync encryption PIN.
+      final pinService = ref.read(pinLockServiceProvider);
+      await pinService.storePin(newPin);
 
       if (!mounted) return;
       setState(() {
