@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/core/services/reminder_scheduler_service.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
 
@@ -102,7 +103,7 @@ void main() {
 
   group('rescheduleAll', () {
     test('only schedules active front-change reminders', () async {
-      final service = ReminderSchedulerService();
+      final service = ReminderSchedulerService(LocalNotificationService());
 
       final active = _reminder(
         id: 'r1',
@@ -130,7 +131,7 @@ void main() {
 
   group('scheduleReminder routing', () {
     test('inactive reminder is skipped', () async {
-      final service = ReminderSchedulerService();
+      final service = ReminderSchedulerService(LocalNotificationService());
       final r = _reminder(
         id: 'r-inactive',
         trigger: ReminderTrigger.onFrontChange,
@@ -142,7 +143,7 @@ void main() {
     });
 
     test('onFrontChange reminder scheduling does not throw', () async {
-      final service = ReminderSchedulerService();
+      final service = ReminderSchedulerService(LocalNotificationService());
       final r = _reminder(
         id: 'r-fc',
         trigger: ReminderTrigger.onFrontChange,
