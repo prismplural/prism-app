@@ -23,6 +23,7 @@ import 'package:prism_plurality/core/sync/drift_sync_adapter.dart';
 import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/core/sync/sync_quarantine.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/services/backup_exclusion.dart';
 import 'package:prism_plurality/core/sync/sync_schema.dart';
 
 // Dart-side sync integration — manages the Rust FFI handle lifecycle, keychain
@@ -196,6 +197,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
     final previousHandle = _handle;
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
+    await excludeFromiCloudBackup(dbPath);
 
     // Crash recovery for the Rust sync DB staging slot.
     //
