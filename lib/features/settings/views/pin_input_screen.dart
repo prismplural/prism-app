@@ -28,6 +28,7 @@ class PinInputScreen extends ConsumerStatefulWidget {
     required this.onSuccess,
     this.pinToConfirm,
     this.onPinEntered,
+    this.embedded = false,
   });
 
   final PinInputMode mode;
@@ -40,6 +41,10 @@ class PinInputScreen extends ConsumerStatefulWidget {
   /// Useful for callers that need to capture the PIN value, e.g. to pass as
   /// [pinToConfirm] in a follow-up confirm phase.
   final void Function(String pin)? onPinEntered;
+
+  /// When [true], renders without the [Material]/[SafeArea] wrapper, title, and
+  /// subtitle — suitable for embedding inside a larger scaffold (e.g. onboarding).
+  final bool embedded;
 
   @override
   ConsumerState<PinInputScreen> createState() => _PinInputScreenState();
@@ -212,83 +217,93 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     final showBiometric = widget.mode == PinInputMode.unlock && biometricAvailable;
     final clampedSize = ((MediaQuery.of(context).size.width - 80) / 3).clamp(56.0, 72.0);
 
+    final content = Column(
+      children: [
+        if (widget.embedded)
+          const SizedBox(height: 24)
+        else
+          const Spacer(flex: 2),
+        if (!widget.embedded) ...[
+          // Title
+          Text(
+            _title(context),
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _subtitle(context),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 40),
+        ],
+        // Dot indicators with shake animation
+        AnimatedBuilder(
+          animation: _shakeAnimation,
+          builder: (context, child) => Transform.translate(
+            offset: Offset(_shakeAnimation.value, 0),
+            child: child,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_pinLength, (i) {
+              final filled = i < _pin.length;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: AnimatedBuilder(
+                  animation: _dotScaleAnim,
+                  builder: (context, child) => Transform.scale(
+                    scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
+                    child: child,
+                  ),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 16,
+                    height: 16,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: filled
+                          ? accentColor
+                          : accentColor.withValues(alpha: 0.15),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+        if (widget.embedded)
+          const SizedBox(height: 32)
+        else
+          const Spacer(flex: 2),
+        // Numpad
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 40),
+          child: Column(
+            children: [
+              for (var row = 0; row < 4; row++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: _buildRow(row, showBiometric, theme, clampedSize),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (!widget.embedded) const Spacer(),
+      ],
+    );
+
+    if (widget.embedded) return content;
+
     return Material(
       color: theme.scaffoldBackgroundColor,
-      child: SafeArea(
-        child: Column(
-          children: [
-            const Spacer(flex: 2),
-            // Title
-            Text(
-              _title(context),
-              style: theme.textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _subtitle(context),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 40),
-            // Dot indicators with shake animation
-            AnimatedBuilder(
-              animation: _shakeAnimation,
-              builder: (context, child) => Transform.translate(
-                offset: Offset(_shakeAnimation.value, 0),
-                child: child,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(_pinLength, (i) {
-                  final filled = i < _pin.length;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: AnimatedBuilder(
-                      animation: _dotScaleAnim,
-                      builder: (context, child) => Transform.scale(
-                        scale: i == _lastFilledDotIndex ? _dotScaleAnim.value : 1.0,
-                        child: child,
-                      ),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: filled
-                              ? accentColor
-                              : accentColor.withValues(alpha: 0.15),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-            const Spacer(flex: 2),
-            // Numpad
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Column(
-                children: [
-                  for (var row = 0; row < 4; row++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: _buildRow(row, showBiometric, theme, clampedSize),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const Spacer(),
-          ],
-        ),
-      ),
+      child: SafeArea(child: content),
     );
   }
 
@@ -314,7 +329,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
           semanticLabel: context.l10n.pinLockBiometricTitle,
         )
       else
-        SizedBox(width: clampedSize, height: clampedSize),
+        ExcludeSemantics(child: SizedBox(width: clampedSize, height: clampedSize)),
       PinNumpadButton(
         label: '0',
         onTap: () => _onDigit('0'),
