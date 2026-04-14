@@ -2,6 +2,16 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.3.6] - 2026-04-14
+
+### Fixed
+- Biometric unlock: Face ID / Touch ID button no longer appears on PIN screen when biometric unlock is disabled in settings
+- Launch flash: app theme preference now cached in SharedPreferences so the first Flutter frame renders with the correct background color instead of white
+- iOS launch screen: added light/dark mode color variants (was hardcoded white for all users)
+
+### Changed
+- Secret key reveal: tighter word chip layout, updated copy
+
 ## [0.3.4] - 2026-04-13
 
 ### Added
