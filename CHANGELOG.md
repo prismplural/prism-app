@@ -2,6 +2,20 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.3.8] - 2026-04-14
+
+### Changed
+- Promote `timezone`, `local_auth_platform_interface`, and `plugin_platform_interface` to direct dependencies (were transitive)
+- Remove redundant imports: `dart:typed_data` in `database_encryption.dart`, `prism_sync_providers.dart`, and biometric test; `flutter/foundation.dart` in `database_encryption_test.dart`
+- `_NavBarItem` in `app_shell.dart`: remove never-used `icon`/`activeIcon`/`label` optional parameters, make `tab` required
+- Fix double-underscore wildcard params (`(_, __) → (_, _)`) in `notification_providers.dart`
+- Replace closure with tearoff in `permissions_step.dart` (`() => openAppSettings()`)
+- Clean up `locale_test.dart`: remove unused helper function, fix unnecessary `?.` on non-nullable receiver, remove unused variable
+- Convert `setUp`/`tearDown` closures to tearoffs in `database_encryption_test.dart`
+- Fix dangling library doc comment in `migration_step_by_step_test.dart` (`///` → `//`)
+- Remove unused local variable in `unread_count_providers_test.dart`
+- Promote `local_auth_platform_interface` and `plugin_platform_interface` to dev dependencies
+
 ## [0.3.7] - 2026-04-14
 
 ### Added
