@@ -1,9 +1,13 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:prism_sync/generated/frb_generated.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 // import 'package:workmanager/workmanager.dart';
 
 import 'package:prism_plurality/core/services/secure_storage.dart';
@@ -12,6 +16,12 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  tz.initializeTimeZones();
+  if (!kIsWeb) {
+    final localTz = await FlutterTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(localTz));
+  }
 
   // iOS Keychain survives app uninstall — clear stale data on fresh install.
   await clearKeychainIfFreshInstall();
