@@ -176,12 +176,6 @@ abstract class AppLocalizations {
   /// **'Loading…'**
   String get loading;
 
-  /// Empty search results label
-  ///
-  /// In en, this message translates to:
-  /// **'No results'**
-  String get noResults;
-
   /// Retry action button label
   ///
   /// In en, this message translates to:
@@ -307,12 +301,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Destructive action'**
   String get destructiveAction;
-
-  /// Search hint in member search
-  ///
-  /// In en, this message translates to:
-  /// **'Search {termPlural}...'**
-  String searchMembers(String termPlural);
 
   /// Empty state in member search
   ///
@@ -553,12 +541,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Fronting'**
   String get appearanceFronting;
-
-  /// Label shown below accent color picker when Material You is active
-  ///
-  /// In en, this message translates to:
-  /// **'Using your system color palette'**
-  String get appearanceUsingSystemPalette;
 
   /// Sync settings screen title
   ///
@@ -878,12 +860,6 @@ abstract class AppLocalizations {
   /// **'Set Up Sync'**
   String get syncSetupIntroTitle;
 
-  /// Sync setup screen title: password step
-  ///
-  /// In en, this message translates to:
-  /// **'Create Password'**
-  String get syncSetupPasswordTitle;
-
   /// Sync setup screen title: secret key step
   ///
   /// In en, this message translates to:
@@ -938,36 +914,6 @@ abstract class AppLocalizations {
   /// **'Relay URL must start with https://'**
   String get syncSetupRelayUrlError;
 
-  /// Intro text for the sync setup password step
-  ///
-  /// In en, this message translates to:
-  /// **'Create a password to protect your encryption keys.'**
-  String get syncSetupPasswordIntro;
-
-  /// Help text below password intro
-  ///
-  /// In en, this message translates to:
-  /// **'You\'ll need this password each time you set up a new device.'**
-  String get syncSetupPasswordHelp;
-
-  /// Label for password field in sync setup
-  ///
-  /// In en, this message translates to:
-  /// **'Password'**
-  String get syncSetupPasswordLabel;
-
-  /// Label for confirm password field in sync setup
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm password'**
-  String get syncSetupConfirmPasswordLabel;
-
-  /// Continue button on sync setup password step
-  ///
-  /// In en, this message translates to:
-  /// **'Continue'**
-  String get syncSetupContinueButton;
-
   /// Complete button on sync setup secret key step
   ///
   /// In en, this message translates to:
@@ -979,18 +925,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'App PIN'**
   String get syncSetupPinLabel;
-
-  /// Validation error: password too short
-  ///
-  /// In en, this message translates to:
-  /// **'Password must be at least 8 characters'**
-  String get syncSetupPasswordTooShort;
-
-  /// Validation error: passwords do not match
-  ///
-  /// In en, this message translates to:
-  /// **'Passwords do not match'**
-  String get syncSetupPasswordMismatch;
 
   /// Sync setup progress: creating group
   ///
@@ -1045,18 +979,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'PIN'**
   String get syncPasswordHint;
-
-  /// Tooltip for show password icon button
-  ///
-  /// In en, this message translates to:
-  /// **'Show password'**
-  String get syncShowPassword;
-
-  /// Tooltip for hide password icon button
-  ///
-  /// In en, this message translates to:
-  /// **'Hide password'**
-  String get syncHidePassword;
 
   /// Button to reveal the secret key
   ///
@@ -2071,12 +1993,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Only this device is registered in the sync group.'**
   String get devicesNoOtherDevicesSubtitle;
-
-  /// Pill label for the current device
-  ///
-  /// In en, this message translates to:
-  /// **'This Device'**
-  String get devicesThisDevicePill;
 
   /// Device status: Active
   ///
@@ -3848,12 +3764,6 @@ abstract class AppLocalizations {
   /// **'Remove {name} from this group? The {termLower} will not be deleted.'**
   String memberRemoveFromGroupMessage(String name, String termLower);
 
-  /// Empty state when there are no members in a group
-  ///
-  /// In en, this message translates to:
-  /// **'No {termPlural} yet'**
-  String memberEmptyList(String termPlural);
-
   /// Empty state title on the groups screen
   ///
   /// In en, this message translates to:
@@ -4507,12 +4417,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Loading older messages'**
   String get chatLoadingOlderMessages;
-
-  /// Fallback title for a conversation with no title
-  ///
-  /// In en, this message translates to:
-  /// **'Conversation'**
-  String get chatConversationFallback;
 
   /// Placeholder text in the chat search field
   ///
@@ -6038,24 +5942,6 @@ abstract class AppLocalizations {
   /// **'Enter your app PIN to finish enrolling this device.'**
   String get onboardingSyncEnterPasswordDescription;
 
-  /// Hint text for the PIN field in sync pairing
-  ///
-  /// In en, this message translates to:
-  /// **'PIN'**
-  String get onboardingSyncPasswordHint;
-
-  /// Button label to complete sync pairing with PIN
-  ///
-  /// In en, this message translates to:
-  /// **'Finish Pairing'**
-  String get onboardingSyncFinishPairing;
-
-  /// Toast shown when user taps Finish Pairing with empty PIN
-  ///
-  /// In en, this message translates to:
-  /// **'Please enter your PIN.'**
-  String get onboardingSyncEnterPasswordPrompt;
-
   /// Title shown while connecting and syncing during pairing
   ///
   /// In en, this message translates to:
@@ -6085,12 +5971,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your device has been paired and your data is ready.'**
   String get onboardingSyncWelcomeBackDescription;
-
-  /// Title shown when sync device pairing fails
-  ///
-  /// In en, this message translates to:
-  /// **'Pairing failed'**
-  String get onboardingSyncPairingFailed;
 
   /// Fallback error message when no specific error is available
   ///
@@ -6788,12 +6668,6 @@ abstract class AppLocalizations {
   /// **'Vote as'**
   String get pollsDetailVoteAs;
 
-  /// Suffix in the toast shown when no member is selected to vote as (prepended by terminology select text)
-  ///
-  /// In en, this message translates to:
-  /// **'to vote as'**
-  String get pollsDetailSelectToVoteAs;
-
   /// Message shown when no members are available for voting
   ///
   /// In en, this message translates to:
@@ -6871,42 +6745,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 poll needs} other{{count} polls need}} your vote'**
   String pollsNotificationBanner(int count);
-
-  /// Notes screen title
-  ///
-  /// In en, this message translates to:
-  /// **'Notes'**
-  String get notesTitle;
-
-  /// Tooltip for the new note button in notes list
-  ///
-  /// In en, this message translates to:
-  /// **'New note'**
-  String get notesNewNoteTooltip;
-
-  /// Empty state title when there are no notes
-  ///
-  /// In en, this message translates to:
-  /// **'No notes yet'**
-  String get notesEmptyTitle;
-
-  /// Empty state subtitle for notes list
-  ///
-  /// In en, this message translates to:
-  /// **'Create notes to keep track of thoughts and observations'**
-  String get notesEmptySubtitle;
-
-  /// Action button label to create a new note
-  ///
-  /// In en, this message translates to:
-  /// **'New Note'**
-  String get notesNewNoteAction;
-
-  /// Fallback title for a note with no title or body
-  ///
-  /// In en, this message translates to:
-  /// **'Untitled'**
-  String get notesUntitled;
 
   /// Migration screen top bar title
   ///
@@ -8786,228 +8624,6 @@ abstract class AppLocalizations {
   /// **'Using your system color palette'**
   String get settingsAccentColorSystemPaletteNote;
 
-  /// Title of the sync password unlock sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Enter your sync password'**
-  String get settingsSyncPasswordTitle;
-
-  /// Body text of the sync password unlock sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Your sync password is needed to unlock encryption keys on this device.'**
-  String get settingsSyncPasswordBody;
-
-  /// Label for the password text field in the sync password sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Password'**
-  String get settingsSyncPasswordFieldLabel;
-
-  /// Tooltip to show the password in the sync password sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Show password'**
-  String get settingsSyncPasswordShow;
-
-  /// Tooltip to hide the password in the sync password sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Hide password'**
-  String get settingsSyncPasswordHide;
-
-  /// Error shown when the sync password is incorrect
-  ///
-  /// In en, this message translates to:
-  /// **'Incorrect password. Please try again.'**
-  String get settingsSyncPasswordWrong;
-
-  /// Unlock button label in the sync password sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Unlock'**
-  String get settingsSyncPasswordUnlock;
-
-  /// Title of the change password sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Change Password'**
-  String get settingsChangePasswordTitle;
-
-  /// Body text of the verify step in the change password flow
-  ///
-  /// In en, this message translates to:
-  /// **'Enter your current sync password to continue.'**
-  String get settingsChangePasswordVerifyBody;
-
-  /// Label for the current password text field
-  ///
-  /// In en, this message translates to:
-  /// **'Current password'**
-  String get settingsChangePasswordCurrentLabel;
-
-  /// Tooltip to show password in change password sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Show password'**
-  String get settingsChangePasswordShowPassword;
-
-  /// Tooltip to hide password in change password sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Hide password'**
-  String get settingsChangePasswordHidePassword;
-
-  /// Continue button in the verify step of change password
-  ///
-  /// In en, this message translates to:
-  /// **'Continue'**
-  String get settingsChangePasswordContinue;
-
-  /// Validation error when current password field is empty
-  ///
-  /// In en, this message translates to:
-  /// **'Enter your current password.'**
-  String get settingsChangePasswordCurrentRequired;
-
-  /// Error when the secret key is missing during password change
-  ///
-  /// In en, this message translates to:
-  /// **'Secret Key not found on this device. Re-pair to restore it.'**
-  String get settingsChangePasswordNoSecretKey;
-
-  /// Error when the sync engine handle is null during password change
-  ///
-  /// In en, this message translates to:
-  /// **'Sync engine not available.'**
-  String get settingsChangePasswordEngineUnavailable;
-
-  /// Error when the current password is wrong during verification
-  ///
-  /// In en, this message translates to:
-  /// **'Incorrect password. Please try again.'**
-  String get settingsChangePasswordIncorrect;
-
-  /// Error when password verification fails with a known error message
-  ///
-  /// In en, this message translates to:
-  /// **'Verification failed: {error}'**
-  String settingsChangePasswordVerifyFailed(String error);
-
-  /// Generic error during password change flow
-  ///
-  /// In en, this message translates to:
-  /// **'An error occurred: {error}'**
-  String settingsChangePasswordGenericError(String error);
-
-  /// Error shown when the verified session is lost (e.g. hot-reload)
-  ///
-  /// In en, this message translates to:
-  /// **'Session expired — please verify again.'**
-  String get settingsChangePasswordSessionExpired;
-
-  /// Warning body text before changing the password
-  ///
-  /// In en, this message translates to:
-  /// **'Your other devices will need to enter the new password when they next open Prism.'**
-  String get settingsChangePasswordWarnBody;
-
-  /// Button label for the change password action
-  ///
-  /// In en, this message translates to:
-  /// **'Change Password'**
-  String get settingsChangePasswordAction;
-
-  /// Body text of the new password step
-  ///
-  /// In en, this message translates to:
-  /// **'Choose a new sync password.'**
-  String get settingsChangePasswordNewBody;
-
-  /// Label for the new password text field
-  ///
-  /// In en, this message translates to:
-  /// **'New password'**
-  String get settingsChangePasswordNewLabel;
-
-  /// Label for the confirm new password text field
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm new password'**
-  String get settingsChangePasswordConfirmLabel;
-
-  /// Validation error when new password field is empty
-  ///
-  /// In en, this message translates to:
-  /// **'Enter a new password.'**
-  String get settingsChangePasswordNewRequired;
-
-  /// Error when new password is the same as the current password
-  ///
-  /// In en, this message translates to:
-  /// **'Your sync password is already set to that.'**
-  String get settingsChangePasswordSamePassword;
-
-  /// Error when new password and confirm password do not match
-  ///
-  /// In en, this message translates to:
-  /// **'Passwords don\'t match.'**
-  String get settingsChangePasswordMismatch;
-
-  /// Error when a generation conflict is detected during password change
-  ///
-  /// In en, this message translates to:
-  /// **'Another device recently changed settings — please try again.'**
-  String get settingsChangePasswordGenerationConflict;
-
-  /// Generic failure message when password change fails
-  ///
-  /// In en, this message translates to:
-  /// **'Failed to change password: {error}'**
-  String settingsChangePasswordFailed(String error);
-
-  /// Title on the success screen after changing password
-  ///
-  /// In en, this message translates to:
-  /// **'Password changed'**
-  String get settingsChangePasswordSuccessTitle;
-
-  /// Body text on the success screen after changing password
-  ///
-  /// In en, this message translates to:
-  /// **'Your sync password has been updated on this device.'**
-  String get settingsChangePasswordSuccessBody;
-
-  /// Title of the sync PIN unlock sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Enter your PIN'**
-  String get settingsSyncPinTitle;
-
-  /// Body text of the sync PIN unlock sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Your app PIN is needed to unlock encryption keys on this device.'**
-  String get settingsSyncPinBody;
-
-  /// Label for the PIN text field in the sync PIN sheet
-  ///
-  /// In en, this message translates to:
-  /// **'PIN'**
-  String get settingsSyncPinFieldLabel;
-
-  /// Error shown when the sync PIN is incorrect
-  ///
-  /// In en, this message translates to:
-  /// **'Incorrect PIN. Please try again.'**
-  String get settingsSyncPinWrong;
-
-  /// Unlock button label in the sync PIN sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Unlock'**
-  String get settingsSyncPinUnlock;
-
   /// Title of the change PIN sheet
   ///
   /// In en, this message translates to:
@@ -9800,18 +9416,6 @@ abstract class AppLocalizations {
   /// **'You\'ll use this 6-digit PIN to lock Prism and recover access if needed.'**
   String get onboardingPinSetupSubtitle;
 
-  /// Title for onboarding PIN confirmation step
-  ///
-  /// In en, this message translates to:
-  /// **'Confirm your PIN'**
-  String get onboardingPinConfirmTitle;
-
-  /// Error message shown when PINs entered during onboarding don't match
-  ///
-  /// In en, this message translates to:
-  /// **'PINs don\'t match. Try again.'**
-  String get onboardingPinMismatchError;
-
   /// Title for onboarding recovery phrase backup step
   ///
   /// In en, this message translates to:
@@ -9823,18 +9427,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Write these 12 words somewhere safe. They\'re the only way to recover your data if you lose your PIN.'**
   String get onboardingRecoveryPhraseSubtitle;
-
-  /// Label on the blurred recovery phrase — tap to show the words
-  ///
-  /// In en, this message translates to:
-  /// **'Tap to reveal'**
-  String get onboardingRevealPhrase;
-
-  /// Button to confirm the user has backed up their recovery phrase
-  ///
-  /// In en, this message translates to:
-  /// **'I\'ve written it down'**
-  String get onboardingIveWrittenItDown;
 
   /// Title for onboarding recovery phrase confirmation step
   ///
@@ -9848,30 +9440,6 @@ abstract class AppLocalizations {
   /// **'Select the correct word for each position.'**
   String get onboardingConfirmPhraseSubtitle;
 
-  /// Title for onboarding biometric opt-in step
-  ///
-  /// In en, this message translates to:
-  /// **'Unlock with biometrics'**
-  String get onboardingBiometricTitle;
-
-  /// Subtitle for onboarding biometric opt-in step
-  ///
-  /// In en, this message translates to:
-  /// **'Use Face ID or Touch ID to unlock Prism quickly.'**
-  String get onboardingBiometricSubtitle;
-
-  /// Button to enable biometric unlock during onboarding
-  ///
-  /// In en, this message translates to:
-  /// **'Enable'**
-  String get onboardingBiometricEnable;
-
-  /// Button to skip biometric setup during onboarding
-  ///
-  /// In en, this message translates to:
-  /// **'Not now'**
-  String get onboardingBiometricSkip;
-
   /// Title for the PIN entry sheet used to authenticate sync
   ///
   /// In en, this message translates to:
@@ -9883,18 +9451,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your PIN is required to unlock Prism.'**
   String get syncPinSheetSubtitle;
-
-  /// Title for the change PIN sheet
-  ///
-  /// In en, this message translates to:
-  /// **'Change PIN'**
-  String get changePinSheetTitle;
-
-  /// Title shown for the periodic PIN re-verification prompt
-  ///
-  /// In en, this message translates to:
-  /// **'Time to verify your PIN'**
-  String get periodicPinVerificationTitle;
 
   /// Message shown in the backup reminder info banner on the home screen
   ///
