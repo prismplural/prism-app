@@ -85,6 +85,7 @@ class _InlineExpandableMemberPickerState
                     if (selected != null) ...[
                       MemberAvatar(
                         avatarImageData: selected.avatarImageData,
+                        memberName: selected.name,
                         emoji: selected.emoji,
                         customColorEnabled: selected.customColorEnabled,
                         customColorHex: selected.customColorHex,
@@ -164,6 +165,7 @@ class _InlineExpandableMemberPickerState
               _MemberRow(
                 avatar: MemberAvatar(
                   avatarImageData: member.avatarImageData,
+                  memberName: member.name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
@@ -270,6 +272,7 @@ class _InlineExpandableMultiMemberPickerState
               _MemberRow(
                 avatar: MemberAvatar(
                   avatarImageData: member.avatarImageData,
+                  memberName: member.name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
@@ -318,6 +321,7 @@ class _InlineExpandableMultiMemberPickerState
       return [
         MemberAvatar(
           avatarImageData: member.avatarImageData,
+          memberName: member.name,
           emoji: member.emoji,
           customColorEnabled: member.customColorEnabled,
           customColorHex: member.customColorHex,
@@ -350,6 +354,7 @@ class _InlineExpandableMultiMemberPickerState
                 left: i * overlap,
                 child: MemberAvatar(
                   avatarImageData: selected[i].avatarImageData,
+                  memberName: selected[i].name,
                   emoji: selected[i].emoji,
                   customColorEnabled: selected[i].customColorEnabled,
                   customColorHex: selected[i].customColorHex,

@@ -350,6 +350,7 @@ class _CreateConversationSheetState
                             padding: EdgeInsets.zero,
                             leading: MemberAvatar(
                               avatarImageData: member.avatarImageData,
+                              memberName: member.name,
                               emoji: member.emoji,
                               customColorEnabled: member.customColorEnabled,
                               customColorHex: member.customColorHex,

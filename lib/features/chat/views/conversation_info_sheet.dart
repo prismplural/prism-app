@@ -330,13 +330,17 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         const SizedBox(height: 8),
 
         // Emoji
-        GestureDetector(
-          onTap: permissions.canEditTitleEmoji
-              ? () => _pickEmoji(conversation.id, conversation.title)
-              : null,
-          child: Text(
-            conversation.emoji ?? (conversation.isDirectMessage ? '' : ''),
-            style: const TextStyle(fontSize: 64),
+        Semantics(
+          button: true,
+          label: 'Edit conversation emoji',
+          child: GestureDetector(
+            onTap: permissions.canEditTitleEmoji
+                ? () => _pickEmoji(conversation.id, conversation.title)
+                : null,
+            child: Text(
+              conversation.emoji ?? (conversation.isDirectMessage ? '' : ''),
+              style: const TextStyle(fontSize: 64),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -355,38 +359,42 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
             ),
           )
         else
-          GestureDetector(
-            onTap: permissions.canEditTitleEmoji
-                ? () {
-                    _titleController.text = conversation.title ?? '';
-                    setState(() => _editingTitle = true);
-                  }
-                : null,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    conversation.title ??
-                        (conversation.isDirectMessage
-                            ? context.l10n.chatInfoDirectMessage
-                            : context.l10n.chatInfoGroupChat),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+          Semantics(
+            button: true,
+            label: 'Edit conversation title',
+            child: GestureDetector(
+              onTap: permissions.canEditTitleEmoji
+                  ? () {
+                      _titleController.text = conversation.title ?? '';
+                      setState(() => _editingTitle = true);
+                    }
+                  : null,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      conversation.title ??
+                          (conversation.isDirectMessage
+                              ? context.l10n.chatInfoDirectMessage
+                              : context.l10n.chatInfoGroupChat),
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
-                if (permissions.canEditTitleEmoji) ...[
-                  const SizedBox(width: 6),
-                  Icon(
-                    AppIcons.edit,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  if (permissions.canEditTitleEmoji) ...[
+                    const SizedBox(width: 6),
+                    Icon(
+                      AppIcons.edit,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
 
@@ -502,6 +510,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
               children: [
                 MemberAvatar(
                   avatarImageData: member.avatarImageData,
+                  memberName: member.name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
@@ -637,6 +646,7 @@ class _ParticipantTile extends ConsumerWidget {
         final tile = PrismListRow(
           leading: MemberAvatar(
             avatarImageData: member.avatarImageData,
+            memberName: member.name,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
             customColorHex: member.customColorHex,

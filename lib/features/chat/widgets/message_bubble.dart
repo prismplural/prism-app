@@ -33,6 +33,7 @@ import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 
 /// Individual message widget with author info, bubble, reactions.
 class MessageBubble extends ConsumerStatefulWidget {
@@ -180,27 +181,35 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           for (final emoji in AppConstants.quickReactions)
-            GestureDetector(
-              onTap: () {
-                _toggleReaction(emoji);
+            Semantics(
+              button: true,
+              label: 'Toggle reaction $emoji',
+              child: GestureDetector(
+                onTap: () {
+                  _toggleReaction(emoji);
+                  close();
+                },
+                child: TintedGlassSurface.circle(
+                  size: 36,
+                  child: MemberAvatar.centeredEmoji(emoji, fontSize: 20),
+                ),
+              ),
+            ),
+          Semantics(
+            button: true,
+            label: 'Add custom reaction',
+            child: GestureDetector(
+              onTap: () async {
                 close();
+                final emoji = await PrismEmojiPicker.showPicker(context);
+                if (emoji != null && mounted) {
+                  _toggleReaction(emoji);
+                }
               },
               child: TintedGlassSurface.circle(
                 size: 36,
-                child: MemberAvatar.centeredEmoji(emoji, fontSize: 20),
+                child: Icon(AppIcons.add, size: 20),
               ),
-            ),
-          GestureDetector(
-            onTap: () async {
-              close();
-              final emoji = await PrismEmojiPicker.showPicker(context);
-              if (emoji != null && mounted) {
-                _toggleReaction(emoji);
-              }
-            },
-            child: TintedGlassSurface.circle(
-              size: 36,
-              child: Icon(AppIcons.add, size: 20),
             ),
           ),
         ],
@@ -379,6 +388,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
     final avatar = MemberAvatar(
       avatarImageData: author?.avatarImageData,
+      memberName: author?.name,
       emoji: author?.emoji ?? '?',
       customColorEnabled: author?.customColorEnabled ?? false,
       customColorHex: author?.customColorHex,
@@ -388,6 +398,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     if (isDeparted) {
       return MemberAvatar(
         avatarImageData: author?.avatarImageData,
+        memberName: author?.name,
         emoji: author?.emoji ?? '?',
         customColorEnabled: author?.customColorEnabled ?? false,
         customColorHex: author?.customColorHex,
@@ -414,7 +425,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         : theme.colorScheme.primary;
 
     final timeText = _showAbsoluteTime
-        ? _formatTime(widget.message.timestamp)
+        ? widget.message.timestamp.toTimeString()
         : _formatRelativeTime(widget.message.timestamp);
     const avatarSize = 36.0;
     const avatarGap = 12.0;
@@ -451,7 +462,10 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
             final actionIndex = index - 2;
             return _buildActionTile(actions[actionIndex], close, theme);
           },
-          child: GestureDetector(
+          child: Semantics(
+            button: true,
+            label: 'Toggle time format',
+            child: GestureDetector(
             onTap: _toggleTimeFormat,
             child: Padding(
               padding: EdgeInsets.fromLTRB(14, topPadding, 14, bottomPadding),
@@ -554,6 +568,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
               ),
             ),
           ),
+        ),
         ),
     );
 
@@ -793,25 +808,13 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     return TextSpan(children: spans);
   }
 
-  String _formatTime(DateTime dateTime) {
-    final hour = dateTime.hour;
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final displayHour = hour == 0
-        ? 12
-        : hour > 12
-        ? hour - 12
-        : hour;
-    return '$displayHour:$minute $period';
-  }
-
   String _formatRelativeTime(DateTime dateTime) {
     final diff = DateTime.now().difference(dateTime);
     if (diff.inMinutes < 1) return 'just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return _formatTime(dateTime);
+    return dateTime.toTimeString();
   }
 }
 

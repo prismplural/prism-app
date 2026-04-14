@@ -187,6 +187,7 @@ class _NoteCard extends ConsumerWidget {
                 padding: const EdgeInsets.only(left: 8),
                 child: MemberAvatar(
                   avatarImageData: member.avatarImageData,
+                  memberName: member.name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,

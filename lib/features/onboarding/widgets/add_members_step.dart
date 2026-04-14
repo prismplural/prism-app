@@ -114,6 +114,7 @@ class AddMembersStep extends ConsumerWidget {
                                           fit: BoxFit.cover,
                                           width: 40,
                                           height: 40,
+                                          semanticLabel: '${member.name} avatar',
                                         ),
                                       )
                                     : Center(

@@ -172,24 +172,28 @@ class _IntroStep extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 48),
-          GestureDetector(
-            onTap: onToggleRelay,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  showRelayField ? AppIcons.expandLess : AppIcons.expandMore,
-                  size: 18,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  context.l10n.syncSetupSelfHosted,
-                  style: theme.textTheme.bodySmall?.copyWith(
+          Semantics(
+            button: true,
+            label: 'Toggle relay configuration',
+            child: GestureDetector(
+              onTap: onToggleRelay,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    showRelayField ? AppIcons.expandLess : AppIcons.expandMore,
+                    size: 18,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4),
+                  Text(
+                    context.l10n.syncSetupSelfHosted,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           if (showRelayField) ...[

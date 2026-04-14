@@ -60,6 +60,7 @@ class SpeakingAsPicker extends ConsumerWidget {
                     ref.read(speakingAsProvider.notifier).setMember(member.id),
                 avatar: MemberAvatar(
                   avatarImageData: member.avatarImageData,
+                  memberName: member.name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,

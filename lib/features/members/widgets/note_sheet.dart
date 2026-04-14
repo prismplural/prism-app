@@ -296,6 +296,7 @@ class _BottomToolbar extends ConsumerWidget {
               onTap: onPickMember,
               leading: MemberAvatar(
                 avatarImageData: member.avatarImageData,
+                memberName: member.name,
                 emoji: member.emoji,
                 customColorEnabled: member.customColorEnabled,
                 customColorHex: member.customColorHex,

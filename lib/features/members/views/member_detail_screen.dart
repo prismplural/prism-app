@@ -31,6 +31,7 @@ import 'package:prism_plurality/features/members/widgets/notes_section.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 
 /// Detail screen for a single system member, pushed via go_router.
 class MemberDetailScreen extends ConsumerWidget {
@@ -114,6 +115,7 @@ class _MemberDetailBody extends ConsumerWidget {
               children: [
                 MemberAvatar(
                   avatarImageData: member.avatarImageData,
+                  memberName: member.name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
@@ -307,7 +309,7 @@ class _FrontingStatsSection extends ConsumerWidget {
               const Divider(height: 1),
               _StatRow(
                 label: l10n.memberStatsTotalTime,
-                value: _formatDuration(stats.totalDuration),
+                value: stats.totalDuration.toRoundedString(),
                 theme: theme,
               ),
               if (stats.lastFronted != null) ...[
@@ -323,18 +325,6 @@ class _FrontingStatsSection extends ConsumerWidget {
         );
       },
     );
-  }
-
-  String _formatDuration(Duration d) {
-    if (d.inDays > 0) {
-      final hours = d.inHours % 24;
-      return '${d.inDays}d ${hours}h';
-    }
-    if (d.inHours > 0) {
-      final minutes = d.inMinutes % 60;
-      return '${d.inHours}h ${minutes}m';
-    }
-    return '${d.inMinutes}m';
   }
 
   String _formatTimestamp(dynamic l10n, DateTime dt) {
@@ -395,7 +385,7 @@ class _SessionTile extends StatelessWidget {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final startDate = _formatDate(l10n, session.startTime);
-    final duration = _formatDuration(session.duration);
+    final duration = session.duration.toRoundedString();
 
     return InkWell(
       onTap: () => context.go(AppRoutePaths.session(session.id)),
@@ -452,12 +442,6 @@ class _SessionTile extends StatelessWidget {
     if (diff.inDays == 1) return l10n.memberStatsYesterday as String;
 
     return '${dt.month}/${dt.day}/${dt.year}';
-  }
-
-  String _formatDuration(Duration d) {
-    if (d.inDays > 0) return '${d.inDays}d ${d.inHours % 24}h';
-    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
-    return '${d.inMinutes}m';
   }
 }
 

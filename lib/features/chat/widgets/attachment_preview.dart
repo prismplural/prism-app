@@ -70,6 +70,7 @@ class _AttachmentThumbnail extends StatelessWidget {
               width: 72,
               height: 72,
               fit: BoxFit.cover,
+              semanticLabel: 'Attachment preview',
               errorBuilder: (_, _, _) => Container(
                 width: 72,
                 height: 72,

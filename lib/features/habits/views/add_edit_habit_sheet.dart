@@ -255,6 +255,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                           label: m.name,
                           leading: MemberAvatar(
                             avatarImageData: m.avatarImageData,
+                            memberName: m.name,
                             emoji: m.emoji,
                             customColorEnabled: m.customColorEnabled,
                             customColorHex: m.customColorHex,
@@ -262,6 +263,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                           ),
                           fieldLeading: MemberAvatar(
                             avatarImageData: m.avatarImageData,
+                            memberName: m.name,
                             emoji: m.emoji,
                             customColorEnabled: m.customColorEnabled,
                             customColorHex: m.customColorHex,

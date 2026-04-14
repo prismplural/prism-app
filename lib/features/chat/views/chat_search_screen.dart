@@ -109,17 +109,21 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                               ),
                             ),
                             if (_controller.text.isNotEmpty)
-                              GestureDetector(
-                                onTap: () {
-                                  _controller.clear();
-                                  ref
-                                      .read(chatSearchQueryProvider.notifier)
-                                      .set('');
-                                },
-                                child: Icon(
-                                  AppIcons.close,
-                                  size: 18,
-                                  color: colorScheme.onSurfaceVariant,
+                              Semantics(
+                                button: true,
+                                label: 'Clear search',
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _controller.clear();
+                                    ref
+                                        .read(chatSearchQueryProvider.notifier)
+                                        .set('');
+                                  },
+                                  child: Icon(
+                                    AppIcons.close,
+                                    size: 18,
+                                    color: colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
                               ),
                           ],

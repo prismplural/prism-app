@@ -462,6 +462,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                       dense: true,
                       leading: MemberAvatar(
                         avatarImageData: member.avatarImageData,
+                        memberName: member.name,
                         emoji: member.emoji,
                         customColorEnabled: member.customColorEnabled,
                         customColorHex: member.customColorHex,
@@ -495,6 +496,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                   child: currentMember != null
                       ? MemberAvatar(
                           avatarImageData: currentMember.avatarImageData,
+                          memberName: currentMember.name,
                           emoji: currentMember.emoji,
                           customColorEnabled: currentMember.customColorEnabled,
                           customColorHex: currentMember.customColorHex,

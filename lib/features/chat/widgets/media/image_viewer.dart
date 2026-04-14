@@ -165,6 +165,7 @@ class _ImageViewerState extends State<ImageViewer> {
                     child: Image.memory(
                       widget.imageBytes,
                       fit: BoxFit.contain,
+                      semanticLabel: widget.caption ?? 'Full-screen image',
                     ),
                   ),
                 ),

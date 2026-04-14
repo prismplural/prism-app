@@ -300,6 +300,7 @@ class _SessionTile extends ConsumerWidget {
     } else {
       leadingWidget = MemberAvatar(
         avatarImageData: member?.avatarImageData,
+        memberName: member?.name,
         emoji: emoji,
         customColorEnabled: member?.customColorEnabled ?? false,
         customColorHex: member?.customColorHex,

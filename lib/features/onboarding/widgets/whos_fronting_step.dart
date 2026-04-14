@@ -103,6 +103,7 @@ class WhosFrontingStep extends ConsumerWidget {
                                         fit: BoxFit.cover,
                                         width: 52,
                                         height: 52,
+                                        semanticLabel: '${member.name} avatar',
                                       ),
                                     )
                                   : Center(

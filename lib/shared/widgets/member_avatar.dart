@@ -14,6 +14,7 @@ class MemberAvatar extends StatelessWidget {
   const MemberAvatar({
     super.key,
     this.avatarImageData,
+    this.memberName,
     this.emoji = '❔',
     this.customColorEnabled = false,
     this.customColorHex,
@@ -24,6 +25,10 @@ class MemberAvatar extends StatelessWidget {
   });
 
   final Uint8List? avatarImageData;
+
+  /// Optional member name used as the semantic label for the avatar image.
+  final String? memberName;
+
   final String emoji;
   final bool customColorEnabled;
   final String? customColorHex;
@@ -67,6 +72,9 @@ class MemberAvatar extends StatelessWidget {
             cacheWidth: pixelSize,
             cacheHeight: pixelSize,
             fit: BoxFit.cover,
+            semanticLabel: memberName != null
+                ? '$memberName avatar'
+                : 'Member avatar',
             color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
             colorBlendMode: dimmed ? BlendMode.modulate : null,
             errorBuilder: (_, _, _) => _centeredEmoji(size),

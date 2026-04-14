@@ -484,6 +484,7 @@ class _CompletionTile extends StatelessWidget {
         leading: member != null
             ? MemberAvatar(
                 emoji: member.emoji,
+                memberName: member.name,
                 customColorEnabled: member.customColorEnabled,
                 customColorHex: member.customColorHex,
                 avatarImageData: member.avatarImageData,
