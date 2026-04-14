@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
+import 'dart:ui' show PlatformDispatcher;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -10,6 +11,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 // import 'package:workmanager/workmanager.dart';
 
+import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 // import 'package:prism_plurality/features/pluralkit/services/pluralkit_background_service.dart';
 import 'app.dart';
@@ -38,9 +40,55 @@ void main() async {
     await RustLib.init();
   }
 
+  // F1: Global error boundaries — report uncaught errors to ErrorReportingService.
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    ErrorReportingService.instance.report(
+      details.exceptionAsString(),
+      stackTrace: details.stack,
+    );
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    ErrorReportingService.instance.report(
+      error.toString(),
+      stackTrace: stack,
+    );
+    return true; // Prevent the error from propagating
+  };
+
+  // F5: Show a plain error message instead of the red/yellow error screen in
+  // release builds. Cannot use Theme.of or l10n here — runs outside the widget tree.
+  if (kReleaseMode) {
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return Material(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Something went wrong. Please restart the app.',
+              style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    };
+  }
+
   runApp(
-    const ProviderScope(
-      child: PrismApp(),
+    ProviderScope(
+      // F7: Explicit retry filter — prevent infinite retry on programmer bugs.
+      retry: (retryCount, error) {
+        // Don't retry format/type errors (programmer bugs)
+        if (error is FormatException || error is TypeError) return null;
+        // Max 3 retries with exponential backoff
+        if (retryCount >= 3) return null;
+        return Duration(seconds: 1 << retryCount); // 1s, 2s, 4s
+      },
+      // F24: Log provider errors in debug builds.
+      observers: [if (kDebugMode) _DebugProviderObserver()],
+      child: const PrismApp(),
     ),
   );
 
@@ -55,4 +103,36 @@ void main() async {
   //     Workmanager().initialize(callbackDispatcher);
   //   });
   // }
+}
+
+/// F24: Logs Riverpod provider errors in debug builds.
+///
+/// Only logs [AsyncError] state transitions and [providerDidFail] events to
+/// avoid flooding the console with every state change.
+final class _DebugProviderObserver extends ProviderObserver {
+  @override
+  void didUpdateProvider(
+    ProviderObserverContext context,
+    Object? previousValue,
+    Object? newValue,
+  ) {
+    if (newValue is AsyncError) {
+      debugPrint(
+        '[Riverpod] ${context.provider.name ?? context.provider.runtimeType}: '
+        'ERROR ${newValue.error}',
+      );
+    }
+  }
+
+  @override
+  void providerDidFail(
+    ProviderObserverContext context,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    debugPrint(
+      '[Riverpod] ${context.provider.name ?? context.provider.runtimeType}: '
+      'FAILED $error',
+    );
+  }
 }
