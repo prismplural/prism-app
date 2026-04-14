@@ -9,22 +9,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
-void _wrapWithLocalizations({
-  required WidgetTester tester,
-  required Locale locale,
-  required Widget child,
-}) {
-  // ignore: avoid_returning_futures — this is intentional in the helper
-  tester.pumpWidget(
-    MaterialApp(
-      localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: const [Locale('en'), Locale('es')],
-      locale: locale,
-      home: child,
-    ),
-  );
-}
-
 void main() {
   // ──────────────────────────────────────────────────────────────────────────
   // AppLocalizations smoke tests
@@ -79,7 +63,7 @@ void main() {
           supportedLocales: const [Locale('en'), Locale('es')],
           locale: const Locale('en'),
           home: Builder(builder: (ctx) {
-            enCancel = AppLocalizations.of(ctx)?.cancel;
+            enCancel = AppLocalizations.of(ctx).cancel;
             return const SizedBox.shrink();
           }),
         ),
@@ -92,7 +76,7 @@ void main() {
           supportedLocales: const [Locale('en'), Locale('es')],
           locale: const Locale('es'),
           home: Builder(builder: (ctx) {
-            esCancel = AppLocalizations.of(ctx)?.cancel;
+            esCancel = AppLocalizations.of(ctx).cancel;
             return const SizedBox.shrink();
           }),
         ),
@@ -111,8 +95,6 @@ void main() {
   // ──────────────────────────────────────────────────────────────────────────
 
   group('DateFormat with locale', () {
-    const testDate = '2026-03-15'; // March 15 2026
-
     late DateTime date;
 
     setUpAll(() {

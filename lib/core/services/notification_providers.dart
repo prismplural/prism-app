@@ -62,9 +62,9 @@ final frontingReminderListenerProvider = Provider<void>((ref) {
         });
   }
 
-  ref.listen(frontingRemindersEnabledProvider, (_, __) => update());
-  ref.listen(frontingReminderIntervalProvider, (_, __) => update());
-  ref.listen(activeSessionsProvider, (_, __) => update());
+  ref.listen(frontingRemindersEnabledProvider, (_, _) => update());
+  ref.listen(frontingReminderIntervalProvider, (_, _) => update());
+  ref.listen(activeSessionsProvider, (_, _) => update());
 
   // Schedule on startup if already enabled.
   update();

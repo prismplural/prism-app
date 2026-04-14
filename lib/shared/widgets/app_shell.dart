@@ -989,10 +989,7 @@ class _MoreTrigger extends StatelessWidget {
 /// Individual nav bar item.
 class _NavBarItem extends StatelessWidget {
   const _NavBarItem({
-    this.tab,
-    this.icon,
-    this.activeIcon,
-    this.label,
+    required this.tab,
     this.terminologyPlural,
     required this.isSelected,
     required this.accentColor,
@@ -1004,10 +1001,7 @@ class _NavBarItem extends StatelessWidget {
     this.showItemPill = false,
   });
 
-  final AppShellTab? tab;
-  final IconData? icon;
-  final IconData? activeIcon;
-  final String? label;
+  final AppShellTab tab;
   final String? terminologyPlural;
   final bool isSelected;
   final Color accentColor;
@@ -1022,12 +1016,8 @@ class _NavBarItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final itemIcon = isSelected
-        ? (tab?.activeIcon ?? activeIcon!)
-        : (tab?.icon ?? icon!);
-    final itemLabel = tab != null
-        ? tab!.localizedLabel(context, terminologyPlural: terminologyPlural)
-        : label!;
+    final itemIcon = isSelected ? tab.activeIcon : tab.icon;
+    final itemLabel = tab.localizedLabel(context, terminologyPlural: terminologyPlural);
 
     Widget iconWidget = Icon(
       itemIcon,
@@ -1039,17 +1029,15 @@ class _NavBarItem extends StatelessWidget {
                 : AppColors.warmBlack.withValues(alpha: 0.4)),
     );
 
-    if (tab != null) {
-      iconWidget = _maybeBadge(
-        tab: tab!,
-        showSyncBadge: showSyncBadge,
-        habitsDueCount: habitsDueCount,
-        chatUnreadCount: chatUnreadCount,
-        child: iconWidget,
-      );
-    }
+    iconWidget = _maybeBadge(
+      tab: tab,
+      showSyncBadge: showSyncBadge,
+      habitsDueCount: habitsDueCount,
+      chatUnreadCount: chatUnreadCount,
+      child: iconWidget,
+    );
 
-    final semanticLabel = tab?.id == AppShellTabId.chat && chatUnreadCount > 0
+    final semanticLabel = tab.id == AppShellTabId.chat && chatUnreadCount > 0
         ? context.l10n.navUnreadCount(itemLabel, chatUnreadCount)
         : itemLabel;
 

@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
@@ -382,8 +381,8 @@ void main() {
   group('staging key helpers', () {
     final storageStub = _SecureStorageStub();
 
-    setUp(() => storageStub.setup());
-    tearDown(() => storageStub.teardown());
+    setUp(storageStub.setup);
+    tearDown(storageStub.teardown);
 
     test('readStagingDatabaseKeyHex returns null when no staging key exists',
         () async {
