@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -180,6 +181,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
         final valid = await service.verifyStoredPin(_pin);
         if (valid) {
           _failedAttempts = 0;
+          await ref.read(authPolicyServiceProvider).recordPinVerified();
           widget.onPinEntered?.call(_pin);
           widget.onSuccess();
         } else {

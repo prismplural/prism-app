@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -311,6 +312,10 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       //    pendingMnemonicProvider so the secret-key screen can show it if
       //    needed (not required here, but keeps state consistent).
       ref.read(pendingMnemonicProvider.notifier).set(mnemonic);
+
+      // 9b. Record PIN as freshly verified so the 30-day check doesn't fire
+      //     immediately after a new install.
+      await ref.read(authPolicyServiceProvider).recordPinVerified();
 
       // 10. Store words and DEK in ephemeral state, advance step.
       state = state.copyWith(
