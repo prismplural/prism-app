@@ -340,6 +340,18 @@
   "@appearanceTerminology": {
     "description": "Appearance settings section: Terminology"
   },
+  "appearanceLanguage": "Language",
+  "@appearanceLanguage": {
+    "description": "Section title for language picker in appearance settings"
+  },
+  "appearanceLanguageSystem": "System default",
+  "@appearanceLanguageSystem": {
+    "description": "Option to use the system/device language"
+  },
+  "appearanceLanguageFooter": "More languages coming soon",
+  "@appearanceLanguageFooter": {
+    "description": "Footer note below the language picker"
+  },
   "appearancePreview": "Preview",
   "@appearancePreview": {
     "description": "Appearance settings section: Preview"

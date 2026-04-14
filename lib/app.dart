@@ -150,6 +150,7 @@ class _PrismAppState extends ConsumerState<PrismApp> {
             Locale('en'),
             Locale('es'),
           ],
+          locale: ref.watch(localeOverrideProvider),
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: switch (brightness) {
