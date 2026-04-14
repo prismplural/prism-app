@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -29,7 +30,7 @@ class DeviceManagementScreen extends ConsumerWidget {
       topBar: PrismTopBar(title: context.l10n.devicesTitle, showBackButton: true),
       bodyPadding: EdgeInsets.zero,
       body: devicesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const PrismLoadingState(),
         error: (error, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),

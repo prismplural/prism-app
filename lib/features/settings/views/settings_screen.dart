@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -126,14 +127,10 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () =>
                           context.push(AppRoutePaths.settingsNotifications),
                     ),
-                    ListTile(
+                    PrismListRow(
                       title: Text(context.l10n.settingsLanguageTitle),
                       subtitle: Text(context.l10n.settingsLanguageSubtitle),
                       leading: Icon(PhosphorIcons.translate()),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
                     ),
                   ],
                 ),

@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/settings/providers/database_diagnostics
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
@@ -179,10 +180,9 @@ class _CountRow extends StatelessWidget {
       children: [
         Text(label, style: theme.textTheme.bodyMedium),
         countAsync.when(
-          loading: () => const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          loading: () => PrismSpinner(
+            color: theme.colorScheme.primary,
+            size: 16,
           ),
           error: (_, _) => Text(
             'Error',
@@ -319,10 +319,9 @@ class _InfoRow extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         valueAsync.when(
-          loading: () => const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          loading: () => PrismSpinner(
+            color: theme.colorScheme.primary,
+            size: 16,
           ),
           error: (e, _) => Text('Error: $e'),
           data: (value) => Row(

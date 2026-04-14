@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
@@ -253,40 +254,38 @@ class _VerifyCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    return Card(
-      color: theme.colorScheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(AppIcons.warningAmber, color: theme.colorScheme.error),
-                const SizedBox(width: 8),
-                Text(
-                  context.l10n.sharingVerificationRecommended,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: theme.colorScheme.onErrorContainer,
-                  ),
+    return PrismSurface(
+      fillColor: theme.colorScheme.errorContainer,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(AppIcons.warningAmber, color: theme.colorScheme.error),
+              const SizedBox(width: 8),
+              Text(
+                context.l10n.sharingVerificationRecommended,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: theme.colorScheme.onErrorContainer,
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.sharingVerificationDescription(friend.displayName),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.sharingVerificationDescription(friend.displayName),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onErrorContainer,
             ),
-            const SizedBox(height: 12),
-            PrismButton(
-              onPressed: () => _showFingerprintDialog(context, ref),
-              label: context.l10n.sharingCompareFingerprint,
-              tone: PrismButtonTone.filled,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          PrismButton(
+            onPressed: () => _showFingerprintDialog(context, ref),
+            label: context.l10n.sharingCompareFingerprint,
+            tone: PrismButtonTone.filled,
+          ),
+        ],
       ),
     );
   }

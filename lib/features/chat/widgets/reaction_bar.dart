@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Displays reactions on a message and allows toggling them.
 class ReactionBar extends ConsumerWidget {
@@ -142,10 +143,13 @@ class ReactionBar extends ConsumerWidget {
                     })
                     .toList(),
               ),
-              loading: () => const Center(
+              loading: () => Center(
                 child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: CircularProgressIndicator(),
+                  padding: const EdgeInsets.all(16),
+                  child: PrismSpinner(
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 32,
+                  ),
                 ),
               ),
               error: (_, _) => Text(context.l10n.error),

@@ -360,85 +360,81 @@ class _StatsRow extends StatelessWidget {
     final showStreaks =
         stats.currentStreak > 0 || stats.bestStreak > stats.currentStreak;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Semantics(
-                label: context.l10n.habitsStatsSemanticsLabel(
-                  stats.totalCompletions,
-                  stats.completionRate.toStringAsFixed(0),
+    return PrismSurface(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            label: context.l10n.habitsStatsSemanticsLabel(
+              stats.totalCompletions,
+              stats.completionRate.toStringAsFixed(0),
+            ),
+            excludeSemantics: true,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.habitsStatCompletions,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        '${stats.totalCompletions}',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
-                excludeSemantics: true,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.habitsStatCompletions,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          Text(
-                            '${stats.totalCompletions}',
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.habitsStatCompletionRate,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.l10n.habitsStatCompletionRate,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          Text(
-                            '${stats.completionRate.toStringAsFixed(0)}%',
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                        ],
+                      Text(
+                        '${stats.completionRate.toStringAsFixed(0)}%',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              if (showStreaks) ...[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (stats.currentStreak > 0)
-                      PrismPill(
-                        icon: AppIcons.localFireDepartment,
-                        label: context.l10n.habitsStatCurrentStreak(stats.currentStreak),
-                        color: Colors.orange.shade700,
-                      ),
-                    if (stats.bestStreak > stats.currentStreak)
-                      PrismPill(
-                        icon: AppIcons.emojiEvents,
-                        label: context.l10n.habitsStatBestStreak(stats.bestStreak),
-                        color: Colors.amber.shade700,
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+          if (showStreaks) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (stats.currentStreak > 0)
+                  PrismPill(
+                    icon: AppIcons.localFireDepartment,
+                    label: context.l10n.habitsStatCurrentStreak(stats.currentStreak),
+                    color: Colors.orange.shade700,
+                  ),
+                if (stats.bestStreak > stats.currentStreak)
+                  PrismPill(
+                    icon: AppIcons.emojiEvents,
+                    label: context.l10n.habitsStatBestStreak(stats.bestStreak),
+                    color: Colors.amber.shade700,
+                  ),
+              ],
+            ),
+          ],
+        ],
       ),
     );
   }

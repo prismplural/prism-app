@@ -4,6 +4,7 @@ import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 
 /// A confirm-before-send overlay shown when tapping a GIF in the picker.
 ///
@@ -17,9 +18,8 @@ class GifPreviewOverlay extends StatelessWidget {
   /// Show the preview overlay and return the [KlipyGif] if the user confirms,
   /// or null if dismissed.
   static Future<KlipyGif?> show(BuildContext context, KlipyGif gif) {
-    return showDialog<KlipyGif>(
+    return PrismDialog.show<KlipyGif>(
       context: context,
-      barrierColor: Colors.black87,
       builder: (_) => GifPreviewOverlay(gif: gif),
     );
   }

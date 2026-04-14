@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 class SyncDeviceStep extends ConsumerStatefulWidget {
   const SyncDeviceStep({
@@ -264,13 +265,9 @@ class _ShowingRequestView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.warmWhite,
-                ),
+              const PrismSpinner(
+                color: AppColors.warmWhite,
+                size: 16,
               ),
               const SizedBox(width: 12),
               Text(
@@ -301,7 +298,12 @@ class _WaitingForSasView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(color: AppColors.warmWhite),
+            const PrismSpinner(
+              color: AppColors.warmWhite,
+              size: 52,
+              dotCount: 8,
+              duration: Duration(milliseconds: 3000),
+            ),
             const SizedBox(height: 24),
             Text(
               context.l10n.onboardingSyncWaitingForVerification,
@@ -633,7 +635,12 @@ class _ConnectingView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(color: AppColors.warmWhite),
+            const PrismSpinner(
+              color: AppColors.warmWhite,
+              size: 52,
+              dotCount: 8,
+              duration: Duration(milliseconds: 3000),
+            ),
             const SizedBox(height: 24),
             Text(
               context.l10n.onboardingSyncConnecting,

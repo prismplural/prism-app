@@ -30,6 +30,7 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// Message composition widget with inline "speaking as" avatar and text input.
@@ -823,13 +824,9 @@ class _SendButtonState extends State<_SendButton> {
               ? TintedGlassSurface.circle(
                   size: widget.size,
                   tint: primary,
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: primary,
-                    ),
+                  child: PrismSpinner(
+                    color: primary,
+                    size: 18,
                   ),
                 )
               : TintedGlassSurface.circle(

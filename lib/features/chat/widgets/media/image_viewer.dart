@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Full-screen image viewer shown when tapping an image in chat.
 ///
@@ -128,13 +129,9 @@ class _ImageViewerState extends State<ImageViewer> {
               button: true,
               child: IconButton(
                 icon: _isSharing
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
+                    ? const PrismSpinner(
+                        color: Colors.white,
+                        size: 20,
                       )
                     : Icon(AppIcons.share, color: Colors.white),
                 onPressed: _isSharing ? null : _shareImage,

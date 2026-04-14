@@ -4,6 +4,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Displays a single [FrontingValidationIssue] as a tappable list tile.
 ///
@@ -24,69 +25,68 @@ class ValidationIssueTile extends StatelessWidget {
     final theme = Theme.of(context);
     final severityColor = _severityColor(theme);
 
-    return Card(
+    return PrismSurface(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Severity accent bar
-              Container(
-                width: 4,
-                color: severityColor,
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Type badge + session count
-                      Row(
-                        children: [
-                          _TypeChip(type: issue.type, color: severityColor),
-                          const Spacer(),
-                          if (issue.sessionIds.isNotEmpty)
-                            Text(
-                              context.l10n.frontingIssueSessionCount(issue.sessionIds.length),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+      padding: EdgeInsets.zero,
+      borderColor: severityColor.withValues(alpha: 0.4),
+      onTap: onTap,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Severity accent bar
+            Container(
+              width: 4,
+              color: severityColor,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Type badge + session count
+                    Row(
+                      children: [
+                        _TypeChip(type: issue.type, color: severityColor),
+                        const Spacer(),
+                        if (issue.sessionIds.isNotEmpty)
+                          Text(
+                            context.l10n.frontingIssueSessionCount(issue.sessionIds.length),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
-                        ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Summary
+                    Text(
+                      issue.summary,
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    // Time range
+                    Text(
+                      _formatRange(context, issue.rangeStart, issue.rangeEnd),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(height: 6),
-                      // Summary
-                      Text(
-                        issue.summary,
-                        style: theme.textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      // Time range
-                      Text(
-                        _formatRange(context, issue.rangeStart, issue.rangeEnd),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              // Chevron
-              if (onTap != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Icon(
-                    AppIcons.chevronRight,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+            ),
+            // Chevron
+            if (onTap != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Icon(
+                  AppIcons.chevronRight,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

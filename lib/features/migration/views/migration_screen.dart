@@ -15,6 +15,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
 /// Migration screen for importing data from Simply Plural.
@@ -538,10 +539,11 @@ class _FetchingView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(
-              width: 80,
-              height: 80,
-              child: CircularProgressIndicator(strokeWidth: 6),
+            PrismSpinner(
+              color: Theme.of(context).colorScheme.primary,
+              size: 80,
+              dotCount: 8,
+              duration: const Duration(milliseconds: 3000),
             ),
             const SizedBox(height: 24),
             Text(
@@ -581,7 +583,12 @@ class _LoadingView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const CircularProgressIndicator(),
+          PrismSpinner(
+            color: Theme.of(context).colorScheme.primary,
+            size: 52,
+            dotCount: 8,
+            duration: const Duration(milliseconds: 3000),
+          ),
           const SizedBox(height: 16),
           Text(message),
         ],
@@ -795,13 +802,11 @@ class _ImportingView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 80,
-              height: 80,
-              child: CircularProgressIndicator(
-                value: state.progress > 0 ? state.progress : null,
-                strokeWidth: 6,
-              ),
+            PrismSpinner(
+              color: Theme.of(context).colorScheme.primary,
+              size: 80,
+              dotCount: 8,
+              duration: const Duration(milliseconds: 3000),
             ),
             const SizedBox(height: 24),
             Text(

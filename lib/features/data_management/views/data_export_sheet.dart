@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/data_management/providers/data_manageme
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -325,7 +326,7 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 16),
-        const CircularProgressIndicator(),
+        const PrismLoadingState(),
         const SizedBox(height: 24),
         Text(context.l10n.dataManagementExporting, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),

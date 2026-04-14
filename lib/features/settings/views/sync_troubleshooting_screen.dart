@@ -10,7 +10,6 @@ import 'package:prism_plurality/features/settings/providers/reset_data_provider.
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -18,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Full screen for sync debugging and troubleshooting.
@@ -86,36 +86,34 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             _SectionHeader(title: context.l10n.syncTroubleshootingConnectionStatus),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Icon(connectionIcon, size: 32, color: connectionColor),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              connectionTitle,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: connectionColor,
-                              ),
+              child: PrismSurface(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(connectionIcon, size: 32, color: connectionColor),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            connectionTitle,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: connectionColor,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              connectionSubtitle,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            connectionSubtitle,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -144,27 +142,25 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Card(
-                  color: theme.colorScheme.errorContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          AppIcons.warningAmberRounded,
-                          color: theme.colorScheme.onErrorContainer,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            syncStatus.lastError!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onErrorContainer,
-                            ),
+                child: PrismSurface(
+                  fillColor: theme.colorScheme.errorContainer,
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        AppIcons.warningAmberRounded,
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          syncStatus.lastError!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onErrorContainer,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -318,37 +314,27 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
   }
 
   void _confirmRepair(BuildContext context, WidgetRef ref) {
-    unawaited(showDialog<String>(
+    unawaited(PrismDialog.show<String>(
       context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
-          ),
-          backgroundColor: Theme.of(dialogContext).colorScheme.surface,
-          child: PrismDialog(
-            title: context.l10n.syncTroubleshootingRepairTitle,
-            message: context.l10n.syncTroubleshootingRepairMessage,
-            actions: [
-              PrismButton(
-                label: context.l10n.cancel,
-                onPressed: () => Navigator.of(dialogContext).pop(),
-              ),
-              PrismButton(
-                label: context.l10n.syncTroubleshootingRepairNow,
-                onPressed: () => Navigator.of(dialogContext).pop('repair'),
-                tone: PrismButtonTone.destructive,
-              ),
-              PrismButton(
-                label: context.l10n.syncTroubleshootingExportFirst,
-                onPressed: () => Navigator.of(dialogContext).pop('export'),
-                tone: PrismButtonTone.filled,
-              ),
-            ],
-            child: const SizedBox.shrink(),
-          ),
-        );
-      },
+      title: context.l10n.syncTroubleshootingRepairTitle,
+      message: context.l10n.syncTroubleshootingRepairMessage,
+      actions: [
+        PrismButton(
+          label: context.l10n.cancel,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        PrismButton(
+          label: context.l10n.syncTroubleshootingRepairNow,
+          onPressed: () => Navigator.of(context).pop('repair'),
+          tone: PrismButtonTone.destructive,
+        ),
+        PrismButton(
+          label: context.l10n.syncTroubleshootingExportFirst,
+          onPressed: () => Navigator.of(context).pop('export'),
+          tone: PrismButtonTone.filled,
+        ),
+      ],
+      builder: (dialogContext) => const SizedBox.shrink(),
     ).then((result) async {
       if (result == 'export') {
         if (!context.mounted) return;
@@ -415,39 +401,35 @@ class _TroubleshootingTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 24, color: theme.colorScheme.primary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+    return PrismSurface(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 24, color: theme.colorScheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

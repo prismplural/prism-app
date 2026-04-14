@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/pin_numpad_button.dart';
@@ -92,7 +93,7 @@ class _PinLockSettingsScreenState extends ConsumerState<PinLockSettingsScreen> {
     if (!settingsLoaded) {
       return PrismPageScaffold(
         topBar: PrismTopBar(title: context.l10n.privacySecurityTitle, showBackButton: true),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const PrismLoadingState(),
       );
     }
 

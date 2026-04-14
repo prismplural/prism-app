@@ -5,6 +5,7 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
@@ -141,13 +142,9 @@ class _CreateConversationSheetState
                     width: PrismTokens.topBarActionSize,
                     height: PrismTokens.topBarActionSize,
                     child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: theme.colorScheme.primary,
-                        ),
+                      child: PrismSpinner(
+                        color: theme.colorScheme.primary,
+                        size: 20,
                       ),
                     ),
                   )

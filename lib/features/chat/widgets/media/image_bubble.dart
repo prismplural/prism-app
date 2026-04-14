@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/chat/widgets/media/image_viewer.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Displays an image attachment inside a chat message bubble.
 ///
@@ -145,11 +146,10 @@ class ImageBubble extends StatelessWidget {
           color: theme.brightness == Brightness.dark
               ? AppColors.charcoalSurface
               : AppColors.parchmentElevated,
-          child: const Center(
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2),
+          child: Center(
+            child: PrismSpinner(
+              color: Theme.of(context).colorScheme.primary,
+              size: 24,
             ),
           ),
         ),

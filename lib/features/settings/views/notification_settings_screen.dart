@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
@@ -190,10 +191,9 @@ class _NotificationPermissionTile extends ConsumerWidget {
     return permissionAsync.when(
       loading: () => PrismListRow(
         title: Text(context.l10n.notificationsPermissionStatus),
-        trailing: SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
+        trailing: PrismSpinner(
+          color: Theme.of(context).colorScheme.primary,
+          size: 16,
         ),
       ),
       error: (_, _) => PrismListRow(

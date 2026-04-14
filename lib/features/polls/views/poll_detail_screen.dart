@@ -27,6 +27,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 
@@ -475,125 +476,120 @@ class _OptionTile extends ConsumerWidget {
     final voteCount = option.votes.length;
     final percentage = totalVotes > 0 ? voteCount / totalVotes : 0.0;
 
-    return Card(
+    return PrismSurface(
       margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onSelected,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      onTap: onSelected,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  // Selection indicator
-                  if (!isClosed)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: isMultiVote
-                          ? Checkbox(
-                              value: isSelected,
-                              onChanged: (_) => onSelected?.call(),
-                            )
-                          : Icon(
-                              isSelected
-                                  ? AppIcons.radioButtonChecked
-                                  : AppIcons.radioButtonUnchecked,
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.outline,
-                            ),
-                    ),
-
-                  // Option color dot
-                  if (option.colorHex != null && option.colorHex!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(
-                            int.parse('FF${option.colorHex}', radix: 16),
-                          ),
+              // Selection indicator
+              if (!isClosed)
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: isMultiVote
+                      ? Checkbox(
+                          value: isSelected,
+                          onChanged: (_) => onSelected?.call(),
+                        )
+                      : Icon(
+                          isSelected
+                              ? AppIcons.radioButtonChecked
+                              : AppIcons.radioButtonUnchecked,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.outline,
                         ),
-                      ),
-                    ),
+                ),
 
-                  Expanded(
-                    child: Text(
-                      option.text,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+              // Option color dot
+              if (option.colorHex != null && option.colorHex!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(
+                        int.parse('FF${option.colorHex}', radix: 16),
                       ),
                     ),
                   ),
+                ),
 
-                  // Vote count (only when results are visible)
-                  if (showResults)
-                    Text(
-                      '$voteCount',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                ],
+              Expanded(
+                child: Text(
+                  option.text,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                ),
               ),
 
-              // "Other" text field
-              if (option.isOtherOption &&
-                  isSelected &&
-                  !isClosed &&
-                  otherTextController != null) ...[
-                const SizedBox(height: 8),
-                PrismTextField(
-                  controller: otherTextController,
-                  hintText: context.l10n.pollsDetailOtherResponseHint,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  isDense: true,
-                ),
-              ],
-
-              // Results bar
-              if (showResults) ...[
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: percentage,
-                    minHeight: 8,
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    color:
-                        option.colorHex != null && option.colorHex!.isNotEmpty
-                        ? Color(int.parse('FF${option.colorHex}', radix: 16))
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 4),
+              // Vote count (only when results are visible)
+              if (showResults)
                 Text(
-                  '${(percentage * 100).toStringAsFixed(1)}%',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  '$voteCount',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
-              ],
-
-              // Voter names (if not anonymous and results are visible)
-              if (!isAnonymous && showResults && option.votes.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _VoterNames(votes: option.votes),
-              ],
             ],
           ),
-        ),
+
+          // "Other" text field
+          if (option.isOtherOption &&
+              isSelected &&
+              !isClosed &&
+              otherTextController != null) ...[
+            const SizedBox(height: 8),
+            PrismTextField(
+              controller: otherTextController,
+              hintText: context.l10n.pollsDetailOtherResponseHint,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              isDense: true,
+            ),
+          ],
+
+          // Results bar
+          if (showResults) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: percentage,
+                minHeight: 8,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                color:
+                    option.colorHex != null && option.colorHex!.isNotEmpty
+                    ? Color(int.parse('FF${option.colorHex}', radix: 16))
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${(percentage * 100).toStringAsFixed(1)}%',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+
+          // Voter names (if not anonymous and results are visible)
+          if (!isAnonymous && showResults && option.votes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _VoterNames(votes: option.votes),
+          ],
+        ],
       ),
     );
   }

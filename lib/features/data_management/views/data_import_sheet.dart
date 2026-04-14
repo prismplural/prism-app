@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/data_management/services/data_import_se
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -385,7 +386,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 16),
-        const CircularProgressIndicator(),
+        const PrismLoadingState(),
         const SizedBox(height: 24),
         Text(context.l10n.dataManagementImporting, style: theme.textTheme.titleMedium),
         const SizedBox(height: 8),

@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 class SetupDeviceSheet {
@@ -214,15 +215,20 @@ class _SetupDeviceSheetContentState
           _startInitiatorCeremony(bytes);
         },
       ),
-      _InitiatorStep.connecting => const Center(
+      _InitiatorStep.connecting => Center(
         child: Padding(
-          padding: EdgeInsets.all(48),
+          padding: const EdgeInsets.all(48),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Connecting to joiner...'),
+              PrismSpinner(
+                color: Theme.of(context).colorScheme.primary,
+                size: 52,
+                dotCount: 8,
+                duration: const Duration(milliseconds: 3000),
+              ),
+              const SizedBox(height: 16),
+              const Text('Connecting to joiner...'),
             ],
           ),
         ),
@@ -237,15 +243,20 @@ class _SetupDeviceSheetContentState
         onPinEntered: _completeInitiator,
         onBack: () => setState(() => _step = _InitiatorStep.sasVerification),
       ),
-      _InitiatorStep.completing => const Center(
+      _InitiatorStep.completing => Center(
         child: Padding(
-          padding: EdgeInsets.all(48),
+          padding: const EdgeInsets.all(48),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 16),
-              Text('Completing pairing...'),
+              PrismSpinner(
+                color: Theme.of(context).colorScheme.primary,
+                size: 52,
+                dotCount: 8,
+                duration: const Duration(milliseconds: 3000),
+              ),
+              const SizedBox(height: 16),
+              const Text('Completing pairing...'),
             ],
           ),
         ),

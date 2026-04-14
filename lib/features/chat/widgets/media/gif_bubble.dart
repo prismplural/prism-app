@@ -8,6 +8,7 @@ import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 /// Displays a GIF attachment inside a chat message bubble as a looping
 /// silent MP4 video.
@@ -312,13 +313,9 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
         _buildPreviewImage(w, h, warmSurface),
         if (!_hasVideoError)
           Center(
-            child: SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.white.withValues(alpha: 0.7),
-              ),
+            child: PrismSpinner(
+              color: Colors.white.withValues(alpha: 0.7),
+              size: 24,
             ),
           ),
       ],

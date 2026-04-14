@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// A full-screen bottom sheet for browsing and selecting GIFs via the Klipy API.
@@ -115,9 +116,7 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
           // Results
           Expanded(
             child: resultsAsync.when(
-              loading: () => const Center(
-                child: CircularProgressIndicator(),
-              ),
+              loading: () => const PrismLoadingState(),
               error: (error, _) => Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
@@ -231,7 +230,7 @@ class _GifCell extends StatelessWidget {
               child: Image.network(
                 gif.previewUrl,
                 fit: BoxFit.cover,
-                semanticLabel: gif.contentDescription ?? 'GIF',
+                semanticLabel: gif.contentDescription,
                 frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
                   if (wasSynchronouslyLoaded || frame != null) return child;
                   return Container(color: placeholderColor);

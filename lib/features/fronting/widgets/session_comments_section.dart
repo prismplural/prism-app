@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 
 /// Comments section shown on session detail screen.
@@ -30,47 +31,45 @@ class SessionCommentsSection extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (_, _) => const SizedBox.shrink(),
       data: (comments) {
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      context.l10n.frontingCommentsTitle,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    PrismInlineIconButton(
-                      icon: AppIcons.addCommentOutlined,
-                      iconSize: 20,
-                      color: theme.colorScheme.primary,
-                      onPressed: () => _openAddSheet(context),
-                      tooltip: context.l10n.frontingAddCommentTooltip,
-                    ),
-                  ],
-                ),
-                if (comments.isEmpty) ...[
-                  const SizedBox(height: 8),
+        return PrismSurface(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
                   Text(
-                    context.l10n.frontingNoCommentsYet,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    context.l10n.frontingCommentsTitle,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ] else ...[
-                  const SizedBox(height: 12),
-                  for (var i = 0; i < comments.length; i++) ...[
-                    if (i > 0) const Divider(height: 16),
-                    _CommentTile(comment: comments[i], sessionId: sessionId),
-                  ],
+                  const Spacer(),
+                  PrismInlineIconButton(
+                    icon: AppIcons.addCommentOutlined,
+                    iconSize: 20,
+                    color: theme.colorScheme.primary,
+                    onPressed: () => _openAddSheet(context),
+                    tooltip: context.l10n.frontingAddCommentTooltip,
+                  ),
+                ],
+              ),
+              if (comments.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  context.l10n.frontingNoCommentsYet,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 12),
+                for (var i = 0; i < comments.length; i++) ...[
+                  if (i > 0) const Divider(height: 16),
+                  _CommentTile(comment: comments[i], sessionId: sessionId),
                 ],
               ],
-            ),
+            ],
           ),
         );
       },
