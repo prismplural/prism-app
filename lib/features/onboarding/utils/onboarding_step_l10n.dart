@@ -12,7 +12,6 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.welcome => context.l10n.onboardingWelcomeTitle,
     OnboardingStep.pinSetup => context.l10n.onboardingPinSetupTitle,
     OnboardingStep.recoveryPhrase => context.l10n.onboardingRecoveryPhraseTitle,
-    OnboardingStep.confirmPhrase => context.l10n.onboardingConfirmPhraseTitle,
     OnboardingStep.biometricSetup => context.l10n.onboardingBiometricSetupTitle,
     OnboardingStep.syncDevice => context.l10n.onboardingSyncDeviceTitle,
     OnboardingStep.importedDataReady =>
@@ -32,7 +31,6 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.welcome => context.l10n.onboardingWelcomeSubtitle,
     OnboardingStep.pinSetup => context.l10n.onboardingPinSetupSubtitle,
     OnboardingStep.recoveryPhrase => context.l10n.onboardingRecoveryPhraseSubtitle,
-    OnboardingStep.confirmPhrase => context.l10n.onboardingConfirmPhraseSubtitle,
     OnboardingStep.biometricSetup => context.l10n.onboardingBiometricSetupSubtitle,
     OnboardingStep.syncDevice => context.l10n.onboardingSyncDeviceSubtitle,
     OnboardingStep.importedDataReady =>

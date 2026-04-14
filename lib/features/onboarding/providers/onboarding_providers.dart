@@ -18,8 +18,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 enum OnboardingStep {
   welcome,
   pinSetup,        // 6-digit PIN creation
-  recoveryPhrase,  // Show 12-word backup
-  confirmPhrase,   // Verify 3 words
+  recoveryPhrase,  // Show 12-word backup + save confirmation
   biometricSetup,  // Face ID / Touch ID opt-in
   syncDevice,
   importedDataReady,
@@ -37,7 +36,6 @@ enum OnboardingStep {
     welcome => 'Welcome to Prism',
     pinSetup => 'Set your PIN',
     recoveryPhrase => 'Save your recovery phrase',
-    confirmPhrase => 'Verify your phrase',
     biometricSetup => 'Enable biometrics',
     syncDevice => 'Sync From Device',
     importedDataReady => 'Data Ready',
@@ -56,7 +54,6 @@ enum OnboardingStep {
     welcome => 'Your system, your way.',
     pinSetup => 'Protects your app and sync.',
     recoveryPhrase => 'Write these 12 words somewhere safe.',
-    confirmPhrase => 'Confirm you saved your phrase.',
     biometricSetup => 'Use Face ID or Touch ID to unlock.',
     syncDevice => 'Pair with an existing device',
     importedDataReady => 'Your imported system is ready to use',
@@ -75,7 +72,6 @@ enum OnboardingStep {
     welcome => AppIcons.duotoneStar,
     pinSetup => AppIcons.duotoneLock,
     recoveryPhrase => AppIcons.duotoneKey,
-    confirmPhrase => AppIcons.duotoneEncryption,
     biometricSetup => AppIcons.fingerprint,
     syncDevice => AppIcons.duotoneSync,
     importedDataReady => AppIcons.duotoneSuccess,
@@ -115,7 +111,7 @@ class OnboardingState {
   /// Null until ChatSetupStep seeds the localized defaults on first render.
   final String? allMembersChannelKey;
   /// The 12-word mnemonic words generated during PIN setup. Ephemeral —
-  /// kept in memory only until confirmPhrase is completed.
+  /// kept in memory only until the biometric step completes or is skipped.
   final List<String> mnemonicWords;
   /// The raw DEK bytes exported after initialize(). Used for biometric
   /// enrollment in BiometricSetupStep. Cleared after biometric step.
@@ -331,13 +327,8 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     }
   }
 
-  /// Called when the user taps Continue on the recovery-phrase display.
-  void onPhraseViewed() {
-    state = state.copyWith(currentStep: OnboardingStep.confirmPhrase);
-  }
-
-  /// Called when the user successfully verifies 3 words from their phrase.
-  void onPhraseConfirmed() {
+  /// Called when the user confirms they have saved their recovery phrase.
+  void onPhraseSaved() {
     state = state.copyWith(currentStep: OnboardingStep.biometricSetup);
   }
 
@@ -407,7 +398,6 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       // the bottom "Continue" button is hidden for these steps.
       OnboardingStep.pinSetup => false,
       OnboardingStep.recoveryPhrase => false,
-      OnboardingStep.confirmPhrase => false,
       OnboardingStep.biometricSetup => false,
       OnboardingStep.syncDevice => false, // Managed by SyncDeviceStep itself
       OnboardingStep.importedDataReady => false,
