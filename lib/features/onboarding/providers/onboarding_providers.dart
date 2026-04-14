@@ -107,9 +107,6 @@ class OnboardingState {
   final String? customTermPlural;
   final bool terminologyUseEnglish;
   final bool isSyncPath;
-  /// True when the user entered the sync flow from the welcome step (before
-  /// PIN setup), as opposed to from the import data step.
-  final bool syncEnteredFromWelcome;
   /// The channel key that cannot be removed (locale-aware "All Members" name).
   /// Null until ChatSetupStep seeds the localized defaults on first render.
   final String? allMembersChannelKey;
@@ -139,7 +136,6 @@ class OnboardingState {
     this.customTermPlural,
     this.terminologyUseEnglish = false,
     this.isSyncPath = false,
-    this.syncEnteredFromWelcome = false,
     this.allMembersChannelKey,
     this.mnemonicWords = const [],
     this.dekBytes,
@@ -166,7 +162,6 @@ class OnboardingState {
     Object? customTermPlural = _sentinel,
     bool? terminologyUseEnglish,
     bool? isSyncPath,
-    bool? syncEnteredFromWelcome,
     bool clearFronterId = false,
     String? allMembersChannelKey,
     List<String>? mnemonicWords,
@@ -201,8 +196,6 @@ class OnboardingState {
       terminologyUseEnglish:
           terminologyUseEnglish ?? this.terminologyUseEnglish,
       isSyncPath: isSyncPath ?? this.isSyncPath,
-      syncEnteredFromWelcome:
-          syncEnteredFromWelcome ?? this.syncEnteredFromWelcome,
       allMembersChannelKey: allMembersChannelKey ?? this.allMembersChannelKey,
       mnemonicWords: mnemonicWords ?? this.mnemonicWords,
       dekBytes: dekBytes == _sentinel ? this.dekBytes : dekBytes as Uint8List?,
@@ -232,7 +225,6 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   void enterSyncDeviceFlowFromWelcome() {
     state = state.copyWith(
       isSyncPath: true,
-      syncEnteredFromWelcome: true,
       currentStep: OnboardingStep.syncDevice,
     );
   }
@@ -244,7 +236,6 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     ref.invalidate(devicePairingProvider);
     state = state.copyWith(
       isSyncPath: false,
-      syncEnteredFromWelcome: false,
       currentStep: OnboardingStep.welcome,
     );
   }

@@ -131,14 +131,6 @@ class _SetupDeviceSheetContentState
   }
 
   Future<void> _completeInitiator(String pin) async {
-    if (pin.trim().isEmpty) {
-      setState(() {
-        _error = 'PIN cannot be empty.';
-        _step = _InitiatorStep.error;
-      });
-      return;
-    }
-
     setState(() {
       _step = _InitiatorStep.completing;
       _error = null;
@@ -150,8 +142,7 @@ class _SetupDeviceSheetContentState
       // from completeInitiatorCeremony, so uploading first guarantees the
       // snapshot is on the relay by the time the joiner's bootstrap_from_snapshot
       // runs. Otherwise the joiner races ahead, finds no snapshot, and ends
-      // up with zero records (and silently fails "Get Started" because the
-      // completeOnboarding guard requires at least one member to exist).
+      // up with zero records.
       //
       // The snapshot is encrypted with the current (pre-rekey) epoch key,
       // which matches what the credential bundle will ship to the joiner.
@@ -491,35 +482,9 @@ class _InitiatorPinView extends StatefulWidget {
   State<_InitiatorPinView> createState() => _InitiatorPinViewState();
 }
 
-class _InitiatorPinViewState extends State<_InitiatorPinView>
-    with SingleTickerProviderStateMixin {
+class _InitiatorPinViewState extends State<_InitiatorPinView> {
   String _pin = '';
   static const _pinLength = 6;
-
-  late AnimationController _shakeController;
-  late Animation<double> _shakeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _shakeController = AnimationController(
-      duration: const Duration(milliseconds: 400),
-      vsync: this,
-    );
-    _shakeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: -10), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 10, end: -6), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -6, end: 0), weight: 1),
-    ]).animate(
-        CurvedAnimation(parent: _shakeController, curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _shakeController.dispose();
-    super.dispose();
-  }
 
   void _onDigit(String digit) {
     if (_pin.length >= _pinLength) return;
@@ -570,32 +535,25 @@ class _InitiatorPinViewState extends State<_InitiatorPinView>
         ),
         const SizedBox(height: 32),
         // PIN dot indicators
-        AnimatedBuilder(
-          animation: _shakeAnimation,
-          builder: (context, child) => Transform.translate(
-            offset: Offset(_shakeAnimation.value, 0),
-            child: child,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_pinLength, (i) {
-              final filled = i < _pin.length;
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: 16,
-                  height: 16,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: filled
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.primary.withValues(alpha: 0.2),
-                  ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_pinLength, (i) {
+            final filled = i < _pin.length;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: filled
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.primary.withValues(alpha: 0.2),
                 ),
-              );
-            }),
-          ),
+              ),
+            );
+          }),
         ),
         const SizedBox(height: 32),
         // Numpad
