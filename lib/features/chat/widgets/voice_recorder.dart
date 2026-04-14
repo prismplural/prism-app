@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -73,13 +74,6 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
     return _buildContent(context);
   }
 
-  String _formatDuration(int ms) {
-    final totalSeconds = ms ~/ 1000;
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-
   Future<void> _handleSend() async {
     final state = await ref.read(voiceRecordingProvider.notifier).stopRecording();
     if (state.status == VoiceRecordingStatus.done && state.audioBytes != null) {
@@ -138,7 +132,7 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          _formatDuration(state.elapsedMs),
+                          Duration(milliseconds: state.elapsedMs).toVoiceFormat(),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface,
                           ),

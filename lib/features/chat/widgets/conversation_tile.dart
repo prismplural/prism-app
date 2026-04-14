@@ -74,6 +74,7 @@ class ConversationTile extends ConsumerWidget {
       final member = tileData.dmPartner!;
       return MemberAvatar(
         avatarImageData: member.avatarImageData,
+        memberName: member.name,
         emoji: member.emoji,
         customColorEnabled: member.customColorEnabled,
         customColorHex: member.customColorHex,

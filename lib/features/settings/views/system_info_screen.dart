@@ -124,7 +124,10 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
             children: [
               // Avatar section
               Center(
-                child: GestureDetector(
+                child: Semantics(
+                  button: true,
+                  label: 'Change system avatar',
+                  child: GestureDetector(
                   onTap: _pickAvatar,
                   onLongPress: avatarData != null
                       ? () {
@@ -181,6 +184,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                         ),
                 ),
               ),
+              ),
 
               const SizedBox(height: 24),
 
@@ -220,7 +224,10 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           ),
                         ],
                       )
-                    : GestureDetector(
+                    : Semantics(
+                        button: true,
+                        label: 'Edit system name',
+                        child: GestureDetector(
                         onTap: () => _startEditingName(settings.systemName),
                         behavior: HitTestBehavior.opaque,
                         child: Row(
@@ -253,6 +260,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             ),
                           ],
                         ),
+                      ),
                       ),
               ),
 
@@ -298,7 +306,10 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                           ),
                         ],
                       )
-                    : GestureDetector(
+                    : Semantics(
+                        button: true,
+                        label: 'Edit system description',
+                        child: GestureDetector(
                         onTap: () => _startEditingDescription(description),
                         behavior: HitTestBehavior.opaque,
                         child: Row(
@@ -338,6 +349,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             ),
                           ],
                         ),
+                      ),
                       ),
               ),
 

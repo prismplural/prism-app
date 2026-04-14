@@ -372,6 +372,7 @@ class _EditFrontSessionScreenState
                       return PrismCheckboxRow(
                         leading: MemberAvatar(
                           avatarImageData: m.avatarImageData,
+                          memberName: m.name,
                           emoji: m.emoji,
                           customColorEnabled: m.customColorEnabled,
                           customColorHex: m.customColorHex,

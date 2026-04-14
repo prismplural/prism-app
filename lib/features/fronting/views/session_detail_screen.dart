@@ -440,6 +440,7 @@ class _FronterSection extends ConsumerWidget {
             children: [
               MemberAvatar(
                 avatarImageData: member.avatarImageData,
+                memberName: member.name,
                 emoji: member.emoji,
                 customColorEnabled: member.customColorEnabled,
                 customColorHex: member.customColorHex,
@@ -497,6 +498,7 @@ class _CoFronterTile extends ConsumerWidget {
         return PrismListRow(
           leading: MemberAvatar(
             avatarImageData: member.avatarImageData,
+            memberName: member.name,
             emoji: member.emoji,
             customColorEnabled: member.customColorEnabled,
             customColorHex: member.customColorHex,

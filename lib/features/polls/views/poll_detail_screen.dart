@@ -28,6 +28,7 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 
 /// Detail screen for a single poll with voting and results.
 class PollDetailScreen extends ConsumerWidget {
@@ -300,14 +301,14 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
               children: [
                 _MetadataChip(
                   icon: AppIcons.calendarToday,
-                  label: _formatDate(widget.poll.createdAt),
+                  label: widget.poll.createdAt.toDateString(),
                 ),
                 if (widget.poll.expiresAt != null)
                   _MetadataChip(
                     icon: AppIcons.schedule,
                     label: _isClosed
                         ? context.l10n.pollsDetailExpired
-                        : context.l10n.pollsDetailExpiresLabel(_formatDate(widget.poll.expiresAt!)),
+                        : context.l10n.pollsDetailExpiresLabel(widget.poll.expiresAt!.toDateString()),
                   ),
                 if (widget.poll.isAnonymous)
                   _MetadataChip(
@@ -358,6 +359,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                               .setMember(member.id),
                           avatar: MemberAvatar(
                             avatarImageData: member.avatarImageData,
+                            memberName: member.name,
                             emoji: member.emoji,
                             customColorEnabled: member.customColorEnabled,
                             customColorHex: member.customColorHex,
@@ -440,23 +442,6 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     );
   }
 
-  String _formatDate(DateTime dt) {
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
-  }
 }
 
 // ── Option tile ───────────────────────────────────────────────────────────

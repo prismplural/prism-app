@@ -242,6 +242,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                   // Avatar
                   MemberAvatar(
                     avatarImageData: member.avatarImageData,
+                    memberName: member.name,
                     emoji: member.emoji,
                     customColorEnabled: member.customColorEnabled,
                     customColorHex: member.customColorHex,

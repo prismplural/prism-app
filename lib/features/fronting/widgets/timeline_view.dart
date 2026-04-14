@@ -451,6 +451,7 @@ class _MemberHeader extends StatelessWidget {
         children: [
           MemberAvatar(
             emoji: row.member.emoji,
+            memberName: row.member.name,
             customColorEnabled: row.member.customColorEnabled,
             customColorHex: row.member.customColorHex,
             avatarImageData: row.member.avatarImageData,

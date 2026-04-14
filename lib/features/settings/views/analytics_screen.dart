@@ -301,6 +301,7 @@ class _ExpandableMemberDetailState
               children: [
                 MemberAvatar(
                   avatarImageData: member?.avatarImageData,
+                  memberName: member?.name,
                   emoji: member?.emoji ?? '',
                   customColorEnabled: member?.customColorEnabled ?? false,
                   customColorHex: member?.customColorHex,

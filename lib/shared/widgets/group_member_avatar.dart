@@ -154,6 +154,7 @@ class GroupMemberAvatar extends StatelessWidget {
           fit: BoxFit.cover,
           cacheWidth: pixelSize,
           cacheHeight: pixelSize,
+          semanticLabel: 'Group member avatar',
           errorBuilder: (_, _, _) =>
               _miniEmoji(member.emoji, itemSize),
         ),

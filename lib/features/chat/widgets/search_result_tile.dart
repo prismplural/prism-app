@@ -32,6 +32,7 @@ class SearchResultTile extends StatelessWidget {
             children: [
               MemberAvatar(
                 avatarImageData: result.authorAvatarData,
+                memberName: result.authorName,
                 emoji: result.authorEmoji ?? '❔',
                 customColorEnabled: result.authorCustomColorEnabled ?? false,
                 customColorHex: result.authorCustomColorHex,

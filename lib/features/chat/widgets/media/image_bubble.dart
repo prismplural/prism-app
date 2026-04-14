@@ -113,6 +113,7 @@ class ImageBubble extends StatelessWidget {
         fit: BoxFit.cover,
         width: w,
         height: h,
+        semanticLabel: caption ?? 'Image attachment',
         errorBuilder: (_, _, _) => _ErrorPlaceholder(width: w, height: h, onRetry: onRetry),
       );
     }

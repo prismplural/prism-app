@@ -269,6 +269,7 @@ class _TopFronterRow extends StatelessWidget {
           const SizedBox(width: 8),
           MemberAvatar(
             emoji: emoji,
+            memberName: member?.name,
             avatarImageData: member?.avatarImageData,
             customColorEnabled: member?.customColorEnabled ?? false,
             customColorHex: member?.customColorHex,

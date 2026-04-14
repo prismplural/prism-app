@@ -315,6 +315,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                       return PrismCheckboxRow(
                         leading: MemberAvatar(
                           avatarImageData: m.avatarImageData,
+                          memberName: m.name,
                           emoji: m.emoji,
                           customColorEnabled: m.customColorEnabled,
                           customColorHex: m.customColorHex,
@@ -480,6 +481,7 @@ class _MemberGridState extends State<_MemberGrid> {
               opacity: isFronting && !isSelected ? 0.5 : 1.0,
               child: MemberAvatar(
                 avatarImageData: member.avatarImageData,
+                memberName: member.name,
                 emoji: member.emoji,
                 customColorEnabled: member.customColorEnabled,
                 customColorHex: member.customColorHex,
@@ -645,6 +647,7 @@ class _MemberGridState extends State<_MemberGrid> {
             theme: theme,
             leading: MemberAvatar(
               avatarImageData: member.avatarImageData,
+              memberName: member.name,
               emoji: member.emoji,
               customColorEnabled: member.customColorEnabled,
               customColorHex: member.customColorHex,

@@ -46,7 +46,10 @@ class ReactionBar extends ConsumerWidget {
         final hasReacted = speakingAs != null &&
             reactionList.any((r) => r.memberId == speakingAs);
 
-        return GestureDetector(
+        return Semantics(
+          button: true,
+          label: 'Add reaction $emoji',
+          child: GestureDetector(
           onTap: () {
             if (speakingAs == null) return;
             Haptics.light();
@@ -98,6 +101,7 @@ class ReactionBar extends ConsumerWidget {
               ),
             ),
           ),
+        ),
         );
       }).toList(),
     );

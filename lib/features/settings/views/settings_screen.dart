@@ -259,10 +259,13 @@ class SettingsScreen extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: GestureDetector(
-        onTap: () => context.push(AppRoutePaths.settingsSystemInfo),
-        behavior: HitTestBehavior.opaque,
-        child: PrismSectionCard(
+      child: Semantics(
+        button: true,
+        label: 'System info',
+        child: GestureDetector(
+          onTap: () => context.push(AppRoutePaths.settingsSystemInfo),
+          behavior: HitTestBehavior.opaque,
+          child: PrismSectionCard(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,6 +334,7 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

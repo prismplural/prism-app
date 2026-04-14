@@ -78,6 +78,7 @@ class HeadmatePicker extends ConsumerWidget {
                     : null,
                 leading: MemberAvatar(
                   avatarImageData: member.avatarImageData,
+                  memberName: member.name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
@@ -85,6 +86,7 @@ class HeadmatePicker extends ConsumerWidget {
                 ),
                 fieldLeading: MemberAvatar(
                   avatarImageData: member.avatarImageData,
+                  memberName: member.name,
                   emoji: member.emoji,
                   customColorEnabled: member.customColorEnabled,
                   customColorHex: member.customColorHex,
