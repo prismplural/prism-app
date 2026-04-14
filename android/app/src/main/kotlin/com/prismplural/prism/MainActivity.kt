@@ -1,4 +1,4 @@
-package com.prism.prism_plurality
+package com.prismplural.prism
 
 import android.annotation.SuppressLint
 import android.app.Activity
