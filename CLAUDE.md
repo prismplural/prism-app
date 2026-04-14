@@ -150,9 +150,8 @@ flutter test                                             # Tests
 
 ## Feature Plans
 
-Active plans live in `docs/plans/`. Completed plans are archived to git history (see
-root `CLAUDE.md` "Documentation Lifecycle"). The overview at `docs/plans/00-overview.md`
-tracks what shipped and what's still open.
+Active plans live in `docs/plans/` when present. Completed plans are archived to git history (see
+root `CLAUDE.md` "Documentation Lifecycle").
 
 ## Performance Docs
 
