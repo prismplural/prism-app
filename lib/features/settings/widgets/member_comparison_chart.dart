@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 
 /// Horizontal bar chart comparing fronting time per member.
 class MemberComparisonChart extends ConsumerWidget {
@@ -65,7 +66,7 @@ class _MemberBar extends ConsumerWidget {
 
     return Semantics(
       label:
-          '$name: ${_formatDuration(stat.totalTime)} (${stat.percentageOfTotal.toStringAsFixed(1)}%)',
+          '$name: ${stat.totalTime.toRoundedString()} (${stat.percentageOfTotal.toStringAsFixed(1)}%)',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -100,12 +101,6 @@ class _MemberBar extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  String _formatDuration(Duration d) {
-    if (d.inDays > 0) return '${d.inDays}d ${d.inHours % 24}h';
-    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
-    return '${d.inMinutes}m';
   }
 
   Color _parseColor(String hex) {

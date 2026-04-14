@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -58,17 +59,10 @@ class VoiceBubble extends StatefulWidget {
 }
 
 class _VoiceBubbleState extends State<VoiceBubble> {
-  String _formatDuration(int ms) {
-    final totalSeconds = ms ~/ 1000;
-    final minutes = totalSeconds ~/ 60;
-    final seconds = totalSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final durationText = _formatDuration(widget.durationMs);
+    final durationText = Duration(milliseconds: widget.durationMs).toVoiceFormat();
     final disableAnimations = MediaQuery.of(context).disableAnimations;
 
     return Semantics(
