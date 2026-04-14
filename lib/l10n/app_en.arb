@@ -6358,6 +6358,38 @@
   "@onboardingPreferencesTitle": { "description": "Header title for the onboarding preferences step" },
   "onboardingPreferencesSubtitle": "Colors, language, the small things.",
   "@onboardingPreferencesSubtitle": { "description": "Header subtitle for the onboarding preferences step" },
+  "onboardingPermissionsTitle": "One more thing",
+  "@onboardingPermissionsTitle": { "description": "Header title for the onboarding permissions step" },
+  "onboardingPermissionsSubtitle": "Optional permissions for the best experience.",
+  "@onboardingPermissionsSubtitle": { "description": "Header subtitle for the onboarding permissions step" },
+  "onboardingPermissionsNotificationTitle": "Notifications",
+  "@onboardingPermissionsNotificationTitle": {
+    "description": "Title for notification permission request in onboarding"
+  },
+  "onboardingPermissionsNotificationRationale": "We'll let you know when headmates log a switch or a habit reminder is due",
+  "@onboardingPermissionsNotificationRationale": {
+    "description": "Rationale for requesting notification permission"
+  },
+  "onboardingPermissionsMicrophoneTitle": "Microphone",
+  "@onboardingPermissionsMicrophoneTitle": {
+    "description": "Title for microphone permission request in onboarding"
+  },
+  "onboardingPermissionsMicrophoneRationale": "So you can record voice messages for your headmates",
+  "@onboardingPermissionsMicrophoneRationale": {
+    "description": "Rationale for requesting microphone permission"
+  },
+  "onboardingPermissionsAllowed": "Allowed",
+  "@onboardingPermissionsAllowed": {
+    "description": "Label shown when a permission has been granted"
+  },
+  "onboardingPermissionsAllow": "Allow",
+  "@onboardingPermissionsAllow": {
+    "description": "Button label to request a permission"
+  },
+  "onboardingPermissionsOpenSettings": "Change in Settings",
+  "@onboardingPermissionsOpenSettings": {
+    "description": "Link to open device settings when permission is permanently denied"
+  },
   "onboardingWhosFrontingTitle": "Who's fronting?",
   "@onboardingWhosFrontingTitle": { "description": "Header title for the onboarding who's-fronting step" },
   "onboardingWhosFrontingSubtitle": "Tap whoever's here right now.",

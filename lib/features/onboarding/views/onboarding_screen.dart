@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/onboarding/widgets/add_members_step.dar
 import 'package:prism_plurality/features/onboarding/widgets/features_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/chat_setup_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/preferences_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/permissions_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
 import 'package:prism_plurality/features/onboarding/widgets/whos_fronting_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/complete_step.dart';
@@ -52,6 +53,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     OnboardingStep.features,
     OnboardingStep.chatSetup,
     OnboardingStep.preferences,
+    OnboardingStep.permissions,
     OnboardingStep.whosFronting,
   ];
 
@@ -322,6 +324,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       OnboardingStep.chatSetup => const ChatSetupStep(key: ValueKey('chat')),
       OnboardingStep.preferences => const PreferencesStep(
         key: ValueKey('prefs'),
+      ),
+      OnboardingStep.permissions => const PermissionsStep(
+        key: ValueKey('permissions'),
       ),
       OnboardingStep.whosFronting => const WhosFrontingStep(
         key: ValueKey('fronting'),

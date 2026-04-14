@@ -29,6 +29,7 @@ enum OnboardingStep {
   features,
   chatSetup,
   preferences,
+  permissions,
   whosFronting,
   complete;
 
@@ -46,6 +47,7 @@ enum OnboardingStep {
     features => 'Pick your tools',
     chatSetup => 'Set up chat',
     preferences => 'Make it yours',
+    permissions => 'One more thing',
     whosFronting => "Who's fronting?",
     complete => 'Ready when you are',
   };
@@ -64,6 +66,7 @@ enum OnboardingStep {
     features => 'Turn on what you need. Change anytime.',
     chatSetup => 'Channels for your system to talk.',
     preferences => 'Colors, language, the small things.',
+    permissions => 'Optional permissions for the best experience.',
     whosFronting => "Tap whoever's here right now.",
     complete => "Your system is set up. Here's what to explore.",
   };
@@ -82,6 +85,7 @@ enum OnboardingStep {
     features => AppIcons.duotoneSettings,
     chatSetup => AppIcons.duotoneChat,
     preferences => AppIcons.duotoneTheme,
+    permissions => AppIcons.duotoneNotifications,
     whosFronting => AppIcons.duotoneFronting,
     complete => AppIcons.duotoneSuccess,
   };
@@ -413,6 +417,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       OnboardingStep.features => true,
       OnboardingStep.chatSetup => true,
       OnboardingStep.preferences => true,
+      OnboardingStep.permissions => true,
       OnboardingStep.whosFronting => true,
       OnboardingStep.complete => true,
     };

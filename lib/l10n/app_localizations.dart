@@ -9344,6 +9344,60 @@ abstract class AppLocalizations {
   /// **'Colors, language, the small things.'**
   String get onboardingPreferencesSubtitle;
 
+  /// Header title for the onboarding permissions step
+  ///
+  /// In en, this message translates to:
+  /// **'One more thing'**
+  String get onboardingPermissionsTitle;
+
+  /// Header subtitle for the onboarding permissions step
+  ///
+  /// In en, this message translates to:
+  /// **'Optional permissions for the best experience.'**
+  String get onboardingPermissionsSubtitle;
+
+  /// Title for notification permission request in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get onboardingPermissionsNotificationTitle;
+
+  /// Rationale for requesting notification permission
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll let you know when headmates log a switch or a habit reminder is due'**
+  String get onboardingPermissionsNotificationRationale;
+
+  /// Title for microphone permission request in onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone'**
+  String get onboardingPermissionsMicrophoneTitle;
+
+  /// Rationale for requesting microphone permission
+  ///
+  /// In en, this message translates to:
+  /// **'So you can record voice messages for your headmates'**
+  String get onboardingPermissionsMicrophoneRationale;
+
+  /// Label shown when a permission has been granted
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed'**
+  String get onboardingPermissionsAllowed;
+
+  /// Button label to request a permission
+  ///
+  /// In en, this message translates to:
+  /// **'Allow'**
+  String get onboardingPermissionsAllow;
+
+  /// Link to open device settings when permission is permanently denied
+  ///
+  /// In en, this message translates to:
+  /// **'Change in Settings'**
+  String get onboardingPermissionsOpenSettings;
+
   /// Header title for the onboarding who's-fronting step
   ///
   /// In en, this message translates to:
