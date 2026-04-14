@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/features/chat/widgets/media/voice_bubble.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 Widget _buildTestWidget({
   int durationMs = 5000,
@@ -42,11 +43,11 @@ void main() {
     // ── Loading state ─────────────────────────────────────────────────────
 
     group('loading state', () {
-      testWidgets('shows CircularProgressIndicator when isLoading is true',
+      testWidgets('shows PrismSpinner when isLoading is true',
           (tester) async {
         await tester.pumpWidget(_buildTestWidget(isLoading: true));
 
-        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        expect(find.byType(PrismSpinner), findsOneWidget);
       });
 
       testWidgets('does not show play/pause IconButton when isLoading is true',
