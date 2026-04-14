@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.prism.prism_plurality"
+    namespace = "com.prismplural.prism"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -53,8 +53,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.prism.prism_plurality"
+        applicationId = "com.prismplural.prism"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 26
