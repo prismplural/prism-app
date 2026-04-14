@@ -2,6 +2,22 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [0.3.3] - 2026-04-13
+
+### Improved
+- Sync: SyncRelay trait split into 5 focused sub-traits (SyncTransport, DeviceRegistry, EpochManagement, SnapshotExchange, MediaRelay)
+- Sync: typed StorageError and CryptoError variants replace stringly-typed error propagation
+- Sync: tracing::instrument on sync engine hot paths + conditional JSON log format for relay
+- FFI: all Mutex .unwrap() replaced with lock_or_recover() for FFI safety (recovers from poisoned mutex instead of aborting)
+- Accessibility: semanticLabel on all MemberAvatar and 6 Image.memory sites; Semantics wrapper on 15 GestureDetectors
+- Providers: 12 Notifier<void> migrated to AsyncNotifier<void> with AsyncValue.guard error propagation
+- Code dedup: inline duration/datetime formatters replaced with shared extension methods
+- l10n: removed 74 unused ARB keys (password-to-PIN leftovers, notes stubs, duplicates)
+
+### Added
+- Duration extensions: toVoiceFormat() for M:SS audio display, day support in toRoundedString()
+- 24 new tests for duration extensions and AsyncNotifier error paths
+
 ## [0.3.2] - 2026-04-12
 
 ### Fixed
