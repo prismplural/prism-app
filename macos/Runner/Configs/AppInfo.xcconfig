@@ -8,7 +8,7 @@
 PRODUCT_NAME = prism_plurality
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.prism.prismPlurality
+PRODUCT_BUNDLE_IDENTIFIER = com.prismplural.prism
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.prism. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Prism Plural. All rights reserved.
