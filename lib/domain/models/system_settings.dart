@@ -120,6 +120,7 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(true) bool habitsEnabled,
     @Default(true) bool sleepTrackingEnabled,
     @Default(true) bool gifSearchEnabled,
+    @Default(true) bool voiceNotesEnabled,
     @Default(30) int quickSwitchThresholdSeconds,
     // Sharing identity generation — incremented on DEK rotation
     @Default(0) int identityGeneration,
@@ -136,6 +137,7 @@ abstract class SystemSettings with _$SystemSettings {
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
     Uint8List? systemAvatarData,
     @Default(true) bool remindersEnabled,
+    String? localeOverride,
     // Phase 3: Device-local settings
     @Default(1.0) double fontScale,
     @Default(FontFamily.system) FontFamily fontFamily,

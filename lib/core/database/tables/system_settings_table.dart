@@ -25,6 +25,7 @@ class SystemSettingsTable extends Table {
       integer().withDefault(const Constant(0))(); // enum index
   TextColumn get customTerminology => text().nullable()();
   TextColumn get customPluralTerminology => text().nullable()();
+  TextColumn get localeOverride => text().nullable()();
   BoolColumn get terminologyUseEnglish =>
       boolean().withDefault(const Constant(false))();
   TextColumn get sharingId => text().nullable()();
@@ -46,6 +47,8 @@ class SystemSettingsTable extends Table {
   BoolColumn get sleepTrackingEnabled =>
       boolean().withDefault(const Constant(true))();
   BoolColumn get gifSearchEnabled =>
+      boolean().withDefault(const Constant(true))();
+  BoolColumn get voiceNotesEnabled =>
       boolean().withDefault(const Constant(true))();
   // Quick-switch correction
   IntColumn get quickSwitchThresholdSeconds =>

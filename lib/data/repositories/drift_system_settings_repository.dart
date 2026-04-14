@@ -135,6 +135,18 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateVoiceNotesEnabled(bool value) async {
+    await _dao.updateVoiceNotesEnabled(value);
+    await _syncField('voice_notes_enabled', value);
+  }
+
+  @override
+  Future<void> updateLocaleOverride(String? value) async {
+    await _dao.updateLocaleOverride(value);
+    await _syncField('locale_override', value);
+  }
+
+  @override
   Future<void> updateChatLogsFront(bool value) async {
     await _dao.updateChatLogsFront(value);
     await _syncField('chat_logs_front', value);

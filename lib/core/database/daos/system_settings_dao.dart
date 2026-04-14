@@ -96,6 +96,14 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(gifSearchEnabled: Value(value)),
   );
 
+  Future<void> updateVoiceNotesEnabled(bool value) => _updateField(
+    SystemSettingsTableCompanion(voiceNotesEnabled: Value(value)),
+  );
+
+  Future<void> updateLocaleOverride(String? value) => _updateField(
+    SystemSettingsTableCompanion(localeOverride: Value(value)),
+  );
+
   Future<void> updateChatLogsFront(bool value) =>
       _updateField(SystemSettingsTableCompanion(chatLogsFront: Value(value)));
 

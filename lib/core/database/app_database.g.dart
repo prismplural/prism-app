@@ -3502,6 +3502,17 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _localeOverrideMeta = const VerificationMeta(
+    'localeOverride',
+  );
+  @override
+  late final GeneratedColumn<String> localeOverride = GeneratedColumn<String>(
+    'locale_override',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _terminologyUseEnglishMeta =
       const VerificationMeta('terminologyUseEnglish');
   @override
@@ -3662,6 +3673,21 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'CHECK ("gif_search_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _voiceNotesEnabledMeta = const VerificationMeta(
+    'voiceNotesEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> voiceNotesEnabled = GeneratedColumn<bool>(
+    'voice_notes_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("voice_notes_enabled" IN (0, 1))',
     ),
     defaultValue: const Constant(true),
   );
@@ -3979,6 +4005,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     terminology,
     customTerminology,
     customPluralTerminology,
+    localeOverride,
     terminologyUseEnglish,
     sharingId,
     frontingRemindersEnabled,
@@ -3991,6 +4018,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     habitsEnabled,
     sleepTrackingEnabled,
     gifSearchEnabled,
+    voiceNotesEnabled,
     quickSwitchThresholdSeconds,
     identityGeneration,
     chatLogsFront,
@@ -4090,6 +4118,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('locale_override')) {
+      context.handle(
+        _localeOverrideMeta,
+        localeOverride.isAcceptableOrUnknown(
+          data['locale_override']!,
+          _localeOverrideMeta,
+        ),
+      );
+    }
     if (data.containsKey('terminology_use_english')) {
       context.handle(
         _terminologyUseEnglishMeta,
@@ -4186,6 +4223,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         gifSearchEnabled.isAcceptableOrUnknown(
           data['gif_search_enabled']!,
           _gifSearchEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('voice_notes_enabled')) {
+      context.handle(
+        _voiceNotesEnabledMeta,
+        voiceNotesEnabled.isAcceptableOrUnknown(
+          data['voice_notes_enabled']!,
+          _voiceNotesEnabledMeta,
         ),
       );
     }
@@ -4425,6 +4471,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}custom_plural_terminology'],
       ),
+      localeOverride: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}locale_override'],
+      ),
       terminologyUseEnglish: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}terminology_use_english'],
@@ -4472,6 +4522,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
       gifSearchEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}gif_search_enabled'],
+      )!,
+      voiceNotesEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}voice_notes_enabled'],
       )!,
       quickSwitchThresholdSeconds: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -4584,6 +4638,7 @@ class SystemSettingsData extends DataClass
   final int terminology;
   final String? customTerminology;
   final String? customPluralTerminology;
+  final String? localeOverride;
   final bool terminologyUseEnglish;
   final String? sharingId;
   final bool frontingRemindersEnabled;
@@ -4596,6 +4651,7 @@ class SystemSettingsData extends DataClass
   final bool habitsEnabled;
   final bool sleepTrackingEnabled;
   final bool gifSearchEnabled;
+  final bool voiceNotesEnabled;
   final int quickSwitchThresholdSeconds;
   final int identityGeneration;
   final bool chatLogsFront;
@@ -4628,6 +4684,7 @@ class SystemSettingsData extends DataClass
     required this.terminology,
     this.customTerminology,
     this.customPluralTerminology,
+    this.localeOverride,
     required this.terminologyUseEnglish,
     this.sharingId,
     required this.frontingRemindersEnabled,
@@ -4640,6 +4697,7 @@ class SystemSettingsData extends DataClass
     required this.habitsEnabled,
     required this.sleepTrackingEnabled,
     required this.gifSearchEnabled,
+    required this.voiceNotesEnabled,
     required this.quickSwitchThresholdSeconds,
     required this.identityGeneration,
     required this.chatLogsFront,
@@ -4683,6 +4741,9 @@ class SystemSettingsData extends DataClass
         customPluralTerminology,
       );
     }
+    if (!nullToAbsent || localeOverride != null) {
+      map['locale_override'] = Variable<String>(localeOverride);
+    }
     map['terminology_use_english'] = Variable<bool>(terminologyUseEnglish);
     if (!nullToAbsent || sharingId != null) {
       map['sharing_id'] = Variable<String>(sharingId);
@@ -4701,6 +4762,7 @@ class SystemSettingsData extends DataClass
     map['habits_enabled'] = Variable<bool>(habitsEnabled);
     map['sleep_tracking_enabled'] = Variable<bool>(sleepTrackingEnabled);
     map['gif_search_enabled'] = Variable<bool>(gifSearchEnabled);
+    map['voice_notes_enabled'] = Variable<bool>(voiceNotesEnabled);
     map['quick_switch_threshold_seconds'] = Variable<int>(
       quickSwitchThresholdSeconds,
     );
@@ -4749,6 +4811,9 @@ class SystemSettingsData extends DataClass
       customPluralTerminology: customPluralTerminology == null && nullToAbsent
           ? const Value.absent()
           : Value(customPluralTerminology),
+      localeOverride: localeOverride == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localeOverride),
       terminologyUseEnglish: Value(terminologyUseEnglish),
       sharingId: sharingId == null && nullToAbsent
           ? const Value.absent()
@@ -4763,6 +4828,7 @@ class SystemSettingsData extends DataClass
       habitsEnabled: Value(habitsEnabled),
       sleepTrackingEnabled: Value(sleepTrackingEnabled),
       gifSearchEnabled: Value(gifSearchEnabled),
+      voiceNotesEnabled: Value(voiceNotesEnabled),
       quickSwitchThresholdSeconds: Value(quickSwitchThresholdSeconds),
       identityGeneration: Value(identityGeneration),
       chatLogsFront: Value(chatLogsFront),
@@ -4813,6 +4879,7 @@ class SystemSettingsData extends DataClass
       customPluralTerminology: serializer.fromJson<String?>(
         json['customPluralTerminology'],
       ),
+      localeOverride: serializer.fromJson<String?>(json['localeOverride']),
       terminologyUseEnglish: serializer.fromJson<bool>(
         json['terminologyUseEnglish'],
       ),
@@ -4833,6 +4900,7 @@ class SystemSettingsData extends DataClass
         json['sleepTrackingEnabled'],
       ),
       gifSearchEnabled: serializer.fromJson<bool>(json['gifSearchEnabled']),
+      voiceNotesEnabled: serializer.fromJson<bool>(json['voiceNotesEnabled']),
       quickSwitchThresholdSeconds: serializer.fromJson<int>(
         json['quickSwitchThresholdSeconds'],
       ),
@@ -4894,6 +4962,7 @@ class SystemSettingsData extends DataClass
       'customPluralTerminology': serializer.toJson<String?>(
         customPluralTerminology,
       ),
+      'localeOverride': serializer.toJson<String?>(localeOverride),
       'terminologyUseEnglish': serializer.toJson<bool>(terminologyUseEnglish),
       'sharingId': serializer.toJson<String?>(sharingId),
       'frontingRemindersEnabled': serializer.toJson<bool>(
@@ -4910,6 +4979,7 @@ class SystemSettingsData extends DataClass
       'habitsEnabled': serializer.toJson<bool>(habitsEnabled),
       'sleepTrackingEnabled': serializer.toJson<bool>(sleepTrackingEnabled),
       'gifSearchEnabled': serializer.toJson<bool>(gifSearchEnabled),
+      'voiceNotesEnabled': serializer.toJson<bool>(voiceNotesEnabled),
       'quickSwitchThresholdSeconds': serializer.toJson<int>(
         quickSwitchThresholdSeconds,
       ),
@@ -4949,6 +5019,7 @@ class SystemSettingsData extends DataClass
     int? terminology,
     Value<String?> customTerminology = const Value.absent(),
     Value<String?> customPluralTerminology = const Value.absent(),
+    Value<String?> localeOverride = const Value.absent(),
     bool? terminologyUseEnglish,
     Value<String?> sharingId = const Value.absent(),
     bool? frontingRemindersEnabled,
@@ -4961,6 +5032,7 @@ class SystemSettingsData extends DataClass
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
     bool? gifSearchEnabled,
+    bool? voiceNotesEnabled,
     int? quickSwitchThresholdSeconds,
     int? identityGeneration,
     bool? chatLogsFront,
@@ -4997,6 +5069,9 @@ class SystemSettingsData extends DataClass
     customPluralTerminology: customPluralTerminology.present
         ? customPluralTerminology.value
         : this.customPluralTerminology,
+    localeOverride: localeOverride.present
+        ? localeOverride.value
+        : this.localeOverride,
     terminologyUseEnglish: terminologyUseEnglish ?? this.terminologyUseEnglish,
     sharingId: sharingId.present ? sharingId.value : this.sharingId,
     frontingRemindersEnabled:
@@ -5011,6 +5086,7 @@ class SystemSettingsData extends DataClass
     habitsEnabled: habitsEnabled ?? this.habitsEnabled,
     sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
     gifSearchEnabled: gifSearchEnabled ?? this.gifSearchEnabled,
+    voiceNotesEnabled: voiceNotesEnabled ?? this.voiceNotesEnabled,
     quickSwitchThresholdSeconds:
         quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
     identityGeneration: identityGeneration ?? this.identityGeneration,
@@ -5066,6 +5142,9 @@ class SystemSettingsData extends DataClass
       customPluralTerminology: data.customPluralTerminology.present
           ? data.customPluralTerminology.value
           : this.customPluralTerminology,
+      localeOverride: data.localeOverride.present
+          ? data.localeOverride.value
+          : this.localeOverride,
       terminologyUseEnglish: data.terminologyUseEnglish.present
           ? data.terminologyUseEnglish.value
           : this.terminologyUseEnglish,
@@ -5099,6 +5178,9 @@ class SystemSettingsData extends DataClass
       gifSearchEnabled: data.gifSearchEnabled.present
           ? data.gifSearchEnabled.value
           : this.gifSearchEnabled,
+      voiceNotesEnabled: data.voiceNotesEnabled.present
+          ? data.voiceNotesEnabled.value
+          : this.voiceNotesEnabled,
       quickSwitchThresholdSeconds: data.quickSwitchThresholdSeconds.present
           ? data.quickSwitchThresholdSeconds.value
           : this.quickSwitchThresholdSeconds,
@@ -5178,6 +5260,7 @@ class SystemSettingsData extends DataClass
           ..write('terminology: $terminology, ')
           ..write('customTerminology: $customTerminology, ')
           ..write('customPluralTerminology: $customPluralTerminology, ')
+          ..write('localeOverride: $localeOverride, ')
           ..write('terminologyUseEnglish: $terminologyUseEnglish, ')
           ..write('sharingId: $sharingId, ')
           ..write('frontingRemindersEnabled: $frontingRemindersEnabled, ')
@@ -5192,6 +5275,7 @@ class SystemSettingsData extends DataClass
           ..write('habitsEnabled: $habitsEnabled, ')
           ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
           ..write('gifSearchEnabled: $gifSearchEnabled, ')
+          ..write('voiceNotesEnabled: $voiceNotesEnabled, ')
           ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
           ..write('identityGeneration: $identityGeneration, ')
           ..write('chatLogsFront: $chatLogsFront, ')
@@ -5229,6 +5313,7 @@ class SystemSettingsData extends DataClass
     terminology,
     customTerminology,
     customPluralTerminology,
+    localeOverride,
     terminologyUseEnglish,
     sharingId,
     frontingRemindersEnabled,
@@ -5241,6 +5326,7 @@ class SystemSettingsData extends DataClass
     habitsEnabled,
     sleepTrackingEnabled,
     gifSearchEnabled,
+    voiceNotesEnabled,
     quickSwitchThresholdSeconds,
     identityGeneration,
     chatLogsFront,
@@ -5277,6 +5363,7 @@ class SystemSettingsData extends DataClass
           other.terminology == this.terminology &&
           other.customTerminology == this.customTerminology &&
           other.customPluralTerminology == this.customPluralTerminology &&
+          other.localeOverride == this.localeOverride &&
           other.terminologyUseEnglish == this.terminologyUseEnglish &&
           other.sharingId == this.sharingId &&
           other.frontingRemindersEnabled == this.frontingRemindersEnabled &&
@@ -5290,6 +5377,7 @@ class SystemSettingsData extends DataClass
           other.habitsEnabled == this.habitsEnabled &&
           other.sleepTrackingEnabled == this.sleepTrackingEnabled &&
           other.gifSearchEnabled == this.gifSearchEnabled &&
+          other.voiceNotesEnabled == this.voiceNotesEnabled &&
           other.quickSwitchThresholdSeconds ==
               this.quickSwitchThresholdSeconds &&
           other.identityGeneration == this.identityGeneration &&
@@ -5328,6 +5416,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> terminology;
   final Value<String?> customTerminology;
   final Value<String?> customPluralTerminology;
+  final Value<String?> localeOverride;
   final Value<bool> terminologyUseEnglish;
   final Value<String?> sharingId;
   final Value<bool> frontingRemindersEnabled;
@@ -5340,6 +5429,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> habitsEnabled;
   final Value<bool> sleepTrackingEnabled;
   final Value<bool> gifSearchEnabled;
+  final Value<bool> voiceNotesEnabled;
   final Value<int> quickSwitchThresholdSeconds;
   final Value<int> identityGeneration;
   final Value<bool> chatLogsFront;
@@ -5373,6 +5463,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.terminology = const Value.absent(),
     this.customTerminology = const Value.absent(),
     this.customPluralTerminology = const Value.absent(),
+    this.localeOverride = const Value.absent(),
     this.terminologyUseEnglish = const Value.absent(),
     this.sharingId = const Value.absent(),
     this.frontingRemindersEnabled = const Value.absent(),
@@ -5385,6 +5476,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsEnabled = const Value.absent(),
     this.sleepTrackingEnabled = const Value.absent(),
     this.gifSearchEnabled = const Value.absent(),
+    this.voiceNotesEnabled = const Value.absent(),
     this.quickSwitchThresholdSeconds = const Value.absent(),
     this.identityGeneration = const Value.absent(),
     this.chatLogsFront = const Value.absent(),
@@ -5419,6 +5511,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.terminology = const Value.absent(),
     this.customTerminology = const Value.absent(),
     this.customPluralTerminology = const Value.absent(),
+    this.localeOverride = const Value.absent(),
     this.terminologyUseEnglish = const Value.absent(),
     this.sharingId = const Value.absent(),
     this.frontingRemindersEnabled = const Value.absent(),
@@ -5431,6 +5524,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsEnabled = const Value.absent(),
     this.sleepTrackingEnabled = const Value.absent(),
     this.gifSearchEnabled = const Value.absent(),
+    this.voiceNotesEnabled = const Value.absent(),
     this.quickSwitchThresholdSeconds = const Value.absent(),
     this.identityGeneration = const Value.absent(),
     this.chatLogsFront = const Value.absent(),
@@ -5465,6 +5559,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? terminology,
     Expression<String>? customTerminology,
     Expression<String>? customPluralTerminology,
+    Expression<String>? localeOverride,
     Expression<bool>? terminologyUseEnglish,
     Expression<String>? sharingId,
     Expression<bool>? frontingRemindersEnabled,
@@ -5477,6 +5572,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? habitsEnabled,
     Expression<bool>? sleepTrackingEnabled,
     Expression<bool>? gifSearchEnabled,
+    Expression<bool>? voiceNotesEnabled,
     Expression<int>? quickSwitchThresholdSeconds,
     Expression<int>? identityGeneration,
     Expression<bool>? chatLogsFront,
@@ -5513,6 +5609,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (customTerminology != null) 'custom_terminology': customTerminology,
       if (customPluralTerminology != null)
         'custom_plural_terminology': customPluralTerminology,
+      if (localeOverride != null) 'locale_override': localeOverride,
       if (terminologyUseEnglish != null)
         'terminology_use_english': terminologyUseEnglish,
       if (sharingId != null) 'sharing_id': sharingId,
@@ -5529,6 +5626,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (sleepTrackingEnabled != null)
         'sleep_tracking_enabled': sleepTrackingEnabled,
       if (gifSearchEnabled != null) 'gif_search_enabled': gifSearchEnabled,
+      if (voiceNotesEnabled != null) 'voice_notes_enabled': voiceNotesEnabled,
       if (quickSwitchThresholdSeconds != null)
         'quick_switch_threshold_seconds': quickSwitchThresholdSeconds,
       if (identityGeneration != null) 'identity_generation': identityGeneration,
@@ -5575,6 +5673,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? terminology,
     Value<String?>? customTerminology,
     Value<String?>? customPluralTerminology,
+    Value<String?>? localeOverride,
     Value<bool>? terminologyUseEnglish,
     Value<String?>? sharingId,
     Value<bool>? frontingRemindersEnabled,
@@ -5587,6 +5686,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? habitsEnabled,
     Value<bool>? sleepTrackingEnabled,
     Value<bool>? gifSearchEnabled,
+    Value<bool>? voiceNotesEnabled,
     Value<int>? quickSwitchThresholdSeconds,
     Value<int>? identityGeneration,
     Value<bool>? chatLogsFront,
@@ -5623,6 +5723,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       customTerminology: customTerminology ?? this.customTerminology,
       customPluralTerminology:
           customPluralTerminology ?? this.customPluralTerminology,
+      localeOverride: localeOverride ?? this.localeOverride,
       terminologyUseEnglish:
           terminologyUseEnglish ?? this.terminologyUseEnglish,
       sharingId: sharingId ?? this.sharingId,
@@ -5639,6 +5740,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       habitsEnabled: habitsEnabled ?? this.habitsEnabled,
       sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
       gifSearchEnabled: gifSearchEnabled ?? this.gifSearchEnabled,
+      voiceNotesEnabled: voiceNotesEnabled ?? this.voiceNotesEnabled,
       quickSwitchThresholdSeconds:
           quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
       identityGeneration: identityGeneration ?? this.identityGeneration,
@@ -5701,6 +5803,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         customPluralTerminology.value,
       );
     }
+    if (localeOverride.present) {
+      map['locale_override'] = Variable<String>(localeOverride.value);
+    }
     if (terminologyUseEnglish.present) {
       map['terminology_use_english'] = Variable<bool>(
         terminologyUseEnglish.value,
@@ -5744,6 +5849,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     }
     if (gifSearchEnabled.present) {
       map['gif_search_enabled'] = Variable<bool>(gifSearchEnabled.value);
+    }
+    if (voiceNotesEnabled.present) {
+      map['voice_notes_enabled'] = Variable<bool>(voiceNotesEnabled.value);
     }
     if (quickSwitchThresholdSeconds.present) {
       map['quick_switch_threshold_seconds'] = Variable<int>(
@@ -5849,6 +5957,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('terminology: $terminology, ')
           ..write('customTerminology: $customTerminology, ')
           ..write('customPluralTerminology: $customPluralTerminology, ')
+          ..write('localeOverride: $localeOverride, ')
           ..write('terminologyUseEnglish: $terminologyUseEnglish, ')
           ..write('sharingId: $sharingId, ')
           ..write('frontingRemindersEnabled: $frontingRemindersEnabled, ')
@@ -5863,6 +5972,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('habitsEnabled: $habitsEnabled, ')
           ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
           ..write('gifSearchEnabled: $gifSearchEnabled, ')
+          ..write('voiceNotesEnabled: $voiceNotesEnabled, ')
           ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
           ..write('identityGeneration: $identityGeneration, ')
           ..write('chatLogsFront: $chatLogsFront, ')
@@ -19017,6 +19127,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> terminology,
       Value<String?> customTerminology,
       Value<String?> customPluralTerminology,
+      Value<String?> localeOverride,
       Value<bool> terminologyUseEnglish,
       Value<String?> sharingId,
       Value<bool> frontingRemindersEnabled,
@@ -19029,6 +19140,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> habitsEnabled,
       Value<bool> sleepTrackingEnabled,
       Value<bool> gifSearchEnabled,
+      Value<bool> voiceNotesEnabled,
       Value<int> quickSwitchThresholdSeconds,
       Value<int> identityGeneration,
       Value<bool> chatLogsFront,
@@ -19064,6 +19176,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> terminology,
       Value<String?> customTerminology,
       Value<String?> customPluralTerminology,
+      Value<String?> localeOverride,
       Value<bool> terminologyUseEnglish,
       Value<String?> sharingId,
       Value<bool> frontingRemindersEnabled,
@@ -19076,6 +19189,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> habitsEnabled,
       Value<bool> sleepTrackingEnabled,
       Value<bool> gifSearchEnabled,
+      Value<bool> voiceNotesEnabled,
       Value<int> quickSwitchThresholdSeconds,
       Value<int> identityGeneration,
       Value<bool> chatLogsFront,
@@ -19151,6 +19265,11 @@ class $$SystemSettingsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get localeOverride => $composableBuilder(
+    column: $table.localeOverride,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get terminologyUseEnglish => $composableBuilder(
     column: $table.terminologyUseEnglish,
     builder: (column) => ColumnFilters(column),
@@ -19208,6 +19327,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<bool> get gifSearchEnabled => $composableBuilder(
     column: $table.gifSearchEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get voiceNotesEnabled => $composableBuilder(
+    column: $table.voiceNotesEnabled,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19376,6 +19500,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get localeOverride => $composableBuilder(
+    column: $table.localeOverride,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get terminologyUseEnglish => $composableBuilder(
     column: $table.terminologyUseEnglish,
     builder: (column) => ColumnOrderings(column),
@@ -19434,6 +19563,11 @@ class $$SystemSettingsTableTableOrderingComposer
 
   ColumnOrderings<bool> get gifSearchEnabled => $composableBuilder(
     column: $table.gifSearchEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get voiceNotesEnabled => $composableBuilder(
+    column: $table.voiceNotesEnabled,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -19600,6 +19734,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get localeOverride => $composableBuilder(
+    column: $table.localeOverride,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get terminologyUseEnglish => $composableBuilder(
     column: $table.terminologyUseEnglish,
     builder: (column) => column,
@@ -19654,6 +19793,11 @@ class $$SystemSettingsTableTableAnnotationComposer
 
   GeneratedColumn<bool> get gifSearchEnabled => $composableBuilder(
     column: $table.gifSearchEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get voiceNotesEnabled => $composableBuilder(
+    column: $table.voiceNotesEnabled,
     builder: (column) => column,
   );
 
@@ -19820,6 +19964,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> terminology = const Value.absent(),
                 Value<String?> customTerminology = const Value.absent(),
                 Value<String?> customPluralTerminology = const Value.absent(),
+                Value<String?> localeOverride = const Value.absent(),
                 Value<bool> terminologyUseEnglish = const Value.absent(),
                 Value<String?> sharingId = const Value.absent(),
                 Value<bool> frontingRemindersEnabled = const Value.absent(),
@@ -19833,6 +19978,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsEnabled = const Value.absent(),
                 Value<bool> sleepTrackingEnabled = const Value.absent(),
                 Value<bool> gifSearchEnabled = const Value.absent(),
+                Value<bool> voiceNotesEnabled = const Value.absent(),
                 Value<int> quickSwitchThresholdSeconds = const Value.absent(),
                 Value<int> identityGeneration = const Value.absent(),
                 Value<bool> chatLogsFront = const Value.absent(),
@@ -19866,6 +20012,7 @@ class $$SystemSettingsTableTableTableManager
                 terminology: terminology,
                 customTerminology: customTerminology,
                 customPluralTerminology: customPluralTerminology,
+                localeOverride: localeOverride,
                 terminologyUseEnglish: terminologyUseEnglish,
                 sharingId: sharingId,
                 frontingRemindersEnabled: frontingRemindersEnabled,
@@ -19879,6 +20026,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsEnabled: habitsEnabled,
                 sleepTrackingEnabled: sleepTrackingEnabled,
                 gifSearchEnabled: gifSearchEnabled,
+                voiceNotesEnabled: voiceNotesEnabled,
                 quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
                 identityGeneration: identityGeneration,
                 chatLogsFront: chatLogsFront,
@@ -19914,6 +20062,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> terminology = const Value.absent(),
                 Value<String?> customTerminology = const Value.absent(),
                 Value<String?> customPluralTerminology = const Value.absent(),
+                Value<String?> localeOverride = const Value.absent(),
                 Value<bool> terminologyUseEnglish = const Value.absent(),
                 Value<String?> sharingId = const Value.absent(),
                 Value<bool> frontingRemindersEnabled = const Value.absent(),
@@ -19927,6 +20076,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsEnabled = const Value.absent(),
                 Value<bool> sleepTrackingEnabled = const Value.absent(),
                 Value<bool> gifSearchEnabled = const Value.absent(),
+                Value<bool> voiceNotesEnabled = const Value.absent(),
                 Value<int> quickSwitchThresholdSeconds = const Value.absent(),
                 Value<int> identityGeneration = const Value.absent(),
                 Value<bool> chatLogsFront = const Value.absent(),
@@ -19960,6 +20110,7 @@ class $$SystemSettingsTableTableTableManager
                 terminology: terminology,
                 customTerminology: customTerminology,
                 customPluralTerminology: customPluralTerminology,
+                localeOverride: localeOverride,
                 terminologyUseEnglish: terminologyUseEnglish,
                 sharingId: sharingId,
                 frontingRemindersEnabled: frontingRemindersEnabled,
@@ -19973,6 +20124,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsEnabled: habitsEnabled,
                 sleepTrackingEnabled: sleepTrackingEnabled,
                 gifSearchEnabled: gifSearchEnabled,
+                voiceNotesEnabled: voiceNotesEnabled,
                 quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
                 identityGeneration: identityGeneration,
                 chatLogsFront: chatLogsFront,
