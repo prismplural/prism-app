@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -214,13 +215,14 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     final accentColor = theme.colorScheme.primary;
     final biometricAvailable =
         ref.watch(isBiometricAvailableProvider).value ?? false;
-    final showBiometric = widget.mode == PinInputMode.unlock && biometricAvailable;
+    final biometricEnabled = ref.watch(biometricLockEnabledProvider);
+    final showBiometric = widget.mode == PinInputMode.unlock && biometricAvailable && biometricEnabled;
     final clampedSize = ((MediaQuery.of(context).size.width - 80) / 3).clamp(56.0, 72.0);
 
     final content = Column(
       children: [
         if (widget.embedded)
-          const SizedBox(height: 24)
+          const Spacer()
         else
           const Spacer(flex: 2),
         if (!widget.embedded) ...[
@@ -276,7 +278,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
           ),
         ),
         if (widget.embedded)
-          const SizedBox(height: 32)
+          const Spacer()
         else
           const Spacer(flex: 2),
         // Numpad
@@ -295,7 +297,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
             ],
           ),
         ),
-        if (!widget.embedded) const Spacer(),
+        const Spacer(),
       ],
     );
 
