@@ -18,6 +18,7 @@ class SecretKeyRevealContent extends StatefulWidget {
     required this.hasSaved,
     required this.onHasSavedChanged,
     this.showSaveConfirmation = true,
+    this.requireInteraction = false,
   });
 
   final String mnemonic;
@@ -28,12 +29,17 @@ class SecretKeyRevealContent extends StatefulWidget {
   /// Set to false when viewing an existing key (not during initial setup).
   final bool showSaveConfirmation;
 
+  /// When true, the "I have saved my Secret Key" checkbox is disabled until
+  /// the user has interacted with at least one backup method (copy, share, or QR).
+  final bool requireInteraction;
+
   @override
   State<SecretKeyRevealContent> createState() => _SecretKeyRevealContentState();
 }
 
 class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
   bool _showQr = false;
+  bool _hasInteracted = false;
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +132,10 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
           ),
           const SizedBox(height: 12),
           PrismButton(
-            onPressed: () => setState(() => _showQr = !_showQr),
+            onPressed: () => setState(() {
+              _showQr = !_showQr;
+              if (_showQr && !_hasInteracted) _hasInteracted = true;
+            }),
             icon: _showQr ? AppIcons.visibilityOff : AppIcons.qrCode,
             label: _showQr ? 'Hide QR Code' : 'Show QR Code',
             tone: PrismButtonTone.subtle,
@@ -159,7 +168,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             PrismCheckboxRow(
               checkboxAffinity: PrismCheckboxAffinity.leading,
               value: widget.hasSaved,
-              onChanged: widget.onHasSavedChanged,
+              onChanged: (widget.requireInteraction && !_hasInteracted) ? null : widget.onHasSavedChanged,
               title: const Text('I have saved my Secret Key'),
               padding: EdgeInsets.zero,
             ),
@@ -171,6 +180,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
 
   Future<void> _copyToClipboard() async {
     await SensitiveClipboard.copy(widget.mnemonic);
+    if (!_hasInteracted) setState(() => _hasInteracted = true);
     if (mounted) {
       PrismToast.show(
         context,
@@ -220,6 +230,7 @@ Generated: ${DateTime.now().toIso8601String().split('T').first}
     await SharePlus.instance.share(
       ShareParams(text: backupText, subject: 'Prism Secret Key Backup'),
     );
+    if (!_hasInteracted) setState(() => _hasInteracted = true);
     widget.onHasSavedChanged(true);
   }
 }
