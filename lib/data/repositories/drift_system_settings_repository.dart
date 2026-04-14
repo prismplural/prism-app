@@ -424,6 +424,8 @@ class DriftSystemSettingsRepository
       'habits_enabled': s.habitsEnabled,
       'sleep_tracking_enabled': s.sleepTrackingEnabled,
       'gif_search_enabled': s.gifSearchEnabled,
+      'voice_notes_enabled': s.voiceNotesEnabled,
+      'locale_override': s.localeOverride,
       'quick_switch_threshold_seconds': s.quickSwitchThresholdSeconds,
       'identity_generation': s.identityGeneration,
       'has_completed_onboarding': s.hasCompletedOnboarding,
