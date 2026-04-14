@@ -661,6 +661,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Los recordatorios de frente envían notificaciones periódicas para ayudarte a estar al tanto de quién está al frente. Esto puede ser útil para registrar cambios y mantener la conciencia durante el día.';
 
   @override
+  String get notificationsAndroidFootnote =>
+      'En Android, los recordatorios pueden llegar unos minutos tarde.';
+
+  @override
   String get notificationsInterval15m => '15 minutos';
 
   @override
@@ -3521,6 +3525,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get habitsReminderTimeNotSet => 'No establecida';
 
   @override
+  String habitsReminderSetFor(String time) {
+    return 'Recordatorio establecido para $time';
+  }
+
+  @override
   String get habitsCustomMessageField => 'Mensaje personalizado (opcional)';
 
   @override
@@ -3535,6 +3544,10 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get habitsOnlyNotifyWhenFronting =>
       'Notificar solo cuando esté al frente';
+
+  @override
+  String get habitsOnlyFrontingCaveat =>
+      'Los recordatorios se enviarán aunque este integrante no esté al frente — la entrega consciente del frente requiere acceso en segundo plano.';
 
   @override
   String get habitsPrivate => 'Privado';
