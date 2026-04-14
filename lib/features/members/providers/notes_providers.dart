@@ -25,11 +25,11 @@ final allNotesProvider = StreamProvider<List<Note>>((ref) {
 });
 
 /// Note CRUD notifier.
-class NoteNotifier extends Notifier<void> {
+class NoteNotifier extends AsyncNotifier<void> {
   static const _uuid = Uuid();
 
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<void> createNote({
     required String title,
@@ -38,31 +38,37 @@ class NoteNotifier extends Notifier<void> {
     String? memberId,
     DateTime? date,
   }) async {
-    final repo = ref.read(notesRepositoryProvider);
-    final now = DateTime.now();
-    final note = Note(
-      id: _uuid.v4(),
-      title: title,
-      body: body,
-      colorHex: colorHex,
-      memberId: memberId,
-      date: date ?? now,
-      createdAt: now,
-      modifiedAt: now,
-    );
-    await repo.createNote(note);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(notesRepositoryProvider);
+      final now = DateTime.now();
+      final note = Note(
+        id: _uuid.v4(),
+        title: title,
+        body: body,
+        colorHex: colorHex,
+        memberId: memberId,
+        date: date ?? now,
+        createdAt: now,
+        modifiedAt: now,
+      );
+      await repo.createNote(note);
+    });
   }
 
   Future<void> updateNote(Note note) async {
-    final repo = ref.read(notesRepositoryProvider);
-    await repo.updateNote(note.copyWith(modifiedAt: DateTime.now()));
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(notesRepositoryProvider);
+      await repo.updateNote(note.copyWith(modifiedAt: DateTime.now()));
+    });
   }
 
   Future<void> deleteNote(String id) async {
-    final repo = ref.read(notesRepositoryProvider);
-    await repo.deleteNote(id);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(notesRepositoryProvider);
+      await repo.deleteNote(id);
+    });
   }
 }
 
 final noteNotifierProvider =
-    NotifierProvider<NoteNotifier, void>(NoteNotifier.new);
+    AsyncNotifierProvider<NoteNotifier, void>(NoteNotifier.new);

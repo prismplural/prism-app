@@ -25,13 +25,15 @@ final systemSettingsProvider = StreamProvider<SystemSettings>((ref) {
 });
 
 /// Settings notifier for updates.
-class SettingsNotifier extends Notifier<void> {
+class SettingsNotifier extends AsyncNotifier<void> {
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<void> updateSystemName(String? name) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateSystemName(name);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateSystemName(name);
+    });
   }
 
   Future<void> updateTerminology(
@@ -40,180 +42,238 @@ class SettingsNotifier extends Notifier<void> {
     String? customPluralTerminology,
     bool useEnglish = false,
   }) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateTerminologyFields(
-      terminology: terminology,
-      customTerminology: customTerminology,
-      customPluralTerminology: customPluralTerminology,
-      useEnglish: useEnglish,
-    );
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateTerminologyFields(
+        terminology: terminology,
+        customTerminology: customTerminology,
+        customPluralTerminology: customPluralTerminology,
+        useEnglish: useEnglish,
+      );
+    });
   }
 
   Future<void> updateAccentColor(String hex) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateAccentColorHex(hex);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateAccentColorHex(hex);
+    });
   }
 
   Future<void> updatePerMemberAccentColors(bool enabled) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updatePerMemberAccentColors(enabled);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updatePerMemberAccentColors(enabled);
+    });
   }
 
   Future<void> updateQuickSwitchThreshold(int seconds) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateQuickSwitchThresholdSeconds(seconds);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateQuickSwitchThresholdSeconds(seconds);
+    });
   }
 
   Future<void> toggleQuickFront(bool enabled) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateShowQuickFront(enabled);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateShowQuickFront(enabled);
+    });
   }
 
   Future<void> updateFrontingReminders({
     required bool enabled,
     int? intervalMinutes,
   }) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    if (intervalMinutes != null) {
-      await repo.updateFrontingReminders(
-        enabled: enabled,
-        intervalMinutes: intervalMinutes,
-      );
-    } else {
-      await repo.updateFrontingRemindersEnabled(enabled);
-    }
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      if (intervalMinutes != null) {
+        await repo.updateFrontingReminders(
+          enabled: enabled,
+          intervalMinutes: intervalMinutes,
+        );
+      } else {
+        await repo.updateFrontingRemindersEnabled(enabled);
+      }
+    });
   }
 
   Future<void> updateThemeMode(AppThemeMode mode) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateThemeMode(mode);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateThemeMode(mode);
+    });
   }
 
   Future<void> updateThemeBrightness(ThemeBrightness brightness) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateThemeBrightness(brightness);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateThemeBrightness(brightness);
+    });
   }
 
   Future<void> updateThemeStyle(ThemeStyle style) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateThemeStyle(style);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateThemeStyle(style);
+    });
   }
 
   /// Save the current accent color before switching to Material You,
   /// and restore it when switching away.
   Future<void> handleThemeStyleChange(ThemeStyle style) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    final current = await repo.getSettings();
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      final current = await repo.getSettings();
 
-    if (style == ThemeStyle.materialYou &&
-        current.themeStyle != ThemeStyle.materialYou) {
-      // Save current accent color to DB before switching to Material You.
-      await repo.updatePreviousAccentColorHex(current.accentColorHex);
-    } else if (style != ThemeStyle.materialYou &&
-        current.themeStyle == ThemeStyle.materialYou) {
-      // Restore saved accent color when switching away from Material You.
-      final saved = current.previousAccentColorHex;
-      if (saved.isNotEmpty) {
-        await repo.updateAccentColorHex(saved);
+      if (style == ThemeStyle.materialYou &&
+          current.themeStyle != ThemeStyle.materialYou) {
+        // Save current accent color to DB before switching to Material You.
+        await repo.updatePreviousAccentColorHex(current.accentColorHex);
+      } else if (style != ThemeStyle.materialYou &&
+          current.themeStyle == ThemeStyle.materialYou) {
+        // Restore saved accent color when switching away from Material You.
+        final saved = current.previousAccentColorHex;
+        if (saved.isNotEmpty) {
+          await repo.updateAccentColorHex(saved);
+        }
       }
-    }
 
-    await repo.updateThemeStyle(style);
+      await repo.updateThemeStyle(style);
+    });
   }
 
   Future<void> updateSyncThemeEnabled(bool enabled) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateSyncThemeEnabled(enabled);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateSyncThemeEnabled(enabled);
+    });
   }
 
   Future<void> updateChatLogsFront(bool enabled) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateChatLogsFront(enabled);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateChatLogsFront(enabled);
+    });
   }
 
   Future<void> updateTimingMode(FrontingTimingMode mode) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateTimingMode(mode);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateTimingMode(mode);
+    });
   }
 
   Future<void> updateHabitsBadgeEnabled(bool value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateHabitsBadgeEnabled(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateHabitsBadgeEnabled(value);
+    });
   }
 
   Future<void> updateNotesEnabled(bool value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateNotesEnabled(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateNotesEnabled(value);
+    });
   }
 
   Future<void> updateRemindersEnabled(bool value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateRemindersEnabled(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateRemindersEnabled(value);
+    });
   }
 
   Future<void> updateGifSearchEnabled(bool value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateGifSearchEnabled(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateGifSearchEnabled(value);
+    });
   }
 
   Future<void> updateSystemDescription(String? value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateSystemDescription(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateSystemDescription(value);
+    });
   }
 
   Future<void> updateSystemAvatarData(Uint8List? value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateSystemAvatarData(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateSystemAvatarData(value);
+    });
   }
 
   Future<void> updateFontScale(double value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateFontScale(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateFontScale(value);
+    });
   }
 
   Future<void> updateFontFamily(FontFamily value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateFontFamily(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateFontFamily(value);
+    });
   }
 
   Future<void> updateDisplayFontInAppBar(bool value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateDisplayFontInAppBar(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateDisplayFontInAppBar(value);
+    });
   }
 
   Future<void> updatePinLockEnabled(bool value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updatePinLockEnabled(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updatePinLockEnabled(value);
+    });
   }
 
   Future<void> updateBiometricLockEnabled(bool value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateBiometricLockEnabled(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateBiometricLockEnabled(value);
+    });
   }
 
   Future<void> updateAutoLockDelaySeconds(int value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateAutoLockDelaySeconds(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateAutoLockDelaySeconds(value);
+    });
   }
 
   Future<void> updateNavBarItems(List<String> items) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateNavBarItems(items);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateNavBarItems(items);
+    });
   }
 
   Future<void> updateNavBarOverflowItems(List<String> items) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateNavBarOverflowItems(items);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateNavBarOverflowItems(items);
+    });
   }
 
   Future<void> updateSyncNavigationEnabled(bool value) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateSyncNavigationEnabled(value);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateSyncNavigationEnabled(value);
+    });
   }
 
   Future<void> updateChatBadgePreferences(Map<String, String> prefs) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateChatBadgePreferences(prefs);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateChatBadgePreferences(prefs);
+    });
   }
 
   /// Update one or more feature toggles.
@@ -223,17 +283,19 @@ class SettingsNotifier extends Notifier<void> {
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
   }) async {
-    final repo = ref.read(systemSettingsRepositoryProvider);
-    await repo.updateFeatureToggles(
-      chatEnabled: chatEnabled,
-      pollsEnabled: pollsEnabled,
-      habitsEnabled: habitsEnabled,
-      sleepTrackingEnabled: sleepTrackingEnabled,
-    );
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateFeatureToggles(
+        chatEnabled: chatEnabled,
+        pollsEnabled: pollsEnabled,
+        habitsEnabled: habitsEnabled,
+        sleepTrackingEnabled: sleepTrackingEnabled,
+      );
+    });
   }
 }
 
-final settingsNotifierProvider = NotifierProvider<SettingsNotifier, void>(
+final settingsNotifierProvider = AsyncNotifierProvider<SettingsNotifier, void>(
   SettingsNotifier.new,
 );
 

@@ -135,12 +135,12 @@ class SpeakingAsNotifier extends Notifier<String?> {
 }
 
 /// Chat actions notifier.
-class ChatNotifier extends Notifier<void> {
+class ChatNotifier extends AsyncNotifier<void> {
   static const _uuid = Uuid();
   static final _mutationPool = Pool(1);
 
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<Conversation> createGroupConversation({
     required String title,
@@ -219,7 +219,7 @@ class ChatNotifier extends Notifier<void> {
     await convRepo.updateLastActivity(conversationId);
   }
 
-  Future<void> removeParticipant(
+  Future<void> _removeParticipantCore(
     String conversationId,
     String memberId, {
     String? removedByName,
@@ -243,39 +243,57 @@ class ChatNotifier extends Notifier<void> {
     }
   }
 
+  Future<void> removeParticipant(
+    String conversationId,
+    String memberId, {
+    String? removedByName,
+  }) async {
+    state = await AsyncValue.guard(() async {
+      await _removeParticipantCore(
+        conversationId,
+        memberId,
+        removedByName: removedByName,
+      );
+    });
+  }
+
   Future<void> transferCreator(
     String conversationId,
     String newCreatorId,
   ) async {
-    final convRepo = ref.read(conversationRepositoryProvider);
-    final conv = await convRepo.getConversationById(conversationId);
-    if (conv == null) return;
+    state = await AsyncValue.guard(() async {
+      final convRepo = ref.read(conversationRepositoryProvider);
+      final conv = await convRepo.getConversationById(conversationId);
+      if (conv == null) return;
 
-    await convRepo.updateConversation(conv.copyWith(creatorId: newCreatorId));
+      await convRepo.updateConversation(conv.copyWith(creatorId: newCreatorId));
 
-    final memberRepo = ref.read(memberRepositoryProvider);
-    final member = await memberRepo.getMemberById(newCreatorId);
-    if (member != null) {
-      await _sendSystemMessage(
-        conversationId,
-        '${member.name} is now the conversation owner',
-      );
-    }
+      final memberRepo = ref.read(memberRepositoryProvider);
+      final member = await memberRepo.getMemberById(newCreatorId);
+      if (member != null) {
+        await _sendSystemMessage(
+          conversationId,
+          '${member.name} is now the conversation owner',
+        );
+      }
+    });
   }
 
   Future<void> archiveConversation(
     String conversationId,
     String memberId,
   ) async {
-    await _mutationPool.withResource(() async {
-      final convRepo = ref.read(conversationRepositoryProvider);
-      final conv = await convRepo.getConversationById(conversationId);
-      if (conv == null) return;
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final convRepo = ref.read(conversationRepositoryProvider);
+        final conv = await convRepo.getConversationById(conversationId);
+        if (conv == null) return;
 
-      if (conv.archivedByMemberIds.contains(memberId)) return;
+        if (conv.archivedByMemberIds.contains(memberId)) return;
 
-      final updatedArchived = [...conv.archivedByMemberIds, memberId];
-      await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+        final updatedArchived = [...conv.archivedByMemberIds, memberId];
+        await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+      });
     });
   }
 
@@ -283,14 +301,16 @@ class ChatNotifier extends Notifier<void> {
     String conversationId,
     String memberId,
   ) async {
-    await _mutationPool.withResource(() async {
-      final convRepo = ref.read(conversationRepositoryProvider);
-      final conv = await convRepo.getConversationById(conversationId);
-      if (conv == null) return;
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final convRepo = ref.read(conversationRepositoryProvider);
+        final conv = await convRepo.getConversationById(conversationId);
+        if (conv == null) return;
 
-      final updatedArchived =
-          conv.archivedByMemberIds.where((id) => id != memberId).toList();
-      await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+        final updatedArchived =
+            conv.archivedByMemberIds.where((id) => id != memberId).toList();
+        await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
+      });
     });
   }
 
@@ -298,57 +318,63 @@ class ChatNotifier extends Notifier<void> {
     String conversationId,
     String memberId,
   ) async {
-    final memberRepo = ref.read(memberRepositoryProvider);
-    final member = await memberRepo.getMemberById(memberId);
-    await removeParticipant(conversationId, memberId);
-    if (member != null) {
-      await _sendSystemMessage(
-        conversationId,
-        '${member.name} left the conversation',
-      );
-    }
-  }
-
-  Future<void> editMessage(String messageId, String newContent) async {
-    await _mutationPool.withResource(() async {
-      final repo = ref.read(chatMessageRepositoryProvider);
-      final message = await repo.getMessageById(messageId);
-      if (message != null) {
-        final updated = message.copyWith(
-          content: newContent,
-          editedAt: DateTime.now(),
+    state = await AsyncValue.guard(() async {
+      final memberRepo = ref.read(memberRepositoryProvider);
+      final member = await memberRepo.getMemberById(memberId);
+      await _removeParticipantCore(conversationId, memberId);
+      if (member != null) {
+        await _sendSystemMessage(
+          conversationId,
+          '${member.name} left the conversation',
         );
-        await repo.updateMessage(updated);
       }
     });
   }
 
+  Future<void> editMessage(String messageId, String newContent) async {
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final repo = ref.read(chatMessageRepositoryProvider);
+        final message = await repo.getMessageById(messageId);
+        if (message != null) {
+          final updated = message.copyWith(
+            content: newContent,
+            editedAt: DateTime.now(),
+          );
+          await repo.updateMessage(updated);
+        }
+      });
+    });
+  }
+
   Future<void> deleteMessage(String messageId) async {
-    await _mutationPool.withResource(() async {
-      final msgRepo = ref.read(chatMessageRepositoryProvider);
-      final convRepo = ref.read(conversationRepositoryProvider);
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final msgRepo = ref.read(chatMessageRepositoryProvider);
+        final convRepo = ref.read(conversationRepositoryProvider);
 
-      // Look up the message before deleting so we know which conversation to fix.
-      final message = await msgRepo.getMessageById(messageId);
-      await msgRepo.deleteMessage(messageId);
+        // Look up the message before deleting so we know which conversation to fix.
+        final message = await msgRepo.getMessageById(messageId);
+        await msgRepo.deleteMessage(messageId);
 
-      // After deletion, update the conversation's lastActivityAt to reflect the
-      // latest remaining message. Without this, the conversation list shows "now"
-      // because the original sendMessage set lastActivityAt but deleting the
-      // message never reverted it.
-      if (message != null) {
-        final conv = await convRepo.getConversationById(message.conversationId);
-        if (conv != null) {
-          final latestMessage =
-              await msgRepo.getLatestMessage(message.conversationId);
-          final newActivityAt = latestMessage?.timestamp ?? conv.createdAt;
-          if (newActivityAt != conv.lastActivityAt) {
-            await convRepo.updateConversation(
-              conv.copyWith(lastActivityAt: newActivityAt),
-            );
+        // After deletion, update the conversation's lastActivityAt to reflect the
+        // latest remaining message. Without this, the conversation list shows "now"
+        // because the original sendMessage set lastActivityAt but deleting the
+        // message never reverted it.
+        if (message != null) {
+          final conv = await convRepo.getConversationById(message.conversationId);
+          if (conv != null) {
+            final latestMessage =
+                await msgRepo.getLatestMessage(message.conversationId);
+            final newActivityAt = latestMessage?.timestamp ?? conv.createdAt;
+            if (newActivityAt != conv.lastActivityAt) {
+              await convRepo.updateConversation(
+                conv.copyWith(lastActivityAt: newActivityAt),
+              );
+            }
           }
         }
-      }
+      });
     });
   }
 
@@ -359,16 +385,18 @@ class ChatNotifier extends Notifier<void> {
     String? categoryId,
     bool clearCategory = false,
   }) async {
-    final repo = ref.read(conversationRepositoryProvider);
-    final conv = await repo.getConversationById(id);
-    if (conv != null) {
-      final updated = conv.copyWith(
-        title: title ?? conv.title,
-        emoji: emoji,
-        categoryId: clearCategory ? null : (categoryId ?? conv.categoryId),
-      );
-      await repo.updateConversation(updated);
-    }
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(conversationRepositoryProvider);
+      final conv = await repo.getConversationById(id);
+      if (conv != null) {
+        final updated = conv.copyWith(
+          title: title ?? conv.title,
+          emoji: emoji,
+          categoryId: clearCategory ? null : (categoryId ?? conv.categoryId),
+        );
+        await repo.updateConversation(updated);
+      }
+    });
   }
 
   Future<void> addParticipants(
@@ -376,62 +404,70 @@ class ChatNotifier extends Notifier<void> {
     List<String> memberIds, {
     String? addedByName,
   }) async {
-    final repo = ref.read(conversationRepositoryProvider);
-    final conv = await repo.getConversationById(conversationId);
-    if (conv != null) {
-      final existingIds = conv.participantIds.toSet();
-      final newIds = memberIds.where((id) => !existingIds.contains(id)).toList();
-      await repo.addParticipantIds(conversationId, newIds);
-      for (final id in memberIds) {
-        ref.invalidate(memberConversationsProvider(id));
-      }
-      if (addedByName != null && newIds.isNotEmpty) {
-        final memberRepo = ref.read(memberRepositoryProvider);
-        final members = await memberRepo.getMembersByIds(newIds.toList());
-        for (final member in members) {
-          await _sendSystemMessage(
-            conversationId,
-            '${member.name} was added by $addedByName',
-          );
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(conversationRepositoryProvider);
+      final conv = await repo.getConversationById(conversationId);
+      if (conv != null) {
+        final existingIds = conv.participantIds.toSet();
+        final newIds = memberIds.where((id) => !existingIds.contains(id)).toList();
+        await repo.addParticipantIds(conversationId, newIds);
+        for (final id in memberIds) {
+          ref.invalidate(memberConversationsProvider(id));
+        }
+        if (addedByName != null && newIds.isNotEmpty) {
+          final memberRepo = ref.read(memberRepositoryProvider);
+          final members = await memberRepo.getMembersByIds(newIds.toList());
+          for (final member in members) {
+            await _sendSystemMessage(
+              conversationId,
+              '${member.name} was added by $addedByName',
+            );
+          }
         }
       }
-    }
+    });
   }
 
   Future<void> deleteConversation(String id) async {
-    final repo = ref.read(conversationRepositoryProvider);
-    final conv = await repo.getConversationById(id);
-    await repo.deleteConversation(id);
-    if (conv != null) {
-      for (final pid in conv.participantIds) {
-        ref.invalidate(memberConversationsProvider(pid));
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(conversationRepositoryProvider);
+      final conv = await repo.getConversationById(id);
+      await repo.deleteConversation(id);
+      if (conv != null) {
+        for (final pid in conv.participantIds) {
+          ref.invalidate(memberConversationsProvider(pid));
+        }
       }
-    }
+    });
   }
 
   Future<void> markConversationAsRead(String conversationId, String memberId) async {
-    await _mutationPool.withResource(() async {
-      final repo = ref.read(conversationRepositoryProvider);
-      final conv = await repo.getConversationById(conversationId);
-      if (conv == null) return;
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final repo = ref.read(conversationRepositoryProvider);
+        final conv = await repo.getConversationById(conversationId);
+        if (conv == null) return;
 
-      final updatedTimestamps = Map<String, DateTime>.from(conv.lastReadTimestamps);
-      updatedTimestamps[memberId] = DateTime.now();
-      await repo.setLastReadTimestamps(conversationId, updatedTimestamps);
+        final updatedTimestamps = Map<String, DateTime>.from(conv.lastReadTimestamps);
+        updatedTimestamps[memberId] = DateTime.now();
+        await repo.setLastReadTimestamps(conversationId, updatedTimestamps);
+      });
     });
   }
 
   Future<void> toggleMute(String conversationId, String memberId) async {
-    await _mutationPool.withResource(() async {
-      final repo = ref.read(conversationRepositoryProvider);
-      final conv = await repo.getConversationById(conversationId);
-      if (conv == null) return;
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final repo = ref.read(conversationRepositoryProvider);
+        final conv = await repo.getConversationById(conversationId);
+        if (conv == null) return;
 
-      final muted = conv.mutedByMemberIds.contains(memberId);
-      final updatedMuted = muted
-          ? conv.mutedByMemberIds.where((id) => id != memberId).toList()
-          : [...conv.mutedByMemberIds, memberId];
-      await repo.setMutedByMemberIds(conversationId, updatedMuted);
+        final muted = conv.mutedByMemberIds.contains(memberId);
+        final updatedMuted = muted
+            ? conv.mutedByMemberIds.where((id) => id != memberId).toList()
+            : [...conv.mutedByMemberIds, memberId];
+        await repo.setMutedByMemberIds(conversationId, updatedMuted);
+      });
     });
   }
 
@@ -440,36 +476,38 @@ class ChatNotifier extends Notifier<void> {
     required String emoji,
     required String memberId,
   }) async {
-    await _mutationPool.withResource(() async {
-      final repo = ref.read(chatMessageRepositoryProvider);
-      final message = await repo.getMessageById(messageId);
-      if (message == null) return;
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final repo = ref.read(chatMessageRepositoryProvider);
+        final message = await repo.getMessageById(messageId);
+        if (message == null) return;
 
-      final existingIndex = message.reactions.indexWhere(
-        (r) => r.emoji == emoji && r.memberId == memberId,
-      );
+        final existingIndex = message.reactions.indexWhere(
+          (r) => r.emoji == emoji && r.memberId == memberId,
+        );
 
-      List<MessageReaction> updatedReactions;
-      if (existingIndex >= 0) {
-        updatedReactions = [...message.reactions]..removeAt(existingIndex);
-      } else {
-        updatedReactions = [
-          ...message.reactions,
-          MessageReaction(
-            id: _uuid.v4(),
-            emoji: emoji,
-            memberId: memberId,
-            timestamp: DateTime.now(),
-          ),
-        ];
-      }
-      await repo.updateMessage(message.copyWith(reactions: updatedReactions));
+        List<MessageReaction> updatedReactions;
+        if (existingIndex >= 0) {
+          updatedReactions = [...message.reactions]..removeAt(existingIndex);
+        } else {
+          updatedReactions = [
+            ...message.reactions,
+            MessageReaction(
+              id: _uuid.v4(),
+              emoji: emoji,
+              memberId: memberId,
+              timestamp: DateTime.now(),
+            ),
+          ];
+        }
+        await repo.updateMessage(message.copyWith(reactions: updatedReactions));
+      });
     });
   }
 }
 
 final chatNotifierProvider =
-    NotifierProvider<ChatNotifier, void>(ChatNotifier.new);
+    AsyncNotifierProvider<ChatNotifier, void>(ChatNotifier.new);
 
 class ReplyingToNotifier extends Notifier<ChatMessage?> {
   final String conversationId;

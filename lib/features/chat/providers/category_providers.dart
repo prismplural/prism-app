@@ -12,11 +12,11 @@ final conversationCategoriesProvider =
 });
 
 /// Category CRUD notifier.
-class CategoryNotifier extends Notifier<void> {
+class CategoryNotifier extends AsyncNotifier<void> {
   static const _uuid = Uuid();
 
   @override
-  void build() {}
+  Future<void> build() async {}
 
   Future<ConversationCategory> createCategory(String name) async {
     final repo = ref.read(conversationCategoriesRepositoryProvider);
@@ -43,29 +43,35 @@ class CategoryNotifier extends Notifier<void> {
   }
 
   Future<void> updateCategory(ConversationCategory category) async {
-    final repo = ref.read(conversationCategoriesRepositoryProvider);
-    await repo.update(category.copyWith(modifiedAt: DateTime.now()));
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(conversationCategoriesRepositoryProvider);
+      await repo.update(category.copyWith(modifiedAt: DateTime.now()));
+    });
   }
 
   Future<void> deleteCategory(String id) async {
-    final repo = ref.read(conversationCategoriesRepositoryProvider);
-    await repo.delete(id);
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(conversationCategoriesRepositoryProvider);
+      await repo.delete(id);
+    });
   }
 
   Future<void> reorder(List<ConversationCategory> categories) async {
-    final repo = ref.read(conversationCategoriesRepositoryProvider);
-    for (var i = 0; i < categories.length; i++) {
-      if (categories[i].displayOrder != i) {
-        await repo.update(
-          categories[i].copyWith(
-            displayOrder: i,
-            modifiedAt: DateTime.now(),
-          ),
-        );
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(conversationCategoriesRepositoryProvider);
+      for (var i = 0; i < categories.length; i++) {
+        if (categories[i].displayOrder != i) {
+          await repo.update(
+            categories[i].copyWith(
+              displayOrder: i,
+              modifiedAt: DateTime.now(),
+            ),
+          );
+        }
       }
-    }
+    });
   }
 }
 
 final categoryNotifierProvider =
-    NotifierProvider<CategoryNotifier, void>(CategoryNotifier.new);
+    AsyncNotifierProvider<CategoryNotifier, void>(CategoryNotifier.new);
