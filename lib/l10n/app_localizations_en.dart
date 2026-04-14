@@ -1324,6 +1324,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureChatGifSearchSubtitle => 'Search and send GIFs in chat';
 
   @override
+  String get featureChatVoiceNotes => 'Voice Notes';
+
+  @override
+  String get featureChatVoiceNotesSubtitle => 'Send voice messages in chat';
+
+  @override
   String get featureFrontingDescription =>
       'Configure how fronting sessions work.';
 

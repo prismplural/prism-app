@@ -21,6 +21,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final chatEnabled = ref.watch(chatEnabledProvider);
     final chatLogsFront = ref.watch(chatLogsFrontProvider);
     final gifSearchEnabled = ref.watch(gifSearchEnabledProvider);
+    final voiceNotesEnabled = ref.watch(voiceNotesEnabledProvider);
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
 
@@ -81,6 +82,16 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                       onChanged: (value) => ref
                           .read(settingsNotifierProvider.notifier)
                           .updateGifSearchEnabled(value),
+                    ),
+                    PrismSwitchRow(
+                      icon: AppIcons.microphone,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      title: context.l10n.featureChatVoiceNotes,
+                      subtitle: context.l10n.featureChatVoiceNotesSubtitle,
+                      value: voiceNotesEnabled,
+                      onChanged: (value) => ref
+                          .read(settingsNotifierProvider.notifier)
+                          .updateVoiceNotesEnabled(value),
                     ),
                   ],
                 ),

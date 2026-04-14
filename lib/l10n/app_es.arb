@@ -395,6 +395,8 @@
   "featureChatLogFrontSubtitle": "Cambiar quién habla en el chat también registra un frente",
   "featureChatGifSearch": "Búsqueda de GIF",
   "featureChatGifSearchSubtitle": "Buscar y enviar GIFs en el chat",
+  "featureChatVoiceNotes": "Notas de voz",
+  "featureChatVoiceNotesSubtitle": "Enviar mensajes de voz en el chat",
   "featureFrontingDescription": "Configura cómo funcionan las sesiones de frente.",
   "featureFrontingOptions": "Opciones",
   "featureFrontingQuickSwitch": "Cambio Rápido",

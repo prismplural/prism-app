@@ -1801,6 +1801,14 @@
   "@featureChatGifSearchSubtitle": {
     "description": "Toggle subtitle: GIF search"
   },
+  "featureChatVoiceNotes": "Voice Notes",
+  "@featureChatVoiceNotes": {
+    "description": "Title for voice notes feature toggle in chat settings"
+  },
+  "featureChatVoiceNotesSubtitle": "Send voice messages in chat",
+  "@featureChatVoiceNotesSubtitle": {
+    "description": "Subtitle for voice notes feature toggle"
+  },
   "featureFrontingDescription": "Configure how fronting sessions work.",
   "@featureFrontingDescription": {
     "description": "Description text on fronting feature settings screen"
