@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_picker_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -132,7 +133,7 @@ void main() {
       // Don't settle — let the loading state render.
       await tester.pump();
 
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.byType(PrismLoadingState), findsOneWidget);
 
       // Complete the future to avoid pending timers.
       completer.complete(
