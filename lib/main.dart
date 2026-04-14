@@ -1,18 +1,22 @@
 import 'dart:io' show Platform;
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:prism_sync/generated/frb_generated.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 // import 'package:workmanager/workmanager.dart';
 
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
+import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 // import 'package:prism_plurality/features/pluralkit/services/pluralkit_background_service.dart';
 import 'app.dart';
 
@@ -79,8 +83,24 @@ void main() async {
     };
   }
 
+  // Read cached theme prefs so the first frame uses the correct colors,
+  // avoiding a white flash while the Drift DB loads.
+  final prefs = await SharedPreferences.getInstance();
+  final cachedBrightness = ThemeBrightness.values.firstWhereOrNull(
+        (b) => b.name == prefs.getString('prism.cache.theme_brightness'),
+      ) ??
+      ThemeBrightness.system;
+  final cachedStyle = ThemeStyle.values.firstWhereOrNull(
+        (s) => s.name == prefs.getString('prism.cache.theme_style'),
+      ) ??
+      ThemeStyle.standard;
+
   runApp(
     ProviderScope(
+      overrides: [
+        cachedThemeBrightnessProvider.overrideWithValue(cachedBrightness),
+        cachedThemeStyleProvider.overrideWithValue(cachedStyle),
+      ],
       // F7: Explicit retry filter — prevent infinite retry on programmer bugs.
       retry: (retryCount, error) {
         // Don't retry format/type errors (programmer bugs)

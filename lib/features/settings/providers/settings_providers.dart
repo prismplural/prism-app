@@ -2,10 +2,14 @@ import 'dart:typed_data';
 import 'dart:ui' show Locale;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+
+const _kThemeBrightnessCache = 'prism.cache.theme_brightness';
+const _kThemeStyleCache = 'prism.cache.theme_style';
 
 /// Transient storage for a generated mnemonic during secret key setup.
 /// Auto-disposed when no longer watched (Riverpod 3 auto-disposes by default).
@@ -110,6 +114,8 @@ class SettingsNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
       await repo.updateThemeBrightness(brightness);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kThemeBrightnessCache, brightness.name);
     });
   }
 
@@ -117,6 +123,8 @@ class SettingsNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
       await repo.updateThemeStyle(style);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kThemeStyleCache, style.name);
     });
   }
 
@@ -141,6 +149,8 @@ class SettingsNotifier extends AsyncNotifier<void> {
       }
 
       await repo.updateThemeStyle(style);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kThemeStyleCache, style.name);
     });
   }
 
@@ -323,12 +333,23 @@ final appThemeModeProvider = Provider<AppThemeMode>((ref) {
       AppThemeMode.system;
 });
 
+/// Seeded from SharedPreferences in main() before runApp().
+/// Falls back to system/standard defaults if no cache exists.
+/// Override in ProviderScope to supply the cached value.
+final cachedThemeBrightnessProvider = Provider<ThemeBrightness>(
+  (_) => ThemeBrightness.system,
+);
+
+final cachedThemeStyleProvider = Provider<ThemeStyle>(
+  (_) => ThemeStyle.standard,
+);
+
 /// Current brightness preference.
 final themeBrightnessProvider = Provider<ThemeBrightness>((ref) {
   return ref
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.themeBrightness) ??
-      ThemeBrightness.system;
+      ref.watch(cachedThemeBrightnessProvider);
 });
 
 /// Current theme style preference.
@@ -336,7 +357,7 @@ final themeStyleProvider = Provider<ThemeStyle>((ref) {
   return ref
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.themeStyle) ??
-      ThemeStyle.standard;
+      ref.watch(cachedThemeStyleProvider);
 });
 
 /// Resolves a list of tab ID strings to AppShellTab objects, filtering by
