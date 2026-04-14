@@ -168,7 +168,8 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             PrismCheckboxRow(
               checkboxAffinity: PrismCheckboxAffinity.leading,
               value: widget.hasSaved,
-              onChanged: (widget.requireInteraction && !_hasInteracted) ? null : widget.onHasSavedChanged,
+              onChanged: widget.onHasSavedChanged,
+              enabled: !(widget.requireInteraction && !_hasInteracted),
               title: const Text('I have saved my Secret Key'),
               padding: EdgeInsets.zero,
             ),

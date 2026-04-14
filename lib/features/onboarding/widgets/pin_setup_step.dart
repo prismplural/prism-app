@@ -35,6 +35,7 @@ class _PinSetupStepState extends ConsumerState<PinSetupStep> {
       return PinInputScreen(
         key: const ValueKey('pin-setup-set'),
         mode: PinInputMode.set,
+        embedded: true,
         onPinEntered: (pin) {
           setState(() => _phase1Pin = pin);
         },
@@ -49,6 +50,7 @@ class _PinSetupStepState extends ConsumerState<PinSetupStep> {
     return PinInputScreen(
       key: const ValueKey('pin-setup-confirm'),
       mode: PinInputMode.confirm,
+      embedded: true,
       pinToConfirm: phase1Pin,
       onPinEntered: (pin) async {
         // Store the PIN for app lock, then notify the caller.
