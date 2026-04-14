@@ -188,23 +188,12 @@ class _AppShellState extends ConsumerState<AppShell>
     }
   }
 
-  /// Check auth policy on app foreground — shows a PIN verification reminder
-  /// snackbar and invalidates the backup reminder provider so the InfoBanner
-  /// re-evaluates when the user returns to the app.
+  /// Check auth policy on app foreground — invalidates the backup reminder
+  /// provider so the InfoBanner re-evaluates when the user returns to the app.
   ///
-  /// PIN verification sheet wiring will be completed in Task 19.
+  /// TODO(Task 19): Wire up periodic PIN re-verification sheet here.
   Future<void> _checkAuthPolicy() async {
     if (!mounted) return;
-    final authPolicy = ref.read(authPolicyServiceProvider);
-
-    final pinDue = await authPolicy.isPinVerificationDue();
-    if (!mounted) return;
-    if (pinDue) {
-      // Placeholder: Task 19 will replace this with the real PIN entry sheet.
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PIN verification due')),
-      );
-    }
 
     // Invalidate so the backup reminder banner re-checks on resume.
     ref.invalidate(backupReminderDueProvider);
