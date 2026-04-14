@@ -5492,6 +5492,36 @@ class AppLocalizationsEs extends AppLocalizations {
       'Colores, idioma, los pequeños detalles.';
 
   @override
+  String get onboardingPermissionsTitle => 'Una cosa más';
+
+  @override
+  String get onboardingPermissionsSubtitle =>
+      'Permisos opcionales para la mejor experiencia.';
+
+  @override
+  String get onboardingPermissionsNotificationTitle => 'Notificaciones';
+
+  @override
+  String get onboardingPermissionsNotificationRationale =>
+      'Te avisaremos cuando un compañero registre un cambio o sea hora de un recordatorio';
+
+  @override
+  String get onboardingPermissionsMicrophoneTitle => 'Micrófono';
+
+  @override
+  String get onboardingPermissionsMicrophoneRationale =>
+      'Para que puedas grabar mensajes de voz para tus compañeros';
+
+  @override
+  String get onboardingPermissionsAllowed => 'Permitido';
+
+  @override
+  String get onboardingPermissionsAllow => 'Permitir';
+
+  @override
+  String get onboardingPermissionsOpenSettings => 'Cambiar en Ajustes';
+
+  @override
   String get onboardingWhosFrontingTitle => '¿Quién está al frente?';
 
   @override

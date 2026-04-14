@@ -5395,6 +5395,36 @@ class AppLocalizationsEn extends AppLocalizations {
       'Colors, language, the small things.';
 
   @override
+  String get onboardingPermissionsTitle => 'One more thing';
+
+  @override
+  String get onboardingPermissionsSubtitle =>
+      'Optional permissions for the best experience.';
+
+  @override
+  String get onboardingPermissionsNotificationTitle => 'Notifications';
+
+  @override
+  String get onboardingPermissionsNotificationRationale =>
+      'We\'ll let you know when headmates log a switch or a habit reminder is due';
+
+  @override
+  String get onboardingPermissionsMicrophoneTitle => 'Microphone';
+
+  @override
+  String get onboardingPermissionsMicrophoneRationale =>
+      'So you can record voice messages for your headmates';
+
+  @override
+  String get onboardingPermissionsAllowed => 'Allowed';
+
+  @override
+  String get onboardingPermissionsAllow => 'Allow';
+
+  @override
+  String get onboardingPermissionsOpenSettings => 'Change in Settings';
+
+  @override
   String get onboardingWhosFrontingTitle => 'Who\'s fronting?';
 
   @override
