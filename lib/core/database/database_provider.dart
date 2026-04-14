@@ -2,13 +2,13 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart' as raw;
 import 'app_database.dart';
 import 'database_encryption.dart';
+import 'package:prism_plurality/core/services/backup_exclusion.dart';
 
 /// The path to the app's main database file.
 ///
@@ -28,7 +28,7 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final file = await getDatabaseFile();
-    await _excludeFromiCloudBackup(file.path);
+    await excludeFromiCloudBackup(file.path);
 
     // Crash-recovery: if the staging slot exists, a previous rekey call may
     // have completed PRAGMA rekey but crashed before writing the primary slot.
@@ -168,16 +168,6 @@ bool _tryOpenPlaintext(String path) {
     }
   } catch (_) {
     return false;
-  }
-}
-
-Future<void> _excludeFromiCloudBackup(String path) async {
-  if (!Platform.isIOS) return;
-  try {
-    const channel = MethodChannel('com.prism.prism_plurality/file_utils');
-    await channel.invokeMethod<void>('excludeFromBackup', {'path': path});
-  } catch (_) {
-    // Non-fatal: if the channel call fails, the file is still encrypted.
   }
 }
 

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
+import 'package:prism_plurality/core/services/backup_exclusion.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 
 enum DownloadState { idle, downloading, decrypting, completed, failed }
@@ -236,7 +237,9 @@ class DownloadManager {
     // NSFileProtectionCompleteUntilFirstUserAuthentication and the media
     // files are excluded from unencrypted iTunes/Finder backups.
     final cacheBase = await getApplicationSupportDirectory();
-    return Directory('${cacheBase.path}/prism_media');
+    final dir = Directory('${cacheBase.path}/prism_media');
+    await excludeFromiCloudBackup(dir.path);
+    return dir;
   }
 
   Future<File> _cacheFileFor(
