@@ -18,8 +18,8 @@ import 'package:prism_plurality/features/onboarding/widgets/whos_fronting_step.d
 import 'package:prism_plurality/features/onboarding/widgets/complete_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/sync_device_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/pin_setup_step.dart';
-import 'package:prism_plurality/features/onboarding/widgets/recovery_phrase_step.dart';
-import 'package:prism_plurality/features/onboarding/widgets/confirm_phrase_step.dart';
+import 'package:prism_plurality/features/onboarding/widgets/recovery_phrase_onboarding_step.dart';
+import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/features/onboarding/widgets/biometric_setup_step.dart';
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
 import 'package:prism_plurality/features/onboarding/utils/onboarding_step_l10n.dart';
@@ -45,7 +45,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     OnboardingStep.welcome,
     OnboardingStep.pinSetup,
     OnboardingStep.recoveryPhrase,
-    OnboardingStep.confirmPhrase,
     OnboardingStep.biometricSetup,
     OnboardingStep.importData,
     OnboardingStep.systemName,
@@ -69,10 +68,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     final isFullScreenStep =
         step == OnboardingStep.syncDevice ||
         step == OnboardingStep.importedDataReady ||
-        step == OnboardingStep.pinSetup ||
-        step == OnboardingStep.recoveryPhrase ||
-        step == OnboardingStep.confirmPhrase ||
         step == OnboardingStep.biometricSetup;
+    // Self-managed steps show the top bar/header but hide bottom nav and
+    // block back navigation (they have their own Continue buttons).
+    final isSelfManagedStep =
+        step == OnboardingStep.pinSetup ||
+        step == OnboardingStep.recoveryPhrase;
 
     // Check if user has existing data (re-running onboarding)
     final hasExistingData = ref.watch(hasCompletedOnboardingProvider);
@@ -80,7 +81,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     return PopScope(
       canPop: hasExistingData,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !isFirstStep && !isFullScreenStep) {
+        if (!didPop && !isFirstStep && !isFullScreenStep && !isSelfManagedStep) {
           notifier.back();
         }
       },
@@ -214,8 +215,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                     ),
                   ),
 
-                  // Navigation buttons (hidden during sync device flow)
-                  if (!isFullScreenStep)
+                  // Navigation buttons (hidden for full-screen and self-managed steps)
+                  if (!isFullScreenStep && !isSelfManagedStep)
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
@@ -269,15 +270,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
         key: const ValueKey('pin-setup'),
         onPinConfirmed: n.onPinConfirmed,
       ),
-      OnboardingStep.recoveryPhrase => RecoveryPhraseStep(
+      OnboardingStep.recoveryPhrase => RecoveryPhraseOnboardingStep(
         key: const ValueKey('recovery-phrase'),
         words: onboarding.mnemonicWords,
-        onContinue: n.onPhraseViewed,
-      ),
-      OnboardingStep.confirmPhrase => ConfirmPhraseStep(
-        key: const ValueKey('confirm-phrase'),
-        words: onboarding.mnemonicWords,
-        onConfirmed: n.onPhraseConfirmed,
+        onContinue: n.onPhraseSaved,
       ),
       OnboardingStep.biometricSetup => BiometricSetupStep(
         key: const ValueKey('biometric-setup'),
@@ -342,6 +338,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     try {
       final onboarding = ref.read(onboardingProvider);
       await ref.read(onboardingCommitServiceProvider).complete(onboarding);
+
+      // Start the 30-day grace period so the backup reminder doesn't fire
+      // immediately after the user just saved their recovery phrase.
+      await ref.read(authPolicyServiceProvider).recordReminderDismissed();
 
       if (mounted) {
         context.go(AppRoutePaths.home);

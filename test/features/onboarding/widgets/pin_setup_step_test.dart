@@ -51,6 +51,12 @@ Future<void> _enterPin(WidgetTester tester, String pin) async {
   }
 }
 
+/// Finds the [PinInputScreen] and returns its mode.
+PinInputMode _currentMode(WidgetTester tester) {
+  final widget = tester.widget<PinInputScreen>(find.byType(PinInputScreen));
+  return widget.mode;
+}
+
 void main() {
   testWidgets('shows PinInputScreen in set mode initially', (tester) async {
     final service = _FakePinLockService();
@@ -60,9 +66,8 @@ void main() {
     );
     await tester.pump();
 
-    // In set mode the title shown by PinInputScreen is 'Set PIN'.
-    expect(find.text('Set PIN'), findsOneWidget);
-    expect(find.text('Confirm PIN'), findsNothing);
+    expect(find.byType(PinInputScreen), findsOneWidget);
+    expect(_currentMode(tester), PinInputMode.set);
   });
 
   testWidgets('advances to confirm phase after pin entry', (tester) async {
@@ -73,15 +78,14 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Set PIN'), findsOneWidget);
+    expect(_currentMode(tester), PinInputMode.set);
 
     // Enter a 6-digit PIN on phase 1.
     await _enterPin(tester, '123456');
     await tester.pumpAndSettle();
 
     // PinSetupStep should now show the confirm screen.
-    expect(find.text('Confirm PIN'), findsOneWidget);
-    expect(find.text('Set PIN'), findsNothing);
+    expect(_currentMode(tester), PinInputMode.confirm);
   });
 
   testWidgets('calls onPinConfirmed and storePin on match', (tester) async {
@@ -100,7 +104,7 @@ void main() {
     await _enterPin(tester, '654321');
     await tester.pumpAndSettle();
 
-    expect(find.text('Confirm PIN'), findsOneWidget);
+    expect(_currentMode(tester), PinInputMode.confirm);
 
     // Phase 2: confirm the same PIN.
     await _enterPin(tester, '654321');

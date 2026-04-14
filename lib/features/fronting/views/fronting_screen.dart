@@ -32,7 +32,7 @@ import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/providers/backup_reminder_provider.dart';
+import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 class FrontingScreen extends ConsumerStatefulWidget {
@@ -484,7 +484,7 @@ class _BackupReminderBanner extends ConsumerWidget {
         message: '',
         buttonText: context.l10n.backupReminderBannerAction,
         onButtonPressed: () async {
-          await recordReminderDismissed();
+          await ref.read(authPolicyServiceProvider).recordReminderDismissed();
           ref.invalidate(backupReminderDueProvider);
           if (context.mounted) {
             context.go('/settings');
