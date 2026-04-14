@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/core/services/notification_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -214,7 +215,7 @@ class _NotificationPermissionTile extends ConsumerWidget {
           trailing: PrismButton(
             label: context.l10n.notificationsRequest,
             onPressed: () async {
-              final service = ref.read(frontingNotificationServiceProvider);
+              final service = ref.read(localNotificationServiceProvider);
               await service.requestPermission();
               ref.invalidate(notificationPermissionProvider);
             },

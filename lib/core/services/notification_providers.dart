@@ -6,7 +6,9 @@ import 'package:prism_plurality/core/services/local_notification_service.dart';
 /// Provides the [FrontingNotificationService] singleton instance.
 final frontingNotificationServiceProvider =
     Provider<FrontingNotificationService>((ref) {
-  return FrontingNotificationService();
+  return FrontingNotificationService(
+    ref.watch(localNotificationServiceProvider),
+  );
 });
 
 /// Checks whether notification permissions are currently granted.
