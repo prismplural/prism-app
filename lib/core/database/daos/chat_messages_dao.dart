@@ -15,9 +15,10 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     int? offset,
   }) {
     final query = select(chatMessages)
-      ..where((m) =>
-          m.conversationId.equals(conversationId) &
-          m.isDeleted.equals(false))
+      ..where(
+        (m) =>
+            m.conversationId.equals(conversationId) & m.isDeleted.equals(false),
+      )
       ..orderBy([(m) => OrderingTerm.desc(m.timestamp)]);
     if (limit != null) {
       query.limit(limit, offset: offset);
@@ -26,11 +27,14 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
   }
 
   Stream<List<ChatMessage>> watchMessagesForConversation(
-          String conversationId) =>
+    String conversationId,
+  ) =>
       (select(chatMessages)
-            ..where((m) =>
-                m.conversationId.equals(conversationId) &
-                m.isDeleted.equals(false))
+            ..where(
+              (m) =>
+                  m.conversationId.equals(conversationId) &
+                  m.isDeleted.equals(false),
+            )
             ..orderBy([(m) => OrderingTerm.desc(m.timestamp)]))
           .watch();
 
@@ -40,9 +44,11 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     required int limit,
   }) =>
       (select(chatMessages)
-            ..where((m) =>
-                m.conversationId.equals(conversationId) &
-                m.isDeleted.equals(false))
+            ..where(
+              (m) =>
+                  m.conversationId.equals(conversationId) &
+                  m.isDeleted.equals(false),
+            )
             ..orderBy([(m) => OrderingTerm.desc(m.timestamp)])
             ..limit(limit))
           .watch();
@@ -54,37 +60,41 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
           .get();
 
   Future<ChatMessage?> getMessageById(String id) =>
-      (select(chatMessages)..where((m) => m.id.equals(id)))
-          .getSingleOrNull();
+      (select(chatMessages)..where((m) => m.id.equals(id))).getSingleOrNull();
 
   Future<int> insertMessage(ChatMessagesCompanion message) =>
       into(chatMessages).insert(message);
 
   Future<void> updateMessage(ChatMessagesCompanion message) {
     assert(message.id.present, 'Message id is required for update');
-    return (update(chatMessages)
-          ..where((m) => m.id.equals(message.id.value)))
-        .write(message);
+    return (update(
+      chatMessages,
+    )..where((m) => m.id.equals(message.id.value))).write(message);
   }
 
   Future<void> softDeleteMessage(String id) =>
       (update(chatMessages)..where((m) => m.id.equals(id))).write(
-          const ChatMessagesCompanion(isDeleted: Value(true)));
+        const ChatMessagesCompanion(isDeleted: Value(true)),
+      );
 
   Future<ChatMessage?> getLatestMessage(String conversationId) =>
       (select(chatMessages)
-            ..where((m) =>
-                m.conversationId.equals(conversationId) &
-                m.isDeleted.equals(false))
+            ..where(
+              (m) =>
+                  m.conversationId.equals(conversationId) &
+                  m.isDeleted.equals(false),
+            )
             ..orderBy([(m) => OrderingTerm.desc(m.timestamp)])
             ..limit(1))
           .getSingleOrNull();
 
   Stream<ChatMessage?> watchLatestMessage(String conversationId) =>
       (select(chatMessages)
-            ..where((m) =>
-                m.conversationId.equals(conversationId) &
-                m.isDeleted.equals(false))
+            ..where(
+              (m) =>
+                  m.conversationId.equals(conversationId) &
+                  m.isDeleted.equals(false),
+            )
             ..orderBy([(m) => OrderingTerm.desc(m.timestamp)])
             ..limit(1))
           .watchSingleOrNull();
@@ -137,10 +147,12 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     final vars = <Variable>[];
     for (final entry in conversationSince.entries) {
       parts.add(
-        'SELECT conversation_id, COUNT(*) AS c FROM chat_messages '
+        'SELECT ? AS conversation_id, COUNT(*) AS c FROM chat_messages '
         'WHERE conversation_id = ? AND timestamp > ? '
-        'AND is_deleted = 0 AND is_system_message = 0',
+        'AND is_deleted = 0 AND is_system_message = 0 '
+        'HAVING COUNT(*) > 0',
       );
+      vars.add(Variable.withString(entry.key));
       vars.add(Variable.withString(entry.key));
       vars.add(Variable.withDateTime(entry.value));
     }
@@ -191,8 +203,9 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
       parts.join(' UNION ALL '),
       variables: vars,
       readsFrom: {chatMessages},
-    ).watch().map((rows) =>
-        rows.map((r) => r.read<String>('conversation_id')).toSet());
+    ).watch().map(
+      (rows) => rows.map((r) => r.read<String>('conversation_id')).toSet(),
+    );
   }
 
   Future<List<QueryRow>> searchMessages(String query, {int limit = 50}) {

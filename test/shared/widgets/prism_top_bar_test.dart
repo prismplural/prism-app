@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 
@@ -34,5 +36,36 @@ void main() {
     );
 
     expect(find.byIcon(AppIcons.add), findsOneWidget);
+  });
+
+  testWidgets('PrismTopBar keeps actions close to the safe area top', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(
+          padding: EdgeInsets.only(top: 30),
+          viewPadding: EdgeInsets.only(top: 30),
+        ),
+        child: ProviderScope(
+          child: MaterialApp(
+            home: PrismPageScaffold(
+              topBar: PrismTopBar(
+                title: 'Settings',
+                trailing: PrismTopBarAction(
+                  icon: AppIcons.add,
+                  onPressed: null,
+                ),
+              ),
+              body: const SizedBox.shrink(),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final actionTop = tester.getTopLeft(find.byType(PrismGlassIconButton)).dy;
+
+    expect(actionTop, 36);
   });
 }

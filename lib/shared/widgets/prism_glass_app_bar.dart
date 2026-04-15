@@ -9,7 +9,7 @@ class PrismGlassAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.subtitle,
     this.leading,
     this.trailing,
-    this.height = 66,
+    this.height = kToolbarHeight,
     this.horizontalPadding = 12,
   });
 
