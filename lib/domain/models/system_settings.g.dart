@@ -54,6 +54,9 @@ _SystemSettings _$SystemSettingsFromJson(
   systemAvatarData: _uint8ListFromJson(json['systemAvatarData'] as String?),
   remindersEnabled: json['remindersEnabled'] as bool? ?? true,
   localeOverride: json['localeOverride'] as String?,
+  gifConsentState:
+      $enumDecodeNullable(_$GifConsentStateEnumMap, json['gifConsentState']) ??
+      GifConsentState.unknown,
   fontScale: (json['fontScale'] as num?)?.toDouble() ?? 1.0,
   fontFamily:
       $enumDecodeNullable(_$FontFamilyEnumMap, json['fontFamily']) ??
@@ -116,6 +119,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'systemAvatarData': _uint8ListToJson(instance.systemAvatarData),
   'remindersEnabled': instance.remindersEnabled,
   'localeOverride': instance.localeOverride,
+  'gifConsentState': _$GifConsentStateEnumMap[instance.gifConsentState]!,
   'fontScale': instance.fontScale,
   'fontFamily': _$FontFamilyEnumMap[instance.fontFamily]!,
   'pinLockEnabled': instance.pinLockEnabled,
@@ -160,6 +164,12 @@ const _$ThemeStyleEnumMap = {
 const _$FrontingTimingModeEnumMap = {
   FrontingTimingMode.flexible: 'flexible',
   FrontingTimingMode.strict: 'strict',
+};
+
+const _$GifConsentStateEnumMap = {
+  GifConsentState.unknown: 'unknown',
+  GifConsentState.enabled: 'enabled',
+  GifConsentState.declined: 'declined',
 };
 
 const _$FontFamilyEnumMap = {

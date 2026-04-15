@@ -1366,6 +1366,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get featureChatGifSearchSubtitle => 'Buscar y enviar GIFs en el chat';
 
   @override
+  String get featureChatGifSearchUndecidedSubtitle =>
+      'Desactivado hasta que revises los detalles de privacidad';
+
+  @override
+  String get featureChatGifSearchEnabledSubtitle =>
+      'Activado en este dispositivo';
+
+  @override
+  String get featureChatGifSearchDeclinedSubtitle =>
+      'Oculto después de rechazarlo en este dispositivo';
+
+  @override
   String get featureChatVoiceNotes => 'Notas de voz';
 
   @override
@@ -2881,6 +2893,40 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get chatGifsNotFoundSubtitle =>
       'Prueba con otros términos de búsqueda';
+
+  @override
+  String get chatGifConsentTitle => '¿Activar búsqueda de GIFs?';
+
+  @override
+  String get chatGifConsentIntro =>
+      'La búsqueda de GIFs usa un servicio de Klipy detrás del relay. Esto es lo que cada parte puede y no puede ver.';
+
+  @override
+  String get chatGifConsentRelayTitle => 'Lo que puede ver el relay de Prism';
+
+  @override
+  String get chatGifConsentRelayBody =>
+      'Tu relay puede ver las búsquedas de GIF que envías a través de él y los metadatos de red de tu dispositivo. No puede ver tus chats cifrados.';
+
+  @override
+  String get chatGifConsentKlipyTitle => 'Lo que puede ver Klipy';
+
+  @override
+  String get chatGifConsentKlipyBody =>
+      'Klipy recibe la solicitud de búsqueda desde el relay y puede ver los términos de búsqueda junto con la identidad de red del relay, no la tuya directamente.';
+
+  @override
+  String get chatGifConsentMediaTitle => 'Qué pasa cuando abres un GIF';
+
+  @override
+  String get chatGifConsentMediaBody =>
+      'Las vistas previas y la reproducción del GIF siguen cargándose desde el host multimedia de Klipy, así que abrir un GIF puede conectar tu dispositivo directamente con Klipy.';
+
+  @override
+  String get chatGifConsentDecline => 'No, gracias';
+
+  @override
+  String get chatGifConsentEnable => 'Activar GIFs';
 
   @override
   String chatGifsFound(int count) {

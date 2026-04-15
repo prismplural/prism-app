@@ -49,11 +49,16 @@ Map<String, dynamic> _gifItem({String id = '123', String title = 'funny cat'}) {
 /// needed for widget tests.
 Widget _buildTestWidget({required MockClient mockClient}) {
   return ProviderScope(
-    overrides: [
-      klipyServiceProvider.overrideWithValue(
-        KlipyService(httpClient: mockClient),
-      ),
-    ],
+      overrides: [
+        klipyServiceProvider.overrideWithValue(
+          AsyncValue.data(
+            KlipyService(
+              baseUrl: 'https://relay.example/v1/gifs',
+              httpClient: mockClient,
+            ),
+          ),
+        ),
+      ],
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],

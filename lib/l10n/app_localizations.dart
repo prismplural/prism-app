@@ -2486,6 +2486,24 @@ abstract class AppLocalizations {
   /// **'Search and send GIFs in chat'**
   String get featureChatGifSearchSubtitle;
 
+  /// Subtitle for GIF search before the user has decided
+  ///
+  /// In en, this message translates to:
+  /// **'Off until you review the privacy details'**
+  String get featureChatGifSearchUndecidedSubtitle;
+
+  /// Subtitle for GIF search after the user has enabled it
+  ///
+  /// In en, this message translates to:
+  /// **'Enabled on this device'**
+  String get featureChatGifSearchEnabledSubtitle;
+
+  /// Subtitle for GIF search after the user has declined it
+  ///
+  /// In en, this message translates to:
+  /// **'Hidden after you declined it on this device'**
+  String get featureChatGifSearchDeclinedSubtitle;
+
   /// Title for voice notes feature toggle in chat settings
   ///
   /// In en, this message translates to:
@@ -4981,6 +4999,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Try different search terms'**
   String get chatGifsNotFoundSubtitle;
+
+  /// Title for the first-use GIF privacy disclosure dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Enable GIF search?'**
+  String get chatGifConsentTitle;
+
+  /// Intro text for the first-use GIF privacy disclosure dialog
+  ///
+  /// In en, this message translates to:
+  /// **'GIF search uses a relay-backed Klipy service. Here\'s what each side can and cannot see.'**
+  String get chatGifConsentIntro;
+
+  /// Section title describing relay visibility for GIF search
+  ///
+  /// In en, this message translates to:
+  /// **'What Prism relay can see'**
+  String get chatGifConsentRelayTitle;
+
+  /// Section body describing relay visibility for GIF search
+  ///
+  /// In en, this message translates to:
+  /// **'Your relay can see the GIF searches you send through it and your device\'s network metadata. It cannot see your encrypted chats.'**
+  String get chatGifConsentRelayBody;
+
+  /// Section title describing Klipy visibility for GIF search
+  ///
+  /// In en, this message translates to:
+  /// **'What Klipy can see'**
+  String get chatGifConsentKlipyTitle;
+
+  /// Section body describing Klipy visibility for GIF search
+  ///
+  /// In en, this message translates to:
+  /// **'Klipy receives the search request from the relay and can see the search terms plus the relay\'s network identity, not yours directly.'**
+  String get chatGifConsentKlipyBody;
+
+  /// Section title describing media loading visibility for GIFs
+  ///
+  /// In en, this message translates to:
+  /// **'What happens when you open a GIF'**
+  String get chatGifConsentMediaTitle;
+
+  /// Section body describing media loading visibility for GIFs
+  ///
+  /// In en, this message translates to:
+  /// **'GIF previews and playback still load from Klipy\'s media host, so opening a GIF can contact Klipy directly from your device.'**
+  String get chatGifConsentMediaBody;
+
+  /// Decline button label in the GIF consent dialog
+  ///
+  /// In en, this message translates to:
+  /// **'No Thanks'**
+  String get chatGifConsentDecline;
+
+  /// Accept button label in the GIF consent dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Enable GIFs'**
+  String get chatGifConsentEnable;
 
   /// Accessibility announcement for GIF search result count
   ///

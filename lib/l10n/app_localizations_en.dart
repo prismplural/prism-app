@@ -1333,6 +1333,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureChatGifSearchSubtitle => 'Search and send GIFs in chat';
 
   @override
+  String get featureChatGifSearchUndecidedSubtitle =>
+      'Off until you review the privacy details';
+
+  @override
+  String get featureChatGifSearchEnabledSubtitle => 'Enabled on this device';
+
+  @override
+  String get featureChatGifSearchDeclinedSubtitle =>
+      'Hidden after you declined it on this device';
+
+  @override
   String get featureChatVoiceNotes => 'Voice Notes';
 
   @override
@@ -2828,6 +2839,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatGifsNotFoundSubtitle => 'Try different search terms';
+
+  @override
+  String get chatGifConsentTitle => 'Enable GIF search?';
+
+  @override
+  String get chatGifConsentIntro =>
+      'GIF search uses a relay-backed Klipy service. Here\'s what each side can and cannot see.';
+
+  @override
+  String get chatGifConsentRelayTitle => 'What Prism relay can see';
+
+  @override
+  String get chatGifConsentRelayBody =>
+      'Your relay can see the GIF searches you send through it and your device\'s network metadata. It cannot see your encrypted chats.';
+
+  @override
+  String get chatGifConsentKlipyTitle => 'What Klipy can see';
+
+  @override
+  String get chatGifConsentKlipyBody =>
+      'Klipy receives the search request from the relay and can see the search terms plus the relay\'s network identity, not yours directly.';
+
+  @override
+  String get chatGifConsentMediaTitle => 'What happens when you open a GIF';
+
+  @override
+  String get chatGifConsentMediaBody =>
+      'GIF previews and playback still load from Klipy\'s media host, so opening a GIF can contact Klipy directly from your device.';
+
+  @override
+  String get chatGifConsentDecline => 'No Thanks';
+
+  @override
+  String get chatGifConsentEnable => 'Enable GIFs';
 
   @override
   String chatGifsFound(int count) {

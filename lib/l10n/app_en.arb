@@ -1813,6 +1813,18 @@
   "@featureChatGifSearchSubtitle": {
     "description": "Toggle subtitle: GIF search"
   },
+  "featureChatGifSearchUndecidedSubtitle": "Off until you review the privacy details",
+  "@featureChatGifSearchUndecidedSubtitle": {
+    "description": "Subtitle for GIF search before the user has decided"
+  },
+  "featureChatGifSearchEnabledSubtitle": "Enabled on this device",
+  "@featureChatGifSearchEnabledSubtitle": {
+    "description": "Subtitle for GIF search after the user has enabled it"
+  },
+  "featureChatGifSearchDeclinedSubtitle": "Hidden after you declined it on this device",
+  "@featureChatGifSearchDeclinedSubtitle": {
+    "description": "Subtitle for GIF search after the user has declined it"
+  },
   "featureChatVoiceNotes": "Voice Notes",
   "@featureChatVoiceNotes": {
     "description": "Title for voice notes feature toggle in chat settings"
@@ -3863,6 +3875,46 @@
   "chatGifsNotFoundSubtitle": "Try different search terms",
   "@chatGifsNotFoundSubtitle": {
     "description": "Subtitle for empty GIF search results"
+  },
+  "chatGifConsentTitle": "Enable GIF search?",
+  "@chatGifConsentTitle": {
+    "description": "Title for the first-use GIF privacy disclosure dialog"
+  },
+  "chatGifConsentIntro": "GIF search uses a relay-backed Klipy service. Here's what each side can and cannot see.",
+  "@chatGifConsentIntro": {
+    "description": "Intro text for the first-use GIF privacy disclosure dialog"
+  },
+  "chatGifConsentRelayTitle": "What Prism relay can see",
+  "@chatGifConsentRelayTitle": {
+    "description": "Section title describing relay visibility for GIF search"
+  },
+  "chatGifConsentRelayBody": "Your relay can see the GIF searches you send through it and your device's network metadata. It cannot see your encrypted chats.",
+  "@chatGifConsentRelayBody": {
+    "description": "Section body describing relay visibility for GIF search"
+  },
+  "chatGifConsentKlipyTitle": "What Klipy can see",
+  "@chatGifConsentKlipyTitle": {
+    "description": "Section title describing Klipy visibility for GIF search"
+  },
+  "chatGifConsentKlipyBody": "Klipy receives the search request from the relay and can see the search terms plus the relay's network identity, not yours directly.",
+  "@chatGifConsentKlipyBody": {
+    "description": "Section body describing Klipy visibility for GIF search"
+  },
+  "chatGifConsentMediaTitle": "What happens when you open a GIF",
+  "@chatGifConsentMediaTitle": {
+    "description": "Section title describing media loading visibility for GIFs"
+  },
+  "chatGifConsentMediaBody": "GIF previews and playback still load from Klipy's media host, so opening a GIF can contact Klipy directly from your device.",
+  "@chatGifConsentMediaBody": {
+    "description": "Section body describing media loading visibility for GIFs"
+  },
+  "chatGifConsentDecline": "No Thanks",
+  "@chatGifConsentDecline": {
+    "description": "Decline button label in the GIF consent dialog"
+  },
+  "chatGifConsentEnable": "Enable GIFs",
+  "@chatGifConsentEnable": {
+    "description": "Accept button label in the GIF consent dialog"
   },
   "chatGifsFound": "{count, plural, =1{1 GIF found} other{{count} GIFs found}}",
   "@chatGifsFound": {

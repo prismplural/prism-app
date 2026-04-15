@@ -77,7 +77,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 41;
+  int get schemaVersion => 42;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -173,6 +173,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 41) {
         await customStatement(
           'ALTER TABLE system_settings ADD COLUMN locale_override TEXT',
+        );
+      }
+
+      if (from < 42) {
+        await customStatement(
+          'ALTER TABLE system_settings ADD COLUMN gif_consent_state INTEGER NOT NULL DEFAULT 0',
         );
       }
     },

@@ -322,6 +322,11 @@ class DriftSystemSettingsRepository
   // Phase 3: Device-local settings (no sync)
 
   @override
+  Future<void> updateGifConsentState(domain.GifConsentState value) async {
+    await _dao.updateGifConsentState(value.index);
+  }
+
+  @override
   Future<void> updateFontScale(double value) async {
     await _dao.updateFontScale(value);
   }

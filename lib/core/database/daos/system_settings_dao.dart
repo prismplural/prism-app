@@ -140,6 +140,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
 
   // --- Device-local fields (Phase 3) ---
 
+  Future<void> updateGifConsentState(int value) => _updateField(
+    SystemSettingsTableCompanion(gifConsentState: Value(value)),
+  );
+
   Future<void> updateFontScale(double value) =>
       _updateField(SystemSettingsTableCompanion(fontScale: Value(value)));
 

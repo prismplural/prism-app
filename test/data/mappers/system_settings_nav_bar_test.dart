@@ -45,6 +45,7 @@ void main() {
         systemDescription: null,
         systemAvatarData: null,
         remindersEnabled: true,
+        gifConsentState: 0,
         fontScale: 1.0,
         fontFamily: 0,
         pinLockEnabled: false,

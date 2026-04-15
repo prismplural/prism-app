@@ -13,7 +13,9 @@ import 'package:prism_plurality/core/services/media/media_providers.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart' as media;
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
+import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_picker_sheet.dart';
@@ -176,6 +178,18 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   Future<void> _showGifPicker() async {
+    final consent = ref.read(gifConsentStateProvider);
+    if (consent == GifConsentState.unknown) {
+      final accepted = await GifConsentDialog.show(context);
+      if (!mounted) return;
+      await ref
+          .read(settingsNotifierProvider.notifier)
+          .updateGifConsentState(
+            accepted ? GifConsentState.enabled : GifConsentState.declined,
+          );
+      if (!accepted) return;
+    }
+
     final gif = await GifPickerSheet.show(context);
     if (gif != null && mounted) {
       await _sendGif(gif);
@@ -524,7 +538,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                 ] else ...[
                   const SizedBox(width: 8),
                   AttachmentMenuButton(
-                    gifEnabled: ref.watch(gifSearchEnabledProvider),
+                    gifEnabled: ref.watch(gifAttachmentEnabledProvider),
                     size: inputHeight,
                     onCamera: () => _pickImage(ImageSource.camera),
                     onPhotoLibrary: () => _pickImage(ImageSource.gallery),
