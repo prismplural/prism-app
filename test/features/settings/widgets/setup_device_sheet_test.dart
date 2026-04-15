@@ -9,6 +9,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/setup_device_sheet.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
@@ -78,6 +79,8 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Consumer(
               builder: (context, ref, _) => Scaffold(
@@ -130,6 +133,8 @@ void main() {
           ),
         ],
         child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           home: Builder(
             builder: (context) => Consumer(
               builder: (context, ref, _) => Scaffold(
@@ -168,7 +173,7 @@ void main() {
     await tester.tap(find.text('They Match'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Enter your PIN'), findsOneWidget);
+    expect(find.text('Enter your sync PIN'), findsOneWidget);
     // PIN dot indicators should be present (6 dots)
     expect(find.byType(AnimatedContainer), findsWidgets);
   });

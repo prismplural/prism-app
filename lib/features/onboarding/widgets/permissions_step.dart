@@ -142,7 +142,8 @@ class _PermissionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '$title: ${isGranted ? allowedLabel : "not granted"}',
+      label:
+          '$title: ${isGranted ? allowedLabel : context.l10n.onboardingPermissionsNotGranted}',
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

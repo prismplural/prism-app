@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Grid card showing duration statistics for a member.
@@ -19,7 +20,7 @@ class DurationStatsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Duration Stats',
+            context.l10n.statisticsDurationStats,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -28,11 +29,11 @@ class DurationStatsCard extends StatelessWidget {
           Row(
             children: [
               _StatItem(
-                  label: 'Sessions',
+                   label: context.l10n.statisticsDurationSessions,
                   value: '${stat.sessionCount}',
                   theme: theme),
               _StatItem(
-                  label: 'Total',
+                   label: context.l10n.statisticsDurationTotal,
                   value: _fmt(stat.totalTime),
                   theme: theme),
             ],
@@ -41,11 +42,11 @@ class DurationStatsCard extends StatelessWidget {
           Row(
             children: [
               _StatItem(
-                  label: 'Average',
+                   label: context.l10n.statisticsDurationAverage,
                   value: _fmt(stat.averageDuration),
                   theme: theme),
               _StatItem(
-                  label: 'Median',
+                   label: context.l10n.statisticsDurationMedian,
                   value: _fmt(stat.medianDuration),
                   theme: theme),
             ],
@@ -54,11 +55,11 @@ class DurationStatsCard extends StatelessWidget {
           Row(
             children: [
               _StatItem(
-                  label: 'Shortest',
+                   label: context.l10n.statisticsDurationShortest,
                   value: _fmt(stat.shortestSession),
                   theme: theme),
               _StatItem(
-                  label: 'Longest',
+                   label: context.l10n.statisticsDurationLongest,
                   value: _fmt(stat.longestSession),
                   theme: theme),
             ],

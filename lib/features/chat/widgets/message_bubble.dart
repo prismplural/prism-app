@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/chat/providers/media_state_providers.da
 import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
+import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
 import 'package:prism_plurality/features/chat/widgets/media/gif_bubble.dart';
 import 'package:prism_plurality/features/chat/widgets/media/image_bubble.dart';
 import 'package:prism_plurality/features/chat/widgets/media/voice_bubble.dart';
@@ -34,6 +35,7 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 /// Individual message widget with author info, bubble, reactions.
 class MessageBubble extends ConsumerStatefulWidget {
@@ -104,70 +106,82 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     final actions = <_ContextAction>[];
 
     if (!widget.message.isSystemMessage) {
-      actions.add(_ContextAction(
-        icon: AppIcons.replyRounded,
-        label: context.l10n.chatContextReply,
-        onTap: (close) {
-          close();
-          widget.onReply?.call(widget.message);
-        },
-      ));
+      actions.add(
+        _ContextAction(
+          icon: AppIcons.replyRounded,
+          label: context.l10n.chatContextReply,
+          onTap: (close) {
+            close();
+            widget.onReply?.call(widget.message);
+          },
+        ),
+      );
     }
 
-    actions.add(_ContextAction(
-      icon: AppIcons.copyOutlined,
-      label: context.l10n.chatContextCopyText,
-      onTap: (close) {
-        Clipboard.setData(ClipboardData(text: widget.message.content));
-        Haptics.light();
-        close();
-        PrismToast.show(context, message: context.l10n.chatCopied);
-      },
-    ));
+    actions.add(
+      _ContextAction(
+        icon: AppIcons.copyOutlined,
+        label: context.l10n.chatContextCopyText,
+        onTap: (close) {
+          Clipboard.setData(ClipboardData(text: widget.message.content));
+          Haptics.light();
+          close();
+          PrismToast.show(context, message: context.l10n.chatCopied);
+        },
+      ),
+    );
 
     final perms = widget.permissions;
     if (perms != null) {
       if (perms.canEditMessage(widget.message.authorId)) {
-        actions.add(_ContextAction(
-          icon: AppIcons.editOutlined,
-          label: context.l10n.chatContextEditMessage,
-          onTap: (close) {
-            close();
-            _showEditDialog(context);
-          },
-        ));
+        actions.add(
+          _ContextAction(
+            icon: AppIcons.editOutlined,
+            label: context.l10n.chatContextEditMessage,
+            onTap: (close) {
+              close();
+              _showEditDialog(context);
+            },
+          ),
+        );
       }
       if (perms.canDeleteMessage(widget.message.authorId)) {
-        actions.add(_ContextAction(
-          icon: AppIcons.deleteOutline,
-          label: context.l10n.chatContextDelete,
-          isDestructive: true,
-          onTap: (close) {
-            close();
-            _confirmDelete(context);
-          },
-        ));
+        actions.add(
+          _ContextAction(
+            icon: AppIcons.deleteOutline,
+            label: context.l10n.chatContextDelete,
+            isDestructive: true,
+            onTap: (close) {
+              close();
+              _confirmDelete(context);
+            },
+          ),
+        );
       }
     } else {
       // Fallback: old behavior for backwards compatibility.
       if (isOwn) {
-        actions.add(_ContextAction(
-          icon: AppIcons.editOutlined,
-          label: context.l10n.chatContextEditMessage,
-          onTap: (close) {
-            close();
-            _showEditDialog(context);
-          },
-        ));
-        actions.add(_ContextAction(
-          icon: AppIcons.deleteOutline,
-          label: context.l10n.chatContextDelete,
-          isDestructive: true,
-          onTap: (close) {
-            close();
-            _confirmDelete(context);
-          },
-        ));
+        actions.add(
+          _ContextAction(
+            icon: AppIcons.editOutlined,
+            label: context.l10n.chatContextEditMessage,
+            onTap: (close) {
+              close();
+              _showEditDialog(context);
+            },
+          ),
+        );
+        actions.add(
+          _ContextAction(
+            icon: AppIcons.deleteOutline,
+            label: context.l10n.chatContextDelete,
+            isDestructive: true,
+            onTap: (close) {
+              close();
+              _confirmDelete(context);
+            },
+          ),
+        );
       }
     }
 
@@ -183,7 +197,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
           for (final emoji in AppConstants.quickReactions)
             Semantics(
               button: true,
-              label: 'Toggle reaction $emoji',
+              label: context.l10n.chatMessageToggleReaction(emoji),
               child: GestureDetector(
                 onTap: () {
                   _toggleReaction(emoji);
@@ -197,7 +211,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
             ),
           Semantics(
             button: true,
-            label: 'Add custom reaction',
+            label: context.l10n.chatMessageAddCustomReaction,
             child: GestureDetector(
               onTap: () async {
                 close();
@@ -220,7 +234,9 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   void _toggleReaction(String emoji) {
     final speakingAs = ref.read(speakingAsProvider);
     if (speakingAs == null) return;
-    ref.read(chatNotifierProvider.notifier).toggleReaction(
+    ref
+        .read(chatNotifierProvider.notifier)
+        .toggleReaction(
           messageId: widget.message.id,
           emoji: emoji,
           memberId: speakingAs,
@@ -276,26 +292,26 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                   isLoading: isSaving,
                   enabled: !isSaving,
                   onPressed: () async {
-                          final newContent = controller.text.trim();
-                          if (newContent.isEmpty) {
-                            Navigator.of(dialogContext).pop();
-                            return;
-                          }
-                          setDialogState(() => isSaving = true);
-                          try {
-                            await ref
-                                .read(chatNotifierProvider.notifier)
-                                .editMessage(widget.message.id, newContent);
-                          } catch (_) {
-                            if (builderContext.mounted) {
-                              setDialogState(() => isSaving = false);
-                            }
-                            return;
-                          }
-                          if (dialogContext.mounted) {
-                            Navigator.of(dialogContext).pop();
-                          }
-                        },
+                    final newContent = controller.text.trim();
+                    if (newContent.isEmpty) {
+                      Navigator.of(dialogContext).pop();
+                      return;
+                    }
+                    setDialogState(() => isSaving = true);
+                    try {
+                      await ref
+                          .read(chatNotifierProvider.notifier)
+                          .editMessage(widget.message.id, newContent);
+                    } catch (_) {
+                      if (builderContext.mounted) {
+                        setDialogState(() => isSaving = false);
+                      }
+                      return;
+                    }
+                    if (dialogContext.mounted) {
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
                 ),
               ],
             ),
@@ -314,7 +330,11 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       destructive: true,
     );
     if (confirmed) {
-      unawaited(ref.read(chatNotifierProvider.notifier).deleteMessage(widget.message.id));
+      unawaited(
+        ref
+            .read(chatNotifierProvider.notifier)
+            .deleteMessage(widget.message.id),
+      );
     }
   }
 
@@ -323,7 +343,9 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       return theme.colorScheme.primary;
     }
     final author = widget.authorMap![authorId];
-    if (author != null && author.customColorEnabled && author.customColorHex != null) {
+    if (author != null &&
+        author.customColorEnabled &&
+        author.customColorHex != null) {
       return AppColors.fromHex(author.customColorHex!);
     }
     return theme.colorScheme.primary;
@@ -342,7 +364,8 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
     // Use batch-loaded author map if available, otherwise fall back to
     // individual provider watch.
-    final batchAuthor = widget.authorMap != null && widget.message.authorId != null
+    final batchAuthor =
+        widget.authorMap != null && widget.message.authorId != null
         ? widget.authorMap![widget.message.authorId!]
         : null;
 
@@ -382,7 +405,8 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   }
 
   Widget _buildAvatar(Member? author, double size) {
-    final isDeparted = widget.participantIds != null &&
+    final isDeparted =
+        widget.participantIds != null &&
         widget.message.authorId != null &&
         !widget.participantIds!.contains(widget.message.authorId);
 
@@ -453,19 +477,19 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         );
       },
       child: BlurPopupAnchor(
-          trigger: BlurPopupTrigger.longPress,
-          width: 260,
-          itemCount: _contextMenuItemCount(isOwn),
-          itemBuilder: (context, index, close) {
-            if (index == 0) return _buildQuickReactionRow(close);
-            if (index == 1) return const Divider(height: 1);
-            final actionIndex = index - 2;
-            return _buildActionTile(actions[actionIndex], close, theme);
-          },
-          child: Semantics(
-            button: true,
-            label: 'Toggle time format',
-            child: GestureDetector(
+        trigger: BlurPopupTrigger.longPress,
+        width: 260,
+        itemCount: _contextMenuItemCount(isOwn),
+        itemBuilder: (context, index, close) {
+          if (index == 0) return _buildQuickReactionRow(close);
+          if (index == 1) return const Divider(height: 1);
+          final actionIndex = index - 2;
+          return _buildActionTile(actions[actionIndex], close, theme);
+        },
+        child: Semantics(
+          button: true,
+          label: context.l10n.chatMessageToggleTimeFormat,
+          child: GestureDetector(
             onTap: _toggleTimeFormat,
             child: Padding(
               padding: EdgeInsets.fromLTRB(14, topPadding, 14, bottomPadding),
@@ -490,11 +514,19 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 4),
                             child: _ReplyQuote(
-                              authorName: widget.authorMap?[widget.message.replyToAuthorId]?.name
-                                  ?? widget.message.replyToAuthorId
-                                  ?? context.l10n.unknown,
+                              authorName:
+                                  widget
+                                      .authorMap?[widget
+                                          .message
+                                          .replyToAuthorId]
+                                      ?.name ??
+                                  widget.message.replyToAuthorId ??
+                                  context.l10n.unknown,
                               content: widget.message.replyToContent ?? '',
-                              authorColor: _replyAuthorColor(widget.message.replyToAuthorId, theme),
+                              authorColor: _replyAuthorColor(
+                                widget.message.replyToAuthorId,
+                                theme,
+                              ),
                               isDeleted: widget.message.replyToContent == null,
                               onTap: widget.onScrollToReply,
                             ),
@@ -519,7 +551,9 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                                 Text(
                                   timeText,
                                   style: theme.textTheme.labelMedium?.copyWith(
-                                    color: metaTextColor.withValues(alpha: 0.88),
+                                    color: metaTextColor.withValues(
+                                      alpha: 0.88,
+                                    ),
                                     fontWeight: FontWeight.w500,
                                     fontSize: 11,
                                     height: 1.0,
@@ -528,12 +562,15 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                                 if (widget.message.editedAt != null)
                                   Text(
                                     context.l10n.chatMessageEdited,
-                                    style: theme.textTheme.labelMedium?.copyWith(
-                                      color: metaTextColor.withValues(alpha: 0.7),
-                                      fontStyle: FontStyle.italic,
-                                      fontSize: 11,
-                                      height: 1.0,
-                                    ),
+                                    style: theme.textTheme.labelMedium
+                                        ?.copyWith(
+                                          color: metaTextColor.withValues(
+                                            alpha: 0.7,
+                                          ),
+                                          fontStyle: FontStyle.italic,
+                                          fontSize: 11,
+                                          height: 1.0,
+                                        ),
                                   ),
                               ],
                             ),
@@ -569,7 +606,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
             ),
           ),
         ),
-        ),
+      ),
     );
 
     if (disableAnimations) {
@@ -668,19 +705,26 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       voicePlaybackProvider.select((s) => s.activeMediaId == mediaId),
     );
     final isPlaying = ref.watch(
-      voicePlaybackProvider.select((s) => s.activeMediaId == mediaId && s.isPlaying),
+      voicePlaybackProvider.select(
+        (s) => s.activeMediaId == mediaId && s.isPlaying,
+      ),
     );
     final progress = ref.watch(
       voicePlaybackProvider.select((s) {
-        if (s.activeMediaId != mediaId || s.duration.inMilliseconds <= 0) return 0.0;
+        if (s.activeMediaId != mediaId || s.duration.inMilliseconds <= 0)
+          return 0.0;
         return s.position.inMilliseconds / s.duration.inMilliseconds;
       }),
     );
     final speed = ref.watch(
-      voicePlaybackProvider.select((s) => s.activeMediaId == mediaId ? s.speed : 1.0),
+      voicePlaybackProvider.select(
+        (s) => s.activeMediaId == mediaId ? s.speed : 1.0,
+      ),
     );
     final hasPlaybackError = ref.watch(
-      voicePlaybackProvider.select((s) => s.activeMediaId == mediaId && s.error != null),
+      voicePlaybackProvider.select(
+        (s) => s.activeMediaId == mediaId && s.error != null,
+      ),
     );
 
     return VoiceBubble(
@@ -692,8 +736,8 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       hasError: mediaAsync.hasError || hasPlaybackError,
       onPlayPause: mediaAsync.value != null
           ? () => ref
-              .read(voicePlaybackProvider.notifier)
-              .togglePlayPause(attachment.mediaId, mediaAsync.value!)
+                .read(voicePlaybackProvider.notifier)
+                .togglePlayPause(attachment.mediaId, mediaAsync.value!)
           : null,
       onRetry: mediaAsync.hasError
           ? () => ref.invalidate(mediaAudioFileProvider(params))
@@ -736,15 +780,31 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
 
   Widget _buildGifAttachment(MediaAttachment attachment) {
     final gifEnabled = ref.watch(gifRenderingEnabledProvider);
+    final consent = ref.watch(gifConsentStateProvider);
+    final config = ref.watch(gifServiceConfigProvider).asData?.value;
     return GifBubble(
       sourceUrl: attachment.sourceUrl,
       previewUrl: attachment.previewUrl,
       width: attachment.width > 0 ? attachment.width.toDouble() : null,
       height: attachment.height > 0 ? attachment.height.toDouble() : null,
-      contentDescription:
-          attachment.blurhash.isNotEmpty ? attachment.blurhash : null,
+      contentDescription: attachment.blurhash.isNotEmpty
+          ? attachment.blurhash
+          : null,
       gifEnabled: gifEnabled,
+      onEnableTap: config?.enabled == true && consent != GifConsentState.enabled
+          ? _requestGifConsent
+          : null,
     );
+  }
+
+  Future<void> _requestGifConsent() async {
+    final accepted = await GifConsentDialog.show(context);
+    if (!mounted) return;
+    await ref
+        .read(settingsNotifierProvider.notifier)
+        .updateGifConsentState(
+          accepted ? GifConsentState.enabled : GifConsentState.declined,
+        );
   }
 
   /// Build a TextSpan that renders @[uuid] tokens with member colors.
@@ -772,37 +832,40 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     for (final match in matches) {
       // Plain text before this mention.
       if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: content.substring(lastEnd, match.start),
-          style: baseStyle,
-        ));
+        spans.add(
+          TextSpan(
+            text: content.substring(lastEnd, match.start),
+            style: baseStyle,
+          ),
+        );
       }
 
       final memberId = match.group(1)!;
       final member = authorMap?[memberId];
       final name = member?.name ?? context.l10n.unknown;
       final mentionColor =
-          (member != null && member.customColorEnabled && member.customColorHex != null)
-              ? AppColors.fromHex(member.customColorHex!)
-              : theme.colorScheme.primary;
+          (member != null &&
+              member.customColorEnabled &&
+              member.customColorHex != null)
+          ? AppColors.fromHex(member.customColorHex!)
+          : theme.colorScheme.primary;
 
-      spans.add(TextSpan(
-        text: '@$name',
-        style: baseStyle?.copyWith(
-          color: mentionColor,
-          fontWeight: FontWeight.w600,
+      spans.add(
+        TextSpan(
+          text: '@$name',
+          style: baseStyle?.copyWith(
+            color: mentionColor,
+            fontWeight: FontWeight.w600,
+          ),
         ),
-      ));
+      );
 
       lastEnd = match.end;
     }
 
     // Trailing plain text.
     if (lastEnd < content.length) {
-      spans.add(TextSpan(
-        text: content.substring(lastEnd),
-        style: baseStyle,
-      ));
+      spans.add(TextSpan(text: content.substring(lastEnd), style: baseStyle));
     }
 
     return TextSpan(children: spans);
@@ -859,8 +922,8 @@ class _ReplyQuote extends StatelessWidget {
       child: GestureDetector(
         onTap: isDeleted ? null : onTap,
         child: Row(
-            children: [
-              Expanded(
+          children: [
+            Expanded(
               child: Container(
                 decoration: !isDeleted
                     ? BoxDecoration(
@@ -869,43 +932,48 @@ class _ReplyQuote extends StatelessWidget {
                         ),
                       )
                     : null,
-                padding: !isDeleted ? const EdgeInsets.only(left: 6) : EdgeInsets.zero,
+                padding: !isDeleted
+                    ? const EdgeInsets.only(left: 6)
+                    : EdgeInsets.zero,
                 child: TintedGlassSurface(
-                tint: isDeleted ? null : authorColor,
-                borderRadius: BorderRadius.circular(12),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: isDeleted
-                    ? Text(
-                        context.l10n.chatReplyQuoteDeleted,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.6),
-                          fontStyle: FontStyle.italic,
+                  tint: isDeleted ? null : authorColor,
+                  borderRadius: BorderRadius.circular(12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: isDeleted
+                      ? Text(
+                          context.l10n.chatReplyQuoteDeleted,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.6),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              authorName,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: authorColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              content,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            authorName,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: authorColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            content,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
                 ),
               ),
             ),

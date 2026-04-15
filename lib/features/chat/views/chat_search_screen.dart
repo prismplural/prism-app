@@ -109,13 +109,13 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                                 onChanged: _onQueryChanged,
                               ),
                             ),
-                            if (_controller.text.isNotEmpty)
-                              Semantics(
-                                button: true,
-                                label: 'Clear search',
-                                child: GestureDetector(
-                                  onTap: () {
-                                    _controller.clear();
+                             if (_controller.text.isNotEmpty)
+                               Semantics(
+                                 button: true,
+                                 label: context.l10n.chatSearchClear,
+                                 child: GestureDetector(
+                                   onTap: () {
+                                     _controller.clear();
                                     ref
                                         .read(chatSearchQueryProvider.notifier)
                                         .set('');

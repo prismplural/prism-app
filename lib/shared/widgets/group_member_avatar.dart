@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -91,12 +92,12 @@ class GroupMemberAvatar extends StatelessWidget {
             Positioned(
               top: offset * 0.3,
               left: offset * 0.3,
-              child: _miniAvatar(visible[0], dualSize, dpr),
+                child: _miniAvatar(context, visible[0], dualSize, dpr),
             ),
             Positioned(
               bottom: offset * 0.3,
               right: offset * 0.3,
-              child: _miniAvatar(visible[1], dualSize, dpr),
+                child: _miniAvatar(context, visible[1], dualSize, dpr),
             ),
           ],
         );
@@ -107,11 +108,11 @@ class GroupMemberAvatar extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _miniAvatar(visible[0], itemSize * 0.9, dpr),
-                _miniAvatar(visible[1], itemSize * 0.9, dpr),
+                _miniAvatar(context, visible[0], itemSize * 0.9, dpr),
+                _miniAvatar(context, visible[1], itemSize * 0.9, dpr),
               ],
             ),
-            _miniAvatar(visible[2], itemSize * 0.9, dpr),
+            _miniAvatar(context, visible[2], itemSize * 0.9, dpr),
           ],
         );
       case 4:
@@ -121,15 +122,15 @@ class GroupMemberAvatar extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _miniAvatar(visible[0], itemSize * 0.85, dpr),
-                _miniAvatar(visible[1], itemSize * 0.85, dpr),
+                _miniAvatar(context, visible[0], itemSize * 0.85, dpr),
+                _miniAvatar(context, visible[1], itemSize * 0.85, dpr),
               ],
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _miniAvatar(visible[2], itemSize * 0.85, dpr),
-                _miniAvatar(visible[3], itemSize * 0.85, dpr),
+                _miniAvatar(context, visible[2], itemSize * 0.85, dpr),
+                _miniAvatar(context, visible[3], itemSize * 0.85, dpr),
               ],
             ),
           ],
@@ -140,6 +141,7 @@ class GroupMemberAvatar extends StatelessWidget {
   }
 
   Widget _miniAvatar(
+    BuildContext context,
     GroupAvatarMember member,
     double itemSize,
     double devicePixelRatio,
@@ -154,9 +156,9 @@ class GroupMemberAvatar extends StatelessWidget {
           fit: BoxFit.cover,
           cacheWidth: pixelSize,
           cacheHeight: pixelSize,
-          semanticLabel: 'Group member avatar',
+          semanticLabel: context.l10n.groupMemberAvatarSemantics,
           errorBuilder: (_, _, _) =>
-              _miniEmoji(member.emoji, itemSize),
+               _miniEmoji(member.emoji, itemSize),
         ),
       );
     }

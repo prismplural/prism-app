@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
@@ -25,7 +26,7 @@ class MemberComparisonChart extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Fronting Time by Member',
+            context.l10n.statisticsFrontingTimeByMember,
             style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -19,8 +20,8 @@ class AdpInfoScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: const PrismTopBar(
-        title: 'Encryption & Privacy',
+      topBar: PrismTopBar(
+        title: context.l10n.settingsEncryptionPrivacy,
         showBackButton: true,
       ),
       bodyPadding: EdgeInsets.zero,
@@ -39,7 +40,7 @@ class AdpInfoScreen extends StatelessWidget {
 
           // ── Lead ───────────────────────────────────────────────────────────
           Text(
-            'Your data is encrypted on this device with keys only your PIN can unlock.',
+            context.l10n.encryptionPrivacyIntroTitle,
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -49,8 +50,7 @@ class AdpInfoScreen extends StatelessWidget {
 
           // ── Body ───────────────────────────────────────────────────────────
           Text(
-            "Even if someone copies this device's storage, they can't read "
-            'your data without your PIN and recovery phrase.',
+            context.l10n.encryptionPrivacyIntroBody,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -72,9 +72,7 @@ class AdpInfoScreen extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'When sync is enabled, data is encrypted on your device '
-                    'before it leaves. The server only stores encrypted blobs '
-                    'it cannot read.',
+                     context.l10n.encryptionPrivacySyncNote,
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
@@ -90,34 +88,27 @@ class AdpInfoScreen extends StatelessWidget {
               color: theme.colorScheme.primary,
             ),
             title: Text(
-              'How it works',
+              context.l10n.encryptionPrivacyHowItWorks,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
             children: [
-              const _TechItem(
-                title: 'Database encryption',
-                body: 'HKDF-SHA256(DEK, DeviceSecret) — per-device, '
-                    'PIN-derived key. Your device generates this key; '
-                    'no server ever sees it.',
+              _TechItem(
+                title: context.l10n.encryptionPrivacyDatabaseTitle,
+                body: context.l10n.encryptionPrivacyDatabaseBody,
               ),
-              const _TechItem(
-                title: 'Message encryption',
-                body: 'XChaCha20-Poly1305 with per-message keys derived '
-                    'from your Data Encryption Key (DEK).',
+              _TechItem(
+                title: context.l10n.encryptionPrivacyMessageTitle,
+                body: context.l10n.encryptionPrivacyMessageBody,
               ),
-              const _TechItem(
-                title: 'Post-quantum device identity',
-                body: 'ML-KEM-768 (key exchange) and ML-DSA-65 (signatures) '
-                    'protect against future quantum attacks on device '
-                    'authentication.',
+              _TechItem(
+                title: context.l10n.encryptionPrivacyPostQuantumTitle,
+                body: context.l10n.encryptionPrivacyPostQuantumBody,
               ),
-              const _TechItem(
-                title: 'Recovery',
-                body: 'Your 12-word BIP39 recovery phrase re-derives all '
-                    'keys. Store it somewhere safe — it is the only way to '
-                    'recover your data if you lose your PIN.',
+              _TechItem(
+                title: context.l10n.encryptionPrivacyRecoveryTitle,
+                body: context.l10n.encryptionPrivacyRecoveryBody,
               ),
             ],
           ),

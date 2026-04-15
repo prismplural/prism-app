@@ -1,15 +1,23 @@
+import 'dart:ui' show Locale, PlatformDispatcher;
+
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 /// Service that manages habit reminder notifications.
 class HabitNotificationService {
-  HabitNotificationService(this._localService);
+  HabitNotificationService(
+    this._localService, [
+    Locale Function()? localeResolver,
+  ]) : _localeResolver = localeResolver ?? (() => PlatformDispatcher.instance.locale);
 
   final LocalNotificationService _localService;
+  final Locale Function() _localeResolver;
 
   static const _channelId = 'habit_reminders';
   static const _channelName = 'Habit Reminders';
@@ -18,6 +26,8 @@ class HabitNotificationService {
   /// Base notification ID offset for habits (to avoid collision with fronting
   /// notifications which use 1000-2000).
   static const _habitNotificationIdBase = 3000;
+
+  AppLocalizations get _l10n => lookupAppLocalizations(_localeResolver());
 
   /// Schedule notifications for a habit based on its frequency and reminder
   /// time.
@@ -44,8 +54,10 @@ class HabitNotificationService {
       macOS: darwinDetails,
     );
 
-    final title = 'Habit Reminder';
-    final body = habit.notificationMessage ?? 'Time to complete: ${habit.name}';
+    final l10n = _l10n;
+    final title = l10n.habitsReminderNotificationTitle;
+    final body =
+        habit.notificationMessage ?? l10n.habitsReminderNotificationBody(habit.name);
 
     // Cancel all existing IDs for this habit before rescheduling
     await cancelForHabit(habit.id);
@@ -134,5 +146,8 @@ class HabitNotificationService {
 /// Provides the [HabitNotificationService] singleton instance.
 final habitNotificationServiceProvider =
     Provider<HabitNotificationService>((ref) {
-  return HabitNotificationService(ref.watch(localNotificationServiceProvider));
+  return HabitNotificationService(
+    ref.watch(localNotificationServiceProvider),
+    () => ref.read(localeOverrideProvider) ?? PlatformDispatcher.instance.locale,
+  );
 });

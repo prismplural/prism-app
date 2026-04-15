@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -73,8 +74,8 @@ class MemberAvatar extends StatelessWidget {
             cacheHeight: pixelSize,
             fit: BoxFit.cover,
             semanticLabel: memberName != null
-                ? '$memberName avatar'
-                : 'Member avatar',
+                ? context.l10n.memberAvatarSemantics(memberName!)
+                : context.l10n.memberAvatarSemanticsUnnamed,
             color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
             colorBlendMode: dimmed ? BlendMode.modulate : null,
             errorBuilder: (_, _, _) => _centeredEmoji(size),

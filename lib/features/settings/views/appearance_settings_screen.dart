@@ -204,7 +204,7 @@ class _PreviewCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Sample ${terms.singular}',
+                    context.l10n.appearanceSampleMember(terms.singular),
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
