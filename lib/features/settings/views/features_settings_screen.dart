@@ -6,7 +6,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -30,8 +30,7 @@ class FeaturesSettingsScreen extends ConsumerWidget {
         children: [
           PrismSection(
             title: '',
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
+            child: PrismGroupedSectionCard(
               child: Column(
                 children: [
                   _featureRow(

@@ -12,7 +12,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Notes section shown on member detail screen.
@@ -83,7 +83,7 @@ class NotesSection extends ConsumerWidget {
               else
                 SizedBox(
                   width: double.infinity,
-                  child: PrismSectionCard(
+                  child: PrismGroupedSectionCard(
                     child: Column(
                       children: [
                         for (var i = 0; i < notes.length; i++) ...[

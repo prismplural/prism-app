@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
@@ -513,8 +514,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           _SectionHeader('List Rows'),
           const SizedBox(height: 8),
 
-          PrismSectionCard(
-            padding: EdgeInsets.zero,
+          PrismGroupedSectionCard(
             child: Column(
               children: [
                 PrismListRow(
@@ -551,8 +551,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           _SectionHeader('Settings Rows'),
           const SizedBox(height: 8),
 
-          PrismSectionCard(
-            padding: EdgeInsets.zero,
+          PrismGroupedSectionCard(
             child: Column(
               children: [
                 PrismSettingsRow(
