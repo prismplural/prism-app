@@ -1,6 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,7 +25,6 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -87,7 +87,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       return;
     }
 
-    final trigger = detectMentionTrigger(_controller.text, selection.baseOffset);
+    final trigger = detectMentionTrigger(
+      _controller.text,
+      selection.baseOffset,
+    );
     if (trigger == null) {
       _dismissMentionOverlay();
       return;
@@ -104,10 +107,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
 
   List<Member> _getMentionCandidates() {
     final members = ref.read(activeMembersProvider).value ?? [];
-    final conversationAsync =
-        ref.read(conversationByIdProvider(widget.conversationId));
-    final participantIds =
-        conversationAsync.value?.participantIds.toSet();
+    final conversationAsync = ref.read(
+      conversationByIdProvider(widget.conversationId),
+    );
+    final participantIds = conversationAsync.value?.participantIds.toSet();
     return participantIds != null
         ? members.where((m) => participantIds.contains(m.id)).toList()
         : members;
@@ -163,64 +166,13 @@ class _MessageInputState extends ConsumerState<MessageInput> {
 
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      imageQuality: 90,
-    );
+    final picked = await picker.pickImage(source: source, imageQuality: 90);
     if (picked != null) {
       final bytes = await picked.readAsBytes();
       if (mounted) {
         setState(() => _stagedImageBytes = bytes);
       }
     }
-  }
-
-  void _showAttachmentSheet() {
-    final gifEnabled = ref.read(gifSearchEnabledProvider);
-
-    PrismSheet.show(
-      context: context,
-      title: context.l10n.chatAddAttachment,
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PrismListRow(
-            leading: Icon(
-              AppIcons.cameraAlt,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            title: Text(context.l10n.chatCamera),
-            onTap: () {
-              Navigator.of(context).pop();
-              _pickImage(ImageSource.camera);
-            },
-          ),
-          PrismListRow(
-            leading: Icon(
-              AppIcons.photoLibrary,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            title: Text(context.l10n.chatPhotoLibrary),
-            onTap: () {
-              Navigator.of(context).pop();
-              _pickImage(ImageSource.gallery);
-            },
-          ),
-          if (gifEnabled)
-            PrismListRow(
-              leading: Icon(
-                AppIcons.gif,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              title: Text(context.l10n.chatGifsTitle),
-              onTap: () {
-                Navigator.of(context).pop();
-                _showGifPicker();
-              },
-            ),
-        ],
-      ),
-    );
   }
 
   Future<void> _showGifPicker() async {
@@ -237,32 +189,36 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     setState(() => _isSending = true);
 
     try {
-      final messageId = await ref.read(chatNotifierProvider.notifier).sendMessage(
+      final messageId = await ref
+          .read(chatNotifierProvider.notifier)
+          .sendMessage(
             conversationId: widget.conversationId,
             content: '',
             authorId: speakingAs,
           );
 
       final repo = ref.read(mediaAttachmentRepositoryProvider);
-      await repo.create(media.MediaAttachment(
-        id: const Uuid().v4(),
-        messageId: messageId,
-        mediaId: '',
-        mediaType: 'gif',
-        encryptionKeyB64: '',
-        contentHash: '',
-        plaintextHash: '',
-        mimeType: 'video/mp4',
-        sizeBytes: 0,
-        width: gif.width,
-        height: gif.height,
-        durationMs: 0,
-        blurhash: gif.contentDescription,
-        waveformB64: '',
-        thumbnailMediaId: '',
-        sourceUrl: gif.mp4Url,
-        previewUrl: gif.previewUrl,
-      ));
+      await repo.create(
+        media.MediaAttachment(
+          id: const Uuid().v4(),
+          messageId: messageId,
+          mediaId: '',
+          mediaType: 'gif',
+          encryptionKeyB64: '',
+          contentHash: '',
+          plaintextHash: '',
+          mimeType: 'video/mp4',
+          sizeBytes: 0,
+          width: gif.width,
+          height: gif.height,
+          durationMs: 0,
+          blurhash: gif.contentDescription,
+          waveformB64: '',
+          thumbnailMediaId: '',
+          sourceUrl: gif.mp4Url,
+          previewUrl: gif.previewUrl,
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isSending = false);
     }
@@ -284,7 +240,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
 
     try {
       // Send the text message (or empty content placeholder if image-only).
-      final messageId = await ref.read(chatNotifierProvider.notifier).sendMessage(
+      final messageId = await ref
+          .read(chatNotifierProvider.notifier)
+          .sendMessage(
             conversationId: widget.conversationId,
             content: text.isNotEmpty ? text : '',
             authorId: speakingAs,
@@ -298,30 +256,36 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         final repo = ref.read(mediaAttachmentRepositoryProvider);
         final data = await mediaService.prepareImage(imageBytes);
 
-        await repo.create(media.MediaAttachment(
-          id: const Uuid().v4(),
-          messageId: messageId,
-          mediaId: data.mediaId,
-          mediaType: 'image',
-          encryptionKeyB64: base64Encode(data.encryptionKey),
-          contentHash: data.contentHash,
-          plaintextHash: data.plaintextHash,
-          mimeType: data.mimeType,
-          sizeBytes: data.sizeBytes,
-          width: data.width,
-          height: data.height,
-          durationMs: 0,
-          blurhash: data.blurhash,
-          waveformB64: '',
-          thumbnailMediaId: data.thumbnailMediaId,
-          sourceUrl: '',
-          previewUrl: '',
-        ));
+        await repo.create(
+          media.MediaAttachment(
+            id: const Uuid().v4(),
+            messageId: messageId,
+            mediaId: data.mediaId,
+            mediaType: 'image',
+            encryptionKeyB64: base64Encode(data.encryptionKey),
+            contentHash: data.contentHash,
+            plaintextHash: data.plaintextHash,
+            mimeType: data.mimeType,
+            sizeBytes: data.sizeBytes,
+            width: data.width,
+            height: data.height,
+            durationMs: 0,
+            blurhash: data.blurhash,
+            waveformB64: '',
+            thumbnailMediaId: data.thumbnailMediaId,
+            sourceUrl: '',
+            previewUrl: '',
+          ),
+        );
 
         try {
           await mediaService.uploadPreparedOrThrow(data);
         } catch (_) {
-          if (mounted) PrismToast.error(context, message: context.l10n.chatImageUploadFailed);
+          if (mounted)
+            PrismToast.error(
+              context,
+              message: context.l10n.chatImageUploadFailed,
+            );
         }
       }
 
@@ -341,8 +305,15 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     }
   }
 
-  Future<void> _sendVoiceNote(Uint8List audioBytes, int durationMs, String waveformB64) async {
-    setState(() { _isRecording = false; _isSending = true; });
+  Future<void> _sendVoiceNote(
+    Uint8List audioBytes,
+    int durationMs,
+    String waveformB64,
+  ) async {
+    setState(() {
+      _isRecording = false;
+      _isSending = true;
+    });
 
     final speakingAs = ref.read(speakingAsProvider);
     if (speakingAs == null) {
@@ -354,40 +325,52 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       // Prepare attachment before creating message so a failed encryption
       // doesn't leave an orphaned empty message bubble in chat.
       final mediaService = ref.read(mediaServiceProvider);
-      final data = await mediaService.prepareVoiceNote(audioBytes, durationMs, waveformB64);
-
-      final messageId = await ref.read(chatNotifierProvider.notifier).sendMessage(
-        conversationId: widget.conversationId,
-        content: '',
-        authorId: speakingAs,
+      final data = await mediaService.prepareVoiceNote(
+        audioBytes,
+        durationMs,
+        waveformB64,
       );
+
+      final messageId = await ref
+          .read(chatNotifierProvider.notifier)
+          .sendMessage(
+            conversationId: widget.conversationId,
+            content: '',
+            authorId: speakingAs,
+          );
 
       final repo = ref.read(mediaAttachmentRepositoryProvider);
 
-      await repo.create(media.MediaAttachment(
-        id: const Uuid().v4(),
-        messageId: messageId,
-        mediaId: data.mediaId,
-        mediaType: 'voice',
-        encryptionKeyB64: base64Encode(data.encryptionKey),
-        contentHash: data.contentHash,
-        plaintextHash: data.plaintextHash,
-        mimeType: data.mimeType,
-        sizeBytes: data.sizeBytes,
-        width: 0,
-        height: 0,
-        durationMs: data.durationMs,
-        blurhash: '',
-        waveformB64: data.waveformB64,
-        thumbnailMediaId: '',
-        sourceUrl: '',
-        previewUrl: '',
-      ));
+      await repo.create(
+        media.MediaAttachment(
+          id: const Uuid().v4(),
+          messageId: messageId,
+          mediaId: data.mediaId,
+          mediaType: 'voice',
+          encryptionKeyB64: base64Encode(data.encryptionKey),
+          contentHash: data.contentHash,
+          plaintextHash: data.plaintextHash,
+          mimeType: data.mimeType,
+          sizeBytes: data.sizeBytes,
+          width: 0,
+          height: 0,
+          durationMs: data.durationMs,
+          blurhash: '',
+          waveformB64: data.waveformB64,
+          thumbnailMediaId: '',
+          sourceUrl: '',
+          previewUrl: '',
+        ),
+      );
 
       try {
         await mediaService.uploadVoiceOrThrow(data);
       } catch (_) {
-        if (mounted) PrismToast.error(context, message: context.l10n.chatVoiceNoteUploadFailed);
+        if (mounted)
+          PrismToast.error(
+            context,
+            message: context.l10n.chatVoiceNoteUploadFailed,
+          );
       }
     } finally {
       if (mounted) setState(() => _isSending = false);
@@ -436,7 +419,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     message: replyingTo,
                     memberMap: memberMap,
                     onDismiss: () => ref
-                        .read(replyingToProvider(widget.conversationId).notifier)
+                        .read(
+                          replyingToProvider(widget.conversationId).notifier,
+                        )
                         .clear(),
                   )
                 : const SizedBox.shrink(),
@@ -454,64 +439,65 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                       : context.l10n.chatChooseSpeakingMember,
                   button: true,
                   child: BlurPopupAnchor(
-                  preferredDirection: BlurPopupDirection.up,
-                  itemCount: members.length,
-                  itemBuilder: (context, index, close) {
-                    final member = members[index];
-                    final isSelected = member.id == speakingAs;
-                    return PrismListRow(
-                      dense: true,
-                      leading: MemberAvatar(
-                        avatarImageData: member.avatarImageData,
-                        memberName: member.name,
-                        emoji: member.emoji,
-                        customColorEnabled: member.customColorEnabled,
-                        customColorHex: member.customColorHex,
-                        size: 32,
-                      ),
-                      title: Text(
-                        member.name,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.normal,
-                          color: theme.colorScheme.onSurface,
+                    preferredDirection: BlurPopupDirection.up,
+                    itemCount: members.length,
+                    itemBuilder: (context, index, close) {
+                      final member = members[index];
+                      final isSelected = member.id == speakingAs;
+                      return PrismListRow(
+                        dense: true,
+                        leading: MemberAvatar(
+                          avatarImageData: member.avatarImageData,
+                          memberName: member.name,
+                          emoji: member.emoji,
+                          customColorEnabled: member.customColorEnabled,
+                          customColorHex: member.customColorHex,
+                          size: 32,
                         ),
-                      ),
-                      trailing: isSelected
-                          ? Icon(
-                              AppIcons.check,
-                              size: 18,
-                              color: theme.colorScheme.primary,
-                            )
-                          : null,
-                      onTap: () {
-                        ref
-                            .read(speakingAsProvider.notifier)
-                            .setMember(member.id);
-                        close();
-                      },
-                    );
-                  },
-                  child: currentMember != null
-                      ? MemberAvatar(
-                          avatarImageData: currentMember.avatarImageData,
-                          memberName: currentMember.name,
-                          emoji: currentMember.emoji,
-                          customColorEnabled: currentMember.customColorEnabled,
-                          customColorHex: currentMember.customColorHex,
-                          size: inputHeight,
-                        )
-                      : TintedGlassSurface.circle(
-                          size: inputHeight,
-                          child: Icon(
-                            AppIcons.person,
-                            size: 20,
-                            color: theme.colorScheme.onSurfaceVariant,
+                        title: Text(
+                          member.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
-                ),
+                        trailing: isSelected
+                            ? Icon(
+                                AppIcons.check,
+                                size: 18,
+                                color: theme.colorScheme.primary,
+                              )
+                            : null,
+                        onTap: () {
+                          ref
+                              .read(speakingAsProvider.notifier)
+                              .setMember(member.id);
+                          close();
+                        },
+                      );
+                    },
+                    child: currentMember != null
+                        ? MemberAvatar(
+                            avatarImageData: currentMember.avatarImageData,
+                            memberName: currentMember.name,
+                            emoji: currentMember.emoji,
+                            customColorEnabled:
+                                currentMember.customColorEnabled,
+                            customColorHex: currentMember.customColorHex,
+                            size: inputHeight,
+                          )
+                        : TintedGlassSurface.circle(
+                            size: inputHeight,
+                            child: Icon(
+                              AppIcons.person,
+                              size: 20,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                  ),
                 ),
                 if (_isRecording) ...[
                   const SizedBox(width: 8),
@@ -522,7 +508,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                       child: Icon(
                         AppIcons.add,
                         size: 19,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.55,
+                        ),
                       ),
                     ),
                   ),
@@ -535,16 +523,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                   ),
                 ] else ...[
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _showAttachmentSheet,
-                    child: TintedGlassSurface.circle(
-                      size: inputHeight,
-                      child: Icon(
-                        AppIcons.add,
-                        size: 19,
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-                      ),
-                    ),
+                  AttachmentMenuButton(
+                    gifEnabled: ref.watch(gifSearchEnabledProvider),
+                    size: inputHeight,
+                    onCamera: () => _pickImage(ImageSource.camera),
+                    onPhotoLibrary: () => _pickImage(ImageSource.gallery),
+                    onGif: _showGifPicker,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -559,9 +543,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                         onKeyEvent: _mentionOverlay != null
                             ? (event) {
                                 final consumed =
-                                    _mentionOverlayKey.currentState?.handleKeyEvent(event) ?? false;
+                                    _mentionOverlayKey.currentState
+                                        ?.handleKeyEvent(event) ??
+                                    false;
                                 if (event is KeyDownEvent &&
-                                    event.logicalKey == LogicalKeyboardKey.escape) {
+                                    event.logicalKey ==
+                                        LogicalKeyboardKey.escape) {
                                   _dismissMentionOverlay();
                                   return true;
                                 }
@@ -595,6 +582,87 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       ],
     );
   }
+}
+
+class AttachmentMenuButton extends StatelessWidget {
+  const AttachmentMenuButton({
+    super.key,
+    required this.gifEnabled,
+    required this.size,
+    required this.onCamera,
+    required this.onPhotoLibrary,
+    required this.onGif,
+  });
+
+  final bool gifEnabled;
+  final double size;
+  final VoidCallback onCamera;
+  final VoidCallback onPhotoLibrary;
+  final VoidCallback onGif;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final items = <_AttachmentMenuItem>[
+      _AttachmentMenuItem(
+        icon: AppIcons.cameraAlt,
+        label: context.l10n.chatCamera,
+        onSelected: onCamera,
+      ),
+      _AttachmentMenuItem(
+        icon: AppIcons.photoLibrary,
+        label: context.l10n.chatPhotoLibrary,
+        onSelected: onPhotoLibrary,
+      ),
+      if (gifEnabled)
+        _AttachmentMenuItem(
+          icon: AppIcons.gif,
+          label: context.l10n.chatGifsTitle,
+          onSelected: onGif,
+        ),
+    ];
+
+    return BlurPopupAnchor(
+      preferredDirection: BlurPopupDirection.up,
+      itemCount: items.length,
+      semanticLabel: context.l10n.chatAddAttachment,
+      itemBuilder: (context, index, close) {
+        final item = items[index];
+        return PrismListRow(
+          dense: true,
+          leading: Icon(
+            item.icon,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          title: Text(item.label),
+          onTap: () {
+            close();
+            item.onSelected();
+          },
+        );
+      },
+      child: TintedGlassSurface.circle(
+        size: size,
+        child: Icon(
+          AppIcons.add,
+          size: 19,
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttachmentMenuItem {
+  const _AttachmentMenuItem({
+    required this.icon,
+    required this.label,
+    required this.onSelected,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onSelected;
 }
 
 /// A pill-shaped text field with glass-style fill and border, built natively
@@ -653,8 +721,8 @@ class _GlassTextField extends StatelessWidget {
 
     final fillColor = isDark
         ? (isOled
-            ? AppColors.warmWhite.withValues(alpha: 0.08)
-            : AppColors.warmWhite.withValues(alpha: 0.08))
+              ? AppColors.warmWhite.withValues(alpha: 0.08)
+              : AppColors.warmWhite.withValues(alpha: 0.08))
         : AppColors.warmWhite.withValues(alpha: 0.65);
 
     final borderColor = isDark
@@ -678,14 +746,12 @@ class _GlassTextField extends StatelessWidget {
       minLines: 1,
       maxLines: 6,
       // On phones, show the send action on the soft keyboard
-      textInputAction:
-          useHardwareShortcuts ? TextInputAction.newline : TextInputAction.send,
+      textInputAction: useHardwareShortcuts
+          ? TextInputAction.newline
+          : TextInputAction.send,
       cursorColor: theme.colorScheme.primary,
       textAlignVertical: TextAlignVertical.top,
-      style: theme.textTheme.bodyLarge?.copyWith(
-        fontSize: 15.5,
-        height: 1.2,
-      ),
+      style: theme.textTheme.bodyLarge?.copyWith(fontSize: 15.5, height: 1.2),
       decoration: InputDecoration(
         hintText: context.l10n.chatMessagePlaceholder,
         hintStyle: theme.textTheme.bodyLarge?.copyWith(
@@ -697,10 +763,7 @@ class _GlassTextField extends StatelessWidget {
         border: roundedBorder,
         enabledBorder: roundedBorder,
         focusedBorder: roundedBorder,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 8,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         isDense: true,
       ),
       onChanged: onChanged,
@@ -733,7 +796,8 @@ class _GlassTextField extends StatelessWidget {
             return KeyEventResult.ignored;
           }
 
-          final isModified = HardwareKeyboard.instance.isControlPressed ||
+          final isModified =
+              HardwareKeyboard.instance.isControlPressed ||
               HardwareKeyboard.instance.isMetaPressed ||
               HardwareKeyboard.instance.isShiftPressed;
 
@@ -778,68 +842,69 @@ class _SendButtonState extends State<_SendButton> {
     final primary = theme.colorScheme.primary;
 
     return Semantics(
-      label: widget.canSend ? context.l10n.chatSendMessage : context.l10n.chatSendMessageDisabled,
+      label: widget.canSend
+          ? context.l10n.chatSendMessage
+          : context.l10n.chatSendMessageDisabled,
       button: true,
       enabled: widget.canSend,
       child: GestureDetector(
-      onTapDown: widget.canSend ? (_) => setState(() => _pressed = true) : null,
-      onTapUp: widget.canSend
-          ? (_) {
-              setState(() => _pressed = false);
-              widget.onPressed();
-            }
-          : null,
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.9 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: AnimatedCrossFade(
-          duration: const Duration(milliseconds: 250),
-          sizeCurve: Curves.easeInOut,
-          firstCurve: Curves.easeOut,
-          secondCurve: Curves.easeOut,
-          crossFadeState: widget.canSend
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          layoutBuilder: (top, topKey, bottom, bottomKey) {
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned(key: bottomKey, child: bottom),
-                Positioned(key: topKey, child: top),
-              ],
-            );
-          },
-          // Idle: plain glass, no tint
-          firstChild: TintedGlassSurface.circle(
-            size: widget.size,
-            child: Icon(
-              AppIcons.arrowUpwardRounded,
-              size: 19,
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+        onTapDown: widget.canSend
+            ? (_) => setState(() => _pressed = true)
+            : null,
+        onTapUp: widget.canSend
+            ? (_) {
+                setState(() => _pressed = false);
+                widget.onPressed();
+              }
+            : null,
+        onTapCancel: () => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: _pressed ? 0.9 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: AnimatedCrossFade(
+            duration: const Duration(milliseconds: 250),
+            sizeCurve: Curves.easeInOut,
+            firstCurve: Curves.easeOut,
+            secondCurve: Curves.easeOut,
+            crossFadeState: widget.canSend
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            layoutBuilder: (top, topKey, bottom, bottomKey) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(key: bottomKey, child: bottom),
+                  Positioned(key: topKey, child: top),
+                ],
+              );
+            },
+            // Idle: plain glass, no tint
+            firstChild: TintedGlassSurface.circle(
+              size: widget.size,
+              child: Icon(
+                AppIcons.arrowUpwardRounded,
+                size: 19,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+              ),
             ),
+            // Ready: primary-tinted glass with accent icon
+            secondChild: widget.isSending
+                ? TintedGlassSurface.circle(
+                    size: widget.size,
+                    tint: primary,
+                    child: PrismSpinner(color: primary, size: 18),
+                  )
+                : TintedGlassSurface.circle(
+                    size: widget.size,
+                    tint: primary,
+                    child: Icon(
+                      AppIcons.arrowUpwardRounded,
+                      size: 19,
+                      color: primary,
+                    ),
+                  ),
           ),
-          // Ready: primary-tinted glass with accent icon
-          secondChild: widget.isSending
-              ? TintedGlassSurface.circle(
-                  size: widget.size,
-                  tint: primary,
-                  child: PrismSpinner(
-                    color: primary,
-                    size: 18,
-                  ),
-                )
-              : TintedGlassSurface.circle(
-                  size: widget.size,
-                  tint: primary,
-                  child: Icon(
-                    AppIcons.arrowUpwardRounded,
-                    size: 19,
-                    color: primary,
-                  ),
-                ),
         ),
-      ),
       ),
     );
   }
@@ -887,11 +952,13 @@ class _ReplyBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final author = message.authorId != null ? memberMap[message.authorId] : null;
+    final author = message.authorId != null
+        ? memberMap[message.authorId]
+        : null;
     final authorColor =
         (author?.customColorEnabled == true && author?.customColorHex != null)
-            ? AppColors.fromHex(author!.customColorHex!)
-            : theme.colorScheme.primary;
+        ? AppColors.fromHex(author!.customColorHex!)
+        : theme.colorScheme.primary;
 
     final fillColor = isDark
         ? AppColors.warmWhite.withValues(alpha: 0.08)
