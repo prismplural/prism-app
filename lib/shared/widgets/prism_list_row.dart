@@ -19,6 +19,7 @@ class PrismListRow extends StatefulWidget {
     this.destructive = false,
     this.dense = false,
     this.showChevron = false,
+    this.selected,
   });
 
   final Widget title;
@@ -32,6 +33,7 @@ class PrismListRow extends StatefulWidget {
   final bool destructive;
   final bool dense;
   final bool showChevron;
+  final bool? selected;
 
   @override
   State<PrismListRow> createState() => _PrismListRowState();
@@ -152,6 +154,7 @@ class _PrismListRowState extends State<PrismListRow> {
     return Semantics(
       button: true,
       enabled: widget.enabled,
+      selected: widget.selected,
       hint: widget.destructive ? context.l10n.destructiveAction : null,
       child: row,
     );

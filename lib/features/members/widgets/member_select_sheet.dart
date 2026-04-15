@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -20,12 +22,17 @@ class MemberSelectSheet extends ConsumerWidget {
     this.currentMemberId,
   });
 
+  static const double _kSheetBodyHeightFactor = 0.45;
+
   final String? currentMemberId;
 
   /// Show the member selection sheet and return the chosen member ID.
   ///
   /// Returns `''` if the user chose "None", the member ID if a member was
   /// tapped, or `null` if the sheet was dismissed without selection.
+  ///
+  /// The sheet opens with a fixed-height scrolling body so longer lists stay
+  /// scrollable without becoming full-screen.
   static Future<String?> show(
     BuildContext context, {
     String? currentMemberId,
@@ -33,7 +40,10 @@ class MemberSelectSheet extends ConsumerWidget {
     return PrismSheet.show<String>(
       context: context,
       title: context.l10n.memberNoteChooseHeadmate,
-      builder: (_) => MemberSelectSheet(currentMemberId: currentMemberId),
+      builder: (sheetContext) => SizedBox(
+        height: MediaQuery.sizeOf(sheetContext).height * _kSheetBodyHeightFactor,
+        child: MemberSelectSheet(currentMemberId: currentMemberId),
+      ),
     );
   }
 
@@ -46,48 +56,68 @@ class MemberSelectSheet extends ConsumerWidget {
     return membersAsync.when(
       loading: () => const PrismLoadingState(),
       error: (_, _) => Center(
-        child: Text('Failed to load ${terminology.pluralLower}'),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text('Failed to load ${terminology.pluralLower}'),
+        ),
       ),
-      data: (members) => ListView.builder(
-        shrinkWrap: true,
-        itemCount: members.length + 1,
-        itemBuilder: (context, index) {
-          // "None" option at the top.
-          if (index == 0) {
-            return PrismListRow(
-              leading: SizedBox(
-                width: 36,
-                height: 36,
-                child: Icon(AppIcons.close),
-              ),
-              title: Text(l10n.memberSelectNone),
-              trailing: currentMemberId == null || currentMemberId!.isEmpty
-                  ? Icon(AppIcons.check)
-                  : null,
-              onTap: () => Navigator.of(context).pop(''),
-            );
-          }
-
-          final member = members[index - 1];
-          final isSelected = member.id == currentMemberId;
-
-          return PrismListRow(
-            leading: MemberAvatar(
-              avatarImageData: member.avatarImageData,
-              memberName: member.name,
-              emoji: member.emoji,
-              customColorEnabled: member.customColorEnabled,
-              customColorHex: member.customColorHex,
-              size: 36,
+      data: (members) {
+        if (members.isEmpty) {
+          return EmptyState(
+            icon: Icon(AppIcons.people),
+            title: l10n.noMembersFound(terminology.pluralLower),
+            subtitle: l10n.terminologyAddFirstSubtitle(
+              terminology.singularLower,
             ),
-            title: Text(member.name),
-            subtitle:
-                member.pronouns != null ? Text(member.pronouns!) : null,
-            trailing: isSelected ? Icon(AppIcons.check) : null,
-            onTap: () => Navigator.of(context).pop(member.id),
           );
-        },
-      ),
+        }
+
+        // "None" row + one row per member — no shrinkWrap; height is bounded
+        // by the explicit body height in show().
+        return PrismSectionCard(
+          padding: EdgeInsets.zero,
+          child: ListView.builder(
+            itemCount: members.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                final noneSelected =
+                    currentMemberId == null || currentMemberId!.isEmpty;
+                return PrismListRow(
+                  selected: noneSelected,
+                  leading: SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Icon(AppIcons.removeCircleOutline),
+                  ),
+                  title: Text(l10n.memberSelectNone),
+                  trailing: noneSelected ? Icon(AppIcons.check) : null,
+                  onTap: () => Navigator.of(context).pop(''),
+                );
+              }
+
+              final member = members[index - 1];
+              final isSelected = member.id == currentMemberId;
+
+              return PrismListRow(
+                selected: isSelected,
+                leading: MemberAvatar(
+                  avatarImageData: member.avatarImageData,
+                  memberName: member.name,
+                  emoji: member.emoji,
+                  customColorEnabled: member.customColorEnabled,
+                  customColorHex: member.customColorHex,
+                  size: 36,
+                ),
+                title: Text(member.name),
+                subtitle:
+                    member.pronouns != null ? Text(member.pronouns!) : null,
+                trailing: isSelected ? Icon(AppIcons.check) : null,
+                onTap: () => Navigator.of(context).pop(member.id),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

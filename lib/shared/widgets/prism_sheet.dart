@@ -36,6 +36,10 @@ class PrismSheet extends StatelessWidget {
   /// If [title], [subtitle], or [actions] are provided they are composed into a
   /// [PrismSheet] container around the [builder] output. Otherwise the [builder]
   /// result is used directly.
+  ///
+  /// Use [minHeightFactor] and [maxHeightFactor] (fractions of screen height,
+  /// 0.0–1.0) to bound sheet height for scrollable list-style sheets. When
+  /// omitted the sheet sizes to its natural content height.
   static Future<T?> show<T>({
     required BuildContext context,
     required WidgetBuilder builder,
@@ -44,6 +48,8 @@ class PrismSheet extends StatelessWidget {
     List<Widget>? actions,
     bool useRootNavigator = true,
     bool isDismissible = true,
+    double? minHeightFactor,
+    double? maxHeightFactor,
   }) {
     return showModalBottomSheet<T>(
       context: context,
@@ -52,27 +58,40 @@ class PrismSheet extends StatelessWidget {
       useSafeArea: true,
       isDismissible: isDismissible,
       enableDrag: isDismissible,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
+      // Suppress the stock M3 drag handle — _SheetChrome renders its own.
+      showDragHandle: false,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(PrismTokens.radiusLarge),
         ),
       ),
       builder: (sheetContext) {
-        final content = builder(sheetContext);
+        Widget content = builder(sheetContext);
 
-        if (title == null && subtitle == null && actions == null) {
-          return _SheetChrome(child: content);
-        }
-
-        return _SheetChrome(
-          child: PrismSheet(
+        if (title != null || subtitle != null || actions != null) {
+          content = PrismSheet(
             title: title,
             subtitle: subtitle,
             actions: actions,
             child: content,
-          ),
-        );
+          );
+        }
+
+        content = _SheetChrome(child: content);
+
+        if (minHeightFactor != null || maxHeightFactor != null) {
+          final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+          content = ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: screenHeight * (minHeightFactor ?? 0.0),
+              maxHeight: screenHeight * (maxHeightFactor ?? 1.0),
+            ),
+            child: content,
+          );
+        }
+
+        return content;
       },
     );
   }
@@ -102,7 +121,7 @@ class PrismSheet extends StatelessWidget {
       // gesture detectors.
       enableDrag: false,
       showDragHandle: false,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(PrismTokens.radiusLarge),
@@ -134,6 +153,8 @@ class PrismSheet extends StatelessWidget {
           if (title != null) ...[
             Text(
               title!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -241,12 +262,14 @@ class _SheetChrome extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         const SizedBox(height: 8),
-        Container(
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
-            borderRadius: BorderRadius.circular(2),
+        ExcludeSemantics(
+          child: Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ),
         const SizedBox(height: 8),
