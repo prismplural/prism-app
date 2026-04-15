@@ -6,7 +6,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -27,8 +27,7 @@ class ResetDataScreen extends ConsumerWidget {
           PrismSection(
             title: context.l10n.resetDataCategoriesSection,
             description: context.l10n.resetDataCategoriesDescription,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
+            child: PrismGroupedSectionCard(
               child: Column(
                 children: [
                   for (var i = 0; i < _granularCategories.length; i++) ...[
@@ -48,8 +47,7 @@ class ResetDataScreen extends ConsumerWidget {
           ),
           PrismSection(
             title: context.l10n.resetDataDangerZone,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
+            child: PrismGroupedSectionCard(
               child: Column(
                 children: [
                   _buildResetRow(

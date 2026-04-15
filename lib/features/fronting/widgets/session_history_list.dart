@@ -26,7 +26,7 @@ import 'package:prism_plurality/shared/widgets/group_member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/date_chip.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 
@@ -141,8 +141,7 @@ class _DayGroupWidget extends StatelessWidget {
         // Sessions card
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: PrismSectionCard(
-            padding: EdgeInsets.zero,
+          child: PrismGroupedSectionCard(
             child: Column(
               children: [
                 for (var i = 0; i < group.sessions.length; i++) ...[

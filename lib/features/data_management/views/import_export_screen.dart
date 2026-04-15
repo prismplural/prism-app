@@ -7,7 +7,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
@@ -29,8 +29,7 @@ class ImportExportScreen extends ConsumerWidget {
         children: [
           PrismSection(
             title: context.l10n.dataManagementExportSectionTitle,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
+            child: PrismGroupedSectionCard(
               child: PrismSettingsRow(
                 icon: AppIcons.uploadOutlined,
                 iconColor: Colors.blue,
@@ -42,8 +41,7 @@ class ImportExportScreen extends ConsumerWidget {
           ),
           PrismSection(
             title: context.l10n.dataManagementImportSectionTitle,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
+            child: PrismGroupedSectionCard(
               child: PrismSettingsRow(
                 icon: AppIcons.downloadOutlined,
                 iconColor: Colors.green,
@@ -55,8 +53,7 @@ class ImportExportScreen extends ConsumerWidget {
           ),
           PrismSection(
             title: context.l10n.dataManagementImportFromOtherApps,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
+            child: PrismGroupedSectionCard(
               child: Column(
                 children: [
                   PrismSettingsRow(

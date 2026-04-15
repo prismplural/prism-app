@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -237,7 +238,7 @@ class SettingsScreen extends ConsumerWidget {
 
     return PrismSection(
       title: title,
-      child: PrismSectionCard(child: Column(children: children)),
+      child: PrismGroupedSectionCard(child: Column(children: children)),
     );
   }
 
