@@ -18,14 +18,14 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
     this.trailing,
     this.actions,
     this.titleStyle,
-    this.height = PrismTokens.topBarHeight,
+    this.height = kToolbarHeight,
     this.horizontalPadding = PrismTokens.topBarPadding,
     this.centerTitle = true,
     this.showBackButton = false,
   }) : assert(
-          trailing == null || actions == null,
-          'Use either trailing or actions, not both',
-        );
+         trailing == null || actions == null,
+         'Use either trailing or actions, not both',
+       );
 
   final String title;
   final String? subtitle;
@@ -53,7 +53,8 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveLeading = leading ??
+    final effectiveLeading =
+        leading ??
         (showBackButton
             ? PrismTopBarAction(
                 icon: AppIcons.arrowBack,
@@ -178,10 +179,12 @@ class _TitleBlock extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: alignment,
-            style: titleStyle ?? theme.textTheme.headlineLarge?.copyWith(
-              fontSize: isDesktop ? 18 : 22,
-              height: 1,
-            ),
+            style:
+                titleStyle ??
+                theme.textTheme.headlineLarge?.copyWith(
+                  fontSize: isDesktop ? 18 : 22,
+                  height: 1,
+                ),
           ),
         ),
         if (subtitle != null) ...[

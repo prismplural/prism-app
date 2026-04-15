@@ -94,19 +94,7 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     super.initState();
     // Auto-select voting-as member: prefer current fronter, fall back to first active member.
     ref.listenManual(activeMembersProvider, (_, next) {
-      final members = next.value;
-      if (members != null &&
-          members.isNotEmpty &&
-          ref.read(votingAsProvider) == null) {
-        final fronter = ref.read(activeSessionProvider).value;
-        final fronterId = fronter?.memberId;
-        // Use the current fronter if they are in the active members list.
-        final defaultId =
-            (fronterId != null && members.any((m) => m.id == fronterId))
-            ? fronterId
-            : members.first.id;
-        ref.read(votingAsProvider.notifier).setMember(defaultId);
-      }
+      _queueDefaultVotingAs(next.value);
     }, fireImmediately: true);
   }
 
@@ -127,6 +115,22 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
       0,
       (sum, option) => sum + option.votes.length,
     );
+  }
+
+  void _queueDefaultVotingAs(List<Member>? members) {
+    if (members == null || members.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ref.read(votingAsProvider) != null) return;
+
+      final fronter = ref.read(activeSessionProvider).value;
+      final fronterId = fronter?.memberId;
+      final defaultId =
+          (fronterId != null && members.any((m) => m.id == fronterId))
+          ? fronterId
+          : members.first.id;
+      ref.read(votingAsProvider.notifier).setMember(defaultId);
+    });
   }
 
   /// Whether results (progress bars, percentages, vote counts, voter names)
@@ -151,7 +155,9 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     if (votingAs == null) {
       PrismToast.show(
         context,
-        message: context.l10n.pollsVotingAsSelectPrompt(readTerminology(context, ref).singularLower),
+        message: context.l10n.pollsVotingAsSelectPrompt(
+          readTerminology(context, ref).singularLower,
+        ),
       );
       return;
     }
@@ -187,7 +193,10 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
       }
 
       if (mounted) {
-        PrismToast.show(context, message: context.l10n.pollsDetailVoteSubmitted);
+        PrismToast.show(
+          context,
+          message: context.l10n.pollsDetailVoteSubmitted,
+        );
         setState(() {
           _isSubmitting = false;
           _selectedOptionId = null;
@@ -198,7 +207,10 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSubmitting = false);
-        PrismToast.error(context, message: context.l10n.pollsDetailVoteError(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.pollsDetailVoteError(e),
+        );
       }
     }
   }
@@ -213,7 +225,9 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     );
     if (confirmed) {
       Haptics.heavy();
-      unawaited(ref.read(pollNotifierProvider.notifier).closePoll(widget.poll.id));
+      unawaited(
+        ref.read(pollNotifierProvider.notifier).closePoll(widget.poll.id),
+      );
     }
   }
 
@@ -227,7 +241,9 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     );
     if (confirmed) {
       Haptics.heavy();
-      unawaited(ref.read(pollNotifierProvider.notifier).deletePoll(widget.poll.id));
+      unawaited(
+        ref.read(pollNotifierProvider.notifier).deletePoll(widget.poll.id),
+      );
       if (mounted) context.go(AppRoutePaths.polls);
     }
   }
@@ -309,7 +325,9 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                     icon: AppIcons.schedule,
                     label: _isClosed
                         ? context.l10n.pollsDetailExpired
-                        : context.l10n.pollsDetailExpiresLabel(widget.poll.expiresAt!.toDateString()),
+                        : context.l10n.pollsDetailExpiresLabel(
+                            widget.poll.expiresAt!.toDateString(),
+                          ),
                   ),
                 if (widget.poll.isAnonymous)
                   _MetadataChip(
@@ -322,7 +340,10 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                     label: context.l10n.pollsMultiVote,
                   ),
                 if (_isClosed)
-                  _MetadataChip(icon: AppIcons.lockOutline, label: context.l10n.pollsClosed),
+                  _MetadataChip(
+                    icon: AppIcons.lockOutline,
+                    label: context.l10n.pollsClosed,
+                  ),
               ],
             ),
 
@@ -330,7 +351,10 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
 
             // Voting-as picker
             if (!_isClosed) ...[
-              Text(context.l10n.pollsDetailVoteAs, style: theme.textTheme.titleSmall),
+              Text(
+                context.l10n.pollsDetailVoteAs,
+                style: theme.textTheme.titleSmall,
+              ),
               const SizedBox(height: 8),
               membersAsync.when(
                 data: (members) {
@@ -384,7 +408,9 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
 
             // Options / voting UI
             Text(
-              _isClosed ? context.l10n.pollsDetailResultsLabel : context.l10n.pollsDetailOptionsLabel,
+              _isClosed
+                  ? context.l10n.pollsDetailResultsLabel
+                  : context.l10n.pollsDetailOptionsLabel,
               style: theme.textTheme.titleSmall,
             ),
             const SizedBox(height: 8),
@@ -442,7 +468,6 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
       ),
     );
   }
-
 }
 
 // ── Option tile ───────────────────────────────────────────────────────────
@@ -569,8 +594,7 @@ class _OptionTile extends ConsumerWidget {
                 value: percentage,
                 minHeight: 8,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                color:
-                    option.colorHex != null && option.colorHex!.isNotEmpty
+                color: option.colorHex != null && option.colorHex!.isNotEmpty
                     ? Color(int.parse('FF${option.colorHex}', radix: 16))
                     : null,
               ),
