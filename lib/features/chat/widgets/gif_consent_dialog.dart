@@ -15,15 +15,19 @@ class GifConsentDialog extends StatelessWidget {
       message: context.l10n.chatGifConsentIntro,
       barrierDismissible: false,
       actions: [
-        PrismButton(
-          label: context.l10n.chatGifConsentDecline,
-          tone: PrismButtonTone.outlined,
-          onPressed: () => Navigator.of(context).pop(false),
+        Builder(
+          builder: (dialogContext) => PrismButton(
+            label: context.l10n.chatGifConsentDecline,
+            tone: PrismButtonTone.outlined,
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+          ),
         ),
-        PrismButton(
-          label: context.l10n.chatGifConsentEnable,
-          tone: PrismButtonTone.filled,
-          onPressed: () => Navigator.of(context).pop(true),
+        Builder(
+          builder: (dialogContext) => PrismButton(
+            label: context.l10n.chatGifConsentEnable,
+            tone: PrismButtonTone.filled,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+          ),
         ),
       ],
       builder: (_) => const GifConsentDialog(),
