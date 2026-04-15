@@ -99,6 +99,7 @@ class _NoteCard extends ConsumerWidget {
     final l10n = context.l10n;
     // Locale-aware date format — must be a local variable, not static.
     final dateFormat = DateFormat.yMMMd(context.dateLocale);
+    final dateLabel = dateFormat.format(note.date);
 
     // Look up the member if this note is associated with one
     final memberAsync = note.memberId != null
@@ -114,7 +115,19 @@ class _NoteCard extends ConsumerWidget {
       } catch (_) {}
     }
 
-    return GestureDetector(
+    final displayTitle = note.title.isNotEmpty
+        ? note.title
+        : note.body.split('\n').first.trim();
+    final isFallbackTitle = note.title.isEmpty;
+    final titleLabel =
+        displayTitle.isNotEmpty ? displayTitle : l10n.memberNoteUntitled;
+
+    final semanticLabel = member != null
+        ? '$titleLabel. ${l10n.memberSectionNotes}. ${member.name}. $dateLabel.'
+        : '$titleLabel. ${l10n.memberSectionNotes}. $dateLabel.';
+
+    return PrismSectionCard(
+      semanticLabel: semanticLabel,
       onTap: () {
         final location = GoRouterState.of(context).uri.path;
         final isTopLevel = location.startsWith(AppRoutePaths.notes) &&
@@ -125,43 +138,37 @@ class _NoteCard extends ConsumerWidget {
               : '/settings/notes/${note.id}',
         );
       },
-      child: PrismSectionCard(
+      child: IntrinsicHeight(
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (colorBar != null)
-              Container(
-                width: 4,
-                height: 56,
-                margin: const EdgeInsets.only(right: 12),
-                decoration: BoxDecoration(
+            if (colorBar != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: ColoredBox(
                   color: colorBar,
-                  borderRadius: BorderRadius.circular(2),
+                  child: const SizedBox(width: 4),
                 ),
               ),
+              const SizedBox(width: 12),
+            ],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Builder(builder: (context) {
-                    final displayTitle = note.title.isNotEmpty
-                        ? note.title
-                        : note.body.split('\n').first.trim();
-                    final isFallbackTitle = note.title.isEmpty;
-                    return Text(
-                      displayTitle.isNotEmpty ? displayTitle : l10n.memberNoteUntitled,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight:
-                            isFallbackTitle ? FontWeight.normal : FontWeight.w600,
-                        fontStyle:
-                            isFallbackTitle ? FontStyle.italic : FontStyle.normal,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  }),
+                  Text(
+                    titleLabel,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight:
+                          isFallbackTitle ? FontWeight.normal : FontWeight.w600,
+                      fontStyle:
+                          isFallbackTitle ? FontStyle.italic : FontStyle.normal,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   if (note.body.isNotEmpty) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 6),
                     Text(
                       note.body,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -170,30 +177,37 @@ class _NoteCard extends ConsumerWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 8),
+                  ] else ...[
+                    const SizedBox(height: 8),
                   ],
-                  const SizedBox(height: 4),
-                  Text(
-                    dateFormat.format(note.date),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.6),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          dateLabel,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                      if (member != null) ...[
+                        const SizedBox(width: 12),
+                        MemberAvatar(
+                          avatarImageData: member.avatarImageData,
+                          memberName: member.name,
+                          emoji: member.emoji,
+                          customColorEnabled: member.customColorEnabled,
+                          customColorHex: member.customColorHex,
+                          size: 28,
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
             ),
-            if (member != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: MemberAvatar(
-                  avatarImageData: member.avatarImageData,
-                  memberName: member.name,
-                  emoji: member.emoji,
-                  customColorEnabled: member.customColorEnabled,
-                  customColorHex: member.customColorHex,
-                  size: 28,
-                ),
-              ),
           ],
         ),
       ),
