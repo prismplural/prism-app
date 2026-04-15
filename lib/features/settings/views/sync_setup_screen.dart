@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/features/settings/providers/sync_setup_provider.dart';
+import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_content.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -23,7 +24,7 @@ class SyncSetupScreen extends ConsumerStatefulWidget {
 class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
   final _relayUrlController = TextEditingController();
   final _registrationTokenController = TextEditingController();
-  final _pinController = TextEditingController();
+  String? _pin;
   bool _showRelayField = false;
   bool _hasSavedKey = false;
   String? _relayUrlError;
@@ -40,7 +41,6 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
   void dispose() {
     _relayUrlController.dispose();
     _registrationTokenController.dispose();
-    _pinController.dispose();
     super.dispose();
   }
 
@@ -50,7 +50,10 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
 
     final title = switch (setupState.step) {
       SyncSetupStep.intro => context.l10n.syncSetupIntroTitle,
-      SyncSetupStep.secretKey => context.l10n.syncSetupSecretKeyTitle,
+      SyncSetupStep.secretKey =>
+        _pin == null
+            ? context.l10n.syncPinSheetTitle
+            : context.l10n.syncSetupSecretKeyTitle,
     };
 
     return PopScope(
@@ -58,7 +61,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
           setupState.step == SyncSetupStep.intro && !setupState.isProcessing,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !setupState.isProcessing) {
-          ref.read(syncSetupProvider.notifier).goBack();
+          _goBack(setupState);
         }
       },
       child: PrismPageScaffold(
@@ -100,11 +103,12 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
             SyncSetupStep.secretKey => _SecretKeyStep(
               key: const ValueKey('secretKey'),
               mnemonic: setupState.mnemonic!,
+              pin: _pin,
               hasSaved: _hasSavedKey,
               isProcessing: setupState.isProcessing,
               currentProgress: setupState.currentProgress,
               error: setupState.error,
-              pinController: _pinController,
+              onPinEntered: (pin) => setState(() => _pin = pin),
               onHasSavedChanged: (v) => setState(() => _hasSavedKey = v),
               onComplete: _completeSetup,
             ),
@@ -114,10 +118,19 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
     );
   }
 
+  void _goBack(SyncSetupState setupState) {
+    if (setupState.step == SyncSetupStep.secretKey && _pin != null) {
+      setState(() => _pin = null);
+      return;
+    }
+    ref.read(syncSetupProvider.notifier).goBack();
+  }
+
   Future<void> _completeSetup() async {
-    final pin = _pinController.text.trim();
-    final success =
-        await ref.read(syncSetupProvider.notifier).complete(pin);
+    final pin = _pin;
+    if (pin == null) return;
+
+    final success = await ref.read(syncSetupProvider.notifier).complete(pin);
     if (success && mounted) {
       context.pop();
     }
@@ -245,29 +258,34 @@ class _SecretKeyStep extends StatelessWidget {
   const _SecretKeyStep({
     super.key,
     required this.mnemonic,
+    required this.pin,
     required this.hasSaved,
     required this.isProcessing,
     required this.currentProgress,
     required this.error,
-    required this.pinController,
+    required this.onPinEntered,
     required this.onHasSavedChanged,
     required this.onComplete,
   });
 
   final String mnemonic;
+  final String? pin;
   final bool hasSaved;
   final bool isProcessing;
   final SyncSetupProgress? currentProgress;
   final String? error;
-  final TextEditingController pinController;
+  final ValueChanged<String> onPinEntered;
   final ValueChanged<bool> onHasSavedChanged;
   final VoidCallback onComplete;
 
   String? _progressLabel(BuildContext context) => switch (currentProgress) {
-    SyncSetupProgress.creatingGroup => context.l10n.syncSetupProgressCreatingGroup,
-    SyncSetupProgress.configuringEngine => context.l10n.syncSetupProgressConfiguringEngine,
+    SyncSetupProgress.creatingGroup =>
+      context.l10n.syncSetupProgressCreatingGroup,
+    SyncSetupProgress.configuringEngine =>
+      context.l10n.syncSetupProgressConfiguringEngine,
     SyncSetupProgress.cachingKeys => context.l10n.syncSetupProgressCachingKeys,
-    SyncSetupProgress.bootstrappingData => context.l10n.syncSetupProgressBootstrapping,
+    SyncSetupProgress.bootstrappingData =>
+      context.l10n.syncSetupProgressBootstrapping,
     SyncSetupProgress.syncing => context.l10n.syncSetupProgressSyncing,
     null => null,
   };
@@ -275,6 +293,21 @@ class _SecretKeyStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final pin = this.pin;
+
+    if (pin == null) {
+      return SafeArea(
+        top: false,
+        child: PinInputScreen(
+          key: const ValueKey('sync-setup-pin'),
+          mode: PinInputMode.unlock,
+          embedded: true,
+          allowBiometric: false,
+          onPinEntered: onPinEntered,
+          onSuccess: () {},
+        ),
+      );
+    }
 
     return SafeArea(
       top: false,
@@ -286,18 +319,8 @@ class _SecretKeyStep extends StatelessWidget {
             hasSaved: hasSaved,
             onHasSavedChanged: onHasSavedChanged,
           ),
-          const SizedBox(height: 24),
-          PrismTextField(
-            controller: pinController,
-            labelText: context.l10n.syncSetupPinLabel,
-            obscureText: true,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.done,
-            enabled: !isProcessing,
-            onSubmitted: hasSaved ? (_) => onComplete() : null,
-          ),
           if (error != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
             Text(
               error!,
               style: theme.textTheme.bodySmall?.copyWith(

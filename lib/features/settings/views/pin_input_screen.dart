@@ -31,6 +31,7 @@ class PinInputScreen extends ConsumerStatefulWidget {
     this.pinToConfirm,
     this.onPinEntered,
     this.embedded = false,
+    this.allowBiometric = true,
   });
 
   final PinInputMode mode;
@@ -47,6 +48,11 @@ class PinInputScreen extends ConsumerStatefulWidget {
   /// When [true], renders without the [Material]/[SafeArea] wrapper, title, and
   /// subtitle — suitable for embedding inside a larger scaffold (e.g. onboarding).
   final bool embedded;
+
+  /// Whether biometric unlock may be offered in [PinInputMode.unlock].
+  ///
+  /// Disable this for flows that need the raw PIN value via [onPinEntered].
+  final bool allowBiometric;
 
   @override
   ConsumerState<PinInputScreen> createState() => _PinInputScreenState();
@@ -77,16 +83,16 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
-    _shakeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
-    ]).animate(CurvedAnimation(
-      parent: _shakeController,
-      curve: Curves.easeInOut,
-    ));
+    _shakeAnimation =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
+        ]).animate(
+          CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
+        );
     _dotController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
@@ -189,7 +195,9 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
           if (_failedAttempts >= _maxAttemptsBeforeLockout) {
             final multiplier = (_failedAttempts ~/ _maxAttemptsBeforeLockout);
             final lockoutSeconds = _baseLockoutSeconds * multiplier;
-            _lockedUntil = DateTime.now().add(Duration(seconds: lockoutSeconds));
+            _lockedUntil = DateTime.now().add(
+              Duration(seconds: lockoutSeconds),
+            );
           }
           _showError();
         }
@@ -215,18 +223,24 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accentColor = theme.colorScheme.primary;
-    final biometricAvailable =
-        ref.watch(isBiometricAvailableProvider).value ?? false;
-    final biometricEnabled = ref.watch(biometricLockEnabledProvider);
-    final showBiometric = widget.mode == PinInputMode.unlock && biometricAvailable && biometricEnabled;
-    final clampedSize = ((MediaQuery.of(context).size.width - 80) / 3).clamp(56.0, 72.0);
+    final canOfferBiometric =
+        widget.allowBiometric && widget.mode == PinInputMode.unlock;
+    final biometricAvailable = canOfferBiometric
+        ? ref.watch(isBiometricAvailableProvider).value ?? false
+        : false;
+    final biometricEnabled = canOfferBiometric
+        ? ref.watch(biometricLockEnabledProvider)
+        : false;
+    final showBiometric =
+        canOfferBiometric && biometricAvailable && biometricEnabled;
+    final clampedSize = ((MediaQuery.of(context).size.width - 80) / 3).clamp(
+      56.0,
+      72.0,
+    );
 
     final content = Column(
       children: [
-        if (widget.embedded)
-          const Spacer()
-        else
-          const Spacer(flex: 2),
+        if (widget.embedded) const Spacer() else const Spacer(flex: 2),
         if (!widget.embedded) ...[
           // Title
           Text(
@@ -279,10 +293,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
             }),
           ),
         ),
-        if (widget.embedded)
-          const Spacer()
-        else
-          const Spacer(flex: 2),
+        if (widget.embedded) const Spacer() else const Spacer(flex: 2),
         // Numpad
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
@@ -311,7 +322,12 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     );
   }
 
-  List<Widget> _buildRow(int row, bool showBiometric, ThemeData theme, double clampedSize) {
+  List<Widget> _buildRow(
+    int row,
+    bool showBiometric,
+    ThemeData theme,
+    double clampedSize,
+  ) {
     if (row < 3) {
       // Rows 0-2: digits 1-9
       return List.generate(3, (col) {
@@ -333,7 +349,9 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
           semanticLabel: context.l10n.pinLockBiometricTitle,
         )
       else
-        ExcludeSemantics(child: SizedBox(width: clampedSize, height: clampedSize)),
+        ExcludeSemantics(
+          child: SizedBox(width: clampedSize, height: clampedSize),
+        ),
       PinNumpadButton(
         label: '0',
         onTap: () => _onDigit('0'),
