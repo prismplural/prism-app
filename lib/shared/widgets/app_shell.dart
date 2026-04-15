@@ -24,6 +24,7 @@ import 'package:prism_plurality/shared/utils/desktop_breakpoint.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/shared/utils/pin_lock_decision.dart';
+import 'package:prism_plurality/shared/widgets/floating_nav_bar_backdrop.dart';
 import 'package:prism_plurality/shared/widgets/info_banner.dart';
 
 /// Gap between overflow row and primary row when the nav bar is expanded.
@@ -367,22 +368,9 @@ class _AppShellState extends ConsumerState<AppShell>
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      height: totalInset + 10,
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                scaffoldBg.withValues(alpha: 0),
-                                scaffoldBg.withValues(alpha: 0.8),
-                                scaffoldBg,
-                              ],
-                              stops: const [0.0, 0.45, 1.0],
-                            ),
-                          ),
-                        ),
+                      child: FloatingNavBarBackdrop(
+                        height: totalInset + 10,
+                        color: scaffoldBg,
                       ),
                     ),
 
