@@ -71,6 +71,7 @@ abstract class SystemSettingsRepository {
   Future<void> updateSystemAvatarData(Uint8List? value);
 
   // Phase 3: Device-local settings
+  Future<void> updateGifConsentState(domain.GifConsentState value);
   Future<void> updateFontScale(double value);
   Future<void> updateFontFamily(domain.FontFamily value);
   Future<void> updateDisplayFontInAppBar(bool value);

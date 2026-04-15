@@ -87,6 +87,12 @@ enum FontFamily {
   }
 }
 
+enum GifConsentState {
+  unknown,
+  enabled,
+  declined;
+}
+
 enum SystemTerminology {
   members,
   headmates,
@@ -139,6 +145,7 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(true) bool remindersEnabled,
     String? localeOverride,
     // Phase 3: Device-local settings
+    @Default(GifConsentState.unknown) GifConsentState gifConsentState,
     @Default(1.0) double fontScale,
     @Default(FontFamily.system) FontFamily fontFamily,
     @Default(false) bool pinLockEnabled,

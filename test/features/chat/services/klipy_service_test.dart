@@ -65,7 +65,10 @@ void main() {
         capturedUri = request.url;
         return http.Response(jsonEncode(_buildResponse([])), 200);
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       await service.trending();
 
@@ -73,11 +76,10 @@ void main() {
       expect(
         capturedUri!.toString(),
         startsWith(
-          'https://api.klipy.com/api/v1/PRISM_KLIPY_DEV/gifs/trending',
+          'https://relay.example/v1/gifs/trending',
         ),
       );
       expect(capturedUri!.queryParameters['per_page'], '30');
-      expect(capturedUri!.queryParameters['page'], '1');
       expect(capturedUri!.queryParameters['content_filter'], 'medium');
 
       service.dispose();
@@ -89,7 +91,10 @@ void main() {
         capturedUri = request.url;
         return http.Response(jsonEncode(_buildResponse([])), 200);
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       await service.search('cats');
 
@@ -97,12 +102,11 @@ void main() {
       expect(
         capturedUri!.toString(),
         startsWith(
-          'https://api.klipy.com/api/v1/PRISM_KLIPY_DEV/gifs/search',
+          'https://relay.example/v1/gifs/search',
         ),
       );
       expect(capturedUri!.queryParameters['q'], 'cats');
       expect(capturedUri!.queryParameters['per_page'], '30');
-      expect(capturedUri!.queryParameters['page'], '1');
       expect(capturedUri!.queryParameters['content_filter'], 'medium');
 
       service.dispose();
@@ -121,7 +125,10 @@ void main() {
           200,
         );
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       final gifs = await service.trending();
 
@@ -161,7 +168,10 @@ void main() {
           200,
         );
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       final gifs = await service.trending();
 
@@ -189,7 +199,10 @@ void main() {
           200,
         );
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       final gifs = await service.trending();
 
@@ -209,7 +222,10 @@ void main() {
           200,
         );
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       final gifs = await service.trending();
 
@@ -229,7 +245,10 @@ void main() {
       final client = MockClient((request) async {
         return http.Response('Rate limited', 429);
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       expect(service.trending, throwsA(isA<KlipyRateLimitError>()));
 
@@ -240,7 +259,10 @@ void main() {
       final client = MockClient((request) async {
         return http.Response('Internal Server Error', 500);
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       expect(service.trending, throwsA(isA<KlipyApiError>()));
 
@@ -265,7 +287,10 @@ void main() {
         capturedUri = request.url;
         return http.Response(jsonEncode(_buildResponse([])), 200);
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       await service.search('');
 
@@ -283,7 +308,10 @@ void main() {
         capturedUri = request.url;
         return http.Response(jsonEncode(_buildResponse([])), 200);
       });
-      final service = KlipyService(httpClient: client);
+      final service = KlipyService(
+        baseUrl: 'https://relay.example/v1/gifs',
+        httpClient: client,
+      );
 
       await service.search('   ');
 

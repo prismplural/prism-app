@@ -231,6 +231,13 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateGifConsentState(GifConsentState value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateGifConsentState(value);
+    });
+  }
+
   Future<void> updateFontScale(double value) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -521,6 +528,13 @@ final gifSearchEnabledProvider = Provider<bool>((ref) {
             data: (s) => s.gifSearchEnabled,
           ) ??
       true;
+});
+
+final gifConsentStateProvider = Provider<GifConsentState>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.gifConsentState,
+          ) ??
+      GifConsentState.unknown;
 });
 
 /// Narrow provider for `voiceNotesEnabled` flag.

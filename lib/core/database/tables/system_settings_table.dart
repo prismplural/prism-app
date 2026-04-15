@@ -80,6 +80,8 @@ class SystemSettingsTable extends Table {
   BoolColumn get remindersEnabled =>
       boolean().withDefault(const Constant(true))();
   // Phase 3: Device-local settings
+  IntColumn get gifConsentState =>
+      integer().withDefault(const Constant(0))(); // GifConsentState enum index
   RealColumn get fontScale => real().withDefault(const Constant(1.0))();
   IntColumn get fontFamily =>
       integer().withDefault(const Constant(0))(); // FontFamily enum index

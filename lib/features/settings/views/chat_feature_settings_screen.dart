@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
+import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
@@ -22,7 +26,8 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chatEnabled = ref.watch(chatEnabledProvider);
     final chatLogsFront = ref.watch(chatLogsFrontProvider);
-    final gifSearchEnabled = ref.watch(gifSearchEnabledProvider);
+    final gifConfig = ref.watch(gifServiceConfigProvider).asData?.value;
+    final gifConsentState = ref.watch(gifConsentStateProvider);
     final voiceNotesEnabled = ref.watch(voiceNotesEnabledProvider);
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
@@ -33,6 +38,11 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final memberName = speakingAs == null
         ? null
         : ref.watch(memberByIdProvider(speakingAs)).whenOrNull(data: (m) => m?.name);
+    final gifConsentSubtitle = switch (gifConsentState) {
+      GifConsentState.unknown => context.l10n.featureChatGifSearchUndecidedSubtitle,
+      GifConsentState.enabled => context.l10n.featureChatGifSearchEnabledSubtitle,
+      GifConsentState.declined => context.l10n.featureChatGifSearchDeclinedSubtitle,
+    };
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.featureChatTitle, showBackButton: true),
@@ -80,16 +90,27 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                           .read(settingsNotifierProvider.notifier)
                           .updateChatLogsFront(value),
                     ),
-                    PrismSwitchRow(
-                      icon: AppIcons.gif,
-                      iconColor: Colors.deepPurple,
-                      title: context.l10n.featureChatGifSearch,
-                      subtitle: context.l10n.featureChatGifSearchSubtitle,
-                      value: gifSearchEnabled,
-                      onChanged: (value) => ref
-                          .read(settingsNotifierProvider.notifier)
-                          .updateGifSearchEnabled(value),
-                    ),
+                    if (gifConfig?.enabled == true)
+                      PrismListRow(
+                        leading: Icon(
+                          AppIcons.gif,
+                          color: Colors.deepPurple,
+                        ),
+                        title: Text(context.l10n.featureChatGifSearch),
+                        subtitle: Text(gifConsentSubtitle),
+                        showChevron: true,
+                        onTap: () async {
+                          final accepted = await GifConsentDialog.show(context);
+                          if (!context.mounted) return;
+                          await ref
+                              .read(settingsNotifierProvider.notifier)
+                              .updateGifConsentState(
+                                accepted
+                                    ? GifConsentState.enabled
+                                    : GifConsentState.declined,
+                              );
+                        },
+                      ),
                     PrismSwitchRow(
                       icon: AppIcons.microphone,
                       iconColor: Theme.of(context).colorScheme.primary,

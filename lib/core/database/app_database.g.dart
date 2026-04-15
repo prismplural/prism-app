@@ -3839,6 +3839,18 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _gifConsentStateMeta = const VerificationMeta(
+    'gifConsentState',
+  );
+  @override
+  late final GeneratedColumn<int> gifConsentState = GeneratedColumn<int>(
+    'gif_consent_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _fontScaleMeta = const VerificationMeta(
     'fontScale',
   );
@@ -4030,6 +4042,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     systemDescription,
     systemAvatarData,
     remindersEnabled,
+    gifConsentState,
     fontScale,
     fontFamily,
     pinLockEnabled,
@@ -4331,6 +4344,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('gif_consent_state')) {
+      context.handle(
+        _gifConsentStateMeta,
+        gifConsentState.isAcceptableOrUnknown(
+          data['gif_consent_state']!,
+          _gifConsentStateMeta,
+        ),
+      );
+    }
     if (data.containsKey('font_scale')) {
       context.handle(
         _fontScaleMeta,
@@ -4571,6 +4593,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.bool,
         data['${effectivePrefix}reminders_enabled'],
       )!,
+      gifConsentState: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}gif_consent_state'],
+      )!,
       fontScale: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}font_scale'],
@@ -4663,6 +4689,7 @@ class SystemSettingsData extends DataClass
   final String? systemDescription;
   final Uint8List? systemAvatarData;
   final bool remindersEnabled;
+  final int gifConsentState;
   final double fontScale;
   final int fontFamily;
   final bool pinLockEnabled;
@@ -4709,6 +4736,7 @@ class SystemSettingsData extends DataClass
     this.systemDescription,
     this.systemAvatarData,
     required this.remindersEnabled,
+    required this.gifConsentState,
     required this.fontScale,
     required this.fontFamily,
     required this.pinLockEnabled,
@@ -4780,6 +4808,7 @@ class SystemSettingsData extends DataClass
       map['system_avatar_data'] = Variable<Uint8List>(systemAvatarData);
     }
     map['reminders_enabled'] = Variable<bool>(remindersEnabled);
+    map['gif_consent_state'] = Variable<int>(gifConsentState);
     map['font_scale'] = Variable<double>(fontScale);
     map['font_family'] = Variable<int>(fontFamily);
     map['pin_lock_enabled'] = Variable<bool>(pinLockEnabled);
@@ -4844,6 +4873,7 @@ class SystemSettingsData extends DataClass
           ? const Value.absent()
           : Value(systemAvatarData),
       remindersEnabled: Value(remindersEnabled),
+      gifConsentState: Value(gifConsentState),
       fontScale: Value(fontScale),
       fontFamily: Value(fontFamily),
       pinLockEnabled: Value(pinLockEnabled),
@@ -4920,6 +4950,7 @@ class SystemSettingsData extends DataClass
         json['systemAvatarData'],
       ),
       remindersEnabled: serializer.fromJson<bool>(json['remindersEnabled']),
+      gifConsentState: serializer.fromJson<int>(json['gifConsentState']),
       fontScale: serializer.fromJson<double>(json['fontScale']),
       fontFamily: serializer.fromJson<int>(json['fontFamily']),
       pinLockEnabled: serializer.fromJson<bool>(json['pinLockEnabled']),
@@ -4993,6 +5024,7 @@ class SystemSettingsData extends DataClass
       'systemDescription': serializer.toJson<String?>(systemDescription),
       'systemAvatarData': serializer.toJson<Uint8List?>(systemAvatarData),
       'remindersEnabled': serializer.toJson<bool>(remindersEnabled),
+      'gifConsentState': serializer.toJson<int>(gifConsentState),
       'fontScale': serializer.toJson<double>(fontScale),
       'fontFamily': serializer.toJson<int>(fontFamily),
       'pinLockEnabled': serializer.toJson<bool>(pinLockEnabled),
@@ -5044,6 +5076,7 @@ class SystemSettingsData extends DataClass
     Value<String?> systemDescription = const Value.absent(),
     Value<Uint8List?> systemAvatarData = const Value.absent(),
     bool? remindersEnabled,
+    int? gifConsentState,
     double? fontScale,
     int? fontFamily,
     bool? pinLockEnabled,
@@ -5104,6 +5137,7 @@ class SystemSettingsData extends DataClass
         ? systemAvatarData.value
         : this.systemAvatarData,
     remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+    gifConsentState: gifConsentState ?? this.gifConsentState,
     fontScale: fontScale ?? this.fontScale,
     fontFamily: fontFamily ?? this.fontFamily,
     pinLockEnabled: pinLockEnabled ?? this.pinLockEnabled,
@@ -5214,6 +5248,9 @@ class SystemSettingsData extends DataClass
       remindersEnabled: data.remindersEnabled.present
           ? data.remindersEnabled.value
           : this.remindersEnabled,
+      gifConsentState: data.gifConsentState.present
+          ? data.gifConsentState.value
+          : this.gifConsentState,
       fontScale: data.fontScale.present ? data.fontScale.value : this.fontScale,
       fontFamily: data.fontFamily.present
           ? data.fontFamily.value
@@ -5287,6 +5324,7 @@ class SystemSettingsData extends DataClass
           ..write('systemDescription: $systemDescription, ')
           ..write('systemAvatarData: $systemAvatarData, ')
           ..write('remindersEnabled: $remindersEnabled, ')
+          ..write('gifConsentState: $gifConsentState, ')
           ..write('fontScale: $fontScale, ')
           ..write('fontFamily: $fontFamily, ')
           ..write('pinLockEnabled: $pinLockEnabled, ')
@@ -5338,6 +5376,7 @@ class SystemSettingsData extends DataClass
     systemDescription,
     $driftBlobEquality.hash(systemAvatarData),
     remindersEnabled,
+    gifConsentState,
     fontScale,
     fontFamily,
     pinLockEnabled,
@@ -5393,6 +5432,7 @@ class SystemSettingsData extends DataClass
             this.systemAvatarData,
           ) &&
           other.remindersEnabled == this.remindersEnabled &&
+          other.gifConsentState == this.gifConsentState &&
           other.fontScale == this.fontScale &&
           other.fontFamily == this.fontFamily &&
           other.pinLockEnabled == this.pinLockEnabled &&
@@ -5441,6 +5481,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<String?> systemDescription;
   final Value<Uint8List?> systemAvatarData;
   final Value<bool> remindersEnabled;
+  final Value<int> gifConsentState;
   final Value<double> fontScale;
   final Value<int> fontFamily;
   final Value<bool> pinLockEnabled;
@@ -5488,6 +5529,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.systemDescription = const Value.absent(),
     this.systemAvatarData = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
+    this.gifConsentState = const Value.absent(),
     this.fontScale = const Value.absent(),
     this.fontFamily = const Value.absent(),
     this.pinLockEnabled = const Value.absent(),
@@ -5536,6 +5578,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.systemDescription = const Value.absent(),
     this.systemAvatarData = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
+    this.gifConsentState = const Value.absent(),
     this.fontScale = const Value.absent(),
     this.fontFamily = const Value.absent(),
     this.pinLockEnabled = const Value.absent(),
@@ -5584,6 +5627,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<String>? systemDescription,
     Expression<Uint8List>? systemAvatarData,
     Expression<bool>? remindersEnabled,
+    Expression<int>? gifConsentState,
     Expression<double>? fontScale,
     Expression<int>? fontFamily,
     Expression<bool>? pinLockEnabled,
@@ -5641,6 +5685,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (systemDescription != null) 'system_description': systemDescription,
       if (systemAvatarData != null) 'system_avatar_data': systemAvatarData,
       if (remindersEnabled != null) 'reminders_enabled': remindersEnabled,
+      if (gifConsentState != null) 'gif_consent_state': gifConsentState,
       if (fontScale != null) 'font_scale': fontScale,
       if (fontFamily != null) 'font_family': fontFamily,
       if (pinLockEnabled != null) 'pin_lock_enabled': pinLockEnabled,
@@ -5698,6 +5743,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<String?>? systemDescription,
     Value<Uint8List?>? systemAvatarData,
     Value<bool>? remindersEnabled,
+    Value<int>? gifConsentState,
     Value<double>? fontScale,
     Value<int>? fontFamily,
     Value<bool>? pinLockEnabled,
@@ -5754,6 +5800,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       systemDescription: systemDescription ?? this.systemDescription,
       systemAvatarData: systemAvatarData ?? this.systemAvatarData,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
+      gifConsentState: gifConsentState ?? this.gifConsentState,
       fontScale: fontScale ?? this.fontScale,
       fontFamily: fontFamily ?? this.fontFamily,
       pinLockEnabled: pinLockEnabled ?? this.pinLockEnabled,
@@ -5890,6 +5937,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     if (remindersEnabled.present) {
       map['reminders_enabled'] = Variable<bool>(remindersEnabled.value);
     }
+    if (gifConsentState.present) {
+      map['gif_consent_state'] = Variable<int>(gifConsentState.value);
+    }
     if (fontScale.present) {
       map['font_scale'] = Variable<double>(fontScale.value);
     }
@@ -5984,6 +6034,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('systemDescription: $systemDescription, ')
           ..write('systemAvatarData: $systemAvatarData, ')
           ..write('remindersEnabled: $remindersEnabled, ')
+          ..write('gifConsentState: $gifConsentState, ')
           ..write('fontScale: $fontScale, ')
           ..write('fontFamily: $fontFamily, ')
           ..write('pinLockEnabled: $pinLockEnabled, ')
@@ -19152,6 +19203,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<String?> systemDescription,
       Value<Uint8List?> systemAvatarData,
       Value<bool> remindersEnabled,
+      Value<int> gifConsentState,
       Value<double> fontScale,
       Value<int> fontFamily,
       Value<bool> pinLockEnabled,
@@ -19201,6 +19253,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<String?> systemDescription,
       Value<Uint8List?> systemAvatarData,
       Value<bool> remindersEnabled,
+      Value<int> gifConsentState,
       Value<double> fontScale,
       Value<int> fontFamily,
       Value<bool> pinLockEnabled,
@@ -19387,6 +19440,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<bool> get remindersEnabled => $composableBuilder(
     column: $table.remindersEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get gifConsentState => $composableBuilder(
+    column: $table.gifConsentState,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19626,6 +19684,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get gifConsentState => $composableBuilder(
+    column: $table.gifConsentState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get fontScale => $composableBuilder(
     column: $table.fontScale,
     builder: (column) => ColumnOrderings(column),
@@ -19856,6 +19919,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get gifConsentState => $composableBuilder(
+    column: $table.gifConsentState,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<double> get fontScale =>
       $composableBuilder(column: $table.fontScale, builder: (column) => column);
 
@@ -19990,6 +20058,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<String?> systemDescription = const Value.absent(),
                 Value<Uint8List?> systemAvatarData = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
+                Value<int> gifConsentState = const Value.absent(),
                 Value<double> fontScale = const Value.absent(),
                 Value<int> fontFamily = const Value.absent(),
                 Value<bool> pinLockEnabled = const Value.absent(),
@@ -20038,6 +20107,7 @@ class $$SystemSettingsTableTableTableManager
                 systemDescription: systemDescription,
                 systemAvatarData: systemAvatarData,
                 remindersEnabled: remindersEnabled,
+                gifConsentState: gifConsentState,
                 fontScale: fontScale,
                 fontFamily: fontFamily,
                 pinLockEnabled: pinLockEnabled,
@@ -20088,6 +20158,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<String?> systemDescription = const Value.absent(),
                 Value<Uint8List?> systemAvatarData = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
+                Value<int> gifConsentState = const Value.absent(),
                 Value<double> fontScale = const Value.absent(),
                 Value<int> fontFamily = const Value.absent(),
                 Value<bool> pinLockEnabled = const Value.absent(),
@@ -20136,6 +20207,7 @@ class $$SystemSettingsTableTableTableManager
                 systemDescription: systemDescription,
                 systemAvatarData: systemAvatarData,
                 remindersEnabled: remindersEnabled,
+                gifConsentState: gifConsentState,
                 fontScale: fontScale,
                 fontFamily: fontFamily,
                 pinLockEnabled: pinLockEnabled,

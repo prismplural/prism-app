@@ -5,8 +5,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
 /// Helper to build a realistic Klipy API response body.
 Map<String, dynamic> _buildResponse(List<Map<String, dynamic>> items) {
@@ -105,7 +107,12 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           klipyServiceProvider.overrideWithValue(
-            KlipyService(httpClient: mockClient),
+            AsyncValue.data(
+              KlipyService(
+                baseUrl: 'https://relay.example/v1/gifs',
+                httpClient: mockClient,
+              ),
+            ),
           ),
         ],
       );
@@ -133,7 +140,12 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           klipyServiceProvider.overrideWithValue(
-            KlipyService(httpClient: mockClient),
+            AsyncValue.data(
+              KlipyService(
+                baseUrl: 'https://relay.example/v1/gifs',
+                httpClient: mockClient,
+              ),
+            ),
           ),
         ],
       );
@@ -158,7 +170,12 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           klipyServiceProvider.overrideWithValue(
-            KlipyService(httpClient: mockClient),
+            AsyncValue.data(
+              KlipyService(
+                baseUrl: 'https://relay.example/v1/gifs',
+                httpClient: mockClient,
+              ),
+            ),
           ),
         ],
       );
@@ -176,7 +193,12 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           klipyServiceProvider.overrideWithValue(
-            KlipyService(httpClient: mockClient),
+            AsyncValue.data(
+              KlipyService(
+                baseUrl: 'https://relay.example/v1/gifs',
+                httpClient: mockClient,
+              ),
+            ),
           ),
         ],
       );
@@ -193,6 +215,89 @@ void main() {
       final result = container.read(gifSearchResultsProvider);
       expect(result.hasError, isTrue);
       expect(result.error, isA<KlipyRateLimitError>());
+    });
+  });
+
+  group('GIF consent gating', () {
+    test('attachment stays visible until explicitly declined', () {
+      final container = ProviderContainer(
+        overrides: [
+          gifServiceConfigProvider.overrideWithValue(
+            const AsyncValue.data(
+              GifServiceConfig(
+                enabled: true,
+                apiBaseUrl: 'https://relay.example/v1/gifs',
+                mediaProxyEnabled: false,
+              ),
+            ),
+          ),
+          gifConsentStateProvider.overrideWith((_) => GifConsentState.unknown),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(gifAttachmentEnabledProvider), isTrue);
+      expect(container.read(gifConsentRequiredProvider), isTrue);
+    });
+
+    test('attachment hides after decline', () {
+      final container = ProviderContainer(
+        overrides: [
+          gifServiceConfigProvider.overrideWithValue(
+            const AsyncValue.data(
+              GifServiceConfig(
+                enabled: true,
+                apiBaseUrl: 'https://relay.example/v1/gifs',
+                mediaProxyEnabled: false,
+              ),
+            ),
+          ),
+          gifConsentStateProvider.overrideWith((_) => GifConsentState.declined),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(gifAttachmentEnabledProvider), isFalse);
+      expect(container.read(gifRenderingEnabledProvider), isTrue);
+      expect(container.read(gifConsentRequiredProvider), isFalse);
+    });
+
+    test('relay-disabled GIFs never require consent', () {
+      final container = ProviderContainer(
+        overrides: [
+          gifServiceConfigProvider.overrideWithValue(
+            const AsyncValue.data(GifServiceConfig.disabled()),
+          ),
+          gifConsentStateProvider.overrideWith((_) => GifConsentState.unknown),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(gifAttachmentEnabledProvider), isFalse);
+      expect(container.read(gifRenderingEnabledProvider), isFalse);
+      expect(container.read(gifConsentRequiredProvider), isFalse);
+    });
+
+    test('enabled consent keeps attachment visible without re-prompting', () {
+      final container = ProviderContainer(
+        overrides: [
+          gifServiceConfigProvider.overrideWithValue(
+            const AsyncValue.data(
+              GifServiceConfig(
+                enabled: true,
+                apiBaseUrl: 'https://relay.example/v1/gifs',
+                mediaProxyEnabled: false,
+              ),
+            ),
+          ),
+          gifConsentStateProvider.overrideWith((_) => GifConsentState.enabled),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(gifAttachmentEnabledProvider), isTrue);
+      expect(container.read(gifRenderingEnabledProvider), isTrue);
+      expect(container.read(gifConsentRequiredProvider), isFalse);
     });
   });
 }

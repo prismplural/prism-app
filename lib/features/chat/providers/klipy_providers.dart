@@ -1,25 +1,46 @@
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:prism_sync/generated/api.dart' as ffi;
 
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
+import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
-// ---------------------------------------------------------------------------
-// Service provider
-// ---------------------------------------------------------------------------
+final klipyHttpClientOverrideProvider = Provider<http.Client?>((_) => null);
 
-/// Singleton [KlipyService] instance, disposed with the container.
-final klipyServiceProvider = Provider<KlipyService>((ref) {
-  final service = KlipyService();
+final gifServiceConfigProvider =
+    FutureProvider.autoDispose<GifServiceConfig>((ref) async {
+  final handle = ref.watch(prismSyncHandleProvider).value;
+  final relayUrl = ref.watch(relayUrlProvider).value;
+  if (handle == null || relayUrl == null || relayUrl.isEmpty) {
+    return const GifServiceConfig.disabled();
+  }
+
+  final json = await ffi.fetchGifServiceConfig(handle: handle);
+  return GifServiceConfig.fromJson(
+    jsonDecode(json) as Map<String, dynamic>,
+    relayUrl: relayUrl,
+  );
+});
+
+final klipyServiceProvider =
+    FutureProvider.autoDispose<KlipyService?>((ref) async {
+  ref.keepAlive();
+  final config = await ref.watch(gifServiceConfigProvider.future);
+  final baseUrl = config.apiBaseUrl;
+  if (!config.enabled || baseUrl == null || baseUrl.isEmpty) return null;
+
+  final service = KlipyService(
+    baseUrl: baseUrl,
+    httpClient: ref.watch(klipyHttpClientOverrideProvider),
+  );
   ref.onDispose(service.dispose);
   return service;
 });
 
-// ---------------------------------------------------------------------------
-// Search query state
-// ---------------------------------------------------------------------------
-
-/// Notifier for the GIF search query. Paired with an autoDispose results
-/// provider so reopening the picker starts with a fresh trending grid.
 class GifSearchQueryNotifier extends Notifier<String> {
   @override
   String build() => '';
@@ -28,24 +49,35 @@ class GifSearchQueryNotifier extends Notifier<String> {
 }
 
 final gifSearchQueryProvider =
-    NotifierProvider<GifSearchQueryNotifier, String>(
-        GifSearchQueryNotifier.new);
+    NotifierProvider.autoDispose<GifSearchQueryNotifier, String>(
+  GifSearchQueryNotifier.new,
+);
 
-// ---------------------------------------------------------------------------
-// Search results
-// ---------------------------------------------------------------------------
-
-/// GIF search results — returns trending when query is empty, search results
-/// otherwise. Auto-disposes when no longer watched.
 final gifSearchResultsProvider =
     FutureProvider.autoDispose<List<KlipyGif>>((ref) async {
-  // GIF feature disabled in release builds until relay proxy ships.
-  if (kReleaseMode) return const [];
   final query = ref.watch(gifSearchQueryProvider);
-  final service = ref.watch(klipyServiceProvider);
+  final service = await ref.watch(klipyServiceProvider.future);
+  if (service == null) return const [];
 
   if (query.isEmpty) {
     return service.trending();
   }
   return service.search(query);
+});
+
+final gifAttachmentEnabledProvider = Provider<bool>((ref) {
+  final consent = ref.watch(gifConsentStateProvider);
+  final config = ref.watch(gifServiceConfigProvider).asData?.value;
+  return config?.enabled == true && consent != GifConsentState.declined;
+});
+
+final gifRenderingEnabledProvider = Provider<bool>((ref) {
+  final config = ref.watch(gifServiceConfigProvider).asData?.value;
+  return config?.enabled == true;
+});
+
+final gifConsentRequiredProvider = Provider<bool>((ref) {
+  final consent = ref.watch(gifConsentStateProvider);
+  final config = ref.watch(gifServiceConfigProvider).asData?.value;
+  return config?.enabled == true && consent == GifConsentState.unknown;
 });

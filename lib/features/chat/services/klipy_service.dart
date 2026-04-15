@@ -104,38 +104,65 @@ class KlipyRateLimitError extends KlipyApiError {
       : super(429, message);
 }
 
+class GifServiceConfig {
+  final bool enabled;
+  final String? apiBaseUrl;
+  final bool mediaProxyEnabled;
+
+  const GifServiceConfig({
+    required this.enabled,
+    required this.apiBaseUrl,
+    required this.mediaProxyEnabled,
+  });
+
+  factory GifServiceConfig.fromJson(
+    Map<String, dynamic> json, {
+    required String relayUrl,
+  }) {
+    final rawBaseUrl = json['api_base_url'] as String?;
+    final resolvedBaseUrl = (rawBaseUrl == null || rawBaseUrl.isEmpty)
+        ? null
+        : Uri.parse(relayUrl).resolve(rawBaseUrl).toString();
+    return GifServiceConfig(
+      enabled: json['enabled'] as bool? ?? false,
+      apiBaseUrl: resolvedBaseUrl,
+      mediaProxyEnabled: json['media_proxy_enabled'] as bool? ?? false,
+    );
+  }
+
+  const GifServiceConfig.disabled()
+      : enabled = false,
+        apiBaseUrl = null,
+        mediaProxyEnabled = false;
+}
+
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
 
 /// HTTP client wrapping the Klipy REST API for GIF search and trending.
 class KlipyService {
-  // TODO(security): Replace with relay proxy before public release — this key
-  // ships in the client binary. See gif-search spec for proxy design.
-  static const _apiKey = 'PRISM_KLIPY_DEV';
-
-  static const _baseUrl = 'https://api.klipy.com';
   static const _contentFilter = 'medium';
   static const _defaultLimit = 30;
   static const _httpTimeout = Duration(seconds: 15);
 
+  final String _baseUrl;
   final http.Client _http;
 
-  KlipyService({http.Client? httpClient})
-      : _http = httpClient ?? http.Client();
+  KlipyService({
+    required String baseUrl,
+    http.Client? httpClient,
+  })  : _baseUrl =
+            baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl,
+        _http = httpClient ?? http.Client();
 
   // -- public API -----------------------------------------------------------
 
   /// Fetch trending GIFs.
   Future<List<KlipyGif>> trending({int limit = _defaultLimit}) async {
-    // TODO(security): Replace with relay proxy before public release.
-    // Key ships in the client binary — disabled in release builds until proxy ships.
-    assert(!kReleaseMode, 'KlipyService.trending() must not be called in release builds');
-    if (kReleaseMode) return const [];
-    final uri = Uri.parse('$_baseUrl/api/v1/$_apiKey/gifs/trending').replace(
+    final uri = Uri.parse('$_baseUrl/trending').replace(
       queryParameters: {
         'per_page': limit.toString(),
-        'page': '1',
         'content_filter': _contentFilter,
       },
     );
@@ -148,15 +175,12 @@ class KlipyService {
     String query, {
     int limit = _defaultLimit,
   }) async {
-    assert(!kReleaseMode, 'KlipyService.search() must not be called in release builds');
-    if (kReleaseMode) return const [];
     if (query.trim().isEmpty) return trending(limit: limit);
 
-    final uri = Uri.parse('$_baseUrl/api/v1/$_apiKey/gifs/search').replace(
+    final uri = Uri.parse('$_baseUrl/search').replace(
       queryParameters: {
         'q': query.trim(),
         'per_page': limit.toString(),
-        'page': '1',
         'content_filter': _contentFilter,
       },
     );

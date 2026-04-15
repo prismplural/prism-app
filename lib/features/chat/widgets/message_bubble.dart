@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/providers/media_attachment_providers.dart';
 import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
 import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
@@ -15,7 +16,6 @@ import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
 import 'package:prism_plurality/features/chat/widgets/media/gif_bubble.dart';
 import 'package:prism_plurality/features/chat/widgets/media/image_bubble.dart';
-import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/chat/widgets/media/voice_bubble.dart';
 import 'package:prism_plurality/features/chat/widgets/reaction_bar.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -735,7 +735,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   }
 
   Widget _buildGifAttachment(MediaAttachment attachment) {
-    final gifEnabled = ref.watch(gifSearchEnabledProvider);
+    final gifEnabled = ref.watch(gifRenderingEnabledProvider);
     return GifBubble(
       sourceUrl: attachment.sourceUrl,
       previewUrl: attachment.previewUrl,
