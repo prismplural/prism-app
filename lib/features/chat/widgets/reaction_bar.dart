@@ -49,7 +49,7 @@ class ReactionBar extends ConsumerWidget {
 
         return Semantics(
           button: true,
-          label: 'Add reaction $emoji',
+          label: context.l10n.chatReactionAdd(emoji),
           child: GestureDetector(
           onTap: () {
             if (speakingAs == null) return;
@@ -120,7 +120,7 @@ class ReactionBar extends ConsumerWidget {
 
     PrismDialog.show<void>(
       context: context,
-      title: '$emoji Reactions',
+      title: context.l10n.chatReactionSheetTitle(emoji),
       builder: (ctx) {
         return Consumer(
           builder: (ctx, ref, _) {

@@ -360,6 +360,15 @@
   "@appearanceSamplePronouns": {
     "description": "Sample pronouns in the appearance preview card"
   },
+  "appearanceSampleMember": "Sample {term}",
+  "@appearanceSampleMember": {
+    "description": "Sample member title in the appearance preview card",
+    "placeholders": {
+      "term": {
+        "type": "String"
+      }
+    }
+  },
   "appearanceFronting": "Fronting",
   "@appearanceFronting": {
     "description": "Fronting pill label in the appearance preview card"
@@ -1117,6 +1126,38 @@
         "type": "int"
       }
     }
+  },
+  "statisticsDurationStats": "Duration Stats",
+  "@statisticsDurationStats": {
+    "description": "Title for the duration stats card"
+  },
+  "statisticsDurationSessions": "Sessions",
+  "@statisticsDurationSessions": {
+    "description": "Label for session count in the duration stats card"
+  },
+  "statisticsDurationTotal": "Total",
+  "@statisticsDurationTotal": {
+    "description": "Label for total duration in the duration stats card"
+  },
+  "statisticsDurationAverage": "Average",
+  "@statisticsDurationAverage": {
+    "description": "Label for average duration in the duration stats card"
+  },
+  "statisticsDurationMedian": "Median",
+  "@statisticsDurationMedian": {
+    "description": "Label for median duration in the duration stats card"
+  },
+  "statisticsDurationShortest": "Shortest",
+  "@statisticsDurationShortest": {
+    "description": "Label for shortest session in the duration stats card"
+  },
+  "statisticsDurationLongest": "Longest",
+  "@statisticsDurationLongest": {
+    "description": "Label for longest session in the duration stats card"
+  },
+  "statisticsFrontingTimeByMember": "Fronting Time by Member",
+  "@statisticsFrontingTimeByMember": {
+    "description": "Title for the member comparison chart"
   },
   "statisticsActiveMembersBreakdown": "{active} active, {inactive} inactive",
   "@statisticsActiveMembersBreakdown": {
@@ -3876,11 +3917,11 @@
   "@chatGifsNotFoundSubtitle": {
     "description": "Subtitle for empty GIF search results"
   },
-  "chatGifConsentTitle": "Enable GIF search?",
+  "chatGifConsentTitle": "Enable GIFs?",
   "@chatGifConsentTitle": {
     "description": "Title for the first-use GIF privacy disclosure dialog"
   },
-  "chatGifConsentIntro": "GIF search uses a relay-backed Klipy service. Here's what each side can and cannot see.",
+  "chatGifConsentIntro": "GIFs use a relay-backed Klipy service. Here's what each side can and cannot see.",
   "@chatGifConsentIntro": {
     "description": "Intro text for the first-use GIF privacy disclosure dialog"
   },
@@ -3962,6 +4003,65 @@
   "chatRemoveAttachment": "Remove attachment",
   "@chatRemoveAttachment": {
     "description": "Semantics label for remove attachment button"
+  },
+  "chatSearchClear": "Clear search",
+  "@chatSearchClear": {
+    "description": "Semantics label for clearing the chat search field"
+  },
+  "chatInfoEditEmoji": "Edit conversation emoji",
+  "@chatInfoEditEmoji": {
+    "description": "Semantics label for editing a conversation emoji"
+  },
+  "chatInfoEditTitle": "Edit conversation title",
+  "@chatInfoEditTitle": {
+    "description": "Semantics label for editing a conversation title"
+  },
+  "chatImageAttachment": "Image attachment",
+  "@chatImageAttachment": {
+    "description": "Fallback semantics label for an image attachment"
+  },
+  "chatImageLoading": "Image attachment loading.",
+  "@chatImageLoading": {
+    "description": "Semantics label while an image attachment is loading"
+  },
+  "chatImageOpenFullScreen": "Image attachment. Double tap to view full screen.",
+  "@chatImageOpenFullScreen": {
+    "description": "Semantics label for an image attachment that opens the full-screen viewer"
+  },
+  "chatMessageToggleReaction": "Toggle reaction {emoji}",
+  "@chatMessageToggleReaction": {
+    "description": "Semantics label for toggling a quick reaction on a message",
+    "placeholders": {
+      "emoji": {
+        "type": "String"
+      }
+    }
+  },
+  "chatMessageAddCustomReaction": "Add custom reaction",
+  "@chatMessageAddCustomReaction": {
+    "description": "Semantics label for adding a custom reaction to a message"
+  },
+  "chatMessageToggleTimeFormat": "Toggle time format",
+  "@chatMessageToggleTimeFormat": {
+    "description": "Semantics label for toggling the time format on a message"
+  },
+  "chatReactionAdd": "Add reaction {emoji}",
+  "@chatReactionAdd": {
+    "description": "Semantics label for adding a reaction from the reaction bar",
+    "placeholders": {
+      "emoji": {
+        "type": "String"
+      }
+    }
+  },
+  "chatReactionSheetTitle": "{emoji} Reactions",
+  "@chatReactionSheetTitle": {
+    "description": "Dialog title showing who reacted with a specific emoji",
+    "placeholders": {
+      "emoji": {
+        "type": "String"
+      }
+    }
   },
   "chatVoiceNoteSemantics": "Voice note from message, {duration}",
   "@chatVoiceNoteSemantics": {
@@ -4052,6 +4152,137 @@
   "chatConversationNoTitle": "Conversation",
   "@chatConversationNoTitle": {
     "description": "Fallback text for a conversation with no participants other than self"
+  },
+  "memberSelectLoadFailed": "Failed to load {termPlural}",
+  "@memberSelectLoadFailed": {
+    "description": "Error message in the member selection sheet when members fail to load",
+    "placeholders": {
+      "termPlural": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingPermissionsNotGranted": "Not granted",
+  "@onboardingPermissionsNotGranted": {
+    "description": "Label shown when an onboarding permission has not been granted"
+  },
+  "syncSetupConnectingToJoiner": "Connecting to joiner...",
+  "@syncSetupConnectingToJoiner": {
+    "description": "Status text while an existing device connects to the joining device"
+  },
+  "syncSetupCompletingPairing": "Completing pairing...",
+  "@syncSetupCompletingPairing": {
+    "description": "Status text while an existing device completes pairing"
+  },
+  "syncSetupScanJoinerPrompt": "The new device can generate a pairing request QR code. Scan it here to approve the device and share your sync credentials.",
+  "@syncSetupScanJoinerPrompt": {
+    "description": "Intro text on the set up another device sheet before scanning"
+  },
+  "syncSetupScanJoinerButton": "Scan Joiner's QR",
+  "@syncSetupScanJoinerButton": {
+    "description": "Primary button label to scan the joiner's pairing QR code"
+  },
+  "syncSetupScanJoinerDescription": "Scan the joiner's pairing QR code.",
+  "@syncSetupScanJoinerDescription": {
+    "description": "Instruction text above the joiner QR scanner"
+  },
+  "syncSetupInvalidPairingQr": "Invalid pairing QR code.",
+  "@syncSetupInvalidPairingQr": {
+    "description": "Toast shown when the scanned joiner QR code is invalid"
+  },
+  "syncSetupVerifyDescription": "Confirm these words match on the joining device.",
+  "@syncSetupVerifyDescription": {
+    "description": "Instruction text on the existing-device security code verification step"
+  },
+  "syncSetupPairingComplete": "Pairing complete! The new device is now syncing.",
+  "@syncSetupPairingComplete": {
+    "description": "Success banner on the existing-device setup flow after pairing completes"
+  },
+  "syncSetupSnapshotNotice": "An encrypted snapshot has been uploaded and will be automatically deleted after the new device connects (or after 24 hours).",
+  "@syncSetupSnapshotNotice": {
+    "description": "Informational note after pairing completes on the existing-device setup flow"
+  },
+  "syncSetupPairingFailed": "Pairing Failed",
+  "@syncSetupPairingFailed": {
+    "description": "Title shown when the existing-device setup flow fails"
+  },
+  "encryptionPrivacyIntroTitle": "Your data is encrypted on this device with keys only your PIN can unlock.",
+  "@encryptionPrivacyIntroTitle": {
+    "description": "Lead statement on the encryption and privacy screen"
+  },
+  "encryptionPrivacyIntroBody": "Even if someone copies this device's storage, they can't read your data without your PIN and recovery phrase.",
+  "@encryptionPrivacyIntroBody": {
+    "description": "Supporting body text on the encryption and privacy screen"
+  },
+  "encryptionPrivacySyncNote": "When sync is enabled, data is encrypted on your device before it leaves. The server only stores encrypted blobs it cannot read.",
+  "@encryptionPrivacySyncNote": {
+    "description": "Zero-knowledge sync note on the encryption and privacy screen"
+  },
+  "encryptionPrivacyHowItWorks": "How it works",
+  "@encryptionPrivacyHowItWorks": {
+    "description": "Expandable section title on the encryption and privacy screen"
+  },
+  "encryptionPrivacyDatabaseTitle": "Database encryption",
+  "@encryptionPrivacyDatabaseTitle": {
+    "description": "Technical item title for database encryption details"
+  },
+  "encryptionPrivacyDatabaseBody": "HKDF-SHA256(DEK, DeviceSecret) — per-device, PIN-derived key. Your device generates this key; no server ever sees it.",
+  "@encryptionPrivacyDatabaseBody": {
+    "description": "Technical item body for database encryption details"
+  },
+  "encryptionPrivacyMessageTitle": "Message encryption",
+  "@encryptionPrivacyMessageTitle": {
+    "description": "Technical item title for message encryption details"
+  },
+  "encryptionPrivacyMessageBody": "XChaCha20-Poly1305 with per-message keys derived from your Data Encryption Key (DEK).",
+  "@encryptionPrivacyMessageBody": {
+    "description": "Technical item body for message encryption details"
+  },
+  "encryptionPrivacyPostQuantumTitle": "Post-quantum device identity",
+  "@encryptionPrivacyPostQuantumTitle": {
+    "description": "Technical item title for post-quantum identity details"
+  },
+  "encryptionPrivacyPostQuantumBody": "ML-KEM-768 (key exchange) and ML-DSA-65 (signatures) protect against future quantum attacks on device authentication.",
+  "@encryptionPrivacyPostQuantumBody": {
+    "description": "Technical item body for post-quantum identity details"
+  },
+  "encryptionPrivacyRecoveryTitle": "Recovery",
+  "@encryptionPrivacyRecoveryTitle": {
+    "description": "Technical item title for recovery details"
+  },
+  "encryptionPrivacyRecoveryBody": "Your 12-word BIP39 recovery phrase re-derives all keys. Store it somewhere safe — it is the only way to recover your data if you lose your PIN.",
+  "@encryptionPrivacyRecoveryBody": {
+    "description": "Technical item body for recovery details"
+  },
+  "memberAvatarSemantics": "{name} avatar",
+  "@memberAvatarSemantics": {
+    "description": "Semantics label for a member avatar image",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberAvatarSemanticsUnnamed": "Member avatar",
+  "@memberAvatarSemanticsUnnamed": {
+    "description": "Fallback semantics label for a member avatar image"
+  },
+  "groupMemberAvatarSemantics": "Group member avatar",
+  "@groupMemberAvatarSemantics": {
+    "description": "Semantics label for an image inside a grouped member avatar"
+  },
+  "habitsReminderNotificationTitle": "Habit Reminder",
+  "@habitsReminderNotificationTitle": {
+    "description": "Title for a scheduled habit reminder notification"
+  },
+  "habitsReminderNotificationBody": "Time to complete: {habitName}",
+  "@habitsReminderNotificationBody": {
+    "description": "Default body text for a scheduled habit reminder notification",
+    "placeholders": {
+      "habitName": {
+        "type": "String"
+      }
+    }
   },
   "chatTileNoMessages": "No messages yet",
   "@chatTileNoMessages": {

@@ -78,9 +78,9 @@ class ImageBubble extends StatelessWidget {
 
     return Semantics(
       label: imageBytes != null
-          ? 'Image attachment. Double tap to view full screen.'
+          ? context.l10n.chatImageOpenFullScreen
           : isLoading
-              ? 'Image attachment loading.'
+              ? context.l10n.chatImageLoading
               : context.l10n.chatImageError,
       child: GestureDetector(
         onTap: imageBytes != null
@@ -114,7 +114,7 @@ class ImageBubble extends StatelessWidget {
         fit: BoxFit.cover,
         width: w,
         height: h,
-        semanticLabel: caption ?? 'Image attachment',
+        semanticLabel: caption ?? context.l10n.chatImageAttachment,
         errorBuilder: (_, _, _) => _ErrorPlaceholder(width: w, height: h, onRetry: onRetry),
       );
     }
@@ -126,7 +126,7 @@ class ImageBubble extends StatelessWidget {
     // Loading state — show BlurHash placeholder if available, else spinner
     if (blurhash != null && blurhash!.isNotEmpty) {
       return Semantics(
-        label: 'Image loading',
+        label: context.l10n.chatImageLoading,
         child: ExcludeSemantics(
           child: _BlurhashPlaceholder(
             blurhash: blurhash!,
@@ -138,7 +138,7 @@ class ImageBubble extends StatelessWidget {
     }
 
     return Semantics(
-      label: 'Image loading',
+      label: context.l10n.chatImageLoading,
       child: ExcludeSemantics(
         child: Container(
           width: w,

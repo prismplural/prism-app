@@ -10,6 +10,7 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -22,7 +23,7 @@ class SetupDeviceSheet {
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) {
       if (!context.mounted) return;
-      PrismToast.error(context, message: 'Sync engine not available');
+      PrismToast.error(context, message: context.l10n.syncEngineNotAvailable);
       return;
     }
 
@@ -187,7 +188,7 @@ class _SetupDeviceSheetContentState
     return SecureScope(
       child: Column(
         children: [
-          const PrismSheetTopBar(title: 'Set Up Another Device'),
+          PrismSheetTopBar(title: context.l10n.syncSetUpAnotherDevice),
           Expanded(
             child: SingleChildScrollView(
               controller: widget.scrollController,
@@ -228,7 +229,7 @@ class _SetupDeviceSheetContentState
                 duration: const Duration(milliseconds: 3000),
               ),
               const SizedBox(height: 16),
-              const Text('Connecting to joiner...'),
+              Text(context.l10n.syncSetupConnectingToJoiner),
             ],
           ),
         ),
@@ -256,14 +257,14 @@ class _SetupDeviceSheetContentState
                 duration: const Duration(milliseconds: 3000),
               ),
               const SizedBox(height: 16),
-              const Text('Completing pairing...'),
+              Text(context.l10n.syncSetupCompletingPairing),
             ],
           ),
         ),
       ),
       _InitiatorStep.done => _InitiatorDoneView(onDone: _reset),
       _InitiatorStep.error => _InitiatorErrorView(
-        message: _error ?? 'An unknown error occurred.',
+        message: _error ?? context.l10n.onboardingSyncUnknownError,
         onTryAgain: _reset,
       ),
     };
@@ -283,13 +284,12 @@ class _ScanJoinerPrompt extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'The new device can generate a pairing request QR code. '
-          'Scan it here to approve the device and share your sync credentials.',
+          context.l10n.syncSetupScanJoinerPrompt,
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
         PrismButton(
-          label: "Scan Joiner's QR",
+          label: context.l10n.syncSetupScanJoinerButton,
           icon: AppIcons.qrCodeScanner,
           onPressed: onStartScan,
         ),
@@ -324,7 +324,7 @@ class _JoinerQrScannerView extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: PrismButton(
-            label: 'Back',
+            label: context.l10n.back,
             onPressed: onBack,
             icon: AppIcons.arrowBackIosNew,
             tone: PrismButtonTone.subtle,
@@ -332,7 +332,7 @@ class _JoinerQrScannerView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          "Scan the joiner's pairing QR code.",
+          context.l10n.syncSetupScanJoinerDescription,
           style: theme.textTheme.bodyMedium,
           textAlign: TextAlign.center,
         ),
@@ -355,7 +355,7 @@ class _JoinerQrScannerView extends StatelessWidget {
                   if (context.mounted) {
                     PrismToast.show(
                       context,
-                      message: 'Invalid pairing QR code.',
+                      message: context.l10n.syncSetupInvalidPairingQr,
                     );
                   }
                 }
@@ -407,7 +407,7 @@ class _SasVerificationView extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'Verify Security Code',
+          context.l10n.onboardingSyncVerifySecurityCode,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -415,7 +415,7 @@ class _SasVerificationView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Confirm these words match on the joining device.',
+          context.l10n.syncSetupVerifyDescription,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
@@ -463,13 +463,13 @@ class _SasVerificationView extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         PrismButton(
-          label: 'They Match',
+          label: context.l10n.onboardingSyncTheyMatch,
           icon: AppIcons.checkCircle,
           onPressed: onConfirm,
         ),
         const SizedBox(height: 8),
         PrismButton(
-          label: 'They Don\'t Match',
+          label: context.l10n.onboardingSyncTheyDontMatch,
           icon: AppIcons.close,
           tone: PrismButtonTone.subtle,
           onPressed: onReject,
@@ -520,7 +520,7 @@ class _InitiatorPinViewState extends State<_InitiatorPinView> {
         Align(
           alignment: Alignment.centerLeft,
           child: PrismButton(
-            label: 'Back',
+            label: context.l10n.back,
             onPressed: widget.onBack,
             icon: AppIcons.arrowBackIosNew,
             tone: PrismButtonTone.subtle,
@@ -530,7 +530,7 @@ class _InitiatorPinViewState extends State<_InitiatorPinView> {
         Icon(AppIcons.lockOutline, color: theme.colorScheme.primary, size: 40),
         const SizedBox(height: 16),
         Text(
-          'Enter your PIN',
+          context.l10n.onboardingSyncEnterPassword,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -538,7 +538,7 @@ class _InitiatorPinViewState extends State<_InitiatorPinView> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Enter your 6-digit PIN to share credentials with the new device.',
+          context.l10n.onboardingSyncEnterPasswordDescription,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
           ),
@@ -672,7 +672,7 @@ class _InitiatorDoneView extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Pairing complete! The new device is now syncing.',
+                  context.l10n.syncSetupPairingComplete,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: Colors.green,
                   ),
@@ -698,9 +698,7 @@ class _InitiatorDoneView extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'An encrypted snapshot has been uploaded and will be '
-                  'automatically deleted after the new device connects '
-                  '(or after 24 hours).',
+                  context.l10n.syncSetupSnapshotNotice,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.primary,
                   ),
@@ -710,7 +708,11 @@ class _InitiatorDoneView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        PrismButton(label: 'Done', icon: AppIcons.check, onPressed: onDone),
+        PrismButton(
+          label: context.l10n.done,
+          icon: AppIcons.check,
+          onPressed: onDone,
+        ),
       ],
     );
   }
@@ -733,7 +735,7 @@ class _InitiatorErrorView extends StatelessWidget {
         Icon(AppIcons.errorOutline, color: theme.colorScheme.error, size: 40),
         const SizedBox(height: 16),
         Text(
-          'Pairing Failed',
+          context.l10n.syncSetupPairingFailed,
           style: theme.textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),
@@ -749,7 +751,7 @@ class _InitiatorErrorView extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         PrismButton(
-          label: 'Try Again',
+          label: context.l10n.tryAgain,
           icon: AppIcons.refresh,
           tone: PrismButtonTone.subtle,
           onPressed: onTryAgain,

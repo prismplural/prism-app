@@ -208,7 +208,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
 
     return conversationAsync.when(
       loading: () => const SafeArea(child: PrismLoadingState()),
-      error: (e, _) => SafeArea(child: Center(child: Text('Error: $e'))),
+      error: (e, _) => SafeArea(
+        child: Center(child: Text(context.l10n.errorWithDetail(e))),
+      ),
       data: (conversation) {
         if (conversation == null) {
           return SafeArea(
@@ -332,7 +334,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         // Emoji
         Semantics(
           button: true,
-          label: 'Edit conversation emoji',
+          label: context.l10n.chatInfoEditEmoji,
           child: GestureDetector(
             onTap: permissions.canEditTitleEmoji
                 ? () => _pickEmoji(conversation.id, conversation.title)
@@ -361,7 +363,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         else
           Semantics(
             button: true,
-            label: 'Edit conversation title',
+            label: context.l10n.chatInfoEditTitle,
             child: GestureDetector(
               onTap: permissions.canEditTitleEmoji
                   ? () {

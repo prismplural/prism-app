@@ -260,6 +260,11 @@ class AppLocalizationsEs extends AppLocalizations {
   String get appearanceSamplePronouns => 'ella';
 
   @override
+  String appearanceSampleMember(String term) {
+    return '$term de ejemplo';
+  }
+
+  @override
   String get appearanceFronting => 'Al frente';
 
   @override
@@ -848,6 +853,31 @@ class AppLocalizationsEs extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get statisticsDurationStats => 'Estadísticas de duración';
+
+  @override
+  String get statisticsDurationSessions => 'Sesiones';
+
+  @override
+  String get statisticsDurationTotal => 'Total';
+
+  @override
+  String get statisticsDurationAverage => 'Promedio';
+
+  @override
+  String get statisticsDurationMedian => 'Mediana';
+
+  @override
+  String get statisticsDurationShortest => 'Más corta';
+
+  @override
+  String get statisticsDurationLongest => 'Más larga';
+
+  @override
+  String get statisticsFrontingTimeByMember =>
+      'Tiempo al frente por integrante';
 
   @override
   String statisticsActiveMembersBreakdown(int active, int inactive) {
@@ -2895,11 +2925,11 @@ class AppLocalizationsEs extends AppLocalizations {
       'Prueba con otros términos de búsqueda';
 
   @override
-  String get chatGifConsentTitle => '¿Activar búsqueda de GIFs?';
+  String get chatGifConsentTitle => '¿Activar GIFs?';
 
   @override
   String get chatGifConsentIntro =>
-      'La búsqueda de GIFs usa un servicio de Klipy detrás del relay. Esto es lo que cada parte puede y no puede ver.';
+      'Los GIFs usan un servicio de Klipy detrás del relay. Esto es lo que cada parte puede y no puede ver.';
 
   @override
   String get chatGifConsentRelayTitle => 'Lo que puede ver el relay de Prism';
@@ -2965,6 +2995,46 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatRemoveAttachment => 'Eliminar archivo adjunto';
 
   @override
+  String get chatSearchClear => 'Borrar búsqueda';
+
+  @override
+  String get chatInfoEditEmoji => 'Editar emoji de la conversación';
+
+  @override
+  String get chatInfoEditTitle => 'Editar título de la conversación';
+
+  @override
+  String get chatImageAttachment => 'Adjunto de imagen';
+
+  @override
+  String get chatImageLoading => 'Cargando adjunto de imagen.';
+
+  @override
+  String get chatImageOpenFullScreen =>
+      'Adjunto de imagen. Toca dos veces para ver en pantalla completa.';
+
+  @override
+  String chatMessageToggleReaction(String emoji) {
+    return 'Alternar reacción $emoji';
+  }
+
+  @override
+  String get chatMessageAddCustomReaction => 'Agregar reacción personalizada';
+
+  @override
+  String get chatMessageToggleTimeFormat => 'Cambiar formato de hora';
+
+  @override
+  String chatReactionAdd(String emoji) {
+    return 'Agregar reacción $emoji';
+  }
+
+  @override
+  String chatReactionSheetTitle(String emoji) {
+    return 'Reacciones $emoji';
+  }
+
+  @override
   String chatVoiceNoteSemantics(String duration) {
     return 'Nota de voz del mensaje, $duration';
   }
@@ -3022,6 +3092,115 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get chatConversationNoTitle => 'Conversación';
+
+  @override
+  String memberSelectLoadFailed(String termPlural) {
+    return 'Error al cargar $termPlural';
+  }
+
+  @override
+  String get onboardingPermissionsNotGranted => 'No concedido';
+
+  @override
+  String get syncSetupConnectingToJoiner =>
+      'Conectando con el dispositivo que se une...';
+
+  @override
+  String get syncSetupCompletingPairing => 'Completando emparejamiento...';
+
+  @override
+  String get syncSetupScanJoinerPrompt =>
+      'El nuevo dispositivo puede generar un código QR de solicitud de emparejamiento. Escanéalo aquí para aprobar el dispositivo y compartir tus credenciales de sincronización.';
+
+  @override
+  String get syncSetupScanJoinerButton =>
+      'Escanear QR del dispositivo que se une';
+
+  @override
+  String get syncSetupScanJoinerDescription =>
+      'Escanea el código QR de emparejamiento del dispositivo que se une.';
+
+  @override
+  String get syncSetupInvalidPairingQr =>
+      'Código QR de emparejamiento no válido.';
+
+  @override
+  String get syncSetupVerifyDescription =>
+      'Confirma que estas palabras coincidan en el dispositivo que se une.';
+
+  @override
+  String get syncSetupPairingComplete =>
+      '¡Emparejamiento completo! El nuevo dispositivo ya se está sincronizando.';
+
+  @override
+  String get syncSetupSnapshotNotice =>
+      'Se subió una instantánea cifrada y se eliminará automáticamente después de que se conecte el nuevo dispositivo (o tras 24 horas).';
+
+  @override
+  String get syncSetupPairingFailed => 'Falló el emparejamiento';
+
+  @override
+  String get encryptionPrivacyIntroTitle =>
+      'Tus datos se cifran en este dispositivo con claves que solo tu PIN puede desbloquear.';
+
+  @override
+  String get encryptionPrivacyIntroBody =>
+      'Incluso si alguien copia el almacenamiento de este dispositivo, no podrá leer tus datos sin tu PIN y tu frase de recuperación.';
+
+  @override
+  String get encryptionPrivacySyncNote =>
+      'Cuando la sincronización está activada, los datos se cifran en tu dispositivo antes de salir. El servidor solo almacena blobs cifrados que no puede leer.';
+
+  @override
+  String get encryptionPrivacyHowItWorks => 'Cómo funciona';
+
+  @override
+  String get encryptionPrivacyDatabaseTitle => 'Cifrado de la base de datos';
+
+  @override
+  String get encryptionPrivacyDatabaseBody =>
+      'HKDF-SHA256(DEK, DeviceSecret): una clave derivada del PIN y única por dispositivo. Tu dispositivo genera esta clave; ningún servidor la ve jamás.';
+
+  @override
+  String get encryptionPrivacyMessageTitle => 'Cifrado de mensajes';
+
+  @override
+  String get encryptionPrivacyMessageBody =>
+      'XChaCha20-Poly1305 con claves por mensaje derivadas de tu Clave de Cifrado de Datos (DEK).';
+
+  @override
+  String get encryptionPrivacyPostQuantumTitle =>
+      'Identidad de dispositivo poscuántica';
+
+  @override
+  String get encryptionPrivacyPostQuantumBody =>
+      'ML-KEM-768 (intercambio de claves) y ML-DSA-65 (firmas) protegen la autenticación del dispositivo frente a futuros ataques cuánticos.';
+
+  @override
+  String get encryptionPrivacyRecoveryTitle => 'Recuperación';
+
+  @override
+  String get encryptionPrivacyRecoveryBody =>
+      'Tu frase de recuperación BIP39 de 12 palabras vuelve a derivar todas las claves. Guárdala en un lugar seguro: es la única forma de recuperar tus datos si pierdes tu PIN.';
+
+  @override
+  String memberAvatarSemantics(String name) {
+    return 'Avatar de $name';
+  }
+
+  @override
+  String get memberAvatarSemanticsUnnamed => 'Avatar del integrante';
+
+  @override
+  String get groupMemberAvatarSemantics => 'Avatar de integrante del grupo';
+
+  @override
+  String get habitsReminderNotificationTitle => 'Recordatorio de hábito';
+
+  @override
+  String habitsReminderNotificationBody(String habitName) {
+    return 'Hora de completar: $habitName';
+  }
 
   @override
   String get chatTileNoMessages => 'Aún no hay mensajes';

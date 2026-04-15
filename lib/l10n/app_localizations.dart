@@ -554,6 +554,12 @@ abstract class AppLocalizations {
   /// **'she/her'**
   String get appearanceSamplePronouns;
 
+  /// Sample member title in the appearance preview card
+  ///
+  /// In en, this message translates to:
+  /// **'Sample {term}'**
+  String appearanceSampleMember(String term);
+
   /// Fronting pill label in the appearance preview card
   ///
   /// In en, this message translates to:
@@ -1585,6 +1591,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 session} other{{count} sessions}}'**
   String statisticsSessions(int count);
+
+  /// Title for the duration stats card
+  ///
+  /// In en, this message translates to:
+  /// **'Duration Stats'**
+  String get statisticsDurationStats;
+
+  /// Label for session count in the duration stats card
+  ///
+  /// In en, this message translates to:
+  /// **'Sessions'**
+  String get statisticsDurationSessions;
+
+  /// Label for total duration in the duration stats card
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get statisticsDurationTotal;
+
+  /// Label for average duration in the duration stats card
+  ///
+  /// In en, this message translates to:
+  /// **'Average'**
+  String get statisticsDurationAverage;
+
+  /// Label for median duration in the duration stats card
+  ///
+  /// In en, this message translates to:
+  /// **'Median'**
+  String get statisticsDurationMedian;
+
+  /// Label for shortest session in the duration stats card
+  ///
+  /// In en, this message translates to:
+  /// **'Shortest'**
+  String get statisticsDurationShortest;
+
+  /// Label for longest session in the duration stats card
+  ///
+  /// In en, this message translates to:
+  /// **'Longest'**
+  String get statisticsDurationLongest;
+
+  /// Title for the member comparison chart
+  ///
+  /// In en, this message translates to:
+  /// **'Fronting Time by Member'**
+  String get statisticsFrontingTimeByMember;
 
   /// Active/inactive member count breakdown in statistics
   ///
@@ -5003,13 +5057,13 @@ abstract class AppLocalizations {
   /// Title for the first-use GIF privacy disclosure dialog
   ///
   /// In en, this message translates to:
-  /// **'Enable GIF search?'**
+  /// **'Enable GIFs?'**
   String get chatGifConsentTitle;
 
   /// Intro text for the first-use GIF privacy disclosure dialog
   ///
   /// In en, this message translates to:
-  /// **'GIF search uses a relay-backed Klipy service. Here\'s what each side can and cannot see.'**
+  /// **'GIFs use a relay-backed Klipy service. Here\'s what each side can and cannot see.'**
   String get chatGifConsentIntro;
 
   /// Section title describing relay visibility for GIF search
@@ -5108,6 +5162,72 @@ abstract class AppLocalizations {
   /// **'Remove attachment'**
   String get chatRemoveAttachment;
 
+  /// Semantics label for clearing the chat search field
+  ///
+  /// In en, this message translates to:
+  /// **'Clear search'**
+  String get chatSearchClear;
+
+  /// Semantics label for editing a conversation emoji
+  ///
+  /// In en, this message translates to:
+  /// **'Edit conversation emoji'**
+  String get chatInfoEditEmoji;
+
+  /// Semantics label for editing a conversation title
+  ///
+  /// In en, this message translates to:
+  /// **'Edit conversation title'**
+  String get chatInfoEditTitle;
+
+  /// Fallback semantics label for an image attachment
+  ///
+  /// In en, this message translates to:
+  /// **'Image attachment'**
+  String get chatImageAttachment;
+
+  /// Semantics label while an image attachment is loading
+  ///
+  /// In en, this message translates to:
+  /// **'Image attachment loading.'**
+  String get chatImageLoading;
+
+  /// Semantics label for an image attachment that opens the full-screen viewer
+  ///
+  /// In en, this message translates to:
+  /// **'Image attachment. Double tap to view full screen.'**
+  String get chatImageOpenFullScreen;
+
+  /// Semantics label for toggling a quick reaction on a message
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle reaction {emoji}'**
+  String chatMessageToggleReaction(String emoji);
+
+  /// Semantics label for adding a custom reaction to a message
+  ///
+  /// In en, this message translates to:
+  /// **'Add custom reaction'**
+  String get chatMessageAddCustomReaction;
+
+  /// Semantics label for toggling the time format on a message
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle time format'**
+  String get chatMessageToggleTimeFormat;
+
+  /// Semantics label for adding a reaction from the reaction bar
+  ///
+  /// In en, this message translates to:
+  /// **'Add reaction {emoji}'**
+  String chatReactionAdd(String emoji);
+
+  /// Dialog title showing who reacted with a specific emoji
+  ///
+  /// In en, this message translates to:
+  /// **'{emoji} Reactions'**
+  String chatReactionSheetTitle(String emoji);
+
   /// Semantics label for voice note bubble
   ///
   /// In en, this message translates to:
@@ -5197,6 +5317,180 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Conversation'**
   String get chatConversationNoTitle;
+
+  /// Error message in the member selection sheet when members fail to load
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load {termPlural}'**
+  String memberSelectLoadFailed(String termPlural);
+
+  /// Label shown when an onboarding permission has not been granted
+  ///
+  /// In en, this message translates to:
+  /// **'Not granted'**
+  String get onboardingPermissionsNotGranted;
+
+  /// Status text while an existing device connects to the joining device
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to joiner...'**
+  String get syncSetupConnectingToJoiner;
+
+  /// Status text while an existing device completes pairing
+  ///
+  /// In en, this message translates to:
+  /// **'Completing pairing...'**
+  String get syncSetupCompletingPairing;
+
+  /// Intro text on the set up another device sheet before scanning
+  ///
+  /// In en, this message translates to:
+  /// **'The new device can generate a pairing request QR code. Scan it here to approve the device and share your sync credentials.'**
+  String get syncSetupScanJoinerPrompt;
+
+  /// Primary button label to scan the joiner's pairing QR code
+  ///
+  /// In en, this message translates to:
+  /// **'Scan Joiner\'s QR'**
+  String get syncSetupScanJoinerButton;
+
+  /// Instruction text above the joiner QR scanner
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the joiner\'s pairing QR code.'**
+  String get syncSetupScanJoinerDescription;
+
+  /// Toast shown when the scanned joiner QR code is invalid
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid pairing QR code.'**
+  String get syncSetupInvalidPairingQr;
+
+  /// Instruction text on the existing-device security code verification step
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm these words match on the joining device.'**
+  String get syncSetupVerifyDescription;
+
+  /// Success banner on the existing-device setup flow after pairing completes
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing complete! The new device is now syncing.'**
+  String get syncSetupPairingComplete;
+
+  /// Informational note after pairing completes on the existing-device setup flow
+  ///
+  /// In en, this message translates to:
+  /// **'An encrypted snapshot has been uploaded and will be automatically deleted after the new device connects (or after 24 hours).'**
+  String get syncSetupSnapshotNotice;
+
+  /// Title shown when the existing-device setup flow fails
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing Failed'**
+  String get syncSetupPairingFailed;
+
+  /// Lead statement on the encryption and privacy screen
+  ///
+  /// In en, this message translates to:
+  /// **'Your data is encrypted on this device with keys only your PIN can unlock.'**
+  String get encryptionPrivacyIntroTitle;
+
+  /// Supporting body text on the encryption and privacy screen
+  ///
+  /// In en, this message translates to:
+  /// **'Even if someone copies this device\'s storage, they can\'t read your data without your PIN and recovery phrase.'**
+  String get encryptionPrivacyIntroBody;
+
+  /// Zero-knowledge sync note on the encryption and privacy screen
+  ///
+  /// In en, this message translates to:
+  /// **'When sync is enabled, data is encrypted on your device before it leaves. The server only stores encrypted blobs it cannot read.'**
+  String get encryptionPrivacySyncNote;
+
+  /// Expandable section title on the encryption and privacy screen
+  ///
+  /// In en, this message translates to:
+  /// **'How it works'**
+  String get encryptionPrivacyHowItWorks;
+
+  /// Technical item title for database encryption details
+  ///
+  /// In en, this message translates to:
+  /// **'Database encryption'**
+  String get encryptionPrivacyDatabaseTitle;
+
+  /// Technical item body for database encryption details
+  ///
+  /// In en, this message translates to:
+  /// **'HKDF-SHA256(DEK, DeviceSecret) — per-device, PIN-derived key. Your device generates this key; no server ever sees it.'**
+  String get encryptionPrivacyDatabaseBody;
+
+  /// Technical item title for message encryption details
+  ///
+  /// In en, this message translates to:
+  /// **'Message encryption'**
+  String get encryptionPrivacyMessageTitle;
+
+  /// Technical item body for message encryption details
+  ///
+  /// In en, this message translates to:
+  /// **'XChaCha20-Poly1305 with per-message keys derived from your Data Encryption Key (DEK).'**
+  String get encryptionPrivacyMessageBody;
+
+  /// Technical item title for post-quantum identity details
+  ///
+  /// In en, this message translates to:
+  /// **'Post-quantum device identity'**
+  String get encryptionPrivacyPostQuantumTitle;
+
+  /// Technical item body for post-quantum identity details
+  ///
+  /// In en, this message translates to:
+  /// **'ML-KEM-768 (key exchange) and ML-DSA-65 (signatures) protect against future quantum attacks on device authentication.'**
+  String get encryptionPrivacyPostQuantumBody;
+
+  /// Technical item title for recovery details
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery'**
+  String get encryptionPrivacyRecoveryTitle;
+
+  /// Technical item body for recovery details
+  ///
+  /// In en, this message translates to:
+  /// **'Your 12-word BIP39 recovery phrase re-derives all keys. Store it somewhere safe — it is the only way to recover your data if you lose your PIN.'**
+  String get encryptionPrivacyRecoveryBody;
+
+  /// Semantics label for a member avatar image
+  ///
+  /// In en, this message translates to:
+  /// **'{name} avatar'**
+  String memberAvatarSemantics(String name);
+
+  /// Fallback semantics label for a member avatar image
+  ///
+  /// In en, this message translates to:
+  /// **'Member avatar'**
+  String get memberAvatarSemanticsUnnamed;
+
+  /// Semantics label for an image inside a grouped member avatar
+  ///
+  /// In en, this message translates to:
+  /// **'Group member avatar'**
+  String get groupMemberAvatarSemantics;
+
+  /// Title for a scheduled habit reminder notification
+  ///
+  /// In en, this message translates to:
+  /// **'Habit Reminder'**
+  String get habitsReminderNotificationTitle;
+
+  /// Default body text for a scheduled habit reminder notification
+  ///
+  /// In en, this message translates to:
+  /// **'Time to complete: {habitName}'**
+  String habitsReminderNotificationBody(String habitName);
 
   /// Preview text for a conversation with no messages
   ///

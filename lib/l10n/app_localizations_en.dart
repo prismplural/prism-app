@@ -258,6 +258,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appearanceSamplePronouns => 'she/her';
 
   @override
+  String appearanceSampleMember(String term) {
+    return 'Sample $term';
+  }
+
+  @override
   String get appearanceFronting => 'Fronting';
 
   @override
@@ -825,6 +830,30 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get statisticsDurationStats => 'Duration Stats';
+
+  @override
+  String get statisticsDurationSessions => 'Sessions';
+
+  @override
+  String get statisticsDurationTotal => 'Total';
+
+  @override
+  String get statisticsDurationAverage => 'Average';
+
+  @override
+  String get statisticsDurationMedian => 'Median';
+
+  @override
+  String get statisticsDurationShortest => 'Shortest';
+
+  @override
+  String get statisticsDurationLongest => 'Longest';
+
+  @override
+  String get statisticsFrontingTimeByMember => 'Fronting Time by Member';
 
   @override
   String statisticsActiveMembersBreakdown(int active, int inactive) {
@@ -2841,11 +2870,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatGifsNotFoundSubtitle => 'Try different search terms';
 
   @override
-  String get chatGifConsentTitle => 'Enable GIF search?';
+  String get chatGifConsentTitle => 'Enable GIFs?';
 
   @override
   String get chatGifConsentIntro =>
-      'GIF search uses a relay-backed Klipy service. Here\'s what each side can and cannot see.';
+      'GIFs use a relay-backed Klipy service. Here\'s what each side can and cannot see.';
 
   @override
   String get chatGifConsentRelayTitle => 'What Prism relay can see';
@@ -2911,6 +2940,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatRemoveAttachment => 'Remove attachment';
 
   @override
+  String get chatSearchClear => 'Clear search';
+
+  @override
+  String get chatInfoEditEmoji => 'Edit conversation emoji';
+
+  @override
+  String get chatInfoEditTitle => 'Edit conversation title';
+
+  @override
+  String get chatImageAttachment => 'Image attachment';
+
+  @override
+  String get chatImageLoading => 'Image attachment loading.';
+
+  @override
+  String get chatImageOpenFullScreen =>
+      'Image attachment. Double tap to view full screen.';
+
+  @override
+  String chatMessageToggleReaction(String emoji) {
+    return 'Toggle reaction $emoji';
+  }
+
+  @override
+  String get chatMessageAddCustomReaction => 'Add custom reaction';
+
+  @override
+  String get chatMessageToggleTimeFormat => 'Toggle time format';
+
+  @override
+  String chatReactionAdd(String emoji) {
+    return 'Add reaction $emoji';
+  }
+
+  @override
+  String chatReactionSheetTitle(String emoji) {
+    return '$emoji Reactions';
+  }
+
+  @override
   String chatVoiceNoteSemantics(String duration) {
     return 'Voice note from message, $duration';
   }
@@ -2966,6 +3035,112 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get chatConversationNoTitle => 'Conversation';
+
+  @override
+  String memberSelectLoadFailed(String termPlural) {
+    return 'Failed to load $termPlural';
+  }
+
+  @override
+  String get onboardingPermissionsNotGranted => 'Not granted';
+
+  @override
+  String get syncSetupConnectingToJoiner => 'Connecting to joiner...';
+
+  @override
+  String get syncSetupCompletingPairing => 'Completing pairing...';
+
+  @override
+  String get syncSetupScanJoinerPrompt =>
+      'The new device can generate a pairing request QR code. Scan it here to approve the device and share your sync credentials.';
+
+  @override
+  String get syncSetupScanJoinerButton => 'Scan Joiner\'s QR';
+
+  @override
+  String get syncSetupScanJoinerDescription =>
+      'Scan the joiner\'s pairing QR code.';
+
+  @override
+  String get syncSetupInvalidPairingQr => 'Invalid pairing QR code.';
+
+  @override
+  String get syncSetupVerifyDescription =>
+      'Confirm these words match on the joining device.';
+
+  @override
+  String get syncSetupPairingComplete =>
+      'Pairing complete! The new device is now syncing.';
+
+  @override
+  String get syncSetupSnapshotNotice =>
+      'An encrypted snapshot has been uploaded and will be automatically deleted after the new device connects (or after 24 hours).';
+
+  @override
+  String get syncSetupPairingFailed => 'Pairing Failed';
+
+  @override
+  String get encryptionPrivacyIntroTitle =>
+      'Your data is encrypted on this device with keys only your PIN can unlock.';
+
+  @override
+  String get encryptionPrivacyIntroBody =>
+      'Even if someone copies this device\'s storage, they can\'t read your data without your PIN and recovery phrase.';
+
+  @override
+  String get encryptionPrivacySyncNote =>
+      'When sync is enabled, data is encrypted on your device before it leaves. The server only stores encrypted blobs it cannot read.';
+
+  @override
+  String get encryptionPrivacyHowItWorks => 'How it works';
+
+  @override
+  String get encryptionPrivacyDatabaseTitle => 'Database encryption';
+
+  @override
+  String get encryptionPrivacyDatabaseBody =>
+      'HKDF-SHA256(DEK, DeviceSecret) — per-device, PIN-derived key. Your device generates this key; no server ever sees it.';
+
+  @override
+  String get encryptionPrivacyMessageTitle => 'Message encryption';
+
+  @override
+  String get encryptionPrivacyMessageBody =>
+      'XChaCha20-Poly1305 with per-message keys derived from your Data Encryption Key (DEK).';
+
+  @override
+  String get encryptionPrivacyPostQuantumTitle =>
+      'Post-quantum device identity';
+
+  @override
+  String get encryptionPrivacyPostQuantumBody =>
+      'ML-KEM-768 (key exchange) and ML-DSA-65 (signatures) protect against future quantum attacks on device authentication.';
+
+  @override
+  String get encryptionPrivacyRecoveryTitle => 'Recovery';
+
+  @override
+  String get encryptionPrivacyRecoveryBody =>
+      'Your 12-word BIP39 recovery phrase re-derives all keys. Store it somewhere safe — it is the only way to recover your data if you lose your PIN.';
+
+  @override
+  String memberAvatarSemantics(String name) {
+    return '$name avatar';
+  }
+
+  @override
+  String get memberAvatarSemanticsUnnamed => 'Member avatar';
+
+  @override
+  String get groupMemberAvatarSemantics => 'Group member avatar';
+
+  @override
+  String get habitsReminderNotificationTitle => 'Habit Reminder';
+
+  @override
+  String habitsReminderNotificationBody(String habitName) {
+    return 'Time to complete: $habitName';
+  }
 
   @override
   String get chatTileNoMessages => 'No messages yet';
