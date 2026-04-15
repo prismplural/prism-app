@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/core/services/notification_providers.dart';
-import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
-import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -12,8 +10,6 @@ import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
-import 'package:prism_plurality/shared/widgets/prism_section.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -110,9 +106,6 @@ class NotificationSettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          // ── Chat Notifications (always enabled) ────
-          const _ChatBadgeSection(),
-
           // ── About (reduced visual weight) ──────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -134,47 +127,6 @@ class NotificationSettingsScreen extends ConsumerWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-/// Chat badge preference toggle for the currently speaking member.
-class _ChatBadgeSection extends ConsumerWidget {
-  const _ChatBadgeSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final speakingAs = ref.watch(speakingAsProvider);
-    if (speakingAs == null) return const SizedBox.shrink();
-
-    final badgePrefs = ref.watch(chatBadgePreferencesProvider);
-    final isMentionsOnly = badgePrefs[speakingAs] == 'mentions_only';
-    final memberAsync = ref.watch(memberByIdProvider(speakingAs));
-    final memberName =
-        memberAsync.whenOrNull(data: (m) => m?.name) ?? 'current member';
-
-    return PrismSection(
-      title: context.l10n.notificationsChatSection,
-      child: PrismSectionCard(
-        child: PrismSwitchRow(
-          title: context.l10n.notificationsBadgeAllMessages,
-          subtitle: isMentionsOnly
-              ? context.l10n.notificationsBadgeMentionsOnly(memberName)
-              : context.l10n.notificationsBadgeAllFor(memberName),
-          value: !isMentionsOnly,
-          onChanged: (value) {
-            final newPrefs = Map<String, String>.from(badgePrefs);
-            if (value) {
-              newPrefs.remove(speakingAs);
-            } else {
-              newPrefs[speakingAs] = 'mentions_only';
-            }
-            ref
-                .read(settingsNotifierProvider.notifier)
-                .updateChatBadgePreferences(newPrefs);
-          },
-        ),
       ),
     );
   }

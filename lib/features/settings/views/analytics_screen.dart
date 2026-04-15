@@ -18,8 +18,9 @@ import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-/// Main analytics screen showing fronting statistics.
+/// Main statistics screen showing fronting analytics.
 class AnalyticsScreen extends ConsumerWidget {
   const AnalyticsScreen({super.key, this.showBackButton = true});
 
@@ -30,7 +31,10 @@ class AnalyticsScreen extends ConsumerWidget {
     final analyticsAsync = ref.watch(frontingAnalyticsProvider);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(title: 'Analytics', showBackButton: showBackButton),
+      topBar: PrismTopBar(
+        title: context.l10n.statisticsTitle,
+        showBackButton: showBackButton,
+      ),
       bodyPadding: EdgeInsets.zero,
       body: Column(
         children: [

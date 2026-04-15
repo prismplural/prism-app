@@ -16,7 +16,6 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
-import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
@@ -230,9 +229,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final hasArchived = ref.watch(hasArchivedConversationsProvider);
     final speakingAs = ref.watch(speakingAsProvider);
     final categoriesAsync = ref.watch(conversationCategoriesProvider);
-    final badgePrefs = ref.watch(chatBadgePreferencesProvider);
-    final isMentionsOnly = speakingAs != null &&
-        badgePrefs[speakingAs] == 'mentions_only';
     ref.watch(activeMembersProvider);
 
     return Scaffold(
@@ -263,26 +259,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ],
                 ),
                 actions: [
-                  if (speakingAs != null)
-                    PrismTopBarAction(
-                      icon: isMentionsOnly
-                          ? AppIcons.alternateEmail
-                          : AppIcons.markChatUnreadOutlined,
-                      tooltip: isMentionsOnly
-                          ? context.l10n.chatBadgeMentionsOnly
-                          : context.l10n.chatBadgeAllMessages,
-                      onPressed: () {
-                        final newPrefs = Map<String, String>.from(badgePrefs);
-                        if (isMentionsOnly) {
-                          newPrefs.remove(speakingAs);
-                        } else {
-                          newPrefs[speakingAs] = 'mentions_only';
-                        }
-                        ref
-                            .read(settingsNotifierProvider.notifier)
-                            .updateChatBadgePreferences(newPrefs);
-                      },
-                    ),
                   if (hasArchived || showArchived)
                     PrismTopBarAction(
                       icon: showArchived

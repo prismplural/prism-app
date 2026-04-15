@@ -179,7 +179,6 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
               : _create,
         ),
       ),
-      const Divider(height: 1),
       Expanded(
         child: ListView(
           controller: widget.scrollController,

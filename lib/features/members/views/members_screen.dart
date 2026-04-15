@@ -58,6 +58,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
   void _showOptionsMenu(List<Member>? members, dynamic terms) {
     final l10n = context.l10n;
+    final canSearch = members != null && members.isNotEmpty;
     PrismSheet.show<void>(
       context: context,
       title: l10n.options,
@@ -68,6 +69,21 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            PrismListRow(
+              padding: EdgeInsets.zero,
+              leading: Icon(AppIcons.search),
+              title: Text(
+                ctxL10n.terminologySearchHint(terms.pluralLower),
+              ),
+              enabled: canSearch,
+              onTap: canSearch
+                  ? () {
+                      Navigator.of(ctx).pop();
+                      _openSearch(members);
+                    }
+                  : null,
+            ),
+            const Divider(height: 1),
             PrismListRow(
               padding: EdgeInsets.zero,
               leading: Icon(_showInactive
@@ -264,14 +280,6 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         title: terms.plural,
         showBackButton: widget.showBackButton,
         actions: [
-          PrismTopBarAction(
-            icon: AppIcons.search,
-            tooltip: context.l10n.terminologySearchHint(terms.pluralLower),
-            onPressed: () {
-              final members = membersAsync.value;
-              if (members != null) _openSearch(members);
-            },
-          ),
           PrismTopBarAction(
             icon: AppIcons.add,
             tooltip: context.l10n.terminologyAddButton(terms.singular),
