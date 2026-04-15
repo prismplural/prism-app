@@ -18,6 +18,7 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
@@ -329,7 +330,7 @@ class _ConfiguredView extends ConsumerWidget {
         // Primary actions
         PrismSection(
           title: 'Sync',
-          child: PrismSectionCard(
+          child: PrismGroupedSectionCard(
             child: Column(
               children: [
                 PrismSettingsRow(
@@ -351,14 +352,14 @@ class _ConfiguredView extends ConsumerWidget {
                       : null,
                 ),
                 if (handle != null) ...[
-                  const Divider(height: 1),
+                  const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
                     icon: AppIcons.devices,
                     title: context.l10n.syncSetUpAnotherDevice,
                     subtitle: context.l10n.syncSetUpAnotherDeviceSubtitle,
                     onTap: () => SetupDeviceSheet.show(context, ref),
                   ),
-                  const Divider(height: 1),
+                  const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
                     icon: AppIcons.devicesOther,
                     title: context.l10n.syncManageDevices,
@@ -367,7 +368,7 @@ class _ConfiguredView extends ConsumerWidget {
                   ),
                 ],
                 if (syncHealth == SyncHealthState.healthy) ...[
-                  const Divider(height: 1),
+                  const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
                     icon: AppIcons.passwordOutlined,
                     title: context.l10n.syncChangePassword,
@@ -375,7 +376,7 @@ class _ConfiguredView extends ConsumerWidget {
                     enabled: !isSyncActive,
                     onTap: () => ChangePinSheet.show(context),
                   ),
-                  const Divider(height: 1),
+                  const Divider(height: 1, indent: 60, endIndent: 12),
                   PrismSettingsRow(
                     icon: AppIcons.key,
                     title: context.l10n.syncViewSecretKey,
@@ -392,8 +393,7 @@ class _ConfiguredView extends ConsumerWidget {
         PrismSection(
           title: context.l10n.syncPreferencesSection,
           description: context.l10n.syncPreferencesDescription,
-          child: PrismSectionCard(
-            padding: EdgeInsets.zero,
+          child: PrismGroupedSectionCard(
             child: Column(
               children: [
                 _SyncThemeToggle(),
@@ -409,8 +409,7 @@ class _ConfiguredView extends ConsumerWidget {
           PrismSection(
             title: context.l10n.syncIssuesSection,
             description: context.l10n.syncIssuesDescription,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
+            child: PrismGroupedSectionCard(
               child: Column(
                 children: [
                   ...quarantinedAsync.whenOrNull(
@@ -441,7 +440,7 @@ class _ConfiguredView extends ConsumerWidget {
         // Connection details — always visible, no toggle
         PrismSection(
           title: context.l10n.syncDetailsSection,
-          child: PrismSectionCard(
+          child: PrismGroupedSectionCard(
             child: Column(
               children: [
                 _SyncEntityCountRows(),

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -24,6 +26,13 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final voiceNotesEnabled = ref.watch(voiceNotesEnabledProvider);
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
+    final speakingAs = ref.watch(speakingAsProvider);
+    final badgePrefs = ref.watch(chatBadgePreferencesProvider);
+    final isMentionsOnly = speakingAs != null &&
+        badgePrefs[speakingAs] == 'mentions_only';
+    final memberName = speakingAs == null
+        ? null
+        : ref.watch(memberByIdProvider(speakingAs)).whenOrNull(data: (m) => m?.name);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.featureChatTitle, showBackButton: true),
@@ -42,8 +51,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
           ),
           PrismSection(
             title: context.l10n.featureChatGeneral,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
+            child: PrismGroupedSectionCard(
               child: PrismSwitchRow(
                 icon: AppIcons.chatOutlined,
                 iconColor: Colors.blue,
@@ -59,8 +67,7 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
           if (chatEnabled)
             PrismSection(
               title: context.l10n.featureChatOptions,
-              child: PrismSectionCard(
-                padding: EdgeInsets.zero,
+              child: PrismGroupedSectionCard(
                 child: Column(
                   children: [
                     PrismSwitchRow(
@@ -94,6 +101,36 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                           .updateVoiceNotesEnabled(value),
                     ),
                   ],
+                ),
+              ),
+            ),
+          if (chatEnabled && speakingAs != null)
+            PrismSection(
+              title: context.l10n.notificationsChatSection,
+              child: PrismGroupedSectionCard(
+                child: PrismSwitchRow(
+                  icon: AppIcons.markChatUnreadOutlined,
+                  iconColor: Colors.blue,
+                  title: context.l10n.notificationsBadgeAllMessages,
+                  subtitle: isMentionsOnly
+                      ? context.l10n.notificationsBadgeMentionsOnly(
+                          memberName ?? terms.singularLower,
+                        )
+                      : context.l10n.notificationsBadgeAllFor(
+                          memberName ?? terms.singularLower,
+                        ),
+                  value: !isMentionsOnly,
+                  onChanged: (value) {
+                    final newPrefs = Map<String, String>.from(badgePrefs);
+                    if (value) {
+                      newPrefs.remove(speakingAs);
+                    } else {
+                      newPrefs[speakingAs] = 'mentions_only';
+                    }
+                    ref
+                        .read(settingsNotifierProvider.notifier)
+                        .updateChatBadgePreferences(newPrefs);
+                  },
                 ),
               ),
             ),
