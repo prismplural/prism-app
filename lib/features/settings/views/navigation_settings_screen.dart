@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 
 class NavigationSettingsScreen extends ConsumerWidget {
   const NavigationSettingsScreen({super.key});
@@ -25,7 +26,6 @@ class NavigationSettingsScreen extends ConsumerWidget {
     final flags = ref.watch(featureFlagsProvider);
     final syncNavigationEnabled = ref.watch(syncNavigationEnabledProvider);
     final terms = watchTerminology(context, ref);
-    final theme = Theme.of(context);
 
     // All tab IDs currently placed (primary + overflow)
     final placedIds = {
@@ -63,14 +63,10 @@ class NavigationSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: PrismSectionCard(
-              child: SwitchListTile.adaptive(
-                title: Text(context.l10n.syncNavigationLayoutTitle),
-                subtitle: Text(
-                  context.l10n.syncNavigationLayoutSubtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+              padding: EdgeInsets.zero,
+              child: PrismSwitchRow(
+                title: context.l10n.syncNavigationLayoutTitle,
+                subtitle: context.l10n.syncNavigationLayoutSubtitle,
                 value: syncNavigationEnabled,
                 onChanged: (v) => ref
                     .read(settingsNotifierProvider.notifier)
@@ -83,14 +79,10 @@ class NavigationSettingsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: PrismSectionCard(
-              child: SwitchListTile.adaptive(
-                title: Text(context.l10n.navigationShowViewToggleTitle),
-                subtitle: Text(
-                  context.l10n.navigationShowViewToggleSubtitle,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
+              padding: EdgeInsets.zero,
+              child: PrismSwitchRow(
+                title: context.l10n.navigationShowViewToggleTitle,
+                subtitle: context.l10n.navigationShowViewToggleSubtitle,
                 value: ref.watch(showFrontingViewToggleProvider).whenOrNull(data: (v) => v) ?? true,
                 onChanged: (v) => ref
                     .read(showFrontingViewToggleProvider.notifier)

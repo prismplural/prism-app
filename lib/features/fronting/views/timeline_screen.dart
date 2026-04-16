@@ -19,7 +19,11 @@ class TimelineScreen extends ConsumerWidget {
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.navTimeline),
-      body: const TimelineView(),
+      bodyPadding: EdgeInsets.zero,
+      body: Padding(
+        padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+        child: const TimelineView(),
+      ),
     );
   }
 }
