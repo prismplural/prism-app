@@ -141,6 +141,33 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateSleepSuggestionEnabled(bool value) async {
+    await _dao.updateSleepSuggestionEnabled(value);
+    await _syncField('sleep_suggestion_enabled', value);
+  }
+
+  @override
+  Future<void> updateSleepSuggestionTime(int hour, int minute) async {
+    await _dao.updateSleepSuggestionTime(hour, minute);
+    await syncRecordUpdate(_table, _settingsEntityId, {
+      'sleep_suggestion_hour': hour,
+      'sleep_suggestion_minute': minute,
+    });
+  }
+
+  @override
+  Future<void> updateWakeSuggestionEnabled(bool value) async {
+    await _dao.updateWakeSuggestionEnabled(value);
+    await _syncField('wake_suggestion_enabled', value);
+  }
+
+  @override
+  Future<void> updateWakeSuggestionAfterHours(double hours) async {
+    await _dao.updateWakeSuggestionAfterHours(hours);
+    await _syncField('wake_suggestion_after_hours', hours);
+  }
+
+  @override
   Future<void> updateLocaleOverride(String? value) async {
     await _dao.updateLocaleOverride(value);
     await _syncField('locale_override', value);
@@ -430,6 +457,11 @@ class DriftSystemSettingsRepository
       'sleep_tracking_enabled': s.sleepTrackingEnabled,
       'gif_search_enabled': s.gifSearchEnabled,
       'voice_notes_enabled': s.voiceNotesEnabled,
+      'sleep_suggestion_enabled': s.sleepSuggestionEnabled,
+      'sleep_suggestion_hour': s.sleepSuggestionHour,
+      'sleep_suggestion_minute': s.sleepSuggestionMinute,
+      'wake_suggestion_enabled': s.wakeSuggestionEnabled,
+      'wake_suggestion_after_hours': s.wakeSuggestionAfterHours,
       'locale_override': s.localeOverride,
       'quick_switch_threshold_seconds': s.quickSwitchThresholdSeconds,
       'identity_generation': s.identityGeneration,

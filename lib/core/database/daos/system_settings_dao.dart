@@ -100,6 +100,25 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(voiceNotesEnabled: Value(value)),
   );
 
+  Future<void> updateSleepSuggestionEnabled(bool value) => _updateField(
+    SystemSettingsTableCompanion(sleepSuggestionEnabled: Value(value)),
+  );
+
+  Future<void> updateSleepSuggestionTime(int hour, int minute) => _updateField(
+    SystemSettingsTableCompanion(
+      sleepSuggestionHour: Value(hour),
+      sleepSuggestionMinute: Value(minute),
+    ),
+  );
+
+  Future<void> updateWakeSuggestionEnabled(bool value) => _updateField(
+    SystemSettingsTableCompanion(wakeSuggestionEnabled: Value(value)),
+  );
+
+  Future<void> updateWakeSuggestionAfterHours(double hours) => _updateField(
+    SystemSettingsTableCompanion(wakeSuggestionAfterHours: Value(hours)),
+  );
+
   Future<void> updateLocaleOverride(String? value) => _updateField(
     SystemSettingsTableCompanion(localeOverride: Value(value)),
   );

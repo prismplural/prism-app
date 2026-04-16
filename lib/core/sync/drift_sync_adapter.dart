@@ -114,6 +114,13 @@ int? _asInt(dynamic value) {
 
 bool? _asBool(dynamic value) => value is bool ? value : null;
 
+double? _asDouble(dynamic value) {
+  if (value is double) return value;
+  if (value is int) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
 DateTime? _asDateTime(dynamic value) {
   if (value is String) return DateTime.tryParse(value);
   if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
@@ -208,6 +215,17 @@ class _FieldContext {
     final v = _asBool(raw);
     if (v != null) return Value(v);
     _report(key, 'bool', raw);
+    return const Value.absent();
+  }
+
+  // -- Non-nullable double ---------------------------------------------------
+
+  Value<double> realField(String key) {
+    if (!fields.containsKey(key)) return const Value.absent();
+    final raw = fields[key];
+    final v = _asDouble(raw);
+    if (v != null) return Value(v);
+    _report(key, 'double', raw);
     return const Value.absent();
   }
 
@@ -665,6 +683,11 @@ DriftSyncEntity _systemSettingsEntity(
         'sleep_tracking_enabled': r.sleepTrackingEnabled,
         'gif_search_enabled': r.gifSearchEnabled,
         'voice_notes_enabled': r.voiceNotesEnabled,
+        'sleep_suggestion_enabled': r.sleepSuggestionEnabled,
+        'sleep_suggestion_hour': r.sleepSuggestionHour,
+        'sleep_suggestion_minute': r.sleepSuggestionMinute,
+        'wake_suggestion_enabled': r.wakeSuggestionEnabled,
+        'wake_suggestion_after_hours': r.wakeSuggestionAfterHours,
         'locale_override': r.localeOverride,
         'quick_switch_threshold_seconds': r.quickSwitchThresholdSeconds,
         // has_completed_onboarding excluded — local-only (see applyFields)
@@ -717,6 +740,11 @@ DriftSyncEntity _systemSettingsEntity(
         sleepTrackingEnabled: f.boolField('sleep_tracking_enabled'),
         gifSearchEnabled: f.boolField('gif_search_enabled'),
         voiceNotesEnabled: f.boolField('voice_notes_enabled'),
+        sleepSuggestionEnabled: f.boolField('sleep_suggestion_enabled'),
+        sleepSuggestionHour: f.intField('sleep_suggestion_hour'),
+        sleepSuggestionMinute: f.intField('sleep_suggestion_minute'),
+        wakeSuggestionEnabled: f.boolField('wake_suggestion_enabled'),
+        wakeSuggestionAfterHours: f.realField('wake_suggestion_after_hours'),
         localeOverride: f.stringFieldNullable('locale_override'),
         quickSwitchThresholdSeconds: f.intField(
           'quick_switch_threshold_seconds',
@@ -772,6 +800,11 @@ DriftSyncEntity _systemSettingsEntity(
         'sleep_tracking_enabled': row.sleepTrackingEnabled,
         'gif_search_enabled': row.gifSearchEnabled,
         'voice_notes_enabled': row.voiceNotesEnabled,
+        'sleep_suggestion_enabled': row.sleepSuggestionEnabled,
+        'sleep_suggestion_hour': row.sleepSuggestionHour,
+        'sleep_suggestion_minute': row.sleepSuggestionMinute,
+        'wake_suggestion_enabled': row.wakeSuggestionEnabled,
+        'wake_suggestion_after_hours': row.wakeSuggestionAfterHours,
         'locale_override': row.localeOverride,
         'quick_switch_threshold_seconds': row.quickSwitchThresholdSeconds,
         // has_completed_onboarding excluded — local-only (see applyFields)

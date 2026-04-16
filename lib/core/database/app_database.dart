@@ -77,7 +77,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 42;
+  int get schemaVersion => 43;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -180,6 +180,19 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE system_settings ADD COLUMN gif_consent_state INTEGER NOT NULL DEFAULT 0',
         );
+      }
+
+      if (from < 43) {
+        await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN sleep_suggestion_enabled INTEGER NOT NULL DEFAULT 0');
+        await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN sleep_suggestion_hour INTEGER NOT NULL DEFAULT 22');
+        await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN sleep_suggestion_minute INTEGER NOT NULL DEFAULT 0');
+        await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN wake_suggestion_enabled INTEGER NOT NULL DEFAULT 0');
+        await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN wake_suggestion_after_hours REAL NOT NULL DEFAULT 8.0');
       }
     },
     onCreate: (migrator) async {
