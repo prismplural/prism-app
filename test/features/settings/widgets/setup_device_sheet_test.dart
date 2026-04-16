@@ -29,9 +29,6 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   startInitiatorCeremonyHandler;
 
   @override
-  Future<void> validateMnemonic(String mnemonic) => Future.value();
-
-  @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) =>
       throw UnimplementedError();
 

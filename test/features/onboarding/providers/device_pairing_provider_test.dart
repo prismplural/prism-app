@@ -42,9 +42,6 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   getJoinerSasHandler;
 
   @override
-  Future<void> validateMnemonic(String mnemonic) => Future.value();
-
-  @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) {
     return startJoinerCeremonyHandler?.call(handle: handle) ??
         Future.value(

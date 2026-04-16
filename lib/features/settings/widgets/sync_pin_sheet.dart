@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/crypto/bip39_validate.dart';
-import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
@@ -193,24 +192,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
       _mnemonicError = null;
     });
 
-    // Local syntactic + checksum validation first (no FFI round-trip).
-    final localValid = validateBip39Mnemonic(normalized);
-    if (!localValid) {
-      if (!mounted) return;
-      setState(() {
-        _mnemonicBusy = false;
-        _mnemonicError = context.l10n.syncPinSheetMnemonicInvalid;
-      });
-      return;
-    }
-
-    // Belt-and-braces: ask the Rust side to confirm. Matches the check
-    // in change_pin_sheet and setup_device_sheet.
-    try {
-      await ref
-          .read(pairingCeremonyApiProvider)
-          .validateMnemonic(normalized);
-    } catch (_) {
+    if (!validateBip39Mnemonic(normalized)) {
       if (!mounted) return;
       setState(() {
         _mnemonicBusy = false;
