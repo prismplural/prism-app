@@ -228,6 +228,57 @@ class FrontingMutationService {
     );
   }
 
+  /// Atomically ends a sleep session, optionally records quality, and
+  /// optionally starts a fronting session for a member.
+  ///
+  /// All writes run in a single transaction to prevent partial state
+  /// (e.g. sleep ended but fronting failed to start).
+  Future<MutationResult<FrontingMutationResult?>> wakeUp(
+    String sleepSessionId, {
+    SleepQuality? quality,
+    String? frontingMemberId,
+  }) {
+    return _mutationRunner.run<FrontingMutationResult?>(
+      actionLabel: 'Wake up',
+      action: () async {
+        // 1. Validate and end sleep session
+        final session = await _requireSession(sleepSessionId);
+        if (!session.isSleep) {
+          throw AppFailure.notFound('Sleep session not found.');
+        }
+        final now = DateTime.now();
+        await _repository.endSession(sleepSessionId, now);
+
+        // 2. Record quality if provided
+        if (quality != null && quality != SleepQuality.unknown) {
+          final withQuality = session.copyWith(quality: quality, endTime: now);
+          await _repository.updateSession(withQuality);
+        }
+
+        // 3. Start fronting if member selected
+        if (frontingMemberId != null) {
+          // Safety: end any other active sessions that may remain
+          final remaining = await _repository.getAllActiveSessionsUnfiltered();
+          for (final s in remaining) {
+            await _repository.endSession(s.id, now);
+          }
+          final created = FrontingSession(
+            id: _uuid.v4(),
+            startTime: now,
+            memberId: frontingMemberId,
+            coFronterIds: const [],
+          );
+          await _repository.createSession(created);
+          return FrontingMutationResult(
+            session: created,
+            previousMemberIds: [null], // was sleeping (no member)
+          );
+        }
+        return null;
+      },
+    );
+  }
+
   Future<MutationResult<FrontingSession>> updateSleepQuality(
     String id,
     SleepQuality quality,
