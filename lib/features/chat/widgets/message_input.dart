@@ -525,25 +525,21 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                 ),
                 if (_isRecording) ...[
                   const SizedBox(width: 8),
-                  Opacity(
-                    opacity: 0.3,
-                    child: TintedGlassSurface.circle(
-                      size: inputHeight,
-                      child: Icon(
-                        AppIcons.add,
-                        size: 19,
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.55,
-                        ),
-                      ),
-                    ),
+                  VoiceRecorderCancelButton(
+                    size: inputHeight,
+                    onCancel: () => setState(() => _isRecording = false),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: VoiceRecorder(
-                      onSend: _sendVoiceNote,
                       onCancel: () => setState(() => _isRecording = false),
+                      height: inputHeight,
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  VoiceRecorderSendButton(
+                    size: inputHeight,
+                    onSend: _sendVoiceNote,
                   ),
                 ] else ...[
                   const SizedBox(width: 8),

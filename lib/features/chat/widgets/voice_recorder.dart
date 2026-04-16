@@ -6,30 +6,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
-/// Replaces the text field area during active voice recording.
+/// Pill-shaped waveform display that visually replaces the chat text field
+/// while a voice note is being recorded. Same minHeight/borderRadius/fill as
+/// the chat text field so the swap is seamless.
 ///
-/// Auto-starts recording on mount. Shows a cancel button, live waveform with
-/// elapsed time, and a send button. The send button requires at least 1 second
-/// of recording before it becomes active.
+/// Auto-starts recording on mount. Cancel and send are rendered separately by
+/// the parent as [VoiceRecorderCancelButton] and [VoiceRecorderSendButton].
 class VoiceRecorder extends ConsumerStatefulWidget {
   const VoiceRecorder({
     super.key,
-    required this.onSend,
     required this.onCancel,
+    this.height = 38,
   });
 
-  /// Called when the user sends the recording. Provides the encoded audio
-  /// bytes, duration in milliseconds, and a base64-encoded waveform summary.
-  final void Function(Uint8List audioBytes, int durationMs, String waveformB64)
-  onSend;
-
-  /// Called when the user cancels the recording.
+  /// Called when the user cancels — includes auto-cancel on permission or
+  /// recording errors (see [ref.listen] block in [build]).
   final VoidCallback onCancel;
+
+  /// Pill height; defaults to 38 to match the text field.
+  final double height;
 
   @override
   ConsumerState<VoiceRecorder> createState() => _VoiceRecorderState();
@@ -105,7 +107,142 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
     return _buildContent(context);
   }
 
-  Future<void> _handleSend() async {
+  Widget _buildContent(BuildContext context) {
+    final state = ref.watch(voiceRecordingProvider);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isPreparing = state.status == VoiceRecordingStatus.preparing;
+
+    final fillColor = isDark
+        ? AppColors.warmWhite.withValues(alpha: 0.08)
+        : AppColors.warmWhite.withValues(alpha: 0.65);
+    final borderColor = isDark
+        ? AppColors.warmWhite.withValues(alpha: 0.1)
+        : AppColors.warmBlack.withValues(alpha: 0.06);
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: widget.height),
+      child: Container(
+        decoration: BoxDecoration(
+          color: fillColor,
+          borderRadius: BorderRadius.circular(widget.height / 2),
+          border: Border.all(
+            color: borderColor,
+            width: PrismTokens.hairlineBorderWidth,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: isPreparing
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  PrismSpinner(color: theme.colorScheme.primary, size: 14),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      context.l10n.voicePreparingNote,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 13.5,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: _AnimatedWaveform(
+                      samples: state.amplitudeSamples,
+                      color: theme.colorScheme.primary,
+                      height: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    Duration(milliseconds: state.elapsedMs).toVoiceFormat(),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 13.5,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// Cancel button rendered alongside [VoiceRecorder] — matches the chat row's
+/// 38px circle buttons. Stops the recording and invokes [onCancel].
+class VoiceRecorderCancelButton extends ConsumerWidget {
+  const VoiceRecorderCancelButton({
+    super.key,
+    required this.size,
+    required this.onCancel,
+  });
+
+  final double size;
+  final VoidCallback onCancel;
+
+  Future<void> _handleTap(WidgetRef ref) async {
+    await ref.read(voiceRecordingProvider.notifier).cancelRecording();
+    onCancel();
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final state = ref.watch(voiceRecordingProvider);
+    final enabled = state.status != VoiceRecordingStatus.preparing;
+
+    return Semantics(
+      label: context.l10n.chatVoiceRecorderCancel,
+      button: true,
+      enabled: enabled,
+      child: Tooltip(
+        message: context.l10n.chatVoiceRecorderCancel,
+        child: GestureDetector(
+          onTap: enabled ? () => _handleTap(ref) : null,
+          child: TintedGlassSurface.circle(
+            size: size,
+            child: Icon(
+              AppIcons.close,
+              size: 18,
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Send button rendered alongside [VoiceRecorder] — matches the chat row's
+/// 38px send button. Enables after ≥ 1s of recording.
+class VoiceRecorderSendButton extends ConsumerStatefulWidget {
+  const VoiceRecorderSendButton({
+    super.key,
+    required this.size,
+    required this.onSend,
+  });
+
+  final double size;
+  final void Function(Uint8List audioBytes, int durationMs, String waveformB64)
+  onSend;
+
+  @override
+  ConsumerState<VoiceRecorderSendButton> createState() =>
+      _VoiceRecorderSendButtonState();
+}
+
+class _VoiceRecorderSendButtonState
+    extends ConsumerState<VoiceRecorderSendButton> {
+  bool _pressed = false;
+
+  Future<void> _handleTap() async {
     final currentState = ref.read(voiceRecordingProvider);
     if (currentState.status != VoiceRecordingStatus.recording) {
       return;
@@ -120,216 +257,81 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
     }
   }
 
-  Future<void> _handleCancel() async {
-    await ref.read(voiceRecordingProvider.notifier).cancelRecording();
-    widget.onCancel();
-  }
-
-  Widget _buildContent(BuildContext context) {
-    final state = ref.watch(voiceRecordingProvider);
-    final theme = Theme.of(context);
-    final isPreparing = state.status == VoiceRecordingStatus.preparing;
-    final canSend =
-        state.status == VoiceRecordingStatus.recording &&
-        state.elapsedMs >= 1000;
-
-    return TintedGlassSurface(
-      borderRadius: BorderRadius.circular(19),
-      height: 48,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Row(
-          children: [
-            _CancelButton(enabled: !isPreparing, onPressed: _handleCancel),
-            const SizedBox(width: 4),
-            Expanded(
-              child: isPreparing
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        PrismSpinner(
-                          color: theme.colorScheme.primary,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            context.l10n.voicePreparingNote,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(
-                          child: _AnimatedWaveform(
-                            samples: state.amplitudeSamples,
-                            color: theme.colorScheme.primary,
-                            height: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          Duration(
-                            milliseconds: state.elapsedMs,
-                          ).toVoiceFormat(),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-            const SizedBox(width: 4),
-            _VoiceSendButton(
-              canSend: canSend,
-              isPreparing: isPreparing,
-              onPressed: canSend ? _handleSend : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CancelButton extends StatelessWidget {
-  const _CancelButton({required this.enabled, required this.onPressed});
-
-  final bool enabled;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Semantics(
-      label: context.l10n.chatVoiceRecorderCancel,
-      button: true,
-      enabled: enabled,
-      child: Tooltip(
-        message: context.l10n.chatVoiceRecorderCancel,
-        child: GestureDetector(
-          onTap: enabled ? onPressed : null,
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Center(
-              child: TintedGlassSurface.circle(
-                size: 34,
-                child: Icon(
-                  AppIcons.close,
-                  size: 18,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _VoiceSendButton extends StatefulWidget {
-  const _VoiceSendButton({
-    required this.canSend,
-    required this.isPreparing,
-    required this.onPressed,
-  });
-
-  final bool canSend;
-  final bool isPreparing;
-  final VoidCallback? onPressed;
-
-  @override
-  State<_VoiceSendButton> createState() => _VoiceSendButtonState();
-}
-
-class _VoiceSendButtonState extends State<_VoiceSendButton> {
-  bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
-    final showActiveState = widget.canSend || widget.isPreparing;
+    final state = ref.watch(voiceRecordingProvider);
+    final isPreparing = state.status == VoiceRecordingStatus.preparing;
+    final canSend =
+        state.status == VoiceRecordingStatus.recording &&
+        state.elapsedMs >= 1000;
+    final showActiveState = canSend || isPreparing;
 
     return Semantics(
-      label: widget.isPreparing
+      label: isPreparing
           ? context.l10n.voicePreparingNote
           : context.l10n.chatVoiceRecorderSend,
       button: true,
-      enabled: widget.canSend,
+      enabled: canSend,
       child: Tooltip(
-        message: widget.isPreparing
+        message: isPreparing
             ? context.l10n.voicePreparingNote
             : context.l10n.chatVoiceRecorderSend,
         child: GestureDetector(
-          onTapDown: widget.canSend
+          onTapDown: canSend
               ? (_) => setState(() => _pressed = true)
               : (_) => HapticFeedback.heavyImpact(),
-          onTapUp: widget.canSend
+          onTapUp: canSend
               ? (_) {
                   setState(() => _pressed = false);
-                  widget.onPressed?.call();
+                  _handleTap();
                 }
               : null,
           onTapCancel: () => setState(() => _pressed = false),
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Center(
-              child: AnimatedScale(
-                scale: _pressed ? 0.9 : 1.0,
-                duration: const Duration(milliseconds: 100),
-                child: AnimatedCrossFade(
-                  duration: const Duration(milliseconds: 250),
-                  sizeCurve: Curves.easeInOut,
-                  firstCurve: Curves.easeOut,
-                  secondCurve: Curves.easeOut,
-                  crossFadeState: showActiveState
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  layoutBuilder: (top, topKey, bottom, bottomKey) {
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Positioned(key: bottomKey, child: bottom),
-                        Positioned(key: topKey, child: top),
-                      ],
-                    );
-                  },
-                  firstChild: TintedGlassSurface.circle(
-                    size: 34,
-                    child: Icon(
-                      AppIcons.arrowUpwardRounded,
-                      size: 20,
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.35,
-                      ),
-                    ),
-                  ),
-                  secondChild: widget.isPreparing
-                      ? TintedGlassSurface.circle(
-                          size: 34,
-                          tint: primary,
-                          child: PrismSpinner(color: primary, size: 18),
-                        )
-                      : TintedGlassSurface.circle(
-                          size: 34,
-                          tint: primary,
-                          child: Icon(
-                            AppIcons.arrowUpwardRounded,
-                            size: 20,
-                            color: primary,
-                          ),
-                        ),
+          child: AnimatedScale(
+            scale: _pressed ? 0.9 : 1.0,
+            duration: const Duration(milliseconds: 100),
+            child: AnimatedCrossFade(
+              duration: const Duration(milliseconds: 250),
+              sizeCurve: Curves.easeInOut,
+              firstCurve: Curves.easeOut,
+              secondCurve: Curves.easeOut,
+              crossFadeState: showActiveState
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              layoutBuilder: (top, topKey, bottom, bottomKey) {
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned(key: bottomKey, child: bottom),
+                    Positioned(key: topKey, child: top),
+                  ],
+                );
+              },
+              firstChild: TintedGlassSurface.circle(
+                size: widget.size,
+                child: Icon(
+                  AppIcons.arrowUpwardRounded,
+                  size: 19,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
                 ),
               ),
+              secondChild: isPreparing
+                  ? TintedGlassSurface.circle(
+                      size: widget.size,
+                      tint: primary,
+                      child: PrismSpinner(color: primary, size: 18),
+                    )
+                  : TintedGlassSurface.circle(
+                      size: widget.size,
+                      tint: primary,
+                      child: Icon(
+                        AppIcons.arrowUpwardRounded,
+                        size: 19,
+                        color: primary,
+                      ),
+                    ),
             ),
           ),
         ),
