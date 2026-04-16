@@ -44,6 +44,7 @@ class SessionHistoryList extends ConsumerWidget {
     final historyAsync = ref.watch(unifiedHistoryProvider);
 
     return historyAsync.when(
+      skipLoadingOnReload: true,
       loading: () => const SliverToBoxAdapter(
         child: Padding(
           padding: EdgeInsets.all(24),
