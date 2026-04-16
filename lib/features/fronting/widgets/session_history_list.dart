@@ -460,7 +460,7 @@ class _InlineSleepTile extends ConsumerWidget {
         ? Text(
             quality.label,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onTertiaryContainer,
+              color: AppColors.sleep(theme.brightness),
               fontWeight: FontWeight.w500,
             ),
           )
@@ -474,7 +474,7 @@ class _InlineSleepTile extends ConsumerWidget {
       label: context.l10n.frontingSleepSessionSemantics(
             displaySession.displayDuration.toShortString(), timeRange),
       child: Container(
-        color: theme.colorScheme.tertiaryContainer,
+        color: AppColors.sleep(theme.brightness).withValues(alpha: 0.12),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
@@ -490,12 +490,12 @@ class _InlineSleepTile extends ConsumerWidget {
                     height: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: theme.colorScheme.tertiary.withValues(alpha: 0.2),
+                      color: AppColors.sleep(theme.brightness).withValues(alpha: 0.2),
                     ),
                     child: PhosphorIcon(
                       AppIcons.duotoneSleep,
                       size: 20,
-                      color: theme.colorScheme.tertiary,
+                      color: AppColors.sleep(theme.brightness),
                       semanticLabel: context.l10n.frontingSleeping,
                     ),
                   ),
