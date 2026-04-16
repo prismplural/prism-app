@@ -12,15 +12,6 @@ enum SleepQuality {
   fair,
   good,
   excellent;
-
-  String get label => switch (this) {
-    SleepQuality.unknown => 'Not rated',
-    SleepQuality.veryPoor => 'Very Poor',
-    SleepQuality.poor => 'Poor',
-    SleepQuality.fair => 'Fair',
-    SleepQuality.good => 'Good',
-    SleepQuality.excellent => 'Excellent',
-  };
 }
 
 enum SessionType { normal, sleep }

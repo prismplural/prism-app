@@ -241,21 +241,20 @@ class FrontingMutationService {
     return _mutationRunner.run<FrontingMutationResult?>(
       actionLabel: 'Wake up',
       action: () async {
-        // 1. Validate and end sleep session
+        // 1. Validate and end sleep session (single write to avoid double sync op)
         final session = await _requireSession(sleepSessionId);
         if (!session.isSleep) {
           throw AppFailure.notFound('Sleep session not found.');
         }
         final now = DateTime.now();
-        await _repository.endSession(sleepSessionId, now);
+        final hasQuality = quality != null && quality != SleepQuality.unknown;
+        final ended = session.copyWith(
+          endTime: now,
+          quality: hasQuality ? quality : session.quality,
+        );
+        await _repository.updateSession(ended);
 
-        // 2. Record quality if provided
-        if (quality != null && quality != SleepQuality.unknown) {
-          final withQuality = session.copyWith(quality: quality, endTime: now);
-          await _repository.updateSession(withQuality);
-        }
-
-        // 3. Start fronting if member selected
+        // 2. Start fronting if member selected
         if (frontingMemberId != null) {
           // Safety: end any other active sessions that may remain
           final remaining = await _repository.getAllActiveSessionsUnfiltered();

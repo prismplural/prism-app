@@ -273,6 +273,18 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   @override
   Future<void> updateChatBadgePreferences(Map<String, String> prefs) async =>
       updateSettings(settings.copyWith(chatBadgePreferences: prefs));
+  @override
+  Future<void> updateSleepSuggestionEnabled(bool value) async =>
+      updateSettings(settings.copyWith(sleepSuggestionEnabled: value));
+  @override
+  Future<void> updateSleepSuggestionTime(int hour, int minute) async =>
+      updateSettings(settings.copyWith(sleepSuggestionHour: hour, sleepSuggestionMinute: minute));
+  @override
+  Future<void> updateWakeSuggestionEnabled(bool value) async =>
+      updateSettings(settings.copyWith(wakeSuggestionEnabled: value));
+  @override
+  Future<void> updateWakeSuggestionAfterHours(double hours) async =>
+      updateSettings(settings.copyWith(wakeSuggestionAfterHours: hours));
 }
 
 // =============================================================================
@@ -581,6 +593,11 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
   Future<int> getCount() async => sessions.length;
 
   @override
-  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50}) async =>
+  Future<Map<String, int>> getMemberFrontingCounts({
+    int recentLimit = 50,
+    int? startHour,
+    int? endHour,
+    int? withinDays,
+  }) async =>
       {};
 }

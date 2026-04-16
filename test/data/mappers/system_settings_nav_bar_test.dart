@@ -57,6 +57,11 @@ void main() {
         navBarOverflowItems: '',
         syncNavigationEnabled: true,
         chatBadgePreferences: '{}',
+        sleepSuggestionEnabled: false,
+        sleepSuggestionHour: 22,
+        sleepSuggestionMinute: 0,
+        wakeSuggestionEnabled: false,
+        wakeSuggestionAfterHours: 8.0,
       );
     }
 

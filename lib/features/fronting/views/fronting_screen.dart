@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -31,6 +34,7 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/shared/widgets/sliver_pinned_top_bar.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -497,6 +501,126 @@ class _BackupReminderBanner extends ConsumerWidget {
   }
 }
 
+/// Banner reminding the user to start sleep when their configured bedtime
+/// has arrived and no sleep session is currently active.
+///
+/// Uses a periodic timer to self-update so the banner appears even if the
+/// user is idle on the fronting screen when bedtime arrives.
+class _BedtimeReminderBanner extends ConsumerStatefulWidget {
+  const _BedtimeReminderBanner({
+    required this.theme,
+    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 0),
+  });
+
+  final ThemeData theme;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  ConsumerState<_BedtimeReminderBanner> createState() =>
+      _BedtimeReminderBannerState();
+}
+
+class _BedtimeReminderBannerState
+    extends ConsumerState<_BedtimeReminderBanner> {
+  static const _dismissedPrefsKey = 'prism.bedtime_dismissed_date';
+  static const _windowMinutes = 240; // 4 hours after bedtime
+
+  Timer? _timer;
+  String? _dismissedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDismissedDate();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _timer ??= Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  Future<void> _loadDismissedDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _dismissedDate = prefs.getString(_dismissedPrefsKey));
+  }
+
+  Future<void> _dismissForToday() async {
+    final today = _todayKey();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_dismissedPrefsKey, today);
+    if (!mounted) return;
+    setState(() => _dismissedDate = today);
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = ref.watch(sleepSuggestionEnabledProvider);
+    if (enabled) {
+      _startTimer();
+    } else {
+      _stopTimer();
+      return const SizedBox.shrink();
+    }
+
+    final sleepAsync = ref.watch(activeSleepSessionProvider);
+    final isSleeping = sleepAsync.value != null;
+    if (isSleeping) return const SizedBox.shrink();
+
+    if (_dismissedDate == _todayKey()) return const SizedBox.shrink();
+
+    final time = ref.watch(sleepSuggestionTimeProvider);
+    final now = TimeOfDay.now();
+    final nowMinutes = now.hour * 60 + now.minute;
+    final bedtimeMinutes = time.hour * 60 + time.minute;
+    // Modular difference handles cross-midnight bedtimes (e.g., 01:00):
+    // bedtime 22:00, now 00:30 → 150 min after bedtime, still in window.
+    final minutesSinceBedtime =
+        (nowMinutes - bedtimeMinutes + 1440) % 1440;
+    if (minutesSinceBedtime >= _windowMinutes) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: widget.padding,
+      child: InfoBanner(
+        icon: AppIcons.bedtimeRounded,
+        iconColor: AppColors.sleep(widget.theme.brightness),
+        title: context.l10n.sleepSuggestionBedtime,
+        message: '',
+        buttonText: context.l10n.sleepSuggestionBedtimeAction,
+        onButtonPressed: () {
+          PrismSheet.showFullScreen(
+            context: context,
+            useRootNavigator: true,
+            builder: (ctx, sc) => StartSleepSheet(scrollController: sc),
+          );
+        },
+        onDismiss: _dismissForToday,
+        dismissTooltip: context.l10n.sleepSuggestionBedtimeDismiss,
+      ),
+    );
+  }
+}
+
 class FrontingBannerStack extends StatelessWidget {
   const FrontingBannerStack({required this.theme, super.key});
 
@@ -512,6 +636,10 @@ class FrontingBannerStack extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
         ),
         _TimelineIssueBanner(
+          theme: theme,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        ),
+        _BedtimeReminderBanner(
           theme: theme,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         ),

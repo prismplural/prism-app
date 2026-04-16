@@ -2453,6 +2453,34 @@
       }
     }
   },
+  "sleepQualityNotRated": "Not rated",
+  "@sleepQualityNotRated": {
+    "description": "Sleep quality label when not rated"
+  },
+  "sleepQualityVeryPoor": "Very Poor",
+  "@sleepQualityVeryPoor": {
+    "description": "Sleep quality label: very poor"
+  },
+  "sleepQualityPoor": "Poor",
+  "@sleepQualityPoor": {
+    "description": "Sleep quality label: poor"
+  },
+  "sleepQualityFair": "Fair",
+  "@sleepQualityFair": {
+    "description": "Sleep quality label: fair"
+  },
+  "sleepQualityGood": "Good",
+  "@sleepQualityGood": {
+    "description": "Sleep quality label: good"
+  },
+  "sleepQualityExcellent": "Excellent",
+  "@sleepQualityExcellent": {
+    "description": "Sleep quality label: excellent"
+  },
+  "sleepSuggestionBedtimeDismiss": "Dismiss until tomorrow",
+  "@sleepSuggestionBedtimeDismiss": {
+    "description": "Tooltip on the bedtime reminder banner's close button"
+  },
   "frontingStartSleepTitle": "Start Sleep",
   "@frontingStartSleepTitle": {
     "description": "Sheet title for starting a sleep session"

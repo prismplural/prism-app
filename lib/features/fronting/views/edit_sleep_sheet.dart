@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/mutations/field_patch.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/models/update_fronting_session_patch.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -220,7 +221,7 @@ class _EditSleepSheetState extends ConsumerState<EditSleepSheet> {
                               value: quality,
                               label: quality == SleepQuality.unknown
                                   ? context.l10n.frontingInfoQualityUnrated
-                                  : quality.label,
+                                  : quality.localizedLabel(context.l10n),
                             ),
                           )
                           .toList(),
