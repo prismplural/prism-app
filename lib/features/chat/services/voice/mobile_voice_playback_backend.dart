@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 import 'package:prism_plurality/features/chat/services/voice/voice_format.dart';
@@ -8,6 +9,10 @@ import 'package:prism_plurality/features/chat/services/voice/voice_playback_back
 abstract interface class MobileVoicePlaybackTrack {}
 
 abstract interface class MobileVoicePlaybackHandle {}
+
+abstract interface class MobileVoicePlaybackSessionConfigurator {
+  Future<void> configureForPlayback();
+}
 
 abstract interface class MobileVoicePlaybackPlayer {
   Future<void> ensureInitialized();
@@ -36,11 +41,16 @@ abstract interface class MobileVoicePlaybackPlayer {
 class MobileVoicePlaybackBackend implements VoicePlaybackBackend {
   MobileVoicePlaybackBackend({
     MobileVoicePlaybackPlayer? player,
+    MobileVoicePlaybackSessionConfigurator? sessionConfigurator,
     Duration positionPollInterval = const Duration(milliseconds: 200),
   }) : _player = player ?? SoLoudMobileVoicePlaybackPlayer(),
+       _sessionConfigurator =
+           sessionConfigurator ??
+           AudioSessionMobileVoicePlaybackSessionConfigurator(),
        _positionPollInterval = positionPollInterval;
 
   final MobileVoicePlaybackPlayer _player;
+  final MobileVoicePlaybackSessionConfigurator _sessionConfigurator;
   final Duration _positionPollInterval;
 
   @override
@@ -91,6 +101,7 @@ class MobileVoicePlaybackBackend implements VoicePlaybackBackend {
     );
 
     try {
+      await _sessionConfigurator.configureForPlayback();
       await _player.ensureInitialized();
       final track = await _player.loadTrack(
         bytes,
@@ -349,6 +360,34 @@ class MobileVoicePlaybackBackend implements VoicePlaybackBackend {
   }
 }
 
+class AudioSessionMobileVoicePlaybackSessionConfigurator
+    implements MobileVoicePlaybackSessionConfigurator {
+  @override
+  Future<void> configureForPlayback() async {
+    final session = await AudioSession.instance;
+    await session.configure(
+      AudioSessionConfiguration(
+        avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+        avAudioSessionCategoryOptions:
+            AVAudioSessionCategoryOptions.allowBluetooth |
+            AVAudioSessionCategoryOptions.defaultToSpeaker,
+        avAudioSessionMode: AVAudioSessionMode.spokenAudio,
+        avAudioSessionRouteSharingPolicy:
+            AVAudioSessionRouteSharingPolicy.defaultPolicy,
+        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+        androidAudioAttributes: const AndroidAudioAttributes(
+          contentType: AndroidAudioContentType.speech,
+          flags: AndroidAudioFlags.none,
+          usage: AndroidAudioUsage.media,
+        ),
+        androidAudioFocusGainType:
+            AndroidAudioFocusGainType.gainTransientMayDuck,
+        androidWillPauseWhenDucked: true,
+      ),
+    );
+  }
+}
+
 class SoLoudMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
   SoLoudMobileVoicePlaybackPlayer({SoLoud? soLoud})
     : _soLoud = soLoud ?? SoLoud.instance;
@@ -376,6 +415,7 @@ class SoLoudMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
 
   @override
   Future<void> disposeTrack(MobileVoicePlaybackTrack track) async {
+    _pendingHandle = null;
     final soLoudTrack = track as _SoLoudMobileVoicePlaybackTrack;
     if (_soLoud.isInitialized) {
       await _soLoud.disposeSource(soLoudTrack.source);
@@ -414,15 +454,42 @@ class SoLoudMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
     Uint8List bytes, {
     required String trackId,
   }) async {
-    final source = await _soLoud.loadMem('$trackId.ogg', bytes);
+    // Use setBufferStream instead of loadMem because loadMem fails on iOS
+    // with the patched flutter_soloud build. The buffer stream approach
+    // starts playback paused, feeds all bytes, then marks the stream as
+    // ended — producing a seekable, duration-aware source identical to
+    // loadMem but using a code path that works on both platforms.
+    final source = _soLoud.setBufferStream(
+      format: BufferType.auto,
+      bufferingTimeNeeds: 0.05,
+      maxBufferSizeDuration: const Duration(seconds: 660),
+    );
+    final handle = _soLoud.play(source, paused: true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    _soLoud.addAudioDataStream(source, bytes);
+    _soLoud.setDataIsEnded(source);
+    // Stash the pre-created handle so play() can unpause it.
+    _pendingHandle = _SoLoudMobileVoicePlaybackHandle(handle);
     return _SoLoudMobileVoicePlaybackTrack(source);
   }
+
+  /// Handle created during [loadTrack] that is paused and waiting for
+  /// [play] to unpause it.
+  _SoLoudMobileVoicePlaybackHandle? _pendingHandle;
 
   @override
   MobileVoicePlaybackHandle play(
     MobileVoicePlaybackTrack track, {
     required double speed,
   }) {
+    final pending = _pendingHandle;
+    _pendingHandle = null;
+    if (pending != null) {
+      _soLoud.setRelativePlaySpeed(pending.handle, speed);
+      _soLoud.setPause(pending.handle, false);
+      return pending;
+    }
+    // Fallback for replay after completion — start fresh.
     final soLoudTrack = track as _SoLoudMobileVoicePlaybackTrack;
     final handle = _soLoud.play(soLoudTrack.source);
     _soLoud.setRelativePlaySpeed(handle, speed);

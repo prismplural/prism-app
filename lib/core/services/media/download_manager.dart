@@ -142,6 +142,24 @@ class DownloadManager {
     }
   }
 
+  /// Pre-caches [ciphertext] locally so that a subsequent [getMedia] call
+  /// for [mediaId] can decrypt from disk without hitting the relay.
+  /// Used after encrypting a locally-created media item (voice note, image)
+  /// so the sender can play it back immediately.
+  Future<void> cacheEncrypted({
+    required String mediaId,
+    required Uint8List ciphertext,
+    String fileExtension = '',
+  }) async {
+    final encFile = await _cacheFileFor(
+      mediaId,
+      fileExtension: fileExtension,
+      encrypted: true,
+    );
+    await encFile.parent.create(recursive: true);
+    await encFile.writeAsBytes(ciphertext);
+  }
+
   Future<void> clearCache() async {
     final dir = await _cacheDir();
     if (dir.existsSync()) {
