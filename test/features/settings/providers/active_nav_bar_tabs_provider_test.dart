@@ -174,5 +174,25 @@ void main() {
         AppShellTabId.settings,
       ]);
     });
+
+    test('timeline not shown with default nav config', () {
+      final container = makeContainer();
+      addTearDown(container.dispose);
+
+      final tabs = container.read(activeNavBarTabsProvider);
+      expect(tabIds(tabs), isNot(contains(AppShellTabId.timeline)));
+    });
+
+    test('timeline shown when added to navBarItems', () {
+      final container = makeContainer(
+        settings: const SystemSettings(
+          navBarItems: ['home', 'timeline', 'settings'],
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final tabs = container.read(activeNavBarTabsProvider);
+      expect(tabIds(tabs), contains(AppShellTabId.timeline));
+    });
   });
 }

@@ -48,6 +48,7 @@ void main() {
       expect(AppShellTabId.reminders.name, 'reminders');
       expect(AppShellTabId.notes.name, 'notes');
       expect(AppShellTabId.statistics.name, 'statistics');
+      expect(AppShellTabId.timeline.name, 'timeline');
     });
   });
 
@@ -73,6 +74,7 @@ void main() {
         AppShellTabId.reminders,
         AppShellTabId.notes,
         AppShellTabId.statistics,
+        AppShellTabId.timeline,
       ];
       for (final id in unlockedIds) {
         final tab = appShellTabs.firstWhere((t) => t.id == id);
@@ -165,13 +167,13 @@ void main() {
   });
 
   group('appShellTabs', () {
-    test('has 9 entries', () {
-      expect(appShellTabs, hasLength(9));
+    test('has 10 entries', () {
+      expect(appShellTabs, hasLength(10));
     });
 
-    test('branch indices are 0 through 8', () {
+    test('branch indices are 0 through 9', () {
       final indices = appShellTabs.map((t) => t.branchIndex).toList();
-      expect(indices, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(indices, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     });
 
     test('no duplicate branch indices', () {
@@ -198,6 +200,30 @@ void main() {
           reason: '${value.name} should be in appShellTabs',
         );
       }
+    });
+  });
+
+  group('AppShellTabId.timeline', () {
+    test('timeline is not in defaultNavBarTabIds', () {
+      expect(defaultNavBarTabIds, isNot(contains('timeline')));
+    });
+
+    test('timeline tab isLocked = false', () {
+      final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.timeline);
+      expect(tab.isLocked, isFalse);
+    });
+
+    test('timeline tab isEnabled regardless of feature flags', () {
+      const allOff = (chat: false, polls: false, habits: false, sleep: false, notes: false, reminders: false);
+      const allOn  = (chat: true,  polls: true,  habits: true,  sleep: true,  notes: true,  reminders: true);
+      final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.timeline);
+      expect(tab.isEnabled(allOff), isTrue);
+      expect(tab.isEnabled(allOn),  isTrue);
+    });
+
+    test('branch indices are consecutive 0..n-1', () {
+      final indices = appShellTabs.map((t) => t.branchIndex).toList()..sort();
+      expect(indices, List.generate(appShellTabs.length, (i) => i));
     });
   });
 
