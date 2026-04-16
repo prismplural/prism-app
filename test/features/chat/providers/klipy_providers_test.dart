@@ -13,17 +13,12 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 /// Helper to build a realistic Klipy API response body.
 Map<String, dynamic> _buildResponse(List<Map<String, dynamic>> items) {
   return {
-    'data': {
-      'data': items,
-    },
+    'data': {'data': items},
   };
 }
 
 /// A minimal valid GIF item with the nested file structure.
-Map<String, dynamic> _gifItem({
-  String id = '123',
-  String title = 'funny cat',
-}) {
+Map<String, dynamic> _gifItem({String id = '123', String title = 'funny cat'}) {
   return {
     'id': id,
     'title': title,
@@ -98,10 +93,7 @@ void main() {
       Uri? capturedUri;
       final mockClient = MockClient((request) async {
         capturedUri = request.url;
-        return http.Response(
-          jsonEncode(_buildResponse([_gifItem()])),
-          200,
-        );
+        return http.Response(jsonEncode(_buildResponse([_gifItem()])), 200);
       });
 
       final container = ProviderContainer(
@@ -206,8 +198,11 @@ void main() {
 
       // Listen to keep the autoDispose provider alive and wait for it to
       // settle into an error state.
-      container.listen(gifSearchResultsProvider, (_, _) {},
-          fireImmediately: true);
+      container.listen(
+        gifSearchResultsProvider,
+        (_, _) {},
+        fireImmediately: true,
+      );
 
       // Give the async provider time to complete.
       await Future<void>.delayed(const Duration(milliseconds: 100));
@@ -219,7 +214,7 @@ void main() {
   });
 
   group('GIF consent gating', () {
-    test('attachment stays visible until explicitly declined', () {
+    test('unknown consent still shows picker but blocks rendering', () {
       final container = ProviderContainer(
         overrides: [
           gifServiceConfigProvider.overrideWithValue(
@@ -237,6 +232,7 @@ void main() {
       addTearDown(container.dispose);
 
       expect(container.read(gifAttachmentEnabledProvider), isTrue);
+      expect(container.read(gifRenderingEnabledProvider), isFalse);
       expect(container.read(gifConsentRequiredProvider), isTrue);
     });
 
@@ -258,7 +254,7 @@ void main() {
       addTearDown(container.dispose);
 
       expect(container.read(gifAttachmentEnabledProvider), isFalse);
-      expect(container.read(gifRenderingEnabledProvider), isTrue);
+      expect(container.read(gifRenderingEnabledProvider), isFalse);
       expect(container.read(gifConsentRequiredProvider), isFalse);
     });
 

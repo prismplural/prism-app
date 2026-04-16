@@ -6,9 +6,11 @@ import 'package:visibility_detector/visibility_detector.dart';
 
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// Displays a GIF attachment inside a chat message bubble as a looping
 /// silent MP4 video.
@@ -25,6 +27,7 @@ class GifBubble extends StatefulWidget {
     this.height,
     this.contentDescription,
     this.gifEnabled = true,
+    this.onEnableTap,
   });
 
   /// Klipy MP4 URL (full quality for playback).
@@ -45,6 +48,9 @@ class GifBubble extends StatefulWidget {
   /// From gifSearchEnabledProvider. When false, show placeholder instead
   /// of fetching from CDN.
   final bool gifEnabled;
+
+  /// Optional action to request consent and enable GIF loading inline.
+  final Future<void> Function()? onEnableTap;
 
   @override
   State<GifBubble> createState() => _GifBubbleState();
@@ -215,13 +221,24 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _buildContent(context, theme, effectiveWidth, effectiveHeight),
-                // "GIF" label overlay in top-left
-                Positioned(
-                  top: 6,
-                  left: 6,
-                  child: _GifLabel(theme: theme),
+                AnimatedSwitcher(
+                  duration: MediaQuery.of(context).disableAnimations
+                      ? Duration.zero
+                      : const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: KeyedSubtree(
+                    key: ValueKey<bool>(widget.gifEnabled),
+                    child: _buildContent(
+                      context,
+                      theme,
+                      effectiveWidth,
+                      effectiveHeight,
+                    ),
+                  ),
                 ),
+                // "GIF" label overlay in top-left
+                Positioned(top: 6, left: 6, child: _GifLabel(theme: theme)),
               ],
             ),
           ),
@@ -242,18 +259,68 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
 
     // GIFs disabled — show placeholder, no CDN fetch
     if (!widget.gifEnabled) {
-      return Container(
+      return TintedGlassSurface(
         width: w,
         height: h,
-        color: warmSurface,
+        tint: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        padding: const EdgeInsets.all(16),
         child: Center(
-          child: Text(
-            'GIF',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color:
-                  theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              fontWeight: FontWeight.w600,
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                AppIcons.gif,
+                size: 28,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.72,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (widget.onEnableTap != null)
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => unawaited(widget.onEnableTap!()),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                        border: Border.all(
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.7,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        context.l10n.chatGifConsentEnable,
+                        maxLines: 1,
+                        overflow: TextOverflow.fade,
+                        softWrap: false,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                Text(
+                  'GIF',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.72,
+                    ),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+            ],
           ),
         ),
       );
@@ -391,15 +458,15 @@ class _ErrorPlaceholder extends StatelessWidget {
             Icon(
               AppIcons.imageBroken,
               size: 28,
-              color:
-                  theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
             const SizedBox(height: 4),
             Text(
               'GIF unavailable',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant
-                    .withValues(alpha: 0.5),
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.5,
+                ),
                 fontStyle: FontStyle.italic,
               ),
             ),
