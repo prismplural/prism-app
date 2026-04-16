@@ -1,7 +1,7 @@
-import 'package:bip39_plus/bip39_plus.dart' as bip39;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -194,7 +194,7 @@ class _SyncPinSheetState extends ConsumerState<SyncPinSheet>
     });
 
     // Local syntactic + checksum validation first (no FFI round-trip).
-    final localValid = bip39.validateMnemonic(normalized);
+    final localValid = validateBip39Mnemonic(normalized);
     if (!localValid) {
       if (!mounted) return;
       setState(() {
