@@ -28,5 +28,10 @@ abstract class FrontingSessionRepository {
   );
   Future<int> getCount();
   Future<int> getFrontingCount();
-  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50});
+  Future<Map<String, int>> getMemberFrontingCounts({
+    int recentLimit = 50,
+    int? startHour,
+    int? endHour,
+    int? withinDays,
+  });
 }
