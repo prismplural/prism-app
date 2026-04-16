@@ -46,6 +46,15 @@ The sync engine is a Rust library ([prism-sync](https://github.com/prismplural/p
 included via path dependencies. See the sync repo for build instructions if you need to
 modify the Rust side.
 
+### Voice notes
+
+New voice notes use a mobile-first Ogg Opus path.
+
+- **Android** records Ogg Opus directly.
+- **iOS** records Opus in CAF, may briefly show **Preparing voice note...**, then remuxes to Ogg before upload.
+- **Playback** uses decrypted bytes in memory rather than the old `.m4a` temp-file path.
+- `pubspec.yaml` currently overrides `flutter_soloud` and `ogg_caf_converter` to local path dependencies while Prism tracks fixes in those forks.
+
 ### Test
 
 ```bash
