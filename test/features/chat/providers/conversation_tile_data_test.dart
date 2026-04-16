@@ -96,6 +96,19 @@ void main() {
       );
       expect(tile.hasUnread, isTrue);
     });
+
+    test('returns false when lastRead equals lastActivityAt (sender just sent)', () {
+      final sentAt = now.add(const Duration(hours: 1));
+      final tile = makeTileData(
+        conversation: makeConversation(
+          createdAt: now,
+          lastActivityAt: sentAt,
+          lastReadTimestamps: {'member-1': sentAt},
+        ),
+        speakingAs: 'member-1',
+      );
+      expect(tile.hasUnread, isFalse);
+    });
   });
 
   // ── isArchived ─────────────────────────────────────────────────────────
