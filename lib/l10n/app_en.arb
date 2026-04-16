@@ -1928,6 +1928,14 @@
   "@featureFrontingQuickSwitchMessage": {
     "description": "Dialog message for quick switch picker"
   },
+  "featureFrontingShowQuickFront": "Quick Front",
+  "@featureFrontingShowQuickFront": {
+    "description": "Label for the show/hide Quick Front toggle in fronting settings"
+  },
+  "featureFrontingShowQuickFrontSubtitle": "Show frequently fronting members as tap-and-hold shortcuts",
+  "@featureFrontingShowQuickFrontSubtitle": {
+    "description": "Subtitle for the show/hide Quick Front toggle"
+  },
   "featureHabitsDescription": "Track recurring tasks and build streaks with your system {term}.",
   "@featureHabitsDescription": {
     "description": "Description text on habits feature settings screen",

@@ -1461,6 +1461,13 @@ class AppLocalizationsEs extends AppLocalizations {
       'Si cambias de frente dentro de esta ventana, corrige la sesión actual en lugar de crear una nueva.';
 
   @override
+  String get featureFrontingShowQuickFront => 'Front Rápido';
+
+  @override
+  String get featureFrontingShowQuickFrontSubtitle =>
+      'Muestra los miembros que frentan frecuentemente como accesos rápidos de mantener pulsado';
+
+  @override
   String featureHabitsDescription(String term) {
     return 'Realiza un seguimiento de tareas recurrentes y construye rachas con los $term del sistema.';
   }

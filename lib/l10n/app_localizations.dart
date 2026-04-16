@@ -2642,6 +2642,18 @@ abstract class AppLocalizations {
   /// **'If you switch fronters within this window, it corrects the current session instead of creating a new one.'**
   String get featureFrontingQuickSwitchMessage;
 
+  /// Label for the show/hide Quick Front toggle in fronting settings
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Front'**
+  String get featureFrontingShowQuickFront;
+
+  /// Subtitle for the show/hide Quick Front toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Show frequently fronting members as tap-and-hold shortcuts'**
+  String get featureFrontingShowQuickFrontSubtitle;
+
   /// Description text on habits feature settings screen
   ///
   /// In en, this message translates to:
