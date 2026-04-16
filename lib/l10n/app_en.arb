@@ -6811,5 +6811,107 @@
   "backupReminderBannerAction": "View",
   "@backupReminderBannerAction": {
     "description": "Action button label on the backup reminder banner"
+  },
+  "sleepWakeUpMorning": "Good morning!",
+  "@sleepWakeUpMorning": {
+    "description": "Wake-up sheet greeting shown between 5am and noon"
+  },
+  "sleepWakeUpAfternoon": "Good afternoon!",
+  "@sleepWakeUpAfternoon": {
+    "description": "Wake-up sheet greeting shown between noon and 5pm"
+  },
+  "sleepWakeUpEvening": "Good evening!",
+  "@sleepWakeUpEvening": {
+    "description": "Wake-up sheet greeting shown between 5pm and 9pm"
+  },
+  "sleepWakeUpNight": "Rise and shine!",
+  "@sleepWakeUpNight": {
+    "description": "Wake-up sheet greeting shown between 9pm and 5am (nap wakeup)"
+  },
+  "sleepWakeUpSleptFor": "You slept for {duration}",
+  "@sleepWakeUpSleptFor": {
+    "description": "Subtitle in wake-up sheet showing sleep duration",
+    "placeholders": {
+      "duration": {
+        "type": "String",
+        "example": "7h 12m"
+      }
+    }
+  },
+  "sleepWakeUpQualityQuestion": "How was your sleep?",
+  "@sleepWakeUpQualityQuestion": {
+    "description": "Label above quality star rating in wake-up sheet"
+  },
+  "sleepWakeUpWhosFronting": "Who's fronting now?",
+  "@sleepWakeUpWhosFronting": {
+    "description": "Label above member picker in wake-up sheet"
+  },
+  "sleepWakeUpDone": "Done",
+  "@sleepWakeUpDone": {
+    "description": "Primary action button in wake-up sheet"
+  },
+  "sleepWakeUpSkip": "Skip",
+  "@sleepWakeUpSkip": {
+    "description": "Secondary action button in wake-up sheet (ends sleep without rating/fronting)"
+  },
+  "sleepWakeUpOthers": "Others...",
+  "@sleepWakeUpOthers": {
+    "description": "Button to show remaining members not in quick-front circles"
+  },
+  "sleepSuggestionBedtime": "It's your usual bedtime",
+  "@sleepSuggestionBedtime": {
+    "description": "Bedtime reminder banner title on fronting screen"
+  },
+  "sleepSuggestionBedtimeAction": "Start Sleep",
+  "@sleepSuggestionBedtimeAction": {
+    "description": "Action button on bedtime reminder banner"
+  },
+  "sleepWakeSuggestionNudge": "You've been sleeping for {duration}",
+  "@sleepWakeSuggestionNudge": {
+    "description": "Nudge text shown on sleep card when wake suggestion duration exceeded",
+    "placeholders": {
+      "duration": {
+        "type": "String",
+        "example": "8h 30m"
+      }
+    }
+  },
+  "featureSleepSuggestions": "Suggestions",
+  "@featureSleepSuggestions": {
+    "description": "Section title for suggestion settings on sleep feature screen"
+  },
+  "featureSleepBedtimeReminder": "Bedtime Reminder",
+  "@featureSleepBedtimeReminder": {
+    "description": "Toggle title for bedtime reminder setting"
+  },
+  "featureSleepBedtimeReminderSubtitle": "Show a reminder at your usual bedtime",
+  "@featureSleepBedtimeReminderSubtitle": {
+    "description": "Toggle subtitle for bedtime reminder setting"
+  },
+  "featureSleepBedtimeTime": "Bedtime",
+  "@featureSleepBedtimeTime": {
+    "description": "Row title for bedtime time picker"
+  },
+  "featureSleepWakeReminder": "Wake Reminder",
+  "@featureSleepWakeReminder": {
+    "description": "Toggle title for wake reminder setting"
+  },
+  "featureSleepWakeReminderSubtitle": "Nudge to wake after a set duration",
+  "@featureSleepWakeReminderSubtitle": {
+    "description": "Toggle subtitle for wake reminder setting"
+  },
+  "featureSleepWakeAfter": "Wake After",
+  "@featureSleepWakeAfter": {
+    "description": "Row title for wake duration picker"
+  },
+  "featureSleepWakeAfterHours": "{hours} hours",
+  "@featureSleepWakeAfterHours": {
+    "description": "Display format for wake duration setting",
+    "placeholders": {
+      "hours": {
+        "type": "String",
+        "example": "8"
+      }
+    }
   }
 }
