@@ -33,7 +33,7 @@ void main() {
       await backend.load(
         VoicePlaybackSource.bytes(
           bytes: Uint8List.fromList([1, 2, 3, 4]),
-          mimeType: 'audio/mp4',
+          mimeType: 'audio/aac',
           mediaId: 'broken',
         ),
       );

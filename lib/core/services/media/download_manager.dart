@@ -142,38 +142,6 @@ class DownloadManager {
     }
   }
 
-  Future<File?> getMediaFile({
-    required String mediaId,
-    required Uint8List encryptionKey,
-    required String ciphertextHash,
-    required String plaintextHash,
-    String fileExtension = '',
-  }) async {
-    final ext = _normalizeFileExtension(fileExtension);
-
-    // Get decrypted bytes (from .enc cache or fresh download).
-    final bytes = await getMedia(
-      mediaId: mediaId,
-      encryptionKey: encryptionKey,
-      ciphertextHash: ciphertextHash,
-      plaintextHash: plaintextHash,
-      fileExtension: ext,
-    );
-    if (bytes == null) return null;
-
-    // Write decrypted bytes to the TEMP directory — NOT the cache directory.
-    // The .enc ciphertext remains in the persistent cache (written by getMedia
-    // above). The temp plaintext file is explicitly deleted after playback
-    // by the voice playback provider.
-    final tempDir = _cacheDirOverride != null
-        ? Directory('${_cacheDirOverride.path}/tmp')
-        : await getTemporaryDirectory();
-    await tempDir.create(recursive: true);
-    final tempFile = File('${tempDir.path}/$mediaId$ext');
-    await tempFile.writeAsBytes(bytes);
-    return tempFile;
-  }
-
   Future<void> clearCache() async {
     final dir = await _cacheDir();
     if (dir.existsSync()) {
@@ -247,21 +215,6 @@ class DownloadManager {
     final dir = await _cacheDir();
     final suffix = encrypted ? '.enc' : '';
     return File('${dir.path}/$mediaId$fileExtension$suffix');
-  }
-
-  String _normalizeFileExtension(String fileExtension) {
-    final trimmed = fileExtension.trim();
-    if (trimmed.isEmpty) {
-      return '';
-    }
-
-    final normalized = trimmed.startsWith('.') ? trimmed : '.$trimmed';
-    if (normalized.contains(Platform.pathSeparator) ||
-        normalized.contains('/')) {
-      return '';
-    }
-
-    return normalized;
   }
 
   /// Decrypts [ciphertext] using [MediaEncryptionService].

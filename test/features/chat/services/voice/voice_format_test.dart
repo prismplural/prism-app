@@ -54,7 +54,7 @@ void main() {
       ]);
 
       expect(
-        resolveVoiceMimeType(bytes, fallbackMimeType: 'audio/mp4'),
+        resolveVoiceMimeType(bytes, fallbackMimeType: 'audio/aac'),
         'audio/ogg',
       );
     });
@@ -63,8 +63,8 @@ void main() {
       final bytes = Uint8List.fromList([9, 8, 7, 6]);
 
       expect(
-        resolveVoiceMimeType(bytes, fallbackMimeType: 'audio/mp4'),
-        'audio/mp4',
+        resolveVoiceMimeType(bytes, fallbackMimeType: 'audio/aac'),
+        'audio/aac',
       );
     });
   });

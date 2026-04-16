@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,21 +14,17 @@ typedef MediaFileParams = ({
   String plaintextHash,
 });
 
-final uploadProgressProvider =
-    StreamProvider.autoDispose.family<UploadProgress, String>(
-  (ref, mediaId) {
-    final queue = ref.watch(uploadQueueProvider);
-    return queue.progressStream(mediaId);
-  },
-);
+final uploadProgressProvider = StreamProvider.autoDispose
+    .family<UploadProgress, String>((ref, mediaId) {
+      final queue = ref.watch(uploadQueueProvider);
+      return queue.progressStream(mediaId);
+    });
 
-final downloadProgressProvider =
-    StreamProvider.autoDispose.family<DownloadProgress, String>(
-  (ref, mediaId) {
-    final manager = ref.watch(downloadManagerProvider);
-    return manager.progressStream(mediaId);
-  },
-);
+final downloadProgressProvider = StreamProvider.autoDispose
+    .family<DownloadProgress, String>((ref, mediaId) {
+      final manager = ref.watch(downloadManagerProvider);
+      return manager.progressStream(mediaId);
+    });
 
 // ── Image in-memory cache ─────────────────────────────────────────────────────
 //
@@ -49,50 +44,32 @@ final downloadProgressProvider =
 const _maxImageCacheEntries = 50;
 final _imageMemoryCache = <String, Uint8List>{};
 
-final mediaFileProvider =
-    FutureProvider.autoDispose.family<Uint8List?, MediaFileParams>(
-  (ref, params) async {
-    // Return from memory cache if available — no disk read or decryption needed.
-    final cached = _imageMemoryCache[params.mediaId];
-    if (cached != null) return cached;
+final mediaFileProvider = FutureProvider.autoDispose
+    .family<Uint8List?, MediaFileParams>((ref, params) async {
+      // Return from memory cache if available — no disk read or decryption needed.
+      final cached = _imageMemoryCache[params.mediaId];
+      if (cached != null) return cached;
 
-    final manager = ref.watch(downloadManagerProvider);
-    final encryptionKey = Uint8List.fromList(base64Decode(params.encryptionKeyB64));
-    final bytes = await manager.getMedia(
-      mediaId: params.mediaId,
-      encryptionKey: encryptionKey,
-      ciphertextHash: params.ciphertextHash,
-      plaintextHash: params.plaintextHash,
-    );
+      final manager = ref.watch(downloadManagerProvider);
+      final encryptionKey = Uint8List.fromList(
+        base64Decode(params.encryptionKeyB64),
+      );
+      final bytes = await manager.getMedia(
+        mediaId: params.mediaId,
+        encryptionKey: encryptionKey,
+        ciphertextHash: params.ciphertextHash,
+        plaintextHash: params.plaintextHash,
+      );
 
-    if (bytes == null) {
-      throw StateError('Failed to download media: ${params.mediaId}');
-    }
+      if (bytes == null) {
+        throw StateError('Failed to download media: ${params.mediaId}');
+      }
 
-    // Evict oldest entry when at capacity (FIFO).
-    if (_imageMemoryCache.length >= _maxImageCacheEntries) {
-      _imageMemoryCache.remove(_imageMemoryCache.keys.first);
-    }
-    _imageMemoryCache[params.mediaId] = bytes;
+      // Evict oldest entry when at capacity (FIFO).
+      if (_imageMemoryCache.length >= _maxImageCacheEntries) {
+        _imageMemoryCache.remove(_imageMemoryCache.keys.first);
+      }
+      _imageMemoryCache[params.mediaId] = bytes;
 
-    return bytes;
-  },
-);
-
-/// Returns a decrypted audio [File] on disk, suitable for [AudioSource.file].
-/// Unlike [mediaFileProvider] which returns raw bytes, this returns the cached
-/// file path so just_audio can stream from it directly.
-final mediaAudioFileProvider =
-    FutureProvider.autoDispose.family<File?, MediaFileParams>(
-  (ref, params) {
-    final manager = ref.watch(downloadManagerProvider);
-    final encryptionKey =
-        Uint8List.fromList(base64Decode(params.encryptionKeyB64));
-    return manager.getMediaFile(
-      mediaId: params.mediaId,
-      encryptionKey: encryptionKey,
-      ciphertextHash: params.ciphertextHash,
-      plaintextHash: params.plaintextHash,
-    );
-  },
-);
+      return bytes;
+    });

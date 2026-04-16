@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:uuid/uuid.dart';
@@ -223,22 +222,6 @@ class MediaService {
       encryptionKey: encryptionKey,
       ciphertextHash: ciphertextHash,
       plaintextHash: plaintextHash,
-    );
-  }
-
-  Future<File?> getMediaFile({
-    required String mediaId,
-    required Uint8List encryptionKey,
-    required String ciphertextHash,
-    required String plaintextHash,
-    String fileExtension = '',
-  }) {
-    return downloadManager.getMediaFile(
-      mediaId: mediaId,
-      encryptionKey: encryptionKey,
-      ciphertextHash: ciphertextHash,
-      plaintextHash: plaintextHash,
-      fileExtension: fileExtension,
     );
   }
 

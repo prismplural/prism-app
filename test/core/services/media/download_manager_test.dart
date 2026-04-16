@@ -398,8 +398,8 @@ void main() {
         final manager = _makeTestManager(cacheDir);
         addTearDown(manager.dispose);
 
-        // Audio variant: cache file should be <mediaId>.m4a.enc
-        final encFile = File('${cacheDir.path}/audio-1.m4a.enc');
+        // Audio variant: cache file should be <mediaId>.ogg.enc
+        final encFile = File('${cacheDir.path}/audio-1.ogg.enc');
         await encFile.writeAsBytes(media.ciphertext);
 
         final result = await manager.getMedia(
@@ -407,126 +407,11 @@ void main() {
           encryptionKey: media.key,
           ciphertextHash: media.ciphertextHash,
           plaintextHash: media.plaintextHash,
-          fileExtension: '.m4a',
+          fileExtension: '.ogg',
         );
 
         expect(result, equals(media.plaintext));
       },
     );
-  });
-
-  // ── getMediaFile — temp plaintext file ────────────────────────────────
-
-  group('getMediaFile — temp plaintext file', () {
-    late Directory cacheDir;
-
-    setUp(() async {
-      cacheDir = await Directory.systemTemp.createTemp('dm_file_test_');
-    });
-
-    tearDown(() async {
-      if (cacheDir.existsSync()) await cacheDir.delete(recursive: true);
-    });
-
-    test('returns a temp file with decrypted bytes', () async {
-      final media = _fakeMedia([0xDE, 0xAD, 0xBE, 0xEF]);
-      final manager = _makeTestManager(cacheDir);
-      addTearDown(manager.dispose);
-
-      final encFile = File('${cacheDir.path}/audio-2.enc');
-      await encFile.writeAsBytes(media.ciphertext);
-
-      final file = await manager.getMediaFile(
-        mediaId: 'audio-2',
-        encryptionKey: media.key,
-        ciphertextHash: media.ciphertextHash,
-        plaintextHash: media.plaintextHash,
-      );
-
-      expect(file, isNotNull);
-      expect(file!.path.split(Platform.pathSeparator).last, 'audio-2');
-      expect(await file.readAsBytes(), equals(media.plaintext));
-    });
-
-    test('uses the requested extension when provided', () async {
-      final media = _fakeMedia([0x0A, 0x0B, 0x0C]);
-      final manager = _makeTestManager(cacheDir);
-      addTearDown(manager.dispose);
-
-      final encFile = File('${cacheDir.path}/audio-2.ogg.enc');
-      await encFile.writeAsBytes(media.ciphertext);
-
-      final file = await manager.getMediaFile(
-        mediaId: 'audio-2',
-        encryptionKey: media.key,
-        ciphertextHash: media.ciphertextHash,
-        plaintextHash: media.plaintextHash,
-        fileExtension: '.ogg',
-      );
-
-      expect(file, isNotNull);
-      expect(file!.path.split(Platform.pathSeparator).last, 'audio-2.ogg');
-      expect(await file.readAsBytes(), equals(media.plaintext));
-    });
-
-    test(
-      'temp file lives outside the persistent .enc cache (in a tmp subdir)',
-      () async {
-        final media = _fakeMedia([1, 2]);
-        final manager = _makeTestManager(cacheDir);
-        addTearDown(manager.dispose);
-
-        final encFile = File('${cacheDir.path}/audio-3.enc');
-        await encFile.writeAsBytes(media.ciphertext);
-
-        final file = await manager.getMediaFile(
-          mediaId: 'audio-3',
-          encryptionKey: media.key,
-          ciphertextHash: media.ciphertextHash,
-          plaintextHash: media.plaintextHash,
-        );
-
-        expect(file, isNotNull);
-        // The temp file path must NOT be the same path as the .enc cache file.
-        expect(
-          file!.path,
-          isNot(equals(encFile.path)),
-          reason:
-              'temp plaintext file must be separate from the .enc cache file',
-        );
-        // In production the temp dir is getTemporaryDirectory(); in tests with
-        // cacheDirOverride it is a /tmp subdirectory — either way it is not the
-        // same location as the persistent .enc cache file.
-        expect(
-          file.path,
-          isNot(endsWith('.enc')),
-          reason: 'temp file must not have .enc suffix — it is plaintext',
-        );
-      },
-    );
-
-    test('.enc ciphertext file is preserved after getMediaFile', () async {
-      final media = _fakeMedia([9, 8, 7]);
-      final manager = _makeTestManager(cacheDir);
-      addTearDown(manager.dispose);
-
-      final encFile = File('${cacheDir.path}/audio-4.enc');
-      await encFile.writeAsBytes(media.ciphertext);
-
-      await manager.getMediaFile(
-        mediaId: 'audio-4',
-        encryptionKey: media.key,
-        ciphertextHash: media.ciphertextHash,
-        plaintextHash: media.plaintextHash,
-      );
-
-      // The .enc ciphertext cache must still exist after getMediaFile.
-      expect(
-        encFile.existsSync(),
-        isTrue,
-        reason:
-            '.enc ciphertext cache should be preserved after playback setup',
-      );
-    });
   });
 }
