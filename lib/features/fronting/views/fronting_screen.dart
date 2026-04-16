@@ -36,7 +36,6 @@ import 'package:prism_plurality/features/fronting/providers/timeline_providers.d
 import 'package:prism_plurality/features/fronting/widgets/timeline_view.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 
 class FrontingScreen extends ConsumerStatefulWidget {
@@ -460,46 +459,6 @@ class _MenuItem {
   final bool enabled;
 }
 
-/// Banner reminding the user to back up their recovery phrase.
-///
-/// Hidden when:
-/// - no PIN is set (encryption not active), or
-/// - the user has already dismissed the reminder.
-class _BackupReminderBanner extends ConsumerWidget {
-  const _BackupReminderBanner({
-    required this.theme,
-    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 0),
-  });
-
-  final ThemeData theme;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final reminderDue = ref
-        .watch(backupReminderDueProvider)
-        .maybeWhen(data: (v) => v, orElse: () => false);
-    if (!reminderDue) return const SizedBox.shrink();
-
-    return Padding(
-      padding: padding,
-      child: InfoBanner(
-        icon: AppIcons.key,
-        iconColor: theme.colorScheme.tertiary,
-        title: context.l10n.backupReminderBannerText,
-        message: '',
-        buttonText: context.l10n.backupReminderBannerAction,
-        onButtonPressed: () async {
-          await ref.read(authPolicyServiceProvider).recordReminderDismissed();
-          ref.invalidate(backupReminderDueProvider);
-          if (context.mounted) {
-            context.go('/settings');
-          }
-        },
-      ),
-    );
-  }
-}
 
 /// Banner reminding the user to start sleep when their configured bedtime
 /// has arrived and no sleep session is currently active.
@@ -631,13 +590,9 @@ class FrontingBannerStack extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _BackupReminderBanner(
-          theme: theme,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-        ),
         _TimelineIssueBanner(
           theme: theme,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
         ),
         _BedtimeReminderBanner(
           theme: theme,

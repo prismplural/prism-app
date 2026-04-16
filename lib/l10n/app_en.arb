@@ -6866,13 +6866,75 @@
   "@syncPinSheetSubtitle": {
     "description": "Subtitle for the PIN entry sheet used to authenticate sync"
   },
-  "backupReminderBannerText": "Have you backed up your recovery phrase?",
-  "@backupReminderBannerText": {
-    "description": "Message shown in the backup reminder info banner on the home screen"
+  "syncPinSheetMnemonicSubtitle": "Enter your 12-word recovery phrase to continue. This isn't stored on your device.",
+  "@syncPinSheetMnemonicSubtitle": {
+    "description": "Subtitle shown on step 1 of the sync PIN sheet when prompting for the recovery phrase."
   },
-  "backupReminderBannerAction": "View",
-  "@backupReminderBannerAction": {
-    "description": "Action button label on the backup reminder banner"
+  "syncPinSheetMnemonicInvalid": "This doesn't look like a valid recovery phrase.",
+  "@syncPinSheetMnemonicInvalid": {
+    "description": "Inline error shown under the mnemonic field when validation fails."
+  },
+  "syncPinSheetUnlockFailed": "Couldn't unlock with this phrase and PIN.",
+  "@syncPinSheetUnlockFailed": {
+    "description": "Generic unlock failure message that doesn't disclose which input was wrong."
+  },
+  "syncPinSheetLostPhrase": "Lost your phrase?",
+  "@syncPinSheetLostPhrase": {
+    "description": "Inline toggle that expands a short explainer for users who have lost their recovery phrase."
+  },
+  "syncPinSheetLostPhraseBody": "Your recovery phrase is the only way to unlock sync on this device. If you've lost it, reset the app and restore from an exported backup.",
+  "@syncPinSheetLostPhraseBody": {
+    "description": "Explainer body shown when the 'Lost your phrase?' row is expanded."
+  },
+  "syncPinSheetMnemonicContinue": "Continue",
+  "@syncPinSheetMnemonicContinue": {
+    "description": "Primary action button on step 1 of the sync PIN sheet."
+  },
+  "syncPinSheetBack": "Back",
+  "@syncPinSheetBack": {
+    "description": "Back affordance on step 2 that returns to the mnemonic step without dismissing the sheet."
+  },
+  "mnemonicFieldWordCounter": "{filled} of 12 words",
+  "@mnemonicFieldWordCounter": {
+    "description": "Counter showing how many of the 12 BIP39 words have been entered and recognized.",
+    "placeholders": {
+      "filled": { "type": "String", "example": "8" }
+    }
+  },
+  "mnemonicFieldPaste": "Paste phrase",
+  "@mnemonicFieldPaste": {
+    "description": "Tooltip for the clipboard-paste button on the mnemonic field."
+  },
+  "mnemonicFieldShowWords": "Show words",
+  "@mnemonicFieldShowWords": {
+    "description": "Tooltip for the visibility toggle in the hidden state."
+  },
+  "mnemonicFieldHideWords": "Hide words",
+  "@mnemonicFieldHideWords": {
+    "description": "Tooltip for the visibility toggle in the visible state."
+  },
+  "mnemonicFieldWordSlotLabel": "Word {n}",
+  "@mnemonicFieldWordSlotLabel": {
+    "description": "Accessibility label for an empty mnemonic slot.",
+    "placeholders": {
+      "n": { "type": "String", "example": "3" }
+    }
+  },
+  "mnemonicFieldWordChipValid": "Word {n}: {word}, valid",
+  "@mnemonicFieldWordChipValid": {
+    "description": "Accessibility label for a filled mnemonic chip that matches the BIP39 wordlist.",
+    "placeholders": {
+      "n": { "type": "String", "example": "3" },
+      "word": { "type": "String", "example": "abandon" }
+    }
+  },
+  "mnemonicFieldWordChipInvalid": "Word {n}: {word}, not recognized",
+  "@mnemonicFieldWordChipInvalid": {
+    "description": "Accessibility label for a filled mnemonic chip whose value isn't in the BIP39 wordlist.",
+    "placeholders": {
+      "n": { "type": "String", "example": "3" },
+      "word": { "type": "String", "example": "asdfgh" }
+    }
   },
   "sleepWakeUpMorning": "Good morning!",
   "@sleepWakeUpMorning": {

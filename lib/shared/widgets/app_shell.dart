@@ -22,7 +22,6 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/desktop_breakpoint.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
-import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/shared/utils/pin_lock_decision.dart';
 import 'package:prism_plurality/shared/widgets/floating_nav_bar_backdrop.dart';
 
@@ -169,7 +168,6 @@ class _AppShellState extends ConsumerState<AppShell>
     } else if (state == AppLifecycleState.resumed) {
       _checkLockOnResume();
       ref.invalidate(currentDateProvider);
-      _checkAuthPolicy();
     }
   }
 
@@ -186,17 +184,6 @@ class _AppShellState extends ConsumerState<AppShell>
     if (shouldLock) {
       setState(() => _locked = true);
     }
-  }
-
-  /// Check auth policy on app foreground — invalidates the backup reminder
-  /// provider so the InfoBanner re-evaluates when the user returns to the app.
-  ///
-  /// TODO(Task 19): Wire up periodic PIN re-verification sheet here.
-  Future<void> _checkAuthPolicy() async {
-    if (!mounted) return;
-
-    // Invalidate so the backup reminder banner re-checks on resume.
-    ref.invalidate(backupReminderDueProvider);
   }
 
   @override

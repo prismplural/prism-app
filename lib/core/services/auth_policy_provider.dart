@@ -12,8 +12,3 @@ final pinVerificationDueProvider = FutureProvider<bool>((ref) async {
   return service.isPinVerificationDue();
 });
 
-/// Whether the user is due for a recovery-phrase backup reminder (every 30 days).
-final backupReminderDueProvider = FutureProvider<bool>((ref) async {
-  final service = ref.watch(authPolicyServiceProvider);
-  return service.isBackupReminderDue();
-});

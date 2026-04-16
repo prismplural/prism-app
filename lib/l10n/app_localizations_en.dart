@@ -5830,11 +5830,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncPinSheetSubtitle => 'Your PIN is required to unlock Prism.';
 
   @override
-  String get backupReminderBannerText =>
-      'Have you backed up your recovery phrase?';
+  String get syncPinSheetMnemonicSubtitle =>
+      'Enter your 12-word recovery phrase to continue. This isn\'t stored on your device.';
 
   @override
-  String get backupReminderBannerAction => 'View';
+  String get syncPinSheetMnemonicInvalid =>
+      'This doesn\'t look like a valid recovery phrase.';
+
+  @override
+  String get syncPinSheetUnlockFailed =>
+      'Couldn\'t unlock with this phrase and PIN.';
+
+  @override
+  String get syncPinSheetLostPhrase => 'Lost your phrase?';
+
+  @override
+  String get syncPinSheetLostPhraseBody =>
+      'Your recovery phrase is the only way to unlock sync on this device. If you\'ve lost it, reset the app and restore from an exported backup.';
+
+  @override
+  String get syncPinSheetMnemonicContinue => 'Continue';
+
+  @override
+  String get syncPinSheetBack => 'Back';
+
+  @override
+  String mnemonicFieldWordCounter(String filled) {
+    return '$filled of 12 words';
+  }
+
+  @override
+  String get mnemonicFieldPaste => 'Paste phrase';
+
+  @override
+  String get mnemonicFieldShowWords => 'Show words';
+
+  @override
+  String get mnemonicFieldHideWords => 'Hide words';
+
+  @override
+  String mnemonicFieldWordSlotLabel(String n) {
+    return 'Word $n';
+  }
+
+  @override
+  String mnemonicFieldWordChipValid(String n, String word) {
+    return 'Word $n: $word, valid';
+  }
+
+  @override
+  String mnemonicFieldWordChipInvalid(String n, String word) {
+    return 'Word $n: $word, not recognized';
+  }
 
   @override
   String get sleepWakeUpMorning => 'Good morning!';

@@ -10064,17 +10064,89 @@ abstract class AppLocalizations {
   /// **'Your PIN is required to unlock Prism.'**
   String get syncPinSheetSubtitle;
 
-  /// Message shown in the backup reminder info banner on the home screen
+  /// Subtitle shown on step 1 of the sync PIN sheet when prompting for the recovery phrase.
   ///
   /// In en, this message translates to:
-  /// **'Have you backed up your recovery phrase?'**
-  String get backupReminderBannerText;
+  /// **'Enter your 12-word recovery phrase to continue. This isn\'t stored on your device.'**
+  String get syncPinSheetMnemonicSubtitle;
 
-  /// Action button label on the backup reminder banner
+  /// Inline error shown under the mnemonic field when validation fails.
   ///
   /// In en, this message translates to:
-  /// **'View'**
-  String get backupReminderBannerAction;
+  /// **'This doesn\'t look like a valid recovery phrase.'**
+  String get syncPinSheetMnemonicInvalid;
+
+  /// Generic unlock failure message that doesn't disclose which input was wrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t unlock with this phrase and PIN.'**
+  String get syncPinSheetUnlockFailed;
+
+  /// Inline toggle that expands a short explainer for users who have lost their recovery phrase.
+  ///
+  /// In en, this message translates to:
+  /// **'Lost your phrase?'**
+  String get syncPinSheetLostPhrase;
+
+  /// Explainer body shown when the 'Lost your phrase?' row is expanded.
+  ///
+  /// In en, this message translates to:
+  /// **'Your recovery phrase is the only way to unlock sync on this device. If you\'ve lost it, reset the app and restore from an exported backup.'**
+  String get syncPinSheetLostPhraseBody;
+
+  /// Primary action button on step 1 of the sync PIN sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get syncPinSheetMnemonicContinue;
+
+  /// Back affordance on step 2 that returns to the mnemonic step without dismissing the sheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get syncPinSheetBack;
+
+  /// Counter showing how many of the 12 BIP39 words have been entered and recognized.
+  ///
+  /// In en, this message translates to:
+  /// **'{filled} of 12 words'**
+  String mnemonicFieldWordCounter(String filled);
+
+  /// Tooltip for the clipboard-paste button on the mnemonic field.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste phrase'**
+  String get mnemonicFieldPaste;
+
+  /// Tooltip for the visibility toggle in the hidden state.
+  ///
+  /// In en, this message translates to:
+  /// **'Show words'**
+  String get mnemonicFieldShowWords;
+
+  /// Tooltip for the visibility toggle in the visible state.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide words'**
+  String get mnemonicFieldHideWords;
+
+  /// Accessibility label for an empty mnemonic slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Word {n}'**
+  String mnemonicFieldWordSlotLabel(String n);
+
+  /// Accessibility label for a filled mnemonic chip that matches the BIP39 wordlist.
+  ///
+  /// In en, this message translates to:
+  /// **'Word {n}: {word}, valid'**
+  String mnemonicFieldWordChipValid(String n, String word);
+
+  /// Accessibility label for a filled mnemonic chip whose value isn't in the BIP39 wordlist.
+  ///
+  /// In en, this message translates to:
+  /// **'Word {n}: {word}, not recognized'**
+  String mnemonicFieldWordChipInvalid(String n, String word);
 
   /// Wake-up sheet greeting shown between 5am and noon
   ///

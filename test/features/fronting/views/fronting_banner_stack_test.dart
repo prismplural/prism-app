@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/views/fronting_screen.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -21,11 +20,10 @@ void main() {
   }
 
   testWidgets(
-    'stacks home banners with backup reminder above timeline issues',
+    'shows timeline issue banner when issues exist',
     (tester) async {
       final container = ProviderContainer(
         overrides: [
-          backupReminderDueProvider.overrideWith((ref) async => true),
           frontingIssueCountProvider.overrideWith(_IssueCountNotifier.new),
         ],
       );
@@ -35,16 +33,8 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.byType(InfoBanner), findsNWidgets(2));
-
-      final backupTitle = find.text('Have you backed up your recovery phrase?');
-      final timelineTitle = find.text('Timeline issues found');
-      expect(backupTitle, findsOneWidget);
-      expect(timelineTitle, findsOneWidget);
-      expect(
-        tester.getTopLeft(backupTitle).dy,
-        lessThan(tester.getTopLeft(timelineTitle).dy),
-      );
+      expect(find.byType(InfoBanner), findsOneWidget);
+      expect(find.text('Timeline issues found'), findsOneWidget);
     },
   );
 }
