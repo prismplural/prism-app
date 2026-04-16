@@ -155,8 +155,7 @@ root `CLAUDE.md` "Documentation Lifecycle").
 
 ## Performance Docs
 
-- `../docs/flutter-performance-and-size-audit-guide.md`
-- `../docs/flutter-performance-and-size-audit-report-2026-04-08.md` (current; 2026-03-21 superseded)
+- `../docs/guides/flutter-performance-and-size-audit-guide.md`
 
 ## Project Structure
 ```
