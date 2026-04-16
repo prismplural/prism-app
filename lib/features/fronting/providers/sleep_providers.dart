@@ -17,6 +17,18 @@ final recentSleepSessionsProvider =
   return repo.watchAllSleepSessions().map((all) => all.take(10).toList());
 });
 
+/// Member fronting frequency during morning hours (6am-12pm) over last 60 days.
+/// Used by the wake-up sheet to suggest likely morning fronters.
+final morningFrontingCountsProvider =
+    FutureProvider.autoDispose<Map<String, int>>((ref) {
+  final repo = ref.watch(frontingSessionRepositoryProvider);
+  return repo.getMemberFrontingCounts(
+    startHour: 6,
+    endHour: 11,
+    withinDays: 60,
+  );
+});
+
 /// Notifier for sleep session actions.
 class SleepNotifier extends Notifier<void> {
   @override

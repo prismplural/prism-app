@@ -176,8 +176,18 @@ class DriftFrontingSessionRepository
   Future<int> getFrontingCount() => _dao.getFrontingCount();
 
   @override
-  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50}) =>
-      _dao.getMemberFrontingCounts(limit: limit);
+  Future<Map<String, int>> getMemberFrontingCounts({
+    int recentLimit = 50,
+    int? startHour,
+    int? endHour,
+    int? withinDays,
+  }) =>
+      _dao.getMemberFrontingCounts(
+        recentLimit: recentLimit,
+        startHour: startHour,
+        endHour: endHour,
+        withinDays: withinDays,
+      );
 
   @override
   Future<List<domain.FrontingSession>> getSessionsBetween(
