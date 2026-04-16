@@ -20,7 +20,6 @@ import 'package:prism_plurality/features/onboarding/widgets/complete_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/sync_device_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/pin_setup_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/recovery_phrase_onboarding_step.dart';
-import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/features/onboarding/widgets/biometric_setup_step.dart';
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
 import 'package:prism_plurality/features/onboarding/utils/onboarding_step_l10n.dart';
@@ -342,10 +341,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     try {
       final onboarding = ref.read(onboardingProvider);
       await ref.read(onboardingCommitServiceProvider).complete(onboarding);
-
-      // Start the 30-day grace period so the backup reminder doesn't fire
-      // immediately after the user just saved their recovery phrase.
-      await ref.read(authPolicyServiceProvider).recordReminderDismissed();
 
       if (mounted) {
         context.go(AppRoutePaths.home);
