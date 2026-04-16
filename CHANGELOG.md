@@ -2,6 +2,20 @@
 
 All notable changes to Prism will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Voice note Opus backends: split recording and playback into dedicated chat voice services with shared format detection and focused tests
+
+### Changed
+- Voice notes now use a mobile-first Ogg Opus path: Android records Ogg directly, iOS finalizes CAF Opus into Ogg before upload, and playback runs from decrypted bytes in memory through SoLoud
+- Voice-note uploads now validate and persist `audio/ogg` metadata instead of carrying the old AAC/M4A assumptions
+- Chat compose now shows a preparing state before send when a recorded note is still being finalized
+
+### Fixed
+- Voice playback/download path no longer forces `.m4a` temp files or the old file-based playback plumbing
+- Voice-note controls now keep retry, accessibility announcements, and minimum tap targets aligned with the new backend-driven flow
+
 ## [0.3.8] - 2026-04-14
 
 ### Changed
@@ -468,8 +482,6 @@ All notable changes to Prism will be documented in this file.
 ### Fixed
 - PK rate-limit detection: replaced fragile `toString().contains('429')` with typed `error is PluralKitRateLimitError`
 - N+1 query in PK auto-push and sync: batch-fetch all members instead of per-session getMemberById loop
-
-## [Unreleased]
 
 ## [0.1.2] - 2026-03-18
 
