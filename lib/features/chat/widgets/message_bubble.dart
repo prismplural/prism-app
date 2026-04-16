@@ -14,7 +14,9 @@ import 'package:prism_plurality/features/chat/providers/media_attachment_provide
 import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
 import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
 import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
-import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
+import 'package:prism_plurality/features/chat/utils/markdown_utils.dart';
+import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
+import 'package:prism_plurality/features/chat/widgets/chat_message_text.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
 import 'package:prism_plurality/features/chat/widgets/media/gif_bubble.dart';
@@ -262,63 +264,68 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   }
 
   void _showEditDialog(BuildContext context) {
-    final controller = TextEditingController(text: widget.message.content);
+    final controller = ChatMarkdownEditingController(
+      text: widget.message.content,
+    );
     var isSaving = false;
     PrismDialog.show(
       context: context,
       title: context.l10n.chatEditMessageTitle,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (builderContext, setDialogState) => Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PrismTextField(
-              controller: controller,
-              autofocus: true,
-              maxLines: 4,
-              hintText: context.l10n.chatMessageContentHint,
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                PrismButton(
-                  label: context.l10n.cancel,
-                  enabled: !isSaving,
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                ),
-                const SizedBox(width: 8),
-                PrismButton(
-                  label: context.l10n.save,
-                  tone: PrismButtonTone.filled,
-                  isLoading: isSaving,
-                  enabled: !isSaving,
-                  onPressed: () async {
-                    final newContent = controller.text.trim();
-                    if (newContent.isEmpty) {
-                      Navigator.of(dialogContext).pop();
-                      return;
-                    }
-                    setDialogState(() => isSaving = true);
-                    try {
-                      await ref
-                          .read(chatNotifierProvider.notifier)
-                          .editMessage(widget.message.id, newContent);
-                    } catch (_) {
-                      if (builderContext.mounted) {
-                        setDialogState(() => isSaving = false);
+        builder: (builderContext, setDialogState) {
+          controller.updateTheme(builderContext);
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PrismTextField(
+                controller: controller,
+                autofocus: true,
+                maxLines: 4,
+                hintText: context.l10n.chatMessageContentHint,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  PrismButton(
+                    label: context.l10n.cancel,
+                    enabled: !isSaving,
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                  ),
+                  const SizedBox(width: 8),
+                  PrismButton(
+                    label: context.l10n.save,
+                    tone: PrismButtonTone.filled,
+                    isLoading: isSaving,
+                    enabled: !isSaving,
+                    onPressed: () async {
+                      final newContent = controller.text.trim();
+                      if (newContent.isEmpty) {
+                        Navigator.of(dialogContext).pop();
+                        return;
                       }
-                      return;
-                    }
-                    if (dialogContext.mounted) {
-                      Navigator.of(dialogContext).pop();
-                    }
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
+                      setDialogState(() => isSaving = true);
+                      try {
+                        await ref
+                            .read(chatNotifierProvider.notifier)
+                            .editMessage(widget.message.id, newContent);
+                      } catch (_) {
+                        if (builderContext.mounted) {
+                          setDialogState(() => isSaving = false);
+                        }
+                        return;
+                      }
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -531,6 +538,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                               ),
                               isDeleted: widget.message.replyToContent == null,
                               onTap: widget.onScrollToReply,
+                              authorMap: widget.authorMap,
                             ),
                           ),
                         if (widget.showAuthorInfo)
@@ -583,13 +591,17 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                               right: 8,
                               top: widget.showAuthorInfo ? 0 : 1,
                             ),
-                            child: Text.rich(
-                              _buildContentSpan(
-                                widget.message.content,
-                                widget.authorMap,
-                                theme,
-                                messageTextColor,
+                            child: ChatMessageText(
+                              content: widget.message.content,
+                              authorMap: widget.authorMap,
+                              baseStyle: (theme.textTheme.bodyLarge ??
+                                      const TextStyle())
+                                  .copyWith(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w400,
+                                height: 1.24,
                               ),
+                              defaultColor: messageTextColor,
                             ),
                           ),
                         ..._buildAttachments(context, theme, authorColor),
@@ -747,70 +759,6 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         );
   }
 
-  /// Build a TextSpan that renders @[uuid] tokens with member colors.
-  TextSpan _buildContentSpan(
-    String content,
-    Map<String, Member>? authorMap,
-    ThemeData theme,
-    Color defaultColor,
-  ) {
-    final baseStyle = theme.textTheme.bodyLarge?.copyWith(
-      color: defaultColor,
-      fontSize: 15.5,
-      fontWeight: FontWeight.w400,
-      height: 1.24,
-    );
-
-    final matches = mentionRegex.allMatches(content).toList();
-    if (matches.isEmpty) {
-      return TextSpan(text: content, style: baseStyle);
-    }
-
-    final spans = <InlineSpan>[];
-    var lastEnd = 0;
-
-    for (final match in matches) {
-      // Plain text before this mention.
-      if (match.start > lastEnd) {
-        spans.add(
-          TextSpan(
-            text: content.substring(lastEnd, match.start),
-            style: baseStyle,
-          ),
-        );
-      }
-
-      final memberId = match.group(1)!;
-      final member = authorMap?[memberId];
-      final name = member?.name ?? context.l10n.unknown;
-      final mentionColor =
-          (member != null &&
-              member.customColorEnabled &&
-              member.customColorHex != null)
-          ? AppColors.fromHex(member.customColorHex!)
-          : theme.colorScheme.primary;
-
-      spans.add(
-        TextSpan(
-          text: '@$name',
-          style: baseStyle?.copyWith(
-            color: mentionColor,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      );
-
-      lastEnd = match.end;
-    }
-
-    // Trailing plain text.
-    if (lastEnd < content.length) {
-      spans.add(TextSpan(text: content.substring(lastEnd), style: baseStyle));
-    }
-
-    return TextSpan(children: spans);
-  }
-
   String _formatRelativeTime(DateTime dateTime) {
     final diff = DateTime.now().difference(dateTime);
     if (diff.inMinutes < 1) return 'just now';
@@ -953,6 +901,7 @@ class _ReplyQuote extends StatelessWidget {
     required this.authorColor,
     required this.isDeleted,
     this.onTap,
+    this.authorMap,
   });
 
   final String authorName;
@@ -960,6 +909,7 @@ class _ReplyQuote extends StatelessWidget {
   final Color authorColor;
   final bool isDeleted;
   final VoidCallback? onTap;
+  final Map<String, Member>? authorMap;
 
   @override
   Widget build(BuildContext context) {
@@ -1015,7 +965,7 @@ class _ReplyQuote extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              content,
+                              stripChatMarkdown(content, authorMap),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
