@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_datetime_pills.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// Bottom sheet to start a new sleep session.
@@ -82,7 +83,7 @@ class _StartSleepSheetState extends ConsumerState<StartSleepSheet> {
                 children: [
                   Icon(
                     AppIcons.bedtimeRounded,
-                    color: theme.colorScheme.tertiary,
+                    color: AppColors.sleep(theme.brightness),
                     size: 20,
                   ),
                   const SizedBox(width: 8),

@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -84,7 +85,7 @@ class _SleepFeatureSettingsScreenState
               padding: EdgeInsets.zero,
               child: PrismSwitchRow(
                 icon: AppIcons.bedtimeOutlined,
-                iconColor: Colors.indigo,
+                iconColor: AppColors.sleep(theme.brightness),
                 title: context.l10n.featureSleepEnable,
                 subtitle: context.l10n.featureSleepEnableSubtitle,
                 value: sleepEnabled,
@@ -101,7 +102,7 @@ class _SleepFeatureSettingsScreenState
                 padding: EdgeInsets.zero,
                 child: PrismSettingsRow(
                   icon: AppIcons.starOutline,
-                  iconColor: Colors.indigo,
+                  iconColor: AppColors.sleep(theme.brightness),
                   title: context.l10n.featureSleepDefaultQuality,
                   subtitle: _defaultQuality.label,
                   onTap: () => _showDefaultQualityPicker(context),
