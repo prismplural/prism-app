@@ -54,6 +54,7 @@ abstract final class AppRoutePaths {
   static const settingsReminders = '/settings/reminders';
   static const settingsNavigation = '/settings/navigation';
   static const settingsSystemInfo = '/settings/system-info';
+  static const timeline = '/timeline';
 
   // Parameterized helpers — groups
   static String settingsGroup(String id) => '/settings/members/groups/$id';
@@ -90,18 +91,11 @@ abstract final class AppRouteNames {
   static const onboarding = 'onboarding';
   static const secretKeySetup = 'secret-key-setup';
   static const syncSetup = 'sync-setup';
+  static const timeline = 'timeline';
 }
 
 enum AppShellTabId {
-  home,
-  chat,
-  habits,
-  polls,
-  settings,
-  members,
-  reminders,
-  notes,
-  statistics,
+  home, chat, habits, polls, settings, members, reminders, notes, statistics, timeline,
 }
 
 class AppShellTab {
@@ -149,6 +143,7 @@ class AppShellTab {
       AppShellTabId.reminders => l10n.navReminders,
       AppShellTabId.notes => l10n.navNotes,
       AppShellTabId.statistics => l10n.navStatistics,
+      AppShellTabId.timeline => l10n.navTimeline,
     };
   }
 
@@ -173,6 +168,7 @@ class AppShellTab {
       AppShellTabId.reminders => flags.reminders,
       AppShellTabId.notes => flags.notes,
       AppShellTabId.statistics => true,
+      AppShellTabId.timeline => true,
     };
   }
 }
@@ -249,6 +245,14 @@ final appShellTabs = [
     activeIcon: AppIcons.navStatisticsActive,
     branchIndex: 8,
     rootLocation: AppRoutePaths.statistics,
+  ),
+  AppShellTab(
+    id: AppShellTabId.timeline,
+    label: 'Timeline',
+    icon: AppIcons.navTimeline,
+    activeIcon: AppIcons.navTimelineActive,
+    branchIndex: 9,
+    rootLocation: AppRoutePaths.timeline,
   ),
 ];
 

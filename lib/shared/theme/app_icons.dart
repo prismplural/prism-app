@@ -30,6 +30,8 @@ abstract final class AppIcons {
   static final navNotesActive = PhosphorIcons.notepad(PhosphorIconsStyle.fill);
   static final navStatistics = PhosphorIcons.chartBar();
   static final navStatisticsActive = PhosphorIcons.chartBar(PhosphorIconsStyle.fill);
+  static final navTimeline = PhosphorIcons.columns();
+  static final navTimelineActive = PhosphorIcons.columns(PhosphorIconsStyle.fill);
 
   // ── Actions / structural (regular) ────────────────────────────────────
 
