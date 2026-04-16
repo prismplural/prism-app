@@ -58,6 +58,7 @@ import '../../features/settings/views/pin_lock_settings_screen.dart';
 import '../../features/reminders/views/reminders_screen.dart';
 import '../../features/notes/views/notes_list_screen.dart';
 import '../../features/settings/views/system_info_screen.dart';
+import '../../features/settings/views/voice_lab_screen.dart';
 import '../../features/settings/views/navigation_settings_screen.dart';
 import '../../features/onboarding/views/onboarding_screen.dart';
 import '../../features/settings/providers/settings_providers.dart';
@@ -70,9 +71,14 @@ final _habitsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'habits');
 final _pollsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'polls');
 final _settingsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'settings');
 final _membersNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'members');
-final _remindersNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'reminders');
+final _remindersNavigatorKey = GlobalKey<NavigatorState>(
+  debugLabel: 'reminders',
+);
 final _notesNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'notes');
-final _statisticsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'statistics');
+final _statisticsNavigatorKey = GlobalKey<NavigatorState>(
+  debugLabel: 'statistics',
+);
+const _autoVoiceLabRepro = bool.fromEnvironment('AUTO_VOICE_LAB_REPRO');
 
 /// Notifier that triggers GoRouter redirect re-evaluation when onboarding
 /// status changes.
@@ -123,11 +129,15 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: AppRoutePaths.home,
+    initialLocation: _autoVoiceLabRepro
+        ? AppRoutePaths.settingsVoiceLab
+        : AppRoutePaths.home,
     refreshListenable: _onboardingRedirectNotifier,
     onException: (context, state, router) {
-      debugPrint('[GoRouter] exception navigating to ${state.uri}: '
-          '${state.error}');
+      debugPrint(
+        '[GoRouter] exception navigating to ${state.uri}: '
+        '${state.error}',
+      );
       // Only redirect to home if we're not already there, to avoid
       // swallowing tab-switch failures silently.
       if (state.matchedLocation != AppRoutePaths.home) {
@@ -135,6 +145,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
     },
     redirect: (context, state) async {
+      if (_autoVoiceLabRepro) {
+        return null;
+      }
+
       final hasCompleted = _onboardingRedirectNotifier.hasCompleted;
 
       // While settings are still loading, don't redirect
@@ -237,8 +251,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: ':id',
                     builder: (context, state) => ConversationScreen(
                       conversationId: state.pathParameters['id']!,
-                      initialMessageId:
-                          state.uri.queryParameters['messageId'],
+                      initialMessageId: state.uri.queryParameters['messageId'],
                     ),
                   ),
                 ],
@@ -369,9 +382,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                     builder: (context, state) => const DebugScreen(),
                   ),
                   GoRoute(
+                    path: 'voice-lab',
+                    builder: (context, state) => const VoiceLabScreen(),
+                  ),
+                  GoRoute(
                     path: 'component-gallery',
-                    builder: (context, state) =>
-                        const ComponentGalleryScreen(),
+                    builder: (context, state) => const ComponentGalleryScreen(),
                   ),
                   GoRoute(
                     path: 'sync-debug',
@@ -396,8 +412,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'devices',
-                    builder: (context, state) =>
-                        const DeviceManagementScreen(),
+                    builder: (context, state) => const DeviceManagementScreen(),
                   ),
                   GoRoute(
                     path: 'data-browser',
@@ -471,8 +486,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'pin-lock',
-                    builder: (context, state) =>
-                        const PinLockSettingsScreen(),
+                    builder: (context, state) => const PinLockSettingsScreen(),
                   ),
                   GoRoute(
                     path: 'reminders',
@@ -480,9 +494,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'notes/:id',
-                    builder: (context, state) => NoteDetailScreen(
-                      noteId: state.pathParameters['id']!,
-                    ),
+                    builder: (context, state) =>
+                        NoteDetailScreen(noteId: state.pathParameters['id']!),
                   ),
                   GoRoute(
                     path: 'navigation',
@@ -554,9 +567,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) => NoteDetailScreen(
-                      noteId: state.pathParameters['id']!,
-                    ),
+                    builder: (context, state) =>
+                        NoteDetailScreen(noteId: state.pathParameters['id']!),
                   ),
                 ],
               ),

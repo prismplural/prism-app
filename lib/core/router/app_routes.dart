@@ -45,6 +45,7 @@ abstract final class AppRoutePaths {
   static const settingsDevices = '/settings/devices';
   static const settingsDataBrowser = '/settings/data-browser';
   static const settingsTimelineSanitization = '/settings/timeline-sanitization';
+  static const settingsVoiceLab = '/settings/voice-lab';
   static const settingsMembersManage = '/settings/members/manage';
   static const settingsGroups = '/settings/members/groups';
   static const settingsCustomFields = '/settings/custom-fields';
@@ -91,7 +92,17 @@ abstract final class AppRouteNames {
   static const syncSetup = 'sync-setup';
 }
 
-enum AppShellTabId { home, chat, habits, polls, settings, members, reminders, notes, statistics }
+enum AppShellTabId {
+  home,
+  chat,
+  habits,
+  polls,
+  settings,
+  members,
+  reminders,
+  notes,
+  statistics,
+}
 
 class AppShellTab {
   const AppShellTab({
@@ -142,7 +153,15 @@ class AppShellTab {
   }
 
   bool isEnabled(
-    ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders}) flags,
+    ({
+      bool chat,
+      bool polls,
+      bool habits,
+      bool sleep,
+      bool notes,
+      bool reminders,
+    })
+    flags,
   ) {
     return switch (id) {
       AppShellTabId.home => true,
