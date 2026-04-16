@@ -10,10 +10,14 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 /// Shows a dialog with options for resolving overlapping sessions.
 ///
 /// Returns the chosen [OverlapResolution], or `null` if dismissed.
+///
+/// When [canCoFront] is false (e.g. the overlap crosses fronting/sleep
+/// boundaries), the co-front option is hidden and only trim + cancel remain.
 Future<OverlapResolution?> showOverlapResolutionDialog(
   BuildContext context, {
   required int overlapCount,
   bool wouldDeleteConflicting = false,
+  bool canCoFront = true,
 }) async {
   final resolution = await PrismDialog.show<OverlapResolution>(
     context: context,
@@ -29,14 +33,15 @@ Future<OverlapResolution?> showOverlapResolutionDialog(
             subtitle: Text(ctx.l10n.frontingOverlapTrimSubtitle),
             onTap: () => Navigator.of(ctx).pop(OverlapResolution.trim),
           ),
-          PrismListRow(
-            padding: EdgeInsets.zero,
-            leading: Icon(AppIcons.group),
-            title: Text(ctx.l10n.frontingOverlapCoFrontOption),
-            subtitle: Text(ctx.l10n.frontingOverlapCoFrontSubtitle),
-            onTap: () =>
-                Navigator.of(ctx).pop(OverlapResolution.makeCoFronting),
-          ),
+          if (canCoFront)
+            PrismListRow(
+              padding: EdgeInsets.zero,
+              leading: Icon(AppIcons.group),
+              title: Text(ctx.l10n.frontingOverlapCoFrontOption),
+              subtitle: Text(ctx.l10n.frontingOverlapCoFrontSubtitle),
+              onTap: () =>
+                  Navigator.of(ctx).pop(OverlapResolution.makeCoFronting),
+            ),
           Align(
             alignment: Alignment.centerRight,
             child: PrismButton(

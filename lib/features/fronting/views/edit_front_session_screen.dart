@@ -172,6 +172,7 @@ class _EditFrontSessionScreenState
         context,
         overlapCount: validation.overlappingSessions.length,
         wouldDeleteConflicting: wouldDelete,
+        canCoFront: validation.canCoFront,
       );
       if (resolution == null || resolution == OverlapResolution.cancel) return;
       if (!mounted) return;
