@@ -9727,9 +9727,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Statistics'**
   String get navStatistics;
-  String get navTimeline;
-  String get navigationShowViewToggleTitle;
-  String get navigationShowViewToggleSubtitle;
 
   /// Header title for the onboarding welcome step
   ///
