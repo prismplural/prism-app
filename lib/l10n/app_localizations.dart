@@ -2786,6 +2786,24 @@ abstract class AppLocalizations {
   /// **'Create and edit your reminders'**
   String get featureRemindersManageSubtitle;
 
+  /// Status shown while a recorded voice note is being finalized before send
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing voice note...'**
+  String get voicePreparingNote;
+
+  /// Accessibility announcement when voice recording starts
+  ///
+  /// In en, this message translates to:
+  /// **'Recording started.'**
+  String get voiceRecordingStartedAnnouncement;
+
+  /// Accessibility announcement when a recorded voice note is ready to send
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note ready to send.'**
+  String get voiceRecordingReadyAnnouncement;
+
   /// Error shown when the user dismisses the microphone permission prompt
   ///
   /// In en, this message translates to:

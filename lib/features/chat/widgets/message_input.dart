@@ -10,11 +10,14 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/media/media_providers.dart';
+import 'package:prism_plurality/core/services/media/media_service.dart';
 import 'package:prism_plurality/domain/models/media_attachment.dart' as media;
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_format.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
@@ -190,6 +193,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       if (!accepted) return;
     }
 
+    if (!mounted) {
+      return;
+    }
+
     final gif = await GifPickerSheet.show(context);
     if (gif != null && mounted) {
       await _sendGif(gif);
@@ -295,11 +302,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         try {
           await mediaService.uploadPreparedOrThrow(data);
         } catch (_) {
-          if (mounted)
+          if (mounted) {
             PrismToast.error(
               context,
               message: context.l10n.chatImageUploadFailed,
             );
+          }
         }
       }
 
@@ -324,6 +332,18 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     int durationMs,
     String waveformB64,
   ) async {
+    final recorderState = ref.read(voiceRecordingProvider);
+    final artifact = recorderState.artifact;
+    final effectiveAudioBytes = artifact?.bytes ?? audioBytes;
+    final effectiveDurationMs = artifact?.durationMs ?? durationMs;
+    final effectiveWaveformB64 = artifact?.waveformB64 ?? waveformB64;
+    final effectiveMimeType =
+        artifact?.mimeType ??
+        resolveVoiceMimeType(
+          effectiveAudioBytes,
+          fallbackMimeType: 'audio/ogg',
+        );
+
     setState(() {
       _isRecording = false;
       _isSending = true;
@@ -336,13 +356,22 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     }
 
     try {
-      // Prepare attachment before creating message so a failed encryption
-      // doesn't leave an orphaned empty message bubble in chat.
       final mediaService = ref.read(mediaServiceProvider);
-      final data = await mediaService.prepareVoiceNote(
-        audioBytes,
-        durationMs,
-        waveformB64,
+      final preparedData = await mediaService.prepareVoiceNote(
+        effectiveAudioBytes,
+        effectiveDurationMs,
+        effectiveWaveformB64,
+      );
+      final data = VoiceAttachmentData(
+        mediaId: preparedData.mediaId,
+        encryptedAudio: preparedData.encryptedAudio,
+        encryptionKey: preparedData.encryptionKey,
+        contentHash: preparedData.contentHash,
+        plaintextHash: preparedData.plaintextHash,
+        durationMs: preparedData.durationMs,
+        waveformB64: preparedData.waveformB64,
+        sizeBytes: preparedData.sizeBytes,
+        mimeType: effectiveMimeType,
       );
 
       final messageId = await ref
@@ -380,11 +409,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       try {
         await mediaService.uploadVoiceOrThrow(data);
       } catch (_) {
-        if (mounted)
+        if (mounted) {
           PrismToast.error(
             context,
             message: context.l10n.chatVoiceNoteUploadFailed,
           );
+        }
       }
     } finally {
       if (mounted) setState(() => _isSending = false);

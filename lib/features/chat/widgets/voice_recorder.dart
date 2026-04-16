@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
@@ -23,7 +24,8 @@ class VoiceRecorder extends ConsumerStatefulWidget {
 
   /// Called when the user sends the recording. Provides the encoded audio
   /// bytes, duration in milliseconds, and a base64-encoded waveform summary.
-  final void Function(Uint8List audioBytes, int durationMs, String waveformB64) onSend;
+  final void Function(Uint8List audioBytes, int durationMs, String waveformB64)
+  onSend;
 
   /// Called when the user cancels the recording.
   final VoidCallback onCancel;
@@ -43,16 +45,55 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
 
   @override
   Widget build(BuildContext context) {
-    // Auto-cancel and surface error if recording fails (e.g. permission denied).
-    ref.listen<VoiceRecordingState>(voiceRecordingProvider, (_, next) {
-      if (next.status == VoiceRecordingStatus.error && mounted) {
-        final l10n = context.l10n;
+    ref.listen<VoiceRecordingState>(voiceRecordingProvider, (previous, next) {
+      if (!mounted) {
+        return;
+      }
+
+      final l10n = context.l10n;
+      final textDirection = Directionality.of(context);
+      if (previous?.status != next.status) {
+        switch (next.status) {
+          case VoiceRecordingStatus.recording:
+            SemanticsService.sendAnnouncement(
+              View.of(context),
+              l10n.voiceRecordingStartedAnnouncement,
+              textDirection,
+            );
+            break;
+          case VoiceRecordingStatus.preparing:
+            SemanticsService.sendAnnouncement(
+              View.of(context),
+              l10n.voicePreparingNote,
+              textDirection,
+            );
+            break;
+          case VoiceRecordingStatus.readyToSend:
+            SemanticsService.sendAnnouncement(
+              View.of(context),
+              l10n.voiceRecordingReadyAnnouncement,
+              textDirection,
+            );
+            break;
+          case VoiceRecordingStatus.idle:
+          case VoiceRecordingStatus.error:
+          case VoiceRecordingStatus.unsupported:
+            break;
+        }
+      }
+
+      if ((next.status == VoiceRecordingStatus.error ||
+              next.status == VoiceRecordingStatus.unsupported) &&
+          mounted) {
         final msg = switch (next.errorType) {
-          VoiceRecordingError.permissionDenied =>
-            l10n.voiceMicPermissionDenied,
+          VoiceRecordingError.permissionDenied => l10n.voiceMicPermissionDenied,
           VoiceRecordingError.permissionBlocked =>
             l10n.voiceMicPermissionBlocked,
-          _ => l10n.voiceRecordingFailed,
+          VoiceRecordingError.tooShort =>
+            next.errorMessage ?? l10n.voiceRecordingFailed,
+          VoiceRecordingError.unsupported =>
+            next.errorMessage ?? l10n.voiceRecordingFailed,
+          _ => next.errorMessage ?? l10n.voiceRecordingFailed,
         };
         PrismToast.error(context, message: msg);
         ref.read(voiceRecordingProvider.notifier).reset();
@@ -64,9 +105,17 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
   }
 
   Future<void> _handleSend() async {
-    final state = await ref.read(voiceRecordingProvider.notifier).stopRecording();
-    if (state.status == VoiceRecordingStatus.done && state.audioBytes != null) {
-      widget.onSend(state.audioBytes!, state.durationMs, state.waveformB64);
+    final currentState = ref.read(voiceRecordingProvider);
+    if (currentState.status != VoiceRecordingStatus.recording) {
+      return;
+    }
+
+    final state = await ref
+        .read(voiceRecordingProvider.notifier)
+        .stopRecording();
+    final artifact = state.artifact;
+    if (state.status == VoiceRecordingStatus.readyToSend && artifact != null) {
+      widget.onSend(artifact.bytes, artifact.durationMs, artifact.waveformB64);
     }
   }
 
@@ -78,8 +127,10 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
   Widget _buildContent(BuildContext context) {
     final state = ref.watch(voiceRecordingProvider);
     final theme = Theme.of(context);
-    final isProcessing = state.status == VoiceRecordingStatus.processing;
-    final canSend = state.elapsedMs >= 1000 && !isProcessing;
+    final isPreparing = state.status == VoiceRecordingStatus.preparing;
+    final canSend =
+        state.status == VoiceRecordingStatus.recording &&
+        state.elapsedMs >= 1000;
 
     return TintedGlassSurface(
       borderRadius: BorderRadius.circular(19),
@@ -88,21 +139,28 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
         padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Row(
           children: [
-            // Cancel button
-            _CancelButton(
-              enabled: !isProcessing,
-              onPressed: _handleCancel,
-            ),
+            _CancelButton(enabled: !isPreparing, onPressed: _handleCancel),
             const SizedBox(width: 4),
-
-            // Waveform + elapsed (center)
             Expanded(
-              child: isProcessing
-                  ? Center(
-                      child: PrismSpinner(
-                        color: theme.colorScheme.primary,
-                        size: 18,
-                      ),
+              child: isPreparing
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        PrismSpinner(
+                          color: theme.colorScheme.primary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            context.l10n.voicePreparingNote,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     )
                   : Row(
                       children: [
@@ -117,7 +175,9 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          Duration(milliseconds: state.elapsedMs).toVoiceFormat(),
+                          Duration(
+                            milliseconds: state.elapsedMs,
+                          ).toVoiceFormat(),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface,
                           ),
@@ -126,11 +186,9 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
                     ),
             ),
             const SizedBox(width: 4),
-
-            // Send button
             _VoiceSendButton(
               canSend: canSend,
-              isProcessing: isProcessing,
+              isPreparing: isPreparing,
               onPressed: canSend ? _handleSend : null,
             ),
           ],
@@ -139,10 +197,6 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Cancel button
-// ---------------------------------------------------------------------------
 
 class _CancelButton extends StatelessWidget {
   const _CancelButton({required this.enabled, required this.onPressed});
@@ -156,18 +210,22 @@ class _CancelButton extends StatelessWidget {
     return Semantics(
       label: context.l10n.chatVoiceRecorderCancel,
       button: true,
-      child: GestureDetector(
-        onTap: enabled ? onPressed : null,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: TintedGlassSurface.circle(
-              size: 34,
-              child: Icon(
-                AppIcons.close,
-                size: 18,
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+      enabled: enabled,
+      child: Tooltip(
+        message: context.l10n.chatVoiceRecorderCancel,
+        child: GestureDetector(
+          onTap: enabled ? onPressed : null,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: TintedGlassSurface.circle(
+                size: 34,
+                child: Icon(
+                  AppIcons.close,
+                  size: 18,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
               ),
             ),
           ),
@@ -177,19 +235,15 @@ class _CancelButton extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Send button — mirrors _SendButton from message_input.dart
-// ---------------------------------------------------------------------------
-
 class _VoiceSendButton extends StatefulWidget {
   const _VoiceSendButton({
     required this.canSend,
-    required this.isProcessing,
+    required this.isPreparing,
     required this.onPressed,
   });
 
   final bool canSend;
-  final bool isProcessing;
+  final bool isPreparing;
   final VoidCallback? onPressed;
 
   @override
@@ -203,74 +257,79 @@ class _VoiceSendButtonState extends State<_VoiceSendButton> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
+    final showActiveState = widget.canSend || widget.isPreparing;
 
     return Semantics(
-      label: context.l10n.chatVoiceRecorderSend,
+      label: widget.isPreparing
+          ? context.l10n.voicePreparingNote
+          : context.l10n.chatVoiceRecorderSend,
       button: true,
       enabled: widget.canSend,
-      child: GestureDetector(
-        onTapDown: widget.canSend
-            ? (_) => setState(() => _pressed = true)
-            : (_) => HapticFeedback.heavyImpact(),
-        onTapUp: widget.canSend
-            ? (_) {
-                setState(() => _pressed = false);
-                widget.onPressed?.call();
-              }
-            : null,
-        onTapCancel: () => setState(() => _pressed = false),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Center(
-            child: AnimatedScale(
-              scale: _pressed ? 0.9 : 1.0,
-              duration: const Duration(milliseconds: 100),
-              child: AnimatedCrossFade(
-                duration: const Duration(milliseconds: 250),
-                sizeCurve: Curves.easeInOut,
-                firstCurve: Curves.easeOut,
-                secondCurve: Curves.easeOut,
-                crossFadeState: widget.canSend
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                layoutBuilder: (top, topKey, bottom, bottomKey) {
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Positioned(key: bottomKey, child: bottom),
-                      Positioned(key: topKey, child: top),
-                    ],
-                  );
-                },
-                // Idle / disabled: plain glass, no tint
-                firstChild: TintedGlassSurface.circle(
-                  size: 34,
-                  child: Icon(
-                    AppIcons.arrowUpwardRounded,
-                    size: 20,
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
-                  ),
-                ),
-                // Ready: primary-tinted glass with accent icon
-                secondChild: widget.isProcessing
-                    ? TintedGlassSurface.circle(
-                        size: 34,
-                        tint: primary,
-                        child: PrismSpinner(
-                          color: primary,
-                          size: 18,
-                        ),
-                      )
-                    : TintedGlassSurface.circle(
-                        size: 34,
-                        tint: primary,
-                        child: Icon(
-                          AppIcons.arrowUpwardRounded,
-                          size: 20,
-                          color: primary,
-                        ),
+      child: Tooltip(
+        message: widget.isPreparing
+            ? context.l10n.voicePreparingNote
+            : context.l10n.chatVoiceRecorderSend,
+        child: GestureDetector(
+          onTapDown: widget.canSend
+              ? (_) => setState(() => _pressed = true)
+              : (_) => HapticFeedback.heavyImpact(),
+          onTapUp: widget.canSend
+              ? (_) {
+                  setState(() => _pressed = false);
+                  widget.onPressed?.call();
+                }
+              : null,
+          onTapCancel: () => setState(() => _pressed = false),
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Center(
+              child: AnimatedScale(
+                scale: _pressed ? 0.9 : 1.0,
+                duration: const Duration(milliseconds: 100),
+                child: AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 250),
+                  sizeCurve: Curves.easeInOut,
+                  firstCurve: Curves.easeOut,
+                  secondCurve: Curves.easeOut,
+                  crossFadeState: showActiveState
+                      ? CrossFadeState.showSecond
+                      : CrossFadeState.showFirst,
+                  layoutBuilder: (top, topKey, bottom, bottomKey) {
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned(key: bottomKey, child: bottom),
+                        Positioned(key: topKey, child: top),
+                      ],
+                    );
+                  },
+                  firstChild: TintedGlassSurface.circle(
+                    size: 34,
+                    child: Icon(
+                      AppIcons.arrowUpwardRounded,
+                      size: 20,
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.35,
                       ),
+                    ),
+                  ),
+                  secondChild: widget.isPreparing
+                      ? TintedGlassSurface.circle(
+                          size: 34,
+                          tint: primary,
+                          child: PrismSpinner(color: primary, size: 18),
+                        )
+                      : TintedGlassSurface.circle(
+                          size: 34,
+                          tint: primary,
+                          child: Icon(
+                            AppIcons.arrowUpwardRounded,
+                            size: 20,
+                            color: primary,
+                          ),
+                        ),
+                ),
               ),
             ),
           ),
@@ -279,10 +338,6 @@ class _VoiceSendButtonState extends State<_VoiceSendButton> {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Waveform painter
-// ---------------------------------------------------------------------------
 
 class _WaveformPainter extends CustomPainter {
   _WaveformPainter({required this.samples, required this.color});
@@ -301,7 +356,6 @@ class _WaveformPainter extends CustomPainter {
         ? samples.sublist(samples.length - maxBars)
         : samples;
 
-    // Normalize to 0.0-1.0
     final minVal = visibleSamples.reduce((a, b) => a < b ? a : b);
     final maxVal = visibleSamples.reduce((a, b) => a > b ? a : b);
     final range = (maxVal - minVal).abs();
@@ -313,8 +367,9 @@ class _WaveformPainter extends CustomPainter {
     final maxHeight = size.height * 0.85;
 
     for (var i = 0; i < visibleSamples.length; i++) {
-      final normalized =
-          range < 0.01 ? 0.5 : (visibleSamples[i] - minVal) / range;
+      final normalized = range < 0.01
+          ? 0.5
+          : (visibleSamples[i] - minVal) / range;
       final barHeight = minHeight + normalized * (maxHeight - minHeight);
       final x = i * (barWidth + barGap);
       final y = (size.height - barHeight) / 2;
@@ -329,5 +384,6 @@ class _WaveformPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_WaveformPainter old) => old.samples.length != samples.length;
+  bool shouldRepaint(_WaveformPainter old) =>
+      old.samples.length != samples.length;
 }
