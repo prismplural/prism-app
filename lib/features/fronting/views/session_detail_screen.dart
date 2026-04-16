@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
+import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/views/edit_sleep_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
@@ -229,7 +230,7 @@ class _SleepSessionBody extends StatelessWidget {
                 label: context.l10n.frontingInfoQuality,
                 value: quality == SleepQuality.unknown
                     ? context.l10n.frontingInfoQualityUnrated
-                    : quality.label,
+                    : quality.localizedLabel(context.l10n),
               ),
               if (session.notes != null && session.notes!.isNotEmpty) ...[
                 const SizedBox(height: 20),

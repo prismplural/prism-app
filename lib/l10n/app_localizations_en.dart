@@ -1814,6 +1814,27 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get sleepQualityNotRated => 'Not rated';
+
+  @override
+  String get sleepQualityVeryPoor => 'Very Poor';
+
+  @override
+  String get sleepQualityPoor => 'Poor';
+
+  @override
+  String get sleepQualityFair => 'Fair';
+
+  @override
+  String get sleepQualityGood => 'Good';
+
+  @override
+  String get sleepQualityExcellent => 'Excellent';
+
+  @override
+  String get sleepSuggestionBedtimeDismiss => 'Dismiss until tomorrow';
+
+  @override
   String get frontingStartSleepTitle => 'Start Sleep';
 
   @override
@@ -5773,4 +5794,75 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backupReminderBannerAction => 'View';
+
+  @override
+  String get sleepWakeUpMorning => 'Good morning!';
+
+  @override
+  String get sleepWakeUpAfternoon => 'Good afternoon!';
+
+  @override
+  String get sleepWakeUpEvening => 'Good evening!';
+
+  @override
+  String get sleepWakeUpNight => 'Rise and shine!';
+
+  @override
+  String sleepWakeUpSleptFor(String duration) {
+    return 'You slept for $duration';
+  }
+
+  @override
+  String get sleepWakeUpQualityQuestion => 'How was your sleep?';
+
+  @override
+  String get sleepWakeUpWhosFronting => 'Who\'s fronting now?';
+
+  @override
+  String get sleepWakeUpDone => 'Done';
+
+  @override
+  String get sleepWakeUpSkip => 'Skip';
+
+  @override
+  String get sleepWakeUpOthers => 'Others...';
+
+  @override
+  String get sleepSuggestionBedtime => 'It\'s your usual bedtime';
+
+  @override
+  String get sleepSuggestionBedtimeAction => 'Start Sleep';
+
+  @override
+  String sleepWakeSuggestionNudge(String duration) {
+    return 'You\'ve been sleeping for $duration';
+  }
+
+  @override
+  String get featureSleepSuggestions => 'Suggestions';
+
+  @override
+  String get featureSleepBedtimeReminder => 'Bedtime Reminder';
+
+  @override
+  String get featureSleepBedtimeReminderSubtitle =>
+      'Show a reminder at your usual bedtime';
+
+  @override
+  String get featureSleepBedtimeTime => 'Bedtime';
+
+  @override
+  String get featureSleepWakeReminder => 'Wake Reminder';
+
+  @override
+  String get featureSleepWakeReminderSubtitle =>
+      'Nudge to wake after a set duration';
+
+  @override
+  String get featureSleepWakeAfter => 'Wake After';
+
+  @override
+  String featureSleepWakeAfterHours(String hours) {
+    return '$hours hours';
+  }
 }

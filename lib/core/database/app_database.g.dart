@@ -3691,6 +3691,70 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _sleepSuggestionEnabledMeta =
+      const VerificationMeta('sleepSuggestionEnabled');
+  @override
+  late final GeneratedColumn<bool> sleepSuggestionEnabled =
+      GeneratedColumn<bool>(
+        'sleep_suggestion_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("sleep_suggestion_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _sleepSuggestionHourMeta =
+      const VerificationMeta('sleepSuggestionHour');
+  @override
+  late final GeneratedColumn<int> sleepSuggestionHour = GeneratedColumn<int>(
+    'sleep_suggestion_hour',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(22),
+  );
+  static const VerificationMeta _sleepSuggestionMinuteMeta =
+      const VerificationMeta('sleepSuggestionMinute');
+  @override
+  late final GeneratedColumn<int> sleepSuggestionMinute = GeneratedColumn<int>(
+    'sleep_suggestion_minute',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _wakeSuggestionEnabledMeta =
+      const VerificationMeta('wakeSuggestionEnabled');
+  @override
+  late final GeneratedColumn<bool> wakeSuggestionEnabled =
+      GeneratedColumn<bool>(
+        'wake_suggestion_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("wake_suggestion_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _wakeSuggestionAfterHoursMeta =
+      const VerificationMeta('wakeSuggestionAfterHours');
+  @override
+  late final GeneratedColumn<double> wakeSuggestionAfterHours =
+      GeneratedColumn<double>(
+        'wake_suggestion_after_hours',
+        aliasedName,
+        false,
+        type: DriftSqlType.double,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(8.0),
+      );
   static const VerificationMeta _quickSwitchThresholdSecondsMeta =
       const VerificationMeta('quickSwitchThresholdSeconds');
   @override
@@ -4031,6 +4095,11 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     sleepTrackingEnabled,
     gifSearchEnabled,
     voiceNotesEnabled,
+    sleepSuggestionEnabled,
+    sleepSuggestionHour,
+    sleepSuggestionMinute,
+    wakeSuggestionEnabled,
+    wakeSuggestionAfterHours,
     quickSwitchThresholdSeconds,
     identityGeneration,
     chatLogsFront,
@@ -4245,6 +4314,51 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         voiceNotesEnabled.isAcceptableOrUnknown(
           data['voice_notes_enabled']!,
           _voiceNotesEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sleep_suggestion_enabled')) {
+      context.handle(
+        _sleepSuggestionEnabledMeta,
+        sleepSuggestionEnabled.isAcceptableOrUnknown(
+          data['sleep_suggestion_enabled']!,
+          _sleepSuggestionEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sleep_suggestion_hour')) {
+      context.handle(
+        _sleepSuggestionHourMeta,
+        sleepSuggestionHour.isAcceptableOrUnknown(
+          data['sleep_suggestion_hour']!,
+          _sleepSuggestionHourMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sleep_suggestion_minute')) {
+      context.handle(
+        _sleepSuggestionMinuteMeta,
+        sleepSuggestionMinute.isAcceptableOrUnknown(
+          data['sleep_suggestion_minute']!,
+          _sleepSuggestionMinuteMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wake_suggestion_enabled')) {
+      context.handle(
+        _wakeSuggestionEnabledMeta,
+        wakeSuggestionEnabled.isAcceptableOrUnknown(
+          data['wake_suggestion_enabled']!,
+          _wakeSuggestionEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wake_suggestion_after_hours')) {
+      context.handle(
+        _wakeSuggestionAfterHoursMeta,
+        wakeSuggestionAfterHours.isAcceptableOrUnknown(
+          data['wake_suggestion_after_hours']!,
+          _wakeSuggestionAfterHoursMeta,
         ),
       );
     }
@@ -4549,6 +4663,26 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.bool,
         data['${effectivePrefix}voice_notes_enabled'],
       )!,
+      sleepSuggestionEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sleep_suggestion_enabled'],
+      )!,
+      sleepSuggestionHour: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sleep_suggestion_hour'],
+      )!,
+      sleepSuggestionMinute: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sleep_suggestion_minute'],
+      )!,
+      wakeSuggestionEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}wake_suggestion_enabled'],
+      )!,
+      wakeSuggestionAfterHours: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}wake_suggestion_after_hours'],
+      )!,
       quickSwitchThresholdSeconds: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}quick_switch_threshold_seconds'],
@@ -4678,6 +4812,11 @@ class SystemSettingsData extends DataClass
   final bool sleepTrackingEnabled;
   final bool gifSearchEnabled;
   final bool voiceNotesEnabled;
+  final bool sleepSuggestionEnabled;
+  final int sleepSuggestionHour;
+  final int sleepSuggestionMinute;
+  final bool wakeSuggestionEnabled;
+  final double wakeSuggestionAfterHours;
   final int quickSwitchThresholdSeconds;
   final int identityGeneration;
   final bool chatLogsFront;
@@ -4725,6 +4864,11 @@ class SystemSettingsData extends DataClass
     required this.sleepTrackingEnabled,
     required this.gifSearchEnabled,
     required this.voiceNotesEnabled,
+    required this.sleepSuggestionEnabled,
+    required this.sleepSuggestionHour,
+    required this.sleepSuggestionMinute,
+    required this.wakeSuggestionEnabled,
+    required this.wakeSuggestionAfterHours,
     required this.quickSwitchThresholdSeconds,
     required this.identityGeneration,
     required this.chatLogsFront,
@@ -4791,6 +4935,13 @@ class SystemSettingsData extends DataClass
     map['sleep_tracking_enabled'] = Variable<bool>(sleepTrackingEnabled);
     map['gif_search_enabled'] = Variable<bool>(gifSearchEnabled);
     map['voice_notes_enabled'] = Variable<bool>(voiceNotesEnabled);
+    map['sleep_suggestion_enabled'] = Variable<bool>(sleepSuggestionEnabled);
+    map['sleep_suggestion_hour'] = Variable<int>(sleepSuggestionHour);
+    map['sleep_suggestion_minute'] = Variable<int>(sleepSuggestionMinute);
+    map['wake_suggestion_enabled'] = Variable<bool>(wakeSuggestionEnabled);
+    map['wake_suggestion_after_hours'] = Variable<double>(
+      wakeSuggestionAfterHours,
+    );
     map['quick_switch_threshold_seconds'] = Variable<int>(
       quickSwitchThresholdSeconds,
     );
@@ -4858,6 +5009,11 @@ class SystemSettingsData extends DataClass
       sleepTrackingEnabled: Value(sleepTrackingEnabled),
       gifSearchEnabled: Value(gifSearchEnabled),
       voiceNotesEnabled: Value(voiceNotesEnabled),
+      sleepSuggestionEnabled: Value(sleepSuggestionEnabled),
+      sleepSuggestionHour: Value(sleepSuggestionHour),
+      sleepSuggestionMinute: Value(sleepSuggestionMinute),
+      wakeSuggestionEnabled: Value(wakeSuggestionEnabled),
+      wakeSuggestionAfterHours: Value(wakeSuggestionAfterHours),
       quickSwitchThresholdSeconds: Value(quickSwitchThresholdSeconds),
       identityGeneration: Value(identityGeneration),
       chatLogsFront: Value(chatLogsFront),
@@ -4931,6 +5087,21 @@ class SystemSettingsData extends DataClass
       ),
       gifSearchEnabled: serializer.fromJson<bool>(json['gifSearchEnabled']),
       voiceNotesEnabled: serializer.fromJson<bool>(json['voiceNotesEnabled']),
+      sleepSuggestionEnabled: serializer.fromJson<bool>(
+        json['sleepSuggestionEnabled'],
+      ),
+      sleepSuggestionHour: serializer.fromJson<int>(
+        json['sleepSuggestionHour'],
+      ),
+      sleepSuggestionMinute: serializer.fromJson<int>(
+        json['sleepSuggestionMinute'],
+      ),
+      wakeSuggestionEnabled: serializer.fromJson<bool>(
+        json['wakeSuggestionEnabled'],
+      ),
+      wakeSuggestionAfterHours: serializer.fromJson<double>(
+        json['wakeSuggestionAfterHours'],
+      ),
       quickSwitchThresholdSeconds: serializer.fromJson<int>(
         json['quickSwitchThresholdSeconds'],
       ),
@@ -5011,6 +5182,13 @@ class SystemSettingsData extends DataClass
       'sleepTrackingEnabled': serializer.toJson<bool>(sleepTrackingEnabled),
       'gifSearchEnabled': serializer.toJson<bool>(gifSearchEnabled),
       'voiceNotesEnabled': serializer.toJson<bool>(voiceNotesEnabled),
+      'sleepSuggestionEnabled': serializer.toJson<bool>(sleepSuggestionEnabled),
+      'sleepSuggestionHour': serializer.toJson<int>(sleepSuggestionHour),
+      'sleepSuggestionMinute': serializer.toJson<int>(sleepSuggestionMinute),
+      'wakeSuggestionEnabled': serializer.toJson<bool>(wakeSuggestionEnabled),
+      'wakeSuggestionAfterHours': serializer.toJson<double>(
+        wakeSuggestionAfterHours,
+      ),
       'quickSwitchThresholdSeconds': serializer.toJson<int>(
         quickSwitchThresholdSeconds,
       ),
@@ -5065,6 +5243,11 @@ class SystemSettingsData extends DataClass
     bool? sleepTrackingEnabled,
     bool? gifSearchEnabled,
     bool? voiceNotesEnabled,
+    bool? sleepSuggestionEnabled,
+    int? sleepSuggestionHour,
+    int? sleepSuggestionMinute,
+    bool? wakeSuggestionEnabled,
+    double? wakeSuggestionAfterHours,
     int? quickSwitchThresholdSeconds,
     int? identityGeneration,
     bool? chatLogsFront,
@@ -5120,6 +5303,13 @@ class SystemSettingsData extends DataClass
     sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
     gifSearchEnabled: gifSearchEnabled ?? this.gifSearchEnabled,
     voiceNotesEnabled: voiceNotesEnabled ?? this.voiceNotesEnabled,
+    sleepSuggestionEnabled:
+        sleepSuggestionEnabled ?? this.sleepSuggestionEnabled,
+    sleepSuggestionHour: sleepSuggestionHour ?? this.sleepSuggestionHour,
+    sleepSuggestionMinute: sleepSuggestionMinute ?? this.sleepSuggestionMinute,
+    wakeSuggestionEnabled: wakeSuggestionEnabled ?? this.wakeSuggestionEnabled,
+    wakeSuggestionAfterHours:
+        wakeSuggestionAfterHours ?? this.wakeSuggestionAfterHours,
     quickSwitchThresholdSeconds:
         quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
     identityGeneration: identityGeneration ?? this.identityGeneration,
@@ -5215,6 +5405,21 @@ class SystemSettingsData extends DataClass
       voiceNotesEnabled: data.voiceNotesEnabled.present
           ? data.voiceNotesEnabled.value
           : this.voiceNotesEnabled,
+      sleepSuggestionEnabled: data.sleepSuggestionEnabled.present
+          ? data.sleepSuggestionEnabled.value
+          : this.sleepSuggestionEnabled,
+      sleepSuggestionHour: data.sleepSuggestionHour.present
+          ? data.sleepSuggestionHour.value
+          : this.sleepSuggestionHour,
+      sleepSuggestionMinute: data.sleepSuggestionMinute.present
+          ? data.sleepSuggestionMinute.value
+          : this.sleepSuggestionMinute,
+      wakeSuggestionEnabled: data.wakeSuggestionEnabled.present
+          ? data.wakeSuggestionEnabled.value
+          : this.wakeSuggestionEnabled,
+      wakeSuggestionAfterHours: data.wakeSuggestionAfterHours.present
+          ? data.wakeSuggestionAfterHours.value
+          : this.wakeSuggestionAfterHours,
       quickSwitchThresholdSeconds: data.quickSwitchThresholdSeconds.present
           ? data.quickSwitchThresholdSeconds.value
           : this.quickSwitchThresholdSeconds,
@@ -5313,6 +5518,11 @@ class SystemSettingsData extends DataClass
           ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
           ..write('gifSearchEnabled: $gifSearchEnabled, ')
           ..write('voiceNotesEnabled: $voiceNotesEnabled, ')
+          ..write('sleepSuggestionEnabled: $sleepSuggestionEnabled, ')
+          ..write('sleepSuggestionHour: $sleepSuggestionHour, ')
+          ..write('sleepSuggestionMinute: $sleepSuggestionMinute, ')
+          ..write('wakeSuggestionEnabled: $wakeSuggestionEnabled, ')
+          ..write('wakeSuggestionAfterHours: $wakeSuggestionAfterHours, ')
           ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
           ..write('identityGeneration: $identityGeneration, ')
           ..write('chatLogsFront: $chatLogsFront, ')
@@ -5365,6 +5575,11 @@ class SystemSettingsData extends DataClass
     sleepTrackingEnabled,
     gifSearchEnabled,
     voiceNotesEnabled,
+    sleepSuggestionEnabled,
+    sleepSuggestionHour,
+    sleepSuggestionMinute,
+    wakeSuggestionEnabled,
+    wakeSuggestionAfterHours,
     quickSwitchThresholdSeconds,
     identityGeneration,
     chatLogsFront,
@@ -5417,6 +5632,11 @@ class SystemSettingsData extends DataClass
           other.sleepTrackingEnabled == this.sleepTrackingEnabled &&
           other.gifSearchEnabled == this.gifSearchEnabled &&
           other.voiceNotesEnabled == this.voiceNotesEnabled &&
+          other.sleepSuggestionEnabled == this.sleepSuggestionEnabled &&
+          other.sleepSuggestionHour == this.sleepSuggestionHour &&
+          other.sleepSuggestionMinute == this.sleepSuggestionMinute &&
+          other.wakeSuggestionEnabled == this.wakeSuggestionEnabled &&
+          other.wakeSuggestionAfterHours == this.wakeSuggestionAfterHours &&
           other.quickSwitchThresholdSeconds ==
               this.quickSwitchThresholdSeconds &&
           other.identityGeneration == this.identityGeneration &&
@@ -5470,6 +5690,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> sleepTrackingEnabled;
   final Value<bool> gifSearchEnabled;
   final Value<bool> voiceNotesEnabled;
+  final Value<bool> sleepSuggestionEnabled;
+  final Value<int> sleepSuggestionHour;
+  final Value<int> sleepSuggestionMinute;
+  final Value<bool> wakeSuggestionEnabled;
+  final Value<double> wakeSuggestionAfterHours;
   final Value<int> quickSwitchThresholdSeconds;
   final Value<int> identityGeneration;
   final Value<bool> chatLogsFront;
@@ -5518,6 +5743,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.sleepTrackingEnabled = const Value.absent(),
     this.gifSearchEnabled = const Value.absent(),
     this.voiceNotesEnabled = const Value.absent(),
+    this.sleepSuggestionEnabled = const Value.absent(),
+    this.sleepSuggestionHour = const Value.absent(),
+    this.sleepSuggestionMinute = const Value.absent(),
+    this.wakeSuggestionEnabled = const Value.absent(),
+    this.wakeSuggestionAfterHours = const Value.absent(),
     this.quickSwitchThresholdSeconds = const Value.absent(),
     this.identityGeneration = const Value.absent(),
     this.chatLogsFront = const Value.absent(),
@@ -5567,6 +5797,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.sleepTrackingEnabled = const Value.absent(),
     this.gifSearchEnabled = const Value.absent(),
     this.voiceNotesEnabled = const Value.absent(),
+    this.sleepSuggestionEnabled = const Value.absent(),
+    this.sleepSuggestionHour = const Value.absent(),
+    this.sleepSuggestionMinute = const Value.absent(),
+    this.wakeSuggestionEnabled = const Value.absent(),
+    this.wakeSuggestionAfterHours = const Value.absent(),
     this.quickSwitchThresholdSeconds = const Value.absent(),
     this.identityGeneration = const Value.absent(),
     this.chatLogsFront = const Value.absent(),
@@ -5616,6 +5851,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? sleepTrackingEnabled,
     Expression<bool>? gifSearchEnabled,
     Expression<bool>? voiceNotesEnabled,
+    Expression<bool>? sleepSuggestionEnabled,
+    Expression<int>? sleepSuggestionHour,
+    Expression<int>? sleepSuggestionMinute,
+    Expression<bool>? wakeSuggestionEnabled,
+    Expression<double>? wakeSuggestionAfterHours,
     Expression<int>? quickSwitchThresholdSeconds,
     Expression<int>? identityGeneration,
     Expression<bool>? chatLogsFront,
@@ -5671,6 +5911,16 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'sleep_tracking_enabled': sleepTrackingEnabled,
       if (gifSearchEnabled != null) 'gif_search_enabled': gifSearchEnabled,
       if (voiceNotesEnabled != null) 'voice_notes_enabled': voiceNotesEnabled,
+      if (sleepSuggestionEnabled != null)
+        'sleep_suggestion_enabled': sleepSuggestionEnabled,
+      if (sleepSuggestionHour != null)
+        'sleep_suggestion_hour': sleepSuggestionHour,
+      if (sleepSuggestionMinute != null)
+        'sleep_suggestion_minute': sleepSuggestionMinute,
+      if (wakeSuggestionEnabled != null)
+        'wake_suggestion_enabled': wakeSuggestionEnabled,
+      if (wakeSuggestionAfterHours != null)
+        'wake_suggestion_after_hours': wakeSuggestionAfterHours,
       if (quickSwitchThresholdSeconds != null)
         'quick_switch_threshold_seconds': quickSwitchThresholdSeconds,
       if (identityGeneration != null) 'identity_generation': identityGeneration,
@@ -5732,6 +5982,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? sleepTrackingEnabled,
     Value<bool>? gifSearchEnabled,
     Value<bool>? voiceNotesEnabled,
+    Value<bool>? sleepSuggestionEnabled,
+    Value<int>? sleepSuggestionHour,
+    Value<int>? sleepSuggestionMinute,
+    Value<bool>? wakeSuggestionEnabled,
+    Value<double>? wakeSuggestionAfterHours,
     Value<int>? quickSwitchThresholdSeconds,
     Value<int>? identityGeneration,
     Value<bool>? chatLogsFront,
@@ -5787,6 +6042,15 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
       gifSearchEnabled: gifSearchEnabled ?? this.gifSearchEnabled,
       voiceNotesEnabled: voiceNotesEnabled ?? this.voiceNotesEnabled,
+      sleepSuggestionEnabled:
+          sleepSuggestionEnabled ?? this.sleepSuggestionEnabled,
+      sleepSuggestionHour: sleepSuggestionHour ?? this.sleepSuggestionHour,
+      sleepSuggestionMinute:
+          sleepSuggestionMinute ?? this.sleepSuggestionMinute,
+      wakeSuggestionEnabled:
+          wakeSuggestionEnabled ?? this.wakeSuggestionEnabled,
+      wakeSuggestionAfterHours:
+          wakeSuggestionAfterHours ?? this.wakeSuggestionAfterHours,
       quickSwitchThresholdSeconds:
           quickSwitchThresholdSeconds ?? this.quickSwitchThresholdSeconds,
       identityGeneration: identityGeneration ?? this.identityGeneration,
@@ -5899,6 +6163,29 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     }
     if (voiceNotesEnabled.present) {
       map['voice_notes_enabled'] = Variable<bool>(voiceNotesEnabled.value);
+    }
+    if (sleepSuggestionEnabled.present) {
+      map['sleep_suggestion_enabled'] = Variable<bool>(
+        sleepSuggestionEnabled.value,
+      );
+    }
+    if (sleepSuggestionHour.present) {
+      map['sleep_suggestion_hour'] = Variable<int>(sleepSuggestionHour.value);
+    }
+    if (sleepSuggestionMinute.present) {
+      map['sleep_suggestion_minute'] = Variable<int>(
+        sleepSuggestionMinute.value,
+      );
+    }
+    if (wakeSuggestionEnabled.present) {
+      map['wake_suggestion_enabled'] = Variable<bool>(
+        wakeSuggestionEnabled.value,
+      );
+    }
+    if (wakeSuggestionAfterHours.present) {
+      map['wake_suggestion_after_hours'] = Variable<double>(
+        wakeSuggestionAfterHours.value,
+      );
     }
     if (quickSwitchThresholdSeconds.present) {
       map['quick_switch_threshold_seconds'] = Variable<int>(
@@ -6023,6 +6310,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('sleepTrackingEnabled: $sleepTrackingEnabled, ')
           ..write('gifSearchEnabled: $gifSearchEnabled, ')
           ..write('voiceNotesEnabled: $voiceNotesEnabled, ')
+          ..write('sleepSuggestionEnabled: $sleepSuggestionEnabled, ')
+          ..write('sleepSuggestionHour: $sleepSuggestionHour, ')
+          ..write('sleepSuggestionMinute: $sleepSuggestionMinute, ')
+          ..write('wakeSuggestionEnabled: $wakeSuggestionEnabled, ')
+          ..write('wakeSuggestionAfterHours: $wakeSuggestionAfterHours, ')
           ..write('quickSwitchThresholdSeconds: $quickSwitchThresholdSeconds, ')
           ..write('identityGeneration: $identityGeneration, ')
           ..write('chatLogsFront: $chatLogsFront, ')
@@ -19192,6 +19484,11 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> sleepTrackingEnabled,
       Value<bool> gifSearchEnabled,
       Value<bool> voiceNotesEnabled,
+      Value<bool> sleepSuggestionEnabled,
+      Value<int> sleepSuggestionHour,
+      Value<int> sleepSuggestionMinute,
+      Value<bool> wakeSuggestionEnabled,
+      Value<double> wakeSuggestionAfterHours,
       Value<int> quickSwitchThresholdSeconds,
       Value<int> identityGeneration,
       Value<bool> chatLogsFront,
@@ -19242,6 +19539,11 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> sleepTrackingEnabled,
       Value<bool> gifSearchEnabled,
       Value<bool> voiceNotesEnabled,
+      Value<bool> sleepSuggestionEnabled,
+      Value<int> sleepSuggestionHour,
+      Value<int> sleepSuggestionMinute,
+      Value<bool> wakeSuggestionEnabled,
+      Value<double> wakeSuggestionAfterHours,
       Value<int> quickSwitchThresholdSeconds,
       Value<int> identityGeneration,
       Value<bool> chatLogsFront,
@@ -19385,6 +19687,31 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<bool> get voiceNotesEnabled => $composableBuilder(
     column: $table.voiceNotesEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get sleepSuggestionEnabled => $composableBuilder(
+    column: $table.sleepSuggestionEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sleepSuggestionHour => $composableBuilder(
+    column: $table.sleepSuggestionHour,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sleepSuggestionMinute => $composableBuilder(
+    column: $table.sleepSuggestionMinute,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get wakeSuggestionEnabled => $composableBuilder(
+    column: $table.wakeSuggestionEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get wakeSuggestionAfterHours => $composableBuilder(
+    column: $table.wakeSuggestionAfterHours,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19629,6 +19956,31 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get sleepSuggestionEnabled => $composableBuilder(
+    column: $table.sleepSuggestionEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sleepSuggestionHour => $composableBuilder(
+    column: $table.sleepSuggestionHour,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sleepSuggestionMinute => $composableBuilder(
+    column: $table.sleepSuggestionMinute,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get wakeSuggestionEnabled => $composableBuilder(
+    column: $table.wakeSuggestionEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get wakeSuggestionAfterHours => $composableBuilder(
+    column: $table.wakeSuggestionAfterHours,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get quickSwitchThresholdSeconds => $composableBuilder(
     column: $table.quickSwitchThresholdSeconds,
     builder: (column) => ColumnOrderings(column),
@@ -19864,6 +20216,31 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<bool> get sleepSuggestionEnabled => $composableBuilder(
+    column: $table.sleepSuggestionEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sleepSuggestionHour => $composableBuilder(
+    column: $table.sleepSuggestionHour,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sleepSuggestionMinute => $composableBuilder(
+    column: $table.sleepSuggestionMinute,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get wakeSuggestionEnabled => $composableBuilder(
+    column: $table.wakeSuggestionEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get wakeSuggestionAfterHours => $composableBuilder(
+    column: $table.wakeSuggestionAfterHours,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get quickSwitchThresholdSeconds => $composableBuilder(
     column: $table.quickSwitchThresholdSeconds,
     builder: (column) => column,
@@ -20047,6 +20424,11 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> sleepTrackingEnabled = const Value.absent(),
                 Value<bool> gifSearchEnabled = const Value.absent(),
                 Value<bool> voiceNotesEnabled = const Value.absent(),
+                Value<bool> sleepSuggestionEnabled = const Value.absent(),
+                Value<int> sleepSuggestionHour = const Value.absent(),
+                Value<int> sleepSuggestionMinute = const Value.absent(),
+                Value<bool> wakeSuggestionEnabled = const Value.absent(),
+                Value<double> wakeSuggestionAfterHours = const Value.absent(),
                 Value<int> quickSwitchThresholdSeconds = const Value.absent(),
                 Value<int> identityGeneration = const Value.absent(),
                 Value<bool> chatLogsFront = const Value.absent(),
@@ -20096,6 +20478,11 @@ class $$SystemSettingsTableTableTableManager
                 sleepTrackingEnabled: sleepTrackingEnabled,
                 gifSearchEnabled: gifSearchEnabled,
                 voiceNotesEnabled: voiceNotesEnabled,
+                sleepSuggestionEnabled: sleepSuggestionEnabled,
+                sleepSuggestionHour: sleepSuggestionHour,
+                sleepSuggestionMinute: sleepSuggestionMinute,
+                wakeSuggestionEnabled: wakeSuggestionEnabled,
+                wakeSuggestionAfterHours: wakeSuggestionAfterHours,
                 quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
                 identityGeneration: identityGeneration,
                 chatLogsFront: chatLogsFront,
@@ -20147,6 +20534,11 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> sleepTrackingEnabled = const Value.absent(),
                 Value<bool> gifSearchEnabled = const Value.absent(),
                 Value<bool> voiceNotesEnabled = const Value.absent(),
+                Value<bool> sleepSuggestionEnabled = const Value.absent(),
+                Value<int> sleepSuggestionHour = const Value.absent(),
+                Value<int> sleepSuggestionMinute = const Value.absent(),
+                Value<bool> wakeSuggestionEnabled = const Value.absent(),
+                Value<double> wakeSuggestionAfterHours = const Value.absent(),
                 Value<int> quickSwitchThresholdSeconds = const Value.absent(),
                 Value<int> identityGeneration = const Value.absent(),
                 Value<bool> chatLogsFront = const Value.absent(),
@@ -20196,6 +20588,11 @@ class $$SystemSettingsTableTableTableManager
                 sleepTrackingEnabled: sleepTrackingEnabled,
                 gifSearchEnabled: gifSearchEnabled,
                 voiceNotesEnabled: voiceNotesEnabled,
+                sleepSuggestionEnabled: sleepSuggestionEnabled,
+                sleepSuggestionHour: sleepSuggestionHour,
+                sleepSuggestionMinute: sleepSuggestionMinute,
+                wakeSuggestionEnabled: wakeSuggestionEnabled,
+                wakeSuggestionAfterHours: wakeSuggestionAfterHours,
                 quickSwitchThresholdSeconds: quickSwitchThresholdSeconds,
                 identityGeneration: identityGeneration,
                 chatLogsFront: chatLogsFront,

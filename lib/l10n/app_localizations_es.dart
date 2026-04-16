@@ -1858,6 +1858,27 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get sleepQualityNotRated => 'Sin calificar';
+
+  @override
+  String get sleepQualityVeryPoor => 'Muy mala';
+
+  @override
+  String get sleepQualityPoor => 'Mala';
+
+  @override
+  String get sleepQualityFair => 'Regular';
+
+  @override
+  String get sleepQualityGood => 'Buena';
+
+  @override
+  String get sleepQualityExcellent => 'Excelente';
+
+  @override
+  String get sleepSuggestionBedtimeDismiss => 'Descartar hasta mañana';
+
+  @override
   String get frontingStartSleepTitle => 'Empezar a dormir';
 
   @override
@@ -5877,4 +5898,75 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get backupReminderBannerAction => 'Ver';
+
+  @override
+  String get sleepWakeUpMorning => '¡Buenos días!';
+
+  @override
+  String get sleepWakeUpAfternoon => '¡Buenas tardes!';
+
+  @override
+  String get sleepWakeUpEvening => '¡Buenas noches!';
+
+  @override
+  String get sleepWakeUpNight => '¡Arriba!';
+
+  @override
+  String sleepWakeUpSleptFor(String duration) {
+    return 'Dormiste $duration';
+  }
+
+  @override
+  String get sleepWakeUpQualityQuestion => '¿Cómo dormiste?';
+
+  @override
+  String get sleepWakeUpWhosFronting => '¿Quién está al frente ahora?';
+
+  @override
+  String get sleepWakeUpDone => 'Listo';
+
+  @override
+  String get sleepWakeUpSkip => 'Omitir';
+
+  @override
+  String get sleepWakeUpOthers => 'Otros...';
+
+  @override
+  String get sleepSuggestionBedtime => 'Es tu hora habitual de dormir';
+
+  @override
+  String get sleepSuggestionBedtimeAction => 'Iniciar Sueño';
+
+  @override
+  String sleepWakeSuggestionNudge(String duration) {
+    return 'Has dormido por $duration';
+  }
+
+  @override
+  String get featureSleepSuggestions => 'Sugerencias';
+
+  @override
+  String get featureSleepBedtimeReminder => 'Recordatorio de Hora de Dormir';
+
+  @override
+  String get featureSleepBedtimeReminderSubtitle =>
+      'Mostrar un recordatorio a tu hora habitual de dormir';
+
+  @override
+  String get featureSleepBedtimeTime => 'Hora de Dormir';
+
+  @override
+  String get featureSleepWakeReminder => 'Recordatorio de Despertar';
+
+  @override
+  String get featureSleepWakeReminderSubtitle =>
+      'Aviso para despertar después de cierta duración';
+
+  @override
+  String get featureSleepWakeAfter => 'Despertar Después de';
+
+  @override
+  String featureSleepWakeAfterHours(String hours) {
+    return '$hours horas';
+  }
 }

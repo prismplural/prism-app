@@ -3296,6 +3296,48 @@ abstract class AppLocalizations {
   /// **'Rate sleep as {label}'**
   String frontingRateSleepAs(String label);
 
+  /// Sleep quality label when not rated
+  ///
+  /// In en, this message translates to:
+  /// **'Not rated'**
+  String get sleepQualityNotRated;
+
+  /// Sleep quality label: very poor
+  ///
+  /// In en, this message translates to:
+  /// **'Very Poor'**
+  String get sleepQualityVeryPoor;
+
+  /// Sleep quality label: poor
+  ///
+  /// In en, this message translates to:
+  /// **'Poor'**
+  String get sleepQualityPoor;
+
+  /// Sleep quality label: fair
+  ///
+  /// In en, this message translates to:
+  /// **'Fair'**
+  String get sleepQualityFair;
+
+  /// Sleep quality label: good
+  ///
+  /// In en, this message translates to:
+  /// **'Good'**
+  String get sleepQualityGood;
+
+  /// Sleep quality label: excellent
+  ///
+  /// In en, this message translates to:
+  /// **'Excellent'**
+  String get sleepQualityExcellent;
+
+  /// Tooltip on the bedtime reminder banner's close button
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss until tomorrow'**
+  String get sleepSuggestionBedtimeDismiss;
+
   /// Sheet title for starting a sleep session
   ///
   /// In en, this message translates to:
@@ -9961,6 +10003,132 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'View'**
   String get backupReminderBannerAction;
+
+  /// Wake-up sheet greeting shown between 5am and noon
+  ///
+  /// In en, this message translates to:
+  /// **'Good morning!'**
+  String get sleepWakeUpMorning;
+
+  /// Wake-up sheet greeting shown between noon and 5pm
+  ///
+  /// In en, this message translates to:
+  /// **'Good afternoon!'**
+  String get sleepWakeUpAfternoon;
+
+  /// Wake-up sheet greeting shown between 5pm and 9pm
+  ///
+  /// In en, this message translates to:
+  /// **'Good evening!'**
+  String get sleepWakeUpEvening;
+
+  /// Wake-up sheet greeting shown between 9pm and 5am (nap wakeup)
+  ///
+  /// In en, this message translates to:
+  /// **'Rise and shine!'**
+  String get sleepWakeUpNight;
+
+  /// Subtitle in wake-up sheet showing sleep duration
+  ///
+  /// In en, this message translates to:
+  /// **'You slept for {duration}'**
+  String sleepWakeUpSleptFor(String duration);
+
+  /// Label above quality star rating in wake-up sheet
+  ///
+  /// In en, this message translates to:
+  /// **'How was your sleep?'**
+  String get sleepWakeUpQualityQuestion;
+
+  /// Label above member picker in wake-up sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Who\'s fronting now?'**
+  String get sleepWakeUpWhosFronting;
+
+  /// Primary action button in wake-up sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get sleepWakeUpDone;
+
+  /// Secondary action button in wake-up sheet (ends sleep without rating/fronting)
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get sleepWakeUpSkip;
+
+  /// Button to show remaining members not in quick-front circles
+  ///
+  /// In en, this message translates to:
+  /// **'Others...'**
+  String get sleepWakeUpOthers;
+
+  /// Bedtime reminder banner title on fronting screen
+  ///
+  /// In en, this message translates to:
+  /// **'It\'s your usual bedtime'**
+  String get sleepSuggestionBedtime;
+
+  /// Action button on bedtime reminder banner
+  ///
+  /// In en, this message translates to:
+  /// **'Start Sleep'**
+  String get sleepSuggestionBedtimeAction;
+
+  /// Nudge text shown on sleep card when wake suggestion duration exceeded
+  ///
+  /// In en, this message translates to:
+  /// **'You\'ve been sleeping for {duration}'**
+  String sleepWakeSuggestionNudge(String duration);
+
+  /// Section title for suggestion settings on sleep feature screen
+  ///
+  /// In en, this message translates to:
+  /// **'Suggestions'**
+  String get featureSleepSuggestions;
+
+  /// Toggle title for bedtime reminder setting
+  ///
+  /// In en, this message translates to:
+  /// **'Bedtime Reminder'**
+  String get featureSleepBedtimeReminder;
+
+  /// Toggle subtitle for bedtime reminder setting
+  ///
+  /// In en, this message translates to:
+  /// **'Show a reminder at your usual bedtime'**
+  String get featureSleepBedtimeReminderSubtitle;
+
+  /// Row title for bedtime time picker
+  ///
+  /// In en, this message translates to:
+  /// **'Bedtime'**
+  String get featureSleepBedtimeTime;
+
+  /// Toggle title for wake reminder setting
+  ///
+  /// In en, this message translates to:
+  /// **'Wake Reminder'**
+  String get featureSleepWakeReminder;
+
+  /// Toggle subtitle for wake reminder setting
+  ///
+  /// In en, this message translates to:
+  /// **'Nudge to wake after a set duration'**
+  String get featureSleepWakeReminderSubtitle;
+
+  /// Row title for wake duration picker
+  ///
+  /// In en, this message translates to:
+  /// **'Wake After'**
+  String get featureSleepWakeAfter;
+
+  /// Display format for wake duration setting
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} hours'**
+  String featureSleepWakeAfterHours(String hours);
 }
 
 class _AppLocalizationsDelegate

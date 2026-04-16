@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_sanitization_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
 import 'package:prism_plurality/features/fronting/ui/delete_strategy_dialog.dart';
+import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/fronting/widgets/fronting_duration_text.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
@@ -458,7 +459,7 @@ class _InlineSleepTile extends ConsumerWidget {
 
     final trailing = hasQuality
         ? Text(
-            quality.label,
+            quality.localizedLabel(context.l10n),
             style: theme.textTheme.bodySmall?.copyWith(
               color: AppColors.sleep(theme.brightness),
               fontWeight: FontWeight.w500,

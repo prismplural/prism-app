@@ -15,6 +15,8 @@ class InfoBanner extends StatelessWidget {
     this.buttonText,
     this.onButtonPressed,
     this.backgroundColor,
+    this.onDismiss,
+    this.dismissTooltip,
   });
 
   final IconData icon;
@@ -26,6 +28,10 @@ class InfoBanner extends StatelessWidget {
 
   /// Defaults to [iconColor] with 0.1 opacity.
   final Color? backgroundColor;
+
+  /// If provided, a small close icon is shown; tapping invokes this callback.
+  final VoidCallback? onDismiss;
+  final String? dismissTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +76,21 @@ class InfoBanner extends StatelessWidget {
               onPressed: onButtonPressed!,
               tone: PrismButtonTone.subtle,
               density: PrismControlDensity.compact,
+            ),
+          ],
+          if (onDismiss != null) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              color: theme.colorScheme.onSurfaceVariant,
+              tooltip: dismissTooltip,
+              onPressed: onDismiss,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                minWidth: 32,
+                minHeight: 32,
+              ),
+              visualDensity: VisualDensity.compact,
             ),
           ],
         ],
