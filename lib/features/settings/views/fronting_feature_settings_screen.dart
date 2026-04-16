@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -98,18 +97,9 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
                     title: context.l10n.featureFrontingShowQuickFront,
                     subtitle: context.l10n.featureFrontingShowQuickFrontSubtitle,
                     value: showQuickFront,
-                    onChanged: (value) {
-                      ref
-                          .read(settingsNotifierProvider.notifier)
-                          .toggleQuickFront(value);
-                      if (!value) {
-                        SemanticsService.sendAnnouncement(
-                          View.of(context),
-                          context.l10n.featureFrontingShowQuickFront,
-                          Directionality.of(context),
-                        );
-                      }
-                    },
+                    onChanged: (value) => ref
+                        .read(settingsNotifierProvider.notifier)
+                        .toggleQuickFront(value),
                   ),
                   PrismSettingsRow(
                     icon: AppIcons.speed,
