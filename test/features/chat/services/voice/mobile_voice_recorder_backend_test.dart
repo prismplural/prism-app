@@ -77,7 +77,7 @@ void main() {
 
         expect(artifact.mimeType, 'audio/ogg');
         expect(remuxer.inputs, isEmpty);
-        expect(recorder.startedPath, endsWith('.ogg'));
+        expect(recorder.startedPath, endsWith('.opus'));
       },
     );
 
@@ -248,6 +248,306 @@ void main() {
       expect(recorder.cancelCallCount, 1);
       expect(backend.state.value.status, VoiceRecorderBackendStatus.idle);
     });
+
+    test('empty recording on Android fails with emptyRecording', () async {
+      final clock = _MutableClock(DateTime(2026, 4, 15, 12));
+      final fileStore = FakeMobileVoiceRecorderFileStore();
+      final recorder = FakeMobileAudioRecorder();
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.android(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        recorder: recorder,
+        remuxer: FakeMobileOggCafRemuxer(),
+        fileStore: fileStore,
+        now: clock.call,
+      );
+
+      await backend.start();
+      clock.advance(const Duration(seconds: 2));
+      recorder.emitAmplitude(-10);
+      fileStore.seedBytes(recorder.startedPath!, Uint8List(0));
+
+      await expectLater(
+        backend.stop(),
+        throwsA(
+          isA<VoiceRecorderBackendException>().having(
+            (error) => error.errorCode,
+            'errorCode',
+            VoiceRecorderErrorCode.emptyRecording,
+          ),
+        ),
+      );
+      expect(fileStore.deletedPaths, contains(recorder.startedPath));
+    });
+
+    test('raw bytes exceeding in-memory budget fail with budgetExceeded',
+        () async {
+      final clock = _MutableClock(DateTime(2026, 4, 15, 12));
+      final fileStore = FakeMobileVoiceRecorderFileStore();
+      final recorder = FakeMobileAudioRecorder();
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.android(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        recorder: recorder,
+        remuxer: FakeMobileOggCafRemuxer(),
+        fileStore: fileStore,
+        now: clock.call,
+        maxInMemoryBytes: 4,
+      );
+
+      await backend.start();
+      clock.advance(const Duration(seconds: 2));
+      recorder.emitAmplitude(-10);
+      fileStore.seedBytes(recorder.startedPath!, _validOggOpusBytes());
+
+      await expectLater(
+        backend.stop(),
+        throwsA(
+          isA<VoiceRecorderBackendException>().having(
+            (error) => error.errorCode,
+            'errorCode',
+            VoiceRecorderErrorCode.budgetExceeded,
+          ),
+        ),
+      );
+      expect(fileStore.deletedPaths, contains(recorder.startedPath));
+    });
+
+    test('post-remux bytes exceeding budget fail with budgetExceeded',
+        () async {
+      final clock = _MutableClock(DateTime(2026, 4, 15, 12));
+      final fileStore = FakeMobileVoiceRecorderFileStore();
+      final recorder = FakeMobileAudioRecorder();
+      final remuxer = FakeMobileOggCafRemuxer();
+      final cafBytes = _validCafOpusBytes();
+      // Budget larger than the CAF input but smaller than the remuxer output.
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.iOS(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
+        recorder: recorder,
+        remuxer: remuxer,
+        fileStore: fileStore,
+        now: clock.call,
+        maxInMemoryBytes: cafBytes.length + 10,
+      );
+
+      await backend.start();
+      clock.advance(const Duration(seconds: 2));
+      recorder.emitAmplitude(-10);
+      fileStore.seedBytes(recorder.startedPath!, cafBytes);
+      // Produce oversized Ogg output that exceeds the budget.
+      final oversizedOgg = Uint8List.fromList([
+        ..._validOggOpusBytes(),
+        ...List<int>.filled(cafBytes.length + 20, 0),
+      ]);
+      remuxer.outputBytes = oversizedOgg;
+
+      await expectLater(
+        backend.stop(),
+        throwsA(
+          isA<VoiceRecorderBackendException>().having(
+            (error) => error.errorCode,
+            'errorCode',
+            VoiceRecorderErrorCode.budgetExceeded,
+          ),
+        ),
+      );
+      expect(fileStore.deletedPaths, contains(recorder.startedPath));
+    });
+
+    test('iOS recording with non-CAF bytes fails with invalidFormat',
+        () async {
+      final clock = _MutableClock(DateTime(2026, 4, 15, 12));
+      final fileStore = FakeMobileVoiceRecorderFileStore();
+      final recorder = FakeMobileAudioRecorder();
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.iOS(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
+        recorder: recorder,
+        remuxer: FakeMobileOggCafRemuxer(),
+        fileStore: fileStore,
+        now: clock.call,
+      );
+
+      await backend.start();
+      clock.advance(const Duration(seconds: 2));
+      recorder.emitAmplitude(-10);
+      // Seed OGG bytes instead of CAF — should fail format validation.
+      fileStore.seedBytes(recorder.startedPath!, _validOggOpusBytes());
+
+      await expectLater(
+        backend.stop(),
+        throwsA(
+          isA<VoiceRecorderBackendException>().having(
+            (error) => error.errorCode,
+            'errorCode',
+            VoiceRecorderErrorCode.invalidFormat,
+          ),
+        ),
+      );
+      expect(fileStore.deletedPaths, contains(recorder.startedPath));
+    });
+
+    test('remuxer returns non-OGG bytes fails with invalidFormat', () async {
+      final clock = _MutableClock(DateTime(2026, 4, 15, 12));
+      final fileStore = FakeMobileVoiceRecorderFileStore();
+      final recorder = FakeMobileAudioRecorder();
+      final remuxer = FakeMobileOggCafRemuxer();
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.iOS(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
+        recorder: recorder,
+        remuxer: remuxer,
+        fileStore: fileStore,
+        now: clock.call,
+      );
+
+      await backend.start();
+      clock.advance(const Duration(seconds: 2));
+      recorder.emitAmplitude(-10);
+      fileStore.seedBytes(recorder.startedPath!, _validCafOpusBytes());
+      // Return random non-Ogg bytes from remuxer.
+      remuxer.outputBytes = Uint8List.fromList(
+        List<int>.filled(64, 0xAB),
+      );
+
+      await expectLater(
+        backend.stop(),
+        throwsA(
+          isA<VoiceRecorderBackendException>().having(
+            (error) => error.errorCode,
+            'errorCode',
+            VoiceRecorderErrorCode.invalidFormat,
+          ),
+        ),
+      );
+      expect(fileStore.deletedPaths, contains(recorder.startedPath));
+    });
+
+    test('double start throws alreadyRecording', () async {
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.android(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        recorder: FakeMobileAudioRecorder(),
+        remuxer: FakeMobileOggCafRemuxer(),
+        fileStore: FakeMobileVoiceRecorderFileStore(),
+      );
+
+      await backend.start();
+      await expectLater(
+        backend.start(),
+        throwsA(
+          isA<VoiceRecorderBackendException>().having(
+            (error) => error.errorCode,
+            'errorCode',
+            VoiceRecorderErrorCode.alreadyRecording,
+          ),
+        ),
+      );
+    });
+
+    test('unsupported platform surfaces unsupported error', () async {
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.unsupported(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        recorder: FakeMobileAudioRecorder(),
+        remuxer: FakeMobileOggCafRemuxer(),
+        fileStore: FakeMobileVoiceRecorderFileStore(),
+      );
+
+      await expectLater(
+        backend.start(),
+        throwsA(
+          isA<VoiceRecorderBackendException>().having(
+            (error) => error.errorCode,
+            'errorCode',
+            VoiceRecorderErrorCode.unsupported,
+          ),
+        ),
+      );
+      expect(
+        backend.state.value.status,
+        VoiceRecorderBackendStatus.unsupported,
+      );
+    });
+
+    test('dispose mid-recording cleans up', () async {
+      final fileStore = FakeMobileVoiceRecorderFileStore();
+      final recorder = FakeMobileAudioRecorder();
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.android(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        recorder: recorder,
+        remuxer: FakeMobileOggCafRemuxer(),
+        fileStore: fileStore,
+      );
+
+      await backend.start();
+      fileStore.seedBytes(recorder.startedPath!, _validOggOpusBytes());
+      await backend.dispose();
+
+      // dispose() sets _isDisposed before cancel(), so cancel() throws
+      // StateError from _ensureNotDisposed(). The recorder is still disposed
+      // via _recorder.dispose() and post-dispose start() is blocked.
+      expect(
+        () => backend.start(),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('start failure from recorder cleans up', () async {
+      final fileStore = FakeMobileVoiceRecorderFileStore();
+      final recorder = FakeMobileAudioRecorder()
+        ..startError = StateError('mic unavailable');
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.android(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        recorder: recorder,
+        remuxer: FakeMobileOggCafRemuxer(),
+        fileStore: fileStore,
+      );
+
+      await expectLater(
+        backend.start(),
+        throwsA(
+          isA<VoiceRecorderBackendException>().having(
+            (error) => error.errorCode,
+            'errorCode',
+            VoiceRecorderErrorCode.recorderFailure,
+          ),
+        ),
+      );
+      // Temp path should have been cleaned up.
+      expect(fileStore.deletedPaths, isNotEmpty);
+      // _activeRecordingPath should be null — a subsequent start() must not
+      // throw alreadyRecording.
+      recorder.startError = null;
+      await backend.start(); // should succeed, not throw alreadyRecording
+    });
+
+    test('stop when not recording throws notRecording', () async {
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.android(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        recorder: FakeMobileAudioRecorder(),
+        remuxer: FakeMobileOggCafRemuxer(),
+        fileStore: FakeMobileVoiceRecorderFileStore(),
+      );
+
+      await expectLater(
+        backend.stop(),
+        throwsA(
+          isA<VoiceRecorderBackendException>().having(
+            (error) => error.errorCode,
+            'errorCode',
+            VoiceRecorderErrorCode.notRecording,
+          ),
+        ),
+      );
+    });
   });
 }
 
@@ -261,12 +561,13 @@ Uint8List _validOggOpusBytes() {
 }
 
 Uint8List _validCafOpusBytes() {
-  return Uint8List.fromList([
-    ...'caff'.codeUnits,
-    ...List<int>.filled(20, 0),
-    ...'OpusHead'.codeUnits,
-    ...List<int>.filled(32, 2),
-  ]);
+  // Realistic CAF header: 8-byte file header, 12-byte desc chunk header,
+  // 8-byte mSampleRate, then 'opus' mFormatID at byte 28.
+  final bytes = Uint8List(64);
+  bytes.setRange(0, 4, 'caff'.codeUnits);
+  bytes.setRange(8, 12, 'desc'.codeUnits);
+  bytes.setRange(28, 32, 'opus'.codeUnits);
+  return bytes;
 }
 
 final class _MutableClock {
@@ -288,6 +589,10 @@ final class FakeMobileVoiceRecorderPlatform
   const FakeMobileVoiceRecorderPlatform.android()
     : isIOS = false,
       isAndroid = true;
+
+  const FakeMobileVoiceRecorderPlatform.unsupported()
+    : isIOS = false,
+      isAndroid = false;
 
   @override
   final bool isIOS;
@@ -342,6 +647,7 @@ final class FakeMobileAudioRecorder implements MobileAudioRecorder {
 
   String? startedPath;
   int cancelCallCount = 0;
+  Object? startError;
 
   @override
   Stream<double> amplitudeStream(Duration interval) =>
@@ -363,6 +669,9 @@ final class FakeMobileAudioRecorder implements MobileAudioRecorder {
 
   @override
   Future<void> start({required String path}) async {
+    if (startError != null) {
+      throw startError!;
+    }
     startedPath = path;
   }
 
