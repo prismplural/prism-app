@@ -127,6 +127,11 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(true) bool sleepTrackingEnabled,
     @Default(true) bool gifSearchEnabled,
     @Default(true) bool voiceNotesEnabled,
+    @Default(false) bool sleepSuggestionEnabled,
+    @Default(22) int sleepSuggestionHour,
+    @Default(0) int sleepSuggestionMinute,
+    @Default(false) bool wakeSuggestionEnabled,
+    @Default(8.0) double wakeSuggestionAfterHours,
     @Default(30) int quickSwitchThresholdSeconds,
     // Sharing identity generation — incremented on DEK rotation
     @Default(0) int identityGeneration,

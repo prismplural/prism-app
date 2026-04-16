@@ -210,6 +210,34 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateSleepSuggestionEnabled(bool enabled) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateSleepSuggestionEnabled(enabled);
+    });
+  }
+
+  Future<void> updateSleepSuggestionTime(int hour, int minute) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateSleepSuggestionTime(hour, minute);
+    });
+  }
+
+  Future<void> updateWakeSuggestionEnabled(bool enabled) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateWakeSuggestionEnabled(enabled);
+    });
+  }
+
+  Future<void> updateWakeSuggestionAfterHours(double hours) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateWakeSuggestionAfterHours(hours);
+    });
+  }
+
   Future<void> updateLocaleOverride(String? value) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
@@ -690,4 +718,34 @@ final navBarOverflowItemsProvider = Provider<List<String>>((ref) {
             data: (s) => s.navBarOverflowItems,
           ) ??
       const [];
+});
+
+/// Narrow provider for `sleepSuggestionEnabled` flag.
+final sleepSuggestionEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+        data: (s) => s.sleepSuggestionEnabled,
+      ) ??
+      false;
+});
+
+/// Narrow provider for sleep suggestion time (hour + minute).
+final sleepSuggestionTimeProvider = Provider<({int hour, int minute})>((ref) {
+  final settings = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
+  return (hour: settings?.sleepSuggestionHour ?? 22, minute: settings?.sleepSuggestionMinute ?? 0);
+});
+
+/// Narrow provider for `wakeSuggestionEnabled` flag.
+final wakeSuggestionEnabledProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+        data: (s) => s.wakeSuggestionEnabled,
+      ) ??
+      false;
+});
+
+/// Narrow provider for `wakeSuggestionAfterHours`.
+final wakeSuggestionAfterHoursProvider = Provider<double>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+        data: (s) => s.wakeSuggestionAfterHours,
+      ) ??
+      8.0;
 });
