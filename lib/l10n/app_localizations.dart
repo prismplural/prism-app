@@ -4520,6 +4520,12 @@ abstract class AppLocalizations {
   /// **'Mark as Read'**
   String get chatMarkAsRead;
 
+  /// App bar menu action to mark all conversations as read
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all as read'**
+  String get chatMarkAllAsRead;
+
   /// Context menu action to mute a conversation
   ///
   /// In en, this message translates to:

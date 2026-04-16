@@ -2616,6 +2616,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatMarkAsRead => 'Marcar como leído';
 
   @override
+  String get chatMarkAllAsRead => 'Mark all as read';
+
+  @override
   String get chatMute => 'Silenciar';
 
   @override

@@ -455,6 +455,24 @@ class ChatNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> markAllConversationsAsRead(String memberId) async {
+    state = await AsyncValue.guard(() async {
+      await _mutationPool.withResource(() async {
+        final repo = ref.read(conversationRepositoryProvider);
+        // Use filteredConversationsProvider so archived conversations
+        // (hidden from this headmate's view) are not touched.
+        final conversations =
+            ref.read(filteredConversationsProvider).value ?? [];
+        final now = DateTime.now();
+        for (final conv in conversations) {
+          final updated = Map<String, DateTime>.from(conv.lastReadTimestamps);
+          updated[memberId] = now;
+          await repo.setLastReadTimestamps(conv.id, updated);
+        }
+      });
+    });
+  }
+
   Future<void> toggleMute(String conversationId, String memberId) async {
     state = await AsyncValue.guard(() async {
       await _mutationPool.withResource(() async {

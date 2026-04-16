@@ -3459,6 +3459,10 @@
   "@chatMarkAsRead": {
     "description": "Context menu action to mark a conversation as read"
   },
+  "chatMarkAllAsRead": "Mark all as read",
+  "@chatMarkAllAsRead": {
+    "description": "App bar menu action to mark all conversations as read"
+  },
   "chatMute": "Mute",
   "@chatMute": {
     "description": "Context menu action to mute a conversation"

@@ -577,20 +577,21 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                               ],
                             ),
                           ),
-                        Padding(
-                          padding: EdgeInsets.only(
-                            right: 8,
-                            top: widget.showAuthorInfo ? 0 : 1,
-                          ),
-                          child: Text.rich(
-                            _buildContentSpan(
-                              widget.message.content,
-                              widget.authorMap,
-                              theme,
-                              messageTextColor,
+                        if (widget.message.content.isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              right: 8,
+                              top: widget.showAuthorInfo ? 0 : 1,
+                            ),
+                            child: Text.rich(
+                              _buildContentSpan(
+                                widget.message.content,
+                                widget.authorMap,
+                                theme,
+                                messageTextColor,
+                              ),
                             ),
                           ),
-                        ),
                         ..._buildAttachments(context, theme, authorColor),
                         if (widget.message.reactions.isNotEmpty)
                           Padding(
@@ -668,7 +669,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     return [
       for (final attachment in attachments)
         Padding(
-          padding: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.only(top: 2),
           child: _buildSingleAttachment(attachment, authorColor),
         ),
     ];
@@ -881,6 +882,7 @@ class _VoiceAttachmentBubbleState
 
     return VoiceBubble(
       durationMs: effectiveDuration.inMilliseconds,
+      waveformB64: attachment.waveformB64,
       isPlaying: playbackState.isPlaying,
       progress: progress,
       speed: playbackState.speed,
