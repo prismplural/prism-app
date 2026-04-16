@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -41,6 +42,9 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   getJoinerSasHandler;
 
   @override
+  Future<void> validateMnemonic(String mnemonic) => Future.value();
+
+  @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) {
     return startJoinerCeremonyHandler?.call(handle: handle) ??
         Future.value(
@@ -72,13 +76,14 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   @override
   Future<String> startInitiatorCeremony({
     required ffi.PrismSyncHandle handle,
-    required List<int> tokenBytes,
+    required Uint8List tokenBytes,
   }) => throw UnimplementedError();
 
   @override
   Future<String> completeInitiatorCeremony({
     required ffi.PrismSyncHandle handle,
     required String password,
+    required String mnemonic,
   }) => throw UnimplementedError();
 }
 

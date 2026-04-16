@@ -406,6 +406,13 @@ Future<SyncHealthState> _autoConfigureIfReady(
 const _secureStorePrefix = 'prism_sync.';
 
 /// Keys that prism-sync stores in SecureStore.
+///
+/// Note: the BIP39 recovery phrase (`mnemonic`) is deliberately not here —
+/// it is an offline backup credential and is not persisted to the keychain.
+/// Users re-type it from their saved backup when changing their PIN or
+/// pairing another device. `computeKeysToClearOnReset` and
+/// `_wipeSyncKeychainEntries` still list `mnemonic` defensively so that any
+/// legacy entry from earlier builds gets wiped on reset/revoke.
 const _secureStoreKeys = [
   'wrapped_dek',
   'dek_salt',
@@ -415,7 +422,6 @@ const _secureStoreKeys = [
   'session_token',
   'epoch',
   'relay_url',
-  'mnemonic',
   'setup_rollback_marker',
   'sharing_prekey_store',
   'sharing_id_cache',

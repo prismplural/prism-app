@@ -29,6 +29,9 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   startInitiatorCeremonyHandler;
 
   @override
+  Future<void> validateMnemonic(String mnemonic) => Future.value();
+
+  @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) =>
       throw UnimplementedError();
 
@@ -63,14 +66,18 @@ class _FakePairingCeremonyApi extends PairingCeremonyApi {
   Future<String> completeInitiatorCeremony({
     required ffi.PrismSyncHandle handle,
     required String password,
+    required String mnemonic,
   }) => Future.value('ok');
 }
 
 void main() {
-  testWidgets('opens on the joiner approval flow by default', (tester) async {
+  testWidgets('opens on the recovery phrase entry step', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
           prismSyncHandleProvider.overrideWithBuild(
             (ref, notifier) => const _FakePrismSyncHandle(),
           ),
@@ -100,7 +107,10 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('pairing request QR code'), findsOneWidget);
+    // The recovery-phrase entry step comes first because the mnemonic
+    // is no longer persisted in the keychain.
+    expect(find.textContaining('recovery phrase'), findsWidgets);
+    expect(find.textContaining('pairing request QR code'), findsNothing);
     expect(find.text('Legacy Invite'), findsNothing);
     expect(find.text('Create Invite'), findsNothing);
   });
@@ -152,6 +162,15 @@ void main() {
     );
 
     await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    // Advance past the mnemonic entry step (fake API validates anything).
+    await tester.enterText(
+      find.byType(TextField),
+      'abandon abandon abandon abandon abandon abandon '
+      'abandon abandon abandon abandon abandon about',
+    );
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text("Scan Joiner's QR"));

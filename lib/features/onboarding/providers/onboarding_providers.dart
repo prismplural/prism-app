@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +5,6 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
-import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -252,10 +250,11 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   /// 2. Converts the mnemonic to secret-key bytes.
   /// 3. Calls `ffi.initialize()` — derives MEK, wraps DEK, creates device keys.
   /// 4. Drains Rust's MemorySecureStore to the platform keychain.
-  /// 5. Writes the mnemonic to the keychain explicitly (Rust never does this).
-  /// 6. Caches the runtime DEK (`kRuntimeDekKey`) for Signal-style fast unlock.
-  /// 7. Stores the PIN hash via [PinLockService].
-  /// 8. Advances to [OnboardingStep.recoveryPhrase].
+  /// 5. Caches the runtime DEK (`kRuntimeDekKey`) for Signal-style fast unlock.
+  /// 6. Stores the PIN hash via [PinLockService].
+  /// 7. Advances to [OnboardingStep.recoveryPhrase] so the user can write the
+  ///    mnemonic down. The phrase is NEVER persisted — it is an offline
+  ///    backup credential.
   Future<void> onPinConfirmed(String pin) async {
     try {
       // 1. Get or create the sync handle (we need it for FFI calls).
@@ -289,23 +288,17 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
       // 5. Drain Rust's MemorySecureStore to the platform keychain
       //    (writes wrapped_dek, dek_salt, device_secret, device_id, etc.).
+      //    The mnemonic is NOT written — it's an offline backup credential
+      //    that the user will save themselves in step 7 and re-type when
+      //    they change their PIN or pair another device.
       await drainRustStore(handle);
 
-      // 6. Write mnemonic to keychain explicitly. Rust initialize() does NOT
-      //    write it — we are the only writer. The key format matches
-      //    attemptUnlock() which reads `prism_sync.mnemonic` as
-      //    base64(utf8(mnemonic_string)).
-      await secureStorage.write(
-        key: 'prism_sync.mnemonic',
-        value: base64Encode(utf8.encode(mnemonic)),
-      );
-
-      // 7. Export raw DEK and cache it (Signal-style: bypasses Argon2id on
+      // 6. Export raw DEK and cache it (Signal-style: bypasses Argon2id on
       //    next launch). Also derives and caches the database key.
       await cacheRuntimeKeys(handle, ref.read(databaseProvider));
       final dekBytes = await ffi.exportDek(handle: handle);
 
-      // 8. PIN hash already stored by PinSetupStep.onPinEntered before
+      // 7. PIN hash already stored by PinSetupStep.onPinEntered before
       //    calling onPinConfirmed — no second storePin() call here.
 
       // 9. Also use the PIN as the sync auth password — record it in the

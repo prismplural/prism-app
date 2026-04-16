@@ -511,6 +511,14 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncSecretKeyTitle => 'Clave secreta';
 
   @override
+  String get syncSecretKeyNotStoredTitle =>
+      'Frase de recuperación no almacenada';
+
+  @override
+  String get syncSecretKeyNotStoredBody =>
+      'Tu frase de recuperación no se guarda en este dispositivo — se mostró una sola vez durante la configuración.\n\nSi la guardaste (por ejemplo, en un gestor de contraseñas o en un papel), búscala allí.\n\nSi no puedes encontrarla, desconecta este dispositivo y vuelve a emparejarlo para generar una nueva frase.';
+
+  @override
   String get syncVerifyPasswordTitle => 'Verificar PIN';
 
   @override
@@ -3144,6 +3152,17 @@ class AppLocalizationsEs extends AppLocalizations {
       'El nuevo dispositivo puede generar un código QR de solicitud de emparejamiento. Escanéalo aquí para aprobar el dispositivo y compartir tus credenciales de sincronización.';
 
   @override
+  String get setupDeviceEnterMnemonicTitle =>
+      'Introduce tu frase de recuperación';
+
+  @override
+  String get setupDeviceEnterMnemonicSubtitle =>
+      'Se necesita para configurar este nuevo dispositivo. Tu frase de recuperación no se guarda en este dispositivo: escríbela desde tu copia de seguridad.';
+
+  @override
+  String get setupDeviceMnemonicContinue => 'Continuar';
+
+  @override
   String get syncSetupScanJoinerButton =>
       'Escanear QR del dispositivo que se une';
 
@@ -5436,6 +5455,32 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settingsChangePinSuccessBody =>
       'Tu PIN de sincronización ha sido actualizado en este dispositivo.';
+
+  @override
+  String get changePinEnterMnemonicTitle =>
+      'Introduce tu frase de recuperación';
+
+  @override
+  String get changePinEnterMnemonicSubtitle =>
+      'Tu frase de 12 palabras no se guarda en este dispositivo. Escríbela desde tu copia de seguridad.';
+
+  @override
+  String get changePinMnemonicHint => '12 palabras separadas por espacios';
+
+  @override
+  String get changePinMnemonicInvalid =>
+      'Esto no parece una frase de recuperación válida.';
+
+  @override
+  String get changePinMnemonicRequired =>
+      'Introduce tu frase de recuperación de 12 palabras.';
+
+  @override
+  String get changePinVerifyButton => 'Continuar';
+
+  @override
+  String get changePinVerificationFailed =>
+      'El PIN o la frase de recuperación son incorrectos.';
 
   @override
   String get settingsCreateEditFieldEditTitle => 'Editar campo';

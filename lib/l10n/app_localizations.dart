@@ -986,6 +986,18 @@ abstract class AppLocalizations {
   /// **'Secret Key'**
   String get syncSecretKeyTitle;
 
+  /// Sheet title explaining that the recovery phrase is not stored on the device
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery phrase not stored'**
+  String get syncSecretKeyNotStoredTitle;
+
+  /// Body text on the 'recovery phrase not stored' informational sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Your recovery phrase is not stored on this device — it was shown once during setup.\n\nIf you saved it (for example, in a password manager or on a piece of paper), check there.\n\nIf you can\'t find it, disconnect this device and re-pair to generate a new phrase.'**
+  String get syncSecretKeyNotStoredBody;
+
   /// Sheet title when verifying PIN to reveal key
   ///
   /// In en, this message translates to:
@@ -5408,6 +5420,24 @@ abstract class AppLocalizations {
   /// **'The new device can generate a pairing request QR code. Scan it here to approve the device and share your sync credentials.'**
   String get syncSetupScanJoinerPrompt;
 
+  /// Title of the recovery phrase prompt in the 'set up another device' initiator flow
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your recovery phrase'**
+  String get setupDeviceEnterMnemonicTitle;
+
+  /// Explanatory subtitle under the recovery phrase prompt in the set up another device flow
+  ///
+  /// In en, this message translates to:
+  /// **'Needed to set up this new device. Your recovery phrase is not stored on this device — type it from your saved backup.'**
+  String get setupDeviceEnterMnemonicSubtitle;
+
+  /// Primary button label on the recovery phrase step of the set up another device flow
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get setupDeviceMnemonicContinue;
+
   /// Primary button label to scan the joiner's pairing QR code
   ///
   /// In en, this message translates to:
@@ -9247,6 +9277,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your sync PIN has been updated on this device.'**
   String get settingsChangePinSuccessBody;
+
+  /// Title of the recovery phrase step in the change PIN flow
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your recovery phrase'**
+  String get changePinEnterMnemonicTitle;
+
+  /// Explanatory subtitle of the recovery phrase step in the change PIN flow
+  ///
+  /// In en, this message translates to:
+  /// **'Your 12-word phrase is not stored on this device. Type it from your saved backup.'**
+  String get changePinEnterMnemonicSubtitle;
+
+  /// Hint text for the recovery phrase entry field
+  ///
+  /// In en, this message translates to:
+  /// **'12 words separated by spaces'**
+  String get changePinMnemonicHint;
+
+  /// Validation error when the typed recovery phrase cannot be parsed as a valid BIP39 mnemonic
+  ///
+  /// In en, this message translates to:
+  /// **'That doesn\'t look like a valid recovery phrase.'**
+  String get changePinMnemonicInvalid;
+
+  /// Validation error when the recovery phrase field is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your 12-word recovery phrase.'**
+  String get changePinMnemonicRequired;
+
+  /// Primary button label for the recovery phrase step of the change PIN flow
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get changePinVerifyButton;
+
+  /// Generic error shown when either the PIN or the recovery phrase failed verification; does not disclose which one was wrong
+  ///
+  /// In en, this message translates to:
+  /// **'PIN or recovery phrase is incorrect.'**
+  String get changePinVerificationFailed;
 
   /// Title of the edit field sheet
   ///

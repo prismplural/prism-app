@@ -65,8 +65,11 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Save this now — you\'ll need it to set up new devices. '
-                    'It can\'t be recovered if lost.',
+                    'Save this now. This is the ONLY way to add new devices or '
+                    'change your PIN. It is not stored on this phone and it '
+                    'cannot be recovered if lost.\n\n'
+                    'Save it to a password manager AND on paper — do not keep '
+                    'the only copy on this phone.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onErrorContainer,
                     ),

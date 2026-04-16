@@ -1,16 +1,11 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
-import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_content.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -514,106 +509,13 @@ class _ConfiguredView extends ConsumerWidget {
   }
 }
 
-/// Sheet that prompts for password confirmation, then reveals the secret key.
-class _ViewSecretKeySheet extends ConsumerStatefulWidget {
+/// Static informational sheet — the recovery phrase is no longer persisted
+/// on the device, so there is nothing to reveal. This sheet just reminds the
+/// user where to look for their saved backup.
+class _ViewSecretKeySheet extends StatelessWidget {
   const _ViewSecretKeySheet({this.scrollController});
 
   final ScrollController? scrollController;
-
-  @override
-  ConsumerState<_ViewSecretKeySheet> createState() =>
-      _ViewSecretKeySheetState();
-}
-
-class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
-  final _pinController = TextEditingController();
-  bool _isLoading = false;
-  String? _error;
-  String? _mnemonic;
-
-  ffi.PrismSyncHandle? get _handle => ref.read(prismSyncHandleProvider).value;
-
-  @override
-  void dispose() {
-    _pinController.dispose();
-    // Clear the mnemonic from memory on dismiss
-    _mnemonic = null;
-    super.dispose();
-  }
-
-  Future<void> _verifyAndReveal() async {
-    final pin = _pinController.text.trim();
-    if (pin.isEmpty) return;
-
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-
-    try {
-      // Read the mnemonic from keychain
-      final mnemonicB64 = await secureStorage.read(key: 'prism_sync.mnemonic');
-      if (mnemonicB64 == null) {
-        if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-          _error = context.l10n.syncSecretKeyNotFound;
-        });
-        return;
-      }
-
-      // Decode the mnemonic (base64 → UTF-8)
-      String mnemonic;
-      try {
-        mnemonic = utf8.decode(base64Decode(mnemonicB64));
-      } catch (_) {
-        // If it's not base64-encoded, use it as-is
-        mnemonic = mnemonicB64;
-      }
-
-      // Verify the password by re-running unlock on the existing handle.
-      // This performs full Argon2id derivation (a few seconds) and throws
-      // if the password is wrong. Since the engine is already unlocked,
-      // re-unlocking is idempotent and safe.
-      final handle = _handle;
-      if (handle == null) {
-        if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-          _error = context.l10n.syncEngineNotAvailable;
-        });
-        return;
-      }
-
-      final secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonic);
-      try {
-        await ffi.unlock(
-          handle: handle,
-          password: pin,
-          secretKey: secretKeyBytes,
-        );
-      } on Exception {
-        if (!mounted) return;
-        setState(() {
-          _isLoading = false;
-          _error = context.l10n.syncIncorrectPassword;
-        });
-        return;
-      }
-
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _mnemonic = mnemonic;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _error = context.l10n.syncAnErrorOccurred(e);
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -624,65 +526,45 @@ class _ViewSecretKeySheetState extends ConsumerState<_ViewSecretKeySheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: _mnemonic != null ? context.l10n.syncSecretKeyTitle : context.l10n.syncVerifyPasswordTitle,
+            title: context.l10n.syncSecretKeyNotStoredTitle,
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: _mnemonic != null
-                ? SingleChildScrollView(
-                    controller: widget.scrollController,
-                    padding: EdgeInsets.only(
-                      left: 20,
-                      right: 20,
-                      bottom: 16 + bottomInset,
-                    ),
-                    child: SecretKeyRevealContent(
-                      mnemonic: _mnemonic!,
-                      hasSaved: true,
-                      onHasSavedChanged: (_) {},
-                      showSaveConfirmation: false,
-                    ),
-                  )
-                : SingleChildScrollView(
-                    controller: widget.scrollController,
-                    padding: EdgeInsets.only(
-                      left: 20,
-                      right: 20,
-                      bottom: 16 + bottomInset,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          context.l10n.syncVerifyPasswordPrompt,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.6,
-                            ),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 20),
-                        PrismTextField(
-                          controller: _pinController,
-                          obscureText: true,
-                          keyboardType: TextInputType.number,
-                          autofocus: true,
-                          enabled: !_isLoading,
-                          onSubmitted: (_) => _verifyAndReveal(),
-                          hintText: context.l10n.syncPasswordHint,
-                          errorText: _error,
-                        ),
-                        const SizedBox(height: 16),
-                        PrismButton(
-                          label: context.l10n.syncRevealSecretKey,
-                          onPressed: _verifyAndReveal,
-                          isLoading: _isLoading,
-                        ),
-                      ],
-                    ),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                bottom: 16 + bottomInset,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Icon(
+                    AppIcons.infoOutline,
+                    size: 40,
+                    color: theme.colorScheme.primary,
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    context.l10n.syncSecretKeyNotStoredBody,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.75,
+                      ),
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  PrismButton(
+                    label: context.l10n.done,
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),

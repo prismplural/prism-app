@@ -678,6 +678,14 @@
   "@syncSecretKeyTitle": {
     "description": "Sheet title when secret key is revealed"
   },
+  "syncSecretKeyNotStoredTitle": "Recovery phrase not stored",
+  "@syncSecretKeyNotStoredTitle": {
+    "description": "Sheet title explaining that the recovery phrase is not stored on the device"
+  },
+  "syncSecretKeyNotStoredBody": "Your recovery phrase is not stored on this device — it was shown once during setup.\n\nIf you saved it (for example, in a password manager or on a piece of paper), check there.\n\nIf you can't find it, disconnect this device and re-pair to generate a new phrase.",
+  "@syncSecretKeyNotStoredBody": {
+    "description": "Body text on the 'recovery phrase not stored' informational sheet"
+  },
   "syncVerifyPasswordTitle": "Verify PIN",
   "@syncVerifyPasswordTitle": {
     "description": "Sheet title when verifying PIN to reveal key"
@@ -4218,6 +4226,18 @@
   "@syncSetupScanJoinerPrompt": {
     "description": "Intro text on the set up another device sheet before scanning"
   },
+  "setupDeviceEnterMnemonicTitle": "Enter your recovery phrase",
+  "@setupDeviceEnterMnemonicTitle": {
+    "description": "Title of the recovery phrase prompt in the 'set up another device' initiator flow"
+  },
+  "setupDeviceEnterMnemonicSubtitle": "Needed to set up this new device. Your recovery phrase is not stored on this device — type it from your saved backup.",
+  "@setupDeviceEnterMnemonicSubtitle": {
+    "description": "Explanatory subtitle under the recovery phrase prompt in the set up another device flow"
+  },
+  "setupDeviceMnemonicContinue": "Continue",
+  "@setupDeviceMnemonicContinue": {
+    "description": "Primary button label on the recovery phrase step of the set up another device flow"
+  },
   "syncSetupScanJoinerButton": "Scan Joiner's QR",
   "@syncSetupScanJoinerButton": {
     "description": "Primary button label to scan the joiner's pairing QR code"
@@ -6487,6 +6507,20 @@
   "@settingsChangePinSuccessTitle": { "description": "Title on the success screen after changing PIN" },
   "settingsChangePinSuccessBody": "Your sync PIN has been updated on this device.",
   "@settingsChangePinSuccessBody": { "description": "Body text on the success screen after changing PIN" },
+  "changePinEnterMnemonicTitle": "Enter your recovery phrase",
+  "@changePinEnterMnemonicTitle": { "description": "Title of the recovery phrase step in the change PIN flow" },
+  "changePinEnterMnemonicSubtitle": "Your 12-word phrase is not stored on this device. Type it from your saved backup.",
+  "@changePinEnterMnemonicSubtitle": { "description": "Explanatory subtitle of the recovery phrase step in the change PIN flow" },
+  "changePinMnemonicHint": "12 words separated by spaces",
+  "@changePinMnemonicHint": { "description": "Hint text for the recovery phrase entry field" },
+  "changePinMnemonicInvalid": "That doesn't look like a valid recovery phrase.",
+  "@changePinMnemonicInvalid": { "description": "Validation error when the typed recovery phrase cannot be parsed as a valid BIP39 mnemonic" },
+  "changePinMnemonicRequired": "Enter your 12-word recovery phrase.",
+  "@changePinMnemonicRequired": { "description": "Validation error when the recovery phrase field is empty" },
+  "changePinVerifyButton": "Continue",
+  "@changePinVerifyButton": { "description": "Primary button label for the recovery phrase step of the change PIN flow" },
+  "changePinVerificationFailed": "PIN or recovery phrase is incorrect.",
+  "@changePinVerificationFailed": { "description": "Generic error shown when either the PIN or the recovery phrase failed verification; does not disclose which one was wrong" },
   "settingsCreateEditFieldEditTitle": "Edit Field",
   "@settingsCreateEditFieldEditTitle": { "description": "Title of the edit field sheet" },
   "settingsCreateEditFieldNewTitle": "New Field",

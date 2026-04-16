@@ -494,6 +494,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSecretKeyTitle => 'Secret Key';
 
   @override
+  String get syncSecretKeyNotStoredTitle => 'Recovery phrase not stored';
+
+  @override
+  String get syncSecretKeyNotStoredBody =>
+      'Your recovery phrase is not stored on this device — it was shown once during setup.\n\nIf you saved it (for example, in a password manager or on a piece of paper), check there.\n\nIf you can\'t find it, disconnect this device and re-pair to generate a new phrase.';
+
+  @override
   String get syncVerifyPasswordTitle => 'Verify PIN';
 
   @override
@@ -3085,6 +3092,16 @@ class AppLocalizationsEn extends AppLocalizations {
       'The new device can generate a pairing request QR code. Scan it here to approve the device and share your sync credentials.';
 
   @override
+  String get setupDeviceEnterMnemonicTitle => 'Enter your recovery phrase';
+
+  @override
+  String get setupDeviceEnterMnemonicSubtitle =>
+      'Needed to set up this new device. Your recovery phrase is not stored on this device — type it from your saved backup.';
+
+  @override
+  String get setupDeviceMnemonicContinue => 'Continue';
+
+  @override
   String get syncSetupScanJoinerButton => 'Scan Joiner\'s QR';
 
   @override
@@ -5344,6 +5361,30 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsChangePinSuccessBody =>
       'Your sync PIN has been updated on this device.';
+
+  @override
+  String get changePinEnterMnemonicTitle => 'Enter your recovery phrase';
+
+  @override
+  String get changePinEnterMnemonicSubtitle =>
+      'Your 12-word phrase is not stored on this device. Type it from your saved backup.';
+
+  @override
+  String get changePinMnemonicHint => '12 words separated by spaces';
+
+  @override
+  String get changePinMnemonicInvalid =>
+      'That doesn\'t look like a valid recovery phrase.';
+
+  @override
+  String get changePinMnemonicRequired => 'Enter your 12-word recovery phrase.';
+
+  @override
+  String get changePinVerifyButton => 'Continue';
+
+  @override
+  String get changePinVerificationFailed =>
+      'PIN or recovery phrase is incorrect.';
 
   @override
   String get settingsCreateEditFieldEditTitle => 'Edit Field';
