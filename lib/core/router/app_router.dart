@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import '../../features/fronting/views/fronting_screen.dart';
 import '../../features/fronting/views/session_detail_screen.dart';
+import '../../features/fronting/views/timeline_screen.dart';
 import '../../features/fronting/views/edit_front_session_screen.dart';
 import '../../features/members/views/members_screen.dart';
 import '../../features/members/views/member_detail_screen.dart';
@@ -78,6 +79,7 @@ final _notesNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'notes');
 final _statisticsNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'statistics',
 );
+final _timelineNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'timeline');
 const _autoVoiceLabRepro = bool.fromEnvironment('AUTO_VOICE_LAB_REPRO');
 
 /// Notifier that triggers GoRouter redirect re-evaluation when onboarding
@@ -583,6 +585,17 @@ final routerProvider = Provider<GoRouter>((ref) {
                 path: AppRoutePaths.statistics,
                 builder: (context, state) =>
                     const AnalyticsScreen(showBackButton: false),
+              ),
+            ],
+          ),
+          // Branch 9: Timeline (optional top-level tab)
+          StatefulShellBranch(
+            navigatorKey: _timelineNavigatorKey,
+            routes: [
+              GoRoute(
+                name: AppRouteNames.timeline,
+                path: AppRoutePaths.timeline,
+                builder: (context, state) => const TimelineScreen(),
               ),
             ],
           ),
