@@ -9,7 +9,10 @@ void main() {
   group('MobileVoicePlaybackBackend', () {
     test('loads validated ogg bytes and reports playing state', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -28,6 +31,7 @@ void main() {
     test('invalid bytes fail safely', () async {
       final backend = MobileVoicePlaybackBackend(
         player: FakeMobileVoicePlaybackPlayer(),
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
       );
 
       await backend.load(
@@ -44,7 +48,10 @@ void main() {
 
     test('stop, seek, and speed transitions stay consistent', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -71,7 +78,10 @@ void main() {
 
     test('dispose cleans up active playback resources', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -90,6 +100,7 @@ void main() {
     test('non-memory-backed source fails with error', () async {
       final backend = MobileVoicePlaybackBackend(
         player: FakeMobileVoicePlaybackPlayer(),
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
       );
 
       await backend.load(
@@ -109,7 +120,10 @@ void main() {
 
     test('resume via setPaused on existing valid handle', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -132,7 +146,10 @@ void main() {
 
     test('natural completion transitions to completed state', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -155,7 +172,10 @@ void main() {
 
     test('seek with negative position clamps to zero', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -172,7 +192,10 @@ void main() {
 
     test('play after completion resets to beginning', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -197,7 +220,10 @@ void main() {
 
     test('load new source disposes previous track', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -220,7 +246,10 @@ void main() {
 
     test('cycleSpeed cycles through 1.0 → 1.5 → 2.0 → 1.0', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -241,7 +270,10 @@ void main() {
 
     test('play failure transitions to error state', () async {
       final player = FakeMobileVoicePlaybackPlayer();
-      final backend = MobileVoicePlaybackBackend(player: player);
+      final backend = MobileVoicePlaybackBackend(
+        player: player,
+        sessionConfigurator: FakeMobileVoicePlaybackSessionConfigurator(),
+      );
 
       await backend.load(
         VoicePlaybackSource.bytes(
@@ -396,6 +428,16 @@ final class FakeMobileVoicePlaybackTrack implements MobileVoicePlaybackTrack {
 
   @override
   int get hashCode => id.hashCode;
+}
+
+final class FakeMobileVoicePlaybackSessionConfigurator
+    implements MobileVoicePlaybackSessionConfigurator {
+  int configureCallCount = 0;
+
+  @override
+  Future<void> configureForPlayback() async {
+    configureCallCount += 1;
+  }
 }
 
 final class FakeMobileVoicePlaybackHandle implements MobileVoicePlaybackHandle {

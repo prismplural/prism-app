@@ -94,6 +94,17 @@ class MediaService {
     final mediaId = _uuid.v4();
     final thumbnailMediaId = _uuid.v4();
 
+    // Cache ciphertext locally so the sender sees their own media
+    // immediately without waiting for the relay upload→download round-trip.
+    await downloadManager.cacheEncrypted(
+      mediaId: mediaId,
+      ciphertext: encryptedImage.ciphertext,
+    );
+    await downloadManager.cacheEncrypted(
+      mediaId: thumbnailMediaId,
+      ciphertext: encryptedThumbnail.ciphertext,
+    );
+
     return MediaAttachmentData(
       mediaId: mediaId,
       thumbnailMediaId: thumbnailMediaId,
@@ -141,6 +152,13 @@ class MediaService {
 
     final encrypted = await encryption.encryptMedia(audioBytes);
     final mediaId = _uuid.v4();
+
+    // Cache ciphertext locally so the sender can play it back immediately
+    // without waiting for the relay upload→download round-trip.
+    await downloadManager.cacheEncrypted(
+      mediaId: mediaId,
+      ciphertext: encrypted.ciphertext,
+    );
 
     return VoiceAttachmentData(
       mediaId: mediaId,
