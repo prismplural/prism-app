@@ -704,6 +704,18 @@ abstract class AppLocalizations {
   /// **'Share tab arrangement across devices'**
   String get syncNavigationLayoutSubtitle;
 
+  /// Navigation settings: toggle to show/hide the timeline/list view toggle button in the Home top bar
+  ///
+  /// In en, this message translates to:
+  /// **'Show view toggle in Home'**
+  String get navigationShowViewToggleTitle;
+
+  /// Navigation settings: subtitle for the view toggle preference
+  ///
+  /// In en, this message translates to:
+  /// **'Display the timeline / list toggle button in the Home tab top bar.'**
+  String get navigationShowViewToggleSubtitle;
+
   /// Section title for quarantined sync issues
   ///
   /// In en, this message translates to:
@@ -9727,9 +9739,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Statistics'**
   String get navStatistics;
+
+  /// Bottom navigation tab label for the Timeline tab
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
   String get navTimeline;
-  String get navigationShowViewToggleTitle;
-  String get navigationShowViewToggleSubtitle;
 
   /// Header title for the onboarding welcome step
   ///

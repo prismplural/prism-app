@@ -347,6 +347,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'Compartir disposición de pestañas entre dispositivos';
 
   @override
+  String get navigationShowViewToggleTitle =>
+      'Mostrar botón de vista en Inicio';
+
+  @override
+  String get navigationShowViewToggleSubtitle =>
+      'Mostrar el botón para alternar entre cronología y lista en la barra superior de la pestaña Inicio.';
+
+  @override
   String get syncIssuesSection => 'Problemas de sincronización';
 
   @override
@@ -5724,6 +5732,9 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get navStatistics => 'Estadísticas';
+
+  @override
+  String get navTimeline => 'Cronología';
 
   @override
   String get onboardingWelcomeTitle => 'Bienvenide a Prism';
