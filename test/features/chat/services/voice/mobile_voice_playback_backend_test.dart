@@ -86,6 +86,180 @@ void main() {
       expect(player.disposeTrackCallCount, 1);
       expect(player.disposePlayerCallCount, 1);
     });
+
+    test('non-memory-backed source fails with error', () async {
+      final backend = MobileVoicePlaybackBackend(
+        player: FakeMobileVoicePlaybackPlayer(),
+      );
+
+      await backend.load(
+        const VoicePlaybackSource.file(
+          filePath: '/tmp/voice.ogg',
+          mimeType: 'audio/ogg',
+          mediaId: 'file-1',
+        ),
+      );
+
+      expect(backend.state.value.status, VoicePlaybackStatus.error);
+      expect(
+        backend.state.value.errorMessage,
+        contains('in-memory'),
+      );
+    });
+
+    test('resume via setPaused on existing valid handle', () async {
+      final player = FakeMobileVoicePlaybackPlayer();
+      final backend = MobileVoicePlaybackBackend(player: player);
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'voice-resume',
+        ),
+      );
+
+      await backend.play();
+      await backend.pause();
+      await backend.play();
+
+      // One pause (setPaused true) + one resume (setPaused false)
+      expect(player.setPausedCount, 2);
+      expect(player.lastPausedValue, false);
+      // Only one handle was created (id=1), no second play() call
+      expect(player.nextHandleId, 2);
+    });
+
+    test('natural completion transitions to completed state', () async {
+      final player = FakeMobileVoicePlaybackPlayer();
+      final backend = MobileVoicePlaybackBackend(player: player);
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'voice-complete',
+        ),
+      );
+
+      await backend.play();
+      final handle = player.lastCreatedHandle!;
+      player.emitCompletion(handle);
+
+      // Allow the stream event to propagate
+      await Future<void>.delayed(Duration.zero);
+
+      expect(backend.state.value.status, VoicePlaybackStatus.completed);
+      expect(backend.state.value.position, backend.state.value.duration);
+    });
+
+    test('seek with negative position clamps to zero', () async {
+      final player = FakeMobileVoicePlaybackPlayer();
+      final backend = MobileVoicePlaybackBackend(player: player);
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'voice-seek-neg',
+        ),
+      );
+
+      await backend.seek(const Duration(milliseconds: -500));
+
+      expect(backend.state.value.position, Duration.zero);
+    });
+
+    test('play after completion resets to beginning', () async {
+      final player = FakeMobileVoicePlaybackPlayer();
+      final backend = MobileVoicePlaybackBackend(player: player);
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'voice-replay',
+        ),
+      );
+
+      await backend.play();
+      final handle = player.lastCreatedHandle!;
+      player.emitCompletion(handle);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(backend.state.value.status, VoicePlaybackStatus.completed);
+
+      await backend.play();
+
+      expect(backend.state.value.status, VoicePlaybackStatus.playing);
+      expect(backend.state.value.position, Duration.zero);
+    });
+
+    test('load new source disposes previous track', () async {
+      final player = FakeMobileVoicePlaybackPlayer();
+      final backend = MobileVoicePlaybackBackend(player: player);
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'source-a',
+        ),
+      );
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'source-b',
+        ),
+      );
+
+      expect(player.disposeTrackCallCount, 1);
+    });
+
+    test('cycleSpeed cycles through 1.0 → 1.5 → 2.0 → 1.0', () async {
+      final player = FakeMobileVoicePlaybackPlayer();
+      final backend = MobileVoicePlaybackBackend(player: player);
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'voice-speed',
+        ),
+      );
+
+      final speeds = <double>[
+        await backend.cycleSpeed(),
+        await backend.cycleSpeed(),
+        await backend.cycleSpeed(),
+      ];
+
+      expect(speeds, [1.5, 2.0, 1.0]);
+    });
+
+    test('play failure transitions to error state', () async {
+      final player = FakeMobileVoicePlaybackPlayer();
+      final backend = MobileVoicePlaybackBackend(player: player);
+
+      await backend.load(
+        VoicePlaybackSource.bytes(
+          bytes: _validOggOpusBytes(),
+          mimeType: 'audio/ogg',
+          mediaId: 'voice-fail',
+        ),
+      );
+
+      player.playError = Exception('audio device unavailable');
+      await backend.play();
+
+      expect(backend.state.value.status, VoicePlaybackStatus.error);
+      expect(
+        backend.state.value.errorMessage,
+        contains('audio device unavailable'),
+      );
+    });
   });
 }
 
@@ -113,9 +287,19 @@ final class FakeMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
   int stopCallCount = 0;
   int disposeTrackCallCount = 0;
   int disposePlayerCallCount = 0;
+  int setPausedCount = 0;
+  bool? lastPausedValue;
+  Object? playError;
   int _nextHandleId = 1;
+  FakeMobileVoicePlaybackHandle? lastCreatedHandle;
   final Set<FakeMobileVoicePlaybackHandle> _validHandles =
       <FakeMobileVoicePlaybackHandle>{};
+
+  int get nextHandleId => _nextHandleId;
+
+  void emitCompletion(MobileVoicePlaybackHandle handle) {
+    _completionController.add(handle);
+  }
 
   @override
   Future<void> disposePlayer() async {
@@ -164,8 +348,13 @@ final class FakeMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
     MobileVoicePlaybackTrack track, {
     required double speed,
   }) {
+    final error = playError;
+    if (error != null) {
+      throw error;
+    }
     lastSpeed = speed;
     final handle = FakeMobileVoicePlaybackHandle(_nextHandleId++);
+    lastCreatedHandle = handle;
     _validHandles.add(handle);
     return handle;
   }
@@ -177,7 +366,10 @@ final class FakeMobileVoicePlaybackPlayer implements MobileVoicePlaybackPlayer {
   }
 
   @override
-  void setPaused(MobileVoicePlaybackHandle handle, bool paused) {}
+  void setPaused(MobileVoicePlaybackHandle handle, bool paused) {
+    setPausedCount += 1;
+    lastPausedValue = paused;
+  }
 
   @override
   void setSpeed(MobileVoicePlaybackHandle handle, double speed) {

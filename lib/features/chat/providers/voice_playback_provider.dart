@@ -34,6 +34,22 @@ class VoicePlaybackState {
   bool get isPlaying => status == VoicePlaybackStatus.playing;
   bool get isLoading => status == VoicePlaybackStatus.loading;
 
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is VoicePlaybackState &&
+            other.activeMediaId == activeMediaId &&
+            other.status == status &&
+            other.position == position &&
+            other.duration == duration &&
+            other.speed == speed &&
+            other.error == error;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(activeMediaId, status, position, duration, speed, error);
+
   VoicePlaybackState copyWith({
     String? activeMediaId,
     bool clearActiveMediaId = false,
