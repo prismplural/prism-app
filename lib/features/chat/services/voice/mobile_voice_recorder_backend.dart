@@ -180,7 +180,14 @@ class MobileVoiceRecorderBackend implements VoiceRecorderBackend {
         if (!_meterController.isClosed) {
           _meterController.add(value);
         }
-        _updateElapsed();
+        // Update elapsed in the same tick as the amplitude sample so
+        // listeners get one notification per interval, not two.
+        final startedAt = _recordingStartedAt;
+        if (startedAt != null) {
+          state.value = state.value.copyWith(
+            elapsed: _now().difference(startedAt),
+          );
+        }
       });
 
       state.value = state.value.copyWith(
@@ -411,7 +418,7 @@ class MobileVoiceRecorderBackend implements VoiceRecorderBackend {
       return const VoiceRecorderCapabilities(
         isSupported: true,
         needsCafToOggRemux: false,
-        outputFileExtension: 'ogg',
+        outputFileExtension: 'opus',
         sourceContainerLabel: 'Ogg Opus',
         normalizedContainerLabel: 'Ogg Opus',
         summary: 'Records Ogg Opus directly.',
@@ -438,17 +445,6 @@ class MobileVoiceRecorderBackend implements VoiceRecorderBackend {
         await _fileStore.deleteIfExists(path);
       } catch (_) {}
     }
-  }
-
-  void _updateElapsed() {
-    final startedAt = _recordingStartedAt;
-    if (startedAt == null) {
-      return;
-    }
-    state.value = state.value.copyWith(
-      elapsed: _now().difference(startedAt),
-      status: state.value.status,
-    );
   }
 
   VoiceRecorderBackendException _setError(
