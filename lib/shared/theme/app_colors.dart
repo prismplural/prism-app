@@ -67,6 +67,8 @@ class AppColors {
       brightness == Brightness.dark ? accentRoseDark : accentRoseLight;
   static Color nearby(Brightness brightness) =>
       brightness == Brightness.dark ? accentSageDark : accentSageLight;
+  static Color sleep(Brightness brightness) =>
+      brightness == Brightness.dark ? const Color(0xFF7986CB) : const Color(0xFF3949AB);
   static const Color dormant = Color(0xFF94A3B8);
 
   /// Generate a distinct color for a member at [index] in a list.
