@@ -95,6 +95,7 @@ dependencies:
   audio_session: ^0.1.21
   cupertino_calendar_picker: ^2.2.6
   flutter_markdown_plus: ^1.0.7
+  markdown: ^7.0.0
   record: ^6.2.0
   flutter_soloud: ^4.0.2
   ogg_caf_converter: ^0.1.4
