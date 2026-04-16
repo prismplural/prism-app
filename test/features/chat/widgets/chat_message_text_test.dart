@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -222,6 +224,62 @@ void main() {
 
       expect(mentionSpan, isNotNull);
       expect(mentionSpan!.text, '@Unknown');
+    });
+  });
+
+  group('fuzz', () {
+    testWidgets('1000 random strings do not throw', (tester) async {
+      final rng = Random(1337);
+      const chars = 'abcdefghijklmnopqrstuvwxyz0123456789 *_`[]()@#\\\n';
+      for (var i = 0; i < 1000; i++) {
+        final len = 1 + rng.nextInt(300);
+        final sb = StringBuffer();
+        for (var j = 0; j < len; j++) {
+          sb.write(chars[rng.nextInt(chars.length)]);
+        }
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ChatMessageText(
+                content: sb.toString(),
+                authorMap: null,
+                baseStyle: const TextStyle(fontSize: 14),
+                defaultColor: Colors.black,
+              ),
+            ),
+          ),
+        );
+        expect(
+          tester.takeException(),
+          isNull,
+          reason: 'fuzz iteration $i, input: ${sb.toString()}',
+        );
+      }
+    });
+  });
+
+  group('RTL', () {
+    testWidgets('Arabic text with inline bold renders without error',
+        (tester) async {
+      const arabic = 'مرحبا **world** اهلا';
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Scaffold(
+              body: ChatMessageText(
+                content: arabic,
+                authorMap: null,
+                baseStyle: TextStyle(fontSize: 14),
+                defaultColor: Colors.black,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.byType(MarkdownBody), findsOneWidget);
+      expect(find.textContaining('مرحبا'), findsOneWidget);
     });
   });
 }
