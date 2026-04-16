@@ -1,8 +1,7 @@
-// ignore: implementation_imports
-import 'package:bip39_plus/src/wordlists/english.dart' show WORDLIST;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:prism_plurality/core/crypto/bip39_english_wordlist.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -63,7 +62,7 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
   bool _hasValidClipboard = false;
 
   // Wordlist as a Set for O(1) membership checks.
-  static final Set<String> _wordSet = Set.unmodifiable(WORDLIST);
+  static final Set<String> _wordSet = bip39EnglishWordlistSet;
 
   @override
   void initState() {
@@ -162,7 +161,7 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
     // it in full and probably doesn't want to re-insert it.
     if (_wordSet.contains(partial)) return const [];
     final hits = <String>[];
-    for (final w in WORDLIST) {
+    for (final w in bip39EnglishWordlist) {
       if (w.startsWith(partial)) {
         hits.add(w);
         if (hits.length >= 5) break;
