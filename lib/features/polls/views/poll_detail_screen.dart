@@ -84,6 +84,10 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
   String? _selectedOptionId;
   // For multi-vote mode
   final Set<String> _selectedOptionIds = {};
+  String? _syncedOptionId;
+  Set<String> _syncedOptionIds = const {};
+  String _syncedOtherText = '';
+  String? _syncedVotingAs;
   // For "Other" option text
   final _otherTextController = TextEditingController();
   // Suppresses result display during multi-vote submission
@@ -96,6 +100,15 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     ref.listenManual(activeMembersProvider, (_, next) {
       _queueDefaultVotingAs(next.value);
     }, fireImmediately: true);
+    ref.listenManual<String?>(votingAsProvider, (_, next) {
+      _syncSelectionFromVotes(votingAs: next, force: true);
+    }, fireImmediately: true);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PollDetailBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncSelectionFromVotes(votingAs: ref.read(votingAsProvider));
   }
 
   @override
@@ -115,6 +128,127 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
       0,
       (sum, option) => sum + option.votes.length,
     );
+  }
+
+  bool get _hasCurrentMemberVoted {
+    final votingAs = ref.read(votingAsProvider);
+    if (votingAs == null) return false;
+    return widget.options.any(
+      (option) => option.votes.any((vote) => vote.memberId == votingAs),
+    );
+  }
+
+  bool get _hasPendingVoteChanges {
+    final votingAs = ref.read(votingAsProvider);
+    if (votingAs == null) return false;
+    final persistedOptionId = _persistedSelectedOptionId(votingAs);
+    final persistedOptionIds = _persistedSelectedOptionIds(votingAs);
+    final persistedOtherText = _persistedOtherText(votingAs);
+
+    if (widget.poll.allowsMultipleVotes) {
+      return !_setEquals(_selectedOptionIds, persistedOptionIds) ||
+          _otherTextController.text.trim() != persistedOtherText;
+    }
+
+    return _selectedOptionId != persistedOptionId ||
+        _otherTextController.text.trim() != persistedOtherText;
+  }
+
+  bool get _hasSelection {
+    return widget.poll.allowsMultipleVotes
+        ? _selectedOptionIds.isNotEmpty
+        : _selectedOptionId != null;
+  }
+
+  bool _setEquals(Set<String> a, Set<String> b) {
+    if (a.length != b.length) return false;
+    for (final value in a) {
+      if (!b.contains(value)) return false;
+    }
+    return true;
+  }
+
+  String? _persistedSelectedOptionId(String? memberId) {
+    if (memberId == null) return null;
+
+    PollVote? latestVote;
+    String? selectedOptionId;
+    for (final option in widget.options) {
+      for (final vote in option.votes) {
+        if (vote.memberId != memberId) continue;
+        if (latestVote == null || vote.votedAt.isAfter(latestVote.votedAt)) {
+          latestVote = vote;
+          selectedOptionId = option.id;
+        }
+      }
+    }
+    return selectedOptionId;
+  }
+
+  Set<String> _persistedSelectedOptionIds(String? memberId) {
+    if (memberId == null) return const {};
+
+    final optionIds = <String>{};
+    for (final option in widget.options) {
+      if (option.votes.any((vote) => vote.memberId == memberId)) {
+        optionIds.add(option.id);
+      }
+    }
+    return optionIds;
+  }
+
+  String _persistedOtherText(String? memberId) {
+    if (memberId == null) return '';
+
+    PollVote? latestVote;
+    for (final option in widget.options) {
+      if (!option.isOtherOption) continue;
+      for (final vote in option.votes) {
+        if (vote.memberId != memberId) continue;
+        if (latestVote == null || vote.votedAt.isAfter(latestVote.votedAt)) {
+          latestVote = vote;
+        }
+      }
+    }
+    return latestVote?.responseText?.trim() ?? '';
+  }
+
+  bool _selectionMatchesSyncedVote() {
+    return _selectedOptionId == _syncedOptionId &&
+        _setEquals(_selectedOptionIds, _syncedOptionIds) &&
+        _otherTextController.text.trim() == _syncedOtherText;
+  }
+
+  void _syncSelectionFromVotes({
+    required String? votingAs,
+    bool force = false,
+  }) {
+    final persistedOptionId = _persistedSelectedOptionId(votingAs);
+    final persistedOptionIds = _persistedSelectedOptionIds(votingAs);
+    final persistedOtherText = _persistedOtherText(votingAs);
+    final shouldReplaceLocalState =
+        force || _syncedVotingAs != votingAs || _selectionMatchesSyncedVote();
+
+    _syncedVotingAs = votingAs;
+    _syncedOptionId = persistedOptionId;
+    _syncedOptionIds = persistedOptionIds;
+    _syncedOtherText = persistedOtherText;
+
+    if (!mounted || !shouldReplaceLocalState) return;
+
+    final needsUpdate =
+        _selectedOptionId != persistedOptionId ||
+        !_setEquals(_selectedOptionIds, persistedOptionIds) ||
+        _otherTextController.text != persistedOtherText;
+    if (!needsUpdate) return;
+
+    setState(() {
+      _selectedOptionId = persistedOptionId;
+      _selectedOptionIds
+        ..clear()
+        ..addAll(persistedOptionIds);
+      _otherTextController.text = persistedOtherText;
+    });
   }
 
   void _queueDefaultVotingAs(List<Member>? members) {
@@ -199,9 +333,6 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
         );
         setState(() {
           _isSubmitting = false;
-          _selectedOptionId = null;
-          _selectedOptionIds.clear();
-          _otherTextController.clear();
         });
       }
     } catch (e) {
@@ -253,6 +384,8 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
     final theme = Theme.of(context);
     final membersAsync = ref.watch(activeMembersProvider);
     final votingAs = ref.watch(votingAsProvider);
+    final hasCurrentMemberVoted = _hasCurrentMemberVoted;
+    final hasPendingVoteChanges = _hasPendingVoteChanges;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -346,6 +479,14 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                   ),
               ],
             ),
+            if (hasCurrentMemberVoted) ...[
+              const SizedBox(height: 12),
+              PrismPill(
+                icon: AppIcons.checkCircleOutline,
+                label: context.l10n.pollsDetailVoteSubmitted,
+                tone: PrismPillTone.accent,
+              ),
+            ],
 
             const SizedBox(height: 24),
 
@@ -450,14 +591,14 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
             }),
 
             // Vote button
-            if (!_isClosed) ...[
+            if (!_isClosed &&
+                (!_hasCurrentMemberVoted || hasPendingVoteChanges)) ...[
               const SizedBox(height: 16),
               PrismButton(
                 label: context.l10n.pollsDetailSubmitVote,
                 tone: PrismButtonTone.filled,
                 expanded: true,
-                enabled:
-                    _selectedOptionId != null || _selectedOptionIds.isNotEmpty,
+                enabled: _hasSelection && hasPendingVoteChanges,
                 onPressed: _submitVote,
               ),
             ],
