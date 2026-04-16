@@ -24,10 +24,11 @@ class DownloadProgress {
 
 /// Typedef for the FFI download function. Allows injection in tests without
 /// hitting the real flutter_rust_bridge native layer.
-typedef DownloadMediaFn = Future<Uint8List> Function({
-  required ffi.PrismSyncHandle handle,
-  required String mediaId,
-});
+typedef DownloadMediaFn =
+    Future<Uint8List> Function({
+      required ffi.PrismSyncHandle handle,
+      required String mediaId,
+    });
 
 class DownloadManager {
   DownloadManager({
@@ -35,8 +36,8 @@ class DownloadManager {
     required this.encryption,
     Directory? cacheDirOverride,
     DownloadMediaFn? downloadMediaFn,
-  })  : _cacheDirOverride = cacheDirOverride,
-        _downloadMediaFn = downloadMediaFn ?? _defaultDownloadMediaFn;
+  }) : _cacheDirOverride = cacheDirOverride,
+       _downloadMediaFn = downloadMediaFn ?? _defaultDownloadMediaFn;
 
   final ffi.PrismSyncHandle? handle;
   final MediaEncryptionService encryption;
@@ -146,11 +147,9 @@ class DownloadManager {
     required Uint8List encryptionKey,
     required String ciphertextHash,
     required String plaintextHash,
+    String fileExtension = '',
   }) async {
-    // Audio files need a .m4a extension so iOS AVPlayer can detect the format.
-    // Android's ExoPlayer does byte-header detection and doesn't need it, but
-    // using an extension is correct on both platforms.
-    const ext = '.m4a';
+    final ext = _normalizeFileExtension(fileExtension);
 
     // Get decrypted bytes (from .enc cache or fresh download).
     final bytes = await getMedia(
@@ -170,7 +169,7 @@ class DownloadManager {
         ? Directory('${_cacheDirOverride.path}/tmp')
         : await getTemporaryDirectory();
     await tempDir.create(recursive: true);
-    final tempFile = File('${tempDir.path}/$mediaId.m4a');
+    final tempFile = File('${tempDir.path}/$mediaId$ext');
     await tempFile.writeAsBytes(bytes);
     return tempFile;
   }
@@ -217,11 +216,9 @@ class DownloadManager {
     // ignore: close_sinks
     final controller = _progressControllers[mediaId];
     if (controller != null && !controller.isClosed) {
-      controller.add(DownloadProgress(
-        mediaId: mediaId,
-        state: state,
-        error: error,
-      ));
+      controller.add(
+        DownloadProgress(mediaId: mediaId, state: state, error: error),
+      );
     }
   }
 
@@ -250,6 +247,21 @@ class DownloadManager {
     final dir = await _cacheDir();
     final suffix = encrypted ? '.enc' : '';
     return File('${dir.path}/$mediaId$fileExtension$suffix');
+  }
+
+  String _normalizeFileExtension(String fileExtension) {
+    final trimmed = fileExtension.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+
+    final normalized = trimmed.startsWith('.') ? trimmed : '.$trimmed';
+    if (normalized.contains(Platform.pathSeparator) ||
+        normalized.contains('/')) {
+      return '';
+    }
+
+    return normalized;
   }
 
   /// Decrypts [ciphertext] using [MediaEncryptionService].

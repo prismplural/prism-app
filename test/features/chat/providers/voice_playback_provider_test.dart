@@ -1,430 +1,289 @@
-import 'dart:io';
-
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/core/services/media/download_manager.dart';
+import 'package:prism_plurality/core/services/media/image_compression_service.dart';
+import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
+import 'package:prism_plurality/core/services/media/media_service.dart';
+import 'package:prism_plurality/core/services/media/upload_queue.dart';
 import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_playback_backend.dart';
 
 void main() {
-  // ══════════════════════════════════════════════════════════════════════════
-  // VoicePlaybackState
-  // ══════════════════════════════════════════════════════════════════════════
+  group('MediaService.prepareVoiceNote', () {
+    test('stores audio/ogg metadata for voice notes', () async {
+      final encryption = _FakeMediaEncryptionService();
+      final service = MediaService(
+        compression: ImageCompressionService(),
+        encryption: encryption,
+        uploadQueue: UploadQueue(handle: null),
+        downloadManager: DownloadManager(handle: null, encryption: encryption),
+      );
 
-  group('VoicePlaybackState', () {
-    test('default constructor has expected initial values', () {
-      const state = VoicePlaybackState();
+      final result = await service.prepareVoiceNote(
+        _validOggOpusBytes(),
+        1200,
+        'abcd',
+      );
 
-      expect(state.activeMediaId, isNull);
-      expect(state.isPlaying, isFalse);
-      expect(state.position, Duration.zero);
-      expect(state.duration, Duration.zero);
-      expect(state.speed, 1.0);
+      expect(result.mimeType, 'audio/ogg');
     });
 
-    test('constructor accepts all named parameters', () {
-      const state = VoicePlaybackState(
-        activeMediaId: 'media-123',
-        isPlaying: true,
-        position: Duration(seconds: 10),
-        duration: Duration(seconds: 60),
+    test('rejects non-ogg bytes before upload', () async {
+      final encryption = _FakeMediaEncryptionService();
+      final service = MediaService(
+        compression: ImageCompressionService(),
+        encryption: encryption,
+        uploadQueue: UploadQueue(handle: null),
+        downloadManager: DownloadManager(handle: null, encryption: encryption),
+      );
+
+      await expectLater(
+        () => service.prepareVoiceNote(
+          Uint8List.fromList([1, 2, 3, 4]),
+          1200,
+          'abcd',
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+  });
+
+  group('VoicePlaybackNotifier', () {
+    test('routes ogg playback through the backend contract', () async {
+      final backend = FakeVoicePlaybackBackend();
+      final container = ProviderContainer(
+        overrides: [voicePlaybackBackendProvider.overrideWithValue(backend)],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(voicePlaybackProvider.notifier);
+      final source = VoicePlaybackSource.bytes(
+        bytes: _validOggOpusBytes(),
+        mimeType: 'audio/ogg',
+        mediaId: 'voice-1',
+      );
+
+      await notifier.togglePlayPause(source);
+
+      expect(backend.loadedSources, hasLength(1));
+      expect(backend.loadedSources.single.mediaId, 'voice-1');
+      expect(backend.loadedSources.single.bytes, isNotNull);
+      expect(backend.playCallCount, 1);
+
+      backend.state.value = backend.state.value.copyWith(
+        mediaId: 'voice-1',
+        status: VoicePlaybackStatus.playing,
+        position: const Duration(seconds: 2),
+        duration: const Duration(seconds: 5),
         speed: 1.5,
       );
 
-      expect(state.activeMediaId, 'media-123');
+      final state = container.read(voicePlaybackProvider);
+      expect(state.activeMediaId, 'voice-1');
       expect(state.isPlaying, isTrue);
-      expect(state.position, const Duration(seconds: 10));
-      expect(state.duration, const Duration(seconds: 60));
+      expect(state.position, const Duration(seconds: 2));
+      expect(state.duration, const Duration(seconds: 5));
       expect(state.speed, 1.5);
+      expect(state.error, isNull);
     });
 
-    group('copyWith', () {
-      test('preserves all fields when called with no arguments', () {
-        const original = VoicePlaybackState(
-          activeMediaId: 'media-abc',
-          isPlaying: true,
-          position: Duration(seconds: 5),
-          duration: Duration(minutes: 2),
-          speed: 2.0,
-        );
-
-        final copied = original.copyWith();
-
-        expect(copied.activeMediaId, original.activeMediaId);
-        expect(copied.isPlaying, original.isPlaying);
-        expect(copied.position, original.position);
-        expect(copied.duration, original.duration);
-        expect(copied.speed, original.speed);
-      });
-
-      test('overrides only the specified fields', () {
-        const original = VoicePlaybackState(
-          activeMediaId: 'media-abc',
-          isPlaying: true,
-          position: Duration(seconds: 5),
-          duration: Duration(minutes: 2),
-          speed: 2.0,
-        );
-
-        final copied = original.copyWith(isPlaying: false, speed: 1.0);
-
-        expect(copied.activeMediaId, 'media-abc');
-        expect(copied.isPlaying, isFalse);
-        expect(copied.position, const Duration(seconds: 5));
-        expect(copied.duration, const Duration(minutes: 2));
-        expect(copied.speed, 1.0);
-      });
-
-      test('can update activeMediaId to a different value', () {
-        const original = VoicePlaybackState(activeMediaId: 'old-id');
-
-        final copied = original.copyWith(activeMediaId: 'new-id');
-
-        expect(copied.activeMediaId, 'new-id');
-      });
-
-      test('cannot set activeMediaId back to null via copyWith (known limitation)', () {
-        // copyWith uses `activeMediaId ?? this.activeMediaId`, so passing null
-        // is indistinguishable from not passing it at all. This is a known
-        // limitation — the stop() method works around it by constructing a
-        // fresh const VoicePlaybackState() instead.
-        const original = VoicePlaybackState(activeMediaId: 'media-123');
-
-        final copied = original.copyWith(activeMediaId: null);
-
-        // Still retains the old value because null falls through to ??
-        expect(copied.activeMediaId, 'media-123');
-      });
-
-      test('can override position and duration independently', () {
-        const original = VoicePlaybackState();
-
-        final copied = original.copyWith(
-          position: const Duration(seconds: 30),
-          duration: const Duration(minutes: 3),
-        );
-
-        expect(copied.position, const Duration(seconds: 30));
-        expect(copied.duration, const Duration(minutes: 3));
-        // Unset fields preserved
-        expect(copied.activeMediaId, isNull);
-        expect(copied.isPlaying, isFalse);
-        expect(copied.speed, 1.0);
-      });
-    });
-  });
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // VoicePlaybackNotifier — initial state & disposal
-  // ══════════════════════════════════════════════════════════════════════════
-
-  group('VoicePlaybackNotifier', () {
-    test('initial state matches default VoicePlaybackState', () {
-      final container = ProviderContainer();
+    test('pause and resume reuse the loaded backend track', () async {
+      final backend = FakeVoicePlaybackBackend();
+      final container = ProviderContainer(
+        overrides: [voicePlaybackBackendProvider.overrideWithValue(backend)],
+      );
       addTearDown(container.dispose);
 
-      final state = container.read(voicePlaybackProvider);
+      final notifier = container.read(voicePlaybackProvider.notifier);
+      final source = VoicePlaybackSource.bytes(
+        bytes: _validOggOpusBytes(),
+        mimeType: 'audio/ogg',
+        mediaId: 'voice-2',
+      );
 
-      expect(state.activeMediaId, isNull);
-      expect(state.isPlaying, isFalse);
-      expect(state.position, Duration.zero);
-      expect(state.duration, Duration.zero);
-      expect(state.speed, 1.0);
+      await notifier.togglePlayPause(source);
+      backend.state.value = backend.state.value.copyWith(
+        mediaId: 'voice-2',
+        status: VoicePlaybackStatus.playing,
+      );
+
+      await notifier.togglePlayPause(source);
+      expect(backend.pauseCallCount, 1);
+      expect(backend.loadedSources, hasLength(1));
+
+      backend.state.value = backend.state.value.copyWith(
+        mediaId: 'voice-2',
+        status: VoicePlaybackStatus.paused,
+      );
+
+      await notifier.togglePlayPause(source);
+      expect(backend.playCallCount, 2);
+      expect(backend.loadedSources, hasLength(1));
     });
 
-    test('disposing the container does not throw', () {
-      // Verifies that ref.onDispose(_disposePlayer) is wired up correctly
-      // and doesn't throw when there's no active player.
-      final container = ProviderContainer();
+    test('seek and speed changes flow through the backend', () async {
+      final backend = FakeVoicePlaybackBackend();
+      final container = ProviderContainer(
+        overrides: [voicePlaybackBackendProvider.overrideWithValue(backend)],
+      );
+      addTearDown(container.dispose);
 
-      // Force the provider to build (registers the dispose callback)
-      container.read(voicePlaybackProvider);
+      final notifier = container.read(voicePlaybackProvider.notifier);
+      final source = VoicePlaybackSource.bytes(
+        bytes: _validOggOpusBytes(),
+        mimeType: 'audio/ogg',
+        mediaId: 'voice-3',
+      );
 
-      // Dispose should complete without error
-      expect(container.dispose, returnsNormally);
+      await notifier.togglePlayPause(source);
+      await notifier.seek(const Duration(seconds: 3));
+      await notifier.cycleSpeed();
+
+      expect(backend.seekPositions, [const Duration(seconds: 3)]);
+      expect(backend.cycleSpeedCallCount, 1);
+      expect(container.read(voicePlaybackProvider).speed, 1.5);
     });
 
-    test('multiple build/dispose cycles do not throw', () {
-      // Ensures the dispose callback can handle repeated cycles gracefully.
-      for (var i = 0; i < 3; i++) {
-        final container = ProviderContainer();
-        container.read(voicePlaybackProvider);
-        expect(container.dispose, returnsNormally);
-      }
-    });
-
-    // ════════════════════════════════════════════════════════════════════════
-    // cycleSpeed — state transitions
-    // ════════════════════════════════════════════════════════════════════════
-
-    group('cycleSpeed', () {
-      test('cycles 1.0 -> 1.5', () {
-        final container = ProviderContainer();
+    test(
+      'backend validation failures surface a retryable error state',
+      () async {
+        final backend = FakeVoicePlaybackBackend()..failNextLoad = true;
+        final container = ProviderContainer(
+          overrides: [voicePlaybackBackendProvider.overrideWithValue(backend)],
+        );
         addTearDown(container.dispose);
 
         final notifier = container.read(voicePlaybackProvider.notifier);
+        final source = VoicePlaybackSource.bytes(
+          bytes: Uint8List.fromList([1, 2, 3, 4]),
+          mimeType: 'audio/ogg',
+          mediaId: 'broken-voice',
+        );
 
-        // Initial speed is 1.0
-        expect(container.read(voicePlaybackProvider).speed, 1.0);
-
-        notifier.cycleSpeed();
-
-        expect(container.read(voicePlaybackProvider).speed, 1.5);
-      });
-
-      test('cycles 1.5 -> 2.0', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Cycle once to get to 1.5
-        notifier.cycleSpeed();
-        expect(container.read(voicePlaybackProvider).speed, 1.5);
-
-        // Cycle again to get to 2.0
-        notifier.cycleSpeed();
-        expect(container.read(voicePlaybackProvider).speed, 2.0);
-      });
-
-      test('cycles 2.0 -> 1.0 (wraps around)', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Cycle through: 1.0 -> 1.5 -> 2.0
-        notifier.cycleSpeed();
-        notifier.cycleSpeed();
-        expect(container.read(voicePlaybackProvider).speed, 2.0);
-
-        // Cycle wraps back to 1.0
-        notifier.cycleSpeed();
-        expect(container.read(voicePlaybackProvider).speed, 1.0);
-      });
-
-      test('full cycle returns to initial speed', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Three cycles: 1.0 -> 1.5 -> 2.0 -> 1.0
-        notifier.cycleSpeed();
-        notifier.cycleSpeed();
-        notifier.cycleSpeed();
-
-        expect(container.read(voicePlaybackProvider).speed, 1.0);
-      });
-
-      test('cycleSpeed preserves other state fields', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Read initial state to confirm baseline
-        final before = container.read(voicePlaybackProvider);
-
-        notifier.cycleSpeed();
-
-        final after = container.read(voicePlaybackProvider);
-
-        // Speed changed
-        expect(after.speed, 1.5);
-        // Everything else preserved
-        expect(after.activeMediaId, before.activeMediaId);
-        expect(after.isPlaying, before.isPlaying);
-        expect(after.position, before.position);
-        expect(after.duration, before.duration);
-      });
-
-      test('cycleSpeed without a loaded player does not throw', () {
-        // _player is null, so _player?.setSpeed(newSpeed) is a no-op.
-        // The state should still update.
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        expect(notifier.cycleSpeed, returnsNormally);
-        expect(container.read(voicePlaybackProvider).speed, 1.5);
-      });
-    });
-
-    // ════════════════════════════════════════════════════════════════════════
-    // stop — resets to fresh const state
-    // ════════════════════════════════════════════════════════════════════════
-
-    group('stop', () {
-      test('resets state to const VoicePlaybackState()', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Change speed so state is non-default
-        notifier.cycleSpeed();
-        expect(container.read(voicePlaybackProvider).speed, 1.5);
-
-        notifier.stop();
+        await notifier.togglePlayPause(source);
 
         final state = container.read(voicePlaybackProvider);
-        expect(state.activeMediaId, isNull);
+        expect(state.activeMediaId, 'broken-voice');
         expect(state.isPlaying, isFalse);
-        expect(state.position, Duration.zero);
-        expect(state.duration, Duration.zero);
-        expect(state.speed, 1.0);
-      });
+        expect(state.error, contains('validated Ogg Opus'));
+        expect(backend.playCallCount, 0);
 
-      test('stop correctly nullifies activeMediaId (workaround for copyWith limitation)', () {
-        // This is the key test: stop() uses `const VoicePlaybackState()`
-        // instead of copyWith, which ensures activeMediaId can be set back
-        // to null — something copyWith cannot do.
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Manually cycle speed to modify state (we can't load a player in unit tests)
-        notifier.cycleSpeed();
-
-        notifier.stop();
-
-        expect(container.read(voicePlaybackProvider).activeMediaId, isNull);
-      });
-
-      test('stop without a loaded player does not throw', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        expect(notifier.stop, returnsNormally);
-      });
-
-      test('stop resets speed even after cycling', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        notifier.cycleSpeed(); // 1.5
-        notifier.cycleSpeed(); // 2.0
-        notifier.stop();
-
-        expect(container.read(voicePlaybackProvider).speed, 1.0);
-      });
-    });
-
-    // ════════════════════════════════════════════════════════════════════════
-    // seek — null-safe when no player loaded
-    // ════════════════════════════════════════════════════════════════════════
-
-    group('seek', () {
-      test('seek without a loaded player does not throw', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        expect(
-          () => notifier.seek(const Duration(seconds: 30)),
-          returnsNormally,
+        backend.failNextLoad = false;
+        await notifier.togglePlayPause(
+          VoicePlaybackSource.bytes(
+            bytes: _validOggOpusBytes(),
+            mimeType: 'audio/ogg',
+            mediaId: 'broken-voice',
+          ),
         );
-      });
-    });
 
-    // ════════════════════════════════════════════════════════════════════════
-    // temp file deletion — security invariant
-    //
-    // Plaintext audio files written to the temp directory by DownloadManager
-    // must be deleted as soon as playback ends or the provider is disposed.
-    // These tests use [setTempFileForTesting] to inject a temp file without
-    // needing a live audio player.
-    // ════════════════════════════════════════════════════════════════════════
-
-    group('temp file deletion', () {
-      test('stop() deletes the temp file', () async {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Create a real temp file to verify deletion.
-        final tmpFile = await File(
-          '${Directory.systemTemp.path}/vp_test_stop.m4a',
-        ).create();
-        addTearDown(() async {
-          if (tmpFile.existsSync()) await tmpFile.delete();
-        });
-
-        notifier.setTempFileForTesting(tmpFile);
-        expect(tmpFile.existsSync(), isTrue, reason: 'file must exist before stop()');
-
-        notifier.stop();
-
-        // File deletion is fire-and-forget; give the event loop a turn.
-        await Future<void>.delayed(Duration.zero);
-
-        expect(tmpFile.existsSync(), isFalse,
-            reason: 'temp file must be deleted after stop()');
-      });
-
-      test('container disposal deletes the temp file', () async {
-        final container = ProviderContainer();
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        final tmpFile = await File(
-          '${Directory.systemTemp.path}/vp_test_dispose.m4a',
-        ).create();
-        addTearDown(() async {
-          if (tmpFile.existsSync()) await tmpFile.delete();
-        });
-
-        notifier.setTempFileForTesting(tmpFile);
-        expect(tmpFile.existsSync(), isTrue);
-
-        // Disposing the container triggers ref.onDispose → _disposePlayer()
-        // → _deleteTempFile().
-        container.dispose();
-        await Future<void>.delayed(Duration.zero);
-
-        expect(tmpFile.existsSync(), isFalse,
-            reason: 'temp file must be deleted when provider is disposed');
-      });
-
-      test('setTempFileForTesting(null) after stop does not throw', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // No temp file set — stop should not throw.
-        expect(notifier.stop, returnsNormally);
-
-        // Explicitly set to null and stop again — still no throw.
-        notifier.setTempFileForTesting(null);
-        expect(notifier.stop, returnsNormally);
-      });
-
-      test('stop() with already-deleted temp file does not throw', () async {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Create and immediately delete the file to simulate OS cleanup.
-        final tmpFile = await File(
-          '${Directory.systemTemp.path}/vp_test_missing.m4a',
-        ).create();
-        await tmpFile.delete();
-
-        notifier.setTempFileForTesting(tmpFile);
-
-        // stop() must not throw even when the file is already gone.
-        expect(notifier.stop, returnsNormally);
-        await Future<void>.delayed(Duration.zero);
-      });
-    });
+        expect(backend.loadedSources, hasLength(2));
+        expect(backend.playCallCount, 1);
+      },
+    );
   });
+}
+
+Uint8List _validOggOpusBytes() {
+  return Uint8List.fromList([
+    ...'OggS'.codeUnits,
+    ...List<int>.filled(24, 0),
+    ...'OpusHead'.codeUnits,
+    ...List<int>.filled(32, 1),
+  ]);
+}
+
+final class FakeVoicePlaybackBackend implements VoicePlaybackBackend {
+  @override
+  final ValueNotifier<VoicePlaybackBackendState> state =
+      ValueNotifier<VoicePlaybackBackendState>(
+        const VoicePlaybackBackendState(),
+      );
+
+  final List<VoicePlaybackSource> loadedSources = <VoicePlaybackSource>[];
+  final List<Duration> seekPositions = <Duration>[];
+  int playCallCount = 0;
+  int pauseCallCount = 0;
+  int cycleSpeedCallCount = 0;
+  bool failNextLoad = false;
+
+  @override
+  Future<double> cycleSpeed() async {
+    cycleSpeedCallCount += 1;
+    final newSpeed = nextVoicePlaybackSpeed(state.value.speed);
+    state.value = state.value.copyWith(speed: newSpeed);
+    return newSpeed;
+  }
+
+  @override
+  Future<void> dispose() async {
+    state.dispose();
+  }
+
+  @override
+  Future<void> load(VoicePlaybackSource source) async {
+    loadedSources.add(source);
+    if (failNextLoad) {
+      state.value = state.value.copyWith(
+        mediaId: source.mediaId,
+        status: VoicePlaybackStatus.error,
+        errorMessage:
+            'Voice playback requires validated Ogg Opus bytes; got Unknown.',
+      );
+      return;
+    }
+
+    state.value = state.value.copyWith(
+      mediaId: source.mediaId,
+      status: VoicePlaybackStatus.ready,
+      position: Duration.zero,
+      duration: const Duration(seconds: 5),
+      clearErrorMessage: true,
+    );
+  }
+
+  @override
+  Future<void> pause() async {
+    pauseCallCount += 1;
+    state.value = state.value.copyWith(status: VoicePlaybackStatus.paused);
+  }
+
+  @override
+  Future<void> play() async {
+    if (state.value.status == VoicePlaybackStatus.error) {
+      return;
+    }
+    playCallCount += 1;
+    state.value = state.value.copyWith(status: VoicePlaybackStatus.playing);
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    seekPositions.add(position);
+    state.value = state.value.copyWith(position: position);
+  }
+
+  @override
+  Future<void> stop() async {
+    state.value = const VoicePlaybackBackendState();
+  }
+}
+
+final class _FakeMediaEncryptionService extends MediaEncryptionService {
+  @override
+  Future<EncryptedMedia> encryptMedia(Uint8List plaintext) async {
+    final ciphertext = Uint8List.fromList(plaintext.reversed.toList());
+    final key = Uint8List.fromList(
+      List<int>.generate(32, (index) => index + 1),
+    );
+    return EncryptedMedia(
+      ciphertext: ciphertext,
+      key: key,
+      plaintextHash: sha256.convert(plaintext).toString(),
+      ciphertextHash: sha256.convert(ciphertext).toString(),
+    );
+  }
 }

@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -26,8 +25,9 @@ class FakeMediaEncryptionService extends MediaEncryptionService {
     Uint8List plaintext,
     Uint8List key,
   ) async {
-    final ciphertext =
-        Uint8List.fromList(plaintext.map((b) => b ^ key[0]).toList());
+    final ciphertext = Uint8List.fromList(
+      plaintext.map((b) => b ^ key[0]).toList(),
+    );
     final plaintextHash = sha256.convert(plaintext).toString();
     final ciphertextHash = sha256.convert(ciphertext).toString();
     return EncryptedMedia(
@@ -51,8 +51,9 @@ class FakeMediaEncryptionService extends MediaEncryptionService {
       throw StateError('Ciphertext hash mismatch');
     }
     // XOR decrypt (same as encrypt)
-    final plaintext =
-        Uint8List.fromList(ciphertext.map((b) => b ^ key[0]).toList());
+    final plaintext = Uint8List.fromList(
+      ciphertext.map((b) => b ^ key[0]).toList(),
+    );
     final actualPlaintextHash = sha256.convert(plaintext).toString();
     if (actualPlaintextHash != expectedPlaintextHash) {
       throw StateError('Plaintext hash mismatch');
@@ -80,12 +81,19 @@ DownloadManager _makeTestManager(
 
 /// Produces deterministic fake ciphertext and corresponding hashes for
 /// [plaintext] using the [FakeMediaEncryptionService] XOR scheme.
-({Uint8List plaintext, Uint8List ciphertext, Uint8List key, String plaintextHash, String ciphertextHash})
-    _fakeMedia(List<int> plaintextBytes) {
+({
+  Uint8List plaintext,
+  Uint8List ciphertext,
+  Uint8List key,
+  String plaintextHash,
+  String ciphertextHash,
+})
+_fakeMedia(List<int> plaintextBytes) {
   final plaintext = Uint8List.fromList(plaintextBytes);
   final key = Uint8List.fromList(List.generate(32, (i) => i + 1));
-  final ciphertext =
-      Uint8List.fromList(plaintext.map((b) => b ^ key[0]).toList());
+  final ciphertext = Uint8List.fromList(
+    plaintext.map((b) => b ^ key[0]).toList(),
+  );
   return (
     plaintext: plaintext,
     ciphertext: ciphertext,
@@ -108,10 +116,7 @@ void main() {
 
   group('DownloadProgress', () {
     test('stores mediaId, state, and optional error', () {
-      const p = DownloadProgress(
-        mediaId: 'abc',
-        state: DownloadState.idle,
-      );
+      const p = DownloadProgress(mediaId: 'abc', state: DownloadState.idle);
       expect(p.mediaId, 'abc');
       expect(p.state, DownloadState.idle);
       expect(p.error, isNull);
@@ -129,13 +134,16 @@ void main() {
 
   group('DownloadState', () {
     test('has all expected values', () {
-      expect(DownloadState.values, containsAll([
-        DownloadState.idle,
-        DownloadState.downloading,
-        DownloadState.decrypting,
-        DownloadState.completed,
-        DownloadState.failed,
-      ]));
+      expect(
+        DownloadState.values,
+        containsAll([
+          DownloadState.idle,
+          DownloadState.downloading,
+          DownloadState.decrypting,
+          DownloadState.completed,
+          DownloadState.failed,
+        ]),
+      );
       expect(DownloadState.values.length, 5);
     });
   });
@@ -144,10 +152,7 @@ void main() {
 
   group('progressStream', () {
     test('returns a broadcast stream', () {
-      final manager = DownloadManager(
-        handle: null,
-        encryption: encryption,
-      );
+      final manager = DownloadManager(handle: null, encryption: encryption);
       addTearDown(manager.dispose);
 
       final stream = manager.progressStream('test-id');
@@ -155,10 +160,7 @@ void main() {
     });
 
     test('reuses the same controller for the same mediaId', () {
-      final manager = DownloadManager(
-        handle: null,
-        encryption: encryption,
-      );
+      final manager = DownloadManager(handle: null, encryption: encryption);
       addTearDown(manager.dispose);
 
       // Subscribe to the same mediaId twice. Both subscriptions should
@@ -177,10 +179,7 @@ void main() {
     });
 
     test('returns different streams for different mediaIds', () {
-      final manager = DownloadManager(
-        handle: null,
-        encryption: encryption,
-      );
+      final manager = DownloadManager(handle: null, encryption: encryption);
       addTearDown(manager.dispose);
 
       final events1 = <DownloadProgress>[];
@@ -196,10 +195,7 @@ void main() {
     });
 
     test('supports multiple listeners (broadcast)', () async {
-      final manager = DownloadManager(
-        handle: null,
-        encryption: encryption,
-      );
+      final manager = DownloadManager(handle: null, encryption: encryption);
       addTearDown(manager.dispose);
 
       final stream = manager.progressStream('multi');
@@ -222,10 +218,7 @@ void main() {
 
   group('dispose', () {
     test('closes all progress stream controllers', () async {
-      final manager = DownloadManager(
-        handle: null,
-        encryption: encryption,
-      );
+      final manager = DownloadManager(handle: null, encryption: encryption);
 
       final stream1 = manager.progressStream('d1');
       final stream2 = manager.progressStream('d2');
@@ -247,10 +240,7 @@ void main() {
     });
 
     test('calling dispose twice does not throw', () {
-      final manager = DownloadManager(
-        handle: null,
-        encryption: encryption,
-      );
+      final manager = DownloadManager(handle: null, encryption: encryption);
       manager.progressStream('x');
       manager.dispose();
       // Second call: controllers already cleared, no-op.
@@ -313,10 +303,14 @@ void main() {
       var downloadCount = 0;
       final manager = _makeTestManager(
         cacheDir,
-        downloadFn: ({required ffi.PrismSyncHandle handle, required String mediaId}) async {
-          downloadCount++;
-          return media.ciphertext;
-        },
+        downloadFn:
+            ({
+              required ffi.PrismSyncHandle handle,
+              required String mediaId,
+            }) async {
+              downloadCount++;
+              return media.ciphertext;
+            },
       );
       addTearDown(manager.dispose);
 
@@ -371,8 +365,11 @@ void main() {
 
       // The old plaintext file MUST have been deleted before the download
       // attempt — security invariant.
-      expect(plainFile.existsSync(), isFalse,
-          reason: 'old plaintext cache file must be deleted');
+      expect(
+        plainFile.existsSync(),
+        isFalse,
+        reason: 'old plaintext cache file must be deleted',
+      );
     });
 
     test('_cacheFileFor with encrypted=true appends .enc suffix', () async {
@@ -394,25 +391,28 @@ void main() {
       expect(result, equals(media.plaintext));
     });
 
-    test('_cacheFileFor with encrypted=true and extension appends ext then .enc', () async {
-      final media = _fakeMedia([42, 43]);
-      final manager = _makeTestManager(cacheDir);
-      addTearDown(manager.dispose);
+    test(
+      '_cacheFileFor with encrypted=true and extension appends ext then .enc',
+      () async {
+        final media = _fakeMedia([42, 43]);
+        final manager = _makeTestManager(cacheDir);
+        addTearDown(manager.dispose);
 
-      // Audio variant: cache file should be <mediaId>.m4a.enc
-      final encFile = File('${cacheDir.path}/audio-1.m4a.enc');
-      await encFile.writeAsBytes(media.ciphertext);
+        // Audio variant: cache file should be <mediaId>.m4a.enc
+        final encFile = File('${cacheDir.path}/audio-1.m4a.enc');
+        await encFile.writeAsBytes(media.ciphertext);
 
-      final result = await manager.getMedia(
-        mediaId: 'audio-1',
-        encryptionKey: media.key,
-        ciphertextHash: media.ciphertextHash,
-        plaintextHash: media.plaintextHash,
-        fileExtension: '.m4a',
-      );
+        final result = await manager.getMedia(
+          mediaId: 'audio-1',
+          encryptionKey: media.key,
+          ciphertextHash: media.ciphertextHash,
+          plaintextHash: media.plaintextHash,
+          fileExtension: '.m4a',
+        );
 
-      expect(result, equals(media.plaintext));
-    });
+        expect(result, equals(media.plaintext));
+      },
+    );
   });
 
   // ── getMediaFile — temp plaintext file ────────────────────────────────
@@ -428,13 +428,12 @@ void main() {
       if (cacheDir.existsSync()) await cacheDir.delete(recursive: true);
     });
 
-    test('returns a .m4a file with decrypted bytes', () async {
+    test('returns a temp file with decrypted bytes', () async {
       final media = _fakeMedia([0xDE, 0xAD, 0xBE, 0xEF]);
       final manager = _makeTestManager(cacheDir);
       addTearDown(manager.dispose);
 
-      // Seed .enc file for the audio media id (with .m4a extension in the name).
-      final encFile = File('${cacheDir.path}/audio-2.m4a.enc');
+      final encFile = File('${cacheDir.path}/audio-2.enc');
       await encFile.writeAsBytes(media.ciphertext);
 
       final file = await manager.getMediaFile(
@@ -445,42 +444,73 @@ void main() {
       );
 
       expect(file, isNotNull);
-      expect(file!.path, endsWith('.m4a'));
+      expect(file!.path.split(Platform.pathSeparator).last, 'audio-2');
       expect(await file.readAsBytes(), equals(media.plaintext));
     });
 
-    test('temp file lives outside the persistent .enc cache (in a tmp subdir)', () async {
-      final media = _fakeMedia([1, 2]);
+    test('uses the requested extension when provided', () async {
+      final media = _fakeMedia([0x0A, 0x0B, 0x0C]);
       final manager = _makeTestManager(cacheDir);
       addTearDown(manager.dispose);
 
-      final encFile = File('${cacheDir.path}/audio-3.m4a.enc');
+      final encFile = File('${cacheDir.path}/audio-2.ogg.enc');
       await encFile.writeAsBytes(media.ciphertext);
 
       final file = await manager.getMediaFile(
-        mediaId: 'audio-3',
+        mediaId: 'audio-2',
         encryptionKey: media.key,
         ciphertextHash: media.ciphertextHash,
         plaintextHash: media.plaintextHash,
+        fileExtension: '.ogg',
       );
 
       expect(file, isNotNull);
-      // The temp file path must NOT be the same path as the .enc cache file.
-      expect(file!.path, isNot(equals(encFile.path)),
-          reason: 'temp plaintext file must be separate from the .enc cache file');
-      // In production the temp dir is getTemporaryDirectory(); in tests with
-      // cacheDirOverride it is a /tmp subdirectory — either way it is not the
-      // same location as the persistent .enc cache file.
-      expect(file.path, isNot(endsWith('.enc')),
-          reason: 'temp file must not have .enc suffix — it is plaintext');
+      expect(file!.path.split(Platform.pathSeparator).last, 'audio-2.ogg');
+      expect(await file.readAsBytes(), equals(media.plaintext));
     });
+
+    test(
+      'temp file lives outside the persistent .enc cache (in a tmp subdir)',
+      () async {
+        final media = _fakeMedia([1, 2]);
+        final manager = _makeTestManager(cacheDir);
+        addTearDown(manager.dispose);
+
+        final encFile = File('${cacheDir.path}/audio-3.enc');
+        await encFile.writeAsBytes(media.ciphertext);
+
+        final file = await manager.getMediaFile(
+          mediaId: 'audio-3',
+          encryptionKey: media.key,
+          ciphertextHash: media.ciphertextHash,
+          plaintextHash: media.plaintextHash,
+        );
+
+        expect(file, isNotNull);
+        // The temp file path must NOT be the same path as the .enc cache file.
+        expect(
+          file!.path,
+          isNot(equals(encFile.path)),
+          reason:
+              'temp plaintext file must be separate from the .enc cache file',
+        );
+        // In production the temp dir is getTemporaryDirectory(); in tests with
+        // cacheDirOverride it is a /tmp subdirectory — either way it is not the
+        // same location as the persistent .enc cache file.
+        expect(
+          file.path,
+          isNot(endsWith('.enc')),
+          reason: 'temp file must not have .enc suffix — it is plaintext',
+        );
+      },
+    );
 
     test('.enc ciphertext file is preserved after getMediaFile', () async {
       final media = _fakeMedia([9, 8, 7]);
       final manager = _makeTestManager(cacheDir);
       addTearDown(manager.dispose);
 
-      final encFile = File('${cacheDir.path}/audio-4.m4a.enc');
+      final encFile = File('${cacheDir.path}/audio-4.enc');
       await encFile.writeAsBytes(media.ciphertext);
 
       await manager.getMediaFile(
@@ -491,8 +521,12 @@ void main() {
       );
 
       // The .enc ciphertext cache must still exist after getMediaFile.
-      expect(encFile.existsSync(), isTrue,
-          reason: '.enc ciphertext cache should be preserved after playback setup');
+      expect(
+        encFile.existsSync(),
+        isTrue,
+        reason:
+            '.enc ciphertext cache should be preserved after playback setup',
+      );
     });
   });
 }

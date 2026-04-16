@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/services/media/download_manager.dart';
 import 'package:prism_plurality/core/services/media/image_compression_service.dart';
 import 'package:prism_plurality/core/services/media/media_encryption_service.dart';
 import 'package:prism_plurality/core/services/media/upload_queue.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_format.dart';
 
 class MediaAttachmentData {
   final String mediaId;
@@ -79,13 +80,17 @@ class MediaService {
   final DownloadManager downloadManager;
 
   static const _uuid = Uuid();
+  static const _voiceNoteMimeType = 'audio/ogg';
 
   Future<MediaAttachmentData> prepareImage(Uint8List imageBytes) async {
     final compressed = await compression.compressImage(imageBytes);
     final thumbnail = await compression.generateThumbnail(imageBytes);
 
     final encryptedImage = await encryption.encryptMedia(compressed.bytes);
-    final encryptedThumbnail = await encryption.encryptMediaWithKey(thumbnail, encryptedImage.key);
+    final encryptedThumbnail = await encryption.encryptMediaWithKey(
+      thumbnail,
+      encryptedImage.key,
+    );
 
     final mediaId = _uuid.v4();
     final thumbnailMediaId = _uuid.v4();
@@ -108,16 +113,20 @@ class MediaService {
   }
 
   Future<void> uploadPrepared(MediaAttachmentData data) async {
-    await uploadQueue.enqueue(UploadTask(
-      mediaId: data.mediaId,
-      contentHash: data.contentHash,
-      encryptedData: data.encryptedImage,
-    ));
-    await uploadQueue.enqueue(UploadTask(
-      mediaId: data.thumbnailMediaId,
-      contentHash: data.thumbnailContentHash,
-      encryptedData: data.encryptedThumbnail,
-    ));
+    await uploadQueue.enqueue(
+      UploadTask(
+        mediaId: data.mediaId,
+        contentHash: data.contentHash,
+        encryptedData: data.encryptedImage,
+      ),
+    );
+    await uploadQueue.enqueue(
+      UploadTask(
+        mediaId: data.thumbnailMediaId,
+        contentHash: data.thumbnailContentHash,
+        encryptedData: data.encryptedThumbnail,
+      ),
+    );
   }
 
   Future<VoiceAttachmentData> prepareVoiceNote(
@@ -125,6 +134,12 @@ class MediaService {
     int durationMs,
     String waveformB64,
   ) async {
+    if (!isValidatedOggOpus(audioBytes)) {
+      throw StateError(
+        'Voice notes must be normalized to Ogg Opus before upload.',
+      );
+    }
+
     final encrypted = await encryption.encryptMedia(audioBytes);
     final mediaId = _uuid.v4();
 
@@ -137,16 +152,18 @@ class MediaService {
       durationMs: durationMs,
       waveformB64: waveformB64,
       sizeBytes: audioBytes.length,
-      mimeType: 'audio/ogg',
+      mimeType: _voiceNoteMimeType,
     );
   }
 
   Future<void> uploadVoice(VoiceAttachmentData data) async {
-    await uploadQueue.enqueue(UploadTask(
-      mediaId: data.mediaId,
-      contentHash: data.contentHash,
-      encryptedData: data.encryptedAudio,
-    ));
+    await uploadQueue.enqueue(
+      UploadTask(
+        mediaId: data.mediaId,
+        contentHash: data.contentHash,
+        encryptedData: data.encryptedAudio,
+      ),
+    );
   }
 
   /// Like [uploadPrepared] but throws [StateError] if either upload fails.
@@ -155,20 +172,24 @@ class MediaService {
     final imageCompleter = Completer<void>();
     final thumbCompleter = Completer<void>();
 
-    await uploadQueue.enqueue(UploadTask(
-      mediaId: data.mediaId,
-      contentHash: data.contentHash,
-      encryptedData: data.encryptedImage,
-      onSuccess: imageCompleter.complete,
-      onFailure: (e) => imageCompleter.completeError(StateError(e)),
-    ));
-    await uploadQueue.enqueue(UploadTask(
-      mediaId: data.thumbnailMediaId,
-      contentHash: data.thumbnailContentHash,
-      encryptedData: data.encryptedThumbnail,
-      onSuccess: thumbCompleter.complete,
-      onFailure: (e) => thumbCompleter.completeError(StateError(e)),
-    ));
+    await uploadQueue.enqueue(
+      UploadTask(
+        mediaId: data.mediaId,
+        contentHash: data.contentHash,
+        encryptedData: data.encryptedImage,
+        onSuccess: imageCompleter.complete,
+        onFailure: (e) => imageCompleter.completeError(StateError(e)),
+      ),
+    );
+    await uploadQueue.enqueue(
+      UploadTask(
+        mediaId: data.thumbnailMediaId,
+        contentHash: data.thumbnailContentHash,
+        encryptedData: data.encryptedThumbnail,
+        onSuccess: thumbCompleter.complete,
+        onFailure: (e) => thumbCompleter.completeError(StateError(e)),
+      ),
+    );
 
     await imageCompleter.future;
     await thumbCompleter.future;
@@ -178,13 +199,15 @@ class MediaService {
   Future<void> uploadVoiceOrThrow(VoiceAttachmentData data) async {
     final completer = Completer<void>();
 
-    await uploadQueue.enqueue(UploadTask(
-      mediaId: data.mediaId,
-      contentHash: data.contentHash,
-      encryptedData: data.encryptedAudio,
-      onSuccess: completer.complete,
-      onFailure: (e) => completer.completeError(StateError(e)),
-    ));
+    await uploadQueue.enqueue(
+      UploadTask(
+        mediaId: data.mediaId,
+        contentHash: data.contentHash,
+        encryptedData: data.encryptedAudio,
+        onSuccess: completer.complete,
+        onFailure: (e) => completer.completeError(StateError(e)),
+      ),
+    );
 
     await completer.future;
   }
@@ -208,12 +231,14 @@ class MediaService {
     required Uint8List encryptionKey,
     required String ciphertextHash,
     required String plaintextHash,
+    String fileExtension = '',
   }) {
     return downloadManager.getMediaFile(
       mediaId: mediaId,
       encryptionKey: encryptionKey,
       ciphertextHash: ciphertextHash,
       plaintextHash: plaintextHash,
+      fileExtension: fileExtension,
     );
   }
 

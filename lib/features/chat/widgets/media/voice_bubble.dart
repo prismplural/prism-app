@@ -63,7 +63,9 @@ class _VoiceBubbleState extends State<VoiceBubble> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final durationText = Duration(milliseconds: widget.durationMs).toVoiceFormat();
+    final durationText = Duration(
+      milliseconds: widget.durationMs,
+    ).toVoiceFormat();
     final disableAnimations = MediaQuery.of(context).disableAnimations;
 
     return Semantics(
@@ -79,10 +81,10 @@ class _VoiceBubbleState extends State<VoiceBubble> {
               label: widget.isLoading
                   ? context.l10n.chatVoiceNoteLoading(durationText)
                   : widget.hasError
-                      ? context.l10n.chatVoiceNoteError
-                      : widget.isPlaying
-                          ? context.l10n.chatVoiceNotePause(durationText)
-                          : context.l10n.chatVoiceNotePlay(durationText),
+                  ? context.l10n.chatVoiceNoteError
+                  : widget.isPlaying
+                  ? context.l10n.chatVoiceNotePause(durationText)
+                  : context.l10n.chatVoiceNotePlay(durationText),
               button: true,
               child: SizedBox(
                 width: 44,
@@ -95,26 +97,30 @@ class _VoiceBubbleState extends State<VoiceBubble> {
                         ),
                       )
                     : widget.hasError
-                        ? IconButton(
-                            icon: Icon(
-                              AppIcons.refresh,
-                              size: 22,
-                              color: theme.colorScheme.error,
-                            ),
-                            onPressed: widget.onRetry ?? widget.onPlayPause,
-                            padding: EdgeInsets.zero,
-                          )
-                        : IconButton(
-                            icon: Icon(
-                              widget.isPlaying
-                                  ? AppIcons.stopRounded
-                                  : AppIcons.playArrowRounded,
-                              size: 22,
-                              color: theme.colorScheme.primary,
-                            ),
-                            onPressed: widget.onPlayPause,
-                            padding: EdgeInsets.zero,
-                          ),
+                    ? IconButton(
+                        tooltip: context.l10n.chatVoiceNoteError,
+                        icon: Icon(
+                          AppIcons.refresh,
+                          size: 22,
+                          color: theme.colorScheme.error,
+                        ),
+                        onPressed: widget.onRetry ?? widget.onPlayPause,
+                        padding: EdgeInsets.zero,
+                      )
+                    : IconButton(
+                        tooltip: widget.isPlaying
+                            ? context.l10n.chatVoiceNotePause(durationText)
+                            : context.l10n.chatVoiceNotePlay(durationText),
+                        icon: Icon(
+                          widget.isPlaying
+                              ? AppIcons.stopRounded
+                              : AppIcons.playArrowRounded,
+                          size: 22,
+                          color: theme.colorScheme.primary,
+                        ),
+                        onPressed: widget.onPlayPause,
+                        padding: EdgeInsets.zero,
+                      ),
               ),
             ),
             const SizedBox(width: 4),
@@ -191,31 +197,49 @@ class _VoiceBubbleState extends State<VoiceBubble> {
             if (widget.isPlaying || widget.onSpeedTap != null)
               Semantics(
                 label: context.l10n.chatVoiceNoteSpeed(
-                    widget.speed == widget.speed.roundToDouble()
-                        ? widget.speed.toInt().toString()
-                        : widget.speed.toString()),
+                  widget.speed == widget.speed.roundToDouble()
+                      ? widget.speed.toInt().toString()
+                      : widget.speed.toString(),
+                ),
                 button: true,
-                child: SizedBox(
-                  height: 44,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
                   child: Center(
-                    child: GestureDetector(
-                      onTap: widget.onSpeedTap,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${widget.speed == widget.speed.roundToDouble() ? widget.speed.toInt().toString() : widget.speed.toString()}x',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11,
+                    child: Tooltip(
+                      message: context.l10n.chatVoiceNoteSpeed(
+                        widget.speed == widget.speed.roundToDouble()
+                            ? widget.speed.toInt().toString()
+                            : widget.speed.toString(),
+                      ),
+                      child: GestureDetector(
+                        onTap: widget.onSpeedTap,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minWidth: 44,
+                            minHeight: 44,
+                          ),
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.08,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${widget.speed == widget.speed.roundToDouble() ? widget.speed.toInt().toString() : widget.speed.toString()}x',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
                       ),
