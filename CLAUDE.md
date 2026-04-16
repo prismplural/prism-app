@@ -302,6 +302,17 @@ Drift Tables → DAOs → Repositories (abstract) → Mappers → Freezed Models
 - Accent color from `Theme.of(context).colorScheme.primary` (not from settings directly)
 - **Never use bare `FlutterSecureStorage()`** — use `secureStorage` from `core/services/secure_storage.dart`
 
+## Voice Notes
+- Voice-note services now live under `lib/features/chat/services/voice/`
+- Keep recording and playback split into focused backends:
+  - `VoiceRecorderBackend` / `MobileVoiceRecorderBackend`
+  - `VoicePlaybackBackend` / `MobileVoicePlaybackBackend`
+- New voice notes are validated and stored as `audio/ogg`
+- Android records Ogg Opus directly; iOS records CAF Opus, shows a brief preparing state, then remuxes to Ogg before send
+- Playback uses decrypted bytes in memory through the SoLoud backend; do not reintroduce the old `.m4a` temp-file playback path
+- Current voice-note support is mobile-first: iOS and Android are supported, while unsupported platforms surface a disabled/unsupported recorder state
+- The app currently uses local path overrides for `flutter_soloud` and `ogg_caf_converter` in `pubspec.yaml`
+
 ## Testing
 - Crypto tests in `test/` (key hierarchy, encryption, secure storage)
 - In-memory database for isolated tests
