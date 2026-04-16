@@ -1,33 +1,8 @@
 import 'package:flutter/foundation.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_format.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
 
-class VoiceLabCapability {
-  const VoiceLabCapability({
-    required this.isSupported,
-    required this.needsCafToOggRemux,
-    required this.outputFileExtension,
-    required this.sourceContainerLabel,
-    required this.normalizedContainerLabel,
-    required this.summary,
-    this.unsupportedReason,
-  });
-
-  const VoiceLabCapability.unsupported({
-    required this.unsupportedReason,
-    required this.summary,
-  }) : isSupported = false,
-       needsCafToOggRemux = false,
-       outputFileExtension = 'opus',
-       sourceContainerLabel = 'Unavailable',
-       normalizedContainerLabel = 'Unavailable';
-
-  final bool isSupported;
-  final bool needsCafToOggRemux;
-  final String outputFileExtension;
-  final String sourceContainerLabel;
-  final String normalizedContainerLabel;
-  final String summary;
-  final String? unsupportedReason;
-}
+typedef VoiceLabCapability = VoiceRecorderCapabilities;
 
 enum VoiceLabPlaybackMode { loadMem, bufferStream }
 
@@ -91,26 +66,13 @@ VoiceLabCapability buildVoiceLabCapability({
 }
 
 String detectVoiceLabContainer(Uint8List bytes) {
-  if (_hasPrefix(bytes, 'OggS')) {
-    return _containsAscii(bytes, 'OpusHead') ? 'Ogg Opus' : 'Ogg';
-  }
-
-  if (_hasPrefix(bytes, 'caff')) {
-    return _containsAscii(bytes, 'OpusHead') ? 'CAF Opus' : 'CAF';
-  }
-
-  if (_containsAscii(bytes, 'OpusHead')) {
-    return 'Opus (unknown container)';
-  }
-
-  return 'Unknown';
+  return detectVoiceContainerLabel(bytes);
 }
 
 VoiceLabPlaybackMode chooseVoiceLabPlaybackMode(Uint8List bytes) {
-  return switch (detectVoiceLabContainer(bytes)) {
-    'Ogg Opus' => VoiceLabPlaybackMode.bufferStream,
-    _ => VoiceLabPlaybackMode.loadMem,
-  };
+  return detectVoiceFormat(bytes).canUseBufferStream
+      ? VoiceLabPlaybackMode.bufferStream
+      : VoiceLabPlaybackMode.loadMem;
 }
 
 String describeVoiceLabPlaybackMode(VoiceLabPlaybackMode mode) {
@@ -128,39 +90,4 @@ String formatVoiceLabBytes(int byteCount) {
     return '${(byteCount / 1024).toStringAsFixed(1)} KB';
   }
   return '${(byteCount / (1024 * 1024)).toStringAsFixed(2)} MB';
-}
-
-bool _hasPrefix(Uint8List bytes, String prefix) {
-  if (bytes.length < prefix.length) {
-    return false;
-  }
-
-  for (var i = 0; i < prefix.length; i++) {
-    if (bytes[i] != prefix.codeUnitAt(i)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool _containsAscii(Uint8List bytes, String needle) {
-  if (needle.isEmpty || bytes.length < needle.length) {
-    return false;
-  }
-
-  for (var start = 0; start <= bytes.length - needle.length; start++) {
-    var matches = true;
-    for (var i = 0; i < needle.length; i++) {
-      if (bytes[start + i] != needle.codeUnitAt(i)) {
-        matches = false;
-        break;
-      }
-    }
-    if (matches) {
-      return true;
-    }
-  }
-
-  return false;
 }
