@@ -696,8 +696,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       ciphertextHash: attachment.contentHash,
       plaintextHash: attachment.plaintextHash,
     );
-    final mediaProvider = mediaAudioBytesProvider(params);
-    final mediaAsync = ref.watch(mediaProvider);
+    final mediaAsync = ref.watch(mediaAudioFileProvider(params));
 
     // Select only fields relevant to this bubble so non-active bubbles skip
     // rebuilds from the ~10-20 Hz position stream.
@@ -712,9 +711,8 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     );
     final progress = ref.watch(
       voicePlaybackProvider.select((s) {
-        if (s.activeMediaId != mediaId || s.duration.inMilliseconds <= 0) {
+        if (s.activeMediaId != mediaId || s.duration.inMilliseconds <= 0)
           return 0.0;
-        }
         return s.position.inMilliseconds / s.duration.inMilliseconds;
       }),
     );
@@ -739,13 +737,11 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
       onPlayPause: mediaAsync.value != null
           ? () => ref
                 .read(voicePlaybackProvider.notifier)
-                .togglePlayPause(
-                  attachment.mediaId,
-                  mediaAsync.value!,
-                  mimeType: attachment.mimeType,
-                )
+                .togglePlayPause(attachment.mediaId, mediaAsync.value!)
           : null,
-      onRetry: mediaAsync.hasError ? () => ref.invalidate(mediaProvider) : null,
+      onRetry: mediaAsync.hasError
+          ? () => ref.invalidate(mediaAudioFileProvider(params))
+          : null,
       onSeek: mediaAsync.value != null
           ? (fraction) {
               final totalMs = attachment.durationMs;
