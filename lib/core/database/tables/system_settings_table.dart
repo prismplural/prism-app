@@ -50,6 +50,17 @@ class SystemSettingsTable extends Table {
       boolean().withDefault(const Constant(true))();
   BoolColumn get voiceNotesEnabled =>
       boolean().withDefault(const Constant(true))();
+  // Sleep suggestion settings (synced)
+  BoolColumn get sleepSuggestionEnabled =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get sleepSuggestionHour =>
+      integer().withDefault(const Constant(22))();
+  IntColumn get sleepSuggestionMinute =>
+      integer().withDefault(const Constant(0))();
+  BoolColumn get wakeSuggestionEnabled =>
+      boolean().withDefault(const Constant(false))();
+  RealColumn get wakeSuggestionAfterHours =>
+      real().withDefault(const Constant(8.0))();
   // Quick-switch correction
   IntColumn get quickSwitchThresholdSeconds =>
       integer().withDefault(const Constant(30))();
