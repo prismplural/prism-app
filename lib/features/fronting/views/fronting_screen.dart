@@ -144,6 +144,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     bool isSleeping,
     FrontingSession? sleepSession,
   ) {
+    final showQuickFront = ref.watch(showQuickFrontProvider);
     return CustomScrollView(
       controller: _scrollController,
       slivers: [
@@ -158,13 +159,14 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         ),
 
-        // 1. Quick Front (always at top, matching SwiftUI)
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: QuickFrontSection(),
+        // 1. Quick Front (shown based on user setting)
+        if (showQuickFront)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: QuickFrontSection(),
+            ),
           ),
-        ),
 
         // 2. Home banners share one placement under Quick Front.
         SliverToBoxAdapter(child: FrontingBannerStack(theme: theme)),
@@ -213,6 +215,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     bool isSleeping,
     FrontingSession? sleepSession,
   ) {
+    final showQuickFront = ref.watch(showQuickFrontProvider);
     return Column(
       children: [
         PrismTopBar(
@@ -223,10 +226,11 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             sleepSession: sleepSession,
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: QuickFrontSection(),
-        ),
+        if (showQuickFront)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: QuickFrontSection(),
+          ),
         if (isSleeping)
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
