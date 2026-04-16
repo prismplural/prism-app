@@ -651,6 +651,14 @@ final quickSwitchThresholdProvider = Provider<int>((ref) {
       30;
 });
 
+/// Narrow provider for `showQuickFront` flag.
+final showQuickFrontProvider = Provider<bool>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+            data: (s) => s.showQuickFront,
+          ) ??
+      true;
+});
+
 /// Narrow provider for `pinLockEnabled` flag.
 final pinLockEnabledProvider = Provider<bool>((ref) {
   return ref.watch(systemSettingsProvider).whenOrNull(
