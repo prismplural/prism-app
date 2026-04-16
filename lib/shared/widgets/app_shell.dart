@@ -25,7 +25,6 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/shared/utils/pin_lock_decision.dart';
 import 'package:prism_plurality/shared/widgets/floating_nav_bar_backdrop.dart';
-import 'package:prism_plurality/shared/widgets/info_banner.dart';
 
 /// Gap between overflow row and primary row when the nav bar is expanded.
 const _kNavBarRowGap = 6.0;
@@ -273,41 +272,6 @@ class _AppShellState extends ConsumerState<AppShell>
 
     final accentColor = Theme.of(context).colorScheme.primary;
 
-    // Show backup-reminder banner when sync is configured and the reminder is due.
-    final syncHealth = ref.watch(syncHealthProvider);
-    final syncConfigured = syncHealth == SyncHealthState.healthy;
-    final backupReminderDue = ref
-        .watch(backupReminderDueProvider)
-        .maybeWhen(data: (due) => due, orElse: () => false);
-    final showBackupBanner = syncConfigured && backupReminderDue;
-
-    // Wraps the tab shell with an optional backup-reminder InfoBanner at the top.
-    Widget navContent(Widget child) {
-      if (!showBackupBanner) return child;
-      return Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: InfoBanner(
-              icon: AppIcons.warningAmberRounded,
-              iconColor: accentColor,
-              title: 'Check your recovery phrase',
-              message:
-                  'Make sure your BIP39 secret key is stored safely — you\'ll '
-                  'need it if you lose access to this device.',
-              buttonText: 'Dismiss',
-              onButtonPressed: () async {
-                final service = ref.read(authPolicyServiceProvider);
-                await service.recordReminderDismissed();
-                ref.invalidate(backupReminderDueProvider);
-              },
-            ),
-          ),
-          Expanded(child: child),
-        ],
-      );
-    }
-
     Widget shell;
 
     if (isDesktop) {
@@ -325,7 +289,7 @@ class _AppShellState extends ConsumerState<AppShell>
                   accentColor: accentColor,
                   onTap: onTabTap,
                 ),
-                Expanded(child: navContent(widget.navigationShell)),
+                Expanded(child: widget.navigationShell),
               ],
             ),
           ),
@@ -345,7 +309,8 @@ class _AppShellState extends ConsumerState<AppShell>
 
       // On iOS the full safe area (~34pt) pushes the floating pill too high.
       // Use a fixed 21pt bottom to sit comfortably above the home indicator.
-      final isApple = defaultTargetPlatform == TargetPlatform.iOS ||
+      final isApple =
+          defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.macOS;
       final navBarBottom = isApple && bottomSafeArea > 0
           ? 21.0
@@ -360,7 +325,7 @@ class _AppShellState extends ConsumerState<AppShell>
             body: BackdropGroup(
               child: Stack(
                 children: [
-                  navContent(widget.navigationShell),
+                  widget.navigationShell,
 
                   if (!hideNavBar) ...[
                     // Gradient fade
@@ -434,9 +399,7 @@ class _AppShellState extends ConsumerState<AppShell>
         children: [
           shell,
           Positioned.fill(
-            child: ColoredBox(
-              color: Theme.of(context).scaffoldBackgroundColor,
-            ),
+            child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
           ),
         ],
       );
@@ -539,7 +502,12 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
       } else {
         final distance = idx.toDouble() - _pillController.value;
         _pillController.animateWith(
-          SpringSimulation(_pillSpring, _pillController.value, idx.toDouble(), distance * 8),
+          SpringSimulation(
+            _pillSpring,
+            _pillController.value,
+            idx.toDouble(),
+            distance * 8,
+          ),
         );
       }
     }
@@ -744,11 +712,14 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                       child: DecoratedBox(
                                         decoration: BoxDecoration(
                                           color: pillColor,
-                                          borderRadius:
-                                              BorderRadius.circular(16),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
                                         ),
                                         child: SizedBox(
-                                            width: pillWidth, height: 32),
+                                          width: pillWidth,
+                                          height: 32,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -756,22 +727,25 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                   children: [
                                     // 5 primary tab icons
                                     ...List.generate(
-                                        widget.primaryTabs.length, (i) {
-                                      final tab = widget.primaryTabs[i];
-                                      final isSelected = i == _primaryTabIndex;
-                                      return Expanded(
-                                        child: _NavBarItem(
-                                          tab: tab,
-                                          isSelected: isSelected,
-                                          accentColor: widget.accentColor,
-                                          isDark: isDark,
-                                          showSyncBadge: showSyncBadge,
-                                          habitsDueCount: dueCount,
-                                          chatUnreadCount: chatUnreadCount,
-                                          onTap: () => _handleTap(i),
-                                        ),
-                                      );
-                                    }),
+                                      widget.primaryTabs.length,
+                                      (i) {
+                                        final tab = widget.primaryTabs[i];
+                                        final isSelected =
+                                            i == _primaryTabIndex;
+                                        return Expanded(
+                                          child: _NavBarItem(
+                                            tab: tab,
+                                            isSelected: isSelected,
+                                            accentColor: widget.accentColor,
+                                            isDark: isDark,
+                                            showSyncBadge: showSyncBadge,
+                                            habitsDueCount: dueCount,
+                                            chatUnreadCount: chatUnreadCount,
+                                            onTap: () => _handleTap(i),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                     // Compact More/close trigger on trailing edge
                                     _MoreTrigger(
                                       expanded: _expanded || overflowSelected,
@@ -1005,7 +979,10 @@ class _NavBarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final itemIcon = isSelected ? tab.activeIcon : tab.icon;
-    final itemLabel = tab.localizedLabel(context, terminologyPlural: terminologyPlural);
+    final itemLabel = tab.localizedLabel(
+      context,
+      terminologyPlural: terminologyPlural,
+    );
 
     Widget iconWidget = Icon(
       itemIcon,
@@ -1136,7 +1113,9 @@ class _FloatingSidebar extends ConsumerWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.warmBlack.withValues(alpha: isDark ? 0.3 : 0.08),
+                    color: AppColors.warmBlack.withValues(
+                      alpha: isDark ? 0.3 : 0.08,
+                    ),
                     blurRadius: 12,
                     offset: const Offset(2, 2),
                   ),
@@ -1232,7 +1211,10 @@ class _SidebarItemState extends State<_SidebarItem> {
     return Semantics(
       selected: widget.isSelected,
       button: true,
-      label: widget.tab.localizedLabel(context, terminologyPlural: widget.terminologyPlural),
+      label: widget.tab.localizedLabel(
+        context,
+        terminologyPlural: widget.terminologyPlural,
+      ),
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         onEnter: (_) => setState(() => _hovering = true),
@@ -1263,7 +1245,10 @@ class _SidebarItemState extends State<_SidebarItem> {
                 ),
                 const SizedBox(width: 10),
                 Text(
-                  widget.tab.localizedLabel(context, terminologyPlural: widget.terminologyPlural),
+                  widget.tab.localizedLabel(
+                    context,
+                    terminologyPlural: widget.terminologyPlural,
+                  ),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: widget.isSelected

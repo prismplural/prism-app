@@ -59,7 +59,11 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       final sessions = ref.read(unifiedHistoryProvider).value;
       if (sessions != null && sessions.length >= currentLimit) {
         ref.read(sessionLimitProvider.notifier).loadMore();
-        SemanticsService.sendAnnouncement(View.of(context), context.l10n.frontingLoadingOlderSessions, TextDirection.ltr);
+        SemanticsService.sendAnnouncement(
+          View.of(context),
+          context.l10n.frontingLoadingOlderSessions,
+          TextDirection.ltr,
+        );
       }
     }
   }
@@ -120,10 +124,10 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
       icon: isTimelineView
           ? AppIcons.viewListRounded
           : AppIcons.timelineRounded,
-      tooltip: isTimelineView ? context.l10n.frontingListView : context.l10n.frontingTimelineView,
-      onPressed: () => ref
-          .read(timelineViewActiveProvider.notifier)
-          .toggle(),
+      tooltip: isTimelineView
+          ? context.l10n.frontingListView
+          : context.l10n.frontingTimelineView,
+      onPressed: () => ref.read(timelineViewActiveProvider.notifier).toggle(),
     );
   }
 
@@ -147,11 +151,6 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         ),
 
-        // 0. Backup reminder banner (shown until dismissed)
-        SliverToBoxAdapter(
-          child: _BackupReminderBanner(theme: theme),
-        ),
-
         // 1. Quick Front (always at top, matching SwiftUI)
         const SliverToBoxAdapter(
           child: Padding(
@@ -160,7 +159,10 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         ),
 
-        // 2. Active sleep session card
+        // 2. Home banners share one placement under Quick Front.
+        SliverToBoxAdapter(child: FrontingBannerStack(theme: theme)),
+
+        // 3. Active sleep session card
         if (isSleeping)
           const SliverToBoxAdapter(
             child: Padding(
@@ -169,28 +171,26 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
             ),
           ),
 
-        // 2b. Timeline issue banner (shown when post-edit or post-sync
-        //     rescan detects validation issues).
-        SliverToBoxAdapter(
-          child: _TimelineIssueBanner(theme: theme),
-        ),
-
-        // 3. Sessions grouped by day (active session naturally at top)
+        // 4. Sessions grouped by day (active session naturally at top)
         const SessionHistoryList(),
 
-        // 4. Loading indicator for infinite scroll
-        Consumer(builder: (context, ref, _) {
-          final limit = ref.watch(sessionLimitProvider);
-          final sessions = ref.watch(unifiedHistoryProvider).value;
-          final hasMore = sessions != null && sessions.length >= limit;
-          if (!hasMore) return const SliverToBoxAdapter(child: SizedBox.shrink());
-          return const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: PrismLoadingState(),
-            ),
-          );
-        }),
+        // 5. Loading indicator for infinite scroll
+        Consumer(
+          builder: (context, ref, _) {
+            final limit = ref.watch(sessionLimitProvider);
+            final sessions = ref.watch(unifiedHistoryProvider).value;
+            final hasMore = sessions != null && sessions.length >= limit;
+            if (!hasMore) {
+              return const SliverToBoxAdapter(child: SizedBox.shrink());
+            }
+            return const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: PrismLoadingState(),
+              ),
+            );
+          },
+        ),
 
         // Bottom padding to clear floating nav bar
         SliverPadding(
@@ -227,10 +227,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
           ),
         Expanded(
           child: Padding(
-            padding: EdgeInsets.only(
-              top: 8,
-              bottom: NavBarInset.of(context),
-            ),
+            padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
             child: const TimelineView(),
           ),
         ),
@@ -242,9 +239,13 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
 /// Displays a warning banner when the post-edit (or future post-sync) rescan
 /// detects timeline validation issues. Hidden when the count is zero.
 class _TimelineIssueBanner extends ConsumerWidget {
-  const _TimelineIssueBanner({required this.theme});
+  const _TimelineIssueBanner({
+    required this.theme,
+    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 0),
+  });
 
   final ThemeData theme;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -252,15 +253,14 @@ class _TimelineIssueBanner extends ConsumerWidget {
     if (issueCount <= 0) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: padding,
       child: InfoBanner(
         icon: AppIcons.warningAmberRounded,
         iconColor: theme.colorScheme.error,
         title: context.l10n.frontingTimelineIssuesFound,
         message: context.l10n.frontingTimelineIssuesBannerMessage(issueCount),
         buttonText: context.l10n.frontingTimelineIssuesReview,
-        onButtonPressed: () =>
-            context.push('/settings/timeline-sanitization'),
+        onButtonPressed: () => context.push('/settings/timeline-sanitization'),
       ),
     );
   }
@@ -319,9 +319,8 @@ class _AddButtonState extends ConsumerState<_AddButton> {
           close();
           PrismSheet.showFullScreen(
             context: context,
-            builder: (context, scrollController) => AddEditMemberSheet(
-              scrollController: scrollController,
-            ),
+            builder: (context, scrollController) =>
+                AddEditMemberSheet(scrollController: scrollController),
           );
         },
       ),
@@ -332,9 +331,8 @@ class _AddButtonState extends ConsumerState<_AddButton> {
           close();
           PrismSheet.showFullScreen(
             context: context,
-            builder: (context, scrollController) => CreatePollSheet(
-              scrollController: scrollController,
-            ),
+            builder: (context, scrollController) =>
+                CreatePollSheet(scrollController: scrollController),
           );
         },
       ),
@@ -428,8 +426,10 @@ class _AddButtonState extends ConsumerState<_AddButton> {
                           .startFronting(member.id);
                     } catch (e) {
                       if (context.mounted) {
-                        PrismToast.error(context,
-                            message: context.l10n.frontingErrorWakingUp(e));
+                        PrismToast.error(
+                          context,
+                          message: context.l10n.frontingErrorWakingUp(e),
+                        );
                       }
                     }
                   },
@@ -462,21 +462,23 @@ class _MenuItem {
 /// - no PIN is set (encryption not active), or
 /// - the user has already dismissed the reminder.
 class _BackupReminderBanner extends ConsumerWidget {
-  const _BackupReminderBanner({required this.theme});
+  const _BackupReminderBanner({
+    required this.theme,
+    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 0),
+  });
 
   final ThemeData theme;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final reminderDue =
-        ref.watch(backupReminderDueProvider).maybeWhen(
-          data: (v) => v,
-          orElse: () => false,
-        );
+    final reminderDue = ref
+        .watch(backupReminderDueProvider)
+        .maybeWhen(data: (v) => v, orElse: () => false);
     if (!reminderDue) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: padding,
       child: InfoBanner(
         icon: AppIcons.key,
         iconColor: theme.colorScheme.tertiary,
@@ -491,6 +493,29 @@ class _BackupReminderBanner extends ConsumerWidget {
           }
         },
       ),
+    );
+  }
+}
+
+class FrontingBannerStack extends StatelessWidget {
+  const FrontingBannerStack({required this.theme, super.key});
+
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _BackupReminderBanner(
+          theme: theme,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+        ),
+        _TimelineIssueBanner(
+          theme: theme,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        ),
+      ],
     );
   }
 }
