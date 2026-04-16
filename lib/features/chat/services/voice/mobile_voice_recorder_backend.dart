@@ -164,9 +164,7 @@ class MobileVoiceRecorderBackend implements VoiceRecorderBackend {
     );
 
     try {
-      if (capabilities.needsCafToOggRemux) {
-        await _audioSessionConfigurator.configureForRecording();
-      }
+      await _audioSessionConfigurator.configureForRecording();
 
       await _cancelMeterSubscription();
       _amplitudeSamples.clear();
@@ -347,7 +345,9 @@ class MobileVoiceRecorderBackend implements VoiceRecorderBackend {
       return artifact;
     } on VoiceRecorderBackendException {
       rethrow;
-    } catch (error) {
+    } catch (error, stackTrace) {
+      debugPrint('[VoiceRecording] stop() internal error: $error');
+      debugPrint('[VoiceRecording] $stackTrace');
       throw _setError(
         VoiceRecorderErrorCode.recorderFailure,
         'Voice recording failed while finalizing.',
@@ -605,6 +605,14 @@ class PathProviderMobileVoiceRecorderFileStore
 
 String _buildWaveform(List<double> samples) {
   final values = samples.isEmpty ? <double>[-24.0] : List<double>.from(samples);
+  // Clamp to a sane dB range — the record package emits -double.infinity for
+  // silence, which poisons min/max/range arithmetic with Infinity and NaN.
+  const floorDb = -60.0;
+  for (var i = 0; i < values.length; i++) {
+    if (!values[i].isFinite || values[i] < floorDb) {
+      values[i] = floorDb;
+    }
+  }
   final minDb = values.reduce(min);
   final maxDb = values.reduce(max);
   final range = (maxDb - minDb).abs();

@@ -62,6 +62,7 @@ void main() {
         final backend = MobileVoiceRecorderBackend(
           platform: const FakeMobileVoiceRecorderPlatform.android(),
           permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+          audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
           recorder: recorder,
           remuxer: remuxer,
           fileStore: fileStore,
@@ -171,6 +172,7 @@ void main() {
       final backend = MobileVoiceRecorderBackend(
         platform: const FakeMobileVoiceRecorderPlatform.android(),
         permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
         recorder: recorder,
         remuxer: FakeMobileOggCafRemuxer(),
         fileStore: fileStore,
@@ -235,6 +237,7 @@ void main() {
       final backend = MobileVoiceRecorderBackend(
         platform: const FakeMobileVoiceRecorderPlatform.android(),
         permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
         recorder: recorder,
         remuxer: FakeMobileOggCafRemuxer(),
         fileStore: fileStore,
@@ -256,6 +259,7 @@ void main() {
       final backend = MobileVoiceRecorderBackend(
         platform: const FakeMobileVoiceRecorderPlatform.android(),
         permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
         recorder: recorder,
         remuxer: FakeMobileOggCafRemuxer(),
         fileStore: fileStore,
@@ -288,6 +292,7 @@ void main() {
       final backend = MobileVoiceRecorderBackend(
         platform: const FakeMobileVoiceRecorderPlatform.android(),
         permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
         recorder: recorder,
         remuxer: FakeMobileOggCafRemuxer(),
         fileStore: fileStore,
@@ -431,6 +436,7 @@ void main() {
       final backend = MobileVoiceRecorderBackend(
         platform: const FakeMobileVoiceRecorderPlatform.android(),
         permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
         recorder: FakeMobileAudioRecorder(),
         remuxer: FakeMobileOggCafRemuxer(),
         fileStore: FakeMobileVoiceRecorderFileStore(),
@@ -480,6 +486,7 @@ void main() {
       final backend = MobileVoiceRecorderBackend(
         platform: const FakeMobileVoiceRecorderPlatform.android(),
         permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
         recorder: recorder,
         remuxer: FakeMobileOggCafRemuxer(),
         fileStore: fileStore,
@@ -505,6 +512,7 @@ void main() {
       final backend = MobileVoiceRecorderBackend(
         platform: const FakeMobileVoiceRecorderPlatform.android(),
         permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
         recorder: recorder,
         remuxer: FakeMobileOggCafRemuxer(),
         fileStore: fileStore,
@@ -547,6 +555,34 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('waveform handles -infinity amplitude samples', () async {
+      final clock = _MutableClock(DateTime(2026, 4, 15, 12));
+      final fileStore = FakeMobileVoiceRecorderFileStore();
+      final recorder = FakeMobileAudioRecorder();
+      final backend = MobileVoiceRecorderBackend(
+        platform: const FakeMobileVoiceRecorderPlatform.android(),
+        permissionGate: FakeMobileMicrophonePermissionGate.granted(),
+        audioSessionConfigurator: FakeMobileAudioSessionConfigurator(),
+        recorder: recorder,
+        remuxer: FakeMobileOggCafRemuxer(),
+        fileStore: fileStore,
+        now: clock.call,
+      );
+
+      await backend.start();
+      clock.advance(const Duration(seconds: 2));
+      // The record package emits -infinity for silence / no signal.
+      recorder.emitAmplitude(-double.infinity);
+      recorder.emitAmplitude(-18);
+      recorder.emitAmplitude(-double.infinity);
+      fileStore.seedBytes(recorder.startedPath!, _validOggOpusBytes());
+
+      final artifact = await backend.stop();
+
+      expect(artifact.waveformB64, isNotEmpty);
+      expect(artifact.mimeType, 'audio/ogg');
     });
   });
 }
