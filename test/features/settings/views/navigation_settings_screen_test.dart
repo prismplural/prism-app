@@ -32,10 +32,10 @@ void main() {
           (ref) => Stream.value(settings),
         ),
       ],
-      child: MaterialApp(
+      child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: const [Locale('en')],
-        home: const NavigationSettingsScreen(),
+        supportedLocales: [Locale('en')],
+        home: NavigationSettingsScreen(),
       ),
     );
   }

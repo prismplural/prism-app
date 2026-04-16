@@ -95,7 +95,7 @@ void main() {
 
     tester
         .widget<PrismButton>(find.widgetWithText(PrismButton, 'Enable GIFs'))
-        .onPressed!();
+        .onPressed();
     await tester.pumpAndSettle();
 
     expect(result, isTrue);
@@ -126,7 +126,7 @@ void main() {
 
     tester
         .widget<PrismButton>(find.widgetWithText(PrismButton, 'No Thanks'))
-        .onPressed!();
+        .onPressed();
     await tester.pumpAndSettle();
 
     expect(result, isFalse);

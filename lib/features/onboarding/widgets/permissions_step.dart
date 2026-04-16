@@ -181,7 +181,7 @@ class _PermissionRow extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             if (isGranted)
-              Icon(
+              const Icon(
                 Icons.check_circle_rounded,
                 color: AppColors.success,
                 size: 24,

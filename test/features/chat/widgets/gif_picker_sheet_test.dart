@@ -59,10 +59,10 @@ Widget _buildTestWidget({required MockClient mockClient}) {
           ),
         ),
       ],
-    child: MaterialApp(
+    child: const MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
-      supportedLocales: const [Locale('en')],
-      home: const Scaffold(
+      supportedLocales: [Locale('en')],
+      home: Scaffold(
         body: GifPickerSheet(),
       ),
     ),
