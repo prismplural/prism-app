@@ -121,7 +121,11 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     );
   }
 
-  Widget _buildViewToggle() {
+  Widget? _buildViewToggle() {
+    final showToggle =
+        ref.watch(showFrontingViewToggleProvider).whenOrNull(data: (v) => v) ?? true;
+    if (!showToggle) return null;
+
     final isTimelineView = ref.watch(timelineViewActiveProvider);
     return PrismTopBarAction(
       icon: isTimelineView
