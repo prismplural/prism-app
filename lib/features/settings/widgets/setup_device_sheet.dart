@@ -13,6 +13,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -60,6 +61,7 @@ class _SetupDeviceSheetContent extends ConsumerStatefulWidget {
 }
 
 enum _InitiatorStep {
+  enterMnemonic,
   prompt,
   scanning,
   connecting,
@@ -72,12 +74,16 @@ enum _InitiatorStep {
 
 class _SetupDeviceSheetContentState
     extends ConsumerState<_SetupDeviceSheetContent> {
-  _InitiatorStep _step = _InitiatorStep.prompt;
+  _InitiatorStep _step = _InitiatorStep.enterMnemonic;
   bool _joinerScanned = false;
   String? _sasWords;
   String? _sasDecimal;
   String? _error;
   MobileScannerController? _joinerScannerController;
+
+  // Recovery phrase typed by the user; required because the mnemonic is
+  // never persisted in the keychain. Zeroed on dispose.
+  String? _mnemonic;
 
   MobileScannerController _ensureJoinerScanner() {
     return _joinerScannerController ??= MobileScannerController();
@@ -86,6 +92,7 @@ class _SetupDeviceSheetContentState
   @override
   void dispose() {
     _joinerScannerController?.dispose();
+    _mnemonic = null;
     super.dispose();
   }
 
@@ -93,11 +100,12 @@ class _SetupDeviceSheetContentState
     _joinerScannerController?.dispose();
     _joinerScannerController = null;
     setState(() {
-      _step = _InitiatorStep.prompt;
+      _step = _InitiatorStep.enterMnemonic;
       _joinerScanned = false;
       _sasWords = null;
       _sasDecimal = null;
       _error = null;
+      _mnemonic = null;
     });
   }
 
@@ -161,10 +169,18 @@ class _SetupDeviceSheetContentState
         ttlSecs: BigInt.from(86400),
       );
 
+      final mnemonic = _mnemonic;
+      if (mnemonic == null) {
+        // Defensive: should be set by the enterMnemonic step before we arrive
+        // here. Bail out and bounce the user back to re-enter it.
+        throw StateError('Recovery phrase is missing.');
+      }
+
       final pairingApi = ref.read(pairingCeremonyApiProvider);
       await pairingApi.completeInitiatorCeremony(
         handle: widget.handle,
         password: pin,
+        mnemonic: mnemonic,
       );
 
       // Drain store after completion (may mutate epoch / credentials)
@@ -201,8 +217,39 @@ class _SetupDeviceSheetContentState
     );
   }
 
+  Future<void> _onMnemonicSubmitted(String mnemonic) async {
+    final normalized = mnemonic
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .join(' ');
+
+    // Validate by attempting the conversion — rejects bad words / checksum.
+    try {
+      await ref.read(pairingCeremonyApiProvider).validateMnemonic(normalized);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = context.l10n.changePinMnemonicInvalid;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _mnemonic = normalized;
+      _error = null;
+      _step = _InitiatorStep.prompt;
+    });
+  }
+
   Widget _buildContent() {
     return switch (_step) {
+      _InitiatorStep.enterMnemonic => _MnemonicEntryView(
+        initialError: _error,
+        onSubmit: _onMnemonicSubmitted,
+      ),
       _InitiatorStep.prompt => _ScanJoinerPrompt(
         onStartScan: () => setState(() => _step = _InitiatorStep.scanning),
       ),
@@ -268,6 +315,99 @@ class _SetupDeviceSheetContentState
         onTryAgain: _reset,
       ),
     };
+  }
+}
+
+/// Recovery phrase entry — required first step since the mnemonic is no
+/// longer persisted in the keychain.
+class _MnemonicEntryView extends StatefulWidget {
+  const _MnemonicEntryView({
+    required this.initialError,
+    required this.onSubmit,
+  });
+
+  final String? initialError;
+  final Future<void> Function(String mnemonic) onSubmit;
+
+  @override
+  State<_MnemonicEntryView> createState() => _MnemonicEntryViewState();
+}
+
+class _MnemonicEntryViewState extends State<_MnemonicEntryView> {
+  final _controller = TextEditingController();
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _error = widget.initialError;
+  }
+
+  @override
+  void dispose() {
+    _controller.clear();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final raw = _controller.text.trim();
+    if (raw.isEmpty) {
+      setState(() => _error = context.l10n.changePinMnemonicRequired);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    await widget.onSubmit(raw);
+    if (!mounted) return;
+    setState(() => _busy = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          context.l10n.setupDeviceEnterMnemonicTitle,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          context.l10n.setupDeviceEnterMnemonicSubtitle,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 20),
+        PrismTextField(
+          controller: _controller,
+          hintText: context.l10n.changePinMnemonicHint,
+          keyboardType: TextInputType.multiline,
+          textCapitalization: TextCapitalization.none,
+          minLines: 3,
+          maxLines: 5,
+          enabled: !_busy,
+          autofocus: true,
+          errorText: _error,
+        ),
+        const SizedBox(height: 20),
+        PrismButton(
+          label: context.l10n.setupDeviceMnemonicContinue,
+          onPressed: _submit,
+          isLoading: _busy,
+        ),
+      ],
+    );
   }
 }
 

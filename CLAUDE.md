@@ -78,7 +78,6 @@ On first setup, the raw DEK is cached in the platform keychain (`prism_sync.runt
 | `dek_salt` | base64(Argon2id salt) | Rust (drain) |
 | `session_token` | base64(auth token) | Rust (drain) |
 | `epoch` | base64(epoch counter) | Rust (drain) |
-| `mnemonic` | base64(BIP39 phrase) | Rust (drain) |
 | `runtime_dek` | base64(raw 32-byte DEK) | Dart (`cacheRuntimeKeys`) |
 | `biometric_dek` | base64(raw 32-byte DEK, biometric-gated) | Dart (`BiometricService.enroll`) |
 

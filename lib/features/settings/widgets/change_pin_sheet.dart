@@ -1,11 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
-import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
+import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -15,15 +13,16 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
-enum _Step { verify, warn, newPin, success }
+enum _Step { enterMnemonic, verify, warn, newPin, success }
 
 /// Full-screen sheet for changing the sync encryption PIN.
 ///
 /// Flow:
-///   1. Verify current PIN (ffi.unlock)
-///   2. Impact warning ("other devices will need to re-enter PIN")
-///   3. Enter + confirm new PIN (SharingService.changePassword)
-///   4. Success confirmation
+///   1. Enter the BIP39 recovery phrase (not stored on this device).
+///   2. Verify current PIN together with the mnemonic (ffi.unlock).
+///   3. Impact warning ("other devices will need to re-enter PIN").
+///   4. Enter + confirm new PIN (SharingService.changePassword).
+///   5. Success confirmation.
 class ChangePinSheet extends ConsumerStatefulWidget {
   const ChangePinSheet({super.key, this.scrollController});
 
@@ -42,10 +41,10 @@ class ChangePinSheet extends ConsumerStatefulWidget {
 }
 
 class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
-  _Step _step = _Step.verify;
+  _Step _step = _Step.enterMnemonic;
   bool _isLoading = false;
 
-  // Step 1 — brute-force throttle (widget-local; user must be authenticated
+  // Step 2 — brute-force throttle (widget-local; user must be authenticated
   // to reach settings, and Argon2id already imposes ~1-2s per attempt).
   int _failedVerifyAttempts = 0;
   DateTime? _verifyLockedUntil;
@@ -61,15 +60,20 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     return true;
   }
 
-  // Step 1
+  // Step 1 — recovery phrase entry
+  final _mnemonicController = TextEditingController();
+  String? _mnemonicError;
+  String? _mnemonic;
+
+  // Step 2
   final _currentController = TextEditingController();
   String? _currentError;
 
   // Stash verified PIN separately from the live text controller so that
-  // step 3 always uses the value that was actually checked by ffi.unlock.
+  // step 4 always uses the value that was actually checked by ffi.unlock.
   String? _verifiedCurrentPin;
 
-  // Step 3
+  // Step 4
   final _newController = TextEditingController();
   final _confirmController = TextEditingController();
   final _newFocusNode = FocusNode();
@@ -78,17 +82,19 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
   String? _confirmError;
   String? _submitError;
 
-  // Held between steps 1 and 3, zeroed on completion.
+  // Held between steps 2 and 4, zeroed on completion.
   List<int>? _secretKeyBytes;
 
   @override
   void dispose() {
+    _mnemonicController.dispose();
     _currentController.dispose();
     _newController.dispose();
     _confirmController.dispose();
     _newFocusNode.dispose();
     _confirmFocusNode.dispose();
     _zeroSecretKey();
+    _mnemonic = null;
     super.dispose();
   }
 
@@ -100,12 +106,56 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     }
   }
 
-  // ── Step 1: verify current PIN ─────────────────────────────────────────────
+  // ── Step 1: mnemonic entry ────────────────────────────────────────────────
+
+  Future<void> _submitMnemonic() async {
+    final raw = _mnemonicController.text.trim();
+    if (raw.isEmpty) {
+      setState(() => _mnemonicError = context.l10n.changePinMnemonicRequired);
+      return;
+    }
+
+    // Normalize whitespace (multiple spaces, newlines) to a single space.
+    final normalized = raw
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .join(' ');
+
+    setState(() {
+      _isLoading = true;
+      _mnemonicError = null;
+    });
+
+    // Validate the mnemonic by attempting to convert it to bytes.
+    // This catches invalid words and bad checksums before we prompt for PIN.
+    try {
+      await ref.read(pairingCeremonyApiProvider).validateMnemonic(normalized);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _mnemonicError = context.l10n.changePinMnemonicInvalid;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _mnemonic = normalized;
+      _step = _Step.verify;
+    });
+  }
+
+  // ── Step 2: verify current PIN ────────────────────────────────────────────
 
   Future<void> _verifyCurrent() async {
     if (_isVerifyLockedOut) {
-      final secs =
-          _verifyLockedUntil!.difference(DateTime.now()).inSeconds.clamp(0, 9999);
+      final secs = _verifyLockedUntil!
+          .difference(DateTime.now())
+          .inSeconds
+          .clamp(0, 9999);
       setState(() =>
           _currentError = 'Too many attempts. Try again in ${secs}s.');
       return;
@@ -113,7 +163,17 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
     final pin = _currentController.text;
     if (pin.isEmpty) {
-      setState(() => _currentError = context.l10n.settingsChangePinCurrentRequired);
+      setState(
+          () => _currentError = context.l10n.settingsChangePinCurrentRequired);
+      return;
+    }
+
+    final mnemonic = _mnemonic;
+    if (mnemonic == null) {
+      setState(() {
+        _step = _Step.enterMnemonic;
+        _mnemonicError = context.l10n.settingsChangePinSessionExpired;
+      });
       return;
     }
 
@@ -124,24 +184,6 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
     List<int>? secretKeyBytes;
     try {
-      final mnemonicB64 =
-          await secureStorage.read(key: 'prism_sync.mnemonic');
-      if (!mounted) return;
-      if (mnemonicB64 == null) {
-        setState(() {
-          _isLoading = false;
-          _currentError = context.l10n.settingsChangePinNoSecretKey;
-        });
-        return;
-      }
-
-      String mnemonic;
-      try {
-        mnemonic = utf8.decode(base64Decode(mnemonicB64));
-      } catch (_) {
-        mnemonic = mnemonicB64;
-      }
-
       secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonic);
       if (!mounted) {
         secretKeyBytes.fillRange(0, secretKeyBytes.length, 0);
@@ -164,24 +206,19 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
           password: pin,
           secretKey: secretKeyBytes,
         );
-      } on Exception catch (e) {
-        final msg = e.toString();
+      } on Exception {
+        // Use a generic verification error so we don't disclose whether
+        // the PIN or the mnemonic was wrong.
         secretKeyBytes.fillRange(0, secretKeyBytes.length, 0);
         if (!mounted) return;
-        final isWrongPin = msg.contains('wrong password') ||
-            msg.contains('secretbox open failed');
-        if (isWrongPin) {
-          _failedVerifyAttempts++;
-          if (_failedVerifyAttempts >= _maxVerifyAttempts) {
-            _verifyLockedUntil = DateTime.now()
-                .add(const Duration(seconds: _verifyLockoutSeconds));
-          }
+        _failedVerifyAttempts++;
+        if (_failedVerifyAttempts >= _maxVerifyAttempts) {
+          _verifyLockedUntil = DateTime.now()
+              .add(const Duration(seconds: _verifyLockoutSeconds));
         }
         setState(() {
           _isLoading = false;
-          _currentError = isWrongPin
-              ? context.l10n.settingsChangePinIncorrect
-              : context.l10n.settingsChangePinVerifyFailed(msg);
+          _currentError = context.l10n.changePinVerificationFailed;
         });
         return;
       }
@@ -207,15 +244,15 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
     }
   }
 
-  // ── Step 3: change PIN ─────────────────────────────────────────────────────
+  // ── Step 4: change PIN ────────────────────────────────────────────────────
 
   Future<void> _changePin() async {
-    // Guard: secretKey must be present from step 1. If somehow absent
-    // (hot-reload, state restore), send the user back to verify.
+    // Guard: secretKey must be present from step 2. If somehow absent
+    // (hot-reload, state restore), send the user back to re-enter mnemonic.
     if (_secretKeyBytes == null || _verifiedCurrentPin == null) {
       setState(() {
-        _step = _Step.verify;
-        _currentError = context.l10n.settingsChangePinSessionExpired;
+        _step = _Step.enterMnemonic;
+        _mnemonicError = context.l10n.settingsChangePinSessionExpired;
       });
       return;
     }
@@ -297,6 +334,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       });
     } finally {
       _zeroSecretKey();
+      _mnemonic = null;
     }
   }
 
@@ -308,6 +346,8 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
 
     Widget body;
     switch (_step) {
+      case _Step.enterMnemonic:
+        body = _buildMnemonicStep(theme);
       case _Step.verify:
         body = _buildVerifyStep(theme);
       case _Step.warn:
@@ -336,6 +376,48 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMnemonicStep(ThemeData theme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 8),
+        Text(
+          context.l10n.changePinEnterMnemonicTitle,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          context.l10n.changePinEnterMnemonicSubtitle,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        PrismTextField(
+          controller: _mnemonicController,
+          hintText: context.l10n.changePinMnemonicHint,
+          keyboardType: TextInputType.multiline,
+          textCapitalization: TextCapitalization.none,
+          autofocus: true,
+          enabled: !_isLoading,
+          minLines: 3,
+          maxLines: 5,
+          errorText: _mnemonicError,
+        ),
+        const SizedBox(height: 20),
+        PrismButton(
+          label: context.l10n.changePinVerifyButton,
+          onPressed: _submitMnemonic,
+          isLoading: _isLoading,
+        ),
+      ],
     );
   }
 
