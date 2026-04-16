@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,18 +81,21 @@ void main() {
         expect(copied.activeMediaId, 'new-id');
       });
 
-      test('cannot set activeMediaId back to null via copyWith (known limitation)', () {
-        // copyWith uses `activeMediaId ?? this.activeMediaId`, so passing null
-        // is indistinguishable from not passing it at all. This is a known
-        // limitation — the stop() method works around it by constructing a
-        // fresh const VoicePlaybackState() instead.
-        const original = VoicePlaybackState(activeMediaId: 'media-123');
+      test(
+        'cannot set activeMediaId back to null via copyWith (known limitation)',
+        () {
+          // copyWith uses `activeMediaId ?? this.activeMediaId`, so passing null
+          // is indistinguishable from not passing it at all. This is a known
+          // limitation — the stop() method works around it by constructing a
+          // fresh const VoicePlaybackState() instead.
+          const original = VoicePlaybackState(activeMediaId: 'media-123');
 
-        final copied = original.copyWith(activeMediaId: null);
+          final copied = original.copyWith(activeMediaId: null);
 
-        // Still retains the old value because null falls through to ??
-        expect(copied.activeMediaId, 'media-123');
-      });
+          // Still retains the old value because null falls through to ??
+          expect(copied.activeMediaId, 'media-123');
+        },
+      );
 
       test('can override position and duration independently', () {
         const original = VoicePlaybackState();
@@ -109,6 +112,53 @@ void main() {
         expect(copied.isPlaying, isFalse);
         expect(copied.speed, 1.0);
       });
+    });
+  });
+
+  group('normalizeVoiceContentType', () {
+    test('maps legacy ogg metadata to audio/mp4', () {
+      expect(normalizeVoiceContentType('audio/ogg'), 'audio/mp4');
+    });
+
+    test('defaults blank content types to audio/mp4', () {
+      expect(normalizeVoiceContentType(''), 'audio/mp4');
+    });
+
+    test('preserves unknown content types', () {
+      expect(normalizeVoiceContentType('audio/flac'), 'audio/flac');
+    });
+  });
+
+  group('VoicePlaybackSource', () {
+    test('serves the full byte stream with normalized metadata', () async {
+      final source = VoicePlaybackSource(
+        audioBytes: Uint8List.fromList([1, 2, 3, 4]),
+        contentType: 'audio/mp4',
+      );
+
+      final response = await source.request();
+      final bytes = await response.stream.expand((chunk) => chunk).toList();
+
+      expect(response.sourceLength, 4);
+      expect(response.contentLength, 4);
+      expect(response.offset, 0);
+      expect(response.contentType, 'audio/mp4');
+      expect(bytes, [1, 2, 3, 4]);
+    });
+
+    test('serves byte ranges for seeking requests', () async {
+      final source = VoicePlaybackSource(
+        audioBytes: Uint8List.fromList([1, 2, 3, 4]),
+        contentType: 'audio/mp4',
+      );
+
+      final response = await source.request(1, 3);
+      final bytes = await response.stream.expand((chunk) => chunk).toList();
+
+      expect(response.sourceLength, 4);
+      expect(response.contentLength, 2);
+      expect(response.offset, 1);
+      expect(bytes, [2, 3]);
     });
   });
 
@@ -275,22 +325,25 @@ void main() {
         expect(state.speed, 1.0);
       });
 
-      test('stop correctly nullifies activeMediaId (workaround for copyWith limitation)', () {
-        // This is the key test: stop() uses `const VoicePlaybackState()`
-        // instead of copyWith, which ensures activeMediaId can be set back
-        // to null — something copyWith cannot do.
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
+      test(
+        'stop correctly nullifies activeMediaId (workaround for copyWith limitation)',
+        () {
+          // This is the key test: stop() uses `const VoicePlaybackState()`
+          // instead of copyWith, which ensures activeMediaId can be set back
+          // to null — something copyWith cannot do.
+          final container = ProviderContainer();
+          addTearDown(container.dispose);
 
-        final notifier = container.read(voicePlaybackProvider.notifier);
+          final notifier = container.read(voicePlaybackProvider.notifier);
 
-        // Manually cycle speed to modify state (we can't load a player in unit tests)
-        notifier.cycleSpeed();
+          // Manually cycle speed to modify state (we can't load a player in unit tests)
+          notifier.cycleSpeed();
 
-        notifier.stop();
+          notifier.stop();
 
-        expect(container.read(voicePlaybackProvider).activeMediaId, isNull);
-      });
+          expect(container.read(voicePlaybackProvider).activeMediaId, isNull);
+        },
+      );
 
       test('stop without a loaded player does not throw', () {
         final container = ProviderContainer();
@@ -330,100 +383,6 @@ void main() {
           () => notifier.seek(const Duration(seconds: 30)),
           returnsNormally,
         );
-      });
-    });
-
-    // ════════════════════════════════════════════════════════════════════════
-    // temp file deletion — security invariant
-    //
-    // Plaintext audio files written to the temp directory by DownloadManager
-    // must be deleted as soon as playback ends or the provider is disposed.
-    // These tests use [setTempFileForTesting] to inject a temp file without
-    // needing a live audio player.
-    // ════════════════════════════════════════════════════════════════════════
-
-    group('temp file deletion', () {
-      test('stop() deletes the temp file', () async {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Create a real temp file to verify deletion.
-        final tmpFile = await File(
-          '${Directory.systemTemp.path}/vp_test_stop.m4a',
-        ).create();
-        addTearDown(() async {
-          if (tmpFile.existsSync()) await tmpFile.delete();
-        });
-
-        notifier.setTempFileForTesting(tmpFile);
-        expect(tmpFile.existsSync(), isTrue, reason: 'file must exist before stop()');
-
-        notifier.stop();
-
-        // File deletion is fire-and-forget; give the event loop a turn.
-        await Future<void>.delayed(Duration.zero);
-
-        expect(tmpFile.existsSync(), isFalse,
-            reason: 'temp file must be deleted after stop()');
-      });
-
-      test('container disposal deletes the temp file', () async {
-        final container = ProviderContainer();
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        final tmpFile = await File(
-          '${Directory.systemTemp.path}/vp_test_dispose.m4a',
-        ).create();
-        addTearDown(() async {
-          if (tmpFile.existsSync()) await tmpFile.delete();
-        });
-
-        notifier.setTempFileForTesting(tmpFile);
-        expect(tmpFile.existsSync(), isTrue);
-
-        // Disposing the container triggers ref.onDispose → _disposePlayer()
-        // → _deleteTempFile().
-        container.dispose();
-        await Future<void>.delayed(Duration.zero);
-
-        expect(tmpFile.existsSync(), isFalse,
-            reason: 'temp file must be deleted when provider is disposed');
-      });
-
-      test('setTempFileForTesting(null) after stop does not throw', () {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // No temp file set — stop should not throw.
-        expect(notifier.stop, returnsNormally);
-
-        // Explicitly set to null and stop again — still no throw.
-        notifier.setTempFileForTesting(null);
-        expect(notifier.stop, returnsNormally);
-      });
-
-      test('stop() with already-deleted temp file does not throw', () async {
-        final container = ProviderContainer();
-        addTearDown(container.dispose);
-
-        final notifier = container.read(voicePlaybackProvider.notifier);
-
-        // Create and immediately delete the file to simulate OS cleanup.
-        final tmpFile = await File(
-          '${Directory.systemTemp.path}/vp_test_missing.m4a',
-        ).create();
-        await tmpFile.delete();
-
-        notifier.setTempFileForTesting(tmpFile);
-
-        // stop() must not throw even when the file is already gone.
-        expect(notifier.stop, returnsNormally);
-        await Future<void>.delayed(Duration.zero);
       });
     });
   });

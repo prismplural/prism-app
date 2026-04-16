@@ -1,5 +1,6 @@
+// ignore_for_file: experimental_member_use
+
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,24 +44,53 @@ class VoicePlaybackState {
   }
 }
 
+@visibleForTesting
+String normalizeVoiceContentType(String mimeType) {
+  switch (mimeType.trim().toLowerCase()) {
+    case '':
+    case 'audio/ogg':
+    case 'audio/aac':
+    case 'audio/m4a':
+    case 'audio/x-m4a':
+    case 'audio/mp4':
+      return 'audio/mp4';
+    default:
+      return mimeType;
+  }
+}
+
+@visibleForTesting
+class VoicePlaybackSource extends StreamAudioSource {
+  VoicePlaybackSource({required this.audioBytes, required this.contentType});
+
+  final Uint8List audioBytes;
+  final String contentType;
+
+  @override
+  Future<StreamAudioResponse> request([int? start, int? end]) async {
+    final safeStart = (start ?? 0).clamp(0, audioBytes.length);
+    final safeEnd = (end ?? audioBytes.length).clamp(
+      safeStart,
+      audioBytes.length,
+    );
+    final chunk = Uint8List.sublistView(audioBytes, safeStart, safeEnd);
+
+    return StreamAudioResponse(
+      sourceLength: audioBytes.length,
+      contentLength: safeEnd - safeStart,
+      offset: safeStart,
+      stream: Stream.value(chunk),
+      contentType: contentType,
+    );
+  }
+}
+
 class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
   AudioPlayer? _player;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<PlayerState>? _stateSub;
   StreamSubscription<Duration?>? _durationSub;
-  StreamSubscription<dynamic>? _errorSub;
-
-  /// The current temp plaintext audio file. Created by [getMediaFile] in
-  /// [DownloadManager] and written to [getTemporaryDirectory]. Deleted
-  /// explicitly when playback completes or the provider is disposed so that
-  /// plaintext never persists beyond the active playback session.
-  File? _tempFile;
-
-  /// Sets [_tempFile] directly. Exposed for unit tests so the deletion
-  /// lifecycle can be verified without a live audio player.
-  @visibleForTesting
-  // ignore: use_setters_to_change_properties
-  void setTempFileForTesting(File? file) => _tempFile = file;
+  StreamSubscription<PlayerException>? _errorSub;
 
   @override
   VoicePlaybackState build() {
@@ -68,7 +98,11 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
     return const VoicePlaybackState();
   }
 
-  Future<void> togglePlayPause(String mediaId, File audioFile) async {
+  Future<void> togglePlayPause(
+    String mediaId,
+    Uint8List audioBytes, {
+    required String mimeType,
+  }) async {
     if (state.activeMediaId == mediaId && state.isPlaying) {
       // Pause current note.
       await _player?.pause();
@@ -76,7 +110,9 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
       return;
     }
 
-    if (state.activeMediaId == mediaId && !state.isPlaying && state.error == null) {
+    if (state.activeMediaId == mediaId &&
+        !state.isPlaying &&
+        state.error == null) {
       // Resume current note (no error — player is still set up).
       await _player?.play();
       state = state.copyWith(isPlaying: true);
@@ -85,9 +121,6 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
 
     // Load a different note, first play, or retry after error.
     _disposePlayer();
-
-    // Track the new temp file — will be deleted on completion or dispose.
-    _tempFile = audioFile;
 
     // Clear error and mark loading state before the async work.
     state = VoicePlaybackState(
@@ -101,18 +134,19 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
     try {
       _player = AudioPlayer();
 
-      _errorSub = _player!.playbackEventStream.listen(
-        null,
-        onError: (Object e) {
-          _disposePlayer();
-          if (state.activeMediaId == mediaId) {
-            state = state.copyWith(isPlaying: false, error: e.toString());
-          }
-        },
-        cancelOnError: false,
-      );
+      _errorSub = _player!.errorStream.listen((e) {
+        _disposePlayer();
+        if (state.activeMediaId == mediaId) {
+          state = state.copyWith(isPlaying: false, error: e.toString());
+        }
+      });
 
-      await _player!.setAudioSource(AudioSource.file(audioFile.path));
+      await _player!.setAudioSource(
+        VoicePlaybackSource(
+          audioBytes: audioBytes,
+          contentType: normalizeVoiceContentType(mimeType),
+        ),
+      );
       await _player!.setSpeed(state.speed);
 
       _positionSub = _player!.positionStream.listen((pos) {
@@ -124,8 +158,6 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
           _player?.seek(Duration.zero);
           _player?.pause();
           state = state.copyWith(isPlaying: false, position: Duration.zero);
-          // Playback finished — delete the temp plaintext file.
-          _deleteTempFile();
         } else {
           state = state.copyWith(isPlaying: ps.playing);
         }
@@ -178,27 +210,10 @@ class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
     _errorSub = null;
     _player?.dispose();
     _player = null;
-    // Delete temp plaintext file when the player is disposed (stop, load new
-    // track, or provider disposal). Errors are silenced — best-effort cleanup.
-    _deleteTempFile();
-  }
-
-  /// Deletes [_tempFile] and clears the reference. Errors are silenced so that
-  /// a missing file (e.g. already cleaned up by the OS) doesn't surface to the
-  /// user. Called after playback completes and when the player is disposed.
-  void _deleteTempFile() {
-    final file = _tempFile;
-    _tempFile = null;
-    if (file == null) return;
-    file.delete().onError((error, _) {
-      // Best-effort: log in debug mode but don't surface to the user.
-      debugPrint('[VoicePlayback] Could not delete temp file: ${file.path} ($error)');
-      return file; // Return the file to satisfy the Future<File> type
-    });
   }
 }
 
 final voicePlaybackProvider =
     NotifierProvider<VoicePlaybackNotifier, VoicePlaybackState>(
-  VoicePlaybackNotifier.new,
-);
+      VoicePlaybackNotifier.new,
+    );
