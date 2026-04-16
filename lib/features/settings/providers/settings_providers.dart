@@ -749,3 +749,24 @@ final wakeSuggestionAfterHoursProvider = Provider<double>((ref) {
       ) ??
       8.0;
 });
+
+const _kShowFrontingViewToggle = 'prism.local.show_fronting_view_toggle';
+
+class ShowFrontingViewToggleNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kShowFrontingViewToggle) ?? true;
+  }
+
+  Future<void> setEnabled(bool value) async {
+    state = AsyncValue.data(value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kShowFrontingViewToggle, value);
+  }
+}
+
+final showFrontingViewToggleProvider =
+    AsyncNotifierProvider<ShowFrontingViewToggleNotifier, bool>(
+  ShowFrontingViewToggleNotifier.new,
+);

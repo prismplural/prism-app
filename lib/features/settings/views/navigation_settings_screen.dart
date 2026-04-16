@@ -79,6 +79,26 @@ class NavigationSettingsScreen extends ConsumerWidget {
             ),
           ),
 
+          // Home view toggle preference
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: PrismSectionCard(
+              child: SwitchListTile.adaptive(
+                title: Text(context.l10n.navigationShowViewToggleTitle),
+                subtitle: Text(
+                  context.l10n.navigationShowViewToggleSubtitle,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                value: ref.watch(showFrontingViewToggleProvider).whenOrNull(data: (v) => v) ?? true,
+                onChanged: (v) => ref
+                    .read(showFrontingViewToggleProvider.notifier)
+                    .setEnabled(v),
+              ),
+            ),
+          ),
+
           // Unified reorderable list with section headers
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
