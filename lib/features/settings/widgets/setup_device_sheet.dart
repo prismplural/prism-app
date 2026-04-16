@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -220,10 +221,7 @@ class _SetupDeviceSheetContentState
   Future<void> _onMnemonicSubmitted(String mnemonic) async {
     final normalized = PrismMnemonicField.normalize(mnemonic);
 
-    // Validate by attempting the conversion — rejects bad words / checksum.
-    try {
-      await ref.read(pairingCeremonyApiProvider).validateMnemonic(normalized);
-    } catch (_) {
+    if (!validateBip39Mnemonic(normalized)) {
       if (!mounted) return;
       setState(() {
         _error = context.l10n.changePinMnemonicInvalid;

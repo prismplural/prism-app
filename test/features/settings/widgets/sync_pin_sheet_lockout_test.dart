@@ -44,9 +44,6 @@ class _AcceptMnemonicApi extends PairingCeremonyApi {
   const _AcceptMnemonicApi();
 
   @override
-  Future<void> validateMnemonic(String mnemonic) async {}
-
-  @override
   Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) =>
       throw UnimplementedError();
 

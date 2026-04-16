@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/sharing/sharing_providers.dart';
-import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -122,11 +122,7 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
       _mnemonicError = null;
     });
 
-    // Validate the mnemonic by attempting to convert it to bytes.
-    // This catches invalid words and bad checksums before we prompt for PIN.
-    try {
-      await ref.read(pairingCeremonyApiProvider).validateMnemonic(normalized);
-    } catch (_) {
+    if (!validateBip39Mnemonic(normalized)) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
