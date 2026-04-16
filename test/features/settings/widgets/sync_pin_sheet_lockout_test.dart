@@ -1,11 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_pin_sheet.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_sync/generated/api.dart' as ffi;
 
 // ---------------------------------------------------------------------------
 // Fake SyncHealthNotifier
@@ -13,13 +18,60 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 
 class _FakeSyncHealthNotifier extends SyncHealthNotifier {
   bool unlockResult;
+  String? lastPin;
+  String? lastMnemonic;
   _FakeSyncHealthNotifier({this.unlockResult = false});
 
   @override
   SyncHealthState build() => SyncHealthState.needsPassword;
 
   @override
-  Future<bool> attemptUnlock(String pin) async => unlockResult;
+  Future<bool> attemptUnlock({
+    required String pin,
+    required String mnemonic,
+  }) async {
+    lastPin = pin;
+    lastMnemonic = mnemonic;
+    return unlockResult;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fake PairingCeremonyApi — makes the mnemonic gate pass without FFI.
+// ---------------------------------------------------------------------------
+
+class _AcceptMnemonicApi extends PairingCeremonyApi {
+  const _AcceptMnemonicApi();
+
+  @override
+  Future<void> validateMnemonic(String mnemonic) async {}
+
+  @override
+  Future<String> startJoinerCeremony({required ffi.PrismSyncHandle handle}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<String> getJoinerSas({required ffi.PrismSyncHandle handle}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<String> completeJoinerCeremony({
+    required ffi.PrismSyncHandle handle,
+    required String password,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<String> startInitiatorCeremony({
+    required ffi.PrismSyncHandle handle,
+    required Uint8List tokenBytes,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<String> completeInitiatorCeremony({
+    required ffi.PrismSyncHandle handle,
+    required String password,
+    required String mnemonic,
+  }) => throw UnimplementedError();
 }
 
 // ---------------------------------------------------------------------------
@@ -29,11 +81,19 @@ class _FakeSyncHealthNotifier extends SyncHealthNotifier {
 const _prefsKeyAttempts = 'prism.sync_pin_failed_attempts';
 const _prefsKeyLockedUntil = 'prism.sync_pin_locked_until_ms';
 
+// A canonical BIP39 12-word mnemonic with a valid checksum.
+const _validMnemonic =
+    'abandon abandon abandon abandon abandon abandon '
+    'abandon abandon abandon abandon abandon about';
+
 Widget _buildSheet({SyncHealthNotifier? healthNotifier}) {
   return ProviderScope(
     overrides: [
       syncHealthProvider.overrideWith(
         () => healthNotifier ?? _FakeSyncHealthNotifier(unlockResult: false),
+      ),
+      pairingCeremonyApiProvider.overrideWith(
+        (ref) => const _AcceptMnemonicApi(),
       ),
     ],
     child: MaterialApp(
@@ -48,6 +108,31 @@ Widget _buildSheet({SyncHealthNotifier? healthNotifier}) {
       ),
     ),
   );
+}
+
+/// Sets a phone-like viewport so the sheet's content all renders inside
+/// the physical window. The default 800x600 test window is too short to
+/// accommodate both the mnemonic chip grid and the numpad.
+void _useTallViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(900, 1800);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+/// Drives the sheet past the mnemonic step: types a valid phrase,
+/// taps Continue, and settles.
+Future<void> _advancePastMnemonicStep(WidgetTester tester) async {
+  await tester.enterText(find.byType(TextField), _validMnemonic);
+  await tester.pumpAndSettle();
+  // The "Continue" button enables once 12 valid words are entered.
+  // The sheet content can overflow a standard 800x600 test viewport,
+  // so make sure the button is scrolled into view before tapping.
+  final continueButton = find.widgetWithText(PrismButton, 'Continue');
+  await tester.ensureVisible(continueButton);
+  await tester.pumpAndSettle();
+  await tester.tap(continueButton);
+  await tester.pumpAndSettle();
 }
 
 /// Taps the numpad buttons for each digit to enter a 6-digit PIN.
@@ -66,22 +151,23 @@ void main() {
   group('SyncPinSheet lockout persistence', () {
     // ── No pre-existing lockout ─────────────────────────────────────────────
 
-    testWidgets('no lockout subtitle when SharedPreferences is empty', (
-      tester,
-    ) async {
+    testWidgets('no lockout subtitle on the mnemonic step', (tester) async {
+      _useTallViewport(tester);
       SharedPreferences.setMockInitialValues({});
 
       await tester.pumpWidget(_buildSheet());
       await tester.pumpAndSettle();
 
+      // Step 1 (mnemonic) — lockout subtitle belongs to step 2.
       expect(find.textContaining('Too many attempts'), findsNothing);
     });
 
     // ── Pre-existing lockout loaded from prefs ──────────────────────────────
 
     testWidgets(
-        'shows locked subtitle when SharedPreferences has a future locked_until',
+        'shows locked subtitle on step 2 when SharedPreferences has a future locked_until',
         (tester) async {
+      _useTallViewport(tester);
       final futureMs = DateTime.now()
           .add(const Duration(seconds: 120))
           .millisecondsSinceEpoch;
@@ -92,8 +178,9 @@ void main() {
       });
 
       await tester.pumpWidget(_buildSheet());
-      // Allow initState + _loadLockoutState() async call to complete
       await tester.pumpAndSettle();
+
+      await _advancePastMnemonicStep(tester);
 
       expect(find.textContaining('Too many attempts'), findsOneWidget);
     });
@@ -101,6 +188,7 @@ void main() {
     testWidgets('expired lockout from prefs shows no lockout subtitle', (
       tester,
     ) async {
+      _useTallViewport(tester);
       // Lock that expired 1 minute ago
       final pastMs = DateTime.now()
           .subtract(const Duration(minutes: 1))
@@ -114,6 +202,8 @@ void main() {
       await tester.pumpWidget(_buildSheet());
       await tester.pumpAndSettle();
 
+      await _advancePastMnemonicStep(tester);
+
       // Expired lockout should not show the lockout subtitle
       expect(find.textContaining('Too many attempts'), findsNothing);
     });
@@ -122,6 +212,7 @@ void main() {
 
     testWidgets('failed attempt writes incremented count to SharedPreferences',
         (tester) async {
+      _useTallViewport(tester);
       SharedPreferences.setMockInitialValues({
         _prefsKeyAttempts: 3, // prior failures already recorded
       });
@@ -134,6 +225,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      await _advancePastMnemonicStep(tester);
+
       await _tapPin(tester, '123456');
       await tester.pumpAndSettle();
 
@@ -144,6 +237,7 @@ void main() {
     testWidgets('5th failed attempt writes a future locked_until to prefs', (
       tester,
     ) async {
+      _useTallViewport(tester);
       SharedPreferences.setMockInitialValues({
         _prefsKeyAttempts: 4, // one more wrong attempt triggers lockout
       });
@@ -156,6 +250,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+
+      await _advancePastMnemonicStep(tester);
 
       await _tapPin(tester, '654321');
       await tester.pumpAndSettle();
@@ -170,16 +266,18 @@ void main() {
     // ── Successful unlock clears lockout state ──────────────────────────────
 
     testWidgets('successful unlock clears lockout prefs keys', (tester) async {
+      _useTallViewport(tester);
       SharedPreferences.setMockInitialValues({
         _prefsKeyAttempts: 3,
       });
 
+      final notifier = _FakeSyncHealthNotifier(unlockResult: true);
       await tester.pumpWidget(
-        _buildSheet(
-          healthNotifier: _FakeSyncHealthNotifier(unlockResult: true),
-        ),
+        _buildSheet(healthNotifier: notifier),
       );
       await tester.pumpAndSettle();
+
+      await _advancePastMnemonicStep(tester);
 
       await _tapPin(tester, '000000');
       await tester.pumpAndSettle();
@@ -187,6 +285,9 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(_prefsKeyAttempts), isNull);
       expect(prefs.getInt(_prefsKeyLockedUntil), isNull);
+      // Both inputs should have been forwarded to attemptUnlock.
+      expect(notifier.lastPin, '000000');
+      expect(notifier.lastMnemonic, _validMnemonic);
     });
   });
 }

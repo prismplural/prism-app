@@ -12,8 +12,8 @@ import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
-import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -218,12 +218,7 @@ class _SetupDeviceSheetContentState
   }
 
   Future<void> _onMnemonicSubmitted(String mnemonic) async {
-    final normalized = mnemonic
-        .trim()
-        .toLowerCase()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .join(' ');
+    final normalized = PrismMnemonicField.normalize(mnemonic);
 
     // Validate by attempting the conversion — rejects bad words / checksum.
     try {
@@ -352,8 +347,8 @@ class _MnemonicEntryViewState extends State<_MnemonicEntryView> {
   }
 
   Future<void> _submit() async {
-    final raw = _controller.text.trim();
-    if (raw.isEmpty) {
+    final normalized = PrismMnemonicField.normalize(_controller.text);
+    if (normalized.isEmpty) {
       setState(() => _error = context.l10n.changePinMnemonicRequired);
       return;
     }
@@ -361,7 +356,7 @@ class _MnemonicEntryViewState extends State<_MnemonicEntryView> {
       _busy = true;
       _error = null;
     });
-    await widget.onSubmit(raw);
+    await widget.onSubmit(normalized);
     if (!mounted) return;
     setState(() => _busy = false);
   }
@@ -389,16 +384,13 @@ class _MnemonicEntryViewState extends State<_MnemonicEntryView> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
-        PrismTextField(
+        PrismMnemonicField(
           controller: _controller,
           hintText: context.l10n.changePinMnemonicHint,
-          keyboardType: TextInputType.multiline,
-          textCapitalization: TextCapitalization.none,
-          minLines: 3,
-          maxLines: 5,
           enabled: !_busy,
           autofocus: true,
           errorText: _error,
+          onSubmitted: (_) => _submit(),
         ),
         const SizedBox(height: 20),
         PrismButton(
