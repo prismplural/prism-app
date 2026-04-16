@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,6 +13,7 @@ import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/providers/media_attachment_providers.dart';
 import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
 import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/media/expired_media.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
@@ -690,70 +692,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   }
 
   Widget _buildVoiceAttachment(MediaAttachment attachment, Color authorColor) {
-    final params = (
-      mediaId: attachment.mediaId,
-      encryptionKeyB64: attachment.encryptionKeyB64,
-      ciphertextHash: attachment.contentHash,
-      plaintextHash: attachment.plaintextHash,
-    );
-    final mediaAsync = ref.watch(mediaAudioFileProvider(params));
-
-    // Select only fields relevant to this bubble so non-active bubbles skip
-    // rebuilds from the ~10-20 Hz position stream.
-    final mediaId = attachment.mediaId;
-    final isActive = ref.watch(
-      voicePlaybackProvider.select((s) => s.activeMediaId == mediaId),
-    );
-    final isPlaying = ref.watch(
-      voicePlaybackProvider.select(
-        (s) => s.activeMediaId == mediaId && s.isPlaying,
-      ),
-    );
-    final progress = ref.watch(
-      voicePlaybackProvider.select((s) {
-        if (s.activeMediaId != mediaId || s.duration.inMilliseconds <= 0)
-          return 0.0;
-        return s.position.inMilliseconds / s.duration.inMilliseconds;
-      }),
-    );
-    final speed = ref.watch(
-      voicePlaybackProvider.select(
-        (s) => s.activeMediaId == mediaId ? s.speed : 1.0,
-      ),
-    );
-    final hasPlaybackError = ref.watch(
-      voicePlaybackProvider.select(
-        (s) => s.activeMediaId == mediaId && s.error != null,
-      ),
-    );
-
-    return VoiceBubble(
-      durationMs: attachment.durationMs,
-      isPlaying: isPlaying,
-      progress: progress,
-      speed: speed,
-      isLoading: mediaAsync.isLoading,
-      hasError: mediaAsync.hasError || hasPlaybackError,
-      onPlayPause: mediaAsync.value != null
-          ? () => ref
-                .read(voicePlaybackProvider.notifier)
-                .togglePlayPause(attachment.mediaId, mediaAsync.value!)
-          : null,
-      onRetry: mediaAsync.hasError
-          ? () => ref.invalidate(mediaAudioFileProvider(params))
-          : null,
-      onSeek: mediaAsync.value != null
-          ? (fraction) {
-              final totalMs = attachment.durationMs;
-              ref
-                  .read(voicePlaybackProvider.notifier)
-                  .seek(Duration(milliseconds: (fraction * totalMs).round()));
-            }
-          : null,
-      onSpeedTap: isActive
-          ? () => ref.read(voicePlaybackProvider.notifier).cycleSpeed()
-          : null,
-    );
+    return _VoiceAttachmentBubble(attachment: attachment);
   }
 
   Widget _buildImageAttachment(MediaAttachment attachment) {
@@ -878,6 +817,115 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return dateTime.toTimeString();
+  }
+}
+
+class _VoiceAttachmentBubble extends ConsumerStatefulWidget {
+  const _VoiceAttachmentBubble({required this.attachment});
+
+  final MediaAttachment attachment;
+
+  @override
+  ConsumerState<_VoiceAttachmentBubble> createState() =>
+      _VoiceAttachmentBubbleState();
+}
+
+class _VoiceAttachmentBubbleState
+    extends ConsumerState<_VoiceAttachmentBubble> {
+  @override
+  Widget build(BuildContext context) {
+    final attachment = widget.attachment;
+    final params = (
+      mediaId: attachment.mediaId,
+      encryptionKeyB64: attachment.encryptionKeyB64,
+      ciphertextHash: attachment.contentHash,
+      plaintextHash: attachment.plaintextHash,
+    );
+    final mediaAsync = ref.watch(mediaFileProvider(params));
+    final mediaId = attachment.mediaId;
+
+    ref.listen<bool>(
+      voicePlaybackProvider.select(
+        (state) => state.activeMediaId == mediaId && state.error != null,
+      ),
+      (previous, next) {
+        if ((previous ?? false) || !next || !mounted) {
+          return;
+        }
+        SemanticsService.sendAnnouncement(
+          View.of(context),
+          context.l10n.chatVoiceNoteError,
+          Directionality.of(context),
+        );
+      },
+    );
+
+    final playbackState = ref.watch(
+      voicePlaybackProvider.select(
+        (state) =>
+            state.activeMediaId == mediaId ? state : const VoicePlaybackState(),
+      ),
+    );
+    final isActive = playbackState.activeMediaId == mediaId;
+    final effectiveDuration = playbackState.duration.inMilliseconds > 0
+        ? playbackState.duration
+        : Duration(milliseconds: attachment.durationMs);
+    final progress = effectiveDuration.inMilliseconds <= 0
+        ? 0.0
+        : (playbackState.position.inMilliseconds /
+                  effectiveDuration.inMilliseconds)
+              .clamp(0.0, 1.0);
+    final isLoading = mediaAsync.isLoading || playbackState.isLoading;
+    final hasPlaybackError = playbackState.error != null;
+    final bytes = mediaAsync.value;
+
+    return VoiceBubble(
+      durationMs: effectiveDuration.inMilliseconds,
+      isPlaying: playbackState.isPlaying,
+      progress: progress,
+      speed: playbackState.speed,
+      isLoading: isLoading,
+      hasError: mediaAsync.hasError || hasPlaybackError,
+      onPlayPause: bytes == null
+          ? null
+          : () => ref
+                .read(voicePlaybackProvider.notifier)
+                .togglePlayPause(
+                  VoicePlaybackSource.bytes(
+                    bytes: bytes,
+                    mimeType: attachment.mimeType,
+                    mediaId: attachment.mediaId,
+                  ),
+                ),
+      onRetry: mediaAsync.hasError
+          ? () => ref.invalidate(mediaFileProvider(params))
+          : bytes != null && hasPlaybackError
+          ? () => ref
+                .read(voicePlaybackProvider.notifier)
+                .togglePlayPause(
+                  VoicePlaybackSource.bytes(
+                    bytes: bytes,
+                    mimeType: attachment.mimeType,
+                    mediaId: attachment.mediaId,
+                  ),
+                )
+          : null,
+      onSeek: bytes != null && !hasPlaybackError
+          ? (fraction) {
+              ref
+                  .read(voicePlaybackProvider.notifier)
+                  .seek(
+                    Duration(
+                      milliseconds:
+                          (fraction * effectiveDuration.inMilliseconds).round(),
+                    ),
+                  );
+            }
+          : null,
+      onSpeedTap: isActive && !hasPlaybackError && !isLoading
+          ? () => ref.read(voicePlaybackProvider.notifier).cycleSpeed()
+          : null,
+    );
   }
 }
 

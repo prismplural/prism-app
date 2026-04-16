@@ -1,14 +1,23 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:prism_plurality/features/chat/services/voice/mobile_voice_playback_backend.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_playback_backend.dart';
+
+final voicePlaybackBackendProvider = Provider<VoicePlaybackBackend>((ref) {
+  final backend = MobileVoicePlaybackBackend();
+  ref.onDispose(() {
+    unawaited(backend.dispose());
+  });
+  return backend;
+});
 
 class VoicePlaybackState {
   const VoicePlaybackState({
     this.activeMediaId,
-    this.isPlaying = false,
+    this.status = VoicePlaybackStatus.idle,
     this.position = Duration.zero,
     this.duration = Duration.zero,
     this.speed = 1.0,
@@ -16,189 +25,167 @@ class VoicePlaybackState {
   });
 
   final String? activeMediaId;
-  final bool isPlaying;
+  final VoicePlaybackStatus status;
   final Duration position;
   final Duration duration;
   final double speed;
-
-  /// Non-null when the most recent play attempt failed for [activeMediaId].
   final String? error;
+
+  bool get isPlaying => status == VoicePlaybackStatus.playing;
+  bool get isLoading => status == VoicePlaybackStatus.loading;
 
   VoicePlaybackState copyWith({
     String? activeMediaId,
-    bool? isPlaying,
+    bool clearActiveMediaId = false,
+    VoicePlaybackStatus? status,
     Duration? position,
     Duration? duration,
     double? speed,
     String? error,
+    bool clearError = false,
   }) {
     return VoicePlaybackState(
-      activeMediaId: activeMediaId ?? this.activeMediaId,
-      isPlaying: isPlaying ?? this.isPlaying,
+      activeMediaId: clearActiveMediaId
+          ? null
+          : (activeMediaId ?? this.activeMediaId),
+      status: status ?? this.status,
       position: position ?? this.position,
       duration: duration ?? this.duration,
       speed: speed ?? this.speed,
-      error: error ?? this.error,
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }
 
 class VoicePlaybackNotifier extends Notifier<VoicePlaybackState> {
-  AudioPlayer? _player;
-  StreamSubscription<Duration>? _positionSub;
-  StreamSubscription<PlayerState>? _stateSub;
-  StreamSubscription<Duration?>? _durationSub;
-  StreamSubscription<dynamic>? _errorSub;
-
-  /// The current temp plaintext audio file. Created by [getMediaFile] in
-  /// [DownloadManager] and written to [getTemporaryDirectory]. Deleted
-  /// explicitly when playback completes or the provider is disposed so that
-  /// plaintext never persists beyond the active playback session.
-  File? _tempFile;
-
-  /// Sets [_tempFile] directly. Exposed for unit tests so the deletion
-  /// lifecycle can be verified without a live audio player.
-  @visibleForTesting
-  // ignore: use_setters_to_change_properties
-  void setTempFileForTesting(File? file) => _tempFile = file;
+  VoicePlaybackBackend? _backend;
+  VoidCallback? _backendListener;
 
   @override
   VoicePlaybackState build() {
-    ref.onDispose(_disposePlayer);
-    return const VoicePlaybackState();
+    final backend = ref.watch(voicePlaybackBackendProvider);
+    if (!identical(_backend, backend)) {
+      final previousBackend = _backend;
+      final previousListener = _backendListener;
+      if (previousBackend != null && previousListener != null) {
+        previousBackend.state.removeListener(previousListener);
+      }
+
+      _backend = backend;
+      _backendListener = () {
+        state = _mapBackendState(backend.state.value);
+      };
+      backend.state.addListener(_backendListener!);
+    }
+
+    ref.onDispose(_cleanup);
+    return _mapBackendState(backend.state.value);
   }
 
-  Future<void> togglePlayPause(String mediaId, File audioFile) async {
-    if (state.activeMediaId == mediaId && state.isPlaying) {
-      // Pause current note.
-      await _player?.pause();
-      state = state.copyWith(isPlaying: false);
+  void _cleanup() {
+    final backend = _backend;
+    final listener = _backendListener;
+    if (backend != null && listener != null) {
+      backend.state.removeListener(listener);
+    }
+    _backend = null;
+    _backendListener = null;
+  }
+
+  Future<void> togglePlayPause(VoicePlaybackSource source) async {
+    final backend = _backend;
+    if (backend == null) {
       return;
     }
 
-    if (state.activeMediaId == mediaId && !state.isPlaying && state.error == null) {
-      // Resume current note (no error — player is still set up).
-      await _player?.play();
-      state = state.copyWith(isPlaying: true);
-      return;
-    }
-
-    // Load a different note, first play, or retry after error.
-    _disposePlayer();
-
-    // Track the new temp file — will be deleted on completion or dispose.
-    _tempFile = audioFile;
-
-    // Clear error and mark loading state before the async work.
-    state = VoicePlaybackState(
-      activeMediaId: mediaId,
-      isPlaying: true,
-      position: Duration.zero,
-      duration: Duration.zero,
-      speed: state.speed,
-    );
+    final isSameMedia = state.activeMediaId == source.mediaId;
 
     try {
-      _player = AudioPlayer();
+      if (isSameMedia && state.status == VoicePlaybackStatus.playing) {
+        await backend.pause();
+        return;
+      }
 
-      _errorSub = _player!.playbackEventStream.listen(
-        null,
-        onError: (Object e) {
-          _disposePlayer();
-          if (state.activeMediaId == mediaId) {
-            state = state.copyWith(isPlaying: false, error: e.toString());
-          }
-        },
-        cancelOnError: false,
+      final canResumeWithoutReload =
+          isSameMedia &&
+          state.status != VoicePlaybackStatus.idle &&
+          state.status != VoicePlaybackStatus.error;
+      if (canResumeWithoutReload) {
+        await backend.play();
+        return;
+      }
+
+      await backend.load(source);
+      final backendState = backend.state.value;
+      if (backendState.mediaId == source.mediaId &&
+          backendState.status != VoicePlaybackStatus.error) {
+        await backend.play();
+      }
+    } catch (error, stackTrace) {
+      debugPrint('[VoicePlayback] togglePlayPause failed: $error\n$stackTrace');
+      state = state.copyWith(
+        activeMediaId: source.mediaId,
+        status: VoicePlaybackStatus.error,
+        position: Duration.zero,
+        duration: Duration.zero,
+        error: 'Voice playback failed: $error',
       );
-
-      await _player!.setAudioSource(AudioSource.file(audioFile.path));
-      await _player!.setSpeed(state.speed);
-
-      _positionSub = _player!.positionStream.listen((pos) {
-        state = state.copyWith(position: pos);
-      });
-
-      _stateSub = _player!.playerStateStream.listen((ps) {
-        if (ps.processingState == ProcessingState.completed) {
-          _player?.seek(Duration.zero);
-          _player?.pause();
-          state = state.copyWith(isPlaying: false, position: Duration.zero);
-          // Playback finished — delete the temp plaintext file.
-          _deleteTempFile();
-        } else {
-          state = state.copyWith(isPlaying: ps.playing);
-        }
-      });
-
-      _durationSub = _player!.durationStream.listen((dur) {
-        if (dur != null) {
-          state = state.copyWith(duration: dur);
-        }
-      });
-
-      await _player!.play();
-    } catch (e) {
-      _disposePlayer();
-      state = state.copyWith(isPlaying: false, error: e.toString());
     }
   }
 
-  void seek(Duration position) {
-    _player?.seek(position);
-  }
-
-  void cycleSpeed() {
-    final double newSpeed;
-    if (state.speed == 1.0) {
-      newSpeed = 1.5;
-    } else if (state.speed == 1.5) {
-      newSpeed = 2.0;
-    } else {
-      newSpeed = 1.0;
+  Future<void> seek(Duration position) async {
+    final backend = _backend;
+    if (backend == null) {
+      return;
     }
-    _player?.setSpeed(newSpeed);
-    state = state.copyWith(speed: newSpeed);
+
+    try {
+      await backend.seek(position);
+    } catch (error, stackTrace) {
+      debugPrint('[VoicePlayback] seek failed: $error\n$stackTrace');
+    }
   }
 
-  void stop() {
-    _player?.stop();
-    _disposePlayer();
-    state = const VoicePlaybackState();
+  Future<void> cycleSpeed() async {
+    final backend = _backend;
+    if (backend == null) {
+      return;
+    }
+
+    try {
+      await backend.cycleSpeed();
+    } catch (error, stackTrace) {
+      debugPrint('[VoicePlayback] cycleSpeed failed: $error\n$stackTrace');
+    }
   }
 
-  void _disposePlayer() {
-    _positionSub?.cancel();
-    _positionSub = null;
-    _stateSub?.cancel();
-    _stateSub = null;
-    _durationSub?.cancel();
-    _durationSub = null;
-    _errorSub?.cancel();
-    _errorSub = null;
-    _player?.dispose();
-    _player = null;
-    // Delete temp plaintext file when the player is disposed (stop, load new
-    // track, or provider disposal). Errors are silenced — best-effort cleanup.
-    _deleteTempFile();
+  Future<void> stop() async {
+    final backend = _backend;
+    if (backend == null) {
+      state = const VoicePlaybackState();
+      return;
+    }
+
+    try {
+      await backend.stop();
+    } catch (error, stackTrace) {
+      debugPrint('[VoicePlayback] stop failed: $error\n$stackTrace');
+    }
   }
 
-  /// Deletes [_tempFile] and clears the reference. Errors are silenced so that
-  /// a missing file (e.g. already cleaned up by the OS) doesn't surface to the
-  /// user. Called after playback completes and when the player is disposed.
-  void _deleteTempFile() {
-    final file = _tempFile;
-    _tempFile = null;
-    if (file == null) return;
-    file.delete().onError((error, _) {
-      // Best-effort: log in debug mode but don't surface to the user.
-      debugPrint('[VoicePlayback] Could not delete temp file: ${file.path} ($error)');
-      return file; // Return the file to satisfy the Future<File> type
-    });
+  VoicePlaybackState _mapBackendState(VoicePlaybackBackendState backendState) {
+    return VoicePlaybackState(
+      activeMediaId: backendState.mediaId,
+      status: backendState.status,
+      position: backendState.position,
+      duration: backendState.duration,
+      speed: backendState.speed,
+      error: backendState.errorMessage,
+    );
   }
 }
 
 final voicePlaybackProvider =
     NotifierProvider<VoicePlaybackNotifier, VoicePlaybackState>(
-  VoicePlaybackNotifier.new,
-);
+      VoicePlaybackNotifier.new,
+    );
