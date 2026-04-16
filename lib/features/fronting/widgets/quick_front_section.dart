@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
@@ -37,28 +38,17 @@ class QuickFrontSection extends ConsumerWidget {
           if (s.memberId != null) frontingIds.add(s.memberId!);
           frontingIds.addAll(s.coFronterIds);
         }
-        // Primary fronter is the most recent active session's member
+        final counts = countsAsync.value ?? <String, int>{};
+
         final currentMemberId =
             activeSessions.isNotEmpty ? activeSessions.first.memberId : null;
 
-        // Use SQL-aggregated counts instead of loading full session objects.
-        final counts = countsAsync.value ?? <String, int>{};
-
-        // Sort by frequency (descending), current fronter always first.
-        final sorted = [...members]
-          ..sort((a, b) {
-            // Current fronter pinned to front
-            if (a.id == currentMemberId) return -1;
-            if (b.id == currentMemberId) return 1;
-            final countDiff =
-                (counts[b.id] ?? 0).compareTo(counts[a.id] ?? 0);
-            if (countDiff != 0) return countDiff;
-            final orderDiff = a.displayOrder.compareTo(b.displayOrder);
-            if (orderDiff != 0) return orderDiff;
-            // Stable tiebreaker so equal-frequency members never swap
-            return a.id.compareTo(b.id);
-          });
-        final top = sorted.take(4).toList();
+        final top = sortMembersByFrequency(
+          members,
+          counts,
+          pinnedMemberId: currentMemberId,
+          take: 4,
+        );
 
         return _AnimatedQuickFrontRow(
           members: top,

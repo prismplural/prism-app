@@ -52,7 +52,7 @@ final frontingHistoryProvider = StreamProvider.autoDispose
 final memberFrontingCountsProvider =
     FutureProvider.autoDispose<Map<String, int>>((ref) {
   final repo = ref.watch(frontingSessionRepositoryProvider);
-  return repo.getMemberFrontingCounts(limit: 50);
+  return repo.getMemberFrontingCounts(recentLimit: 50);
 });
 
 /// Single session by ID. Uses a stream for real-time updates after edits.

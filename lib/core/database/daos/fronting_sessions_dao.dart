@@ -220,24 +220,64 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
     return row.read(count)!;
   }
 
-  /// Returns a map of member_id -> session count for non-deleted sessions,
-  /// considering only the most recent [limit] sessions.
-  Future<Map<String, int>> getMemberFrontingCounts({int limit = 50}) async {
-    // Use a raw query to COUNT grouped by member_id within the top N sessions.
-    final results = await customSelect(
-      'SELECT member_id, COUNT(*) AS cnt '
-      'FROM (SELECT member_id FROM fronting_sessions '
-      '  WHERE session_type = 0 AND is_deleted = 0 AND member_id IS NOT NULL '
-      '  ORDER BY start_time DESC LIMIT ?) '
-      'GROUP BY member_id',
-      variables: [Variable.withInt(limit)],
-    ).get();
+  /// Returns member_id → session count for non-deleted fronting sessions.
+  ///
+  /// When [withinDays] is null (default), considers the most recent
+  /// [recentLimit] sessions. When set, considers all sessions within
+  /// that many days.
+  ///
+  /// Optional [startHour]/[endHour] filter by local time-of-day
+  /// (e.g. 6..11 for morning sessions).
+  Future<Map<String, int>> getMemberFrontingCounts({
+    int recentLimit = 50,
+    int? startHour,
+    int? endHour,
+    int? withinDays,
+  }) async {
+    final variables = <Variable>[];
+    final conditions = <String>[
+      'session_type = 0',
+      'is_deleted = 0',
+      'member_id IS NOT NULL',
+    ];
 
+    if (withinDays != null) {
+      final cutoff = DateTime.now()
+          .subtract(Duration(days: withinDays))
+          .millisecondsSinceEpoch;
+      conditions.add('start_time > ?');
+      variables.add(Variable.withInt(cutoff));
+    }
+
+    if (startHour != null && endHour != null) {
+      conditions.add(
+        "CAST(strftime('%H', datetime(start_time / 1000, 'unixepoch', 'localtime')) AS INTEGER) BETWEEN ? AND ?",
+      );
+      variables.add(Variable.withInt(startHour));
+      variables.add(Variable.withInt(endHour));
+    }
+
+    final where = conditions.join(' AND ');
+
+    final String sql;
+    if (withinDays != null) {
+      // Date-range mode: no LIMIT subquery, count all matching sessions
+      sql = 'SELECT member_id, COUNT(*) AS cnt '
+          'FROM fronting_sessions WHERE $where '
+          'GROUP BY member_id';
+    } else {
+      // Recent-limit mode: existing behavior with subquery
+      sql = 'SELECT member_id, COUNT(*) AS cnt '
+          'FROM (SELECT member_id FROM fronting_sessions '
+          'WHERE $where ORDER BY start_time DESC LIMIT ?) '
+          'GROUP BY member_id';
+      variables.add(Variable.withInt(recentLimit));
+    }
+
+    final results = await customSelect(sql, variables: variables).get();
     final counts = <String, int>{};
     for (final row in results) {
-      final memberId = row.read<String>('member_id');
-      final count = row.read<int>('cnt');
-      counts[memberId] = count;
+      counts[row.read<String>('member_id')] = row.read<int>('cnt');
     }
     return counts;
   }
