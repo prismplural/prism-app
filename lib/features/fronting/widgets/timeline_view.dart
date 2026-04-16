@@ -119,7 +119,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
               final sleepSessions = data.sleepSessions;
               if (rows.isEmpty && sleepSessions.isEmpty) {
                 return EmptyState(
-                  icon: Icon(AppIcons.timelineRounded),
+                  icon: Icon(AppIcons.navTimeline),
                   title: context.l10n.frontingTimelineNoHistory,
                   subtitle: context.l10n.frontingTimelineNoHistorySubtitle,
                 );
