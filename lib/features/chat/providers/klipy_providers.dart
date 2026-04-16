@@ -11,8 +11,9 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 
 final klipyHttpClientOverrideProvider = Provider<http.Client?>((_) => null);
 
-final gifServiceConfigProvider =
-    FutureProvider.autoDispose<GifServiceConfig>((ref) async {
+final gifServiceConfigProvider = FutureProvider.autoDispose<GifServiceConfig>((
+  ref,
+) async {
   final handle = ref.watch(prismSyncHandleProvider).value;
   final relayUrl = ref.watch(relayUrlProvider).value;
   if (handle == null || relayUrl == null || relayUrl.isEmpty) {
@@ -26,8 +27,9 @@ final gifServiceConfigProvider =
   );
 });
 
-final klipyServiceProvider =
-    FutureProvider.autoDispose<KlipyService?>((ref) async {
+final klipyServiceProvider = FutureProvider.autoDispose<KlipyService?>((
+  ref,
+) async {
   ref.keepAlive();
   final config = await ref.watch(gifServiceConfigProvider.future);
   final baseUrl = config.apiBaseUrl;
@@ -50,11 +52,12 @@ class GifSearchQueryNotifier extends Notifier<String> {
 
 final gifSearchQueryProvider =
     NotifierProvider.autoDispose<GifSearchQueryNotifier, String>(
-  GifSearchQueryNotifier.new,
-);
+      GifSearchQueryNotifier.new,
+    );
 
-final gifSearchResultsProvider =
-    FutureProvider.autoDispose<List<KlipyGif>>((ref) async {
+final gifSearchResultsProvider = FutureProvider.autoDispose<List<KlipyGif>>((
+  ref,
+) async {
   final query = ref.watch(gifSearchQueryProvider);
   final service = await ref.watch(klipyServiceProvider.future);
   if (service == null) return const [];
@@ -72,8 +75,9 @@ final gifAttachmentEnabledProvider = Provider<bool>((ref) {
 });
 
 final gifRenderingEnabledProvider = Provider<bool>((ref) {
+  final consent = ref.watch(gifConsentStateProvider);
   final config = ref.watch(gifServiceConfigProvider).asData?.value;
-  return config?.enabled == true;
+  return config?.enabled == true && consent == GifConsentState.enabled;
 });
 
 final gifConsentRequiredProvider = Provider<bool>((ref) {

@@ -12,9 +12,7 @@ Widget _buildTestWidget(Widget child) {
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
-      home: Scaffold(
-        body: Center(child: child),
-      ),
+      home: Scaffold(body: Center(child: child)),
     ),
   );
 }
@@ -66,7 +64,36 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('gifEnabled: false', () {
-    testWidgets('shows "GIF" placeholder text when disabled', (tester) async {
+    testWidgets('shows inline enable button when consent can be requested', (
+      tester,
+    ) async {
+      var tapped = false;
+      await tester.pumpWidget(
+        _buildTestWidget(
+          GifBubble(
+            sourceUrl: 'https://media.klipy.com/test.mp4',
+            previewUrl: 'https://media.klipy.com/preview.gif',
+            width: 200,
+            height: 150,
+            gifEnabled: false,
+            onEnableTap: () async => tapped = true,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Enable GIFs'), findsOneWidget);
+
+      await tester.tap(find.text('Enable GIFs'));
+      await tester.pump();
+
+      expect(tapped, isTrue);
+      expect(find.byType(Image), findsNothing);
+    });
+
+    testWidgets('shows fallback GIF label when no enable action is available', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildTestWidget(
           const GifBubble(
@@ -80,10 +107,9 @@ void main() {
       );
       await tester.pump();
 
-      // Should show the placeholder "GIF" text (inside the disabled container)
-      // but NOT the video player or preview image
       final gifTexts = find.text('GIF');
       expect(gifTexts, findsWidgets);
+      expect(find.text('Enable GIFs'), findsNothing);
 
       // Should NOT have an Image.network (no CDN fetch)
       expect(find.byType(Image), findsNothing);
@@ -114,8 +140,9 @@ void main() {
       expect(semanticsFinder, findsOneWidget);
     });
 
-    testWidgets('label falls back to "GIF" when no description',
-        (tester) async {
+    testWidgets('label falls back to "GIF" when no description', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildTestWidget(
           const GifBubble(
