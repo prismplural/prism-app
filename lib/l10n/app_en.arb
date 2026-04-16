@@ -465,6 +465,10 @@
   "@syncNavigationLayoutSubtitle": {
     "description": "Toggle subtitle: sync navigation layout"
   },
+  "navigationShowViewToggleTitle": "Show view toggle in Home",
+  "@navigationShowViewToggleTitle": { "description": "Navigation settings: toggle to show/hide the timeline/list view toggle button in the Home top bar" },
+  "navigationShowViewToggleSubtitle": "Display the timeline / list toggle button in the Home tab top bar.",
+  "@navigationShowViewToggleSubtitle": { "description": "Navigation settings: subtitle for the view toggle preference" },
   "syncIssuesSection": "Sync Issues",
   "@syncIssuesSection": {
     "description": "Section title for quarantined sync issues"
@@ -6674,6 +6678,8 @@
   "@navNotes": { "description": "Bottom navigation tab label for the Notes tab" },
   "navStatistics": "Statistics",
   "@navStatistics": { "description": "Bottom navigation tab label for the Statistics tab" },
+  "navTimeline": "Timeline",
+  "@navTimeline": { "description": "Bottom navigation tab label for the Timeline tab" },
 
   "onboardingWelcomeTitle": "Welcome to Prism",
   "@onboardingWelcomeTitle": { "description": "Header title for the onboarding welcome step" },

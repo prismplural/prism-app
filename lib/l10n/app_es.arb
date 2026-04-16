@@ -101,6 +101,8 @@
   "syncPreferencesDescription": "Controla qué configuraciones se comparten entre tus dispositivos vía sincronización.",
   "syncNavigationLayoutTitle": "Sincronizar diseño de navegación",
   "syncNavigationLayoutSubtitle": "Compartir disposición de pestañas entre dispositivos",
+  "navigationShowViewToggleTitle": "Mostrar botón de vista en Inicio",
+  "navigationShowViewToggleSubtitle": "Mostrar el botón para alternar entre cronología y lista en la barra superior de la pestaña Inicio.",
   "syncIssuesSection": "Problemas de sincronización",
   "syncIssuesDescription": "Estos registros no se pudieron aplicar por incompatibilidad de tipos. Limpiarlos elimina el indicador de advertencia.",
   "syncClearAll": "Limpiar todo",
@@ -1607,6 +1609,7 @@
   "navReminders": "Recordatorios",
   "navNotes": "Notas",
   "navStatistics": "Estadísticas",
+  "navTimeline": "Cronología",
 
   "onboardingWelcomeTitle": "Bienvenide a Prism",
   "onboardingWelcomeSubtitle": "Tu sistema, a tu manera.",

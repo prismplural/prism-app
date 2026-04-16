@@ -95,7 +95,16 @@ abstract final class AppRouteNames {
 }
 
 enum AppShellTabId {
-  home, chat, habits, polls, settings, members, reminders, notes, statistics, timeline,
+  home,
+  chat,
+  habits,
+  polls,
+  settings,
+  members,
+  reminders,
+  notes,
+  statistics,
+  timeline,
 }
 
 class AppShellTab {
