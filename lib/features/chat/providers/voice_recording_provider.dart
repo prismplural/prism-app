@@ -1,28 +1,35 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
-
-import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_sound/flutter_sound.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:uuid/uuid.dart';
+import 'package:prism_plurality/features/chat/services/voice/mobile_voice_recorder_backend.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
+import 'package:prism_plurality/features/chat/services/voice/voice_recorder_backend.dart';
 
-enum VoiceRecordingStatus { idle, recording, processing, done, error }
+final voiceRecorderBackendProvider = Provider.autoDispose<VoiceRecorderBackend>(
+  (ref) {
+    final backend = MobileVoiceRecorderBackend();
+    ref.onDispose(() {
+      unawaited(backend.dispose());
+    });
+    return backend;
+  },
+);
+
+enum VoiceRecordingStatus {
+  idle,
+  recording,
+  preparing,
+  readyToSend,
+  error,
+  unsupported,
+}
 
 enum VoiceRecordingError {
-  /// OS permission prompt was dismissed without granting access.
   permissionDenied,
-
-  /// Permission was previously denied and is now permanently blocked —
-  /// user must open Settings to grant it.
   permissionBlocked,
-
-  /// Recording failed for a non-permission reason (hardware, codec, etc.).
+  tooShort,
+  unsupported,
   unknown,
 }
 
@@ -31,137 +38,118 @@ class VoiceRecordingState {
     this.status = VoiceRecordingStatus.idle,
     this.elapsedMs = 0,
     this.amplitudeSamples = const [],
-    this.audioBytes,
-    this.durationMs = 0,
-    this.waveformB64 = '',
+    this.artifact,
     this.errorType,
+    this.errorMessage,
   });
 
   final VoiceRecordingStatus status;
   final int elapsedMs;
   final List<double> amplitudeSamples;
-  final Uint8List? audioBytes;
-  final int durationMs;
-  final String waveformB64;
-
-  /// Set when [status] is [VoiceRecordingStatus.error]. The widget layer
-  /// maps this to a localized string.
+  final VoiceCaptureArtifact? artifact;
   final VoiceRecordingError? errorType;
+  final String? errorMessage;
+
+  Uint8List? get audioBytes => artifact?.bytes;
+  int get durationMs => artifact?.durationMs ?? 0;
+  String get waveformB64 => artifact?.waveformB64 ?? '';
+  String? get mimeType => artifact?.mimeType;
 
   VoiceRecordingState copyWith({
     VoiceRecordingStatus? status,
     int? elapsedMs,
     List<double>? amplitudeSamples,
-    Uint8List? audioBytes,
-    int? durationMs,
-    String? waveformB64,
+    VoiceCaptureArtifact? artifact,
+    bool clearArtifact = false,
     VoiceRecordingError? errorType,
+    bool clearErrorType = false,
+    String? errorMessage,
+    bool clearErrorMessage = false,
   }) {
     return VoiceRecordingState(
       status: status ?? this.status,
       elapsedMs: elapsedMs ?? this.elapsedMs,
       amplitudeSamples: amplitudeSamples ?? this.amplitudeSamples,
-      audioBytes: audioBytes ?? this.audioBytes,
-      durationMs: durationMs ?? this.durationMs,
-      waveformB64: waveformB64 ?? this.waveformB64,
-      errorType: errorType ?? this.errorType,
+      artifact: clearArtifact ? null : (artifact ?? this.artifact),
+      errorType: clearErrorType ? null : (errorType ?? this.errorType),
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
     );
   }
 }
 
 class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
-  FlutterSoundRecorder? _recorder;
-  StreamSubscription<RecordingDisposition>? _progressSub;
-  String? _tempFilePath;
-  static const _uuid = Uuid();
-  final List<double> _samples = [];
+  final List<double> _samples = <double>[];
+  StreamSubscription<double>? _meterSubscription;
+  VoiceRecorderBackend? _backend;
+  VoidCallback? _backendListener;
 
   @override
   VoiceRecordingState build() {
+    final backend = ref.watch(voiceRecorderBackendProvider);
+    if (!identical(_backend, backend)) {
+      final previousBackend = _backend;
+      final previousListener = _backendListener;
+      if (previousBackend != null && previousListener != null) {
+        previousBackend.state.removeListener(previousListener);
+      }
+      unawaited(_meterSubscription?.cancel());
+
+      _backend = backend;
+      _backendListener = () {
+        _syncFromBackend(backend.state.value);
+      };
+      backend.state.addListener(_backendListener!);
+      _meterSubscription = backend.meterStream.listen((sample) {
+        _samples.add(sample);
+        state = state.copyWith(
+          elapsedMs: backend.state.value.elapsed.inMilliseconds,
+          amplitudeSamples: List<double>.unmodifiable(_samples),
+        );
+      });
+    }
+
     ref.onDispose(_cleanup);
-    return const VoiceRecordingState();
+    return _mapBackendState(backend.state.value);
   }
 
   void _cleanup() {
-    _progressSub?.cancel();
-    _progressSub = null;
-    _samples.clear();
-    _recorder?.closeRecorder();
-    _recorder = null;
-    if (_tempFilePath != null) {
-      try {
-        File(_tempFilePath!).deleteSync();
-      } catch (_) {}
-      _tempFilePath = null;
+    final backend = _backend;
+    final listener = _backendListener;
+    if (backend != null && listener != null) {
+      backend.state.removeListener(listener);
     }
+    _backendListener = null;
+    unawaited(_meterSubscription?.cancel());
+    _meterSubscription = null;
+    _samples.clear();
+    _backend = null;
   }
 
   Future<void> startRecording() async {
+    final backend = _backend;
+    if (backend == null) {
+      return;
+    }
+
+    _samples.clear();
+    state = state.copyWith(
+      elapsedMs: 0,
+      amplitudeSamples: const <double>[],
+      clearArtifact: true,
+      clearErrorType: true,
+      clearErrorMessage: true,
+    );
+
     try {
-      final micStatus = await Permission.microphone.request();
-      if (!micStatus.isGranted) {
-        state = VoiceRecordingState(
-          status: VoiceRecordingStatus.error,
-          errorType: micStatus.isPermanentlyDenied
-              ? VoiceRecordingError.permissionBlocked
-              : VoiceRecordingError.permissionDenied,
-        );
-        return;
-      }
-
-      // iOS: configure the audio session for playAndRecord before opening the
-      // recorder. Without this, just_audio leaves the session in playback-only
-      // mode and flutter_sound's openRecorder() fails.
-      final session = await AudioSession.instance;
-      await session.configure(AudioSessionConfiguration(
-        avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
-        avAudioSessionCategoryOptions:
-            AVAudioSessionCategoryOptions.allowBluetooth |
-                AVAudioSessionCategoryOptions.defaultToSpeaker,
-        avAudioSessionMode: AVAudioSessionMode.spokenAudio,
-        avAudioSessionRouteSharingPolicy:
-            AVAudioSessionRouteSharingPolicy.defaultPolicy,
-        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
-        androidAudioAttributes: const AndroidAudioAttributes(
-          contentType: AndroidAudioContentType.speech,
-          flags: AndroidAudioFlags.none,
-          usage: AndroidAudioUsage.voiceCommunication,
-        ),
-        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-        androidWillPauseWhenDucked: true,
-      ));
-
-      _recorder ??= FlutterSoundRecorder();
-      await _recorder!.openRecorder();
-
-      final dir = await getTemporaryDirectory();
-      _tempFilePath = '${dir.path}/voice_${_uuid.v4()}.m4a';
-
-      await _recorder!.setSubscriptionDuration(
-        const Duration(milliseconds: 50),
-      );
-
-      await _recorder!.startRecorder(
-        toFile: _tempFilePath,
-        codec: Codec.aacMP4,
-        sampleRate: 44100,
-        numChannels: 1,
-        bitRate: 32000,
-      );
-
-      _progressSub = _recorder!.onProgress!.listen((event) {
-        _samples.add(event.decibels ?? -160.0);
-        state = state.copyWith(
-          elapsedMs: event.duration.inMilliseconds,
-          amplitudeSamples: List.unmodifiable(_samples),
-        );
-      });
-
-      await HapticFeedback.mediumImpact();
-
-      state = state.copyWith(status: VoiceRecordingStatus.recording);
-    } catch (e, st) {
-      debugPrint('[VoiceRecording] startRecording failed: $e\n$st');
+      await backend.start();
+      await _tryHaptic(HapticFeedback.mediumImpact);
+    } on VoiceRecorderBackendException catch (error, stackTrace) {
+      debugPrint('[VoiceRecording] startRecording failed: $error\n$stackTrace');
+      _syncFromBackend(backend.state.value);
+    } catch (error, stackTrace) {
+      debugPrint('[VoiceRecording] startRecording failed: $error\n$stackTrace');
       state = const VoiceRecordingState(
         status: VoiceRecordingStatus.error,
         errorType: VoiceRecordingError.unknown,
@@ -170,50 +158,22 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
   }
 
   Future<VoiceRecordingState> stopRecording() async {
-    if (state.status != VoiceRecordingStatus.recording) return state;
+    final backend = _backend;
+    if (backend == null || state.status != VoiceRecordingStatus.recording) {
+      return state;
+    }
 
     try {
-      state = state.copyWith(status: VoiceRecordingStatus.processing);
-
-      await _recorder!.stopRecorder();
-      await _progressSub?.cancel();
-      _progressSub = null;
-
-      await _recorder!.closeRecorder();
-      _recorder = null;
-
-      final bytes = await File(_tempFilePath!).readAsBytes();
-      await _deleteTempFile();
-
-      final samples = _samples;
-      if (samples.isEmpty) {
-        state = const VoiceRecordingState(
-          status: VoiceRecordingStatus.error,
-          errorType: VoiceRecordingError.unknown,
-        );
-        return state;
-      }
-
-      final minDb = samples.reduce(min);
-      final maxDb = samples.reduce(max);
-      final range = (maxDb - minDb).abs();
-      final normalized = samples.map((s) {
-        if (range < 0.01) return 128;
-        return ((s - minDb) / range * 255).round().clamp(0, 255);
-      }).toList();
-      final waveformB64 = base64Encode(Uint8List.fromList(normalized));
-
-      state = state.copyWith(
-        status: VoiceRecordingStatus.done,
-        audioBytes: bytes,
-        durationMs: state.elapsedMs,
-        waveformB64: waveformB64,
-      );
-
-      await HapticFeedback.lightImpact();
-
+      await backend.stop();
+      await _tryHaptic(HapticFeedback.lightImpact);
+      _syncFromBackend(backend.state.value);
       return state;
-    } catch (e) {
+    } on VoiceRecorderBackendException catch (error, stackTrace) {
+      debugPrint('[VoiceRecording] stopRecording failed: $error\n$stackTrace');
+      _syncFromBackend(backend.state.value);
+      return state;
+    } catch (error, stackTrace) {
+      debugPrint('[VoiceRecording] stopRecording failed: $error\n$stackTrace');
       state = const VoiceRecordingState(
         status: VoiceRecordingStatus.error,
         errorType: VoiceRecordingError.unknown,
@@ -223,49 +183,76 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
   }
 
   Future<void> cancelRecording() async {
-    if (state.status != VoiceRecordingStatus.recording) return;
-
-    try {
-      await _recorder?.stopRecorder();
-    } catch (_) {
-      // Fire-and-forget: ignore errors during cancellation.
+    final backend = _backend;
+    if (backend == null) {
+      return;
     }
 
     try {
-      await _recorder?.closeRecorder();
-    } catch (_) {}
-    _recorder = null;
+      await backend.cancel();
+    } catch (_) {
+      state = const VoiceRecordingState();
+    }
 
-    await _progressSub?.cancel();
-    _progressSub = null;
-
-    await _deleteTempFile();
-
+    _samples.clear();
     state = const VoiceRecordingState();
-
     await HapticFeedback.lightImpact();
   }
 
   void reset() {
     _samples.clear();
-    _deleteTempFile();
     state = const VoiceRecordingState();
+    final backend = _backend;
+    if (backend != null) {
+      unawaited(backend.cancel());
+    }
   }
 
-  Future<void> _deleteTempFile() async {
-    if (_tempFilePath != null) {
-      try {
-        final file = File(_tempFilePath!);
-        if (await file.exists()) {
-          await file.delete();
-        }
-      } catch (_) {}
-      _tempFilePath = null;
-    }
+  void _syncFromBackend(VoiceRecorderBackendState backendState) {
+    state = _mapBackendState(backendState);
+  }
+
+  VoiceRecordingState _mapBackendState(VoiceRecorderBackendState backendState) {
+    return VoiceRecordingState(
+      status: switch (backendState.status) {
+        VoiceRecorderBackendStatus.idle => VoiceRecordingStatus.idle,
+        VoiceRecorderBackendStatus.recording => VoiceRecordingStatus.recording,
+        VoiceRecorderBackendStatus.preparing => VoiceRecordingStatus.preparing,
+        VoiceRecorderBackendStatus.readyToSend =>
+          VoiceRecordingStatus.readyToSend,
+        VoiceRecorderBackendStatus.error => VoiceRecordingStatus.error,
+        VoiceRecorderBackendStatus.unsupported =>
+          VoiceRecordingStatus.unsupported,
+      },
+      elapsedMs: backendState.elapsed.inMilliseconds,
+      amplitudeSamples: List<double>.unmodifiable(_samples),
+      artifact: backendState.artifact,
+      errorType: _mapError(backendState.errorCode),
+      errorMessage: backendState.errorMessage,
+    );
+  }
+
+  Future<void> _tryHaptic(Future<void> Function() effect) async {
+    try {
+      await effect();
+    } catch (_) {}
+  }
+
+  VoiceRecordingError? _mapError(VoiceRecorderErrorCode? errorCode) {
+    return switch (errorCode) {
+      VoiceRecorderErrorCode.permissionDenied =>
+        VoiceRecordingError.permissionDenied,
+      VoiceRecorderErrorCode.permissionBlocked =>
+        VoiceRecordingError.permissionBlocked,
+      VoiceRecorderErrorCode.tooShort => VoiceRecordingError.tooShort,
+      VoiceRecorderErrorCode.unsupported => VoiceRecordingError.unsupported,
+      null => null,
+      _ => VoiceRecordingError.unknown,
+    };
   }
 }
 
 final voiceRecordingProvider =
     NotifierProvider.autoDispose<VoiceRecordingNotifier, VoiceRecordingState>(
-  VoiceRecordingNotifier.new,
-);
+      VoiceRecordingNotifier.new,
+    );

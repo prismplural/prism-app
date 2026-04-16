@@ -2030,6 +2030,18 @@
   "@featureRemindersManageSubtitle": {
     "description": "Row subtitle: manage reminders"
   },
+  "voicePreparingNote": "Preparing voice note...",
+  "@voicePreparingNote": {
+    "description": "Status shown while a recorded voice note is being finalized before send"
+  },
+  "voiceRecordingStartedAnnouncement": "Recording started.",
+  "@voiceRecordingStartedAnnouncement": {
+    "description": "Accessibility announcement when voice recording starts"
+  },
+  "voiceRecordingReadyAnnouncement": "Voice note ready to send.",
+  "@voiceRecordingReadyAnnouncement": {
+    "description": "Accessibility announcement when a recorded voice note is ready to send"
+  },
   "voiceMicPermissionDenied": "Microphone permission is required to record voice notes.",
   "@voiceMicPermissionDenied": {
     "description": "Error shown when the user dismisses the microphone permission prompt"

@@ -1544,6 +1544,16 @@ class AppLocalizationsEs extends AppLocalizations {
       'Crear y editar tus recordatorios';
 
   @override
+  String get voicePreparingNote => 'Preparando nota de voz...';
+
+  @override
+  String get voiceRecordingStartedAnnouncement => 'Grabación iniciada.';
+
+  @override
+  String get voiceRecordingReadyAnnouncement =>
+      'Nota de voz lista para enviar.';
+
+  @override
   String get voiceMicPermissionDenied =>
       'Se necesita permiso de micrófono para grabar notas de voz.';
 

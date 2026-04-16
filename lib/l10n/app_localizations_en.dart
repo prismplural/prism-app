@@ -1503,6 +1503,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get featureRemindersManageSubtitle => 'Create and edit your reminders';
 
   @override
+  String get voicePreparingNote => 'Preparing voice note...';
+
+  @override
+  String get voiceRecordingStartedAnnouncement => 'Recording started.';
+
+  @override
+  String get voiceRecordingReadyAnnouncement => 'Voice note ready to send.';
+
+  @override
   String get voiceMicPermissionDenied =>
       'Microphone permission is required to record voice notes.';
 
