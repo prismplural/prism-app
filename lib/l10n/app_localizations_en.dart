@@ -5620,13 +5620,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get navStatistics => 'Statistics';
-  @override
-  String get navTimeline => 'Timeline';
-  @override
-  String get navigationShowViewToggleTitle => 'Show view toggle in Home';
-  @override
-  String get navigationShowViewToggleSubtitle =>
-      'Display the timeline / list toggle button in the Home tab top bar.';
 
   @override
   String get onboardingWelcomeTitle => 'Welcome to Prism';
