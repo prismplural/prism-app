@@ -193,10 +193,20 @@ class ChatNotifier extends AsyncNotifier<void> {
     await msgRepo.createMessage(message);
     await convRepo.updateLastActivity(conversationId);
 
-    // Auto-unarchive if any member had it archived.
+    // Fetch once for both post-send mutations.
     final conv = await convRepo.getConversationById(conversationId);
-    if (conv != null && conv.archivedByMemberIds.isNotEmpty) {
-      await convRepo.setArchivedByMemberIds(conversationId, []);
+    if (conv != null) {
+      // Auto-unarchive if any member had it archived.
+      if (conv.archivedByMemberIds.isNotEmpty) {
+        await convRepo.setArchivedByMemberIds(conversationId, []);
+      }
+
+      // Mark as read for the author. Without this, lastActivityAt > lastRead
+      // until dispose() fires its async markConversationAsRead, causing the
+      // conversation tile to flash as unread on swipe-back.
+      final updatedTimestamps = Map<String, DateTime>.from(conv.lastReadTimestamps);
+      updatedTimestamps[authorId] = DateTime.now();
+      await convRepo.setLastReadTimestamps(conversationId, updatedTimestamps);
     }
 
     return id;
