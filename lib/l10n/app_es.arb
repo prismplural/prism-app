@@ -424,6 +424,8 @@
   "featureFrontingQuickSwitchMinutes": "Ventana de corrección de {minutes}m",
   "featureFrontingQuickSwitchTitle": "Ventana de Cambio Rápido",
   "featureFrontingQuickSwitchMessage": "Si cambias de frente dentro de esta ventana, corrige la sesión actual en lugar de crear una nueva.",
+  "featureFrontingShowQuickFront": "Front Rápido",
+  "featureFrontingShowQuickFrontSubtitle": "Muestra los miembros que frentan frecuentemente como accesos rápidos de mantener pulsado",
   "featureHabitsDescription": "Realiza un seguimiento de tareas recurrentes y construye rachas con los {term} del sistema.",
   "featureHabitsGeneral": "General",
   "featureHabitsEnable": "Activar Hábitos",

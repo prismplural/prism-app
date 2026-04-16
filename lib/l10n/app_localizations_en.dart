@@ -1423,6 +1423,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'If you switch fronters within this window, it corrects the current session instead of creating a new one.';
 
   @override
+  String get featureFrontingShowQuickFront => 'Quick Front';
+
+  @override
+  String get featureFrontingShowQuickFrontSubtitle =>
+      'Show frequently fronting members as tap-and-hold shortcuts';
+
+  @override
   String featureHabitsDescription(String term) {
     return 'Track recurring tasks and build streaks with your system $term.';
   }
