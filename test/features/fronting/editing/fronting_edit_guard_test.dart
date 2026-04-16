@@ -293,29 +293,100 @@ void main() {
       },
     );
 
-    test('overlapping sleep sessions are ignored for fronting edits', () {
-      final original = makeSession(
-        id: 'front',
-        start: base,
-        end: base.add(const Duration(hours: 1)),
-      );
-      final sleepNeighbor = makeSession(
+    test('fronting edit detects overlap with adjacent sleep session', () {
+      // Reproduces the reported bug: sleep 10pm-8am, front 8am-10am.
+      // Editing front to 6am-10am should surface the sleep overlap so the
+      // user is offered a trim, not silently save.
+      final sleep = makeSession(
         id: 'sleep',
-        start: base.add(const Duration(minutes: 30)),
-        end: base.add(const Duration(hours: 1, minutes: 30)),
+        start: base, // 10pm
+        end: base.add(const Duration(hours: 10)), // 8am
         memberId: null,
         sessionType: SessionType.sleep,
       );
+      final front = makeSession(
+        id: 'front',
+        start: base.add(const Duration(hours: 10)), // 8am
+        end: base.add(const Duration(hours: 12)), // 10am
+      );
+
+      final patch = FrontingSessionPatch(
+        start: base.add(const Duration(hours: 8)), // move to 6am
+      );
 
       final result = guard.validateEdit(
-        original: original,
-        patch: const FrontingSessionPatch(),
-        nearbySessions: [original, sleepNeighbor],
+        original: front,
+        patch: patch,
+        nearbySessions: [sleep, front],
         timingMode: FrontingTimingMode.flexible,
       );
 
-      expect(result.overlappingSessions, isEmpty);
-      expect(result.canSaveDirectly, isTrue);
+      expect(result.overlappingSessions, hasLength(1));
+      expect(result.overlappingSessions.first.id, 'sleep');
+      expect(result.canSaveDirectly, isFalse);
+      // Cross-type overlap → co-fronting does not apply.
+      expect(result.canCoFront, isFalse);
+    });
+
+    test(
+      'sleep edit detects overlap with adjacent fronting session',
+      () {
+        // Editing a sleep session so it overruns an adjacent fronting session
+        // should surface the overlap too — mirror of the above.
+        final sleep = makeSession(
+          id: 'sleep',
+          start: base,
+          end: base.add(const Duration(hours: 8)),
+          memberId: null,
+          sessionType: SessionType.sleep,
+        );
+        final front = makeSession(
+          id: 'front',
+          start: base.add(const Duration(hours: 8)),
+          end: base.add(const Duration(hours: 10)),
+        );
+        final patch = FrontingSessionPatch(
+          end: base.add(const Duration(hours: 9)), // sleep now bleeds into front
+        );
+
+        final result = guard.validateEdit(
+          original: sleep,
+          patch: patch,
+          nearbySessions: [sleep, front],
+          timingMode: FrontingTimingMode.flexible,
+        );
+
+        expect(result.overlappingSessions, hasLength(1));
+        expect(result.overlappingSessions.first.id, 'front');
+        expect(result.canCoFront, isFalse);
+      },
+    );
+
+    test('canCoFront is true when both sides are normal fronting', () {
+      final s1 = makeSession(
+        id: 's1',
+        start: base,
+        end: base.add(const Duration(hours: 1)),
+      );
+      final s2 = makeSession(
+        id: 's2',
+        start: base.add(const Duration(minutes: 30)),
+        end: base.add(const Duration(minutes: 90)),
+        memberId: 'member2',
+      );
+      final patch = FrontingSessionPatch(
+        end: base.add(const Duration(minutes: 90)),
+      );
+
+      final result = guard.validateEdit(
+        original: s1,
+        patch: patch,
+        nearbySessions: [s1, s2],
+        timingMode: FrontingTimingMode.flexible,
+      );
+
+      expect(result.overlappingSessions, hasLength(1));
+      expect(result.canCoFront, isTrue);
     });
   });
 

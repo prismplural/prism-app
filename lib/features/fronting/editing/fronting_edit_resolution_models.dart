@@ -89,11 +89,18 @@ class FrontingEditValidationResult {
   final List<GapInfo> gapsCreated;
   final List<FrontingSessionSnapshot> duplicates;
 
+  /// Whether the user should be offered the "make co-fronting" resolution.
+  /// Co-fronting only makes sense when both the edited session and every
+  /// overlap are [SessionType.normal] — mixing sleep into a co-front segment
+  /// has no coherent meaning.
+  final bool canCoFront;
+
   const FrontingEditValidationResult({
     required this.canSaveDirectly,
     this.issues = const [],
     this.overlappingSessions = const [],
     this.gapsCreated = const [],
     this.duplicates = const [],
+    this.canCoFront = true,
   });
 }

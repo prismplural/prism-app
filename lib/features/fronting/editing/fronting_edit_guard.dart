@@ -1,3 +1,5 @@
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    show SessionType;
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_rules.dart';
@@ -69,15 +71,12 @@ class FrontingEditGuard {
     // Apply patch to get proposed state
     final proposed = _applyPatch(original, patch);
 
-    // Sleep and fronting sessions are allowed to overlap each other, so edit
-    // validation only considers neighbors of the same session type.
+    // The timeline is conceptually one stream of events regardless of session
+    // type — editing a fronting session next to a sleep session should still
+    // surface the overlap so the user can trim. Co-fronting across types is
+    // meaningless, so we expose that limitation via [canCoFront] below.
     final others = nearbySessions
-        .where(
-          (s) =>
-              s.id != original.id &&
-              !s.isDeleted &&
-              s.sessionType == original.sessionType,
-        )
+        .where((s) => s.id != original.id && !s.isDeleted)
         .toList();
     final overlapping = <FrontingSessionSnapshot>[];
     for (final other in others) {
@@ -166,11 +165,18 @@ class FrontingEditGuard {
 
     final canSave = overlapping.isEmpty && gaps.isEmpty && duplicates.isEmpty;
 
+    // Co-fronting only makes sense between normal sessions. Sleep overlaps can
+    // only be resolved by trimming.
+    final canCoFront =
+        original.sessionType == SessionType.normal &&
+        overlapping.every((s) => s.sessionType == SessionType.normal);
+
     return FrontingEditValidationResult(
       canSaveDirectly: canSave,
       overlappingSessions: overlapping,
       gapsCreated: gaps,
       duplicates: duplicates,
+      canCoFront: canCoFront,
     );
   }
 
