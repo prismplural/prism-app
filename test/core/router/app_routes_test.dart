@@ -3,35 +3,40 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 
 /// Helper to create a feature flags record with all features enabled.
 ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders})
-    _allEnabled() => (
-          chat: true,
-          polls: true,
-          habits: true,
-          sleep: true,
-          notes: true,
-          reminders: true,
-        );
+_allEnabled() => (
+  chat: true,
+  polls: true,
+  habits: true,
+  sleep: true,
+  notes: true,
+  reminders: true,
+);
 
 /// Helper to create a feature flags record with one feature disabled.
 ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders})
-    _withDisabled({
+_withDisabled({
   bool chat = true,
   bool polls = true,
   bool habits = true,
   bool sleep = true,
   bool notes = true,
   bool reminders = true,
-}) =>
-        (
-          chat: chat,
-          polls: polls,
-          habits: habits,
-          sleep: sleep,
-          notes: notes,
-          reminders: reminders,
-        );
+}) => (
+  chat: chat,
+  polls: polls,
+  habits: habits,
+  sleep: sleep,
+  notes: notes,
+  reminders: reminders,
+);
 
 void main() {
+  group('AppRoutePaths', () {
+    test('voice lab route path stays stable', () {
+      expect(AppRoutePaths.settingsVoiceLab, '/settings/voice-lab');
+    });
+  });
+
   group('AppShellTabId', () {
     test('enum names match expected string values', () {
       expect(AppShellTabId.home.name, 'home');
@@ -53,8 +58,9 @@ void main() {
     });
 
     test('settings is locked', () {
-      final tab =
-          appShellTabs.firstWhere((t) => t.id == AppShellTabId.settings);
+      final tab = appShellTabs.firstWhere(
+        (t) => t.id == AppShellTabId.settings,
+      );
       expect(tab.isLocked, isTrue);
     });
 
@@ -70,7 +76,11 @@ void main() {
       ];
       for (final id in unlockedIds) {
         final tab = appShellTabs.firstWhere((t) => t.id == id);
-        expect(tab.isLocked, isFalse, reason: '${id.name} should not be locked');
+        expect(
+          tab.isLocked,
+          isFalse,
+          reason: '${id.name} should not be locked',
+        );
       }
     });
   });
@@ -84,70 +94,54 @@ void main() {
     });
 
     test('settings is always enabled', () {
-      final tab =
-          appShellTabs.firstWhere((t) => t.id == AppShellTabId.settings);
+      final tab = appShellTabs.firstWhere(
+        (t) => t.id == AppShellTabId.settings,
+      );
       expect(tab.isEnabled(allEnabled), isTrue);
     });
 
     test('members is always enabled', () {
-      final tab =
-          appShellTabs.firstWhere((t) => t.id == AppShellTabId.members);
+      final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.members);
       expect(tab.isEnabled(allEnabled), isTrue);
-      expect(
-        tab.isEnabled(_withDisabled(chat: false)),
-        isTrue,
-      );
+      expect(tab.isEnabled(_withDisabled(chat: false)), isTrue);
     });
 
     test('chat is gated by chatEnabled', () {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.chat);
       expect(tab.isEnabled(allEnabled), isTrue);
-      expect(
-        tab.isEnabled(_withDisabled(chat: false)),
-        isFalse,
-      );
+      expect(tab.isEnabled(_withDisabled(chat: false)), isFalse);
     });
 
     test('habits is gated by habitsEnabled', () {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.habits);
       expect(tab.isEnabled(allEnabled), isTrue);
-      expect(
-        tab.isEnabled(_withDisabled(habits: false)),
-        isFalse,
-      );
+      expect(tab.isEnabled(_withDisabled(habits: false)), isFalse);
     });
 
     test('polls is gated by pollsEnabled', () {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.polls);
       expect(tab.isEnabled(allEnabled), isTrue);
-      expect(
-        tab.isEnabled(_withDisabled(polls: false)),
-        isFalse,
-      );
+      expect(tab.isEnabled(_withDisabled(polls: false)), isFalse);
     });
 
     test('reminders is gated by remindersEnabled', () {
-      final tab =
-          appShellTabs.firstWhere((t) => t.id == AppShellTabId.reminders);
-      expect(tab.isEnabled(allEnabled), isTrue);
-      expect(
-        tab.isEnabled(_withDisabled(reminders: false)),
-        isFalse,
+      final tab = appShellTabs.firstWhere(
+        (t) => t.id == AppShellTabId.reminders,
       );
+      expect(tab.isEnabled(allEnabled), isTrue);
+      expect(tab.isEnabled(_withDisabled(reminders: false)), isFalse);
     });
 
     test('notes is gated by notesEnabled', () {
       final tab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.notes);
       expect(tab.isEnabled(allEnabled), isTrue);
-      expect(
-        tab.isEnabled(_withDisabled(notes: false)),
-        isFalse,
-      );
+      expect(tab.isEnabled(_withDisabled(notes: false)), isFalse);
     });
 
     test('statistics is always enabled', () {
-      final tab =
-          appShellTabs.firstWhere((t) => t.id == AppShellTabId.statistics);
+      final tab = appShellTabs.firstWhere(
+        (t) => t.id == AppShellTabId.statistics,
+      );
       expect(tab.isEnabled(allEnabled), isTrue);
     });
 
@@ -161,8 +155,11 @@ void main() {
       ];
       for (final id in gatedIds) {
         final tab = appShellTabs.firstWhere((t) => t.id == id);
-        expect(tab.isEnabled(allEnabled), isTrue,
-            reason: '${id.name} should be enabled with all-enabled flags');
+        expect(
+          tab.isEnabled(allEnabled),
+          isTrue,
+          reason: '${id.name} should be enabled with all-enabled flags',
+        );
       }
     });
   });
@@ -195,18 +192,24 @@ void main() {
     test('every AppShellTabId is represented', () {
       final ids = appShellTabs.map((t) => t.id).toSet();
       for (final value in AppShellTabId.values) {
-        expect(ids, contains(value),
-            reason: '${value.name} should be in appShellTabs');
+        expect(
+          ids,
+          contains(value),
+          reason: '${value.name} should be in appShellTabs',
+        );
       }
     });
   });
 
   group('defaultNavBarTabIds', () {
     test('contains exactly the expected 5 tab IDs in order', () {
-      expect(
-        defaultNavBarTabIds,
-        ['home', 'chat', 'habits', 'polls', 'settings'],
-      );
+      expect(defaultNavBarTabIds, [
+        'home',
+        'chat',
+        'habits',
+        'polls',
+        'settings',
+      ]);
     });
 
     test('has 5 entries', () {

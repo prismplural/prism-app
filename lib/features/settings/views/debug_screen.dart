@@ -95,7 +95,10 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                     tone: PrismButtonTone.outlined,
                     expanded: true,
                     onPressed: () {
-                      PrismToast.show(context, message: context.l10n.debugComingSoon);
+                      PrismToast.show(
+                        context,
+                        message: context.l10n.debugComingSoon,
+                      );
                     },
                   ),
                 ),
@@ -151,7 +154,9 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: PrismButton(
-                    label: _isClearing ? context.l10n.debugClearingStressData : context.l10n.debugClearStressData,
+                    label: _isClearing
+                        ? context.l10n.debugClearingStressData
+                        : context.l10n.debugClearStressData,
                     icon: AppIcons.deleteForever,
                     tone: PrismButtonTone.destructive,
                     expanded: true,
@@ -258,11 +263,20 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                   warn: BuildInfo.isDirty || BuildInfo.isLocalDev,
                 ),
                 const Divider(height: 16),
-                _DebugRow(label: context.l10n.debugBranch, value: BuildInfo.gitBranch),
+                _DebugRow(
+                  label: context.l10n.debugBranch,
+                  value: BuildInfo.gitBranch,
+                ),
                 const Divider(height: 16),
-                _DebugRow(label: context.l10n.debugBuilt, value: BuildInfo.builtAt),
+                _DebugRow(
+                  label: context.l10n.debugBuilt,
+                  value: BuildInfo.builtAt,
+                ),
                 const Divider(height: 16),
-                _DebugRow(label: context.l10n.debugPackage, value: 'prism_plurality'),
+                _DebugRow(
+                  label: context.l10n.debugPackage,
+                  value: 'prism_plurality',
+                ),
               ],
             ),
           ),
@@ -287,10 +301,21 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                 PrismListRow(
                   leading: Icon(AppIcons.healing),
                   title: Text(context.l10n.debugTimelineSanitization),
-                  subtitle: Text(context.l10n.debugTimelineSanitizationSubtitle),
+                  subtitle: Text(
+                    context.l10n.debugTimelineSanitizationSubtitle,
+                  ),
                   trailing: Icon(AppIcons.chevronRight),
                   onTap: () =>
                       context.push(AppRoutePaths.settingsTimelineSanitization),
+                ),
+                PrismListRow(
+                  leading: Icon(AppIcons.microphone),
+                  title: const Text('Voice Lab'),
+                  subtitle: const Text(
+                    'Record Opus, normalize containers, and play from memory',
+                  ),
+                  trailing: Icon(AppIcons.chevronRight),
+                  onTap: () => context.push(AppRoutePaths.settingsVoiceLab),
                 ),
                 PrismListRow(
                   leading: Icon(AppIcons.gridView),
@@ -493,7 +518,10 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.show(context, message: context.l10n.debugGenerationFailed(e));
+        PrismToast.show(
+          context,
+          message: context.l10n.debugGenerationFailed(e),
+        );
       }
     } finally {
       if (mounted) {
@@ -536,7 +564,10 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.show(context, message: context.l10n.debugFailedToClearStress(e));
+        PrismToast.show(
+          context,
+          message: context.l10n.debugFailedToClearStress(e),
+        );
       }
     } finally {
       if (mounted) setState(() => _isClearing = false);
