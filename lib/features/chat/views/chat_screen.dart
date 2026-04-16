@@ -244,11 +244,56 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 leading: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    PrismTopBarAction(
-                      icon: AppIcons.folderOutlined,
-                      tooltip: context.l10n.chatManageCategories,
-                      onPressed: () =>
-                          CategoryManagementSheet.show(context),
+                    BlurPopupAnchor(
+                      trigger: BlurPopupTrigger.tap,
+                      width: 220,
+                      maxHeight: 112,
+                      itemCount: 2,
+                      semanticLabel: context.l10n.moreOptions,
+                      itemBuilder: (ctx, index, close) {
+                        final popupTheme = Theme.of(ctx);
+                        return switch (index) {
+                          0 => PrismListRow(
+                              dense: true,
+                              leading: Icon(
+                                AppIcons.markEmailReadOutlined,
+                                size: 20,
+                              ),
+                              title: Text(
+                                ctx.l10n.chatMarkAllAsRead,
+                                style: popupTheme.textTheme.bodyMedium,
+                              ),
+                              onTap: () {
+                                close();
+                                if (speakingAs != null) {
+                                  ref
+                                      .read(chatNotifierProvider.notifier)
+                                      .markAllConversationsAsRead(speakingAs);
+                                }
+                              },
+                            ),
+                          _ => PrismListRow(
+                              dense: true,
+                              leading: Icon(
+                                AppIcons.folderOutlined,
+                                size: 20,
+                              ),
+                              title: Text(
+                                ctx.l10n.chatManageCategories,
+                                style: popupTheme.textTheme.bodyMedium,
+                              ),
+                              onTap: () {
+                                close();
+                                CategoryManagementSheet.show(context);
+                              },
+                            ),
+                        };
+                      },
+                      child: PrismTopBarAction(
+                        icon: AppIcons.moreVert,
+                        tooltip: context.l10n.moreOptions,
+                        onPressed: () {},
+                      ),
                     ),
                     const SizedBox(width: 8),
                     PrismTopBarAction(

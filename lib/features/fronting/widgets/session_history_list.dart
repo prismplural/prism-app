@@ -360,7 +360,7 @@ class _SessionTile extends ConsumerWidget {
                       style: isUnknown
                           ? theme.textTheme.bodyLarge?.copyWith(
                               fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w300,
                               color: theme.colorScheme.onSurface
                                   .withValues(alpha: dimAlpha),
                             )
