@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -165,12 +166,10 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
                   : Row(
                       children: [
                         Expanded(
-                          child: CustomPaint(
-                            painter: _WaveformPainter(
-                              samples: state.amplitudeSamples,
-                              color: theme.colorScheme.primary,
-                            ),
-                            size: const Size(double.infinity, 28),
+                          child: _AnimatedWaveform(
+                            samples: state.amplitudeSamples,
+                            color: theme.colorScheme.primary,
+                            height: 28,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -339,51 +338,178 @@ class _VoiceSendButtonState extends State<_VoiceSendButton> {
   }
 }
 
-class _WaveformPainter extends CustomPainter {
-  _WaveformPainter({required this.samples, required this.color});
+class _AnimatedWaveform extends StatefulWidget {
+  const _AnimatedWaveform({
+    required this.samples,
+    required this.color,
+    required this.height,
+  });
 
   final List<double> samples;
   final Color color;
+  final double height;
+
+  @override
+  State<_AnimatedWaveform> createState() => _AnimatedWaveformState();
+}
+
+class _AnimatedWaveformState extends State<_AnimatedWaveform>
+    with SingleTickerProviderStateMixin {
+  late final Ticker _ticker;
+
+  /// Animation progress [0..1] per sample index. Grows as new samples arrive.
+  final List<double> _barProgress = [];
+
+  /// Tracks elapsed time so we can advance animations per frame.
+  Duration _lastTick = Duration.zero;
+
+  static const _animDuration = 150.0; // ms per bar grow-in
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_onTick)..start();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  void _onTick(Duration elapsed) {
+    final dt = (elapsed - _lastTick).inMicroseconds / 1000.0; // ms
+    _lastTick = elapsed;
+
+    // Grow progress list to match sample count.
+    while (_barProgress.length < widget.samples.length) {
+      _barProgress.add(0.0);
+    }
+
+    // Advance all in-flight animations.
+    var needsRepaint = false;
+    for (var i = 0; i < _barProgress.length; i++) {
+      if (_barProgress[i] < 1.0) {
+        _barProgress[i] = (_barProgress[i] + dt / _animDuration).clamp(0.0, 1.0);
+        needsRepaint = true;
+      }
+    }
+
+    if (needsRepaint) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _WaveformPainter(
+        samples: widget.samples,
+        barProgress: _barProgress,
+        color: widget.color,
+      ),
+      size: Size(double.infinity, widget.height),
+    );
+  }
+}
+
+class _WaveformPainter extends CustomPainter {
+  _WaveformPainter({
+    required this.samples,
+    required this.barProgress,
+    required this.color,
+  });
+
+  final List<double> samples;
+  final List<double> barProgress;
+  final Color color;
+
+  static const _barWidth = 3.0;
+  static const _barGap = 2.0;
+  static const _minHeight = 4.0;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (samples.isEmpty) return;
 
-    const barWidth = 3.0;
-    const barGap = 2.0;
-    final maxBars = (size.width / (barWidth + barGap)).floor();
-    final visibleSamples = samples.length > maxBars
-        ? samples.sublist(samples.length - maxBars)
-        : samples;
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
 
-    final minVal = visibleSamples.reduce((a, b) => a < b ? a : b);
-    final maxVal = visibleSamples.reduce((a, b) => a > b ? a : b);
+    final maxBars = (size.width / (_barWidth + _barGap)).floor();
+    // Include one extra bar on the left during scroll so it slides out
+    // smoothly instead of disappearing abruptly.
+    final extraLeft = samples.length > maxBars ? 1 : 0;
+    final startIndex = samples.length > maxBars
+        ? samples.length - maxBars - extraLeft
+        : 0;
+    final visibleCount = samples.length - startIndex;
+
+    // Compute normalization over the visible window.
+    var minVal = double.infinity;
+    var maxVal = -double.infinity;
+    for (var i = startIndex; i < samples.length; i++) {
+      final v = samples[i];
+      if (v < minVal) minVal = v;
+      if (v > maxVal) maxVal = v;
+    }
     final range = (maxVal - minVal).abs();
 
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    const minHeight = 4.0;
     final maxHeight = size.height * 0.85;
 
-    for (var i = 0; i < visibleSamples.length; i++) {
+    const barStep = _barWidth + _barGap;
+
+    // Newest bar's animation progress drives the smooth slide.
+    final newestProgress = (barProgress.length >= samples.length)
+        ? Curves.easeOut.transform(barProgress[samples.length - 1])
+        : 1.0;
+
+    // Right-aligned: bars fill from the right edge and slide left.
+    // baseSlot is the slot index of the first visible bar (bar i=0).
+    // As the newest bar animates in (0→1), everything shifts left by one slot.
+    final double baseSlot;
+    if (samples.length > maxBars) {
+      // Scrolling phase: slide the extra left bar off-screen.
+      baseSlot = -newestProgress;
+    } else {
+      // Filling phase: right-align, newest bar enters at right edge.
+      // At progress=0 the new bar is one slot past the right edge;
+      // at progress=1 it settles into the rightmost visible slot.
+      baseSlot = (maxBars - visibleCount).toDouble() +
+          (1.0 - newestProgress);
+    }
+
+    for (var i = 0; i < visibleCount; i++) {
+      final sampleIndex = startIndex + i;
+      final sample = samples[sampleIndex];
       final normalized = range < 0.01
           ? 0.5
-          : (visibleSamples[i] - minVal) / range;
-      final barHeight = minHeight + normalized * (maxHeight - minHeight);
-      final x = i * (barWidth + barGap);
+          : (sample - minVal) / range;
+      final targetHeight = _minHeight + normalized * (maxHeight - _minHeight);
+
+      // Per-bar grow-in animation.
+      final progress = sampleIndex < barProgress.length
+          ? Curves.easeOut.transform(barProgress[sampleIndex])
+          : 1.0;
+      final barHeight = _minHeight + (targetHeight - _minHeight) * progress;
+
+      final x = (baseSlot + i) * barStep;
+
       final y = (size.height - barHeight) / 2;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, y, barWidth, barHeight),
+          Rect.fromLTWH(x, y, _barWidth, barHeight),
           const Radius.circular(1.5),
         ),
         paint,
       );
     }
+
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_WaveformPainter old) =>
-      old.samples.length != samples.length;
+  bool shouldRepaint(_WaveformPainter old) => true;
 }

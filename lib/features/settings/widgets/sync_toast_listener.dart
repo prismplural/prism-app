@@ -38,8 +38,9 @@ class _SyncToastListenerState extends ConsumerState<SyncToastListener> {
 
   void _showToast(VoidCallback show) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final route = ModalRoute.of(context);
-      if (!mounted || (route != null && !route.isCurrent)) {
+      if (route != null && !route.isCurrent) {
         return;
       }
       show();
