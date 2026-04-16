@@ -99,6 +99,9 @@ dependencies:
   flutter_soloud: ^4.0.2
   ogg_caf_converter: ^0.1.4
 
+  # BIP39 wordlist + local mnemonic validation (recovery phrase entry UX)
+  bip39_plus: ^1.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -109,18 +110,12 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
   // ── Step 1: mnemonic entry ────────────────────────────────────────────────
 
   Future<void> _submitMnemonic() async {
-    final raw = _mnemonicController.text.trim();
-    if (raw.isEmpty) {
+    final normalized =
+        PrismMnemonicField.normalize(_mnemonicController.text);
+    if (normalized.isEmpty) {
       setState(() => _mnemonicError = context.l10n.changePinMnemonicRequired);
       return;
     }
-
-    // Normalize whitespace (multiple spaces, newlines) to a single space.
-    final normalized = raw
-        .toLowerCase()
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .join(' ');
 
     setState(() {
       _isLoading = true;
@@ -400,16 +395,13 @@ class _ChangePinSheetState extends ConsumerState<ChangePinSheet> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        PrismTextField(
+        PrismMnemonicField(
           controller: _mnemonicController,
           hintText: context.l10n.changePinMnemonicHint,
-          keyboardType: TextInputType.multiline,
-          textCapitalization: TextCapitalization.none,
           autofocus: true,
           enabled: !_isLoading,
-          minLines: 3,
-          maxLines: 5,
           errorText: _mnemonicError,
+          onSubmitted: (_) => _submitMnemonic(),
         ),
         const SizedBox(height: 20),
         PrismButton(

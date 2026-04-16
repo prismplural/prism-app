@@ -1062,32 +1062,32 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
 
   void setState(SyncHealthState value) => state = value;
 
-  /// Attempt to unlock the key hierarchy with the user's PIN.
+  /// Attempt to unlock the key hierarchy with the user's PIN + mnemonic.
+  ///
+  /// The mnemonic is no longer stored in the keychain, so callers must
+  /// collect it from the user (via [SyncPinSheet]) and pass it here.
   ///
   /// Returns true on success (state transitions to healthy).
-  /// Returns false on failure (wrong PIN or missing handle).
-  Future<bool> attemptUnlock(String pin) async {
+  /// Returns false on failure (wrong PIN, invalid mnemonic, or missing handle).
+  Future<bool> attemptUnlock({
+    required String pin,
+    required String mnemonic,
+  }) async {
     final handle = ref.read(prismSyncHandleProvider).value;
     if (handle == null) return false;
 
+    final normalized = mnemonic.trim().toLowerCase();
+    List<int>? secretKeyBytes;
     try {
-      // Read mnemonic from keychain and decode
-      final mnemonicB64 = await _storage.read(
-        key: '${_secureStorePrefix}mnemonic',
-      );
-      if (mnemonicB64 == null) {
-        state = SyncHealthState.disconnected;
+      try {
+        secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: normalized);
+      } catch (_) {
+        // Invalid mnemonic — treat as failed unlock without disclosing
+        // which input was wrong.
         return false;
       }
-      String mnemonic;
-      try {
-        mnemonic = utf8.decode(base64Decode(mnemonicB64));
-      } catch (_) {
-        mnemonic = mnemonicB64;
-      }
-      final secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: mnemonic);
 
-      // Unlock the key hierarchy — throws on wrong PIN
+      // Unlock the key hierarchy — throws on wrong PIN or mismatched mnemonic.
       try {
         await ffi.unlock(
           handle: handle,
@@ -1095,7 +1095,8 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
           secretKey: secretKeyBytes,
         );
       } on Exception {
-        // Wrong PIN — don't change state, let UI show error and retry
+        // Wrong PIN or wrong mnemonic — don't change state; UI shows a
+        // generic error and lets the user retry.
         return false;
       }
 
@@ -1121,8 +1122,13 @@ class SyncHealthNotifier extends Notifier<SyncHealthState> {
       state = SyncHealthState.healthy;
       return true;
     } catch (_) {
-      // Unexpected error (keychain read, mnemonicToBytes, etc.)
+      // Unexpected error (mnemonicToBytes, engine config, etc.)
       return false;
+    } finally {
+      // Always zero any secret-key bytes that made it into Dart memory.
+      if (secretKeyBytes != null) {
+        secretKeyBytes.fillRange(0, secretKeyBytes.length, 0);
+      }
     }
   }
 }
