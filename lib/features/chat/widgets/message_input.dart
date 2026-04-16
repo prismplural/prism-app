@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
+import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
@@ -47,7 +48,7 @@ class MessageInput extends ConsumerStatefulWidget {
 }
 
 class _MessageInputState extends ConsumerState<MessageInput> {
-  final _controller = TextEditingController();
+  final _controller = ChatMarkdownEditingController();
   final _focusNode = FocusNode();
   final _layerLink = LayerLink();
   bool _isSending = false;
@@ -70,6 +71,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   void initState() {
     super.initState();
     _controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.updateTheme(context);
   }
 
   @override
