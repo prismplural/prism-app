@@ -35,10 +35,10 @@ void main() {
           (ref) => Stream.value(notes),
         ),
       ],
-      child: MaterialApp(
+      child: const MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        supportedLocales: const [Locale('en')],
-        home: const NotesListScreen(),
+        supportedLocales: [Locale('en')],
+        home: NotesListScreen(),
       ),
     );
   }

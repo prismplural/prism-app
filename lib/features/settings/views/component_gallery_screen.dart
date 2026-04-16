@@ -57,7 +57,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
-      topBar: PrismTopBar(
+      topBar: const PrismTopBar(
         title: 'Component Gallery',
         showBackButton: true,
       ),
@@ -68,7 +68,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // TEXT FIELDS
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('Text Fields'),
+          const _SectionHeader('Text Fields'),
           const SizedBox(height: 8),
 
           PrismTextField(
@@ -85,21 +85,21 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           ),
           const SizedBox(height: 12),
 
-          PrismTextField(
+          const PrismTextField(
             labelText: 'With helper text',
             helperText: 'This is helper text below the field',
             hintText: 'Enter value',
           ),
           const SizedBox(height: 12),
 
-          PrismTextField(
+          const PrismTextField(
             labelText: 'Error state',
             errorText: 'Required',
             hintText: 'Enter a value',
           ),
           const SizedBox(height: 12),
 
-          PrismTextField(
+          const PrismTextField(
             labelText: 'Disabled',
             initialValue: 'Cannot edit this',
             enabled: false,
@@ -114,7 +114,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           ),
           const SizedBox(height: 12),
 
-          PrismTextField(
+          const PrismTextField(
             labelText: 'Multi-line',
             hintText: 'Notes, descriptions...',
             minLines: 3,
@@ -123,7 +123,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           ),
           const SizedBox(height: 12),
 
-          PrismTextField(
+          const PrismTextField(
             labelText: 'Borderless style',
             hintText: 'No outline',
             fieldStyle: PrismTextFieldStyle.borderless,
@@ -134,7 +134,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // SELECTS
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('Selects'),
+          const _SectionHeader('Selects'),
           const SizedBox(height: 8),
 
           PrismSelect<String>(
@@ -181,7 +181,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // SEGMENTED CONTROL
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('Segmented Control'),
+          const _SectionHeader('Segmented Control'),
           const SizedBox(height: 8),
 
           PrismSegmentedControl<String>(
@@ -199,7 +199,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // SWITCHES & CHECKBOXES
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('Switches & Checkboxes'),
+          const _SectionHeader('Switches & Checkboxes'),
           const SizedBox(height: 8),
 
           PrismSectionCard(
@@ -229,13 +229,13 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
             child: Column(
               children: [
                 PrismCheckboxRow(
-                  title: Text('Checkbox option'),
+                  title: const Text('Checkbox option'),
                   value: _checkboxValue,
                   onChanged: (v) => setState(() => _checkboxValue = v),
                 ),
                 PrismCheckboxRow(
-                  title: Text('Leading checkbox'),
-                  subtitle: Text('Affinity: leading'),
+                  title: const Text('Leading checkbox'),
+                  subtitle: const Text('Affinity: leading'),
                   value: _checkbox2Value,
                   checkboxAffinity: PrismCheckboxAffinity.leading,
                   onChanged: (v) => setState(() => _checkbox2Value = v),
@@ -249,7 +249,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // BUTTONS
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('Buttons'),
+          const _SectionHeader('Buttons'),
           const SizedBox(height: 8),
 
           Wrap(
@@ -380,7 +380,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // CHIPS & PILLS
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('Chips & Pills'),
+          const _SectionHeader('Chips & Pills'),
           const SizedBox(height: 8),
 
           Wrap(
@@ -420,7 +420,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              PrismPill(label: 'Neutral', tone: PrismPillTone.neutral),
+              const PrismPill(label: 'Neutral', tone: PrismPillTone.neutral),
               PrismPill(
                 label: 'Accent',
                 tone: PrismPillTone.accent,
@@ -431,7 +431,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 tone: PrismPillTone.destructive,
                 icon: AppIcons.warningAmber,
               ),
-              PrismPill(
+              const PrismPill(
                 label: 'Custom',
                 color: Colors.teal,
               ),
@@ -443,45 +443,45 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // SURFACES & LAYOUT
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('Surfaces'),
+          const _SectionHeader('Surfaces'),
           const SizedBox(height: 8),
 
-          PrismSurface(
+          const PrismSurface(
             tone: PrismSurfaceTone.subtle,
             child: Text('PrismSurface — subtle'),
           ),
           const SizedBox(height: 8),
-          PrismSurface(
+          const PrismSurface(
             tone: PrismSurfaceTone.strong,
             child: Text('PrismSurface — strong'),
           ),
           const SizedBox(height: 8),
-          PrismSurface(
+          const PrismSurface(
             tone: PrismSurfaceTone.accent,
             child: Text('PrismSurface — accent'),
           ),
           const SizedBox(height: 8),
           PrismSurface(
             onTap: () => PrismToast.show(context, message: 'Tapped!'),
-            child: Text('PrismSurface — tappable'),
+            child: const Text('PrismSurface — tappable'),
           ),
 
           const SizedBox(height: 16),
 
-          PrismSectionCard(
-            padding: const EdgeInsets.all(16),
+          const PrismSectionCard(
+            padding: EdgeInsets.all(16),
             child: Text('PrismSectionCard — default'),
           ),
           const SizedBox(height: 8),
-          PrismSectionCard(
+          const PrismSectionCard(
             tone: PrismSurfaceTone.accent,
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             child: Text('PrismSectionCard — accent'),
           ),
 
           const SizedBox(height: 16),
 
-          PrismSection(
+          const PrismSection(
             title: 'PrismSection',
             description: 'With a description underneath the title',
             child: PrismSurface(
@@ -492,15 +492,15 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           const SizedBox(height: 16),
 
           PrismExpandableSection(
-            title: Text('Expandable Section'),
-            subtitle: Text('Tap to expand'),
+            title: const Text('Expandable Section'),
+            subtitle: const Text('Tap to expand'),
             children: [
               PrismListRow(
-                title: Text('Item inside expandable'),
+                title: const Text('Item inside expandable'),
                 leading: Icon(AppIcons.check),
               ),
               PrismListRow(
-                title: Text('Another item'),
+                title: const Text('Another item'),
                 leading: Icon(AppIcons.check),
               ),
             ],
@@ -511,7 +511,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // LIST ROWS & SETTINGS
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('List Rows'),
+          const _SectionHeader('List Rows'),
           const SizedBox(height: 8),
 
           PrismGroupedSectionCard(
@@ -519,26 +519,26 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               children: [
                 PrismListRow(
                   leading: Icon(AppIcons.navMembers),
-                  title: Text('Standard row'),
-                  subtitle: Text('With subtitle'),
+                  title: const Text('Standard row'),
+                  subtitle: const Text('With subtitle'),
                   showChevron: true,
                   onTap: () {},
                 ),
                 PrismListRow(
                   leading: Icon(AppIcons.edit),
-                  title: Text('Dense row'),
+                  title: const Text('Dense row'),
                   dense: true,
                   onTap: () {},
                 ),
                 PrismListRow(
                   leading: Icon(AppIcons.delete),
-                  title: Text('Destructive row'),
+                  title: const Text('Destructive row'),
                   destructive: true,
                   onTap: () {},
                 ),
                 PrismListRow(
                   leading: Icon(AppIcons.lock),
-                  title: Text('Disabled row'),
+                  title: const Text('Disabled row'),
                   enabled: false,
                   onTap: () {},
                 ),
@@ -548,7 +548,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
 
           const SizedBox(height: 16),
 
-          _SectionHeader('Settings Rows'),
+          const _SectionHeader('Settings Rows'),
           const SizedBox(height: 8),
 
           PrismGroupedSectionCard(
@@ -569,7 +569,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 PrismSettingsRow(
                   icon: AppIcons.lock,
                   title: 'With trailing',
-                  trailing: PrismPill(label: 'Pro', tone: PrismPillTone.accent),
+                  trailing: const PrismPill(label: 'Pro', tone: PrismPillTone.accent),
                   onTap: () {},
                 ),
               ],
@@ -581,7 +581,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // PICKERS
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('Pickers'),
+          const _SectionHeader('Pickers'),
           const SizedBox(height: 8),
 
           Row(
@@ -607,7 +607,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           // ═══════════════════════════════════════════════════════════════
           // FEEDBACK & DIALOGS
           // ═══════════════════════════════════════════════════════════════
-          _SectionHeader('Feedback'),
+          const _SectionHeader('Feedback'),
           const SizedBox(height: 8),
 
           Wrap(

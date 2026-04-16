@@ -500,7 +500,7 @@ void main() {
       // StateError from _ensureNotDisposed(). The recorder is still disposed
       // via _recorder.dispose() and post-dispose start() is blocked.
       expect(
-        () => backend.start(),
+        backend.start,
         throwsA(isA<StateError>()),
       );
     });

@@ -18,10 +18,10 @@ void main() {
             const AsyncValue<String?>.data('sync-123'),
           ),
         ],
-        child: MaterialApp(
+        child: const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: const [Locale('en')],
-          home: const SyncTroubleshootingScreen(),
+          supportedLocales: [Locale('en')],
+          home: SyncTroubleshootingScreen(),
         ),
       ),
     );
