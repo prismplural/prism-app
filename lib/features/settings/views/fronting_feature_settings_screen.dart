@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
-import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -67,6 +69,7 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final quickSwitchThreshold = ref.watch(quickSwitchThresholdProvider);
+    final showQuickFront = ref.watch(showQuickFrontProvider);
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
@@ -86,21 +89,37 @@ class FrontingFeatureSettingsScreen extends ConsumerWidget {
           ),
           PrismSection(
             title: context.l10n.featureFrontingOptions,
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
-              child: PrismSettingsRow(
-                icon: AppIcons.speed,
-                iconColor: Colors.purple,
-                title: context.l10n.featureFrontingQuickSwitch,
-                subtitle: _quickSwitchLabel(
-                  context,
-                  quickSwitchThreshold,
-                ),
-                onTap: () => _showQuickSwitchPicker(
-                  context,
-                  ref,
-                  quickSwitchThreshold,
-                ),
+            child: PrismGroupedSectionCard(
+              child: Column(
+                children: [
+                  PrismSwitchRow(
+                    icon: AppIcons.flashOn,
+                    iconColor: Colors.purple,
+                    title: context.l10n.featureFrontingShowQuickFront,
+                    subtitle: context.l10n.featureFrontingShowQuickFrontSubtitle,
+                    value: showQuickFront,
+                    onChanged: (value) {
+                      ref
+                          .read(settingsNotifierProvider.notifier)
+                          .toggleQuickFront(value);
+                      if (!value) {
+                        SemanticsService.sendAnnouncement(
+                          View.of(context),
+                          context.l10n.featureFrontingShowQuickFront,
+                          Directionality.of(context),
+                        );
+                      }
+                    },
+                  ),
+                  PrismSettingsRow(
+                    icon: AppIcons.speed,
+                    iconColor: Colors.purple,
+                    title: context.l10n.featureFrontingQuickSwitch,
+                    subtitle: _quickSwitchLabel(context, quickSwitchThreshold),
+                    showChevron: true,
+                    onTap: () => _showQuickSwitchPicker(context, ref, quickSwitchThreshold),
+                  ),
+                ],
               ),
             ),
           ),
