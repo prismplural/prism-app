@@ -1706,6 +1706,7 @@
   "featureSleepWakeReminderSubtitle": "Aviso para despertar después de cierta duración",
   "featureSleepWakeAfter": "Despertar Después de",
   "featureSleepWakeAfterHours": "{hours} horas",
+  "onboardingSyncMembersLabel": "Integrantes del sistema",
   "onboardingSyncPhaseConnectTitle": "Conectando…",
   "onboardingSyncPhaseConnectSubtitle": "Saludando a tu otro dispositivo",
   "onboardingSyncPhaseDownloadTitle": "Descargando tu sistema",

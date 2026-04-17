@@ -8,7 +8,6 @@ import 'package:prism_plurality/features/onboarding/providers/sync_setup_progres
 import 'package:prism_plurality/features/onboarding/widgets/live_count_card.dart';
 import 'package:prism_plurality/features/onboarding/widgets/phase_segments.dart';
 import 'package:prism_plurality/features/onboarding/widgets/prism_shimmer_bar.dart';
-import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -107,10 +106,6 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
       }
     });
 
-    // Resolve terminology for LiveCountCard.
-    final terminologySetting = ref.watch(terminologySettingProvider);
-    final terminology = terminologySetting.term;
-
     // Phase title and subtitle.
     final title = _phaseTitleFor(state.phase, l10n);
     final subtitle = _phaseSubtitleFor(state, l10n);
@@ -171,7 +166,6 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
               tag: 'sync-progress-count-card',
               child: LiveCountCard(
                 counts: state.liveCounts,
-                terminology: terminology,
               ),
             ),
             const SizedBox(height: 16),

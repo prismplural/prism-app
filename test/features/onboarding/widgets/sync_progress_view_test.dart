@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/onboarding/providers/sync_setup_progress_provider.dart';
 import 'package:prism_plurality/features/onboarding/widgets/live_count_card.dart';
 import 'package:prism_plurality/features/onboarding/widgets/phase_segments.dart';
 import 'package:prism_plurality/features/onboarding/widgets/prism_shimmer_bar.dart';
 import 'package:prism_plurality/features/onboarding/widgets/sync_progress_view.dart';
-import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
@@ -31,14 +29,6 @@ class FakeSyncSetupProgressNotifier extends SyncSetupProgressNotifier {
 // Test helpers
 // ---------------------------------------------------------------------------
 
-// A stub record for terminologySettingProvider that avoids Drift.
-const _stubTerminology = (
-  term: SystemTerminology.headmates,
-  customSingular: null as String?,
-  customPlural: null as String?,
-  useEnglish: false,
-);
-
 Widget _wrap(
   Widget child, {
   FakeSyncSetupProgressNotifier? notifier,
@@ -48,9 +38,6 @@ Widget _wrap(
   return ProviderScope(
     overrides: [
       syncSetupProgressProvider.overrideWith(() => fakeNotifier),
-      // Override terminology to avoid activating the Drift-backed
-      // systemSettingsProvider, which leaves pending timers in tests.
-      terminologySettingProvider.overrideWithValue(_stubTerminology),
     ],
     child: MediaQuery(
       data: MediaQueryData(disableAnimations: disableAnimations),

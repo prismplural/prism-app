@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/onboarding/widgets/live_count_card.dart';
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 Widget _wrap(
   Widget child, {
   bool disableAnimations = false,
 }) {
   return MaterialApp(
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    supportedLocales: AppLocalizations.supportedLocales,
     home: MediaQuery(
       data: MediaQueryData(disableAnimations: disableAnimations),
       child: Scaffold(body: Center(child: child)),
@@ -17,16 +25,9 @@ Widget _wrap(
 }
 
 void main() {
-  const headmatesTerminology = SystemTerminology.headmates;
-  const membersTerminology = SystemTerminology.members;
-  const altersTerminology = SystemTerminology.alters;
-  const partsTerminology = SystemTerminology.parts;
-
   testWidgets('empty counts → SizedBox.shrink', (tester) async {
     await tester.pumpWidget(
-      _wrap(
-        const LiveCountCard(counts: {}, terminology: headmatesTerminology),
-      ),
+      _wrap(const LiveCountCard(counts: {})),
     );
     expect(find.byType(SizedBox), findsWidgets);
     expect(find.byType(OnboardingCountRow), findsNothing);
@@ -38,7 +39,6 @@ void main() {
       _wrap(
         const LiveCountCard(
           counts: {'members': 0, 'fronting_sessions': 0},
-          terminology: headmatesTerminology,
         ),
       ),
     );
@@ -47,12 +47,7 @@ void main() {
 
   testWidgets('first non-zero entry → OnboardingCountRow renders', (tester) async {
     await tester.pumpWidget(
-      _wrap(
-        const LiveCountCard(
-          counts: {'members': 3},
-          terminology: headmatesTerminology,
-        ),
-      ),
+      _wrap(const LiveCountCard(counts: {'members': 3})),
     );
     await tester.pumpAndSettle();
     expect(find.byType(OnboardingCountRow), findsAtLeastNWidgets(1));
@@ -70,7 +65,6 @@ void main() {
             'habits': 5,
             'notes': 6,
           },
-          terminology: headmatesTerminology,
         ),
       ),
     );
@@ -85,10 +79,7 @@ void main() {
       _wrap(
         ValueListenableBuilder<Map<String, int>>(
           valueListenable: countsNotifier,
-          builder: (_, counts, child) => LiveCountCard(
-            counts: counts,
-            terminology: headmatesTerminology,
-          ),
+          builder: (_, counts, child) => LiveCountCard(counts: counts),
         ),
       ),
     );
@@ -109,10 +100,7 @@ void main() {
       _wrap(
         ValueListenableBuilder<Map<String, int>>(
           valueListenable: countsNotifier,
-          builder: (_, counts, child) => LiveCountCard(
-            counts: counts,
-            terminology: headmatesTerminology,
-          ),
+          builder: (_, counts, child) => LiveCountCard(counts: counts),
         ),
       ),
     );
@@ -133,10 +121,7 @@ void main() {
       _wrap(
         ValueListenableBuilder<Map<String, int>>(
           valueListenable: countsNotifier,
-          builder: (_, counts, child) => LiveCountCard(
-            counts: counts,
-            terminology: headmatesTerminology,
-          ),
+          builder: (_, counts, child) => LiveCountCard(counts: counts),
         ),
       ),
     );
@@ -147,72 +132,23 @@ void main() {
     countsNotifier.value = {'members': 0};
     await tester.pump();
 
-    // Container frame stays mounted once _hasEverMounted is true;
-    // AnimatedSize collapses to empty but is still in the tree.
     expect(find.byType(AnimatedSize), findsAtLeastNWidgets(1));
 
     countsNotifier.dispose();
   });
 
-  testWidgets('terminology headmates → label contains "Headmates"', (tester) async {
+  testWidgets('members row uses neutral "System members" label', (tester) async {
     await tester.pumpWidget(
-      _wrap(
-        const LiveCountCard(
-          counts: {'members': 3},
-          terminology: headmatesTerminology,
-        ),
-      ),
+      _wrap(const LiveCountCard(counts: {'members': 3})),
     );
     await tester.pumpAndSettle();
-    expect(find.textContaining('Headmates'), findsAtLeastNWidgets(1));
-  });
-
-  testWidgets('terminology members → label contains "Members"', (tester) async {
-    await tester.pumpWidget(
-      _wrap(
-        const LiveCountCard(
-          counts: {'members': 3},
-          terminology: membersTerminology,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Members'), findsAtLeastNWidgets(1));
-  });
-
-  testWidgets('terminology alters → label contains "Alters"', (tester) async {
-    await tester.pumpWidget(
-      _wrap(
-        const LiveCountCard(
-          counts: {'members': 3},
-          terminology: altersTerminology,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Alters'), findsAtLeastNWidgets(1));
-  });
-
-  testWidgets('terminology parts → label contains "Parts"', (tester) async {
-    await tester.pumpWidget(
-      _wrap(
-        const LiveCountCard(
-          counts: {'members': 3},
-          terminology: partsTerminology,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('Parts'), findsAtLeastNWidgets(1));
+    expect(find.textContaining('System members'), findsOneWidget);
   });
 
   testWidgets('disableAnimations=true → no running animations', (tester) async {
     await tester.pumpWidget(
       _wrap(
-        const LiveCountCard(
-          counts: {'members': 5},
-          terminology: headmatesTerminology,
-        ),
+        const LiveCountCard(counts: {'members': 5}),
         disableAnimations: true,
       ),
     );
@@ -222,12 +158,7 @@ void main() {
 
   testWidgets('ExcludeSemantics wraps card content', (tester) async {
     await tester.pumpWidget(
-      _wrap(
-        const LiveCountCard(
-          counts: {'members': 3},
-          terminology: headmatesTerminology,
-        ),
-      ),
+      _wrap(const LiveCountCard(counts: {'members': 3})),
     );
     await tester.pumpAndSettle();
     expect(find.byType(ExcludeSemantics), findsAtLeastNWidgets(1));
