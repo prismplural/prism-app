@@ -12,6 +12,7 @@ import 'package:record/record.dart';
 import 'package:prism_plurality/features/settings/services/voice_lab_support.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
@@ -785,7 +786,9 @@ class _VoiceLabScreenState extends State<VoiceLabScreen> {
           PrismSectionCard(
             padding: const EdgeInsets.all(16),
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Center(
+                    child: PrismSpinner(color: theme.colorScheme.primary),
+                  )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1073,10 +1076,11 @@ class _VoiceLabScreenState extends State<VoiceLabScreen> {
                 ),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: _debugLogEntries.isEmpty ? null : _copyDebugLog,
-                    icon: Icon(AppIcons.copy, size: 18),
-                    label: const Text('Copy logs'),
+                  child: PrismButton(
+                    label: 'Copy logs',
+                    icon: AppIcons.copy,
+                    onPressed:
+                        _debugLogEntries.isEmpty ? null : _copyDebugLog,
                   ),
                 ),
                 const SizedBox(height: 12),

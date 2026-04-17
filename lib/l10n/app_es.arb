@@ -739,6 +739,7 @@
   "chatErrorLoadingConversations": "Error al cargar conversaciones",
   "chatUncategorized": "Sin categoría",
   "chatMarkAsRead": "Marcar como leído",
+  "chatMarkAllAsRead": "Marcar todo como leído",
   "chatMute": "Silenciar",
   "chatUnmute": "Activar",
   "chatDeleteConversationTitle": "Eliminar conversación",

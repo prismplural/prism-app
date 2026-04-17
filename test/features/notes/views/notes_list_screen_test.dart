@@ -68,17 +68,12 @@ void main() {
       await tester.pumpWidget(buildSubject(notes: [sampleNote]));
       await tester.pumpAndSettle();
 
-      // The color bar is a Container with width: 4 and a red BoxDecoration.
-      // Search all DecoratedBox widgets for the expected color.
-      final decorated =
-          tester.widgetList<DecoratedBox>(find.byType(DecoratedBox));
-      final colorBar = decorated.where((d) {
-        final decoration = d.decoration;
-        if (decoration is BoxDecoration) {
-          return decoration.color == const Color(0xFFFF0000);
-        }
-        return false;
-      });
+      // The color bar is a ColoredBox with a red color.
+      final colored =
+          tester.widgetList<ColoredBox>(find.byType(ColoredBox));
+      final colorBar = colored.where(
+        (c) => c.color == const Color(0xFFFF0000),
+      );
       expect(colorBar, isNotEmpty);
     });
 

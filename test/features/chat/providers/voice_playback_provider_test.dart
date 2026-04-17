@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +14,7 @@ import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
 import 'package:prism_plurality/features/chat/services/voice/voice_playback_backend.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('MediaService.prepareVoiceNote', () {
     test('stores audio/ogg metadata for voice notes', () async {
       final encryption = _FakeMediaEncryptionService();
@@ -19,7 +22,11 @@ void main() {
         compression: ImageCompressionService(),
         encryption: encryption,
         uploadQueue: UploadQueue(handle: null),
-        downloadManager: DownloadManager(handle: null, encryption: encryption),
+        downloadManager: DownloadManager(
+          handle: null,
+          encryption: encryption,
+          cacheDirOverride: Directory.systemTemp,
+        ),
       );
 
       final result = await service.prepareVoiceNote(
@@ -37,7 +44,11 @@ void main() {
         compression: ImageCompressionService(),
         encryption: encryption,
         uploadQueue: UploadQueue(handle: null),
-        downloadManager: DownloadManager(handle: null, encryption: encryption),
+        downloadManager: DownloadManager(
+          handle: null,
+          encryption: encryption,
+          cacheDirOverride: Directory.systemTemp,
+        ),
       );
 
       await expectLater(

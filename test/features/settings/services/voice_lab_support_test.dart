@@ -66,12 +66,12 @@ void main() {
     });
 
     test('detects CAF Opus headers', () {
+      // Fake CAF: 'caff' header + 4 padding bytes + lowercase 'opus' FourCC
+      // at offset 8, where _detectCafCodec's fallback scanner looks.
       final bytes = Uint8List.fromList([
         ...'caff'.codeUnits,
-        0,
-        2,
-        3,
-        ...'OpusHead'.codeUnits,
+        0, 0, 0, 0,
+        ...'opus'.codeUnits,
       ]);
 
       expect(detectVoiceLabContainer(bytes), 'CAF Opus');
