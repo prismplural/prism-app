@@ -181,8 +181,8 @@ class DriftSystemSettingsRepository
 
   @override
   Future<void> updateHabitsBadgeEnabled(bool value) async {
-    // Local-only preference — no sync needed.
     await _dao.updateHabitsBadgeEnabled(value);
+    await _syncField('habits_badge_enabled', value);
   }
 
   @override
