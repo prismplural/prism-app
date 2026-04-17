@@ -142,12 +142,12 @@ class SettingsScreen extends ConsumerWidget {
                       icon: AppIcons.sync,
                       iconColor: Colors.teal,
                       title: context.l10n.settingsSync,
-                      statusDot: syncStatus.lastError != null
-                          ? Colors.red
+                      statusIcon: syncStatus.lastError != null
+                          ? (icon: AppIcons.errorOutline, color: Colors.red)
                           : syncStatus.hasQuarantinedItems
-                              ? Colors.amber.shade700
+                              ? (icon: AppIcons.warningAmber, color: Colors.amber.shade700)
                               : syncStatus.lastSyncAt != null
-                                  ? Colors.green
+                                  ? (icon: AppIcons.cloudDone, color: Colors.green)
                                   : null,
                       onTap: () => context.push(AppRoutePaths.settingsSync),
                     ),
@@ -344,7 +344,7 @@ class _SettingsLink extends StatelessWidget {
     required this.icon,
     required this.iconColor,
     required this.title,
-    this.statusDot,
+    this.statusIcon,
     required this.onTap,
   });
 
@@ -352,8 +352,8 @@ class _SettingsLink extends StatelessWidget {
   final Color iconColor;
   final String title;
 
-  /// When set, shows a colored dot to the left of the chevron.
-  final Color? statusDot;
+  /// When set, shows a small status icon to the left of the chevron.
+  final ({IconData icon, Color color})? statusIcon;
   final VoidCallback onTap;
 
   @override
@@ -364,17 +364,14 @@ class _SettingsLink extends StatelessWidget {
       title: title,
       iconColor: iconColor,
       onTap: onTap,
-      trailing: statusDot != null
+      trailing: statusIcon != null
           ? Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: statusDot,
-                  ),
+                Icon(
+                  statusIcon!.icon,
+                  size: 16,
+                  color: statusIcon!.color,
                 ),
                 const SizedBox(width: 8),
                 Icon(
