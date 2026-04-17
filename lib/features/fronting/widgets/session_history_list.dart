@@ -59,30 +59,29 @@ class SessionHistoryList extends ConsumerWidget {
       ),
       data: (sessions) {
         if (sessions.isEmpty) {
-          return SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      AppIcons.historyOutlined,
-                      size: 48,
+          return SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    AppIcons.historyOutlined,
+                    size: 48,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.2),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.l10n.frontingNoSessionHistory,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(
                         context,
-                      ).colorScheme.onSurface.withValues(alpha: 0.2),
+                      ).colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.frontingNoSessionHistory,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );
