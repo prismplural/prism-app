@@ -56,7 +56,7 @@ class ConversationInfoSheet extends ConsumerStatefulWidget {
 }
 
 class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
-  bool _editingTitle = false;
+  bool _isEditing = false;
   final _titleController = TextEditingController();
   bool _saving = false;
 
@@ -69,7 +69,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   Future<void> _saveTitle(String conversationId, String? currentEmoji) async {
     final newTitle = _titleController.text.trim();
     if (newTitle.isEmpty) {
-      setState(() => _editingTitle = false);
+      setState(() => _isEditing = false);
       return;
     }
 
@@ -89,7 +89,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     } finally {
       if (mounted) {
         setState(() {
-          _editingTitle = false;
+          _isEditing = false;
           _saving = false;
         });
       }
@@ -240,7 +240,27 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                         color: Theme.of(context).colorScheme.primary,
                         size: 20,
                       )
-                    : null,
+                    : permissions.canEditTitleEmoji
+                        ? TextButton(
+                            onPressed: () {
+                              if (_isEditing) {
+                                _saveTitle(
+                                  conversation.id,
+                                  conversation.emoji,
+                                );
+                              } else {
+                                _titleController.text =
+                                    conversation.title ?? '';
+                                setState(() => _isEditing = true);
+                              }
+                            },
+                            child: Text(
+                              _isEditing
+                                  ? context.l10n.done
+                                  : context.l10n.edit,
+                            ),
+                          )
+                        : null,
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -336,7 +356,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           button: true,
           label: context.l10n.chatInfoEditEmoji,
           child: GestureDetector(
-            onTap: permissions.canEditTitleEmoji
+            onTap: _isEditing && permissions.canEditTitleEmoji
                 ? () => _pickEmoji(conversation.id, conversation.title)
                 : null,
             child: Text(
@@ -347,8 +367,8 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         ),
         const SizedBox(height: 12),
 
-        // Title: inline edit or display
-        if (_editingTitle)
+        // Title: editable when in edit mode, otherwise display
+        if (_isEditing && permissions.canEditTitleEmoji)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: PrismTextField(
@@ -361,43 +381,15 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
             ),
           )
         else
-          Semantics(
-            button: true,
-            label: context.l10n.chatInfoEditTitle,
-            child: GestureDetector(
-              onTap: permissions.canEditTitleEmoji
-                  ? () {
-                      _titleController.text = conversation.title ?? '';
-                      setState(() => _editingTitle = true);
-                    }
-                  : null,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      conversation.title ??
-                          (conversation.isDirectMessage
-                              ? context.l10n.chatInfoDirectMessage
-                              : context.l10n.chatInfoGroupChat),
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  if (permissions.canEditTitleEmoji) ...[
-                    const SizedBox(width: 6),
-                    Icon(
-                      AppIcons.edit,
-                      size: 16,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ],
-                ],
-              ),
+          Text(
+            conversation.title ??
+                (conversation.isDirectMessage
+                    ? context.l10n.chatInfoDirectMessage
+                    : context.l10n.chatInfoGroupChat),
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
+            textAlign: TextAlign.center,
           ),
 
         const SizedBox(height: 4),
