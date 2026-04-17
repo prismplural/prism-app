@@ -277,12 +277,20 @@ class SpMessage {
   final String content;
   final DateTime timestamp;
 
+  /// SP message _id that this message replies to (reply threading).
+  final String? replyTo;
+
+  /// Last-edit timestamp. Null if the message was never edited.
+  final DateTime? updatedAt;
+
   const SpMessage({
     required this.id,
     required this.channelId,
     this.senderId,
     required this.content,
     required this.timestamp,
+    this.replyTo,
+    this.updatedAt,
   });
 
   factory SpMessage.fromJson(Map<String, dynamic> json, String channelId) {
@@ -300,12 +308,28 @@ class SpMessage {
       return DateTime.now();
     }
 
+    DateTime? parseOptionalTime(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) return DateTime.fromMillisecondsSinceEpoch(parsed);
+        return DateTime.tryParse(value);
+      }
+      return null;
+    }
+
+    final replyTo = json['replyTo'] as String?;
+
     return SpMessage(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       channelId: channelId,
       senderId: json['sender']?.toString() ?? json['writer']?.toString() ?? json['member']?.toString(),
       content: (json['message'] ?? json['content'] ?? '').toString(),
       timestamp: parseTime(json['timestamp'] ?? json['writtenAt'] ?? json['createdAt']),
+      // Only store replyTo if it's a non-empty string (SP uses "" to mean no reply).
+      replyTo: (replyTo != null && replyTo.isNotEmpty) ? replyTo : null,
+      updatedAt: parseOptionalTime(json['updatedAt'] ?? json['lastUpdated']),
     );
   }
 }

@@ -398,11 +398,18 @@ class SpMapper {
   }
 
   /// Map SP messages to Prism chat messages.
+  ///
+  /// Uses a two-pass approach so that reply threading is preserved:
+  ///   Pass 1 — generate stable Prism UUIDs and collect (prismId → spReplyTo).
+  ///   Pass 2 — resolve spReplyTo IDs to Prism UUIDs and set replyToId.
   List<domain.ChatMessage> _mapMessages(
     List<SpMessage> spMessages,
     List<String> warnings,
   ) {
-    final messages = <domain.ChatMessage>[];
+    // Pass 1: assign Prism UUIDs, build lookup maps.
+    final spIdToPrismId = <String, String>{};
+    final prismIdToSpReplyTo = <String, String?>{};
+    final mapped = <domain.ChatMessage>[];
 
     for (final msg in spMessages) {
       // Resolve conversation ID.
@@ -412,27 +419,51 @@ class SpMapper {
         continue;
       }
 
+      if (msg.content.isEmpty) continue;
+
       // Resolve sender.
       String? authorId;
       if (msg.senderId != null) {
         authorId = _memberIdMap[msg.senderId!];
       }
 
-      if (msg.content.isEmpty) continue;
+      // Only treat updatedAt as an edit if it differs from the original
+      // timestamp by more than 1 second (avoids false positives from
+      // clock skew in SP exports that set both fields to the same value).
+      DateTime? editedAt;
+      if (msg.updatedAt != null &&
+          msg.updatedAt!.difference(msg.timestamp).abs() >
+              const Duration(seconds: 1)) {
+        editedAt = msg.updatedAt;
+      }
 
-      messages.add(domain.ChatMessage(
-        id: _uuid.v4(),
+      final prismId = _uuid.v4();
+      spIdToPrismId[msg.id] = prismId;
+      prismIdToSpReplyTo[prismId] = msg.replyTo;
+
+      mapped.add(domain.ChatMessage(
+        id: prismId,
         content: msg.content,
         timestamp: msg.timestamp,
+        editedAt: editedAt,
         authorId: authorId,
         conversationId: conversationId,
       ));
     }
 
+    // Pass 2: set replyToId where the referenced SP message was also imported.
+    final result = mapped.map((m) {
+      final spReplyTo = prismIdToSpReplyTo[m.id];
+      if (spReplyTo == null) return m;
+      final replyPrismId = spIdToPrismId[spReplyTo];
+      if (replyPrismId == null) return m;
+      return m.copyWith(replyToId: replyPrismId);
+    }).toList();
+
     // Update conversation lastActivityAt based on latest message.
     // This is handled by the importer when inserting.
 
-    return messages;
+    return result;
   }
 
   /// Map SP notes to Prism notes.
