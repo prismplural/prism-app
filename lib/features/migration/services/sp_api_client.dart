@@ -100,10 +100,29 @@ class SpApiClient {
     return (systemId: uid, username: username);
   }
 
-  /// Parse a list response — returns empty list on non-list bodies.
+  /// SP API list responses wrap each item in `{exists, id, content: {...}}`.
+  /// This helper merges `content` into the top level and exposes the
+  /// wrapper's `id` as `_id` so all existing `fromJson` factories work
+  /// identically for both file exports (already flat) and API responses.
+  static Map<String, dynamic> _unwrap(Map<String, dynamic> raw) {
+    final content = raw['content'];
+    if (content is! Map<String, dynamic>) return raw;
+    return {
+      ...content,
+      '_id': raw['id'] ?? raw['_id'],
+    };
+  }
+
+  /// Parse a list response — unwraps content-wrapped items and returns
+  /// empty list on non-list bodies.
   Future<List<Map<String, dynamic>>> _getList(String path) async {
     final json = await _get(path);
-    if (json is List) return json.cast<Map<String, dynamic>>();
+    if (json is List) {
+      return json
+          .cast<Map<String, dynamic>>()
+          .map(_unwrap)
+          .toList();
+    }
     return [];
   }
 

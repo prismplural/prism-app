@@ -96,6 +96,41 @@ void main() {
       client.dispose();
     });
 
+    test('getMembers unwraps content-wrapped list items (real API format)',
+        () async {
+      final client = SpApiClient(
+        token: 'test-token',
+        httpClient: MockClient((request) async {
+          if (request.url.path.contains('/members/')) {
+            return http.Response(
+              jsonEncode([
+                {
+                  'exists': true,
+                  'id': 'mem1',
+                  'content': {'name': 'Kai', 'pronouns': 'he/him'},
+                },
+                {
+                  'exists': true,
+                  'id': 'mem2',
+                  'content': {'name': 'Luna', 'pronouns': 'she/her'},
+                },
+              ]),
+              200,
+            );
+          }
+          return http.Response('Not found', 404);
+        }),
+      );
+      final members = await client.getMembers('abc123');
+      expect(members.length, 2);
+      // After unwrapping, top-level fields from content are accessible.
+      expect(members.first['name'], 'Kai');
+      expect(members.first['pronouns'], 'he/him');
+      // The wrapper's id is exposed as _id for fromJson factories.
+      expect(members.first['_id'], 'mem1');
+      client.dispose();
+    });
+
     test('trims whitespace from token', () async {
       final client = SpApiClient(
         token: '  test-token  \n',

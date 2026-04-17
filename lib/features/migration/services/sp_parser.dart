@@ -436,7 +436,7 @@ class SpPoll {
 
     return SpPoll(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
-      question: (json['question'] ?? json['title'] ?? '').toString(),
+      question: (json['question'] ?? json['title'] ?? json['name'] ?? '').toString(),
       description: json['desc'] as String? ?? json['description'] as String?,
       options: optionList,
       votes: voteList,
