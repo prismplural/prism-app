@@ -122,7 +122,10 @@ class MemberAvatar extends StatelessWidget {
   ///
   /// Apple Color Emoji glyphs are scaled differently by CoreText vs Skia,
   /// causing off-center rendering on iOS/macOS. This compensates with a
-  /// small downward + leftward nudge and padding, plus text metrics fixes.
+  /// rightward + downward nudge to correct for CoreText's advance-width and
+  /// ascent metric quirks. The horizontal shift is most visible at small
+  /// sizes and fades by ~23 pt; the vertical shift is small but consistent
+  /// across all sizes on Apple.
   static Widget centeredEmoji(String emoji, {required double fontSize}) {
     final isApple = defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
@@ -141,11 +144,16 @@ class MemberAvatar extends StatelessWidget {
       ),
     );
 
-    // At small sizes on Apple, CoreText's advance width is wider than the
-    // visual glyph, pushing it left of center. The mismatch fades by ~23pt.
-    if (isApple && fontSize < 22) {
+    if (isApple) {
+      // Horizontal: CoreText's advance width is wider than the visual glyph
+      // at small sizes, pushing the emoji left of center. The mismatch fades
+      // by ~23 pt, so limit the horizontal correction to small sizes.
+      final double dx = fontSize < 22 ? fontSize * 0.06 : 0;
+      // Vertical: Apple Color Emoji glyphs sit slightly high in the text box
+      // across all sizes due to CoreText ascent metrics. Nudge them down.
+      final double dy = fontSize * 0.04;
       text = Transform.translate(
-        offset: Offset(fontSize * 0.06, 0),
+        offset: Offset(dx, dy),
         child: text,
       );
     }
