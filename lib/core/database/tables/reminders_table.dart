@@ -6,7 +6,9 @@ class Reminders extends Table {
   TextColumn get name => text()();
   TextColumn get message => text()();
   IntColumn get trigger => integer().withDefault(const Constant(0))(); // ReminderTrigger enum index
+  TextColumn get frequency => text().nullable()();
   IntColumn get intervalDays => integer().nullable()();
+  TextColumn get weeklyDays => text().nullable()();
   TextColumn get timeOfDay => text().nullable()();
   IntColumn get delayHours => integer().nullable()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
