@@ -158,7 +158,12 @@ class _DayGroupWidget extends StatelessWidget {
                   if (i < group.sessions.length - 1)
                     Divider(
                       height: 1,
-                      indent: 64,
+                      // Use reduced indent when either adjacent tile is a sleep tile,
+                      // since sleep tiles have no avatar and start at 16px.
+                      indent: (group.sessions[i].session.isSleep ||
+                                group.sessions[i + 1].session.isSleep)
+                          ? 16
+                          : 64,
                       endIndent: 12,
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
                     ),
