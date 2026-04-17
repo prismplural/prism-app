@@ -473,7 +473,7 @@ class _ConversationsSection extends ConsumerWidget {
             children: [
               for (var i = 0; i < conversations.length; i++) ...[
                 if (i > 0) const Divider(height: 1),
-                _ConversationTile(conversation: conversations[i]),
+                _ConversationTile(conversation: conversations[i], memberId: memberId),
               ],
             ],
           ),
@@ -484,16 +484,31 @@ class _ConversationsSection extends ConsumerWidget {
 }
 
 class _ConversationTile extends ConsumerWidget {
-  const _ConversationTile({required this.conversation});
+  const _ConversationTile({required this.conversation, required this.memberId});
 
   final Conversation conversation;
+  final String memberId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final terms = watchTerminology(context, ref);
     final title =
         conversation.title ?? conversation.emoji ?? context.l10n.memberConversationFallback;
+
+    final allMembersAsync = ref.watch(activeMembersProvider);
+    final subtitle = allMembersAsync.whenOrNull(
+      data: (members) {
+        final others = members
+            .where((m) =>
+                m.id != memberId && conversation.participantIds.contains(m.id))
+            .toList();
+        if (others.isEmpty) return '';
+        if (others.length == 1) return others[0].name;
+        if (others.length == 2) return '${others[0].name}, ${others[1].name}';
+        final extra = others.length - 2;
+        return '${others[0].name}, ${others[1].name} +$extra more';
+      },
+    );
 
     return InkWell(
       onTap: () => context.go(AppRoutePaths.chatConversation(conversation.id)),
@@ -517,17 +532,25 @@ class _ConversationTile extends ConsumerWidget {
               const SizedBox(width: 12),
             ],
             Expanded(
-              child: Text(
-                title,
-                style: theme.textTheme.bodyMedium,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Text(
-              '${conversation.participantIds.length} ${conversation.participantIds.length == 1 ? terms.singularLower : terms.pluralLower}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.bodyMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (subtitle != null && subtitle.isNotEmpty)
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 4),
