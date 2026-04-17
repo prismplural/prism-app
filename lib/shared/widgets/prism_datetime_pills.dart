@@ -89,29 +89,33 @@ class PrismDateTimePills extends StatelessWidget {
             ],
           )
         else
-          _PlaceholderPill(
-            text: placeholder ?? context.l10n.tapToSet,
-            onTap: () async {
-              final date = await showPrismDatePicker(
-                context: context,
-                initialDate: DateTime.now(),
-                firstDate: firstDate,
-                lastDate: lastDate,
-              );
-              if (date == null || !context.mounted) return;
-              final time = await showPrismTimePicker(
-                context: context,
-                initialTime: TimeOfDay.now(),
-              );
-              if (time == null || !context.mounted) return;
-              onChanged(DateTime(
-                date.year,
-                date.month,
-                date.day,
-                time.hour,
-                time.minute,
-              ));
-            },
+          Builder(
+            builder: (anchorContext) => _PlaceholderPill(
+              text: placeholder ?? context.l10n.tapToSet,
+              onTap: () async {
+                final date = await showPrismDatePicker(
+                  context: context,
+                  anchorContext: anchorContext,
+                  initialDate: DateTime.now(),
+                  firstDate: firstDate,
+                  lastDate: lastDate,
+                );
+                if (date == null || !context.mounted) return;
+                final time = await showPrismTimePicker(
+                  context: context,
+                  anchorContext: anchorContext,
+                  initialTime: TimeOfDay.now(),
+                );
+                if (time == null || !context.mounted) return;
+                onChanged(DateTime(
+                  date.year,
+                  date.month,
+                  date.day,
+                  time.hour,
+                  time.minute,
+                ));
+              },
+            ),
           ),
       ],
     );
@@ -134,17 +138,20 @@ class _DatePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final formatted = DateFormat.yMMMd(context.dateLocale).format(dateTime);
-    return _Pill(
-      text: formatted,
-      onTap: () async {
-        final picked = await showPrismDatePicker(
-          context: context,
-          initialDate: dateTime,
-          firstDate: firstDate,
-          lastDate: lastDate,
-        );
-        if (picked != null) onChanged(picked);
-      },
+    return Builder(
+      builder: (anchorContext) => _Pill(
+        text: formatted,
+        onTap: () async {
+          final picked = await showPrismDatePicker(
+            context: context,
+            anchorContext: anchorContext,
+            initialDate: dateTime,
+            firstDate: firstDate,
+            lastDate: lastDate,
+          );
+          if (picked != null) onChanged(picked);
+        },
+      ),
     );
   }
 }
@@ -161,15 +168,18 @@ class _TimePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final time = TimeOfDay.fromDateTime(dateTime);
-    return _Pill(
-      text: time.format(context),
-      onTap: () async {
-        final picked = await showPrismTimePicker(
-          context: context,
-          initialTime: time,
-        );
-        if (picked != null) onChanged(picked);
-      },
+    return Builder(
+      builder: (anchorContext) => _Pill(
+        text: time.format(context),
+        onTap: () async {
+          final picked = await showPrismTimePicker(
+            context: context,
+            anchorContext: anchorContext,
+            initialTime: time,
+          );
+          if (picked != null) onChanged(picked);
+        },
+      ),
     );
   }
 }

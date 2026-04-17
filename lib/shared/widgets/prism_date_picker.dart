@@ -5,14 +5,22 @@ import 'package:flutter/material.dart';
 ///
 /// Uses [cupertino_calendar_picker] on all platforms for a consistent,
 /// modern date picking experience.
+///
+/// Pass [anchorContext] from a [Builder] that wraps the trigger widget so the
+/// popover anchors to the actual button. If omitted, [context] is used, but
+/// that produces a sized-wrong popover on Android when [context] is a full
+/// sheet/screen (the package auto-shrinks when there's no space around the
+/// anchor).
 Future<DateTime?> showPrismDatePicker({
   required BuildContext context,
+  BuildContext? anchorContext,
   required DateTime initialDate,
   DateTime? firstDate,
   DateTime? lastDate,
   DatePickerMode initialDatePickerMode = DatePickerMode.day,
 }) {
-  final renderBox = context.findRenderObject() as RenderBox?;
+  final anchor = anchorContext ?? context;
+  final renderBox = anchor.findRenderObject() as RenderBox?;
   final theme = Theme.of(context);
 
   return showCupertinoCalendarPicker(

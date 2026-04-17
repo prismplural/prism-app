@@ -109,9 +109,10 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickDate(BuildContext anchorContext) async {
     final picked = await showPrismDatePicker(
       context: context,
+      anchorContext: anchorContext,
       initialDate: _date,
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 365)),
@@ -245,7 +246,7 @@ class _BottomToolbar extends ConsumerWidget {
 
   final DateTime date;
   final String? memberId;
-  final VoidCallback onPickDate;
+  final void Function(BuildContext anchorContext) onPickDate;
   final VoidCallback onPickMember;
 
   @override
@@ -278,13 +279,15 @@ class _BottomToolbar extends ConsumerWidget {
       child: Row(
         children: [
           // Date chip.
-          _ToolbarChip(
-            icon: AppIcons.calendarTodayOutlined,
-            label: dateFormat.format(date),
-            color: mutedColor,
-            onTap: onPickDate,
-            semanticLabel:
-                'Note date, ${DateFormat.yMMMd(context.dateLocale).format(date)}. Tap to change',
+          Builder(
+            builder: (anchorContext) => _ToolbarChip(
+              icon: AppIcons.calendarTodayOutlined,
+              label: dateFormat.format(date),
+              color: mutedColor,
+              onTap: () => onPickDate(anchorContext),
+              semanticLabel:
+                  'Note date, ${DateFormat.yMMMd(context.dateLocale).format(date)}. Tap to change',
+            ),
           ),
           const SizedBox(width: 8),
           // Member chip.
