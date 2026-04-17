@@ -244,57 +244,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 leading: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    BlurPopupAnchor(
-                      trigger: BlurPopupTrigger.tap,
-                      width: 220,
-                      maxHeight: 112,
-                      itemCount: 2,
-                      semanticLabel: context.l10n.moreOptions,
-                      itemBuilder: (ctx, index, close) {
-                        final popupTheme = Theme.of(ctx);
-                        return switch (index) {
-                          0 => PrismListRow(
-                              dense: true,
-                              leading: Icon(
-                                AppIcons.markEmailReadOutlined,
-                                size: 20,
-                              ),
-                              title: Text(
-                                ctx.l10n.chatMarkAllAsRead,
-                                style: popupTheme.textTheme.bodyMedium,
-                              ),
-                              onTap: () {
-                                close();
-                                if (speakingAs != null) {
-                                  ref
-                                      .read(chatNotifierProvider.notifier)
-                                      .markAllConversationsAsRead(speakingAs);
-                                }
-                              },
-                            ),
-                          _ => PrismListRow(
-                              dense: true,
-                              leading: Icon(
-                                AppIcons.folderOutlined,
-                                size: 20,
-                              ),
-                              title: Text(
-                                ctx.l10n.chatManageCategories,
-                                style: popupTheme.textTheme.bodyMedium,
-                              ),
-                              onTap: () {
-                                close();
-                                CategoryManagementSheet.show(context);
-                              },
-                            ),
-                        };
-                      },
-                      child: PrismTopBarAction(
-                        icon: AppIcons.moreVert,
-                        tooltip: context.l10n.moreOptions,
-                        onPressed: () {},
-                      ),
-                    ),
+                    _OverflowMenuButton(speakingAs: speakingAs),
                     const SizedBox(width: 8),
                     PrismTopBarAction(
                       icon: AppIcons.search,
@@ -475,5 +425,76 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (conversationId != null && context.mounted) {
       context.go(AppRoutePaths.chatConversation(conversationId));
     }
+  }
+}
+
+class _OverflowMenuButton extends ConsumerStatefulWidget {
+  const _OverflowMenuButton({required this.speakingAs});
+
+  final String? speakingAs;
+
+  @override
+  ConsumerState<_OverflowMenuButton> createState() =>
+      _OverflowMenuButtonState();
+}
+
+class _OverflowMenuButtonState extends ConsumerState<_OverflowMenuButton> {
+  final _popupKey = GlobalKey<BlurPopupAnchorState>();
+
+  @override
+  Widget build(BuildContext context) {
+    final speakingAs = widget.speakingAs;
+    return BlurPopupAnchor(
+      key: _popupKey,
+      trigger: BlurPopupTrigger.manual,
+      width: 220,
+      maxHeight: 112,
+      itemCount: 2,
+      semanticLabel: context.l10n.moreOptions,
+      itemBuilder: (ctx, index, close) {
+        final popupTheme = Theme.of(ctx);
+        return switch (index) {
+          0 => PrismListRow(
+              dense: true,
+              leading: Icon(
+                AppIcons.markEmailReadOutlined,
+                size: 20,
+              ),
+              title: Text(
+                ctx.l10n.chatMarkAllAsRead,
+                style: popupTheme.textTheme.bodyMedium,
+              ),
+              onTap: () {
+                close();
+                if (speakingAs != null) {
+                  ref
+                      .read(chatNotifierProvider.notifier)
+                      .markAllConversationsAsRead(speakingAs);
+                }
+              },
+            ),
+          _ => PrismListRow(
+              dense: true,
+              leading: Icon(
+                AppIcons.folderOutlined,
+                size: 20,
+              ),
+              title: Text(
+                ctx.l10n.chatManageCategories,
+                style: popupTheme.textTheme.bodyMedium,
+              ),
+              onTap: () {
+                close();
+                CategoryManagementSheet.show(context);
+              },
+            ),
+        };
+      },
+      child: PrismTopBarAction(
+        icon: AppIcons.moreVert,
+        tooltip: context.l10n.moreOptions,
+        onPressed: () => _popupKey.currentState?.show(),
+      ),
+    );
   }
 }

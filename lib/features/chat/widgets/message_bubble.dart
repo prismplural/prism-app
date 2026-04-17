@@ -589,7 +589,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                           Padding(
                             padding: EdgeInsets.only(
                               right: 8,
-                              top: widget.showAuthorInfo ? 0 : 1,
+                              top: widget.showAuthorInfo ? 4 : 1,
                             ),
                             child: ChatMessageText(
                               content: widget.message.content,

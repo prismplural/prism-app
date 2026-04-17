@@ -67,22 +67,25 @@ class _SleepFeatureSettingsScreenState
     final formatted =
         TimeOfDay(hour: time.hour, minute: time.minute).format(context);
 
-    return PrismSettingsRow(
-      icon: AppIcons.schedule,
-      iconColor: AppColors.sleep(theme.brightness),
-      title: context.l10n.featureSleepBedtimeTime,
-      subtitle: formatted,
-      onTap: () async {
-        final picked = await showPrismTimePicker(
-          context: context,
-          initialTime: TimeOfDay(hour: time.hour, minute: time.minute),
-        );
-        if (picked != null) {
-          await ref
-              .read(settingsNotifierProvider.notifier)
-              .updateSleepSuggestionTime(picked.hour, picked.minute);
-        }
-      },
+    return Builder(
+      builder: (anchorContext) => PrismSettingsRow(
+        icon: AppIcons.schedule,
+        iconColor: AppColors.sleep(theme.brightness),
+        title: context.l10n.featureSleepBedtimeTime,
+        subtitle: formatted,
+        onTap: () async {
+          final picked = await showPrismTimePicker(
+            context: context,
+            anchorContext: anchorContext,
+            initialTime: TimeOfDay(hour: time.hour, minute: time.minute),
+          );
+          if (picked != null) {
+            await ref
+                .read(settingsNotifierProvider.notifier)
+                .updateSleepSuggestionTime(picked.hour, picked.minute);
+          }
+        },
+      ),
     );
   }
 

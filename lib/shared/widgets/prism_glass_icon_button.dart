@@ -47,7 +47,7 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final canPress = widget.onPressed != null && widget.enabled && !widget.isLoading;
-    final visuallyEnabled = widget.enabled && !widget.isLoading;
+    final visuallyEnabled = canPress;
 
     Widget button = Semantics(
       button: true,

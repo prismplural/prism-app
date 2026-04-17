@@ -72,16 +72,18 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  Future<void> _pickDateTime() async {
+  Future<void> _pickDateTime(BuildContext anchorContext) async {
     final date = await showPrismDatePicker(
       context: context,
+      anchorContext: anchorContext,
       initialDate: _timestamp,
       firstDate: DateTime(2000),
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
-    if (date == null || !mounted) return;
+    if (date == null || !mounted || !anchorContext.mounted) return;
     final time = await showPrismTimePicker(
       context: context,
+      anchorContext: anchorContext,
       initialTime: TimeOfDay.fromDateTime(_timestamp),
     );
     if (time != null) {
@@ -113,13 +115,16 @@ class _AddCommentSheetState extends ConsumerState<AddCommentSheet> {
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 16),
-              PrismListRow(
-                padding: EdgeInsets.zero,
-                leading: Icon(AppIcons.accessTime),
-                title: Text(
-                    DateFormat.yMMMd(context.dateLocale).add_jm().format(_timestamp)),
-                trailing: Icon(AppIcons.chevronRight),
-                onTap: _pickDateTime,
+              Builder(
+                builder: (anchorContext) => PrismListRow(
+                  padding: EdgeInsets.zero,
+                  leading: Icon(AppIcons.accessTime),
+                  title: Text(DateFormat.yMMMd(context.dateLocale)
+                      .add_jm()
+                      .format(_timestamp)),
+                  trailing: Icon(AppIcons.chevronRight),
+                  onTap: () => _pickDateTime(anchorContext),
+                ),
               ),
               const SizedBox(height: 24),
               PrismButton(

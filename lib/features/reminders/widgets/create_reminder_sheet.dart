@@ -212,19 +212,22 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                   // Time picker (all scheduled frequencies have a time).
                   _LabeledRow(
                     label: context.l10n.remindersTimeLabel,
-                    child: PrismButton(
-                      label: _timeOfDay?.format(context) ?? '9:00 AM',
-                      tone: PrismButtonTone.subtle,
-                      onPressed: () async {
-                        final picked = await showPrismTimePicker(
-                          context: context,
-                          initialTime:
-                              _timeOfDay ?? const TimeOfDay(hour: 9, minute: 0),
-                        );
-                        if (picked != null) {
-                          setState(() => _timeOfDay = picked);
-                        }
-                      },
+                    child: Builder(
+                      builder: (anchorContext) => PrismButton(
+                        label: _timeOfDay?.format(context) ?? '9:00 AM',
+                        tone: PrismButtonTone.subtle,
+                        onPressed: () async {
+                          final picked = await showPrismTimePicker(
+                            context: context,
+                            anchorContext: anchorContext,
+                            initialTime: _timeOfDay ??
+                                const TimeOfDay(hour: 9, minute: 0),
+                          );
+                          if (picked != null) {
+                            setState(() => _timeOfDay = picked);
+                          }
+                        },
+                      ),
                     ),
                   ),
                 ] else ...[

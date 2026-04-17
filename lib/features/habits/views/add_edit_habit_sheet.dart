@@ -232,10 +232,12 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                   }),
                 ),
                 if (_notificationsEnabled) ...[
-                  PrismListRow(
-                    title: Text(context.l10n.habitsReminderTime),
-                    trailing: Text(_formatReminderTime(context)),
-                    onTap: _pickTime,
+                  Builder(
+                    builder: (anchorContext) => PrismListRow(
+                      title: Text(context.l10n.habitsReminderTime),
+                      trailing: Text(_formatReminderTime(context)),
+                      onTap: () => _pickTime(anchorContext),
+                    ),
                   ),
                   PrismTextField(
                     controller: _notificationMessageController,
@@ -337,11 +339,12 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     return parsed.format(context);
   }
 
-  Future<void> _pickTime() async {
+  Future<void> _pickTime(BuildContext anchorContext) async {
     final initial =
         _parseTime(_reminderTime) ?? const TimeOfDay(hour: 9, minute: 0);
     final picked = await showPrismTimePicker(
       context: context,
+      anchorContext: anchorContext,
       initialTime: initial,
     );
     if (picked != null) {

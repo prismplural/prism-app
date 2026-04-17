@@ -80,18 +80,20 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
     });
   }
 
-  Future<void> _pickExpiration() async {
+  Future<void> _pickExpiration(BuildContext anchorContext) async {
     final now = DateTime.now();
     final date = await showPrismDatePicker(
       context: context,
+      anchorContext: anchorContext,
       initialDate: _expiresAt ?? now.add(const Duration(days: 1)),
       firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
     );
-    if (date == null || !mounted) return;
+    if (date == null || !mounted || !anchorContext.mounted) return;
 
     final time = await showPrismTimePicker(
       context: context,
+      anchorContext: anchorContext,
       initialTime: TimeOfDay.fromDateTime(
         _expiresAt ?? now.add(const Duration(hours: 1)),
       ),
@@ -280,27 +282,32 @@ class _CreatePollSheetState extends ConsumerState<CreatePollSheet> {
                 ),
 
                 // Expiration
-                PrismSwitchRow(
-                  title: context.l10n.pollsSetExpiration,
-                  subtitle: _hasExpiration && _expiresAt != null
-                      ? _formatDateTime(_expiresAt!)
-                      : context.l10n.pollsNoExpiration,
-                  value: _hasExpiration,
-                  onChanged: (v) {
-                    setState(() => _hasExpiration = v);
-                    if (v) _pickExpiration();
-                  },
+                Builder(
+                  builder: (anchorContext) => PrismSwitchRow(
+                    title: context.l10n.pollsSetExpiration,
+                    subtitle: _hasExpiration && _expiresAt != null
+                        ? _formatDateTime(_expiresAt!)
+                        : context.l10n.pollsNoExpiration,
+                    value: _hasExpiration,
+                    onChanged: (v) {
+                      setState(() => _hasExpiration = v);
+                      if (v) _pickExpiration(anchorContext);
+                    },
+                  ),
                 ),
                 if (_hasExpiration)
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: PrismButton(
-                      label: _expiresAt != null
-                          ? context.l10n.pollsChangeDateTime(_formatDateTime(_expiresAt!))
-                          : context.l10n.pollsPickDateTime,
-                      onPressed: _pickExpiration,
-                      icon: AppIcons.schedule,
-                      tone: PrismButtonTone.subtle,
+                    child: Builder(
+                      builder: (anchorContext) => PrismButton(
+                        label: _expiresAt != null
+                            ? context.l10n
+                                .pollsChangeDateTime(_formatDateTime(_expiresAt!))
+                            : context.l10n.pollsPickDateTime,
+                        onPressed: () => _pickExpiration(anchorContext),
+                        icon: AppIcons.schedule,
+                        tone: PrismButtonTone.subtle,
+                      ),
                     ),
                   ),
 

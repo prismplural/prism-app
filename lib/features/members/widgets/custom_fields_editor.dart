@@ -230,44 +230,48 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       }
     }
 
-    final dateField = GestureDetector(
-      onTap: () => _pickDate(context, precision),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (currentValue.isNotEmpty)
-                PrismFieldIconButton(
-                  icon: AppIcons.clear,
+    final dateField = Builder(
+      builder: (anchorContext) => GestureDetector(
+        onTap: () => _pickDate(context, anchorContext, precision),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (currentValue.isNotEmpty)
+                  PrismFieldIconButton(
+                    icon: AppIcons.clear,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    onPressed: () {
+                      _textController.text = '';
+                      if (widget.existingValue != null) {
+                        ref
+                            .read(customFieldValueNotifierProvider.notifier)
+                            .deleteValue(widget.existingValue!.id);
+                      }
+                      setState(() {});
+                    },
+                    tooltip: l10n.memberClearDateTooltip,
+                  ),
+                Icon(
+                  AppIcons.calendarToday,
+                  size: 18,
                   color: theme.colorScheme.onSurfaceVariant,
-                  onPressed: () {
-                    _textController.text = '';
-                    if (widget.existingValue != null) {
-                      ref
-                          .read(customFieldValueNotifierProvider.notifier)
-                          .deleteValue(widget.existingValue!.id);
-                    }
-                    setState(() {});
-                  },
-                  tooltip: l10n.memberClearDateTooltip,
                 ),
-              Icon(
-                AppIcons.calendarToday,
-                size: 18,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 12),
-            ],
+                const SizedBox(width: 12),
+              ],
+            ),
           ),
-        ),
-        child: Text(
-          displayText.isNotEmpty ? displayText : l10n.memberCustomFieldSelectDate,
-          style: displayText.isNotEmpty
-              ? theme.textTheme.bodyLarge
-              : theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+          child: Text(
+            displayText.isNotEmpty
+                ? displayText
+                : l10n.memberCustomFieldSelectDate,
+            style: displayText.isNotEmpty
+                ? theme.textTheme.bodyLarge
+                : theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+          ),
         ),
       ),
     );
@@ -292,7 +296,11 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
     );
   }
 
-  Future<void> _pickDate(BuildContext context, DatePrecision precision) async {
+  Future<void> _pickDate(
+    BuildContext context,
+    BuildContext anchorContext,
+    DatePrecision precision,
+  ) async {
     DateTime? initial;
     try {
       final cur = _textController.text.trim();
@@ -308,6 +316,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       case DatePrecision.year:
         final picked = await showPrismDatePicker(
           context: context,
+          anchorContext: anchorContext,
           initialDate: initial,
           firstDate: DateTime(1900),
           lastDate: DateTime(2100),
@@ -326,6 +335,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       case DatePrecision.monthDay:
         final picked = await showPrismDatePicker(
           context: context,
+          anchorContext: anchorContext,
           initialDate: initial,
           firstDate: DateTime(2000, 1, 1),
           lastDate: DateTime(2000, 12, 31),
@@ -339,6 +349,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       case DatePrecision.month:
         final picked = await showPrismDatePicker(
           context: context,
+          anchorContext: anchorContext,
           initialDate: initial,
           firstDate: DateTime(2000, 1, 1),
           lastDate: DateTime(2000, 12, 31),
@@ -353,6 +364,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
       case DatePrecision.timestamp:
         final pickedDate = await showPrismDatePicker(
           context: context,
+          anchorContext: anchorContext,
           initialDate: initial,
           firstDate: DateTime(1900),
           lastDate: DateTime(2100),
@@ -360,6 +372,7 @@ class _FieldInputState extends ConsumerState<_FieldInput> {
         if (pickedDate == null || !context.mounted) return;
         final pickedTime = await showPrismTimePicker(
           context: context,
+          anchorContext: anchorContext,
           initialTime: TimeOfDay.fromDateTime(initial),
         );
         if (!mounted) return;
