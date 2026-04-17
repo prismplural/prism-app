@@ -1079,8 +1079,8 @@ class _VoiceLabScreenState extends State<VoiceLabScreen> {
                   child: PrismButton(
                     label: 'Copy logs',
                     icon: AppIcons.copy,
-                    onPressed:
-                        _debugLogEntries.isEmpty ? null : _copyDebugLog,
+                    enabled: _debugLogEntries.isNotEmpty,
+                    onPressed: () { _copyDebugLog(); },
                   ),
                 ),
                 const SizedBox(height: 12),
