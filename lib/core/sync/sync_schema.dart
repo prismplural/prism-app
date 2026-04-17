@@ -258,6 +258,8 @@ const String prismSyncSchema = '''
         "is_active": "Bool",
         "created_at": "DateTime",
         "modified_at": "DateTime",
+        "frequency": "String",
+        "weekly_days": "String",
         "is_deleted": "Bool"
       }
     },
