@@ -92,6 +92,88 @@ void main() {
     });
   });
 
+  group('ReminderMapper.toDomain defensive weeklyDays parsing', () {
+    test('weekly_days = "{}" (non-list JSON) -> weeklyDays is null, no throw',
+        () {
+      final row = _row(frequency: 'weekly', weeklyDays: '{}');
+      late domain.Reminder model;
+      expect(
+        () => model = ReminderMapper.toDomain(row),
+        returnsNormally,
+      );
+      expect(model.weeklyDays, isNull);
+    });
+
+    test(
+        'weekly_days = "[1.5, \\"x\\"]" (non-int elements) -> weeklyDays is null',
+        () {
+      final row = _row(frequency: 'weekly', weeklyDays: '[1.5, "x"]');
+      late domain.Reminder model;
+      expect(
+        () => model = ReminderMapper.toDomain(row),
+        returnsNormally,
+      );
+      expect(model.weeklyDays, isNull);
+    });
+
+    test('weekly_days = "[-1, 99]" (out-of-range) -> weeklyDays is null', () {
+      final row = _row(frequency: 'weekly', weeklyDays: '[-1, 99]');
+      late domain.Reminder model;
+      expect(
+        () => model = ReminderMapper.toDomain(row),
+        returnsNormally,
+      );
+      expect(model.weeklyDays, isNull);
+    });
+
+    test('weekly_days = "not json" -> weeklyDays is null, no throw', () {
+      final row = _row(frequency: 'weekly', weeklyDays: 'not json');
+      late domain.Reminder model;
+      expect(
+        () => model = ReminderMapper.toDomain(row),
+        returnsNormally,
+      );
+      expect(model.weeklyDays, isNull);
+    });
+
+    test('weekly_days = "[]" (empty list) -> weeklyDays is null', () {
+      final row = _row(frequency: 'weekly', weeklyDays: '[]');
+      final model = ReminderMapper.toDomain(row);
+      expect(model.weeklyDays, isNull);
+    });
+  });
+
+  group('ReminderMapper.toDomain defensive trigger parsing', () {
+    test('row.trigger = 99 (out of range) -> falls back to scheduled, no throw',
+        () {
+      final row = _row(trigger: 99);
+      late domain.Reminder model;
+      expect(
+        () => model = ReminderMapper.toDomain(row),
+        returnsNormally,
+      );
+      expect(model.trigger, domain.ReminderTrigger.scheduled);
+    });
+
+    test('row.trigger = -1 (negative) -> falls back to scheduled', () {
+      final row = _row(trigger: -1);
+      final model = ReminderMapper.toDomain(row);
+      expect(model.trigger, domain.ReminderTrigger.scheduled);
+    });
+
+    test('row.trigger = 0 -> scheduled', () {
+      final row = _row(trigger: 0);
+      final model = ReminderMapper.toDomain(row);
+      expect(model.trigger, domain.ReminderTrigger.scheduled);
+    });
+
+    test('row.trigger = 1 -> onFrontChange', () {
+      final row = _row(trigger: 1);
+      final model = ReminderMapper.toDomain(row);
+      expect(model.trigger, domain.ReminderTrigger.onFrontChange);
+    });
+  });
+
   group('ReminderMapper round-trip', () {
     test('weekly with weeklyDays [0, 6] survives domain -> companion -> row',
         () {

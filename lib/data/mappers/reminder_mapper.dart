@@ -14,17 +14,20 @@ class ReminderMapper {
           ? domain.ReminderFrequency.interval
           : domain.ReminderFrequency.daily,
     );
-    final weeklyDays = row.weeklyDays != null
-        ? (jsonDecode(row.weeklyDays!) as List).cast<int>()
-        : null;
+    final trigger =
+        row.trigger >= 0 && row.trigger < domain.ReminderTrigger.values.length
+            ? domain.ReminderTrigger.values[row.trigger]
+            // Corrupt/future-version row: default to scheduled (the common case
+            // for existing reminders) instead of crashing.
+            : domain.ReminderTrigger.scheduled;
 
     return domain.Reminder(
       id: row.id,
       name: row.name,
       message: row.message,
-      trigger: domain.ReminderTrigger.values[row.trigger],
+      trigger: trigger,
       frequency: frequency,
-      weeklyDays: weeklyDays,
+      weeklyDays: _parseWeeklyDays(row.weeklyDays),
       intervalDays: row.intervalDays,
       timeOfDay: row.timeOfDay,
       delayHours: row.delayHours,
@@ -51,5 +54,29 @@ class ReminderMapper {
       createdAt: Value(model.createdAt),
       modifiedAt: Value(model.modifiedAt),
     );
+  }
+}
+
+/// Defensively parses the `weekly_days` JSON column.
+///
+/// Returns `null` for any of: null input, malformed JSON, non-list JSON
+/// (e.g. `"{}"`), lists containing non-int elements, out-of-range weekday
+/// values, or an empty list. A single bad row from a peer device must not
+/// crash screens that load reminders.
+List<int>? _parseWeeklyDays(String? raw) {
+  if (raw == null) return null;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return null;
+    final out = <int>[];
+    for (final v in decoded) {
+      if (v is! int) return null;
+      if (v < 0 || v > 6) return null;
+      out.add(v);
+    }
+    if (out.isEmpty) return null;
+    return out;
+  } catch (_) {
+    return null;
   }
 }
