@@ -247,6 +247,58 @@ void main() {
       );
     });
 
+    test('weeklyDays [1, 1, 3] → dedup to 2 calls with weekdays [1, 3]',
+        () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-weekly-dedup',
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: [1, 1, 3],
+      );
+
+      await service.scheduleReminder(reminder);
+
+      expect(fake.scheduleExactWeeklyCalls, hasLength(2));
+      final weekdays =
+          fake.scheduleExactWeeklyCalls.map((c) => c.$2).toList();
+      expect(weekdays, [1, 3]);
+    });
+
+    test('weeklyDays [-1, 7, 99] → zero calls (all invalid)', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-weekly-invalid',
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: [-1, 7, 99],
+      );
+
+      await service.scheduleReminder(reminder);
+
+      expect(
+        fake.methodCalls.where((m) => m.startsWith('scheduleExact')).length,
+        0,
+      );
+    });
+
+    test('weeklyDays [1, -1, 3] → 2 calls with weekdays [1, 3]', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-weekly-mixed',
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: [1, -1, 3],
+      );
+
+      await service.scheduleReminder(reminder);
+
+      expect(fake.scheduleExactWeeklyCalls, hasLength(2));
+      final weekdays =
+          fake.scheduleExactWeeklyCalls.map((c) => c.$2).toList();
+      expect(weekdays, [1, 3]);
+    });
+
     test(
         'weekly with intervalDays=1 → weekly path wins (not daily)',
         () async {
