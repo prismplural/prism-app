@@ -84,5 +84,99 @@ void main() {
         expect(fields['weekly_days'], '[1,3]');
       },
     );
+
+    test(
+      'applyFields writes an unknown frequency string as-is; mapper handles fallback on read',
+      () async {
+        final syncAdapter = buildSyncAdapterWithCompletion(db);
+        final reminders = syncAdapter.adapter.entities.singleWhere(
+          (entity) => entity.tableName == 'reminders',
+        );
+
+        final createdAt = DateTime.utc(2026, 4, 1).toIso8601String();
+        final modifiedAt = DateTime.utc(2026, 4, 2).toIso8601String();
+
+        await reminders.applyFields('reminder-garbage', {
+          'name': 'Unknown frequency peer',
+          'message': 'From a future client',
+          'trigger': 0,
+          'frequency': 'garbage',
+          'weekly_days': null,
+          'interval_days': null,
+          'time_of_day': '08:00',
+          'delay_hours': null,
+          'is_active': true,
+          'created_at': createdAt,
+          'modified_at': modifiedAt,
+          'is_deleted': false,
+        });
+
+        final row = await (db.select(
+          db.reminders,
+        )..where((t) => t.id.equals('reminder-garbage'))).getSingleOrNull();
+
+        expect(row, isNotNull);
+        expect(row!.frequency, 'garbage');
+        expect(row.weeklyDays, isNull);
+      },
+    );
+
+    test('toSyncFields emits daily frequency row fields', () async {
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final reminders = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'reminders',
+      );
+
+      final row = database.ReminderRow(
+        id: 'reminder-daily',
+        name: 'Daily ping',
+        message: 'Every day',
+        trigger: 0,
+        frequency: 'daily',
+        intervalDays: null,
+        weeklyDays: null,
+        timeOfDay: '07:30',
+        delayHours: null,
+        isActive: true,
+        createdAt: DateTime.utc(2026, 4, 1),
+        modifiedAt: DateTime.utc(2026, 4, 2),
+        isDeleted: false,
+      );
+
+      final fields = reminders.toSyncFields(row);
+
+      expect(fields['frequency'], 'daily');
+      expect(fields['weekly_days'], isNull);
+      expect(fields['interval_days'], isNull);
+    });
+
+    test('toSyncFields emits interval frequency row fields', () async {
+      final syncAdapter = buildSyncAdapterWithCompletion(db);
+      final reminders = syncAdapter.adapter.entities.singleWhere(
+        (entity) => entity.tableName == 'reminders',
+      );
+
+      final row = database.ReminderRow(
+        id: 'reminder-interval',
+        name: 'Every 3 days',
+        message: 'Recurring check-in',
+        trigger: 0,
+        frequency: 'interval',
+        intervalDays: 3,
+        weeklyDays: null,
+        timeOfDay: '12:00',
+        delayHours: null,
+        isActive: true,
+        createdAt: DateTime.utc(2026, 4, 1),
+        modifiedAt: DateTime.utc(2026, 4, 2),
+        isDeleted: false,
+      );
+
+      final fields = reminders.toSyncFields(row);
+
+      expect(fields['frequency'], 'interval');
+      expect(fields['weekly_days'], isNull);
+      expect(fields['interval_days'], 3);
+    });
   });
 }
