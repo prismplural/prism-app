@@ -14,6 +14,8 @@ _MemberGroup _$MemberGroupFromJson(Map<String, dynamic> json) => _MemberGroup(
   emoji: json['emoji'] as String?,
   displayOrder: (json['displayOrder'] as num?)?.toInt() ?? 0,
   parentGroupId: json['parentGroupId'] as String?,
+  groupType: (json['groupType'] as num?)?.toInt() ?? 0,
+  filterRules: json['filterRules'] as String?,
   createdAt: DateTime.parse(json['createdAt'] as String),
 );
 
@@ -26,5 +28,7 @@ Map<String, dynamic> _$MemberGroupToJson(_MemberGroup instance) =>
       'emoji': instance.emoji,
       'displayOrder': instance.displayOrder,
       'parentGroupId': instance.parentGroupId,
+      'groupType': instance.groupType,
+      'filterRules': instance.filterRules,
       'createdAt': instance.createdAt.toIso8601String(),
     };

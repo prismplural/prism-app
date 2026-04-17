@@ -11396,6 +11396,29 @@ class $MemberGroupsTable extends MemberGroups
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _groupTypeMeta = const VerificationMeta(
+    'groupType',
+  );
+  @override
+  late final GeneratedColumn<int> groupType = GeneratedColumn<int>(
+    'group_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _filterRulesMeta = const VerificationMeta(
+    'filterRules',
+  );
+  @override
+  late final GeneratedColumn<String> filterRules = GeneratedColumn<String>(
+    'filter_rules',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -11431,6 +11454,8 @@ class $MemberGroupsTable extends MemberGroups
     emoji,
     displayOrder,
     parentGroupId,
+    groupType,
+    filterRules,
     createdAt,
     isDeleted,
   ];
@@ -11498,6 +11523,21 @@ class $MemberGroupsTable extends MemberGroups
         ),
       );
     }
+    if (data.containsKey('group_type')) {
+      context.handle(
+        _groupTypeMeta,
+        groupType.isAcceptableOrUnknown(data['group_type']!, _groupTypeMeta),
+      );
+    }
+    if (data.containsKey('filter_rules')) {
+      context.handle(
+        _filterRulesMeta,
+        filterRules.isAcceptableOrUnknown(
+          data['filter_rules']!,
+          _filterRulesMeta,
+        ),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -11549,6 +11589,14 @@ class $MemberGroupsTable extends MemberGroups
         DriftSqlType.string,
         data['${effectivePrefix}parent_group_id'],
       ),
+      groupType: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}group_type'],
+      )!,
+      filterRules: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}filter_rules'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -11574,6 +11622,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
   final String? emoji;
   final int displayOrder;
   final String? parentGroupId;
+  final int groupType;
+  final String? filterRules;
   final DateTime createdAt;
   final bool isDeleted;
   const MemberGroupRow({
@@ -11584,6 +11634,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     this.emoji,
     required this.displayOrder,
     this.parentGroupId,
+    required this.groupType,
+    this.filterRules,
     required this.createdAt,
     required this.isDeleted,
   });
@@ -11604,6 +11656,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     map['display_order'] = Variable<int>(displayOrder);
     if (!nullToAbsent || parentGroupId != null) {
       map['parent_group_id'] = Variable<String>(parentGroupId);
+    }
+    map['group_type'] = Variable<int>(groupType);
+    if (!nullToAbsent || filterRules != null) {
+      map['filter_rules'] = Variable<String>(filterRules);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
@@ -11627,6 +11683,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       parentGroupId: parentGroupId == null && nullToAbsent
           ? const Value.absent()
           : Value(parentGroupId),
+      groupType: Value(groupType),
+      filterRules: filterRules == null && nullToAbsent
+          ? const Value.absent()
+          : Value(filterRules),
       createdAt: Value(createdAt),
       isDeleted: Value(isDeleted),
     );
@@ -11645,6 +11705,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       emoji: serializer.fromJson<String?>(json['emoji']),
       displayOrder: serializer.fromJson<int>(json['displayOrder']),
       parentGroupId: serializer.fromJson<String?>(json['parentGroupId']),
+      groupType: serializer.fromJson<int>(json['groupType']),
+      filterRules: serializer.fromJson<String?>(json['filterRules']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
     );
@@ -11660,6 +11722,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       'emoji': serializer.toJson<String?>(emoji),
       'displayOrder': serializer.toJson<int>(displayOrder),
       'parentGroupId': serializer.toJson<String?>(parentGroupId),
+      'groupType': serializer.toJson<int>(groupType),
+      'filterRules': serializer.toJson<String?>(filterRules),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
     };
@@ -11673,6 +11737,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     Value<String?> emoji = const Value.absent(),
     int? displayOrder,
     Value<String?> parentGroupId = const Value.absent(),
+    int? groupType,
+    Value<String?> filterRules = const Value.absent(),
     DateTime? createdAt,
     bool? isDeleted,
   }) => MemberGroupRow(
@@ -11685,6 +11751,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     parentGroupId: parentGroupId.present
         ? parentGroupId.value
         : this.parentGroupId,
+    groupType: groupType ?? this.groupType,
+    filterRules: filterRules.present ? filterRules.value : this.filterRules,
     createdAt: createdAt ?? this.createdAt,
     isDeleted: isDeleted ?? this.isDeleted,
   );
@@ -11703,6 +11771,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       parentGroupId: data.parentGroupId.present
           ? data.parentGroupId.value
           : this.parentGroupId,
+      groupType: data.groupType.present ? data.groupType.value : this.groupType,
+      filterRules: data.filterRules.present
+          ? data.filterRules.value
+          : this.filterRules,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
     );
@@ -11718,6 +11790,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           ..write('emoji: $emoji, ')
           ..write('displayOrder: $displayOrder, ')
           ..write('parentGroupId: $parentGroupId, ')
+          ..write('groupType: $groupType, ')
+          ..write('filterRules: $filterRules, ')
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted')
           ..write(')'))
@@ -11733,6 +11807,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     emoji,
     displayOrder,
     parentGroupId,
+    groupType,
+    filterRules,
     createdAt,
     isDeleted,
   );
@@ -11747,6 +11823,8 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           other.emoji == this.emoji &&
           other.displayOrder == this.displayOrder &&
           other.parentGroupId == this.parentGroupId &&
+          other.groupType == this.groupType &&
+          other.filterRules == this.filterRules &&
           other.createdAt == this.createdAt &&
           other.isDeleted == this.isDeleted);
 }
@@ -11759,6 +11837,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
   final Value<String?> emoji;
   final Value<int> displayOrder;
   final Value<String?> parentGroupId;
+  final Value<int> groupType;
+  final Value<String?> filterRules;
   final Value<DateTime> createdAt;
   final Value<bool> isDeleted;
   final Value<int> rowid;
@@ -11770,6 +11850,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.emoji = const Value.absent(),
     this.displayOrder = const Value.absent(),
     this.parentGroupId = const Value.absent(),
+    this.groupType = const Value.absent(),
+    this.filterRules = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -11782,6 +11864,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.emoji = const Value.absent(),
     this.displayOrder = const Value.absent(),
     this.parentGroupId = const Value.absent(),
+    this.groupType = const Value.absent(),
+    this.filterRules = const Value.absent(),
     required DateTime createdAt,
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -11796,6 +11880,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Expression<String>? emoji,
     Expression<int>? displayOrder,
     Expression<String>? parentGroupId,
+    Expression<int>? groupType,
+    Expression<String>? filterRules,
     Expression<DateTime>? createdAt,
     Expression<bool>? isDeleted,
     Expression<int>? rowid,
@@ -11808,6 +11894,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       if (emoji != null) 'emoji': emoji,
       if (displayOrder != null) 'display_order': displayOrder,
       if (parentGroupId != null) 'parent_group_id': parentGroupId,
+      if (groupType != null) 'group_type': groupType,
+      if (filterRules != null) 'filter_rules': filterRules,
       if (createdAt != null) 'created_at': createdAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (rowid != null) 'rowid': rowid,
@@ -11822,6 +11910,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Value<String?>? emoji,
     Value<int>? displayOrder,
     Value<String?>? parentGroupId,
+    Value<int>? groupType,
+    Value<String?>? filterRules,
     Value<DateTime>? createdAt,
     Value<bool>? isDeleted,
     Value<int>? rowid,
@@ -11834,6 +11924,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       emoji: emoji ?? this.emoji,
       displayOrder: displayOrder ?? this.displayOrder,
       parentGroupId: parentGroupId ?? this.parentGroupId,
+      groupType: groupType ?? this.groupType,
+      filterRules: filterRules ?? this.filterRules,
       createdAt: createdAt ?? this.createdAt,
       isDeleted: isDeleted ?? this.isDeleted,
       rowid: rowid ?? this.rowid,
@@ -11864,6 +11956,12 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     if (parentGroupId.present) {
       map['parent_group_id'] = Variable<String>(parentGroupId.value);
     }
+    if (groupType.present) {
+      map['group_type'] = Variable<int>(groupType.value);
+    }
+    if (filterRules.present) {
+      map['filter_rules'] = Variable<String>(filterRules.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -11886,6 +11984,8 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
           ..write('emoji: $emoji, ')
           ..write('displayOrder: $displayOrder, ')
           ..write('parentGroupId: $parentGroupId, ')
+          ..write('groupType: $groupType, ')
+          ..write('filterRules: $filterRules, ')
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('rowid: $rowid')
@@ -23167,6 +23267,8 @@ typedef $$MemberGroupsTableCreateCompanionBuilder =
       Value<String?> emoji,
       Value<int> displayOrder,
       Value<String?> parentGroupId,
+      Value<int> groupType,
+      Value<String?> filterRules,
       required DateTime createdAt,
       Value<bool> isDeleted,
       Value<int> rowid,
@@ -23180,6 +23282,8 @@ typedef $$MemberGroupsTableUpdateCompanionBuilder =
       Value<String?> emoji,
       Value<int> displayOrder,
       Value<String?> parentGroupId,
+      Value<int> groupType,
+      Value<String?> filterRules,
       Value<DateTime> createdAt,
       Value<bool> isDeleted,
       Value<int> rowid,
@@ -23226,6 +23330,16 @@ class $$MemberGroupsTableFilterComposer
 
   ColumnFilters<String> get parentGroupId => $composableBuilder(
     column: $table.parentGroupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get groupType => $composableBuilder(
+    column: $table.groupType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get filterRules => $composableBuilder(
+    column: $table.filterRules,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -23284,6 +23398,16 @@ class $$MemberGroupsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get groupType => $composableBuilder(
+    column: $table.groupType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get filterRules => $composableBuilder(
+    column: $table.filterRules,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -23328,6 +23452,14 @@ class $$MemberGroupsTableAnnotationComposer
 
   GeneratedColumn<String> get parentGroupId => $composableBuilder(
     column: $table.parentGroupId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get groupType =>
+      $composableBuilder(column: $table.groupType, builder: (column) => column);
+
+  GeneratedColumn<String> get filterRules => $composableBuilder(
+    column: $table.filterRules,
     builder: (column) => column,
   );
 
@@ -23376,6 +23508,8 @@ class $$MemberGroupsTableTableManager
                 Value<String?> emoji = const Value.absent(),
                 Value<int> displayOrder = const Value.absent(),
                 Value<String?> parentGroupId = const Value.absent(),
+                Value<int> groupType = const Value.absent(),
+                Value<String?> filterRules = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -23387,6 +23521,8 @@ class $$MemberGroupsTableTableManager
                 emoji: emoji,
                 displayOrder: displayOrder,
                 parentGroupId: parentGroupId,
+                groupType: groupType,
+                filterRules: filterRules,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
                 rowid: rowid,
@@ -23400,6 +23536,8 @@ class $$MemberGroupsTableTableManager
                 Value<String?> emoji = const Value.absent(),
                 Value<int> displayOrder = const Value.absent(),
                 Value<String?> parentGroupId = const Value.absent(),
+                Value<int> groupType = const Value.absent(),
+                Value<String?> filterRules = const Value.absent(),
                 required DateTime createdAt,
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -23411,6 +23549,8 @@ class $$MemberGroupsTableTableManager
                 emoji: emoji,
                 displayOrder: displayOrder,
                 parentGroupId: parentGroupId,
+                groupType: groupType,
+                filterRules: filterRules,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
                 rowid: rowid,

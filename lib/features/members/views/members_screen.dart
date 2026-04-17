@@ -8,6 +8,8 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/widgets/member_group_filter_bar.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -16,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_delegate.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -260,6 +263,23 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     ref.read(membersNotifierProvider.notifier).reorderMembers(reordered);
   }
 
+  List<Member> _applyGroupFilter(
+    List<Member> members,
+    String? activeFilter,
+    List<MemberGroupEntry> allEntries,
+  ) {
+    if (activeFilter == null) return members;
+    if (activeFilter == '__ungrouped__') {
+      final groupedIds = allEntries.map((e) => e.memberId).toSet();
+      return members.where((m) => !groupedIds.contains(m.id)).toList();
+    }
+    final groupMemberIds = allEntries
+        .where((e) => e.groupId == activeFilter)
+        .map((e) => e.memberId)
+        .toSet();
+    return members.where((m) => groupMemberIds.contains(m.id)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final membersAsync = _showInactive
@@ -267,6 +287,19 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         : ref.watch(activeMembersProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final terms = watchTerminology(context, ref);
+    final activeFilter = ref.watch(activeGroupFilterProvider);
+    final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
+
+    // Clear the active filter if its group was deleted.
+    final allGroups = ref.watch(allGroupsProvider).value ?? [];
+    if (activeFilter != null &&
+        activeFilter != '__ungrouped__' &&
+        allGroups.isNotEmpty &&
+        !allGroups.any((g) => g.id == activeFilter)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(activeGroupFilterProvider.notifier).setFilter(null);
+      });
+    }
 
     // Build a set of currently-fronting member IDs.
     final frontingIds = activeSessionsAsync.whenOrNull(
@@ -293,64 +326,86 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         ],
       ),
       bodyPadding: EdgeInsets.zero,
-      body: AnimatedSwitcher(
-        duration: Anim.md,
-        child: KeyedSubtree(
-        key: ValueKey(_showInactive),
-        child: membersAsync.when(
-        loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              context.l10n.terminologyLoadError(terms.pluralLower, e.toString()),
-              textAlign: TextAlign.center,
+      body: Column(
+        children: [
+          const MemberGroupFilterBar(),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: Anim.md,
+              child: KeyedSubtree(
+                key: ValueKey((_showInactive, activeFilter)),
+                child: membersAsync.when(
+                  loading: () => const PrismLoadingState(),
+                  error: (e, _) => Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        context.l10n.terminologyLoadError(terms.pluralLower, e.toString()),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                  data: (rawMembers) {
+                    final members = _applyGroupFilter(rawMembers, activeFilter, allEntries);
+                    if (members.isEmpty) {
+                      return EmptyState(
+                        icon: Icon(AppIcons.peopleOutline),
+                        title: _showInactive
+                            ? context.l10n.terminologyEmptyTitle(terms.pluralLower)
+                            : context.l10n.terminologyEmptyActiveTitle(terms.pluralLower),
+                        subtitle: context.l10n.terminologyAddFirstSubtitle(terms.singularLower),
+                        actionLabel: context.l10n.terminologyAddButton(terms.singular),
+                        onAction: _openAddSheet,
+                      );
+                    }
+
+                    // Disable drag-reorder while a group filter is active —
+                    // reordering a subset would corrupt global display order.
+                    if (activeFilter != null) {
+                      return ListView.builder(
+                        padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
+                        itemCount: members.length,
+                        itemBuilder: (context, index) {
+                          final member = members[index];
+                          final isFronting = frontingIds.contains(member.id);
+                          return _buildMemberTile(member, isFronting, terms);
+                        },
+                      );
+                    }
+
+                    return ReorderableListView.builder(
+                      padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
+                      itemCount: members.length,
+                      onReorder: (oldIndex, newIndex) =>
+                          _onReorder(members, oldIndex, newIndex),
+                      proxyDecorator: (child, index, animation) {
+                        return AnimatedBuilder(
+                          animation: animation,
+                          builder: (context, child) => Material(
+                            elevation: 4,
+                            color: Theme.of(context).colorScheme.surface,
+                            borderRadius: BorderRadius.circular(12),
+                            clipBehavior: Clip.antiAlias,
+                            child: child,
+                          ),
+                          child: child,
+                        );
+                      },
+                      itemBuilder: (context, index) {
+                        final member = members[index];
+                        final isFronting = frontingIds.contains(member.id);
+                        return _buildMemberTile(
+                          member, isFronting, terms,
+                          reorderIndex: index,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
             ),
           ),
-        ),
-        data: (members) {
-          if (members.isEmpty) {
-            return EmptyState(
-              icon: Icon(AppIcons.peopleOutline),
-              title: _showInactive
-                  ? context.l10n.terminologyEmptyTitle(terms.pluralLower)
-                  : context.l10n.terminologyEmptyActiveTitle(terms.pluralLower),
-              subtitle: context.l10n.terminologyAddFirstSubtitle(terms.singularLower),
-              actionLabel: context.l10n.terminologyAddButton(terms.singular),
-              onAction: _openAddSheet,
-            );
-          }
-
-          return ReorderableListView.builder(
-              padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-              itemCount: members.length,
-              onReorder: (oldIndex, newIndex) =>
-                  _onReorder(members, oldIndex, newIndex),
-              proxyDecorator: (child, index, animation) {
-                return AnimatedBuilder(
-                  animation: animation,
-                  builder: (context, child) => Material(
-                    elevation: 4,
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    clipBehavior: Clip.antiAlias,
-                    child: child,
-                  ),
-                  child: child,
-                );
-              },
-              itemBuilder: (context, index) {
-                final member = members[index];
-                final isFronting = frontingIds.contains(member.id);
-                return _buildMemberTile(
-                  member, isFronting, terms,
-                  reorderIndex: index,
-                );
-              },
-          );
-        },
-      ),
-        ),
+        ],
       ),
     );
   }

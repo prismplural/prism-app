@@ -8,6 +8,8 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
+import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
@@ -103,6 +105,40 @@ class _GroupDetailBody extends ConsumerWidget {
             _GroupInfoHeader(group: group),
 
             const SizedBox(height: 24),
+
+            entriesAsync.whenOrNull(
+              data: (entries) {
+                if (entries.isEmpty) return null;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: PrismButton(
+                          label: l10n.memberGroupFrontGroup,
+                          icon: Icons.group_outlined,
+                          tone: PrismButtonTone.outlined,
+                          expanded: true,
+                          semanticLabel: l10n.memberGroupFrontGroupSemantics(group.name),
+                          onPressed: () =>
+                              _onFrontGroup(context, ref, group, entries),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: PrismButton(
+                          label: l10n.memberGroupStartChat,
+                          icon: Icons.chat_bubble_outline,
+                          tone: PrismButtonTone.outlined,
+                          expanded: true,
+                          onPressed: () => _onStartChat(context, entries),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ) ?? const SizedBox.shrink(),
 
             Row(
               children: [
@@ -216,6 +252,92 @@ class _GroupDetailBody extends ConsumerWidget {
             PrismToast.show(context, message: context.l10n.memberAdded(readTerminology(context, ref).singular));
           }
         },
+      ),
+    );
+  }
+
+  Future<void> _onFrontGroup(
+    BuildContext context,
+    WidgetRef ref,
+    MemberGroup group,
+    List<MemberGroupEntry> entries,
+  ) async {
+    final l10n = context.l10n;
+    final memberIds = entries.map((e) => e.memberId).toList();
+    if (memberIds.isEmpty) return;
+
+    // Bail if fronting state hasn't loaded yet — collapsing to [] would
+    // incorrectly treat everyone as not-fronting and replace the active front.
+    final activeSessionsAsync = ref.read(activeSessionsProvider);
+    if (!activeSessionsAsync.hasValue) return;
+    final activeSessions = activeSessionsAsync.value!;
+    final alreadyFronting = activeSessions
+        .expand((s) => [s.memberId, ...s.coFronterIds])
+        .whereType<String>()
+        .toSet();
+    final toAdd =
+        memberIds.where((id) => !alreadyFronting.contains(id)).toList();
+
+    if (toAdd.isEmpty) {
+      // All members already fronting — show a toast instead of a dialog
+      if (!context.mounted) return;
+      PrismToast.show(
+        context,
+        message: l10n.memberGroupFrontAllAlreadyFronting,
+      );
+      return;
+    }
+
+    final alreadyInGroup =
+        alreadyFronting.intersection(memberIds.toSet());
+
+    if (alreadyInGroup.isNotEmpty) {
+      // Some are already fronting — confirm adding the rest
+      if (!context.mounted) return;
+      final confirmed = await PrismDialog.confirm(
+        context: context,
+        title: l10n.memberGroupFrontSomeAlreadyFronting(
+          alreadyInGroup.length,
+          toAdd.length,
+        ),
+      );
+      if (!confirmed || !context.mounted) return;
+      for (final id in toAdd) {
+        await ref.read(frontingNotifierProvider.notifier).addCoFronter(id);
+      }
+      return;
+    }
+
+    // Check if all group members are inactive
+    final allMembers =
+        ref.read(allMembersProvider).whenOrNull(data: (m) => m) ?? [];
+    final groupMembers =
+        allMembers.where((m) => memberIds.contains(m.id)).toList();
+    final allInactive =
+        groupMembers.isNotEmpty && groupMembers.every((m) => !m.isActive);
+
+    if (allInactive) {
+      if (!context.mounted) return;
+      final confirmed = await PrismDialog.confirm(
+        context: context,
+        title: l10n.memberGroupFrontAllInactive(group.name),
+      );
+      if (!confirmed || !context.mounted) return;
+    }
+
+    await ref.read(frontingNotifierProvider.notifier).startFrontingWithDetails(
+          memberId: toAdd.first,
+          coFronterIds: toAdd.length > 1 ? toAdd.skip(1).toList() : [],
+        );
+  }
+
+  void _onStartChat(BuildContext context, List<MemberGroupEntry> entries) {
+    final memberIds = entries.map((e) => e.memberId).toList();
+    PrismSheet.showFullScreen(
+      context: context,
+      builder: (context, scrollController) => CreateConversationSheet(
+        scrollController: scrollController,
+        initialMemberIds: memberIds,
       ),
     );
   }

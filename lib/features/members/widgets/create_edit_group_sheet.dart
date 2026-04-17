@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
@@ -6,6 +7,7 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -16,6 +18,25 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 const _uuid = Uuid();
+
+const _kGroupColors = [
+  Color(0xFFAF8EE9), // prism purple
+  Color(0xFFE88EA0), // rose
+  Color(0xFF8EA8E8), // blue
+  Color(0xFF8EE8A0), // sage green
+  Color(0xFFE8D08E), // amber
+  Color(0xFFB88EE8), // lavender
+  Color(0xFFE88E8E), // red
+  Color(0xFF8EE8D0), // teal
+  Color(0xFFE8B88E), // orange
+  Color(0xFF8EB8E8), // light blue
+  Color(0xFFD08EE8), // violet
+  Color(0xFF8EE8B8), // mint
+  Color(0xFF607D8B), // blue grey
+  Color(0xFF795548), // brown
+  Color(0xFF9E9E9E), // grey
+  Color(0xFF424242), // dark grey
+];
 
 /// Modal sheet for creating or editing a member group.
 ///
@@ -46,9 +67,9 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
 
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
-  late final TextEditingController _colorHexController;
 
   String? _emoji;
+  Color? _selectedColor;
   bool _saving = false;
 
   @override
@@ -58,7 +79,9 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     _nameController = TextEditingController(text: g?.name ?? '');
     _descriptionController =
         TextEditingController(text: g?.description ?? '');
-    _colorHexController = TextEditingController(text: g?.colorHex ?? '');
+    if (g?.colorHex != null) {
+      _selectedColor = AppColors.fromHex(g!.colorHex!);
+    }
     _emoji = g?.emoji;
   }
 
@@ -66,18 +89,57 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _colorHexController.dispose();
     super.dispose();
   }
 
-  Color? _previewColor() {
-    final hex = _colorHexController.text.trim();
-    if (hex.isEmpty) return null;
-    try {
-      return AppColors.fromHex(hex);
-    } catch (_) {
-      return null;
-    }
+  Future<void> _openColorPicker() async {
+    final l10n = context.l10n;
+    final theme = Theme.of(context);
+    await PrismSheet.show<void>(
+      context: context,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.memberGroupColorLabel,
+                style: theme.textTheme.titleMedium),
+            const SizedBox(height: 16),
+            BlockPicker(
+              pickerColor: _selectedColor ?? const Color(0xFFAF8EE9),
+              onColorChanged: (color) {
+                setState(() => _selectedColor = color);
+                Navigator.of(sheetContext).pop();
+              },
+              availableColors: _kGroupColors,
+              layoutBuilder: (context, colors, child) => Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [for (final color in colors) child(color)],
+              ),
+              itemBuilder: (color, isCurrentColor, changeColor) =>
+                  GestureDetector(
+                onTap: changeColor,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: isCurrentColor
+                        ? Border.all(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 3)
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -87,7 +149,9 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
 
     final name = _nameController.text.trim();
     final description = _descriptionController.text.trim();
-    final colorHex = _colorHexController.text.trim();
+    final colorHex = _selectedColor != null
+        ? '#${_selectedColor!.toARGB32().toRadixString(16).substring(2).toUpperCase()}'
+        : null;
 
     try {
       final notifier = ref.read(groupNotifierProvider.notifier);
@@ -97,7 +161,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
           name: name,
           description: description.isNotEmpty ? description : null,
           emoji: _emoji,
-          colorHex: colorHex.isNotEmpty ? colorHex : null,
+          colorHex: colorHex,
         );
         await notifier.updateGroup(updated);
       } else {
@@ -106,7 +170,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
           name: name,
           description: description.isNotEmpty ? description : null,
           emoji: _emoji,
-          colorHex: colorHex.isNotEmpty ? colorHex : null,
+          colorHex: colorHex,
           createdAt: DateTime.now(),
         );
         await notifier.createGroup(group);
@@ -130,7 +194,6 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final canSave = _nameController.text.trim().isNotEmpty;
-    final previewColor = _previewColor();
 
     return SafeArea(
       child: Column(
@@ -195,32 +258,45 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Color hex
-                  Row(
-                    children: [
-                      Expanded(
-                        child: PrismTextField(
-                          controller: _colorHexController,
-                          labelText: l10n.memberGroupColorLabel,
-                          hintText: '#AF8EE9',
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: previewColor ??
-                              theme.colorScheme.surfaceContainerHighest,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: theme.colorScheme.outline
-                                .withValues(alpha: 0.3),
+                  // Color picker row
+                  InkWell(
+                    onTap: _openColorPicker,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: _selectedColor ??
+                                  theme.colorScheme.surfaceContainerHighest,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: theme.colorScheme.outlineVariant),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _selectedColor != null
+                                  ? l10n.memberGroupColorLabel
+                                  : l10n.memberGroupColorNone,
+                              style: theme.textTheme.bodyLarge,
+                            ),
+                          ),
+                          if (_selectedColor != null)
+                            PrismButton(
+                              label: l10n.cancel,
+                              tone: PrismButtonTone.subtle,
+                              density: PrismControlDensity.compact,
+                              onPressed: () =>
+                                  setState(() => _selectedColor = null),
+                            ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),

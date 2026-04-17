@@ -1642,7 +1642,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String frontingErrorSwitchingFronter(Object error) {
-    return 'Error switching fronter: $error';
+    return 'Error al cambiar de frente: $error';
   }
 
   @override
@@ -2466,7 +2466,18 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupSectionMembers => 'Integrantes';
 
   @override
+  String get memberGroupStartChat => 'Iniciar chat';
+
+  @override
   String get memberGroupAddMember => 'Agregar integrante';
+
+  @override
+  String get memberGroupAddToGroup => 'Añadir a grupo';
+
+  @override
+  String memberGroupAddToGroupSemantics(String name) {
+    return 'Añadir $name a un grupo';
+  }
 
   @override
   String get memberGroupDeleteTitle => 'Eliminar grupo';
@@ -2495,12 +2506,55 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupDescriptionLabel => 'Descripción';
 
   @override
-  String get memberGroupColorLabel => 'Color (hex)';
+  String get memberGroupColorLabel => 'Color';
+
+  @override
+  String get memberGroupColorNone => 'Sin color';
 
   @override
   String memberGroupErrorSaving(Object error) {
     return 'Error al guardar el grupo: $error';
   }
+
+  @override
+  String get memberGroupFilterAll => 'Todos';
+
+  @override
+  String get memberGroupFilterBarLabel => 'Filtrar por grupo';
+
+  @override
+  String get memberGroupFilterUngrouped => 'Sin grupo';
+
+  @override
+  String get memberGroupFrontAllAlreadyFronting =>
+      'Todos los integrantes ya están al frente';
+
+  @override
+  String memberGroupFrontAllInactive(String name) {
+    return 'Todos los integrantes de $name están inactivos. ¿Frente de todos modos?';
+  }
+
+  @override
+  String get memberGroupFrontGroup => 'Frente grupal';
+
+  @override
+  String memberGroupFrontGroupSemantics(String name) {
+    return 'Frente a todos los integrantes de $name';
+  }
+
+  @override
+  String memberGroupFrontSomeAlreadyFronting(int count, int remaining) {
+    return '$count integrantes ya al frente. ¿Añadir les $remaining restantes?';
+  }
+
+  @override
+  String get memberGroupManageNoGroups => 'Aún no hay grupos';
+
+  @override
+  String get memberGroupManageNoGroupsAction => 'Crear un grupo';
+
+  @override
+  String get memberGroupManageTitle => 'Grupos';
 
   @override
   String get memberNameLabel => 'Nombre *';

@@ -137,6 +137,8 @@ db.MemberGroupRow makeDbMemberGroup({
   String? emoji = '\u{1F31F}',
   int displayOrder = 0,
   String? parentGroupId,
+  int groupType = 0,
+  String? filterRules,
   DateTime? createdAt,
 }) {
   return db.MemberGroupRow(
@@ -147,6 +149,8 @@ db.MemberGroupRow makeDbMemberGroup({
     emoji: emoji,
     displayOrder: displayOrder,
     parentGroupId: parentGroupId,
+    groupType: groupType,
+    filterRules: filterRules,
     createdAt: createdAt ?? DateTime(2026, 3, 20, 12, 0),
     isDeleted: false,
   );

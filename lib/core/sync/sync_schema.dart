@@ -189,6 +189,8 @@ const String prismSyncSchema = '''
         "emoji": "String",
         "display_order": "Int",
         "parent_group_id": "String",
+        "group_type": "Int",
+        "filter_rules": "String",
         "created_at": "DateTime",
         "is_deleted": "Bool"
       }

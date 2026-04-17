@@ -26,9 +26,17 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 /// Use via [PrismSheet.showFullScreen] — pass the [scrollController] from the
 /// builder callback.
 class CreateConversationSheet extends ConsumerStatefulWidget {
-  const CreateConversationSheet({super.key, required this.scrollController});
+  const CreateConversationSheet({
+    super.key,
+    required this.scrollController,
+    this.initialMemberIds,
+  });
 
   final ScrollController scrollController;
+
+  /// Optional list of member IDs to pre-select when the sheet opens.
+  /// Takes precedence over the speaking-as auto-selection when provided.
+  final List<String>? initialMemberIds;
 
   @override
   ConsumerState<CreateConversationSheet> createState() =>
@@ -120,10 +128,22 @@ class _CreateConversationSheetState
     final membersAsync = ref.watch(activeMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
 
-    // Pre-select the current fronter once members are loaded
-    if (!_didPreselect && speakingAs != null && membersAsync.hasValue) {
+    // Pre-select members once loaded: initialMemberIds takes precedence,
+    // otherwise fall back to the current speaking-as fronter.
+    if (!_didPreselect && membersAsync.hasValue) {
       _didPreselect = true;
-      _selectedMemberIds.add(speakingAs);
+      if (widget.initialMemberIds != null &&
+          widget.initialMemberIds!.isNotEmpty) {
+        // Filter to active members only — inactive members aren't visible
+        // in the sheet and can't be unchecked by the user.
+        final activeIds =
+            membersAsync.value!.map((m) => m.id).toSet();
+        _selectedMemberIds.addAll(
+          widget.initialMemberIds!.where(activeIds.contains),
+        );
+      } else if (speakingAs != null) {
+        _selectedMemberIds.add(speakingAs);
+      }
     }
 
     // Show warning if fronter was deselected in group mode
