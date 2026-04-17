@@ -19,9 +19,9 @@ import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/widgets/weekday_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class AddEditHabitSheet extends ConsumerStatefulWidget {
@@ -185,7 +185,7 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                 ),
                 const SizedBox(height: 12),
                 if (_frequency == HabitFrequency.weekly)
-                  _WeekdayPicker(
+                  WeekdayPicker(
                     selected: _weeklyDays,
                     onChanged: (days) => setState(() => _weeklyDays = days),
                   ),
@@ -413,39 +413,6 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
       }
       context.pop();
     }
-  }
-}
-
-class _WeekdayPicker extends StatelessWidget {
-  const _WeekdayPicker({required this.selected, required this.onChanged});
-
-  final Set<int> selected;
-  final ValueChanged<Set<int>> onChanged;
-
-  static const _days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: List.generate(7, (i) {
-        final isSelected = selected.contains(i);
-        return PrismChip(
-          label: _days[i],
-          selected: isSelected,
-          onTap: () {
-            final newSet = Set<int>.from(selected);
-            if (isSelected) {
-              newSet.remove(i);
-            } else {
-              newSet.add(i);
-            }
-            onChanged(newSet);
-          },
-        );
-      }),
-    );
   }
 }
 
