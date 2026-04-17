@@ -78,7 +78,9 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
         height: height,
         child: Padding(
           padding: horizontalPadding,
-          child: centerTitle
+          child: Align(
+            alignment: Alignment.center,
+            child: centerTitle
               ? Stack(
                   alignment: Alignment.center,
                   children: [
@@ -119,6 +121,7 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
                       _slot(null),
                   ],
                 ),
+          ),
         ),
       ),
     );
