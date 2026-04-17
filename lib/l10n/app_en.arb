@@ -3249,9 +3249,23 @@
   "@memberGroupSectionMembers": {
     "description": "Section header for members inside a group detail screen"
   },
+  "memberGroupStartChat": "Start chat",
+  "@memberGroupStartChat": {
+    "description": "Button label to start a chat with all members in a group"
+  },
   "memberGroupAddMember": "Add member",
   "@memberGroupAddMember": {
     "description": "Button label to add a member to a group"
+  },
+  "memberGroupAddToGroup": "Add to group",
+  "@memberGroupAddToGroup": {
+    "description": "Button label to add a member to a group"
+  },
+  "memberGroupAddToGroupSemantics": "Add {name} to a group",
+  "@memberGroupAddToGroupSemantics": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
   },
   "memberGroupDeleteTitle": "Delete group",
   "@memberGroupDeleteTitle": {
@@ -3290,9 +3304,13 @@
   "@memberGroupDescriptionLabel": {
     "description": "Label for the group description text field"
   },
-  "memberGroupColorLabel": "Color (hex)",
+  "memberGroupColorLabel": "Color",
   "@memberGroupColorLabel": {
     "description": "Label for the group color hex text field"
+  },
+  "memberGroupColorNone": "No color",
+  "@memberGroupColorNone": {
+    "description": "Option label when no color is selected for a group"
   },
   "memberGroupErrorSaving": "Error saving group: {error}",
   "@memberGroupErrorSaving": {
@@ -3302,6 +3320,57 @@
         "type": "Object"
       }
     }
+  },
+  "memberGroupFilterAll": "All",
+  "@memberGroupFilterAll": {
+    "description": "Filter chip label to show all members (no group filter)"
+  },
+  "memberGroupFilterBarLabel": "Filter by group",
+  "@memberGroupFilterBarLabel": {
+    "description": "Accessibility label for the group filter bar"
+  },
+  "memberGroupFilterUngrouped": "Ungrouped",
+  "@memberGroupFilterUngrouped": {
+    "description": "Filter chip label to show only members not in any group"
+  },
+  "memberGroupFrontAllAlreadyFronting": "All members are already fronting",
+  "@memberGroupFrontAllAlreadyFronting": {
+    "description": "Toast shown when all group members are already fronting"
+  },
+  "memberGroupFrontAllInactive": "All members in {name} are inactive. Front anyway?",
+  "@memberGroupFrontAllInactive": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "memberGroupFrontGroup": "Front group",
+  "@memberGroupFrontGroup": {
+    "description": "Button label to front all members in a group"
+  },
+  "memberGroupFrontGroupSemantics": "Front all members in {name}",
+  "@memberGroupFrontGroupSemantics": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "memberGroupFrontSomeAlreadyFronting": "{count} members already fronting. Add the remaining {remaining}?",
+  "@memberGroupFrontSomeAlreadyFronting": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "remaining": { "type": "int" }
+    }
+  },
+  "memberGroupManageNoGroups": "No groups yet",
+  "@memberGroupManageNoGroups": {
+    "description": "Empty state message on the manage groups screen"
+  },
+  "memberGroupManageNoGroupsAction": "Create a group",
+  "@memberGroupManageNoGroupsAction": {
+    "description": "Action button label on the manage groups empty state"
+  },
+  "memberGroupManageTitle": "Groups",
+  "@memberGroupManageTitle": {
+    "description": "Title for the manage groups screen"
   },
   "memberNameLabel": "Name *",
   "@memberNameLabel": {

@@ -1399,6 +1399,8 @@ DriftSyncEntity _memberGroupsEntity(
         'emoji': r.emoji,
         'display_order': r.displayOrder,
         'parent_group_id': r.parentGroupId,
+        'group_type': r.groupType,
+        'filter_rules': r.filterRules,
         'created_at': r.createdAt.toIso8601String(),
         'is_deleted': r.isDeleted,
       };
@@ -1419,6 +1421,8 @@ DriftSyncEntity _memberGroupsEntity(
         emoji: f.stringFieldNullable('emoji'),
         displayOrder: f.intField('display_order'),
         parentGroupId: f.stringFieldNullable('parent_group_id'),
+        groupType: f.intField('group_type'),
+        filterRules: f.stringFieldNullable('filter_rules'),
         createdAt: f.dateTimeField('created_at'),
         isDeleted: f.boolField('is_deleted'),
       );
@@ -1439,6 +1443,8 @@ DriftSyncEntity _memberGroupsEntity(
         'emoji': row.emoji,
         'display_order': row.displayOrder,
         'parent_group_id': row.parentGroupId,
+        'group_type': row.groupType,
+        'filter_rules': row.filterRules,
         'created_at': row.createdAt.toIso8601String(),
         'is_deleted': row.isDeleted,
       };

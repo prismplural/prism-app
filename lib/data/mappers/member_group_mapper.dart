@@ -14,6 +14,8 @@ class MemberGroupMapper {
       emoji: row.emoji,
       displayOrder: row.displayOrder,
       parentGroupId: row.parentGroupId,
+      groupType: row.groupType,
+      filterRules: row.filterRules,
       createdAt: row.createdAt,
     );
   }
@@ -27,6 +29,8 @@ class MemberGroupMapper {
       emoji: Value(model.emoji),
       displayOrder: Value(model.displayOrder),
       parentGroupId: Value(model.parentGroupId),
+      groupType: Value(model.groupType),
+      filterRules: Value(model.filterRules),
       createdAt: Value(model.createdAt),
     );
   }

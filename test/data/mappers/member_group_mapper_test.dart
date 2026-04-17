@@ -96,6 +96,8 @@ void main() {
         emoji: companion.emoji.value,
         displayOrder: companion.displayOrder.value,
         parentGroupId: companion.parentGroupId.value,
+        groupType: companion.groupType.value,
+        filterRules: companion.filterRules.value,
         createdAt: companion.createdAt.value,
         isDeleted: false,
       );

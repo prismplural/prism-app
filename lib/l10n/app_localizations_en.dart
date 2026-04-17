@@ -2410,7 +2410,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupSectionMembers => 'Members';
 
   @override
+  String get memberGroupStartChat => 'Start chat';
+
+  @override
   String get memberGroupAddMember => 'Add member';
+
+  @override
+  String get memberGroupAddToGroup => 'Add to group';
+
+  @override
+  String memberGroupAddToGroupSemantics(String name) {
+    return 'Add $name to a group';
+  }
 
   @override
   String get memberGroupDeleteTitle => 'Delete group';
@@ -2439,12 +2450,55 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupDescriptionLabel => 'Description';
 
   @override
-  String get memberGroupColorLabel => 'Color (hex)';
+  String get memberGroupColorLabel => 'Color';
+
+  @override
+  String get memberGroupColorNone => 'No color';
 
   @override
   String memberGroupErrorSaving(Object error) {
     return 'Error saving group: $error';
   }
+
+  @override
+  String get memberGroupFilterAll => 'All';
+
+  @override
+  String get memberGroupFilterBarLabel => 'Filter by group';
+
+  @override
+  String get memberGroupFilterUngrouped => 'Ungrouped';
+
+  @override
+  String get memberGroupFrontAllAlreadyFronting =>
+      'All members are already fronting';
+
+  @override
+  String memberGroupFrontAllInactive(String name) {
+    return 'All members in $name are inactive. Front anyway?';
+  }
+
+  @override
+  String get memberGroupFrontGroup => 'Front group';
+
+  @override
+  String memberGroupFrontGroupSemantics(String name) {
+    return 'Front all members in $name';
+  }
+
+  @override
+  String memberGroupFrontSomeAlreadyFronting(int count, int remaining) {
+    return '$count members already fronting. Add the remaining $remaining?';
+  }
+
+  @override
+  String get memberGroupManageNoGroups => 'No groups yet';
+
+  @override
+  String get memberGroupManageNoGroupsAction => 'Create a group';
+
+  @override
+  String get memberGroupManageTitle => 'Groups';
 
   @override
   String get memberNameLabel => 'Name *';

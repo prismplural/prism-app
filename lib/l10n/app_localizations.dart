@@ -4262,11 +4262,29 @@ abstract class AppLocalizations {
   /// **'Members'**
   String get memberGroupSectionMembers;
 
+  /// Button label to start a chat with all members in a group
+  ///
+  /// In en, this message translates to:
+  /// **'Start chat'**
+  String get memberGroupStartChat;
+
   /// Button label to add a member to a group
   ///
   /// In en, this message translates to:
   /// **'Add member'**
   String get memberGroupAddMember;
+
+  /// Button label to add a member to a group
+  ///
+  /// In en, this message translates to:
+  /// **'Add to group'**
+  String get memberGroupAddToGroup;
+
+  /// No description provided for @memberGroupAddToGroupSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Add {name} to a group'**
+  String memberGroupAddToGroupSemantics(String name);
 
   /// Confirmation dialog title when deleting a group
   ///
@@ -4319,14 +4337,86 @@ abstract class AppLocalizations {
   /// Label for the group color hex text field
   ///
   /// In en, this message translates to:
-  /// **'Color (hex)'**
+  /// **'Color'**
   String get memberGroupColorLabel;
+
+  /// Option label when no color is selected for a group
+  ///
+  /// In en, this message translates to:
+  /// **'No color'**
+  String get memberGroupColorNone;
 
   /// Error toast when saving a group fails
   ///
   /// In en, this message translates to:
   /// **'Error saving group: {error}'**
   String memberGroupErrorSaving(Object error);
+
+  /// Filter chip label to show all members (no group filter)
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get memberGroupFilterAll;
+
+  /// Accessibility label for the group filter bar
+  ///
+  /// In en, this message translates to:
+  /// **'Filter by group'**
+  String get memberGroupFilterBarLabel;
+
+  /// Filter chip label to show only members not in any group
+  ///
+  /// In en, this message translates to:
+  /// **'Ungrouped'**
+  String get memberGroupFilterUngrouped;
+
+  /// Toast shown when all group members are already fronting
+  ///
+  /// In en, this message translates to:
+  /// **'All members are already fronting'**
+  String get memberGroupFrontAllAlreadyFronting;
+
+  /// No description provided for @memberGroupFrontAllInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'All members in {name} are inactive. Front anyway?'**
+  String memberGroupFrontAllInactive(String name);
+
+  /// Button label to front all members in a group
+  ///
+  /// In en, this message translates to:
+  /// **'Front group'**
+  String get memberGroupFrontGroup;
+
+  /// No description provided for @memberGroupFrontGroupSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Front all members in {name}'**
+  String memberGroupFrontGroupSemantics(String name);
+
+  /// No description provided for @memberGroupFrontSomeAlreadyFronting.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} members already fronting. Add the remaining {remaining}?'**
+  String memberGroupFrontSomeAlreadyFronting(int count, int remaining);
+
+  /// Empty state message on the manage groups screen
+  ///
+  /// In en, this message translates to:
+  /// **'No groups yet'**
+  String get memberGroupManageNoGroups;
+
+  /// Action button label on the manage groups empty state
+  ///
+  /// In en, this message translates to:
+  /// **'Create a group'**
+  String get memberGroupManageNoGroupsAction;
+
+  /// Title for the manage groups screen
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get memberGroupManageTitle;
 
   /// Label for the member name text field (required)
   ///

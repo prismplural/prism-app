@@ -94,6 +94,8 @@ class DriftMemberGroupsRepository
   @override
   Future<void> addMemberToGroup(
       String groupId, String memberId, String entryId) async {
+    final existing = await _dao.findEntry(groupId, memberId);
+    if (existing != null) return;
     final entry = domain.MemberGroupEntry(
       id: entryId,
       groupId: groupId,
@@ -121,6 +123,8 @@ class DriftMemberGroupsRepository
       'emoji': g.emoji,
       'display_order': g.displayOrder,
       'parent_group_id': g.parentGroupId,
+      'group_type': g.groupType,
+      'filter_rules': g.filterRules,
       'created_at': g.createdAt.toIso8601String(),
       'is_deleted': false,
     };

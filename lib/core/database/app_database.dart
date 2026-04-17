@@ -77,7 +77,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 44;
+  int get schemaVersion => 46;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -208,6 +208,30 @@ class AppDatabase extends _$AppDatabase {
               'ALTER TABLE reminders ADD COLUMN weekly_days TEXT');
         }
       }
+
+      if (from < 45) {
+        final memberGroupsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='member_groups'",
+        ).get();
+        if (memberGroupsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE member_groups ADD COLUMN group_type INTEGER NOT NULL DEFAULT 0');
+          await customStatement(
+            'ALTER TABLE member_groups ADD COLUMN filter_rules TEXT');
+        }
+      }
+
+      if (from < 46) {
+        final entriesExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='member_group_entries'",
+        ).get();
+        if (entriesExists.isNotEmpty) {
+          await customStatement(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_group_entries_unique '
+            'ON member_group_entries (group_id, member_id) WHERE is_deleted = 0',
+          );
+        }
+      }
     },
     onCreate: (migrator) async {
       await migrator.createAll();
@@ -276,6 +300,10 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_member_group_entries_member_deleted '
       'ON member_group_entries (member_id, is_deleted)',
+    );
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_group_entries_unique '
+      'ON member_group_entries (group_id, member_id) WHERE is_deleted = 0',
     );
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_custom_fields_deleted_order '

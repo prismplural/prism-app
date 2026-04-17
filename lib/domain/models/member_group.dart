@@ -13,6 +13,8 @@ abstract class MemberGroup with _$MemberGroup {
     String? emoji,
     @Default(0) int displayOrder,
     String? parentGroupId,
+    @Default(0) int groupType,
+    String? filterRules,
     required DateTime createdAt,
   }) = _MemberGroup;
 

@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 
 /// Watches all non-deleted groups ordered by displayOrder.
 final allGroupsProvider = StreamProvider<List<MemberGroup>>((ref) {
@@ -97,3 +98,29 @@ class GroupNotifier extends AsyncNotifier<void> {
 
 final groupNotifierProvider =
     AsyncNotifierProvider<GroupNotifier, void>(GroupNotifier.new);
+
+/// Watches all non-deleted group entries across every group.
+final allGroupEntriesProvider = StreamProvider<List<MemberGroupEntry>>((ref) {
+  return ref.watch(memberGroupsRepositoryProvider).watchAllGroupEntries();
+});
+
+/// Notifier for the active group filter selection.
+/// null = show all, '__ungrouped__' = ungrouped members, any other value = group ID.
+class ActiveGroupFilterNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void setFilter(String? filter) => state = filter;
+}
+
+final activeGroupFilterProvider =
+    NotifierProvider.autoDispose<ActiveGroupFilterNotifier, String?>(
+        ActiveGroupFilterNotifier.new);
+
+/// True when at least one active member has no group entry.
+final ungroupedMembersExistProvider = Provider.autoDispose<bool>((ref) {
+  final members = ref.watch(allMembersProvider).value ?? [];
+  final entries = ref.watch(allGroupEntriesProvider).value ?? [];
+  final groupedMemberIds = entries.map((e) => e.memberId).toSet();
+  return members.any((m) => m.isActive && !groupedMemberIds.contains(m.id));
+});

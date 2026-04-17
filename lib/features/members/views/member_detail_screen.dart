@@ -195,7 +195,7 @@ class _MemberDetailBody extends ConsumerWidget {
 
             const SizedBox(height: 24),
 
-            MemberGroupChips(memberId: member.id),
+            MemberGroupChips(memberId: member.id, memberName: member.name),
 
             // Bio
             if (member.bio != null && member.bio!.isNotEmpty)
