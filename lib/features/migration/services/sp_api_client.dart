@@ -83,10 +83,20 @@ class SpApiClient {
   // -- public API -----------------------------------------------------------
 
   /// GET /v1/me — returns the system user ID and username.
+  ///
+  /// The /me response wraps user data inside a `content` field:
+  /// `{ "id": "...", "content": { "uid": "...", "username": "..." } }`
   Future<({String systemId, String? username})> verifyToken() async {
     final json = await _get('/me') as Map<String, dynamic>;
-    final uid = json['uid']?.toString() ?? json['_id']?.toString() ?? '';
-    final username = json['username'] as String?;
+    final content =
+        (json['content'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final uid = content['uid']?.toString() ??
+        json['id']?.toString() ??
+        json['uid']?.toString() ??
+        json['_id']?.toString() ??
+        '';
+    final username =
+        content['username'] as String? ?? json['username'] as String?;
     return (systemId: uid, username: username);
   }
 
