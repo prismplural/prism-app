@@ -8,6 +8,12 @@ enum ReminderTrigger {
   onFrontChange;
 }
 
+enum ReminderFrequency {
+  daily,
+  weekly,
+  interval;
+}
+
 @freezed
 abstract class Reminder with _$Reminder {
   const factory Reminder({
@@ -15,6 +21,8 @@ abstract class Reminder with _$Reminder {
     required String name,
     required String message,
     @Default(ReminderTrigger.scheduled) ReminderTrigger trigger,
+    @Default(ReminderFrequency.daily) ReminderFrequency frequency,
+    List<int>? weeklyDays,
     int? intervalDays,
     String? timeOfDay,
     int? delayHours,
