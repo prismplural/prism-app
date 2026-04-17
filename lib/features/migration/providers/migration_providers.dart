@@ -278,6 +278,7 @@ class ImporterNotifier extends Notifier<MigrationState> {
         remindersRepo: ref.read(remindersRepositoryProvider),
         settingsRepo: ref.read(systemSettingsRepositoryProvider),
         categoriesRepo: ref.read(conversationCategoriesRepositoryProvider),
+        spImportDao: ref.read(databaseProvider).spImportDao,
         downloadAvatars: downloadAvatars,
         clearExistingData: resetFirst,
         onProgress: (current, total, label) {
