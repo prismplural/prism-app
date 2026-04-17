@@ -78,9 +78,20 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
       body: pendingAsync.isLoading && friends.isEmpty
           ? const PrismLoadingState()
           : friends.isEmpty && pending.isEmpty
-              ? _EmptyState(
-                  onCreateInvite: () => _showCreateInvite(context),
-                  onUseInvite: () => _showUseInvite(context),
+              ? RefreshIndicator(
+                  onRefresh: () => _refreshInbox(showNoopToast: false),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: _EmptyState(
+                          onCreateInvite: () => _showCreateInvite(context),
+                          onUseInvite: () => _showUseInvite(context),
+                        ),
+                      ),
+                    ],
+                  ),
                 )
               : RefreshIndicator(
                   onRefresh: () => _refreshInbox(showNoopToast: false),

@@ -703,6 +703,7 @@ DriftSyncEntity _systemSettingsEntity(
         'sync_navigation_enabled': r.syncNavigationEnabled,
         'nav_bar_items': r.navBarItems,
         'nav_bar_overflow_items': r.navBarOverflowItems,
+        'habits_badge_enabled': r.habitsBadgeEnabled,
         'is_deleted': r.isDeleted,
       };
     },
@@ -762,6 +763,7 @@ DriftSyncEntity _systemSettingsEntity(
         syncNavigationEnabled: f.boolField('sync_navigation_enabled'),
         navBarItems: f.stringField('nav_bar_items'),
         navBarOverflowItems: f.stringField('nav_bar_overflow_items'),
+        habitsBadgeEnabled: f.boolField('habits_badge_enabled'),
         // Device-local fields (font*, pin*, biometric*, autoLock*) are
         // intentionally excluded from sync.
         isDeleted: f.boolField('is_deleted'),
@@ -817,6 +819,10 @@ DriftSyncEntity _systemSettingsEntity(
             ? base64Encode(row.systemAvatarData!)
             : null,
         'reminders_enabled': row.remindersEnabled,
+        'sync_navigation_enabled': row.syncNavigationEnabled,
+        'nav_bar_items': row.navBarItems,
+        'nav_bar_overflow_items': row.navBarOverflowItems,
+        'habits_badge_enabled': row.habitsBadgeEnabled,
         'is_deleted': row.isDeleted,
       };
     },
