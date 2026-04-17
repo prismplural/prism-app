@@ -65,6 +65,8 @@ class SpMember {
   final String name;
   final String? pronouns;
   final String? avatarUrl;
+  final String? avatarUuid; // MinIO-hosted avatar (new-style uploads)
+  final String? uid;        // System owner ID — needed to construct avatarUuid URL
   final String? color;
   final String? desc;
   final bool archived;
@@ -76,6 +78,8 @@ class SpMember {
     required this.name,
     this.pronouns,
     this.avatarUrl,
+    this.avatarUuid,
+    this.uid,
     this.color,
     this.desc,
     this.archived = false,
@@ -89,6 +93,8 @@ class SpMember {
       name: (json['name'] ?? 'Unknown').toString(),
       pronouns: json['pronouns'] as String?,
       avatarUrl: json['avatarUrl'] as String?,
+      avatarUuid: json['avatarUuid'] as String?,
+      uid: json['uid'] as String?,
       color: json['color'] as String?,
       desc: json['desc'] as String?,
       archived: json['archived'] == true,
