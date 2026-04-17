@@ -120,7 +120,9 @@ class PluralKitSyncService {
   Future<PluralKitClient?> _buildClient() async {
     final token = await _getToken();
     if (token == null) return null;
-    return PluralKitClient(token: token);
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) return null;
+    return PluralKitClient(token: trimmed);
   }
 
   // -- public API -----------------------------------------------------------
@@ -700,7 +702,7 @@ class PluralKitSyncService {
     }
 
     // Skip switches with no mapped members
-    if (primaryMemberId == null && sw.members.isNotEmpty) return false;
+    if (primaryMemberId == null) return false;
 
     await _frontingSessionRepository.createSession(
       domain.FrontingSession(
