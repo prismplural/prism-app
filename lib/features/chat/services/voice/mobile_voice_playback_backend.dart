@@ -42,7 +42,7 @@ class MobileVoicePlaybackBackend implements VoicePlaybackBackend {
   MobileVoicePlaybackBackend({
     MobileVoicePlaybackPlayer? player,
     MobileVoicePlaybackSessionConfigurator? sessionConfigurator,
-    Duration positionPollInterval = const Duration(milliseconds: 200),
+    Duration positionPollInterval = const Duration(milliseconds: 50),
   }) : _player = player ?? SoLoudMobileVoicePlaybackPlayer(),
        _sessionConfigurator =
            sessionConfigurator ??

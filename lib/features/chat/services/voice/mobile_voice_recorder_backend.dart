@@ -613,15 +613,20 @@ String _buildWaveform(List<double> samples) {
       values[i] = floorDb;
     }
   }
-  final minDb = values.reduce(min);
+  // Anchor the top of the scale to a fixed reference level rather than the
+  // recording's own peak. Without this, a quiet note (maxDb = -45) normalizes
+  // to the same bar heights as a loud one (-3 dBFS), making it look falsely
+  // loud. With the anchor, quiet recordings produce proportionally shorter bars.
+  const referenceMax = -10.0;
   final maxDb = values.reduce(max);
-  final range = (maxDb - minDb).abs();
+  final effectiveMax = max(maxDb, referenceMax);
+  final range = (effectiveMax - floorDb).abs();
   final normalized = values
       .map((sample) {
         if (range < 0.01) {
           return 128;
         }
-        return ((sample - minDb) / range * 255).round().clamp(0, 255);
+        return ((sample - floorDb) / range * 255).round().clamp(0, 255);
       })
       .toList(growable: false);
   return base64Encode(Uint8List.fromList(normalized));
