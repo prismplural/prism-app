@@ -215,8 +215,16 @@ class SpMapper {
       _memberIdMap[sp.id] = prismId;
 
       // Track avatar URL for later download.
+      // Prefer legacy avatarUrl; fall back to constructing URL from avatarUuid
+      // (new-style uploads stored at serve.apparyllis.com/avatars/{uid}/{uuid}).
       if (sp.avatarUrl != null && sp.avatarUrl!.isNotEmpty) {
         avatarUrls[prismId] = sp.avatarUrl!;
+      } else if (sp.avatarUuid != null &&
+          sp.avatarUuid!.isNotEmpty &&
+          sp.uid != null &&
+          sp.uid!.isNotEmpty) {
+        avatarUrls[prismId] =
+            'https://serve.apparyllis.com/avatars/${sp.uid}/${sp.avatarUuid}';
       }
 
       // Normalize SP color to hex without '#'.
