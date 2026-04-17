@@ -28,6 +28,8 @@ class RemindersNotifier extends AsyncNotifier<void> {
     int? intervalDays,
     String? timeOfDay,
     int? delayHours,
+    ReminderFrequency frequency = ReminderFrequency.daily,
+    List<int>? weeklyDays,
   }) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(remindersRepositoryProvider);
@@ -40,6 +42,8 @@ class RemindersNotifier extends AsyncNotifier<void> {
         intervalDays: intervalDays,
         timeOfDay: timeOfDay,
         delayHours: delayHours,
+        frequency: frequency,
+        weeklyDays: weeklyDays,
         isActive: true,
         createdAt: now,
         modifiedAt: now,
