@@ -81,18 +81,18 @@ class OnboardingDataReadyView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _CountRow(label: context.l10n.onboardingDataReadyMembers, count: counts!.members),
-                  _CountRow(
+                  OnboardingCountRow(label: context.l10n.onboardingDataReadyMembers, count: counts!.members),
+                  OnboardingCountRow(
                     label: context.l10n.onboardingDataReadyFrontingSessions,
                     count: counts!.frontingSessions,
                   ),
-                  _CountRow(
+                  OnboardingCountRow(
                     label: context.l10n.onboardingDataReadyConversations,
                     count: counts!.conversations,
                   ),
-                  _CountRow(label: context.l10n.onboardingDataReadyMessages, count: counts!.messages),
-                  _CountRow(label: context.l10n.onboardingDataReadyHabits, count: counts!.habits),
-                  _CountRow(label: context.l10n.onboardingDataReadyNotes, count: counts!.notes),
+                  OnboardingCountRow(label: context.l10n.onboardingDataReadyMessages, count: counts!.messages),
+                  OnboardingCountRow(label: context.l10n.onboardingDataReadyHabits, count: counts!.habits),
+                  OnboardingCountRow(label: context.l10n.onboardingDataReadyNotes, count: counts!.notes),
                 ],
               ),
             ),
@@ -114,11 +114,18 @@ class OnboardingDataReadyView extends StatelessWidget {
   }
 }
 
-class _CountRow extends StatelessWidget {
-  const _CountRow({required this.label, required this.count});
+class OnboardingCountRow extends StatelessWidget {
+  const OnboardingCountRow({
+    required this.label,
+    required this.count,
+    // Optional override for the count widget (e.g. an animated tween).
+    this.countWidget,
+    super.key,
+  });
 
   final String label;
   final int count;
+  final Widget? countWidget;
 
   @override
   Widget build(BuildContext context) {
@@ -138,13 +145,14 @@ class _CountRow extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            '$count',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          countWidget ??
+              Text(
+                '$count',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
         ],
       ),
     );
