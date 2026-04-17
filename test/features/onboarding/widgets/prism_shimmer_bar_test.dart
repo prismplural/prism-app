@@ -49,9 +49,23 @@ void main() {
     expect(tester.hasRunningAnimations, isFalse);
   });
 
-  testWidgets('has Semantics loading label', (tester) async {
+  testWidgets('sweep gradient uses warmWhite alpha only (no color injection)',
+      (tester) async {
     await tester.pumpWidget(_wrap(const PrismShimmerBar()));
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.bySemanticsLabel('Loading'), findsOneWidget);
+    final bar = tester
+        .widgetList<Container>(find.byType(Container))
+        .firstWhere((c) {
+          final d = c.decoration;
+          return d is BoxDecoration && d.gradient is LinearGradient;
+        });
+    final gradient = (bar.decoration as BoxDecoration).gradient as LinearGradient;
+
+    for (final color in gradient.colors) {
+      expect(color.r, equals(gradient.colors.first.r));
+      expect(color.g, equals(gradient.colors.first.g));
+      expect(color.b, equals(gradient.colors.first.b));
+    }
   });
 }

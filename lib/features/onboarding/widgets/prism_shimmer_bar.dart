@@ -42,18 +42,14 @@ class _PrismShimmerBarState extends State<PrismShimmerBar>
   Widget build(BuildContext context) {
     final disableAnimations = MediaQuery.of(context).disableAnimations;
 
-    return Semantics(
-      label: 'Loading',
-      container: true,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: disableAnimations
-            ? _buildStatic()
-            : AnimatedBuilder(
-                animation: _controller,
-                builder: (context, _) => _buildAnimated(_controller.value),
-              ),
-      ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: disableAnimations
+          ? _buildStatic()
+          : AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) => _buildAnimated(_controller.value),
+            ),
     );
   }
 
@@ -77,20 +73,17 @@ class _PrismShimmerBarState extends State<PrismShimmerBar>
       height: 12.0,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
+        color: AppColors.warmWhite.withValues(alpha: 0.15),
         gradient: LinearGradient(
           begin: Alignment(beginX, 0),
           end: Alignment(endX, 0),
           colors: [
             AppColors.warmWhite.withValues(alpha: 0.0),
-            AppColors.prismPurple.withValues(alpha: 0.7),
+            AppColors.warmWhite.withValues(alpha: 0.65),
             AppColors.warmWhite.withValues(alpha: 0.0),
           ],
           stops: const [0.0, 0.5, 1.0],
         ),
-      ),
-      foregroundDecoration: BoxDecoration(
-        color: AppColors.warmWhite.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
       ),
     );
   }

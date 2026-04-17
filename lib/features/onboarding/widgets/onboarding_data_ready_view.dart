@@ -145,14 +145,18 @@ class OnboardingCountRow extends StatelessWidget {
               ),
             ),
           ),
-          countWidget ??
-              Text(
-                '$count',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-                  fontWeight: FontWeight.w700,
+          const SizedBox(width: 12),
+          Flexible(
+            child: countWidget ??
+                Text(
+                  '$count',
+                  textAlign: TextAlign.end,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
+          ),
         ],
       ),
     );
