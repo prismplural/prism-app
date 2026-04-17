@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -48,11 +50,11 @@ void triggerPostEditRescan(
   final sanitizer = ref.read(frontingSanitizerServiceProvider);
 
   // Fire-and-forget: errors are swallowed to avoid disrupting the UI.
-  sanitizer.scan(from: from, to: to).then((issues) {
+  unawaited(sanitizer.scan(from: from, to: to).then((issues) {
     ref.read(frontingIssueCountProvider.notifier).setCount(issues.length);
   }).catchError((Object e, StackTrace st) {
     debugPrint('[FrontingRescan] Post-edit rescan failed: $e\n$st');
-  });
+  }));
 }
 
 // TODO(sync): Wire a post-sync rescan by listening to syncEventStreamProvider
