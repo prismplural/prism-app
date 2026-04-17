@@ -59,7 +59,6 @@ import '../../features/settings/views/pin_lock_settings_screen.dart';
 import '../../features/reminders/views/reminders_screen.dart';
 import '../../features/notes/views/notes_list_screen.dart';
 import '../../features/settings/views/system_info_screen.dart';
-import '../../features/settings/views/voice_lab_screen.dart';
 import '../../features/settings/views/navigation_settings_screen.dart';
 import '../../features/onboarding/views/onboarding_screen.dart';
 import '../../features/settings/providers/settings_providers.dart';
@@ -80,7 +79,6 @@ final _statisticsNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'statistics',
 );
 final _timelineNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'timeline');
-const _autoVoiceLabRepro = bool.fromEnvironment('AUTO_VOICE_LAB_REPRO');
 
 /// Notifier that triggers GoRouter redirect re-evaluation when onboarding
 /// status changes.
@@ -131,9 +129,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: _autoVoiceLabRepro
-        ? AppRoutePaths.settingsVoiceLab
-        : AppRoutePaths.home,
+    initialLocation: AppRoutePaths.home,
     refreshListenable: _onboardingRedirectNotifier,
     onException: (context, state, router) {
       debugPrint(
@@ -147,10 +143,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
     },
     redirect: (context, state) async {
-      if (_autoVoiceLabRepro) {
-        return null;
-      }
-
       final hasCompleted = _onboardingRedirectNotifier.hasCompleted;
 
       // While settings are still loading, don't redirect
@@ -382,10 +374,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'debug',
                     builder: (context, state) => const DebugScreen(),
-                  ),
-                  GoRoute(
-                    path: 'voice-lab',
-                    builder: (context, state) => const VoiceLabScreen(),
                   ),
                   GoRoute(
                     path: 'component-gallery',
