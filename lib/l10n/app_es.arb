@@ -1705,5 +1705,19 @@
   "featureSleepWakeReminder": "Recordatorio de Despertar",
   "featureSleepWakeReminderSubtitle": "Aviso para despertar después de cierta duración",
   "featureSleepWakeAfter": "Despertar Después de",
-  "featureSleepWakeAfterHours": "{hours} horas"
+  "featureSleepWakeAfterHours": "{hours} horas",
+  "onboardingSyncPhaseConnectTitle": "Conectando…",
+  "onboardingSyncPhaseConnectSubtitle": "Saludando a tu otro dispositivo",
+  "onboardingSyncPhaseDownloadTitle": "Descargando tu sistema",
+  "onboardingSyncPhaseDownloadSubtitle": "Trayendo la instantánea cifrada",
+  "onboardingSyncPhaseRestoreTitle": "Restaurando tus datos",
+  "onboardingSyncPhaseRestoreSubtitle": "Desempaquetando miembros, mensajes y notas",
+  "onboardingSyncPhaseFinishTitle": "Finalizando",
+  "onboardingSyncPhaseFinishSubtitle": "Asegurando todo",
+  "onboardingSyncReassurance": "Aún cargando — los sistemas grandes pueden tardar un momento en redes lentas.",
+  "onboardingSyncReconnecting": "Reconectando al relay…",
+  "onboardingSyncNoDataToRestore": "Sin datos previos para restaurar — empezando desde cero.",
+  "onboardingSyncStillPullingBackground": "Aún descargando actualizaciones en segundo plano. Puedes continuar.",
+  "onboardingSyncPhaseAnnouncement": "Ahora: {phase}",
+  "onboardingSyncRestoredSummary": "Se restauraron {members} miembros y {messages} mensajes."
 }
