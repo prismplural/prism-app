@@ -123,7 +123,7 @@ class _ReminderTile extends ConsumerWidget {
               ),
             ),
             subtitle: Text(
-              _subtitleText(context, reminder),
+              _formatReminderSubtitle(context, reminder),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
@@ -144,23 +144,51 @@ class _ReminderTile extends ConsumerWidget {
       ),
     );
   }
+}
 
-  String _subtitleText(BuildContext context, Reminder r) {
-    final l10n = context.l10n;
-    if (r.trigger == ReminderTrigger.onFrontChange) {
-      final delay = r.delayHours ?? 0;
-      if (delay == 0) return l10n.remindersSubtitleOnFrontChange;
-      return l10n.remindersSubtitleOnFrontChangeDelay(delay);
-    }
-    final parts = <String>[];
-    if (r.timeOfDay != null) parts.add(r.timeOfDay!);
-    if (r.intervalDays != null) {
-      if (r.intervalDays == 1) {
-        parts.add(l10n.remindersSubtitleDaily);
-      } else {
-        parts.add(l10n.remindersSubtitleEveryNDays(r.intervalDays!));
-      }
-    }
-    return parts.isEmpty ? l10n.remindersScheduled : parts.join(' · ');
+String _formatReminderSubtitle(BuildContext context, Reminder r) {
+  final l10n = context.l10n;
+  if (r.trigger == ReminderTrigger.onFrontChange) {
+    final delay = r.delayHours ?? 0;
+    if (delay == 0) return l10n.remindersSubtitleOnFrontChange;
+    return l10n.remindersSubtitleOnFrontChangeDelay(delay);
   }
+
+  final time = r.timeOfDay;
+  final prefix = time == null || time.isEmpty ? '' : '$time · ';
+
+  switch (r.frequency) {
+    case ReminderFrequency.daily:
+      return '${prefix}Daily';
+
+    case ReminderFrequency.weekly:
+      final days = r.weeklyDays ?? const <int>[];
+      if (days.isEmpty) return '${prefix}Weekly';
+      final sorted = [...days]..sort();
+      if (sorted.length == 7) return '${prefix}Every day';
+      if (_reminderDaysEqual(sorted, const [1, 2, 3, 4, 5])) {
+        return '${prefix}Weekdays';
+      }
+      if (_reminderDaysEqual(sorted, const [0, 6])) {
+        return '${prefix}Weekends';
+      }
+      if (sorted.length <= 3) {
+        const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        return '$prefix${sorted.map((d) => labels[d]).join(', ')}';
+      }
+      return '$prefix${sorted.length} days/week';
+
+    case ReminderFrequency.interval:
+      final interval = r.intervalDays ?? 1;
+      if (interval == 1) return '${prefix}Daily';
+      return '${prefix}Every $interval days';
+  }
+}
+
+bool _reminderDaysEqual(List<int> a, List<int> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
