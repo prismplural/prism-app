@@ -4458,6 +4458,38 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get migrationNotImportedTitle => 'What didn\'t come over';
+
+  @override
+  String get migrationNotImportedFriendsTitle => 'Friends';
+
+  @override
+  String get migrationNotImportedFriendsDetail =>
+      'SP friends are separate accounts on another system. Prism doesn\'t have a cross-system friends concept yet.';
+
+  @override
+  String get migrationNotImportedBoardMetaTitle => 'Board message metadata';
+
+  @override
+  String get migrationNotImportedBoardMetaDetail =>
+      'Message categories and bucket assignments aren\'t part of the export format.';
+
+  @override
+  String get migrationNotImportedNotifTitle => 'Notification preferences';
+
+  @override
+  String get migrationNotImportedNotifDetail =>
+      'These are stored on your device in SP and aren\'t included in the export.';
+
+  @override
+  String get migrationNotImportedFrontRulesTitle =>
+      'Custom front display rules';
+
+  @override
+  String get migrationNotImportedFrontRulesDetail =>
+      'Display rules and front conditions don\'t map to Prism\'s system.';
+
+  @override
   String get migrationImportFailed => 'Import Failed';
 
   @override
