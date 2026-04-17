@@ -4,6 +4,8 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-04-17
+
 ### Added
 - Voice note Opus backends: split recording and playback into dedicated chat voice services with shared format detection and focused tests
 
@@ -11,10 +13,21 @@ All notable changes to Prism will be documented in this file.
 - Voice notes now use a mobile-first Ogg Opus path: Android records Ogg directly, iOS finalizes CAF Opus into Ogg before upload, and playback runs from decrypted bytes in memory through SoLoud
 - Voice-note uploads now validate and persist `audio/ogg` metadata instead of carrying the old AAC/M4A assumptions
 - Chat compose now shows a preparing state before send when a recorded note is still being finalized
+- `FrontingNotifier` migrated from `Notifier<void>` to `AsyncNotifier<void>` so mutation errors surface instead of disappearing
+- GIF and image bubbles now pass DPR-aware `cacheWidth`/`cacheHeight` to the Flutter image cache, reducing overdraw on high-density screens
+- Chat conversation screen uses `.select()` on the author map provider to avoid unnecessary rebuilds
+- Relay WebSocket reconnection now adds random jitter (0–500 ms) to prevent thundering-herd reconnects after a relay restart
+- Relay signal handler installation errors are now recoverable (log + pending future) instead of panicking
+- Relay `eprintln!` calls replaced with structured `tracing::error!` events
+- Relay router now limits concurrent in-flight requests to 512 to prevent connection exhaustion
+- Provisioning script prompts operator to save `METRICS_TOKEN` before the session closes
 
 ### Fixed
-- Voice playback/download path no longer forces `.m4a` temp files or the old file-based playback plumbing
-- Voice-note controls now keep retry, accessibility announcements, and minimum tap targets aligned with the new backend-driven flow
+- Importing a backup from a different PluralKit system no longer silently overwrites the current system's connection state — the PK sync state is skipped when the backup's system ID conflicts with the existing one
+- Quick-front press now shows an error toast instead of silently dropping failures
+- Member detail "Set as Fronter" action now shows an error toast on failure instead of swallowing it
+- Chat auto-front on member switch now logs errors instead of discarding them silently
+- Post-edit fronting rescan wrapped in explicit `unawaited()` to satisfy the Dart linter
 
 ## [0.3.8] - 2026-04-14
 
