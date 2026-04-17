@@ -2,15 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/timeline_painter.dart';
+import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
+import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
+import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
 /// The timeline visualization of fronting history.
@@ -232,24 +239,31 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     ]);
 
     Widget buildSessionColumns() {
-      return CustomPaint(
-        size: Size(columnsWidth, totalHeight),
-        painter: TimelinePainter(
-          rows: rows,
-          sleepSessions: sleepSessions,
-          columnWidth: columnWidth,
-          columnPadding: _columnPadding,
-          pixelsPerHour: pxPerHour,
-          viewStart: viewStart,
-          viewEnd: viewEnd,
-          primaryColor: theme.colorScheme.primary,
-          surfaceColor: theme.colorScheme.surface,
-          onSurfaceColor: theme.colorScheme.onSurface,
-          surfaceContainerColor: theme.colorScheme.surfaceContainerHighest,
-          brightness: theme.brightness,
-          scrollOffsetNotifier: _scrollOffsetNotifier,
-          viewportHeight: scrollableViewportHeight,
-          repaintListenable: mergedListenable,
+      final painter = TimelinePainter(
+        rows: rows,
+        sleepSessions: sleepSessions,
+        columnWidth: columnWidth,
+        columnPadding: _columnPadding,
+        pixelsPerHour: pxPerHour,
+        viewStart: viewStart,
+        viewEnd: viewEnd,
+        primaryColor: theme.colorScheme.primary,
+        surfaceColor: theme.colorScheme.surface,
+        onSurfaceColor: theme.colorScheme.onSurface,
+        surfaceContainerColor: theme.colorScheme.surfaceContainerHighest,
+        brightness: theme.brightness,
+        scrollOffsetNotifier: _scrollOffsetNotifier,
+        viewportHeight: scrollableViewportHeight,
+        repaintListenable: mergedListenable,
+      );
+      final canvasSize = Size(columnsWidth, totalHeight);
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapUp: (details) =>
+            _onTimelineTap(context, details.localPosition, painter, canvasSize),
+        child: CustomPaint(
+          size: canvasSize,
+          painter: painter,
         ),
       );
     }
@@ -349,6 +363,28 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     );
   }
 
+  void _onTimelineTap(
+    BuildContext context,
+    Offset localPosition,
+    TimelinePainter painter,
+    Size canvasSize,
+  ) {
+    final zones = painter.computeHitZones(canvasSize);
+    for (final zone in zones) {
+      if (zone.rect.contains(localPosition)) {
+        _showSessionPreview(context, zone.session);
+        return;
+      }
+    }
+  }
+
+  void _showSessionPreview(BuildContext context, FrontingSession session) {
+    PrismSheet.show(
+      context: context,
+      builder: (sheetContext) => _SessionPreviewSheet(session: session),
+    );
+  }
+
   void _scrollToTime(DateTime time, double pxPerHour, {bool animate = true}) {
     if (!_verticalController.hasClients || _viewStart == null) return;
 
@@ -371,6 +407,119 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
     } else {
       _verticalController.jumpTo(scrollTo);
     }
+  }
+}
+
+/// Preview bottom sheet shown when a session bar is tapped in the timeline.
+///
+/// Displays member avatar, name, start time, duration, and a button to navigate
+/// to the full session detail screen.
+class _SessionPreviewSheet extends ConsumerWidget {
+  const _SessionPreviewSheet({required this.session});
+
+  final FrontingSession session;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final now = DateTime.now();
+
+    // Batch-load the member (and any co-fronters) referenced by this session.
+    final allIds = <String>{
+      if (session.memberId != null) session.memberId!,
+      ...session.coFronterIds,
+    };
+    final membersAsync =
+        ref.watch(membersByIdsProvider(memberIdsKey(allIds)));
+    final membersMap = membersAsync.whenOrNull(data: (m) => m) ?? {};
+
+    final member =
+        session.memberId != null ? membersMap[session.memberId] : null;
+
+    // Build display name including co-fronters.
+    final String displayName;
+    if (session.memberId == null) {
+      displayName = 'Unknown';
+    } else {
+      final coFronterNames = [
+        for (final id in session.coFronterIds)
+          if (membersMap[id] != null) membersMap[id]!.name,
+      ];
+      final names = [member?.name ?? 'Unknown', ...coFronterNames];
+      if (names.length == 1) {
+        displayName = names.first;
+      } else if (names.length == 2) {
+        displayName = '${names[0]} & ${names[1]}';
+      } else {
+        displayName =
+            '${names.sublist(0, names.length - 1).join(', ')} & ${names.last}';
+      }
+    }
+
+    final startLabel = session.startTime.toTimeString();
+    final dateLabel = session.startTime.toDateString();
+    final duration = (session.endTime ?? now).difference(session.startTime);
+    final durationLabel =
+        session.isActive ? 'Active' : duration.toRoundedString();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Member row
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+          child: Row(
+            children: [
+              MemberAvatar(
+                emoji: member?.emoji ?? '?',
+                memberName: member?.name,
+                customColorEnabled: member?.customColorEnabled ?? false,
+                customColorHex: member?.customColorHex,
+                avatarImageData: member?.avatarImageData,
+                size: 44,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '$dateLabel · $startLabel · $durationLabel',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Action button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+          child: PrismButton(
+            label: 'View Details',
+            icon: AppIcons.chevronRightRounded,
+            tone: PrismButtonTone.filled,
+            expanded: true,
+            onPressed: () {
+              Navigator.of(context).pop();
+              GoRouter.of(context).push(AppRoutePaths.session(session.id));
+            },
+          ),
+        ),
+      ],
+    );
   }
 }
 

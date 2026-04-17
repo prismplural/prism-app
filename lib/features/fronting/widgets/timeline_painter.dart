@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
 
+/// A tappable region on the timeline canvas corresponding to one session bar.
+typedef TimelineHitZone = ({Rect rect, FrontingSession session, int columnIndex});
+
 /// Paints the timeline session bars and "now" indicator.
 ///
 /// Vertical axis = time, horizontal axis = member columns.
@@ -51,6 +54,43 @@ class TimelinePainter extends CustomPainter {
   double _timeToY(DateTime time) {
     final diff = time.difference(viewStart);
     return diff.inMilliseconds / Duration.millisecondsPerHour * pixelsPerHour;
+  }
+
+  /// Computes hit-test rectangles for all session bars, using the same geometry
+  /// as [_drawSessionBars]. Call this from a [GestureDetector] to map a tap
+  /// position back to a [FrontingSession].
+  List<TimelineHitZone> computeHitZones(Size size) {
+    final now = DateTime.now();
+    final totalColumnWidth = columnWidth + columnPadding;
+    final barInset = columnPadding / 2;
+    final zones = <TimelineHitZone>[];
+
+    for (var i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      final x = i * totalColumnWidth + barInset;
+
+      for (final session in row.sessions) {
+        final sessionStart = session.startTime;
+        final sessionEnd = session.endTime ?? now;
+
+        if (sessionEnd.isBefore(viewStart) || sessionStart.isAfter(viewEnd)) {
+          continue;
+        }
+
+        final y1 = math.max(0.0, _timeToY(sessionStart));
+        final y2 = math.min(size.height, _timeToY(sessionEnd));
+
+        if (y2 - y1 < 1) continue;
+
+        zones.add((
+          rect: Rect.fromLTWH(x, y1, columnWidth, y2 - y1),
+          session: session,
+          columnIndex: i,
+        ));
+      }
+    }
+
+    return zones;
   }
 
   @override
