@@ -24,9 +24,9 @@ class ReminderSchedulerService {
   static const _channelName = 'Reminders';
   static const _channelDesc = 'Custom reminder notifications';
 
-  /// Base notification ID offset for reminders (habits use 3000+, fronting
-  /// uses 1000-2000).
-  static const _notificationIdBase = 5000;
+  /// Start of the notification ID range for reminders. Non-overlapping with
+  /// habits (3000–12999) and fronting (1000–2000).
+  static const _idRangeStart = 20000;
 
   /// Active front-change reminders awaiting a front switch.
   final List<Reminder> _pendingFrontChangeReminders = [];
@@ -52,7 +52,7 @@ class ReminderSchedulerService {
   /// Cancel a reminder notification by its id.
   Future<void> cancelReminder(String id) async {
     await _localService.cancelRange(
-      _notificationId(id),
+      _notificationIdBase(id),
       LocalNotificationService.maxIntervalOccurrences,
     );
     _pendingFrontChangeReminders.removeWhere((r) => r.id == id);
@@ -103,31 +103,60 @@ class ReminderSchedulerService {
       macOS: darwinDetails,
     );
 
-    // Cancel ALL slots first — covers both the single-ID case (daily) and
-    // multi-ID interval cases (base+0, base+1, ...) to prevent stale notifications.
+    // Cancel ALL slots first — covers the single-ID case (daily), the
+    // multi-ID weekly case (base+0..base+6), and the interval case
+    // (base+0..base+N) to prevent stale notifications.
     await _localService.cancelRange(
-      _notificationId(reminder.id),
+      _notificationIdBase(reminder.id),
       LocalNotificationService.maxIntervalOccurrences,
     );
 
-    final intervalDays = reminder.intervalDays ?? 1;
-    if (intervalDays <= 1) {
-      await _localService.scheduleExactDaily(
-        id: _notificationId(reminder.id),
-        title: reminder.name,
-        body: reminder.message,
-        time: time,
-        details: details,
-      );
-    } else {
-      await _localService.scheduleExactInterval(
-        idBase: _notificationId(reminder.id),
-        title: reminder.name,
-        body: reminder.message,
-        time: time,
-        intervalDays: intervalDays,
-        details: details,
-      );
+    final baseId = _notificationIdBase(reminder.id);
+
+    switch (reminder.frequency) {
+      case ReminderFrequency.daily:
+        await _localService.scheduleExactDaily(
+          id: baseId,
+          title: reminder.name,
+          body: reminder.message,
+          time: time,
+          details: details,
+        );
+
+      case ReminderFrequency.weekly:
+        final days = reminder.weeklyDays;
+        if (days == null || days.isEmpty) return;
+        for (var i = 0; i < days.length; i++) {
+          await _localService.scheduleExactWeekly(
+            id: baseId + i,
+            title: reminder.name,
+            body: reminder.message,
+            time: time,
+            weekday: days[i],
+            details: details,
+          );
+        }
+
+      case ReminderFrequency.interval:
+        final intervalDays = reminder.intervalDays ?? 1;
+        if (intervalDays <= 1) {
+          await _localService.scheduleExactDaily(
+            id: baseId,
+            title: reminder.name,
+            body: reminder.message,
+            time: time,
+            details: details,
+          );
+        } else {
+          await _localService.scheduleExactInterval(
+            idBase: baseId,
+            title: reminder.name,
+            body: reminder.message,
+            time: time,
+            intervalDays: intervalDays,
+            details: details,
+          );
+        }
     }
   }
 
@@ -146,16 +175,20 @@ class ReminderSchedulerService {
       macOS: darwinDetails,
     );
     await _localService.showImmediate(
-      id: _notificationId(reminder.id),
+      id: _notificationIdBase(reminder.id),
       title: reminder.name,
       body: reminder.message,
       details: details,
     );
   }
 
-  /// Generates a stable notification ID from reminder ID.
-  int _notificationId(String id) {
-    return _notificationIdBase + (id.hashCode.abs() % 10000);
+  /// Generates a stable base notification ID from a reminder ID string.
+  ///
+  /// Weekly scheduling uses `base + i` for each selected weekday (i in 0..6);
+  /// interval scheduling uses `base + i` for each occurrence. The 10000-wide
+  /// collision space keeps the range bounded for [LocalNotificationService.cancelRange].
+  int _notificationIdBase(String id) {
+    return _idRangeStart + (id.hashCode.abs() % 10000);
   }
 
   /// Parses a time string in "HH:mm" format into a [TimeOfDay].
