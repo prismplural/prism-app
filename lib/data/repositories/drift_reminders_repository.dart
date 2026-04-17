@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/reminders_dao.dart';
 import 'package:prism_plurality/data/mappers/reminder_mapper.dart';
@@ -66,6 +68,8 @@ class DriftRemindersRepository
       'interval_days': r.intervalDays,
       'time_of_day': r.timeOfDay,
       'delay_hours': r.delayHours,
+      'frequency': r.frequency.name,
+      'weekly_days': r.weeklyDays != null ? jsonEncode(r.weeklyDays) : null,
       'is_active': r.isActive,
       'created_at': r.createdAt.toIso8601String(),
       'modified_at': r.modifiedAt.toIso8601String(),
