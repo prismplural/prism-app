@@ -124,8 +124,15 @@ class ReminderSchedulerService {
         );
 
       case ReminderFrequency.weekly:
-        final days = reminder.weeklyDays;
-        if (days == null || days.isEmpty) return;
+        // Defense-in-depth: even though the mapper guards corrupt rows,
+        // direct callers via providers could bypass it. Drop out-of-range
+        // weekdays and dedupe so each weekday schedules exactly once.
+        final days = (reminder.weeklyDays ?? const <int>[])
+            .where((d) => d >= 0 && d <= 6)
+            .toSet()
+            .toList()
+          ..sort();
+        if (days.isEmpty) return;
         for (var i = 0; i < days.length; i++) {
           await _localService.scheduleExactWeekly(
             id: baseId + i,
