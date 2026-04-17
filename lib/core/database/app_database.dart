@@ -77,7 +77,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 43;
+  int get schemaVersion => 44;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -193,6 +193,20 @@ class AppDatabase extends _$AppDatabase {
             'ALTER TABLE system_settings ADD COLUMN wake_suggestion_enabled INTEGER NOT NULL DEFAULT 0');
         await customStatement(
             'ALTER TABLE system_settings ADD COLUMN wake_suggestion_after_hours REAL NOT NULL DEFAULT 8.0');
+      }
+
+      if (from < 44) {
+        // Guard: reminders table may not exist in very old test databases
+        // that were created before the reminders table was introduced.
+        final tableExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reminders'",
+        ).get();
+        if (tableExists.isNotEmpty) {
+          await customStatement(
+              'ALTER TABLE reminders ADD COLUMN frequency TEXT');
+          await customStatement(
+              'ALTER TABLE reminders ADD COLUMN weekly_days TEXT');
+        }
       }
     },
     onCreate: (migrator) async {
