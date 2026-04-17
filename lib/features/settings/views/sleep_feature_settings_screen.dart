@@ -28,7 +28,7 @@ class SleepFeatureSettingsScreen extends ConsumerStatefulWidget {
 
 class _SleepFeatureSettingsScreenState
     extends ConsumerState<SleepFeatureSettingsScreen> {
-  // TODO: persist defaultSleepQuality to system_settings (requires DB migration)
+  // TODO(migration): persist defaultSleepQuality to system_settings (requires DB migration)
   SleepQuality _defaultQuality = SleepQuality.unknown;
 
   void _showDefaultQualityPicker(BuildContext context) {
