@@ -7766,6 +7766,60 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 warning} other{{count} warnings}}'**
   String migrationWarnings(int count);
 
+  /// Section heading for items that were not imported from SP
+  ///
+  /// In en, this message translates to:
+  /// **'What didn\'t come over'**
+  String get migrationNotImportedTitle;
+
+  /// Friends item in the not-imported disclosure list
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get migrationNotImportedFriendsTitle;
+
+  /// Explanation for why friends weren't imported
+  ///
+  /// In en, this message translates to:
+  /// **'SP friends are separate accounts on another system. Prism doesn\'t have a cross-system friends concept yet.'**
+  String get migrationNotImportedFriendsDetail;
+
+  /// Board metadata item in not-imported list
+  ///
+  /// In en, this message translates to:
+  /// **'Board message metadata'**
+  String get migrationNotImportedBoardMetaTitle;
+
+  /// Explanation for why board metadata wasn't imported
+  ///
+  /// In en, this message translates to:
+  /// **'Message categories and bucket assignments aren\'t part of the export format.'**
+  String get migrationNotImportedBoardMetaDetail;
+
+  /// Notification preferences item in not-imported list
+  ///
+  /// In en, this message translates to:
+  /// **'Notification preferences'**
+  String get migrationNotImportedNotifTitle;
+
+  /// Explanation for why notification prefs weren't imported
+  ///
+  /// In en, this message translates to:
+  /// **'These are stored on your device in SP and aren\'t included in the export.'**
+  String get migrationNotImportedNotifDetail;
+
+  /// Front rules item in not-imported list
+  ///
+  /// In en, this message translates to:
+  /// **'Custom front display rules'**
+  String get migrationNotImportedFrontRulesTitle;
+
+  /// Explanation for why front rules weren't imported
+  ///
+  /// In en, this message translates to:
+  /// **'Display rules and front conditions don\'t map to Prism\'s system.'**
+  String get migrationNotImportedFrontRulesDetail;
+
   /// Headline shown when import fails
   ///
   /// In en, this message translates to:

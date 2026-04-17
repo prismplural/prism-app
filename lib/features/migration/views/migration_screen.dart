@@ -962,6 +962,41 @@ class _CompleteView extends StatelessWidget {
           ),
         ],
 
+        const SizedBox(height: 16),
+
+        // Disclosure card — what didn't come over
+        PrismSectionCard(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.migrationNotImportedTitle,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _DisclosureRow(
+                title: context.l10n.migrationNotImportedFriendsTitle,
+                detail: context.l10n.migrationNotImportedFriendsDetail,
+              ),
+              _DisclosureRow(
+                title: context.l10n.migrationNotImportedBoardMetaTitle,
+                detail: context.l10n.migrationNotImportedBoardMetaDetail,
+              ),
+              _DisclosureRow(
+                title: context.l10n.migrationNotImportedNotifTitle,
+                detail: context.l10n.migrationNotImportedNotifDetail,
+              ),
+              _DisclosureRow(
+                title: context.l10n.migrationNotImportedFrontRulesTitle,
+                detail: context.l10n.migrationNotImportedFrontRulesDetail,
+              ),
+            ],
+          ),
+        ),
+
         const SizedBox(height: 24),
 
         PrismButton(
@@ -974,6 +1009,51 @@ class _CompleteView extends StatelessWidget {
           expanded: true,
         ),
       ],
+    );
+  }
+}
+
+class _DisclosureRow extends StatelessWidget {
+  const _DisclosureRow({required this.title, required this.detail});
+
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final mutedColor = theme.colorScheme.onSurfaceVariant;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1, right: 8),
+            child: Icon(Icons.info_outline, size: 16, color: mutedColor),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  detail,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: mutedColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
