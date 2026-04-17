@@ -109,11 +109,14 @@ class ImageBubble extends StatelessWidget {
     double h,
   ) {
     if (imageBytes != null) {
+      final dpr = MediaQuery.devicePixelRatioOf(context);
       return Image.memory(
         imageBytes!,
         fit: BoxFit.cover,
         width: w,
         height: h,
+        cacheWidth: (w * dpr).ceil(),
+        cacheHeight: (h * dpr).ceil(),
         semanticLabel: caption ?? context.l10n.chatImageAttachment,
         errorBuilder: (_, _, _) => _ErrorPlaceholder(width: w, height: h, onRetry: onRetry),
       );
