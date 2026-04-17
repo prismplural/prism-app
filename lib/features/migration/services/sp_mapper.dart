@@ -71,22 +71,39 @@ class SpMapper {
   static const _uuid = Uuid();
 
   /// Map of SP member ID to Prism UUID.
-  final Map<String, String> _memberIdMap = {};
+  final Map<String, String> _memberIdMap;
 
   /// Map of SP channel ID to Prism conversation UUID.
-  final Map<String, String> _channelIdMap = {};
+  final Map<String, String> _channelIdMap;
 
   /// Map of SP front history ID to Prism session UUID.
-  final Map<String, String> _sessionIdMap = {};
+  final Map<String, String> _sessionIdMap;
 
   /// Map of SP group ID to Prism group UUID.
-  final Map<String, String> _groupIdMap = {};
+  final Map<String, String> _groupIdMap;
 
   /// Map of SP custom field ID to Prism field UUID.
-  final Map<String, String> _fieldIdMap = {};
+  final Map<String, String> _fieldIdMap;
 
   /// Map of SP category ID to Prism category UUID.
-  final Map<String, String> _categoryIdMap = {};
+  final Map<String, String> _categoryIdMap;
+
+  /// Pre-seed maps from prior imports so IDs are stable across runs.
+  SpMapper({Map<String, Map<String, String>>? existingMappings})
+      : _memberIdMap = Map.of(existingMappings?['member'] ?? {}),
+        _channelIdMap = Map.of(existingMappings?['channel'] ?? {}),
+        _sessionIdMap = Map.of(existingMappings?['session'] ?? {}),
+        _groupIdMap = Map.of(existingMappings?['group'] ?? {}),
+        _fieldIdMap = Map.of(existingMappings?['field'] ?? {}),
+        _categoryIdMap = Map.of(existingMappings?['category'] ?? {});
+
+  // Expose ID maps as unmodifiable views so the importer can persist them.
+  Map<String, String> get memberIdMap => Map.unmodifiable(_memberIdMap);
+  Map<String, String> get channelIdMap => Map.unmodifiable(_channelIdMap);
+  Map<String, String> get sessionIdMap => Map.unmodifiable(_sessionIdMap);
+  Map<String, String> get groupIdMap => Map.unmodifiable(_groupIdMap);
+  Map<String, String> get fieldIdMap => Map.unmodifiable(_fieldIdMap);
+  Map<String, String> get categoryIdMap => Map.unmodifiable(_categoryIdMap);
 
   /// Map of SP channel ID to (categoryId, displayOrder) within the category.
   final Map<String, ({String categoryId, int displayOrder})> _channelCategoryInfo = {};
@@ -194,7 +211,7 @@ class SpMapper {
 
     for (var i = 0; i < spMembers.length; i++) {
       final sp = spMembers[i];
-      final prismId = _uuid.v4();
+      final prismId = _memberIdMap[sp.id] ?? _uuid.v4();
       _memberIdMap[sp.id] = prismId;
 
       // Track avatar URL for later download.
@@ -227,7 +244,7 @@ class SpMapper {
     // Map custom fronts as tagged members.
     for (var i = 0; i < customFronts.length; i++) {
       final cf = customFronts[i];
-      final prismId = _uuid.v4();
+      final prismId = _memberIdMap[cf.id] ?? _uuid.v4();
       _memberIdMap[cf.id] = prismId;
 
       if (cf.avatarUrl != null && cf.avatarUrl!.isNotEmpty) {
@@ -285,7 +302,7 @@ class SpMapper {
         }
       }
 
-      final sessionId = _uuid.v4();
+      final sessionId = _sessionIdMap[entry.id] ?? _uuid.v4();
       _sessionIdMap[entry.id] = sessionId;
 
       // Combine customStatus and comment when both exist.
@@ -321,7 +338,7 @@ class SpMapper {
 
     for (var i = 0; i < spCategories.length; i++) {
       final sp = spCategories[i];
-      final prismId = _uuid.v4();
+      final prismId = _categoryIdMap[sp.id] ?? _uuid.v4();
       _categoryIdMap[sp.id] = prismId;
 
       categories.add(domain.ConversationCategory(
@@ -349,7 +366,7 @@ class SpMapper {
     final conversations = <domain.Conversation>[];
 
     for (final ch in channels) {
-      final prismId = _uuid.v4();
+      final prismId = _channelIdMap[ch.id] ?? _uuid.v4();
       _channelIdMap[ch.id] = prismId;
 
       // Resolve participant IDs.
@@ -493,7 +510,7 @@ class SpMapper {
     final fields = <domain.CustomField>[];
     for (var i = 0; i < spFields.length; i++) {
       final sp = spFields[i];
-      final prismId = _uuid.v4();
+      final prismId = _fieldIdMap[sp.id] ?? _uuid.v4();
       _fieldIdMap[sp.id] = prismId;
 
       // Map SP integer type to Prism type.
@@ -565,7 +582,7 @@ class SpMapper {
     // First pass: create all groups and build the ID map.
     for (var i = 0; i < spGroups.length; i++) {
       final sp = spGroups[i];
-      final prismId = _uuid.v4();
+      final prismId = _groupIdMap[sp.id] ?? _uuid.v4();
       _groupIdMap[sp.id] = prismId;
 
       String? colorHex = sp.color;
