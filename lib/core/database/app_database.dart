@@ -49,6 +49,8 @@ part 'app_database.g.dart';
     Friends,
     SharingRequests,
     MediaAttachments,
+    SpSyncStateTable,
+    SpIdMapTable,
   ],
   daos: [
     MembersDao,
@@ -77,7 +79,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 46;
+  int get schemaVersion => 47;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -232,6 +234,28 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       }
+
+      if (from < 47) {
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS sp_sync_state (
+            id TEXT NOT NULL PRIMARY KEY,
+            last_import_at INTEGER,
+            sp_system_id TEXT
+          )
+        ''');
+        await customStatement('''
+          CREATE TABLE IF NOT EXISTS sp_id_map (
+            sp_id TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            prism_id TEXT NOT NULL,
+            PRIMARY KEY (sp_id, entity_type)
+          )
+        ''');
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_sp_id_map_entity_type '
+          'ON sp_id_map (entity_type)',
+        );
+      }
     },
     onCreate: (migrator) async {
       await migrator.createAll();
@@ -361,6 +385,10 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_media_attachments_message_id '
       'ON media_attachments (message_id)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_sp_id_map_entity_type '
+      'ON sp_id_map (entity_type)',
     );
   }
 

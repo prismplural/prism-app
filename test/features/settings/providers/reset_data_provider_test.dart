@@ -44,6 +44,8 @@ const _allUserDataTables = [
   'friends',
   'sharing_requests',
   'media_attachments',
+  'sp_sync_state',
+  'sp_id_map',
 ];
 
 void main() {
@@ -772,6 +774,24 @@ class _ResetHarness {
             expectedType: const Value('String'),
             receivedType: const Value('int'),
             createdAt: Value(now),
+          ),
+        );
+
+    // ── SP sync state ─────────────────────────────────────────────────
+    await db
+        .into(db.spSyncStateTable)
+        .insert(
+          const SpSyncStateTableCompanion(
+            id: Value('singleton'),
+          ),
+        );
+    await db
+        .into(db.spIdMapTable)
+        .insert(
+          const SpIdMapTableCompanion(
+            spId: Value('sp-member-1'),
+            entityType: Value('member'),
+            prismId: Value('member-1'),
           ),
         );
 

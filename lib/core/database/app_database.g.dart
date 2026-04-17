@@ -17987,6 +17987,544 @@ class MediaAttachmentsCompanion extends UpdateCompanion<MediaAttachment> {
   }
 }
 
+class $SpSyncStateTableTable extends SpSyncStateTable
+    with TableInfo<$SpSyncStateTableTable, SpSyncStateRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SpSyncStateTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastImportAtMeta = const VerificationMeta(
+    'lastImportAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastImportAt = GeneratedColumn<DateTime>(
+    'last_import_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _spSystemIdMeta = const VerificationMeta(
+    'spSystemId',
+  );
+  @override
+  late final GeneratedColumn<String> spSystemId = GeneratedColumn<String>(
+    'sp_system_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, lastImportAt, spSystemId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sp_sync_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SpSyncStateRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('last_import_at')) {
+      context.handle(
+        _lastImportAtMeta,
+        lastImportAt.isAcceptableOrUnknown(
+          data['last_import_at']!,
+          _lastImportAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sp_system_id')) {
+      context.handle(
+        _spSystemIdMeta,
+        spSystemId.isAcceptableOrUnknown(
+          data['sp_system_id']!,
+          _spSystemIdMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SpSyncStateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SpSyncStateRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      lastImportAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_import_at'],
+      ),
+      spSystemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sp_system_id'],
+      ),
+    );
+  }
+
+  @override
+  $SpSyncStateTableTable createAlias(String alias) {
+    return $SpSyncStateTableTable(attachedDatabase, alias);
+  }
+}
+
+class SpSyncStateRow extends DataClass implements Insertable<SpSyncStateRow> {
+  final String id;
+  final DateTime? lastImportAt;
+  final String? spSystemId;
+  const SpSyncStateRow({required this.id, this.lastImportAt, this.spSystemId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || lastImportAt != null) {
+      map['last_import_at'] = Variable<DateTime>(lastImportAt);
+    }
+    if (!nullToAbsent || spSystemId != null) {
+      map['sp_system_id'] = Variable<String>(spSystemId);
+    }
+    return map;
+  }
+
+  SpSyncStateTableCompanion toCompanion(bool nullToAbsent) {
+    return SpSyncStateTableCompanion(
+      id: Value(id),
+      lastImportAt: lastImportAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastImportAt),
+      spSystemId: spSystemId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(spSystemId),
+    );
+  }
+
+  factory SpSyncStateRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SpSyncStateRow(
+      id: serializer.fromJson<String>(json['id']),
+      lastImportAt: serializer.fromJson<DateTime?>(json['lastImportAt']),
+      spSystemId: serializer.fromJson<String?>(json['spSystemId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'lastImportAt': serializer.toJson<DateTime?>(lastImportAt),
+      'spSystemId': serializer.toJson<String?>(spSystemId),
+    };
+  }
+
+  SpSyncStateRow copyWith({
+    String? id,
+    Value<DateTime?> lastImportAt = const Value.absent(),
+    Value<String?> spSystemId = const Value.absent(),
+  }) => SpSyncStateRow(
+    id: id ?? this.id,
+    lastImportAt: lastImportAt.present ? lastImportAt.value : this.lastImportAt,
+    spSystemId: spSystemId.present ? spSystemId.value : this.spSystemId,
+  );
+  SpSyncStateRow copyWithCompanion(SpSyncStateTableCompanion data) {
+    return SpSyncStateRow(
+      id: data.id.present ? data.id.value : this.id,
+      lastImportAt: data.lastImportAt.present
+          ? data.lastImportAt.value
+          : this.lastImportAt,
+      spSystemId: data.spSystemId.present
+          ? data.spSystemId.value
+          : this.spSystemId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpSyncStateRow(')
+          ..write('id: $id, ')
+          ..write('lastImportAt: $lastImportAt, ')
+          ..write('spSystemId: $spSystemId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, lastImportAt, spSystemId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SpSyncStateRow &&
+          other.id == this.id &&
+          other.lastImportAt == this.lastImportAt &&
+          other.spSystemId == this.spSystemId);
+}
+
+class SpSyncStateTableCompanion extends UpdateCompanion<SpSyncStateRow> {
+  final Value<String> id;
+  final Value<DateTime?> lastImportAt;
+  final Value<String?> spSystemId;
+  final Value<int> rowid;
+  const SpSyncStateTableCompanion({
+    this.id = const Value.absent(),
+    this.lastImportAt = const Value.absent(),
+    this.spSystemId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SpSyncStateTableCompanion.insert({
+    required String id,
+    this.lastImportAt = const Value.absent(),
+    this.spSystemId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<SpSyncStateRow> custom({
+    Expression<String>? id,
+    Expression<DateTime>? lastImportAt,
+    Expression<String>? spSystemId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (lastImportAt != null) 'last_import_at': lastImportAt,
+      if (spSystemId != null) 'sp_system_id': spSystemId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SpSyncStateTableCompanion copyWith({
+    Value<String>? id,
+    Value<DateTime?>? lastImportAt,
+    Value<String?>? spSystemId,
+    Value<int>? rowid,
+  }) {
+    return SpSyncStateTableCompanion(
+      id: id ?? this.id,
+      lastImportAt: lastImportAt ?? this.lastImportAt,
+      spSystemId: spSystemId ?? this.spSystemId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (lastImportAt.present) {
+      map['last_import_at'] = Variable<DateTime>(lastImportAt.value);
+    }
+    if (spSystemId.present) {
+      map['sp_system_id'] = Variable<String>(spSystemId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpSyncStateTableCompanion(')
+          ..write('id: $id, ')
+          ..write('lastImportAt: $lastImportAt, ')
+          ..write('spSystemId: $spSystemId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SpIdMapTableTable extends SpIdMapTable
+    with TableInfo<$SpIdMapTableTable, SpIdMapRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SpIdMapTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _spIdMeta = const VerificationMeta('spId');
+  @override
+  late final GeneratedColumn<String> spId = GeneratedColumn<String>(
+    'sp_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _entityTypeMeta = const VerificationMeta(
+    'entityType',
+  );
+  @override
+  late final GeneratedColumn<String> entityType = GeneratedColumn<String>(
+    'entity_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _prismIdMeta = const VerificationMeta(
+    'prismId',
+  );
+  @override
+  late final GeneratedColumn<String> prismId = GeneratedColumn<String>(
+    'prism_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [spId, entityType, prismId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sp_id_map';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SpIdMapRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('sp_id')) {
+      context.handle(
+        _spIdMeta,
+        spId.isAcceptableOrUnknown(data['sp_id']!, _spIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_spIdMeta);
+    }
+    if (data.containsKey('entity_type')) {
+      context.handle(
+        _entityTypeMeta,
+        entityType.isAcceptableOrUnknown(data['entity_type']!, _entityTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_entityTypeMeta);
+    }
+    if (data.containsKey('prism_id')) {
+      context.handle(
+        _prismIdMeta,
+        prismId.isAcceptableOrUnknown(data['prism_id']!, _prismIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_prismIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {spId, entityType};
+  @override
+  SpIdMapRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SpIdMapRow(
+      spId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sp_id'],
+      )!,
+      entityType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}entity_type'],
+      )!,
+      prismId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}prism_id'],
+      )!,
+    );
+  }
+
+  @override
+  $SpIdMapTableTable createAlias(String alias) {
+    return $SpIdMapTableTable(attachedDatabase, alias);
+  }
+}
+
+class SpIdMapRow extends DataClass implements Insertable<SpIdMapRow> {
+  final String spId;
+  final String entityType;
+  final String prismId;
+  const SpIdMapRow({
+    required this.spId,
+    required this.entityType,
+    required this.prismId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['sp_id'] = Variable<String>(spId);
+    map['entity_type'] = Variable<String>(entityType);
+    map['prism_id'] = Variable<String>(prismId);
+    return map;
+  }
+
+  SpIdMapTableCompanion toCompanion(bool nullToAbsent) {
+    return SpIdMapTableCompanion(
+      spId: Value(spId),
+      entityType: Value(entityType),
+      prismId: Value(prismId),
+    );
+  }
+
+  factory SpIdMapRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SpIdMapRow(
+      spId: serializer.fromJson<String>(json['spId']),
+      entityType: serializer.fromJson<String>(json['entityType']),
+      prismId: serializer.fromJson<String>(json['prismId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'spId': serializer.toJson<String>(spId),
+      'entityType': serializer.toJson<String>(entityType),
+      'prismId': serializer.toJson<String>(prismId),
+    };
+  }
+
+  SpIdMapRow copyWith({String? spId, String? entityType, String? prismId}) =>
+      SpIdMapRow(
+        spId: spId ?? this.spId,
+        entityType: entityType ?? this.entityType,
+        prismId: prismId ?? this.prismId,
+      );
+  SpIdMapRow copyWithCompanion(SpIdMapTableCompanion data) {
+    return SpIdMapRow(
+      spId: data.spId.present ? data.spId.value : this.spId,
+      entityType: data.entityType.present
+          ? data.entityType.value
+          : this.entityType,
+      prismId: data.prismId.present ? data.prismId.value : this.prismId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpIdMapRow(')
+          ..write('spId: $spId, ')
+          ..write('entityType: $entityType, ')
+          ..write('prismId: $prismId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(spId, entityType, prismId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SpIdMapRow &&
+          other.spId == this.spId &&
+          other.entityType == this.entityType &&
+          other.prismId == this.prismId);
+}
+
+class SpIdMapTableCompanion extends UpdateCompanion<SpIdMapRow> {
+  final Value<String> spId;
+  final Value<String> entityType;
+  final Value<String> prismId;
+  final Value<int> rowid;
+  const SpIdMapTableCompanion({
+    this.spId = const Value.absent(),
+    this.entityType = const Value.absent(),
+    this.prismId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SpIdMapTableCompanion.insert({
+    required String spId,
+    required String entityType,
+    required String prismId,
+    this.rowid = const Value.absent(),
+  }) : spId = Value(spId),
+       entityType = Value(entityType),
+       prismId = Value(prismId);
+  static Insertable<SpIdMapRow> custom({
+    Expression<String>? spId,
+    Expression<String>? entityType,
+    Expression<String>? prismId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (spId != null) 'sp_id': spId,
+      if (entityType != null) 'entity_type': entityType,
+      if (prismId != null) 'prism_id': prismId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SpIdMapTableCompanion copyWith({
+    Value<String>? spId,
+    Value<String>? entityType,
+    Value<String>? prismId,
+    Value<int>? rowid,
+  }) {
+    return SpIdMapTableCompanion(
+      spId: spId ?? this.spId,
+      entityType: entityType ?? this.entityType,
+      prismId: prismId ?? this.prismId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (spId.present) {
+      map['sp_id'] = Variable<String>(spId.value);
+    }
+    if (entityType.present) {
+      map['entity_type'] = Variable<String>(entityType.value);
+    }
+    if (prismId.present) {
+      map['prism_id'] = Variable<String>(prismId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SpIdMapTableCompanion(')
+          ..write('spId: $spId, ')
+          ..write('entityType: $entityType, ')
+          ..write('prismId: $prismId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -18029,6 +18567,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MediaAttachmentsTable mediaAttachments = $MediaAttachmentsTable(
     this,
   );
+  late final $SpSyncStateTableTable spSyncStateTable = $SpSyncStateTableTable(
+    this,
+  );
+  late final $SpIdMapTableTable spIdMapTable = $SpIdMapTableTable(this);
   late final MembersDao membersDao = MembersDao(this as AppDatabase);
   late final FrontingSessionsDao frontingSessionsDao = FrontingSessionsDao(
     this as AppDatabase,
@@ -18102,6 +18644,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     friends,
     sharingRequests,
     mediaAttachments,
+    spSyncStateTable,
+    spIdMapTable,
   ];
 }
 
@@ -26573,6 +27117,342 @@ typedef $$MediaAttachmentsTableProcessedTableManager =
       MediaAttachment,
       PrefetchHooks Function()
     >;
+typedef $$SpSyncStateTableTableCreateCompanionBuilder =
+    SpSyncStateTableCompanion Function({
+      required String id,
+      Value<DateTime?> lastImportAt,
+      Value<String?> spSystemId,
+      Value<int> rowid,
+    });
+typedef $$SpSyncStateTableTableUpdateCompanionBuilder =
+    SpSyncStateTableCompanion Function({
+      Value<String> id,
+      Value<DateTime?> lastImportAt,
+      Value<String?> spSystemId,
+      Value<int> rowid,
+    });
+
+class $$SpSyncStateTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SpSyncStateTableTable> {
+  $$SpSyncStateTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastImportAt => $composableBuilder(
+    column: $table.lastImportAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get spSystemId => $composableBuilder(
+    column: $table.spSystemId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SpSyncStateTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SpSyncStateTableTable> {
+  $$SpSyncStateTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastImportAt => $composableBuilder(
+    column: $table.lastImportAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get spSystemId => $composableBuilder(
+    column: $table.spSystemId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SpSyncStateTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SpSyncStateTableTable> {
+  $$SpSyncStateTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastImportAt => $composableBuilder(
+    column: $table.lastImportAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get spSystemId => $composableBuilder(
+    column: $table.spSystemId,
+    builder: (column) => column,
+  );
+}
+
+class $$SpSyncStateTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SpSyncStateTableTable,
+          SpSyncStateRow,
+          $$SpSyncStateTableTableFilterComposer,
+          $$SpSyncStateTableTableOrderingComposer,
+          $$SpSyncStateTableTableAnnotationComposer,
+          $$SpSyncStateTableTableCreateCompanionBuilder,
+          $$SpSyncStateTableTableUpdateCompanionBuilder,
+          (
+            SpSyncStateRow,
+            BaseReferences<
+              _$AppDatabase,
+              $SpSyncStateTableTable,
+              SpSyncStateRow
+            >,
+          ),
+          SpSyncStateRow,
+          PrefetchHooks Function()
+        > {
+  $$SpSyncStateTableTableTableManager(
+    _$AppDatabase db,
+    $SpSyncStateTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SpSyncStateTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SpSyncStateTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SpSyncStateTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<DateTime?> lastImportAt = const Value.absent(),
+                Value<String?> spSystemId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SpSyncStateTableCompanion(
+                id: id,
+                lastImportAt: lastImportAt,
+                spSystemId: spSystemId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<DateTime?> lastImportAt = const Value.absent(),
+                Value<String?> spSystemId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SpSyncStateTableCompanion.insert(
+                id: id,
+                lastImportAt: lastImportAt,
+                spSystemId: spSystemId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SpSyncStateTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SpSyncStateTableTable,
+      SpSyncStateRow,
+      $$SpSyncStateTableTableFilterComposer,
+      $$SpSyncStateTableTableOrderingComposer,
+      $$SpSyncStateTableTableAnnotationComposer,
+      $$SpSyncStateTableTableCreateCompanionBuilder,
+      $$SpSyncStateTableTableUpdateCompanionBuilder,
+      (
+        SpSyncStateRow,
+        BaseReferences<_$AppDatabase, $SpSyncStateTableTable, SpSyncStateRow>,
+      ),
+      SpSyncStateRow,
+      PrefetchHooks Function()
+    >;
+typedef $$SpIdMapTableTableCreateCompanionBuilder =
+    SpIdMapTableCompanion Function({
+      required String spId,
+      required String entityType,
+      required String prismId,
+      Value<int> rowid,
+    });
+typedef $$SpIdMapTableTableUpdateCompanionBuilder =
+    SpIdMapTableCompanion Function({
+      Value<String> spId,
+      Value<String> entityType,
+      Value<String> prismId,
+      Value<int> rowid,
+    });
+
+class $$SpIdMapTableTableFilterComposer
+    extends Composer<_$AppDatabase, $SpIdMapTableTable> {
+  $$SpIdMapTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get spId => $composableBuilder(
+    column: $table.spId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get prismId => $composableBuilder(
+    column: $table.prismId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SpIdMapTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $SpIdMapTableTable> {
+  $$SpIdMapTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get spId => $composableBuilder(
+    column: $table.spId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get prismId => $composableBuilder(
+    column: $table.prismId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SpIdMapTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SpIdMapTableTable> {
+  $$SpIdMapTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get spId =>
+      $composableBuilder(column: $table.spId, builder: (column) => column);
+
+  GeneratedColumn<String> get entityType => $composableBuilder(
+    column: $table.entityType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get prismId =>
+      $composableBuilder(column: $table.prismId, builder: (column) => column);
+}
+
+class $$SpIdMapTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SpIdMapTableTable,
+          SpIdMapRow,
+          $$SpIdMapTableTableFilterComposer,
+          $$SpIdMapTableTableOrderingComposer,
+          $$SpIdMapTableTableAnnotationComposer,
+          $$SpIdMapTableTableCreateCompanionBuilder,
+          $$SpIdMapTableTableUpdateCompanionBuilder,
+          (
+            SpIdMapRow,
+            BaseReferences<_$AppDatabase, $SpIdMapTableTable, SpIdMapRow>,
+          ),
+          SpIdMapRow,
+          PrefetchHooks Function()
+        > {
+  $$SpIdMapTableTableTableManager(_$AppDatabase db, $SpIdMapTableTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SpIdMapTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SpIdMapTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SpIdMapTableTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> spId = const Value.absent(),
+                Value<String> entityType = const Value.absent(),
+                Value<String> prismId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SpIdMapTableCompanion(
+                spId: spId,
+                entityType: entityType,
+                prismId: prismId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String spId,
+                required String entityType,
+                required String prismId,
+                Value<int> rowid = const Value.absent(),
+              }) => SpIdMapTableCompanion.insert(
+                spId: spId,
+                entityType: entityType,
+                prismId: prismId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SpIdMapTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SpIdMapTableTable,
+      SpIdMapRow,
+      $$SpIdMapTableTableFilterComposer,
+      $$SpIdMapTableTableOrderingComposer,
+      $$SpIdMapTableTableAnnotationComposer,
+      $$SpIdMapTableTableCreateCompanionBuilder,
+      $$SpIdMapTableTableUpdateCompanionBuilder,
+      (
+        SpIdMapRow,
+        BaseReferences<_$AppDatabase, $SpIdMapTableTable, SpIdMapRow>,
+      ),
+      SpIdMapRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -26628,4 +27508,8 @@ class $AppDatabaseManager {
       $$SharingRequestsTableTableManager(_db, _db.sharingRequests);
   $$MediaAttachmentsTableTableManager get mediaAttachments =>
       $$MediaAttachmentsTableTableManager(_db, _db.mediaAttachments);
+  $$SpSyncStateTableTableTableManager get spSyncStateTable =>
+      $$SpSyncStateTableTableTableManager(_db, _db.spSyncStateTable);
+  $$SpIdMapTableTableTableManager get spIdMapTable =>
+      $$SpIdMapTableTableTableManager(_db, _db.spIdMapTable);
 }
