@@ -5975,6 +5975,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get onboardingSyncMembersLabel => 'System members';
+
+  @override
   String get onboardingSyncPhaseConnectTitle => 'Connecting…';
 
   @override

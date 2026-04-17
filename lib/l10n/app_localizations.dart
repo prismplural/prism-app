@@ -10310,6 +10310,12 @@ abstract class AppLocalizations {
   /// **'{hours} hours'**
   String featureSleepWakeAfterHours(String hours);
 
+  /// No description provided for @onboardingSyncMembersLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'System members'**
+  String get onboardingSyncMembersLabel;
+
   /// No description provided for @onboardingSyncPhaseConnectTitle.
   ///
   /// In en, this message translates to:

@@ -7056,6 +7056,7 @@
       }
     }
   },
+  "onboardingSyncMembersLabel": "System members",
   "onboardingSyncPhaseConnectTitle": "Connecting…",
   "onboardingSyncPhaseConnectSubtitle": "Saying hello to your other device",
   "onboardingSyncPhaseDownloadTitle": "Downloading your system",

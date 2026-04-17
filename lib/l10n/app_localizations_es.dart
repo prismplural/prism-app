@@ -6084,6 +6084,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get onboardingSyncMembersLabel => 'Integrantes del sistema';
+
+  @override
   String get onboardingSyncPhaseConnectTitle => 'Conectando…';
 
   @override

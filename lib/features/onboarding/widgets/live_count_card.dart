@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 /// Priority order for which entity keys to surface first.
@@ -13,21 +13,13 @@ const _kPriorityKeys = [
   'notes',
 ];
 
-String _labelForKey(String key, SystemTerminology terminology) {
+String _labelForKey(String key, BuildContext context) {
   switch (key) {
     case 'members':
-      switch (terminology) {
-        case SystemTerminology.members:
-          return 'Members';
-        case SystemTerminology.alters:
-          return 'Alters';
-        case SystemTerminology.parts:
-          return 'Parts';
-        case SystemTerminology.facets:
-          return 'Facets';
-        default:
-          return 'Headmates';
-      }
+      // Why: during sync setup on device 2 we haven't restored SystemSettings
+      // yet, so we don't know the user's preferred terminology. Use a neutral
+      // label instead of flipping from a default to the user's term mid-sync.
+      return context.l10n.onboardingSyncMembersLabel;
     case 'fronting_sessions':
       return 'Fronting sessions';
     case 'conversations':
@@ -39,7 +31,6 @@ String _labelForKey(String key, SystemTerminology terminology) {
     case 'notes':
       return 'Notes';
     default:
-      // De-snake_case: "member_groups" → "Member groups"
       final words = key.split('_');
       if (words.isEmpty) return key;
       return '${words.first[0].toUpperCase()}${words.first.substring(1)} ${words.skip(1).join(' ')}'.trim();
@@ -62,7 +53,6 @@ List<MapEntry<String, int>> _pickRows(Map<String, int> counts) {
     }
   }
 
-  // Fill remaining slots with keys not in the priority list (insertion order).
   for (final entry in nonZero.entries) {
     if (result.length >= 4) break;
     if (!_kPriorityKeys.contains(entry.key)) {
@@ -75,11 +65,9 @@ List<MapEntry<String, int>> _pickRows(Map<String, int> counts) {
 
 class LiveCountCard extends StatefulWidget {
   final Map<String, int> counts;
-  final SystemTerminology terminology;
 
   const LiveCountCard({
     required this.counts,
-    required this.terminology,
     super.key,
   });
 
@@ -88,14 +76,12 @@ class LiveCountCard extends StatefulWidget {
 }
 
 class _LiveCountCardState extends State<LiveCountCard> {
-  // Previous snapshot used to decide whether to tween a value.
   final Map<String, int> _prev = {};
   bool _hasEverMounted = false;
 
   @override
   void didUpdateWidget(LiveCountCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Snapshot old counts so we can compare deltas in build.
     _prev
       ..clear()
       ..addAll(oldWidget.counts);
@@ -144,7 +130,7 @@ class _LiveCountCardState extends State<LiveCountCard> {
                     final tweenDuration = disableAnim
                         ? Duration.zero
                         : const Duration(milliseconds: 400);
-                    final label = _labelForKey(key, widget.terminology);
+                    final label = _labelForKey(key, context);
 
                     final countWidget = shouldTween
                         ? TweenAnimationBuilder<int>(
