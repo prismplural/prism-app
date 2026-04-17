@@ -8,7 +8,6 @@ import 'package:share_plus/share_plus.dart';
 
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_field_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -71,30 +70,12 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
     _startExport(password: password);
   }
 
-  Future<void> _confirmPlaintextExport() async {
-    final confirmed = await PrismDialog.confirm(
-      context: context,
-      title: context.l10n.dataManagementExportWithoutEncryptionTitle,
-      message: context.l10n.dataManagementExportWithoutEncryptionMessage,
-      confirmLabel: context.l10n.dataManagementExportUnencryptedConfirm,
-    );
-
-    if (confirmed) {
-      await _startExport(unencrypted: true);
-    }
-  }
-
-  Future<void> _startExport({
-    String? password,
-    bool unencrypted = false,
-  }) async {
+  Future<void> _startExport({required String password}) async {
     File? file;
     setState(() => _state = _ExportState.exporting);
     try {
       final service = ref.read(dataExportServiceProvider);
-      file = unencrypted
-          ? await service.exportPlaintextData()
-          : await service.exportEncryptedData(password: password!);
+      file = await service.exportEncryptedData(password: password);
       if (!mounted) return;
       setState(() {
         _state = _ExportState.complete;
@@ -297,25 +278,11 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           onSubmitted: (_) => _onPasswordSubmit(),
         ),
         const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: PrismButton(
-                onPressed: _confirmPlaintextExport,
-                label: context.l10n.dataManagementExportUnencrypted,
-                tone: PrismButtonTone.outlined,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: PrismButton(
-                onPressed: _onPasswordSubmit,
-                icon: AppIcons.lock,
-                label: context.l10n.dataManagementEncrypt,
-                tone: PrismButtonTone.filled,
-              ),
-            ),
-          ],
+        PrismButton(
+          onPressed: _onPasswordSubmit,
+          icon: AppIcons.lock,
+          label: context.l10n.dataManagementEncrypt,
+          tone: PrismButtonTone.filled,
         ),
       ],
     );

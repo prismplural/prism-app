@@ -483,6 +483,7 @@ class _PrismExportImportFlowState
   _PrismExportStep _step = _PrismExportStep.idle;
   String? _errorMessage;
   String? _jsonContent;
+  List<({String mediaId, Uint8List blob})> _mediaBlobs = const [];
   Uint8List? _fileBytes;
   ImportPreview? _preview;
 
@@ -523,12 +524,13 @@ class _PrismExportImportFlowState
       }
 
       final service = ref.read(dataImportServiceProvider);
-      final json = DataImportService.resolveBytes(bytes);
-      final preview = service.parsePreview(json);
+      final resolved = DataImportService.resolveBytes(bytes);
+      final preview = service.parsePreview(resolved.json);
 
       setState(() {
         _step = _PrismExportStep.preview;
-        _jsonContent = json;
+        _jsonContent = resolved.json;
+        _mediaBlobs = resolved.mediaBlobs;
         _preview = preview;
         _errorMessage = null;
       });
@@ -555,17 +557,18 @@ class _PrismExportImportFlowState
     }
 
     try {
-      final json = DataImportService.resolveBytes(
+      final resolved = DataImportService.resolveBytes(
         _fileBytes!,
         password: password,
       );
       final service = ref.read(dataImportServiceProvider);
-      final preview = service.parsePreview(json);
+      final preview = service.parsePreview(resolved.json);
 
       if (!mounted) return;
       setState(() {
         _step = _PrismExportStep.preview;
-        _jsonContent = json;
+        _jsonContent = resolved.json;
+        _mediaBlobs = resolved.mediaBlobs;
         _preview = preview;
         _passwordError = null;
       });
@@ -591,6 +594,7 @@ class _PrismExportImportFlowState
       final service = ref.read(dataImportServiceProvider);
       await service.importData(
         jsonContent,
+        mediaBlobs: _mediaBlobs,
         preserveImportedOnboardingState: false,
       );
       if (!mounted) return;

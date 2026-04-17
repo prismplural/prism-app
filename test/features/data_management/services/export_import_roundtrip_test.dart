@@ -72,6 +72,7 @@ DataExportService _makeExport(AppDatabase db) => DataExportService(
   ),
   remindersRepository: DriftRemindersRepository(db.remindersDao, null),
   friendsRepository: DriftFriendsRepository(db.friendsDao, null),
+  mediaAttachmentsDao: db.mediaAttachmentsDao,
 );
 
 DataImportService _makeImport(AppDatabase db) => DataImportService(

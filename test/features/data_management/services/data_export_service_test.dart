@@ -64,7 +64,9 @@ DataExportService _makeExport(
   ),
   remindersRepository: DriftRemindersRepository(db.remindersDao, null),
   friendsRepository: DriftFriendsRepository(db.friendsDao, null),
+  mediaAttachmentsDao: db.mediaAttachmentsDao,
   cacheDirectoryProvider: () async => cacheDir,
+  appSupportDirectoryProvider: () async => cacheDir,
 );
 
 void main() {
@@ -95,22 +97,7 @@ void main() {
       final bytes = await file.readAsBytes();
       expect(ExportCrypto.isEncrypted(bytes), isTrue);
 
-      final json = ExportCrypto.decrypt(bytes, 'test-password');
-      final export = jsonDecode(json) as Map<String, dynamic>;
-      expect(export['appName'], 'Prism Plurality');
-      expect(export['version'], '3.0');
-    });
-
-    test('exportPlaintextData writes an unencrypted .json file', () async {
-      final file = await exportService.exportPlaintextData();
-
-      expect(file.path, endsWith('.json'));
-      expect(await file.exists(), isTrue);
-
-      final bytes = await file.readAsBytes();
-      expect(ExportCrypto.isEncrypted(bytes), isFalse);
-
-      final json = await file.readAsString();
+      final json = ExportCrypto.decrypt(bytes, 'test-password').json;
       final export = jsonDecode(json) as Map<String, dynamic>;
       expect(export['appName'], 'Prism Plurality');
       expect(export['version'], '3.0');

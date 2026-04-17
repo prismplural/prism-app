@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
-    show AppDatabase, PluralKitSyncStateCompanion;
+    show AppDatabase, MediaAttachmentsCompanion, PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
@@ -45,6 +47,7 @@ class ImportPreview {
     this.conversationCategories = 0,
     this.reminders = 0,
     this.friends = 0,
+    this.mediaAttachments = 0,
     this.formatVersion = '',
     this.exportDate = '',
   });
@@ -68,6 +71,7 @@ class ImportPreview {
   final int conversationCategories;
   final int reminders;
   final int friends;
+  final int mediaAttachments;
   final String formatVersion;
   final String exportDate;
 
@@ -90,7 +94,8 @@ class ImportPreview {
       frontSessionComments +
       conversationCategories +
       reminders +
-      friends;
+      friends +
+      mediaAttachments;
 }
 
 /// Result of a completed import operation.
@@ -115,6 +120,7 @@ class ImportResult {
     this.conversationCategoriesCreated = 0,
     this.remindersCreated = 0,
     this.friendsCreated = 0,
+    this.mediaAttachmentsCreated = 0,
   });
 
   final int membersCreated;
@@ -136,6 +142,7 @@ class ImportResult {
   final int conversationCategoriesCreated;
   final int remindersCreated;
   final int friendsCreated;
+  final int mediaAttachmentsCreated;
 
   int get totalRecordsCreated =>
       membersCreated +
@@ -156,7 +163,8 @@ class ImportResult {
       frontSessionCommentsCreated +
       conversationCategoriesCreated +
       remindersCreated +
-      friendsCreated;
+      friendsCreated +
+      mediaAttachmentsCreated;
 }
 
 class DataImportService {
@@ -196,20 +204,22 @@ class DataImportService {
   final RemindersRepository remindersRepository;
   final FriendsRepository friendsRepository;
 
-  /// Resolve raw file bytes to a JSON string.
+  /// Resolve raw file bytes to a JSON string and optional media blobs.
   ///
-  /// If the bytes start with the `PRISM1` magic header, [password] is used to
-  /// decrypt. Otherwise the bytes are treated as plain-text UTF-8 JSON.
-  static String resolveBytes(Uint8List bytes, {String? password}) {
+  /// PRISM3 encrypted files return both the JSON and any embedded media blobs.
+  /// Plain-text JSON files (e.g. Simply Plural exports) return empty mediaBlobs.
+  static ({String json, List<({String mediaId, Uint8List blob})> mediaBlobs})
+  resolveBytes(Uint8List bytes, {String? password}) {
     if (ExportCrypto.isEncrypted(bytes)) {
       if (password == null || password.isEmpty) {
         throw const FormatException(
           'This file is encrypted. Please provide a password.',
         );
       }
-      return ExportCrypto.decrypt(bytes, password);
+      final result = ExportCrypto.decrypt(bytes, password);
+      return (json: result.json, mediaBlobs: result.mediaBlobs);
     }
-    return utf8.decode(bytes);
+    return (json: utf8.decode(bytes), mediaBlobs: const []);
   }
 
   /// Recognized format versions that this service can import.
@@ -249,6 +259,7 @@ class DataImportService {
       conversationCategories: export.conversationCategories.length,
       reminders: export.reminders.length,
       friends: export.friends.length,
+      mediaAttachments: export.mediaAttachments.length,
       formatVersion: export.formatVersion,
       exportDate: export.exportDate,
     );
@@ -261,6 +272,7 @@ class DataImportService {
   /// the exception propagates to the caller — the database is left unchanged.
   Future<ImportResult> importData(
     String json, {
+    List<({String mediaId, Uint8List blob})> mediaBlobs = const [],
     bool preserveImportedOnboardingState = true,
   }) async {
     final map = jsonDecode(json) as Map<String, dynamic>;
@@ -273,7 +285,7 @@ class DataImportService {
       );
     }
 
-    return db.transaction(() async {
+    final result = await db.transaction(() async {
       // 1. Import members (first pass: create)
       var membersCreated = 0;
       final existingMembers = await memberRepository.getAllMembers();
@@ -880,6 +892,37 @@ class DataImportService {
         friendsCreated++;
       }
 
+      // 20. Import media attachment metadata
+      var mediaAttachmentsCreated = 0;
+      final existingMediaIds = (await db.mediaAttachmentsDao.getAll())
+          .map((a) => a.id)
+          .toSet();
+
+      for (final a in export.mediaAttachments) {
+        if (existingMediaIds.contains(a.id)) continue;
+        await db.mediaAttachmentsDao.insertAttachment(
+          MediaAttachmentsCompanion.insert(
+            id: a.id,
+            messageId: Value(a.messageId),
+            mediaId: Value(a.mediaId),
+            mediaType: Value(a.mediaType),
+            encryptionKeyB64: Value(a.encryptionKeyB64),
+            contentHash: Value(a.contentHash),
+            plaintextHash: Value(a.plaintextHash),
+            mimeType: Value(a.mimeType),
+            sizeBytes: Value(a.sizeBytes),
+            width: Value(a.width),
+            height: Value(a.height),
+            durationMs: Value(a.durationMs),
+            blurhash: Value(a.blurhash),
+            waveformB64: Value(a.waveformB64),
+            thumbnailMediaId: Value(a.thumbnailMediaId),
+            isDeleted: Value(a.isDeleted),
+          ),
+        );
+        mediaAttachmentsCreated++;
+      }
+
       return ImportResult(
         membersCreated: membersCreated,
         frontSessionsCreated: frontSessionsCreated,
@@ -900,7 +943,28 @@ class DataImportService {
         conversationCategoriesCreated: conversationCategoriesCreated,
         remindersCreated: remindersCreated,
         friendsCreated: friendsCreated,
+        mediaAttachmentsCreated: mediaAttachmentsCreated,
       );
     });
+
+    // Write media blobs to local encrypted cache so they are available
+    // immediately without downloading from the relay.
+    if (mediaBlobs.isNotEmpty) {
+      await _cacheMediaBlobs(mediaBlobs);
+    }
+
+    return result;
+  }
+
+  Future<void> _cacheMediaBlobs(
+    List<({String mediaId, Uint8List blob})> blobs,
+  ) async {
+    final appSupport = await getApplicationSupportDirectory();
+    final mediaDir = Directory('${appSupport.path}/prism_media');
+    await mediaDir.create(recursive: true);
+    for (final entry in blobs) {
+      final file = File('${mediaDir.path}/${entry.mediaId}.enc');
+      await file.writeAsBytes(entry.blob);
+    }
   }
 }

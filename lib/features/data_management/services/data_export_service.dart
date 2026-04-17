@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
@@ -40,9 +42,13 @@ class DataExportService {
     required this.conversationCategoriesRepository,
     required this.remindersRepository,
     required this.friendsRepository,
+    required this.mediaAttachmentsDao,
     Future<Directory> Function()? cacheDirectoryProvider,
+    Future<Directory> Function()? appSupportDirectoryProvider,
   }) : _cacheDirectoryProvider =
-           cacheDirectoryProvider ?? getApplicationCacheDirectory;
+           cacheDirectoryProvider ?? getApplicationCacheDirectory,
+       _appSupportDirectoryProvider =
+           appSupportDirectoryProvider ?? getApplicationSupportDirectory;
 
   final MemberRepository memberRepository;
   final FrontingSessionRepository frontingSessionRepository;
@@ -59,7 +65,9 @@ class DataExportService {
   final ConversationCategoriesRepository conversationCategoriesRepository;
   final RemindersRepository remindersRepository;
   final FriendsRepository friendsRepository;
+  final MediaAttachmentsDao mediaAttachmentsDao;
   final Future<Directory> Function() _cacheDirectoryProvider;
+  final Future<Directory> Function() _appSupportDirectoryProvider;
 
   /// Build the [V3Export] model from the current database state.
   ///
@@ -149,6 +157,27 @@ class DataExportService {
     final friends = await friendsRepository.watchAll().first;
     final v3Friends = friends.map(_mapFriend).toList();
 
+    // Fetch media attachments
+    final allMediaAttachments = await mediaAttachmentsDao.getAll();
+    final v3MediaAttachments = allMediaAttachments.map((a) => V3MediaAttachment(
+      id: a.id,
+      messageId: a.messageId,
+      mediaId: a.mediaId,
+      mediaType: a.mediaType,
+      encryptionKeyB64: a.encryptionKeyB64,
+      contentHash: a.contentHash,
+      plaintextHash: a.plaintextHash,
+      mimeType: a.mimeType,
+      sizeBytes: a.sizeBytes,
+      width: a.width,
+      height: a.height,
+      durationMs: a.durationMs,
+      blurhash: a.blurhash,
+      waveformB64: a.waveformB64,
+      thumbnailMediaId: a.thumbnailMediaId,
+      isDeleted: a.isDeleted,
+    )).toList();
+
     // Fetch PluralKit sync state
     final pkState = await pluralKitSyncDao.getSyncState();
     final v3PkSyncState = V3PluralKitSyncState(
@@ -177,7 +206,8 @@ class DataExportService {
         v3FrontSessionComments.length +
         v3ConversationCategories.length +
         v3Reminders.length +
-        v3Friends.length;
+        v3Friends.length +
+        v3MediaAttachments.length;
 
     return V3Export(
       formatVersion: '2025.1',
@@ -205,42 +235,49 @@ class DataExportService {
       conversationCategories: v3ConversationCategories,
       reminders: v3Reminders,
       friends: v3Friends,
+      mediaAttachments: v3MediaAttachments,
     );
   }
 
-  /// Export all data as an encrypted `.prism` file.
+  /// Export all data as an encrypted `.prism` file (PRISM3 format).
+  ///
+  /// Media blobs are read from the local encrypted cache and carried verbatim
+  /// alongside the JSON. If a blob is not cached locally it is silently skipped.
   Future<File> exportEncryptedData({required String password}) async {
     final export = await buildExport();
     final jsonStr = const JsonEncoder.withIndent('  ').convert(export.toJson());
-    return _writeExportFile(jsonStr, password: password, extension: 'prism');
-  }
 
-  /// Export all data as a plaintext `.json` file.
-  ///
-  /// This is an explicit insecure path for compatibility and manual sharing.
-  Future<File> exportPlaintextData() async {
-    final export = await buildExport();
-    final jsonStr = const JsonEncoder.withIndent('  ').convert(export.toJson());
-    return _writeExportFile(jsonStr, extension: 'json');
-  }
+    final mediaBlobs = await _collectMediaBlobs(export.mediaAttachments);
 
-  Future<File> _writeExportFile(
-    String jsonStr, {
-    String? password,
-    required String extension,
-  }) async {
     final cacheDir = await _cacheDirectoryProvider();
     final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final file = File('${cacheDir.path}/Prism-Export-$dateStr.$extension');
-
-    if (password != null) {
-      final encrypted = ExportCrypto.encrypt(jsonStr, password);
-      await file.writeAsBytes(encrypted);
-      return file;
-    }
-
-    await file.writeAsString(jsonStr);
+    final file = File('${cacheDir.path}/Prism-Export-$dateStr.prism');
+    final encrypted = ExportCrypto.encrypt(jsonStr, mediaBlobs, password);
+    await file.writeAsBytes(encrypted);
     return file;
+  }
+
+  /// Reads encrypted blobs for [attachments] from the local media cache.
+  ///
+  /// Returns one entry per cached blob. Both main and thumbnail blobs are
+  /// included (they share the same encryption key). Missing files are skipped.
+  Future<List<({String mediaId, Uint8List blob})>> _collectMediaBlobs(
+    List<V3MediaAttachment> attachments,
+  ) async {
+    final appSupport = await _appSupportDirectoryProvider();
+    final mediaDir = Directory('${appSupport.path}/prism_media');
+    final blobs = <({String mediaId, Uint8List blob})>[];
+
+    for (final attachment in attachments) {
+      for (final mediaId in [attachment.mediaId, attachment.thumbnailMediaId]) {
+        if (mediaId.isEmpty) continue;
+        final file = File('${mediaDir.path}/$mediaId.enc');
+        if (file.existsSync()) {
+          blobs.add((mediaId: mediaId, blob: file.readAsBytesSync()));
+        }
+      }
+    }
+    return blobs;
   }
 
   // -- Mapping helpers -------------------------------------------------------
