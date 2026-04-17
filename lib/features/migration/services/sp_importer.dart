@@ -85,6 +85,10 @@ class ImportResult {
 class SpImporter {
   static const _uuid = Uuid();
 
+  SpImporter({http.Client? httpClient}) : _http = httpClient ?? http.Client();
+
+  final http.Client _http;
+
   /// Parse an export file and return structured data.
   SpExportData parseFile(String filePath) {
     final file = File(filePath);
@@ -308,6 +312,7 @@ class SpImporter {
         mapped.members,
         mapped.avatarUrls,
         memberRepo,
+        warnings: warnings,
         onProgress: (count) {
           onProgress?.call(
             totalItems,
@@ -347,6 +352,7 @@ class SpImporter {
     List<Member> members,
     Map<String, String> avatarUrls,
     MemberRepository memberRepo, {
+    List<String>? warnings,
     void Function(int count)? onProgress,
   }) async {
     var downloaded = 0;
@@ -357,11 +363,17 @@ class SpImporter {
       if (url == null) continue;
 
       try {
-        final response = await http
+        final response = await _http
             .get(Uri.parse(url))
             .timeout(const Duration(seconds: 10));
 
         if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          final contentType = response.headers['content-type'] ?? '';
+          if (!contentType.startsWith('image/')) {
+            warnings?.add('Avatar download returned non-image content for ${member.id} ($contentType)');
+            failed++;
+            continue;
+          }
           await memberRepo.updateMember(
             member.copyWith(avatarImageData: response.bodyBytes),
           );
