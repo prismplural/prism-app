@@ -59,41 +59,44 @@ class OnboardingDataReadyView extends StatelessWidget {
           if (notice != null) ...[const SizedBox(height: 12), notice!],
           if (counts != null) ...[
             const SizedBox(height: 28),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppColors.warmWhite.withValues(alpha: 0.1)
-                    : AppColors.parchmentElevated,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    summaryLabel,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: isDark
-                          ? AppColors.mutedTextDark
-                          : AppColors.mutedTextLight,
-                      letterSpacing: 0.8,
+            Hero(
+              tag: 'sync-progress-count-card',
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.warmWhite.withValues(alpha: 0.1)
+                      : AppColors.parchmentElevated,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      summaryLabel,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? AppColors.mutedTextDark
+                            : AppColors.mutedTextLight,
+                        letterSpacing: 0.8,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  OnboardingCountRow(label: context.l10n.onboardingDataReadyMembers, count: counts!.members),
-                  OnboardingCountRow(
-                    label: context.l10n.onboardingDataReadyFrontingSessions,
-                    count: counts!.frontingSessions,
-                  ),
-                  OnboardingCountRow(
-                    label: context.l10n.onboardingDataReadyConversations,
-                    count: counts!.conversations,
-                  ),
-                  OnboardingCountRow(label: context.l10n.onboardingDataReadyMessages, count: counts!.messages),
-                  OnboardingCountRow(label: context.l10n.onboardingDataReadyHabits, count: counts!.habits),
-                  OnboardingCountRow(label: context.l10n.onboardingDataReadyNotes, count: counts!.notes),
-                ],
+                    const SizedBox(height: 12),
+                    OnboardingCountRow(label: context.l10n.onboardingDataReadyMembers, count: counts!.members),
+                    OnboardingCountRow(
+                      label: context.l10n.onboardingDataReadyFrontingSessions,
+                      count: counts!.frontingSessions,
+                    ),
+                    OnboardingCountRow(
+                      label: context.l10n.onboardingDataReadyConversations,
+                      count: counts!.conversations,
+                    ),
+                    OnboardingCountRow(label: context.l10n.onboardingDataReadyMessages, count: counts!.messages),
+                    OnboardingCountRow(label: context.l10n.onboardingDataReadyHabits, count: counts!.habits),
+                    OnboardingCountRow(label: context.l10n.onboardingDataReadyNotes, count: counts!.notes),
+                  ],
+                ),
               ),
             ),
           ],

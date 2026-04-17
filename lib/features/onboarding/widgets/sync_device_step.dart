@@ -8,6 +8,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
+import 'package:prism_plurality/features/onboarding/widgets/sync_progress_view.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/secure_scope.dart';
@@ -67,7 +68,7 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
               ref.read(devicePairingProvider.notifier).completeJoinerWithPin(pin),
         );
       case PairingStep.connecting:
-        child = const _ConnectingView(key: ValueKey('connecting'));
+        child = const SyncProgressView(key: ValueKey('connecting'));
       case PairingStep.success:
         child = OnboardingDataReadyView(
           key: const ValueKey('success'),
@@ -618,48 +619,6 @@ class _NumpadButton extends StatelessWidget {
                 ),
               )
             : Icon(icon, size: 24, color: AppColors.warmWhite),
-      ),
-    );
-  }
-}
-
-class _ConnectingView extends StatelessWidget {
-  const _ConnectingView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(48),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const PrismSpinner(
-              color: AppColors.warmWhite,
-              size: 52,
-              dotCount: 8,
-              duration: Duration(milliseconds: 3000),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              context.l10n.onboardingSyncConnecting,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: AppColors.warmWhite,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.onboardingSyncConnectingSubtitle,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.warmWhite.withValues(alpha: 0.6),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }

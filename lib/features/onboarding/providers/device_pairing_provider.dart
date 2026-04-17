@@ -11,6 +11,7 @@ import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/features/onboarding/providers/sync_setup_progress_provider.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
@@ -139,6 +140,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   void reset() {
     _generation++;
     _pendingPin = null;
+    ref.read(syncSetupProgressProvider.notifier).reset();
     state = const PairingState();
   }
 
@@ -316,7 +318,16 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     ffi.PrismSyncHandle handle,
     int myGeneration,
   ) async {
+    // Capture the progress notifier before the first await so it remains
+    // safe to call across async boundaries.
+    final progressNotifier = ref.read(syncSetupProgressProvider.notifier);
+
     await ffi.configureEngine(handle: handle);
+    // BOUNDARY 1: engine configured — we have a connection, begin downloading.
+    if (_generation == myGeneration) {
+      progressNotifier.setPhase(PairingProgressPhase.downloading);
+    }
+
     await ffi.setAutoSync(
       handle: handle,
       enabled: true,
@@ -361,13 +372,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     }
     final syncAdapter = ref.read(driftSyncAdapterProvider);
     syncAdapter.beginSyncBatch();
-    ref.listen(syncEventStreamProvider, (prev, next) {
-      if (kDebugMode) {
-        print(
-          '[PAIRING] syncEventStream event: prev=$prev, next=${next.value?.type ?? next.error}',
-        );
-      }
-    });
 
     // Try to bootstrap from ephemeral snapshot (fast path for new device)
     try {
@@ -385,6 +389,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         severity: ErrorSeverity.warning,
         stackTrace: stackTrace,
       );
+    }
+    // BOUNDARY 2: snapshot bootstrap resolved (success or failure) — now
+    // applying remote changes to the local database (restoring phase).
+    if (_generation == myGeneration) {
+      progressNotifier.setPhase(PairingProgressPhase.restoring);
     }
 
     // Pull any changes that arrived after the snapshot was created
@@ -417,8 +426,16 @@ class DevicePairingNotifier extends Notifier<PairingState> {
             '[PAIRING] syncBatchComplete timed out — continuing with incomplete data',
           );
         }
+        // BOUNDARY 3 (timeout path): mark timed out before advancing phase.
+        if (_generation == myGeneration) {
+          progressNotifier.markTimedOut();
+        }
       },
     );
+    // BOUNDARY 3: syncBatchComplete resolved — entering finishing phase.
+    if (_generation == myGeneration) {
+      progressNotifier.setPhase(PairingProgressPhase.finishing);
+    }
 
     if (_generation != myGeneration) return;
 
