@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// Top 4 most-frequently-fronting members as quick-switch buttons.
 class QuickFrontSection extends ConsumerWidget {
@@ -155,7 +157,19 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
     setState(() => _isPressed = false);
     if (_pendingSwitch) {
       _pendingSwitch = false;
-      ref.read(frontingNotifierProvider.notifier).switchFronter(widget.member.id);
+      unawaited(
+        ref
+            .read(frontingNotifierProvider.notifier)
+            .switchFronter(widget.member.id)
+            .catchError((Object e) {
+              if (mounted) {
+                PrismToast.error(
+                  context,
+                  message: context.l10n.frontingErrorSwitchingFronter(e),
+                );
+              }
+            }),
+      );
     }
     if (_controller.isAnimating) {
       _controller.reset();

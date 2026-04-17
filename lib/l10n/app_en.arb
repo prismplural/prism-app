@@ -2140,6 +2140,15 @@
       }
     }
   },
+  "frontingErrorSwitchingFronter": "Error switching fronter: {error}",
+  "@frontingErrorSwitchingFronter": {
+    "description": "Error toast when a quick-switch fronter action fails",
+    "placeholders": {
+      "error": {
+        "type": "Object"
+      }
+    }
+  },
   "frontingNoSessionHistory": "No session history yet",
   "@frontingNoSessionHistory": {
     "description": "Empty state text when there is no fronting history"

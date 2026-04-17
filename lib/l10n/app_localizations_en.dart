@@ -1596,6 +1596,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String frontingErrorSwitchingFronter(Object error) {
+    return 'Error switching fronter: $error';
+  }
+
+  @override
   String get frontingNoSessionHistory => 'No session history yet';
 
   @override

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pool/pool.dart';
 import 'package:uuid/uuid.dart';
@@ -77,7 +80,7 @@ class MessageLimitNotifier extends Notifier<int> {
 }
 
 final messageLimitProvider =
-    NotifierProvider.family<MessageLimitNotifier, int, String>(
+    NotifierProvider.autoDispose.family<MessageLimitNotifier, int, String>(
   MessageLimitNotifier.new,
 );
 
@@ -128,7 +131,14 @@ class SpeakingAsNotifier extends Notifier<String?> {
     if (memberId != null) {
       final chatLogsFront = ref.read(chatLogsFrontProvider);
       if (chatLogsFront) {
-        ref.read(frontingNotifierProvider.notifier).switchFronter(memberId);
+        unawaited(
+          ref
+              .read(frontingNotifierProvider.notifier)
+              .switchFronter(memberId)
+              .catchError((Object e) {
+                debugPrint('[Chat] Auto-front on member switch failed: $e');
+              }),
+        );
       }
     }
   }
@@ -550,7 +560,7 @@ class ReplyingToNotifier extends Notifier<ChatMessage?> {
 }
 
 final replyingToProvider =
-    NotifierProvider.family<ReplyingToNotifier, ChatMessage?, String>(
+    NotifierProvider.autoDispose.family<ReplyingToNotifier, ChatMessage?, String>(
   ReplyingToNotifier.new,
 );
 
@@ -685,7 +695,7 @@ class HighlightedMessageIdNotifier extends Notifier<String?> {
 }
 
 final highlightedMessageIdProvider =
-    NotifierProvider.family<HighlightedMessageIdNotifier, String?, String>(
+    NotifierProvider.autoDispose.family<HighlightedMessageIdNotifier, String?, String>(
   HighlightedMessageIdNotifier.new,
 );
 
