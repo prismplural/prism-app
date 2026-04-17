@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
     show AppDatabase, PluralKitSyncStateCompanion;
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
@@ -642,21 +643,32 @@ class DataImportService {
       // 10. Import PluralKit sync state
       if (export.pluralKitSyncState != null) {
         final pk = export.pluralKitSyncState!;
-        await pluralKitSyncDao.upsertSyncState(
-          PluralKitSyncStateCompanion(
-            id: const Value('pk_config'),
-            systemId: Value(pk.systemId),
-            isConnected: Value(pk.isConnected),
-            lastSyncDate: Value(
-              pk.lastSyncDate != null ? DateTime.parse(pk.lastSyncDate!) : null,
+        final current = await pluralKitSyncDao.getSyncState();
+        final existingId = current.systemId;
+        if (existingId != null && pk.systemId != null && existingId != pk.systemId) {
+          // Backup is from a different PluralKit system — skip to avoid overwriting
+          // the current system's connection state with a foreign system ID.
+          debugPrint(
+            '[Import] Skipped PluralKit sync state: '
+            'backup systemId (${pk.systemId}) != current ($existingId)',
+          );
+        } else {
+          await pluralKitSyncDao.upsertSyncState(
+            PluralKitSyncStateCompanion(
+              id: const Value('pk_config'),
+              systemId: Value(pk.systemId),
+              isConnected: Value(pk.isConnected),
+              lastSyncDate: Value(
+                pk.lastSyncDate != null ? DateTime.parse(pk.lastSyncDate!) : null,
+              ),
+              lastManualSyncDate: Value(
+                pk.lastManualSyncDate != null
+                    ? DateTime.parse(pk.lastManualSyncDate!)
+                    : null,
+              ),
             ),
-            lastManualSyncDate: Value(
-              pk.lastManualSyncDate != null
-                  ? DateTime.parse(pk.lastManualSyncDate!)
-                  : null,
-            ),
-          ),
-        );
+          );
+        }
       }
 
       // 11. Import member groups
@@ -850,7 +862,9 @@ class DataImportService {
             peerSharingId: f.peerSharingId,
             offeredScopes: f.offeredScopes,
             publicKeyHex: f.publicKeyHex,
-            sharedSecretHex: f.sharedSecretHex,
+            // Export intentionally omits sharedSecretHex to avoid plaintext
+            // secrets in backups. Re-pairing is required after restore.
+            sharedSecretHex: null,
             grantedScopes: f.grantedScopes,
             isVerified: f.isVerified,
             initId: f.initId,
