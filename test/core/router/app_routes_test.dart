@@ -31,12 +31,6 @@ _withDisabled({
 );
 
 void main() {
-  group('AppRoutePaths', () {
-    test('voice lab route path stays stable', () {
-      expect(AppRoutePaths.settingsVoiceLab, '/settings/voice-lab');
-    });
-  });
-
   group('AppShellTabId', () {
     test('enum names match expected string values', () {
       expect(AppShellTabId.home.name, 'home');

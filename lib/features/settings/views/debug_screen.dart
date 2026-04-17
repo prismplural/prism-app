@@ -309,15 +309,6 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
                       context.push(AppRoutePaths.settingsTimelineSanitization),
                 ),
                 PrismListRow(
-                  leading: Icon(AppIcons.microphone),
-                  title: const Text('Voice Lab'),
-                  subtitle: const Text(
-                    'Record Opus, normalize containers, and play from memory',
-                  ),
-                  trailing: Icon(AppIcons.chevronRight),
-                  onTap: () => context.push(AppRoutePaths.settingsVoiceLab),
-                ),
-                PrismListRow(
                   leading: Icon(AppIcons.gridView),
                   title: const Text('Component Gallery'),
                   subtitle: const Text('Preview all shared widgets'),
