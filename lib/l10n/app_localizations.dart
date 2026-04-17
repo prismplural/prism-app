@@ -2942,6 +2942,12 @@ abstract class AppLocalizations {
   /// **'Error waking up: {error}'**
   String frontingErrorWakingUp(Object error);
 
+  /// Error toast when a quick-switch fronter action fails
+  ///
+  /// In en, this message translates to:
+  /// **'Error switching fronter: {error}'**
+  String frontingErrorSwitchingFronter(Object error);
+
   /// Empty state text when there is no fronting history
   ///
   /// In en, this message translates to:

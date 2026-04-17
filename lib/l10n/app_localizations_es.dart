@@ -1641,6 +1641,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String frontingErrorSwitchingFronter(Object error) {
+    return 'Error switching fronter: $error';
+  }
+
+  @override
   String get frontingNoSessionHistory => 'Sin historial de sesiones aún';
 
   @override
@@ -2623,7 +2628,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get chatMarkAsRead => 'Marcar como leído';
 
   @override
-  String get chatMarkAllAsRead => 'Mark all as read';
+  String get chatMarkAllAsRead => 'Marcar todo como leído';
 
   @override
   String get chatMute => 'Silenciar';

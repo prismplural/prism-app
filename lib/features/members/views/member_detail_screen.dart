@@ -238,21 +238,29 @@ class _MemberDetailBody extends ConsumerWidget {
     );
   }
 
-  void _handleMenuAction(
+  Future<void> _handleMenuAction(
     BuildContext context,
     WidgetRef ref,
     _MenuAction action,
-  ) {
+  ) async {
     switch (action) {
       case _MenuAction.setFronter:
-        ref.read(frontingNotifierProvider.notifier).startFronting(member.id);
-        PrismToast.show(context, message: context.l10n.memberIsFronting(member.name));
+        try {
+          await ref.read(frontingNotifierProvider.notifier).startFronting(member.id);
+          if (context.mounted) {
+            PrismToast.show(context, message: context.l10n.memberIsFronting(member.name));
+          }
+        } catch (e) {
+          if (context.mounted) {
+            PrismToast.error(context, message: context.l10n.frontingErrorWakingUp(e));
+          }
+        }
       case _MenuAction.toggleActive:
-        ref.read(membersNotifierProvider.notifier).updateMember(
+        await ref.read(membersNotifierProvider.notifier).updateMember(
               member.copyWith(isActive: !member.isActive),
             );
       case _MenuAction.delete:
-        _confirmDelete(context, ref);
+        await _confirmDelete(context, ref);
     }
   }
 

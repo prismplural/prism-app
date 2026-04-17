@@ -81,9 +81,9 @@ void invalidateFrontingProviders(WidgetRef ref) {
 }
 
 /// Fronting service for actions (start/end/switch sessions).
-class FrontingNotifier extends Notifier<void> {
+class FrontingNotifier extends AsyncNotifier<void> {
   @override
-  void build() {}
+  Future<void> build() async {}
 
   void _invalidateMemberStats(String? memberId) {
     if (memberId != null) {
@@ -305,7 +305,7 @@ class FrontingNotifier extends Notifier<void> {
   }
 }
 
-final frontingNotifierProvider = NotifierProvider<FrontingNotifier, void>(
+final frontingNotifierProvider = AsyncNotifierProvider<FrontingNotifier, void>(
   FrontingNotifier.new,
 );
 

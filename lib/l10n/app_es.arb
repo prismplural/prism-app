@@ -474,6 +474,7 @@
   "frontingMenuStartSleep": "Empezar a dormir",
   "frontingWakeUpAsTitle": "Despertar como...",
   "frontingErrorWakingUp": "Error al despertar: {error}",
+  "frontingErrorSwitchingFronter": "Error al cambiar de frente: {error}",
   "frontingNoSessionHistory": "Sin historial de sesiones aún",
   "frontingErrorLoadingHistory": "Error al cargar el historial: {error}",
   "frontingDeleteSleepTitle": "Eliminar sesión de sueño",
