@@ -1,14 +1,99 @@
+import 'package:flutter/material.dart' show TimeOfDay;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/services/local_notification_service.dart';
 import 'package:prism_plurality/core/services/reminder_scheduler_service.dart';
 import 'package:prism_plurality/domain/models/reminder.dart';
+
+// ── Fake LocalNotificationService ─────────────────────────────────────────────
+
+/// A [LocalNotificationService] subclass that captures scheduling/cancel calls
+/// without touching the notification plugin. Safe to use in unit tests where
+/// no platform channel is available.
+class _FakeLocalNotificationService extends LocalNotificationService {
+  final List<String> methodCalls = [];
+  final List<(int, int)> cancelRangeCalls = []; // (base, count)
+  final List<(int, TimeOfDay)> scheduleExactDailyCalls = []; // (id, time)
+  final List<(int, int, TimeOfDay)> scheduleExactWeeklyCalls =
+      []; // (id, weekday, time)
+  final List<({int idBase, int intervalDays, TimeOfDay time})>
+      scheduleExactIntervalCalls = [];
+  final List<(int, String, String)> showImmediateCalls = []; // (id, title, body)
+
+  @override
+  Future<void> scheduleExactDaily({
+    required int id,
+    required String title,
+    required String body,
+    required TimeOfDay time,
+    required NotificationDetails details,
+  }) async {
+    methodCalls.add('scheduleExactDaily');
+    scheduleExactDailyCalls.add((id, time));
+  }
+
+  @override
+  Future<void> scheduleExactWeekly({
+    required int id,
+    required String title,
+    required String body,
+    required TimeOfDay time,
+    required int weekday,
+    required NotificationDetails details,
+  }) async {
+    methodCalls.add('scheduleExactWeekly');
+    scheduleExactWeeklyCalls.add((id, weekday, time));
+  }
+
+  @override
+  Future<void> scheduleExactInterval({
+    required int idBase,
+    required String title,
+    required String body,
+    required TimeOfDay time,
+    required int intervalDays,
+    required NotificationDetails details,
+    int? maxOccurrences,
+  }) async {
+    methodCalls.add('scheduleExactInterval');
+    scheduleExactIntervalCalls
+        .add((idBase: idBase, intervalDays: intervalDays, time: time));
+  }
+
+  @override
+  Future<void> showImmediate({
+    required int id,
+    required String title,
+    required String body,
+    required NotificationDetails details,
+  }) async {
+    methodCalls.add('showImmediate');
+    showImmediateCalls.add((id, title, body));
+  }
+
+  @override
+  Future<void> cancel(int id) async {
+    methodCalls.add('cancel');
+  }
+
+  @override
+  Future<void> cancelRange(int base, int count) async {
+    methodCalls.add('cancelRange');
+    cancelRangeCalls.add((base, count));
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
 Reminder _reminder({
   required String id,
   String name = 'Test',
   String message = 'msg',
   ReminderTrigger trigger = ReminderTrigger.scheduled,
+  ReminderFrequency frequency = ReminderFrequency.daily,
+  List<int>? weeklyDays,
   int? intervalDays,
+  String? timeOfDay = '09:00',
   bool isActive = true,
 }) {
   final now = DateTime(2026, 1, 1);
@@ -17,7 +102,10 @@ Reminder _reminder({
     name: name,
     message: message,
     trigger: trigger,
+    frequency: frequency,
+    weeklyDays: weeklyDays,
     intervalDays: intervalDays,
+    timeOfDay: timeOfDay,
     isActive: isActive,
     createdAt: now,
     modifiedAt: now,
@@ -25,162 +113,289 @@ Reminder _reminder({
 }
 
 void main() {
-  // ── _setsEqual (top-level function, tested indirectly) ──────────
+  // ── scheduleReminder: daily routing ────────────────────────────────
 
-  // The function is file-private (_setsEqual) so we replicate its logic
-  // to verify the expected semantics.  Since it's used in the provider
-  // listener for front-change detection, we test the contract here.
-  group('setsEqual semantics', () {
-    bool setsEqual<T>(Set<T> a, Set<T> b) {
-      if (a.length != b.length) return false;
-      return a.containsAll(b);
-    }
+  group('scheduleReminder — daily', () {
+    test('routes to scheduleExactDaily exactly once', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(id: 'r1', frequency: ReminderFrequency.daily);
 
-    test('identical sets are equal', () {
-      expect(setsEqual({'a', 'b'}, {'a', 'b'}), isTrue);
+      await service.scheduleReminder(reminder);
+
+      expect(
+        fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
+        1,
+      );
+      expect(
+        fake.methodCalls.where((m) => m == 'scheduleExactWeekly').length,
+        0,
+      );
+      expect(
+        fake.methodCalls.where((m) => m == 'scheduleExactInterval').length,
+        0,
+      );
     });
 
-    test('empty sets are equal', () {
-      expect(setsEqual(<String>{}, <String>{}), isTrue);
-    });
-
-    test('different lengths are not equal', () {
-      expect(setsEqual({'a'}, {'a', 'b'}), isFalse);
-    });
-
-    test('same length different elements are not equal', () {
-      expect(setsEqual({'a', 'b'}, {'a', 'c'}), isFalse);
-    });
-
-    test('order does not matter', () {
-      expect(setsEqual({'b', 'a'}, {'a', 'b'}), isTrue);
-    });
-  });
-
-  // ── _repeatIntervalFrom mapping ────────────────────────────────
-
-  group('repeatIntervalFrom mapping', () {
-    // We cannot call the private method directly, but we can verify the
-    // contract via documentation / replicated logic.  The mapping is:
-    //   null or <=1 → daily
-    //   2..7       → weekly
-    //   >7         → weekly
-    //
-    // We test a local replica to document the expected behaviour.
-
-    String intervalName(int? days) {
-      if (days == null || days <= 1) return 'daily';
-      if (days <= 7) return 'weekly';
-      return 'weekly';
-    }
-
-    test('null maps to daily', () {
-      expect(intervalName(null), 'daily');
-    });
-
-    test('0 maps to daily', () {
-      expect(intervalName(0), 'daily');
-    });
-
-    test('1 maps to daily', () {
-      expect(intervalName(1), 'daily');
-    });
-
-    test('7 maps to weekly', () {
-      expect(intervalName(7), 'weekly');
-    });
-
-    test('14 maps to weekly', () {
-      expect(intervalName(14), 'weekly');
-    });
-
-    test('2 maps to weekly', () {
-      expect(intervalName(2), 'weekly');
-    });
-  });
-
-  // ── rescheduleAll skips inactive reminders ─────────────────────
-
-  group('rescheduleAll', () {
-    test('only schedules active front-change reminders', () async {
-      final service = ReminderSchedulerService(LocalNotificationService());
-
-      final active = _reminder(
+    test('schedules at the parsed reminder time', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
         id: 'r1',
-        trigger: ReminderTrigger.onFrontChange,
-        isActive: true,
-      );
-      final inactive = _reminder(
-        id: 'r2',
-        trigger: ReminderTrigger.onFrontChange,
-        isActive: false,
+        frequency: ReminderFrequency.daily,
+        timeOfDay: '14:30',
       );
 
-      // scheduleReminder checks isActive before adding to pending list.
-      await service.scheduleReminder(active);
-      await service.scheduleReminder(inactive);
+      await service.scheduleReminder(reminder);
 
-      // We cannot peek at the private list, but we know that
-      // scheduleReminder returns early for inactive reminders (line 62-63).
-      // This test exercises the code path to ensure no exception is thrown
-      // and the service handles the mix correctly.
+      expect(fake.scheduleExactDailyCalls, hasLength(1));
+      final (_, time) = fake.scheduleExactDailyCalls.first;
+      expect(time.hour, 14);
+      expect(time.minute, 30);
     });
   });
 
-  // ── scheduleReminder routing ──────────────────────────────────
+  // ── scheduleReminder: weekly routing ───────────────────────────────
 
-  group('scheduleReminder routing', () {
-    test('inactive reminder is skipped', () async {
-      final service = ReminderSchedulerService(LocalNotificationService());
-      final r = _reminder(
-        id: 'r-inactive',
-        trigger: ReminderTrigger.onFrontChange,
-        isActive: false,
+  group('scheduleReminder — weekly', () {
+    test('weeklyDays [1,3,5] → three scheduleExactWeekly calls', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-weekly',
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: [1, 3, 5],
       );
 
-      // Should not throw and should be a no-op.
-      await service.scheduleReminder(r);
+      await service.scheduleReminder(reminder);
+
+      expect(fake.scheduleExactWeeklyCalls, hasLength(3));
+      expect(
+        fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
+        0,
+      );
+      expect(
+        fake.methodCalls.where((m) => m == 'scheduleExactInterval').length,
+        0,
+      );
     });
 
-    test('onFrontChange reminder scheduling does not throw', () async {
-      final service = ReminderSchedulerService(LocalNotificationService());
-      final r = _reminder(
+    test('weekly IDs are consecutive base..base+2', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-weekly-ids',
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: [1, 3, 5],
+      );
+
+      await service.scheduleReminder(reminder);
+
+      final ids = fake.scheduleExactWeeklyCalls.map((c) => c.$1).toList();
+      expect(ids, hasLength(3));
+      expect(ids[1], ids[0] + 1);
+      expect(ids[2], ids[0] + 2);
+    });
+
+    test('weekday values match order [1, 3, 5]', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-weekly-order',
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: [1, 3, 5],
+      );
+
+      await service.scheduleReminder(reminder);
+
+      final weekdays =
+          fake.scheduleExactWeeklyCalls.map((c) => c.$2).toList();
+      expect(weekdays, [1, 3, 5]);
+    });
+
+    test('weeklyDays [] → zero scheduling calls', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-weekly-empty',
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: [],
+      );
+
+      await service.scheduleReminder(reminder);
+
+      expect(
+        fake.methodCalls.where((m) => m.startsWith('scheduleExact')).length,
+        0,
+      );
+    });
+
+    test('weeklyDays null → zero calls, no crash', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-weekly-null',
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: null,
+      );
+
+      await service.scheduleReminder(reminder);
+
+      expect(
+        fake.methodCalls.where((m) => m.startsWith('scheduleExact')).length,
+        0,
+      );
+    });
+
+    test(
+        'weekly with intervalDays=1 → weekly path wins (not daily)',
+        () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-weekly-with-interval',
+        frequency: ReminderFrequency.weekly,
+        intervalDays: 1,
+        weeklyDays: [2],
+      );
+
+      await service.scheduleReminder(reminder);
+
+      expect(
+        fake.methodCalls.where((m) => m == 'scheduleExactWeekly').length,
+        1,
+      );
+      expect(
+        fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
+        0,
+      );
+    });
+  });
+
+  // ── scheduleReminder: interval routing ─────────────────────────────
+
+  group('scheduleReminder — interval', () {
+    test('intervalDays=3 → exactly one scheduleExactInterval', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'r-interval',
+        frequency: ReminderFrequency.interval,
+        intervalDays: 3,
+      );
+
+      await service.scheduleReminder(reminder);
+
+      expect(fake.scheduleExactIntervalCalls, hasLength(1));
+      expect(fake.scheduleExactIntervalCalls.first.intervalDays, 3);
+      expect(
+        fake.methodCalls.where((m) => m == 'scheduleExactDaily').length,
+        0,
+      );
+      expect(
+        fake.methodCalls.where((m) => m == 'scheduleExactWeekly').length,
+        0,
+      );
+    });
+  });
+
+  // ── Notification ID range bump ──────────────────────────────────────
+
+  group('notification ID range', () {
+    test('daily notification id is >= 20000', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(id: 'id-range-daily');
+
+      await service.scheduleReminder(reminder);
+
+      expect(fake.scheduleExactDailyCalls, hasLength(1));
+      final id = fake.scheduleExactDailyCalls.first.$1;
+      expect(id, greaterThanOrEqualTo(20000));
+    });
+
+    test('weekly notification ids are all >= 20000', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'id-range-weekly',
+        frequency: ReminderFrequency.weekly,
+        weeklyDays: [1, 2, 3],
+      );
+
+      await service.scheduleReminder(reminder);
+
+      for (final (id, _, _) in fake.scheduleExactWeeklyCalls) {
+        expect(id, greaterThanOrEqualTo(20000));
+      }
+    });
+
+    test('interval notification id base is >= 20000', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
+        id: 'id-range-interval',
+        frequency: ReminderFrequency.interval,
+        intervalDays: 3,
+      );
+
+      await service.scheduleReminder(reminder);
+
+      expect(fake.scheduleExactIntervalCalls, hasLength(1));
+      expect(
+        fake.scheduleExactIntervalCalls.first.idBase,
+        greaterThanOrEqualTo(20000),
+      );
+    });
+  });
+
+  // ── cancelReminder ──────────────────────────────────────────────────
+
+  group('cancelReminder', () {
+    test('cancels a full range (>= 7 slots to cover weekly)', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+
+      await service.cancelReminder('r-cancel');
+
+      expect(fake.cancelRangeCalls, hasLength(1));
+      final (_, count) = fake.cancelRangeCalls.first;
+      // Must be at least 7 to cover all possible weekly slots.
+      expect(count, greaterThanOrEqualTo(7));
+    });
+  });
+
+  // ── Inactive / onFrontChange routing guards ────────────────────────
+
+  group('scheduleReminder — guards', () {
+    test('inactive reminder is skipped', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(id: 'r-inactive', isActive: false);
+
+      await service.scheduleReminder(reminder);
+
+      expect(
+        fake.methodCalls.where((m) => m.startsWith('scheduleExact')).length,
+        0,
+      );
+    });
+
+    test('onFrontChange reminder does not call the notification plugin',
+        () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      final reminder = _reminder(
         id: 'r-fc',
         trigger: ReminderTrigger.onFrontChange,
-        isActive: true,
       );
 
-      // scheduleReminder for onFrontChange adds to internal list without
-      // touching the notification plugin, so this should succeed.
-      await service.scheduleReminder(r);
-    });
-  });
+      await service.scheduleReminder(reminder);
 
-  // ── Notification ID generation ────────────────────────────────
-
-  group('notification ID stability', () {
-    test('same reminder ID always produces same notification ID', () {
-      // The formula is: 5000 + (id.hashCode.abs() % 10000)
-      // This is deterministic per runtime for the same string.
-      const base = 5000;
-      const id = 'test-reminder-abc';
-      final expected = base + (id.hashCode.abs() % 10000);
-
-      // Compute twice to verify determinism.
-      final first = base + (id.hashCode.abs() % 10000);
-      final second = base + (id.hashCode.abs() % 10000);
-
-      expect(first, expected);
-      expect(second, expected);
-    });
-
-    test('notification IDs are within expected range', () {
-      const base = 5000;
-      for (final id in ['a', 'b', 'long-reminder-id-12345', '']) {
-        final nid = base + (id.hashCode.abs() % 10000);
-        expect(nid, greaterThanOrEqualTo(5000));
-        expect(nid, lessThan(15000));
-      }
+      expect(
+        fake.methodCalls.where((m) => m.startsWith('scheduleExact')).length,
+        0,
+      );
     });
   });
 }
