@@ -241,7 +241,12 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                         size: 20,
                       )
                     : permissions.canEditTitleEmoji
-                        ? TextButton(
+                        ? PrismButton(
+                            label: _isEditing
+                                ? context.l10n.done
+                                : context.l10n.edit,
+                            density: PrismControlDensity.compact,
+                            tone: PrismButtonTone.subtle,
                             onPressed: () {
                               if (_isEditing) {
                                 _saveTitle(
@@ -254,11 +259,6 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                                 setState(() => _isEditing = true);
                               }
                             },
-                            child: Text(
-                              _isEditing
-                                  ? context.l10n.done
-                                  : context.l10n.edit,
-                            ),
                           )
                         : null,
               ),
