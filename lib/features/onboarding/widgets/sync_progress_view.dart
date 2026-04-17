@@ -71,10 +71,9 @@ class _SyncProgressViewState extends ConsumerState<SyncProgressView> {
     // Listen for phase changes to fire haptics and accessibility announcements.
     ref.listen<SyncSetupProgressState>(syncSetupProgressProvider, (prev, next) {
       if (prev?.phase != next.phase) {
-        // Haptic on phase change, unless reduced motion.
-        if (!disableAnimations) {
-          HapticFeedback.selectionClick();
-        }
+        // Why: haptics are not motion — reduced-motion users still get the
+        // phase-transition signal.
+        HapticFeedback.selectionClick();
 
         // A11y: announce the new phase title.
         final phaseTitle = _phaseTitleFor(next.phase, l10n);
