@@ -281,11 +281,11 @@ class SpImporter {
       }
 
       // 10. Import polls.
+      // createPoll already inserts all options — only cast votes separately.
       for (final poll in mapped.polls) {
         onProgress?.call(currentItem, totalItems, 'Importing polls...');
         await pollRepo.createPoll(poll);
         for (final option in poll.options) {
-          await pollRepo.createOption(option, poll.id);
           for (final vote in option.votes) {
             await pollRepo.castVote(vote, option.id);
           }
