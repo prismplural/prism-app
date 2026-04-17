@@ -234,10 +234,10 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           .map((m) => m.replyToAuthorId)
                           .whereType<String>(),
                     };
-                    final authorMapAsync = ref.watch(
-                      membersByIdsProvider(memberIdsKey(authorIds)),
+                    final authorMap = ref.watch(
+                      membersByIdsProvider(memberIdsKey(authorIds))
+                          .select((s) => s.value ?? {}),
                     );
-                    final authorMap = authorMapAsync.value ?? {};
 
                     // Group messages by author / time, inserting date
                     // separators between days.

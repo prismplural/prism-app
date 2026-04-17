@@ -394,11 +394,14 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
       return Container(width: w, height: h, color: fallbackColor);
     }
 
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     return Image.network(
       widget.previewUrl,
       width: w,
       height: h,
       fit: BoxFit.cover,
+      cacheWidth: (w * dpr).ceil(),
+      cacheHeight: (h * dpr).ceil(),
       semanticLabel: widget.contentDescription ?? 'GIF',
       errorBuilder: (_, _, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
