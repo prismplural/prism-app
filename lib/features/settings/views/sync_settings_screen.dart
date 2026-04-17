@@ -15,7 +15,6 @@ import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
-import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -371,13 +370,6 @@ class _ConfiguredView extends ConsumerWidget {
                     enabled: !isSyncActive,
                     onTap: () => ChangePinSheet.show(context),
                   ),
-                  const Divider(height: 1, indent: 60, endIndent: 12),
-                  PrismSettingsRow(
-                    icon: AppIcons.key,
-                    title: context.l10n.syncViewSecretKey,
-                    subtitle: context.l10n.syncViewSecretKeySubtitle,
-                    onTap: () => _showSecretKey(context),
-                  ),
                 ],
               ],
             ),
@@ -500,76 +492,6 @@ class _ConfiguredView extends ConsumerWidget {
     }
   }
 
-  void _showSecretKey(BuildContext context) {
-    PrismSheet.showFullScreen(
-      context: context,
-      builder: (context, scrollController) =>
-          _ViewSecretKeySheet(scrollController: scrollController),
-    );
-  }
-}
-
-/// Static informational sheet — the recovery phrase is no longer persisted
-/// on the device, so there is nothing to reveal. This sheet just reminds the
-/// user where to look for their saved backup.
-class _ViewSecretKeySheet extends StatelessWidget {
-  const _ViewSecretKeySheet({this.scrollController});
-
-  final ScrollController? scrollController;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return SafeArea(
-      child: Column(
-        children: [
-          PrismSheetTopBar(
-            title: context.l10n.syncSecretKeyNotStoredTitle,
-          ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              controller: scrollController,
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                bottom: 16 + bottomInset,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(
-                    AppIcons.infoOutline,
-                    size: 40,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    context.l10n.syncSecretKeyNotStoredBody,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(
-                        alpha: 0.75,
-                      ),
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  PrismButton(
-                    label: context.l10n.done,
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _SyncThemeToggle extends ConsumerWidget {
