@@ -583,7 +583,7 @@ class _SyncEntityCountRows extends ConsumerWidget {
   }
 }
 
-/// Compact detail row for the Details section.
+/// Compact detail row for the Details section — label on the left, value on the right.
 class _DetailRow extends StatelessWidget {
   const _DetailRow({required this.label, required this.value});
 
@@ -592,7 +592,30 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PrismListRow(dense: true, title: Text(label), subtitle: Text(value));
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.end,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -650,54 +673,46 @@ class _StatusCard extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: PrismSectionCard(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(statusIcon, color: statusColor, size: 32),
-              const SizedBox(width: 14),
+              Icon(statusIcon, color: statusColor, size: 36),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          statusText,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            color: statusColor,
-                          ),
-                        ),
-                        if (statusDetail.isNotEmpty) ...[
-                          Text(
-                            '  ·  ',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.outline,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              statusDetail,
-                              style: theme.textTheme.bodySmall,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      statusText,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: statusColor,
+                      ),
                     ),
-                    const SizedBox(height: 4),
+                    if (statusDetail.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        statusDetail,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 6),
                     Row(
                       children: [
                         Icon(
                           wsConnected
                               ? AppIcons.cellTower
                               : AppIcons.signalWifiOff,
-                          size: 13,
+                          size: 12,
                           color: wsConnected
                               ? Colors.green
-                              : theme.colorScheme.outline,
+                              : theme.colorScheme.outlineVariant,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -707,7 +722,7 @@ class _StatusCard extends StatelessWidget {
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: wsConnected
                                 ? Colors.green
-                                : theme.colorScheme.outline,
+                                : theme.colorScheme.outlineVariant,
                           ),
                         ),
                       ],
