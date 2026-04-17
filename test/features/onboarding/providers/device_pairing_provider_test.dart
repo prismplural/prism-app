@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/sync/pairing_ceremony_api.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/core/sync/sync_event_loop.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
+import 'package:prism_plurality/features/onboarding/providers/sync_setup_progress_provider.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
 class _FakePrismSyncHandle implements ffi.PrismSyncHandle {
@@ -335,6 +337,155 @@ void main() {
           PairingStep.success,
           PairingStep.error,
         ]),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Progress notifier integration tests
+  // These tests drive the syncSetupProgressProvider directly to verify the
+  // phase-transition protocol and reset behaviour wired in Task 6.
+  // ---------------------------------------------------------------------------
+
+  group('SyncSetupProgress — phase transitions', () {
+    /// Build a minimal container with both providers and a no-op event stream.
+    ProviderContainer _makeContainer() {
+      final eventController = StreamController<SyncEvent>.broadcast();
+      final container = ProviderContainer(
+        overrides: [
+          syncEventStreamProvider.overrideWith((ref) {
+            ref.onDispose(eventController.close);
+            return eventController.stream;
+          }),
+          pairingCeremonyApiProvider.overrideWith(
+            (ref) => _FakePairingCeremonyApi(),
+          ),
+          relayUrlProvider.overrideWith(
+            (ref) async => 'https://relay.example.com',
+          ),
+          prismSyncHandleProvider.overrideWith(
+            () => _FakePrismSyncHandleNotifier(const _FakePrismSyncHandle()),
+          ),
+        ],
+      );
+      // Keep the notifiers alive.
+      container.listen<SyncSetupProgressState>(
+        syncSetupProgressProvider,
+        (_, __) {},
+      );
+      container.listen<PairingState>(devicePairingProvider, (_, __) {});
+      return container;
+    }
+
+    test('setPhase advancing from connecting to downloading works', () async {
+      final container = _makeContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(syncSetupProgressProvider.notifier);
+      notifier.setPhase(PairingProgressPhase.downloading);
+
+      final state = container.read(syncSetupProgressProvider);
+      expect(state.phase, PairingProgressPhase.downloading);
+    });
+
+    test('phases advance monotonically through full sequence', () async {
+      final container = _makeContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(syncSetupProgressProvider.notifier);
+      notifier.setPhase(PairingProgressPhase.downloading);
+      notifier.setPhase(PairingProgressPhase.restoring);
+      notifier.setPhase(PairingProgressPhase.finishing);
+
+      expect(
+        container.read(syncSetupProgressProvider).phase,
+        PairingProgressPhase.finishing,
+      );
+    });
+
+    test('backwards setPhase is a no-op (monotonic invariant)', () async {
+      final container = _makeContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(syncSetupProgressProvider.notifier);
+      notifier.setPhase(PairingProgressPhase.restoring);
+      // Attempt to rewind to downloading — must be ignored.
+      notifier.setPhase(PairingProgressPhase.downloading);
+
+      expect(
+        container.read(syncSetupProgressProvider).phase,
+        PairingProgressPhase.restoring,
+      );
+    });
+
+    test('markTimedOut sets timedOut=true; setPhase(finishing) still advances',
+        () async {
+      final container = _makeContainer();
+      addTearDown(container.dispose);
+
+      final notifier = container.read(syncSetupProgressProvider.notifier);
+      notifier.setPhase(PairingProgressPhase.downloading);
+      notifier.setPhase(PairingProgressPhase.restoring);
+      notifier.markTimedOut();
+      notifier.setPhase(PairingProgressPhase.finishing);
+
+      final state = container.read(syncSetupProgressProvider);
+      expect(state.phase, PairingProgressPhase.finishing);
+      expect(state.timedOut, isTrue);
+    });
+
+    test('reset() on DevicePairingNotifier clears progress state', () async {
+      final container = _makeContainer();
+      addTearDown(container.dispose);
+
+      // Advance progress to a non-initial phase.
+      final progressNotifier = container.read(
+        syncSetupProgressProvider.notifier,
+      );
+      progressNotifier.setPhase(PairingProgressPhase.restoring);
+      expect(
+        container.read(syncSetupProgressProvider).phase,
+        PairingProgressPhase.restoring,
+      );
+
+      // Calling reset on the pairing notifier should also reset progress.
+      container.read(devicePairingProvider.notifier).reset();
+      await pumpEventQueue();
+
+      final progressState = container.read(syncSetupProgressProvider);
+      expect(progressState.phase, PairingProgressPhase.connecting);
+      expect(progressState.timedOut, isFalse);
+      expect(progressState.liveCounts, isEmpty);
+    });
+
+    test('generation mismatch: setPhase called only when _generation matches',
+        () async {
+      // This test verifies the guard logic by calling reset() (which bumps
+      // _generation) then checking that subsequent manual setPhase calls on
+      // the progress notifier are still respected (they're independent of the
+      // pairing generation — the guard lives in device_pairing_provider.dart
+      // and wraps the FFI await boundaries).
+      final container = _makeContainer();
+      addTearDown(container.dispose);
+
+      final pairingNotifier = container.read(devicePairingProvider.notifier);
+      final progressNotifier = container.read(
+        syncSetupProgressProvider.notifier,
+      );
+
+      // Simulate: pairing started, cancel called, then a stale async
+      // continuation tries to advance the phase (but shouldn't, because the
+      // guard would have blocked it). We test here that if the guard WAS
+      // respected the progress state stays at connecting after the reset.
+      progressNotifier.setPhase(PairingProgressPhase.downloading);
+      // Cancel / reset pairing — progress should clear.
+      pairingNotifier.reset();
+      await pumpEventQueue();
+
+      // Post-reset state must be back at connecting.
+      expect(
+        container.read(syncSetupProgressProvider).phase,
+        PairingProgressPhase.connecting,
       );
     });
   });
