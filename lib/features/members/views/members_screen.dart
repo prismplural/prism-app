@@ -70,7 +70,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             PrismListRow(
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               leading: Icon(AppIcons.search),
               title: Text(
                 ctxL10n.terminologySearchHint(terms.pluralLower),
@@ -85,7 +85,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
             ),
             const Divider(height: 1),
             PrismListRow(
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               leading: Icon(_showInactive
                   ? AppIcons.visibility
                   : AppIcons.visibilityOutlined),
@@ -113,7 +113,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 ),
               ),
               PrismListRow(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 dense: true,
                 title: Text(ctxL10n.memberSortNameAZ),
                 onTap: () {
@@ -124,7 +124,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 },
               ),
               PrismListRow(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 dense: true,
                 title: Text(ctxL10n.memberSortNameZA),
                 onTap: () {
@@ -135,7 +135,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 },
               ),
               PrismListRow(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 dense: true,
                 title: Text(ctxL10n.memberSortRecentlyCreated),
                 onTap: () {
@@ -145,7 +145,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 },
               ),
               PrismListRow(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 dense: true,
                 title: Text(ctxL10n.memberSortMostFronting),
                 onTap: () {
@@ -154,7 +154,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 },
               ),
               PrismListRow(
-                padding: EdgeInsets.zero,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 dense: true,
                 title: Text(ctxL10n.memberSortLeastFronting),
                 onTap: () {
@@ -331,7 +331,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                   animation: animation,
                   builder: (context, child) => Material(
                     elevation: 4,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
+                    clipBehavior: Clip.antiAlias,
                     child: child,
                   ),
                   child: child,
