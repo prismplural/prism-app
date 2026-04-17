@@ -6082,4 +6082,56 @@ class AppLocalizationsEs extends AppLocalizations {
   String featureSleepWakeAfterHours(String hours) {
     return '$hours horas';
   }
+
+  @override
+  String get onboardingSyncPhaseConnectTitle => 'Conectando…';
+
+  @override
+  String get onboardingSyncPhaseConnectSubtitle =>
+      'Saludando a tu otro dispositivo';
+
+  @override
+  String get onboardingSyncPhaseDownloadTitle => 'Descargando tu sistema';
+
+  @override
+  String get onboardingSyncPhaseDownloadSubtitle =>
+      'Trayendo la instantánea cifrada';
+
+  @override
+  String get onboardingSyncPhaseRestoreTitle => 'Restaurando tus datos';
+
+  @override
+  String get onboardingSyncPhaseRestoreSubtitle =>
+      'Desempaquetando miembros, mensajes y notas';
+
+  @override
+  String get onboardingSyncPhaseFinishTitle => 'Finalizando';
+
+  @override
+  String get onboardingSyncPhaseFinishSubtitle => 'Asegurando todo';
+
+  @override
+  String get onboardingSyncReassurance =>
+      'Aún cargando — los sistemas grandes pueden tardar un momento en redes lentas.';
+
+  @override
+  String get onboardingSyncReconnecting => 'Reconectando al relay…';
+
+  @override
+  String get onboardingSyncNoDataToRestore =>
+      'Sin datos previos para restaurar — empezando desde cero.';
+
+  @override
+  String get onboardingSyncStillPullingBackground =>
+      'Aún descargando actualizaciones en segundo plano. Puedes continuar.';
+
+  @override
+  String onboardingSyncPhaseAnnouncement(String phase) {
+    return 'Ahora: $phase';
+  }
+
+  @override
+  String onboardingSyncRestoredSummary(int members, int messages) {
+    return 'Se restauraron $members miembros y $messages mensajes.';
+  }
 }

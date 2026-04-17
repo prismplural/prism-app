@@ -7055,5 +7055,28 @@
         "example": "8"
       }
     }
-  }
+  },
+  "onboardingSyncPhaseConnectTitle": "Connecting…",
+  "onboardingSyncPhaseConnectSubtitle": "Saying hello to your other device",
+  "onboardingSyncPhaseDownloadTitle": "Downloading your system",
+  "onboardingSyncPhaseDownloadSubtitle": "Pulling the encrypted snapshot",
+  "onboardingSyncPhaseRestoreTitle": "Restoring your data",
+  "onboardingSyncPhaseRestoreSubtitle": "Unpacking headmates, messages, and notes",
+  "onboardingSyncPhaseFinishTitle": "Wrapping up",
+  "onboardingSyncPhaseFinishSubtitle": "Locking things in for good",
+  "onboardingSyncReassurance": "Still going — larger systems can take a minute on slow networks.",
+  "onboardingSyncReconnecting": "Reconnecting to the relay…",
+  "onboardingSyncNoDataToRestore": "No prior data to restore — starting fresh.",
+  "onboardingSyncStillPullingBackground": "Still pulling updates in the background. You can continue.",
+  "@onboardingSyncPhaseAnnouncement": {
+    "placeholders": { "phase": { "type": "String" } }
+  },
+  "onboardingSyncPhaseAnnouncement": "Now {phase}",
+  "@onboardingSyncRestoredSummary": {
+    "placeholders": {
+      "members": { "type": "int" },
+      "messages": { "type": "int" }
+    }
+  },
+  "onboardingSyncRestoredSummary": "Restored {members} members and {messages} messages."
 }

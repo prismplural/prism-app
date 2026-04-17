@@ -5973,4 +5973,56 @@ class AppLocalizationsEn extends AppLocalizations {
   String featureSleepWakeAfterHours(String hours) {
     return '$hours hours';
   }
+
+  @override
+  String get onboardingSyncPhaseConnectTitle => 'Connecting…';
+
+  @override
+  String get onboardingSyncPhaseConnectSubtitle =>
+      'Saying hello to your other device';
+
+  @override
+  String get onboardingSyncPhaseDownloadTitle => 'Downloading your system';
+
+  @override
+  String get onboardingSyncPhaseDownloadSubtitle =>
+      'Pulling the encrypted snapshot';
+
+  @override
+  String get onboardingSyncPhaseRestoreTitle => 'Restoring your data';
+
+  @override
+  String get onboardingSyncPhaseRestoreSubtitle =>
+      'Unpacking headmates, messages, and notes';
+
+  @override
+  String get onboardingSyncPhaseFinishTitle => 'Wrapping up';
+
+  @override
+  String get onboardingSyncPhaseFinishSubtitle => 'Locking things in for good';
+
+  @override
+  String get onboardingSyncReassurance =>
+      'Still going — larger systems can take a minute on slow networks.';
+
+  @override
+  String get onboardingSyncReconnecting => 'Reconnecting to the relay…';
+
+  @override
+  String get onboardingSyncNoDataToRestore =>
+      'No prior data to restore — starting fresh.';
+
+  @override
+  String get onboardingSyncStillPullingBackground =>
+      'Still pulling updates in the background. You can continue.';
+
+  @override
+  String onboardingSyncPhaseAnnouncement(String phase) {
+    return 'Now $phase';
+  }
+
+  @override
+  String onboardingSyncRestoredSummary(int members, int messages) {
+    return 'Restored $members members and $messages messages.';
+  }
 }

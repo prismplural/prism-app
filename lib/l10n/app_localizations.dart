@@ -10309,6 +10309,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{hours} hours'**
   String featureSleepWakeAfterHours(String hours);
+
+  /// No description provided for @onboardingSyncPhaseConnectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting…'**
+  String get onboardingSyncPhaseConnectTitle;
+
+  /// No description provided for @onboardingSyncPhaseConnectSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Saying hello to your other device'**
+  String get onboardingSyncPhaseConnectSubtitle;
+
+  /// No description provided for @onboardingSyncPhaseDownloadTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading your system'**
+  String get onboardingSyncPhaseDownloadTitle;
+
+  /// No description provided for @onboardingSyncPhaseDownloadSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pulling the encrypted snapshot'**
+  String get onboardingSyncPhaseDownloadSubtitle;
+
+  /// No description provided for @onboardingSyncPhaseRestoreTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restoring your data'**
+  String get onboardingSyncPhaseRestoreTitle;
+
+  /// No description provided for @onboardingSyncPhaseRestoreSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unpacking headmates, messages, and notes'**
+  String get onboardingSyncPhaseRestoreSubtitle;
+
+  /// No description provided for @onboardingSyncPhaseFinishTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrapping up'**
+  String get onboardingSyncPhaseFinishTitle;
+
+  /// No description provided for @onboardingSyncPhaseFinishSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Locking things in for good'**
+  String get onboardingSyncPhaseFinishSubtitle;
+
+  /// No description provided for @onboardingSyncReassurance.
+  ///
+  /// In en, this message translates to:
+  /// **'Still going — larger systems can take a minute on slow networks.'**
+  String get onboardingSyncReassurance;
+
+  /// No description provided for @onboardingSyncReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting to the relay…'**
+  String get onboardingSyncReconnecting;
+
+  /// No description provided for @onboardingSyncNoDataToRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'No prior data to restore — starting fresh.'**
+  String get onboardingSyncNoDataToRestore;
+
+  /// No description provided for @onboardingSyncStillPullingBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'Still pulling updates in the background. You can continue.'**
+  String get onboardingSyncStillPullingBackground;
+
+  /// No description provided for @onboardingSyncPhaseAnnouncement.
+  ///
+  /// In en, this message translates to:
+  /// **'Now {phase}'**
+  String onboardingSyncPhaseAnnouncement(String phase);
+
+  /// No description provided for @onboardingSyncRestoredSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored {members} members and {messages} messages.'**
+  String onboardingSyncRestoredSummary(int members, int messages);
 }
 
 class _AppLocalizationsDelegate
