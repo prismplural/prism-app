@@ -77,70 +77,70 @@ class _SharingScreenState extends ConsumerState<SharingScreen> {
       bodyPadding: EdgeInsets.zero,
       body: pendingAsync.isLoading && friends.isEmpty
           ? const PrismLoadingState()
-          : RefreshIndicator(
-              onRefresh: () => _refreshInbox(showNoopToast: false),
-              child: ListView(
-                padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
-                children: [
-                  if (pending.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        context.l10n.sharingPendingRequests,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w600,
+          : friends.isEmpty && pending.isEmpty
+              ? _EmptyState(
+                  onCreateInvite: () => _showCreateInvite(context),
+                  onUseInvite: () => _showUseInvite(context),
+                )
+              : RefreshIndicator(
+                  onRefresh: () => _refreshInbox(showNoopToast: false),
+                  child: ListView(
+                    padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
+                    children: [
+                      if (pending.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            context.l10n.sharingPendingRequests,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...pending.map(
-                      (request) => Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 6,
+                        const SizedBox(height: 8),
+                        ...pending.map(
+                          (request) => Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 6,
+                            ),
+                            child: _PendingRequestCard(
+                              request: request,
+                              onAccept: request.canAccept
+                                  ? () => _acceptRequest(request)
+                                  : null,
+                              onDismiss: () => _dismissRequest(request),
+                            ),
+                          ),
                         ),
-                        child: _PendingRequestCard(
-                          request: request,
-                          onAccept: request.canAccept
-                              ? () => _acceptRequest(request)
-                              : null,
-                          onDismiss: () => _dismissRequest(request),
+                        const SizedBox(height: 16),
+                      ],
+                      if (friends.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            context.l10n.sharingTrustedPeople,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  if (friends.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        context.l10n.sharingTrustedPeople,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(height: 8),
+                        ...friends.map(
+                          (friend) => _FriendTile(
+                            friend: friend,
+                            onTap: () =>
+                                context.go('/settings/sharing/${friend.id}'),
+                            onDelete: () => _confirmDelete(context, friend),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ...friends.map(
-                      (friend) => _FriendTile(
-                        friend: friend,
-                        onTap: () =>
-                            context.go('/settings/sharing/${friend.id}'),
-                        onDelete: () => _confirmDelete(context, friend),
-                      ),
-                    ),
-                  ],
-                  if (friends.isEmpty && pending.isEmpty)
-                    _EmptyState(
-                      onCreateInvite: () => _showCreateInvite(context),
-                      onUseInvite: () => _showUseInvite(context),
-                    ),
-                ],
-              ),
-            ),
+                      ],
+                    ],
+                  ),
+                ),
     );
   }
 
