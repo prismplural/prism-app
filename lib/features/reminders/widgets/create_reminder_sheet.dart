@@ -146,21 +146,21 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                 // Conditional fields
                 if (_trigger == ReminderTrigger.scheduled) ...[
                   // Schedule section: frequency + frequency-specific fields.
-                  Text('Schedule', style: theme.textTheme.labelLarge),
+                  Text(context.l10n.remindersScheduleLabel, style: theme.textTheme.labelLarge),
                   const SizedBox(height: 8),
                   PrismSegmentedControl<ReminderFrequency>(
-                    segments: const [
+                    segments: [
                       PrismSegment(
                         value: ReminderFrequency.daily,
-                        label: 'Daily',
+                        label: context.l10n.remindersSubtitleDaily,
                       ),
                       PrismSegment(
                         value: ReminderFrequency.weekly,
-                        label: 'Weekly',
+                        label: context.l10n.remindersFrequencyWeekly,
                       ),
                       PrismSegment(
                         value: ReminderFrequency.interval,
-                        label: 'Every few days',
+                        label: context.l10n.remindersFrequencyInterval,
                       ),
                     ],
                     selected: _frequency,
@@ -184,7 +184,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                     if (_weeklyDays.isEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Select at least one day',
+                        context.l10n.remindersWeeklyEmptyHelper,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.error,
                         ),

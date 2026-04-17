@@ -8870,7 +8870,7 @@ abstract class AppLocalizations {
   /// **'On front change ({hours}h delay)'**
   String remindersSubtitleOnFrontChangeDelay(int hours);
 
-  /// Reminder subtitle for daily repeat interval
+  /// Reminder subtitle and frequency segment label for daily repeat interval
   ///
   /// In en, this message translates to:
   /// **'Daily'**
@@ -8881,6 +8881,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Every {days} days'**
   String remindersSubtitleEveryNDays(int days);
+
+  /// Frequency segment label and subtitle fallback for weekly reminders
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get remindersFrequencyWeekly;
+
+  /// Frequency segment label for reminders that repeat every N days
+  ///
+  /// In en, this message translates to:
+  /// **'Every few days'**
+  String get remindersFrequencyInterval;
+
+  /// Section header above the reminder frequency segmented control
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule'**
+  String get remindersScheduleLabel;
+
+  /// Helper text shown when the weekly frequency is chosen but no weekdays are selected
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one day'**
+  String get remindersWeeklyEmptyHelper;
+
+  /// Reminder subtitle shown when all 7 weekdays are selected
+  ///
+  /// In en, this message translates to:
+  /// **'Every day'**
+  String get remindersSubtitleEveryDay;
+
+  /// Reminder subtitle shorthand for Monday through Friday selection
+  ///
+  /// In en, this message translates to:
+  /// **'Weekdays'**
+  String get remindersSubtitleWeekdays;
+
+  /// Reminder subtitle shorthand for Saturday and Sunday selection
+  ///
+  /// In en, this message translates to:
+  /// **'Weekends'**
+  String get remindersSubtitleWeekends;
+
+  /// Reminder subtitle when more than three weekdays are selected but not a named shorthand
+  ///
+  /// In en, this message translates to:
+  /// **'{count} days/week'**
+  String remindersSubtitleDaysPerWeek(int count);
+
+  /// Short abbreviation for Sunday (3 letters)
+  ///
+  /// In en, this message translates to:
+  /// **'Sun'**
+  String get weekdayAbbreviationSun;
+
+  /// Short abbreviation for Monday (3 letters)
+  ///
+  /// In en, this message translates to:
+  /// **'Mon'**
+  String get weekdayAbbreviationMon;
+
+  /// Short abbreviation for Tuesday (3 letters)
+  ///
+  /// In en, this message translates to:
+  /// **'Tue'**
+  String get weekdayAbbreviationTue;
+
+  /// Short abbreviation for Wednesday (3 letters)
+  ///
+  /// In en, this message translates to:
+  /// **'Wed'**
+  String get weekdayAbbreviationWed;
+
+  /// Short abbreviation for Thursday (3 letters)
+  ///
+  /// In en, this message translates to:
+  /// **'Thu'**
+  String get weekdayAbbreviationThu;
+
+  /// Short abbreviation for Friday (3 letters)
+  ///
+  /// In en, this message translates to:
+  /// **'Fri'**
+  String get weekdayAbbreviationFri;
+
+  /// Short abbreviation for Saturday (3 letters)
+  ///
+  /// In en, this message translates to:
+  /// **'Sat'**
+  String get weekdayAbbreviationSat;
 
   /// Trigger type label and fallback subtitle for scheduled reminders
   ///

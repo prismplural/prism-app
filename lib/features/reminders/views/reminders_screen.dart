@@ -159,29 +159,37 @@ String _formatReminderSubtitle(BuildContext context, Reminder r) {
 
   switch (r.frequency) {
     case ReminderFrequency.daily:
-      return '${prefix}Daily';
+      return '$prefix${l10n.remindersSubtitleDaily}';
 
     case ReminderFrequency.weekly:
       final days = r.weeklyDays ?? const <int>[];
-      if (days.isEmpty) return '${prefix}Weekly';
+      if (days.isEmpty) return '$prefix${l10n.remindersFrequencyWeekly}';
       final sorted = [...days]..sort();
-      if (sorted.length == 7) return '${prefix}Every day';
+      if (sorted.length == 7) return '$prefix${l10n.remindersSubtitleEveryDay}';
       if (_reminderDaysEqual(sorted, const [1, 2, 3, 4, 5])) {
-        return '${prefix}Weekdays';
+        return '$prefix${l10n.remindersSubtitleWeekdays}';
       }
       if (_reminderDaysEqual(sorted, const [0, 6])) {
-        return '${prefix}Weekends';
+        return '$prefix${l10n.remindersSubtitleWeekends}';
       }
       if (sorted.length <= 3) {
-        const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        final labels = [
+          l10n.weekdayAbbreviationSun,
+          l10n.weekdayAbbreviationMon,
+          l10n.weekdayAbbreviationTue,
+          l10n.weekdayAbbreviationWed,
+          l10n.weekdayAbbreviationThu,
+          l10n.weekdayAbbreviationFri,
+          l10n.weekdayAbbreviationSat,
+        ];
         return '$prefix${sorted.map((d) => labels[d]).join(', ')}';
       }
-      return '$prefix${sorted.length} days/week';
+      return '$prefix${l10n.remindersSubtitleDaysPerWeek(sorted.length)}';
 
     case ReminderFrequency.interval:
       final interval = r.intervalDays ?? 1;
-      if (interval == 1) return '${prefix}Daily';
-      return '${prefix}Every $interval days';
+      if (interval == 1) return '$prefix${l10n.remindersSubtitleDaily}';
+      return '$prefix${l10n.remindersSubtitleEveryNDays(interval)}';
   }
 }
 
