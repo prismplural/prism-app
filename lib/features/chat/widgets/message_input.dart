@@ -591,7 +591,13 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                       size: inputHeight,
                       onPressed: () {
                         HapticFeedback.mediumImpact();
-                        setState(() => _isRecording = true);
+                        // Unfocus first so the keyboard starts its dismiss
+                        // animation before the UI swaps — prevents the jarring
+                        // double-transition of keyboard close + widget change.
+                        _focusNode.unfocus();
+                        Future.delayed(const Duration(milliseconds: 50), () {
+                          if (mounted) setState(() => _isRecording = true);
+                        });
                       },
                     )
                   else

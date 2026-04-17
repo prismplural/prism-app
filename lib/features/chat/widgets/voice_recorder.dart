@@ -359,18 +359,40 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
 
-  /// Animation progress [0..1] per sample index. Grows as new samples arrive.
+  /// Per-bar grow-in progress [0..1].
   final List<double> _barProgress = [];
 
-  /// Tracks elapsed time so we can advance animations per frame.
+  /// Continuous slide position — grows by 1.0 per new sample. The fractional
+  /// part drives the smooth slide animation; integers mark settled states.
+  double _slidePhase = 0.0;
+
+  /// Target slide position — incremented by 1 for each arriving sample.
+  double _targetPhase = 0.0;
+
   Duration _lastTick = Duration.zero;
 
-  static const _animDuration = 150.0; // ms per bar grow-in
+  static const _animDuration = 150.0; // ms per bar
 
   @override
   void initState() {
     super.initState();
+    // Treat existing samples as already settled.
+    final n = widget.samples.length.toDouble();
+    _slidePhase = n;
+    _targetPhase = n;
+    for (var i = 0; i < widget.samples.length; i++) {
+      _barProgress.add(1.0);
+    }
     _ticker = createTicker(_onTick)..start();
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedWaveform old) {
+    super.didUpdateWidget(old);
+    final added = widget.samples.length - old.samples.length;
+    if (added > 0) {
+      _targetPhase += added.toDouble();
+    }
   }
 
   @override
@@ -388,11 +410,20 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
       _barProgress.add(0.0);
     }
 
-    // Advance all in-flight animations.
     var needsRepaint = false;
+
+    // Advance slide phase toward target — this drives the horizontal scroll.
+    if (_slidePhase < _targetPhase) {
+      _slidePhase = (_slidePhase + dt / _animDuration)
+          .clamp(0.0, _targetPhase);
+      needsRepaint = true;
+    }
+
+    // Advance per-bar grow-in animations.
     for (var i = 0; i < _barProgress.length; i++) {
       if (_barProgress[i] < 1.0) {
-        _barProgress[i] = (_barProgress[i] + dt / _animDuration).clamp(0.0, 1.0);
+        _barProgress[i] =
+            (_barProgress[i] + dt / _animDuration).clamp(0.0, 1.0);
         needsRepaint = true;
       }
     }
@@ -409,6 +440,7 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
         samples: widget.samples,
         barProgress: _barProgress,
         color: widget.color,
+        slidePhase: _slidePhase,
       ),
       size: Size(double.infinity, widget.height),
     );
@@ -420,11 +452,16 @@ class _WaveformPainter extends CustomPainter {
     required this.samples,
     required this.barProgress,
     required this.color,
+    required this.slidePhase,
   });
 
   final List<double> samples;
   final List<double> barProgress;
   final Color color;
+
+  /// Continuous slide position — grows by 1.0 per sample. The fractional
+  /// part (0→1) is the progress of the current bar's entry animation.
+  final double slidePhase;
 
   static const _barWidth = 3.0;
   static const _barGap = 2.0;
@@ -438,11 +475,15 @@ class _WaveformPainter extends CustomPainter {
     canvas.clipRect(Offset.zero & size);
 
     final maxBars = (size.width / (_barWidth + _barGap)).floor();
+    if (maxBars == 0) {
+      canvas.restore();
+      return;
+    }
+
     // Include one extra bar on the left during scroll so it slides out
     // smoothly instead of disappearing abruptly.
-    final extraLeft = samples.length > maxBars ? 1 : 0;
     final startIndex = samples.length > maxBars
-        ? samples.length - maxBars - extraLeft
+        ? samples.length - maxBars - 1
         : 0;
     final visibleCount = samples.length - startIndex;
 
@@ -463,43 +504,33 @@ class _WaveformPainter extends CustomPainter {
 
     const barStep = _barWidth + _barGap;
 
-    // Newest bar's animation progress drives the smooth slide.
-    final newestProgress = (barProgress.length >= samples.length)
-        ? Curves.easeOut.transform(barProgress[samples.length - 1])
-        : 1.0;
+    // The fractional part of slidePhase (0→1) is the progress within the
+    // current bar's entry animation. Using this for baseSlot ensures the
+    // slide is continuous: it never resets when a new sample arrives.
+    final frac = Curves.easeOut.transform(
+      (slidePhase - slidePhase.floorToDouble()).clamp(0.0, 1.0),
+    );
 
-    // Right-aligned: bars fill from the right edge and slide left.
-    // baseSlot is the slot index of the first visible bar (bar i=0).
-    // As the newest bar animates in (0→1), everything shifts left by one slot.
-    final double baseSlot;
-    if (samples.length > maxBars) {
-      // Scrolling phase: slide the extra left bar off-screen.
-      baseSlot = -newestProgress;
-    } else {
-      // Filling phase: right-align, newest bar enters at right edge.
-      // At progress=0 the new bar is one slot past the right edge;
-      // at progress=1 it settles into the rightmost visible slot.
-      baseSlot = (maxBars - visibleCount).toDouble() +
-          (1.0 - newestProgress);
-    }
+    // Unified formula: newest bar enters from 1 slot past the right edge
+    // (frac=0) and settles at the rightmost slot (frac=1). All other bars
+    // shift left by the same amount. Works for both filling and scrolling.
+    final baseSlot = (maxBars - visibleCount + 1).toDouble() - frac;
 
     for (var i = 0; i < visibleCount; i++) {
       final sampleIndex = startIndex + i;
       final sample = samples[sampleIndex];
-      final normalized = range < 0.01
-          ? 0.5
-          : (sample - minVal) / range;
+      final normalized = range < 0.01 ? 0.5 : (sample - minVal) / range;
       final targetHeight = _minHeight + normalized * (maxHeight - _minHeight);
 
       // Per-bar grow-in animation.
-      final progress = sampleIndex < barProgress.length
+      final growProgress = sampleIndex < barProgress.length
           ? Curves.easeOut.transform(barProgress[sampleIndex])
           : 1.0;
-      final barHeight = _minHeight + (targetHeight - _minHeight) * progress;
+      final barHeight = _minHeight + (targetHeight - _minHeight) * growProgress;
 
       final x = (baseSlot + i) * barStep;
-
       final y = (size.height - barHeight) / 2;
+
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(x, y, _barWidth, barHeight),
