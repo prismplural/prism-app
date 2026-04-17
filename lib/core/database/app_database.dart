@@ -19,6 +19,7 @@ import 'package:prism_plurality/core/database/daos/reminders_dao.dart';
 import 'package:prism_plurality/core/database/daos/friends_dao.dart';
 import 'package:prism_plurality/core/database/daos/sharing_requests_dao.dart';
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
+import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/core/database/tables/tables.dart';
 
 part 'app_database.g.dart';
@@ -73,6 +74,7 @@ part 'app_database.g.dart';
     FriendsDao,
     SharingRequestsDao,
     MediaAttachmentsDao,
+    SpImportDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -467,4 +469,6 @@ class AppDatabase extends _$AppDatabase {
       ConversationCategoriesDao(this);
   @override
   RemindersDao get remindersDao => RemindersDao(this);
+  @override
+  SpImportDao get spImportDao => SpImportDao(this);
 }

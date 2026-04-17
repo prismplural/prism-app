@@ -1,9 +1,12 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
-import 'package:prism_plurality/core/database/app_database.dart' show AppDatabase;
+import 'package:prism_plurality/core/database/app_database.dart'
+    show AppDatabase, SpIdMapTableCompanion, SpSyncStateTableCompanion;
+import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
@@ -128,12 +131,24 @@ class SpImporter {
     RemindersRepository? remindersRepo,
     ConversationCategoriesRepository? categoriesRepo,
     SystemSettingsRepository? settingsRepo,
+    SpImportDao? spImportDao,
     bool downloadAvatars = true,
     bool clearExistingData = false,
     void Function(int current, int total, String label)? onProgress,
   }) async {
     final stopwatch = Stopwatch()..start();
-    final mapper = SpMapper();
+
+    // Load existing SP→Prism ID mappings so a re-import reuses stable UUIDs.
+    final existingMappings = <String, Map<String, String>>{};
+    if (spImportDao != null) {
+      final rows = await spImportDao.getAllMappings();
+      for (final row in rows) {
+        existingMappings.putIfAbsent(row.entityType, () => {})[row.spId] =
+            row.prismId;
+      }
+    }
+
+    final mapper = SpMapper(existingMappings: existingMappings);
     final mapped = mapper.mapAll(data);
 
     final totalItems = mapped.members.length +
@@ -302,6 +317,32 @@ class SpImporter {
         }
       }
     });
+
+    // Persist SP→Prism ID mappings so subsequent imports reuse the same UUIDs.
+    if (spImportDao != null) {
+      final mappingRows = <SpIdMapTableCompanion>[];
+      for (final (type, idMap) in [
+        ('member', mapper.memberIdMap),
+        ('channel', mapper.channelIdMap),
+        ('session', mapper.sessionIdMap),
+        ('group', mapper.groupIdMap),
+        ('field', mapper.fieldIdMap),
+        ('category', mapper.categoryIdMap),
+      ]) {
+        for (final entry in idMap.entries) {
+          mappingRows.add(SpIdMapTableCompanion(
+            spId: Value(entry.key),
+            entityType: Value(type),
+            prismId: Value(entry.value),
+          ));
+        }
+      }
+      await spImportDao.upsertMappings(mappingRows);
+      await spImportDao.upsertSyncState(SpSyncStateTableCompanion(
+        id: const Value('singleton'),
+        lastImportAt: Value(DateTime.now()),
+      ));
+    }
 
     // 6. Download avatars (best-effort, outside the transaction).
     //    Network I/O cannot be rolled back; failures here are silently skipped.
