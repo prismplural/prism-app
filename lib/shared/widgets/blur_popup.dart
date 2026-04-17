@@ -239,6 +239,10 @@ class _BlurPopupOverlay extends StatelessWidget {
 
     return TextFieldTapRegion(
       child: Stack(
+        // Clip.none so the ScaleTransition on the popup content does not clip
+        // the anchor chip during the open/close animation. The popup list itself
+        // is clipped by ClipRRect inside _BlurPopupContent.
+        clipBehavior: Clip.none,
         children: [
           // Barrier — dismisses on tap, tinted overlay.
           Positioned.fill(
