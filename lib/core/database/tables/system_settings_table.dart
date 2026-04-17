@@ -6,7 +6,7 @@ import 'package:drift/drift.dart';
 /// - **Synced** — appearance, terminology, feature toggles, timing mode.
 ///   Changes propagate to all devices via CRDT.
 /// - **Device-local** — font scale, biometric lock, autoLock, display font,
-///   nav bar layout, habit badge. Stays on this device only.
+///   nav bar layout. Stays on this device only.
 ///
 /// When adding a new setting, decide which tier it belongs to and add it to
 /// the appropriate section below. Synced fields also need a sync_schema.dart
@@ -80,7 +80,7 @@ class SystemSettingsTable extends Table {
   IntColumn get timingMode => integer().withDefault(
     const Constant(0),
   )(); // FrontingTimingMode enum index
-  // Habits badge (local-only, not synced)
+  // Habits badge (synced)
   BoolColumn get habitsBadgeEnabled =>
       boolean().withDefault(const Constant(true))();
   // Notes feature toggle

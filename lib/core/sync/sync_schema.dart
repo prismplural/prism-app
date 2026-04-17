@@ -106,6 +106,7 @@ const String prismSyncSchema = '''
         "system_avatar_data": "Blob",
         "reminders_enabled": "Bool",
         "sync_navigation_enabled": "Bool",
+        "habits_badge_enabled": "Bool",
         "nav_bar_items": "String",
         "nav_bar_overflow_items": "String",
         "chat_badge_preferences": "String",
