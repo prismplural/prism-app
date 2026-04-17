@@ -90,6 +90,7 @@ class PluralKitSyncService {
   final PluralKitSyncDao _syncDao;
   final FlutterSecureStorage _secureStorage;
   final Uuid _uuid;
+  final PluralKitClient Function(String token)? _clientFactory;
 
   PluralKitSyncState _state = const PluralKitSyncState();
   SyncStateCallback? onStateChanged;
@@ -99,12 +100,14 @@ class PluralKitSyncService {
     required FrontingSessionRepository frontingSessionRepository,
     required PluralKitSyncDao syncDao,
     FlutterSecureStorage? secureStorage,
+    PluralKitClient Function(String token)? clientFactory,
   }) : _memberRepository = memberRepository,
        _frontingSessionRepository = frontingSessionRepository,
        _syncDao = syncDao,
        _secureStorage =
            secureStorage ?? storage_config.secureStorage,
-       _uuid = const Uuid();
+       _uuid = const Uuid(),
+       _clientFactory = clientFactory;
 
   PluralKitSyncState get state => _state;
 
@@ -117,12 +120,17 @@ class PluralKitSyncService {
 
   Future<String?> _getToken() => _secureStorage.read(key: _pkTokenKey);
 
+  PluralKitClient _makeClient(String token) =>
+      _clientFactory != null
+          ? _clientFactory(token)
+          : PluralKitClient(token: token);
+
   Future<PluralKitClient?> _buildClient() async {
     final token = await _getToken();
     if (token == null) return null;
     final trimmed = token.trim();
     if (trimmed.isEmpty) return null;
-    return PluralKitClient(token: trimmed);
+    return _makeClient(trimmed);
   }
 
   // -- public API -----------------------------------------------------------
@@ -156,7 +164,7 @@ class PluralKitSyncService {
     await _secureStorage.write(key: _pkTokenKey, value: trimmed);
 
     try {
-      final client = PluralKitClient(token: trimmed);
+      final client = _makeClient(trimmed);
       final system = await client.getSystem();
       client.dispose();
 
