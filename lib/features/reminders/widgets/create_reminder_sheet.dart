@@ -13,6 +13,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
+import 'package:prism_plurality/shared/widgets/weekday_picker.dart';
 
 class CreateReminderSheet extends ConsumerStatefulWidget {
   const CreateReminderSheet({super.key, this.editing, this.scrollController});
@@ -29,12 +30,18 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
   late TextEditingController _nameController;
   late TextEditingController _messageController;
   late ReminderTrigger _trigger;
+  late ReminderFrequency _frequency;
+  late Set<int> _weeklyDays;
   int? _intervalDays;
   TimeOfDay? _timeOfDay;
   int? _delayHours;
 
   bool get _isEditing => widget.editing != null;
-  bool get _canSave => _nameController.text.trim().isNotEmpty;
+  bool get _canSave =>
+      _nameController.text.trim().isNotEmpty &&
+      !(_trigger == ReminderTrigger.scheduled &&
+          _frequency == ReminderFrequency.weekly &&
+          _weeklyDays.isEmpty);
 
   @override
   void initState() {
@@ -43,7 +50,16 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
     _nameController = TextEditingController(text: r?.name ?? '');
     _messageController = TextEditingController(text: r?.message ?? '');
     _trigger = r?.trigger ?? ReminderTrigger.scheduled;
-    _intervalDays = r?.intervalDays ?? 1;
+    _frequency = r?.frequency ?? ReminderFrequency.daily;
+    _weeklyDays = r?.weeklyDays?.toSet() ?? <int>{};
+    // Interval dropdown now starts at 2 (1 is represented by the Daily
+    // frequency). If editing a reminder that arrived here with intervalDays=1
+    // under the interval frequency, bump it up to a valid option.
+    final editingInterval = r?.intervalDays;
+    _intervalDays = (_frequency == ReminderFrequency.interval &&
+            (editingInterval == null || editingInterval < 2))
+        ? 2
+        : (editingInterval ?? 2);
     _delayHours = r?.delayHours ?? 0;
     final timeOfDay = r?.timeOfDay;
     if (timeOfDay != null) {
@@ -129,25 +145,71 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
 
                 // Conditional fields
                 if (_trigger == ReminderTrigger.scheduled) ...[
-                  // Interval picker
-                  _LabeledRow(
-                    label: context.l10n.remindersRepeatEveryLabel,
-                    child: PrismSelect<int>.compact(
-                      value: _intervalDays ?? 1,
-                      menuWidth: 180,
-                      items: [
-                        PrismSelectItem(value: 1, label: context.l10n.remindersIntervalDays(1)),
-                        PrismSelectItem(value: 2, label: context.l10n.remindersIntervalDays(2)),
-                        PrismSelectItem(value: 3, label: context.l10n.remindersIntervalDays(3)),
-                        PrismSelectItem(value: 7, label: context.l10n.remindersIntervalDays(7)),
-                        PrismSelectItem(value: 14, label: context.l10n.remindersIntervalDays(14)),
-                        PrismSelectItem(value: 30, label: context.l10n.remindersIntervalDays(30)),
-                      ],
-                      onChanged: (v) => setState(() => _intervalDays = v),
-                    ),
+                  // Schedule section: frequency + frequency-specific fields.
+                  Text('Schedule', style: theme.textTheme.labelLarge),
+                  const SizedBox(height: 8),
+                  PrismSegmentedControl<ReminderFrequency>(
+                    segments: const [
+                      PrismSegment(
+                        value: ReminderFrequency.daily,
+                        label: 'Daily',
+                      ),
+                      PrismSegment(
+                        value: ReminderFrequency.weekly,
+                        label: 'Weekly',
+                      ),
+                      PrismSegment(
+                        value: ReminderFrequency.interval,
+                        label: 'Every few days',
+                      ),
+                    ],
+                    selected: _frequency,
+                    onChanged: (value) => setState(() {
+                      _frequency = value;
+                      // Keep interval dropdown on a valid option when
+                      // switching into the interval frequency.
+                      if (value == ReminderFrequency.interval &&
+                          (_intervalDays == null || _intervalDays! < 2)) {
+                        _intervalDays = 2;
+                      }
+                    }),
                   ),
                   const SizedBox(height: 12),
-                  // Time picker
+                  if (_frequency == ReminderFrequency.weekly) ...[
+                    WeekdayPicker(
+                      selected: _weeklyDays,
+                      onChanged: (days) =>
+                          setState(() => _weeklyDays = days),
+                    ),
+                    if (_weeklyDays.isEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Select at least one day',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                  ] else if (_frequency == ReminderFrequency.interval) ...[
+                    _LabeledRow(
+                      label: context.l10n.remindersRepeatEveryLabel,
+                      child: PrismSelect<int>.compact(
+                        value: _intervalDays ?? 2,
+                        menuWidth: 180,
+                        items: [
+                          PrismSelectItem(value: 2, label: context.l10n.remindersIntervalDays(2)),
+                          PrismSelectItem(value: 3, label: context.l10n.remindersIntervalDays(3)),
+                          PrismSelectItem(value: 7, label: context.l10n.remindersIntervalDays(7)),
+                          PrismSelectItem(value: 14, label: context.l10n.remindersIntervalDays(14)),
+                          PrismSelectItem(value: 30, label: context.l10n.remindersIntervalDays(30)),
+                        ],
+                        onChanged: (v) => setState(() => _intervalDays = v),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  // Time picker (all scheduled frequencies have a time).
                   _LabeledRow(
                     label: context.l10n.remindersTimeLabel,
                     child: PrismButton(
@@ -217,16 +279,27 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
               '${_timeOfDay!.minute.toString().padLeft(2, '0')}'
         : null;
 
+    final isScheduled = _trigger == ReminderTrigger.scheduled;
+    final frequency = isScheduled ? _frequency : ReminderFrequency.daily;
+    final weeklyDays =
+        isScheduled && _frequency == ReminderFrequency.weekly
+            ? (_weeklyDays.toList()..sort())
+            : null;
+    final intervalDays =
+        isScheduled && _frequency == ReminderFrequency.interval
+            ? _intervalDays
+            : null;
+
     if (_isEditing) {
       notifier.updateReminder(
         widget.editing!.copyWith(
           name: name,
           message: message,
           trigger: _trigger,
-          intervalDays: _trigger == ReminderTrigger.scheduled
-              ? _intervalDays
-              : null,
-          timeOfDay: _trigger == ReminderTrigger.scheduled ? timeStr : null,
+          frequency: frequency,
+          weeklyDays: weeklyDays,
+          intervalDays: intervalDays,
+          timeOfDay: isScheduled ? timeStr : null,
           delayHours: _trigger == ReminderTrigger.onFrontChange
               ? _delayHours
               : null,
@@ -237,10 +310,10 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
         name: name,
         message: message,
         trigger: _trigger,
-        intervalDays: _trigger == ReminderTrigger.scheduled
-            ? _intervalDays
-            : null,
-        timeOfDay: _trigger == ReminderTrigger.scheduled ? timeStr : null,
+        frequency: frequency,
+        weeklyDays: weeklyDays,
+        intervalDays: intervalDays,
+        timeOfDay: isScheduled ? timeStr : null,
         delayHours: _trigger == ReminderTrigger.onFrontChange
             ? _delayHours
             : null,
