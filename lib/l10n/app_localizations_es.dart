@@ -5216,6 +5216,53 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get remindersFrequencyWeekly => 'Semanal';
+
+  @override
+  String get remindersFrequencyInterval => 'Cada pocos días';
+
+  @override
+  String get remindersScheduleLabel => 'Horario';
+
+  @override
+  String get remindersWeeklyEmptyHelper => 'Selecciona al menos un día';
+
+  @override
+  String get remindersSubtitleEveryDay => 'Todos los días';
+
+  @override
+  String get remindersSubtitleWeekdays => 'Entre semana';
+
+  @override
+  String get remindersSubtitleWeekends => 'Fines de semana';
+
+  @override
+  String remindersSubtitleDaysPerWeek(int count) {
+    return '$count días a la semana';
+  }
+
+  @override
+  String get weekdayAbbreviationSun => 'Dom';
+
+  @override
+  String get weekdayAbbreviationMon => 'Lun';
+
+  @override
+  String get weekdayAbbreviationTue => 'Mar';
+
+  @override
+  String get weekdayAbbreviationWed => 'Mié';
+
+  @override
+  String get weekdayAbbreviationThu => 'Jue';
+
+  @override
+  String get weekdayAbbreviationFri => 'Vie';
+
+  @override
+  String get weekdayAbbreviationSat => 'Sáb';
+
+  @override
   String get remindersScheduled => 'Programado';
 
   @override

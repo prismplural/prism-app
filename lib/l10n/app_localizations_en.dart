@@ -5127,6 +5127,53 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get remindersFrequencyWeekly => 'Weekly';
+
+  @override
+  String get remindersFrequencyInterval => 'Every few days';
+
+  @override
+  String get remindersScheduleLabel => 'Schedule';
+
+  @override
+  String get remindersWeeklyEmptyHelper => 'Select at least one day';
+
+  @override
+  String get remindersSubtitleEveryDay => 'Every day';
+
+  @override
+  String get remindersSubtitleWeekdays => 'Weekdays';
+
+  @override
+  String get remindersSubtitleWeekends => 'Weekends';
+
+  @override
+  String remindersSubtitleDaysPerWeek(int count) {
+    return '$count days/week';
+  }
+
+  @override
+  String get weekdayAbbreviationSun => 'Sun';
+
+  @override
+  String get weekdayAbbreviationMon => 'Mon';
+
+  @override
+  String get weekdayAbbreviationTue => 'Tue';
+
+  @override
+  String get weekdayAbbreviationWed => 'Wed';
+
+  @override
+  String get weekdayAbbreviationThu => 'Thu';
+
+  @override
+  String get weekdayAbbreviationFri => 'Fri';
+
+  @override
+  String get weekdayAbbreviationSat => 'Sat';
+
+  @override
   String get remindersScheduled => 'Scheduled';
 
   @override
