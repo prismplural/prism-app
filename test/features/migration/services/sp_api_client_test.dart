@@ -27,6 +27,31 @@ void main() {
       client.dispose();
     });
 
+    test('verifyToken parses content-wrapped /me response (real API format)',
+        () async {
+      final client = SpApiClient(
+        token: 'test-token',
+        httpClient: MockClient((request) async {
+          return http.Response(
+            jsonEncode({
+              'exists': true,
+              'id': 'sys123',
+              'content': {
+                'uid': 'sys123',
+                'username': 'real-user',
+                'isAsystem': true,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+      final result = await client.verifyToken();
+      expect(result.systemId, 'sys123');
+      expect(result.username, 'real-user');
+      client.dispose();
+    });
+
     test('verifyToken throws SpAuthError on 401', () async {
       final client = SpApiClient(
         token: 'bad-token',
