@@ -31,6 +31,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
   _ImportState _state = _ImportState.idle;
   String? _errorMessage;
   String? _jsonContent;
+  List<({String mediaId, Uint8List blob})> _mediaBlobs = const [];
   Uint8List? _fileBytes;
   ImportPreview? _preview;
   ImportResult? _result;
@@ -96,17 +97,18 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     }
 
     try {
-      final json = DataImportService.resolveBytes(
+      final resolved = DataImportService.resolveBytes(
         _fileBytes!,
         password: password,
       );
       final service = ref.read(dataImportServiceProvider);
-      final preview = service.parsePreview(json);
+      final preview = service.parsePreview(resolved.json);
 
       if (!mounted) return;
       setState(() {
         _state = _ImportState.preview;
-        _jsonContent = json;
+        _jsonContent = resolved.json;
+        _mediaBlobs = resolved.mediaBlobs;
         _preview = preview;
         _passwordError = null;
       });
@@ -127,7 +129,10 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
 
     try {
       final service = ref.read(dataImportServiceProvider);
-      final result = await service.importData(_jsonContent!);
+      final result = await service.importData(
+        _jsonContent!,
+        mediaBlobs: _mediaBlobs,
+      );
       if (!mounted) return;
       setState(() {
         _state = _ImportState.complete;

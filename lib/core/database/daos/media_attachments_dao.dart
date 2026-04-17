@@ -21,6 +21,9 @@ class MediaAttachmentsDao extends DatabaseAccessor<AppDatabase>
                 a.messageId.equals(messageId) & a.isDeleted.equals(false)))
           .get();
 
+  Future<List<MediaAttachment>> getAll() =>
+      (select(mediaAttachments)..where((a) => a.isDeleted.equals(false))).get();
+
   Future<MediaAttachment?> getById(String id) =>
       (select(mediaAttachments)..where((a) => a.id.equals(id)))
           .getSingleOrNull();

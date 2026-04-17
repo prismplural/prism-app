@@ -6,24 +6,32 @@ import 'package:pointycastle/export.dart';
 
 /// Password-based encryption for Prism data exports.
 ///
-/// ## File format
+/// ## File format (PRISM3)
 /// ```
-/// PRISM2  (6 bytes magic)
-/// N       (4 bytes, big-endian uint32 — scrypt cost factor, e.g. 32768)
-/// r       (4 bytes, big-endian uint32 — scrypt block size, e.g. 8)
-/// p       (4 bytes, big-endian uint32 — scrypt parallelization, e.g. 1)
-/// salt    (32 bytes, random)
-/// nonce   (12 bytes, random — GCM standard)
-/// ciphertext + 16-byte GCM auth tag
+/// PRISM3        (6 bytes magic)
+/// N             (4 bytes, big-endian uint32 — scrypt cost factor, e.g. 32768)
+/// r             (4 bytes, big-endian uint32 — scrypt block size, e.g. 8)
+/// p             (4 bytes, big-endian uint32 — scrypt parallelization, e.g. 1)
+/// salt          (32 bytes, random)
+/// nonce         (12 bytes, random — GCM standard)
+/// json_len      (4 bytes, big-endian uint32)
+/// json_ct       (json_len bytes — AES-256-GCM encrypted UTF-8 JSON + 16-byte tag)
+/// media_count   (4 bytes, big-endian uint32)
+/// --- repeated media_count times ---
+/// id_len        (4 bytes, big-endian uint32)
+/// id_bytes      (id_len bytes — UTF-8 mediaId or thumbnailMediaId)
+/// blob_len      (4 bytes, big-endian uint32)
+/// blob_bytes    (blob_len bytes — raw XChaCha20-Poly1305 ciphertext, carried as-is)
 /// ```
 ///
 /// Key derivation: scrypt (memory-hard; N=32768, r=8, p=1 ≈ 32 MB RAM).
-/// Cipher: AES-256-GCM (authenticated encryption).
+/// Cipher: AES-256-GCM (authenticated encryption) for the JSON section only.
+/// Media blobs are already XChaCha20-Poly1305 encrypted and are carried verbatim.
 ///
 /// KDF parameters are embedded in the header so future upgrades can read
 /// older exports without hardcoding version-specific constants.
 class ExportCrypto {
-  static const _magic = 'PRISM2';
+  static const _magic = 'PRISM3';
   static const _saltLength = 32;
   static const _nonceLength = 12; // GCM standard
   static const _keyLength = 32; // AES-256
@@ -33,10 +41,17 @@ class ExportCrypto {
   static const _scryptR = 8; // block size
   static const _scryptP = 1; // parallelization
 
-  /// Encrypt a JSON string with [password].
+  /// Encrypt JSON + media blobs with [password].
   ///
-  /// Returns the encrypted bytes in the Prism export format.
-  static Uint8List encrypt(String json, String password) {
+  /// [mediaBlobs] entries are (mediaId, blob) pairs where blob is a raw
+  /// XChaCha20-Poly1305 ciphertext carried as-is (not re-encrypted).
+  ///
+  /// Returns the encrypted bytes in the PRISM3 export format.
+  static Uint8List encrypt(
+    String json,
+    List<({String mediaId, Uint8List blob})> mediaBlobs,
+    String password,
+  ) {
     final salt = _secureRandom(_saltLength);
     final nonce = _secureRandom(_nonceLength);
     final key = _deriveKey(password, salt);
@@ -53,17 +68,19 @@ class ExportCrypto {
         ),
       );
 
-    final ciphertext = Uint8List(cipher.getOutputSize(plaintext.length));
+    final jsonCiphertext = Uint8List(cipher.getOutputSize(plaintext.length));
     var len = cipher.processBytes(
       Uint8List.fromList(plaintext),
       0,
       plaintext.length,
-      ciphertext,
+      jsonCiphertext,
       0,
     );
-    len += cipher.doFinal(ciphertext, len);
+    len += cipher.doFinal(jsonCiphertext, len);
+    final jsonCt = jsonCiphertext.sublist(0, len);
 
-    // Build output: magic + N + r + p + salt + nonce + ciphertext (with GCM tag)
+    // Build output: magic + N + r + p + salt + nonce + json_len + json_ct +
+    //               media_count + (id_len + id_bytes + blob_len + blob_bytes)*
     final output = BytesBuilder(copy: false);
     output.add(utf8.encode(_magic));
     output.add(_uint32BE(_scryptN));
@@ -71,16 +88,33 @@ class ExportCrypto {
     output.add(_uint32BE(_scryptP));
     output.add(salt);
     output.add(nonce);
-    output.add(ciphertext.sublist(0, len));
+
+    output.add(_uint32BE(jsonCt.length));
+    output.add(jsonCt);
+
+    output.add(_uint32BE(mediaBlobs.length));
+    for (final entry in mediaBlobs) {
+      final idBytes = utf8.encode(entry.mediaId);
+      output.add(_uint32BE(idBytes.length));
+      output.add(idBytes);
+      output.add(_uint32BE(entry.blob.length));
+      output.add(entry.blob);
+    }
+
     return output.toBytes();
   }
 
   /// Decrypt bytes produced by [encrypt] using [password].
   ///
-  /// Throws [FormatException] if the magic header is missing or unknown.
-  /// Throws [InvalidCipherTextException] if the password is wrong or data is
-  /// tampered with (GCM authentication failure).
-  static String decrypt(Uint8List data, String password) {
+  /// Returns the decrypted JSON string and the list of media blobs (carried
+  /// verbatim as XChaCha20-Poly1305 ciphertexts).
+  ///
+  /// Throws [FormatException] if the magic header is not `PRISM3` or the
+  /// data is truncated.
+  /// Throws [InvalidCipherTextException] if the password is wrong or the JSON
+  /// section is tampered with (GCM authentication failure).
+  static ({String json, List<({String mediaId, Uint8List blob})> mediaBlobs})
+  decrypt(Uint8List data, String password) {
     if (data.length < _magic.length) {
       throw const FormatException('Not a Prism encrypted export');
     }
@@ -89,9 +123,10 @@ class ExportCrypto {
       throw const FormatException('Not a Prism encrypted export');
     }
 
-    // Header: magic(6) + N(4) + r(4) + p(4) + salt(32) + nonce(12) + ct+tag
-    const minLength = 6 + 4 + 4 + 4 + _saltLength + _nonceLength + 16;
-    if (data.length < minLength) {
+    // Header: magic(6) + N(4) + r(4) + p(4) + salt(32) + nonce(12) +
+    //         json_len(4) + json_ct(>=16) + media_count(4)
+    const minHeaderLength = 6 + 4 + 4 + 4 + _saltLength + _nonceLength + 4 + 16 + 4;
+    if (data.length < minHeaderLength) {
       throw const FormatException('Encrypted export is too short');
     }
 
@@ -106,7 +141,15 @@ class ExportCrypto {
     offset += _saltLength;
     final nonce = data.sublist(offset, offset + _nonceLength);
     offset += _nonceLength;
-    final ciphertext = data.sublist(offset);
+
+    // JSON section
+    final jsonLen = _readUint32BE(data, offset);
+    offset += 4;
+    if (data.length < offset + jsonLen) {
+      throw const FormatException('Encrypted export is truncated (JSON section)');
+    }
+    final jsonCt = data.sublist(offset, offset + jsonLen);
+    offset += jsonLen;
 
     final key = _deriveKey(password, salt, n: n, r: r, p: p);
 
@@ -121,20 +164,55 @@ class ExportCrypto {
         ),
       );
 
-    final plaintext = Uint8List(cipher.getOutputSize(ciphertext.length));
-    var len = cipher.processBytes(
-      Uint8List.fromList(ciphertext),
+    final plaintext = Uint8List(cipher.getOutputSize(jsonCt.length));
+    var decLen = cipher.processBytes(
+      Uint8List.fromList(jsonCt),
       0,
-      ciphertext.length,
+      jsonCt.length,
       plaintext,
       0,
     );
-    len += cipher.doFinal(plaintext, len);
+    decLen += cipher.doFinal(plaintext, decLen);
+    final json = utf8.decode(plaintext.sublist(0, decLen));
 
-    return utf8.decode(plaintext.sublist(0, len));
+    // Media section
+    if (data.length < offset + 4) {
+      throw const FormatException('Encrypted export is truncated (media count)');
+    }
+    final mediaCount = _readUint32BE(data, offset);
+    offset += 4;
+
+    final mediaBlobs = <({String mediaId, Uint8List blob})>[];
+    for (var i = 0; i < mediaCount; i++) {
+      if (data.length < offset + 4) {
+        throw const FormatException('Encrypted export is truncated (media id_len)');
+      }
+      final idLen = _readUint32BE(data, offset);
+      offset += 4;
+      if (data.length < offset + idLen) {
+        throw const FormatException('Encrypted export is truncated (media id_bytes)');
+      }
+      final mediaId = utf8.decode(data.sublist(offset, offset + idLen));
+      offset += idLen;
+
+      if (data.length < offset + 4) {
+        throw const FormatException('Encrypted export is truncated (media blob_len)');
+      }
+      final blobLen = _readUint32BE(data, offset);
+      offset += 4;
+      if (data.length < offset + blobLen) {
+        throw const FormatException('Encrypted export is truncated (media blob_bytes)');
+      }
+      final blob = data.sublist(offset, offset + blobLen);
+      offset += blobLen;
+
+      mediaBlobs.add((mediaId: mediaId, blob: blob));
+    }
+
+    return (json: json, mediaBlobs: mediaBlobs);
   }
 
-  /// Returns `true` when [data] starts with the Prism encrypted export header.
+  /// Returns `true` when [data] starts with the PRISM3 encrypted export header.
   static bool isEncrypted(Uint8List data) {
     if (data.length < _magic.length) return false;
     try {

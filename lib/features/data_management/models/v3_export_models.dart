@@ -29,6 +29,7 @@ class V3Export {
     this.conversationCategories = const [],
     this.reminders = const [],
     this.friends = const [],
+    this.mediaAttachments = const [],
   });
 
   final String formatVersion;
@@ -56,6 +57,7 @@ class V3Export {
   final List<V3ConversationCategory> conversationCategories;
   final List<V3Reminder> reminders;
   final List<V3Friend> friends;
+  final List<V3MediaAttachment> mediaAttachments;
 
   Map<String, dynamic> toJson() => {
     'formatVersion': formatVersion,
@@ -95,6 +97,8 @@ class V3Export {
     if (reminders.isNotEmpty)
       'reminders': reminders.map((e) => e.toJson()).toList(),
     if (friends.isNotEmpty) 'friends': friends.map((e) => e.toJson()).toList(),
+    if (mediaAttachments.isNotEmpty)
+      'mediaAttachments': mediaAttachments.map((e) => e.toJson()).toList(),
   };
 
   factory V3Export.fromJson(Map<String, dynamic> json) => V3Export(
@@ -205,6 +209,13 @@ class V3Export {
     friends:
         (json['friends'] as List<dynamic>?)
             ?.map((e) => V3Friend.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [],
+    mediaAttachments:
+        (json['mediaAttachments'] as List<dynamic>?)
+            ?.map(
+              (e) => V3MediaAttachment.fromJson(e as Map<String, dynamic>),
+            )
             .toList() ??
         [],
   );
@@ -1441,4 +1452,85 @@ class V3Friend {
     establishedAt: json['establishedAt'] as String?,
     lastSyncAt: json['lastSyncAt'] as String?,
   );
+}
+
+// ---------------------------------------------------------------------------
+// V3MediaAttachment
+// ---------------------------------------------------------------------------
+
+class V3MediaAttachment {
+  V3MediaAttachment({
+    required this.id,
+    required this.messageId,
+    required this.mediaId,
+    required this.mediaType,
+    required this.encryptionKeyB64,
+    required this.contentHash,
+    required this.plaintextHash,
+    required this.mimeType,
+    required this.sizeBytes,
+    this.width = 0,
+    this.height = 0,
+    this.durationMs = 0,
+    this.blurhash = '',
+    this.waveformB64 = '',
+    this.thumbnailMediaId = '',
+    this.isDeleted = false,
+  });
+
+  final String id;
+  final String messageId;
+  final String mediaId;
+  final String mediaType;
+  final String encryptionKeyB64;
+  final String contentHash;
+  final String plaintextHash;
+  final String mimeType;
+  final int sizeBytes;
+  final int width;
+  final int height;
+  final int durationMs;
+  final String blurhash;
+  final String waveformB64;
+  final String thumbnailMediaId;
+  final bool isDeleted;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'messageId': messageId,
+    'mediaId': mediaId,
+    'mediaType': mediaType,
+    'encryptionKeyB64': encryptionKeyB64,
+    'contentHash': contentHash,
+    'plaintextHash': plaintextHash,
+    'mimeType': mimeType,
+    'sizeBytes': sizeBytes,
+    if (width != 0) 'width': width,
+    if (height != 0) 'height': height,
+    if (durationMs != 0) 'durationMs': durationMs,
+    if (blurhash.isNotEmpty) 'blurhash': blurhash,
+    if (waveformB64.isNotEmpty) 'waveformB64': waveformB64,
+    if (thumbnailMediaId.isNotEmpty) 'thumbnailMediaId': thumbnailMediaId,
+    'isDeleted': isDeleted,
+  };
+
+  factory V3MediaAttachment.fromJson(Map<String, dynamic> json) =>
+      V3MediaAttachment(
+        id: json['id'] as String,
+        messageId: json['messageId'] as String,
+        mediaId: json['mediaId'] as String,
+        mediaType: json['mediaType'] as String,
+        encryptionKeyB64: json['encryptionKeyB64'] as String,
+        contentHash: json['contentHash'] as String,
+        plaintextHash: json['plaintextHash'] as String,
+        mimeType: json['mimeType'] as String,
+        sizeBytes: json['sizeBytes'] as int,
+        width: json['width'] as int? ?? 0,
+        height: json['height'] as int? ?? 0,
+        durationMs: json['durationMs'] as int? ?? 0,
+        blurhash: json['blurhash'] as String? ?? '',
+        waveformB64: json['waveformB64'] as String? ?? '',
+        thumbnailMediaId: json['thumbnailMediaId'] as String? ?? '',
+        isDeleted: json['isDeleted'] as bool? ?? false,
+      );
 }

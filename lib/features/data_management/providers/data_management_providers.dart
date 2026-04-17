@@ -24,6 +24,7 @@ final dataExportServiceProvider = Provider<DataExportService>((ref) {
         ref.watch(conversationCategoriesRepositoryProvider),
     remindersRepository: ref.watch(remindersRepositoryProvider),
     friendsRepository: ref.watch(friendsRepositoryProvider),
+    mediaAttachmentsDao: ref.watch(mediaAttachmentsDaoProvider),
   );
 });
 
