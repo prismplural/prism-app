@@ -13,6 +13,12 @@ _Reminder _$ReminderFromJson(Map<String, dynamic> json) => _Reminder(
   trigger:
       $enumDecodeNullable(_$ReminderTriggerEnumMap, json['trigger']) ??
       ReminderTrigger.scheduled,
+  frequency:
+      $enumDecodeNullable(_$ReminderFrequencyEnumMap, json['frequency']) ??
+      ReminderFrequency.daily,
+  weeklyDays: (json['weeklyDays'] as List<dynamic>?)
+      ?.map((e) => (e as num).toInt())
+      .toList(),
   intervalDays: (json['intervalDays'] as num?)?.toInt(),
   timeOfDay: json['timeOfDay'] as String?,
   delayHours: (json['delayHours'] as num?)?.toInt(),
@@ -26,6 +32,8 @@ Map<String, dynamic> _$ReminderToJson(_Reminder instance) => <String, dynamic>{
   'name': instance.name,
   'message': instance.message,
   'trigger': _$ReminderTriggerEnumMap[instance.trigger]!,
+  'frequency': _$ReminderFrequencyEnumMap[instance.frequency]!,
+  'weeklyDays': instance.weeklyDays,
   'intervalDays': instance.intervalDays,
   'timeOfDay': instance.timeOfDay,
   'delayHours': instance.delayHours,
@@ -37,4 +45,10 @@ Map<String, dynamic> _$ReminderToJson(_Reminder instance) => <String, dynamic>{
 const _$ReminderTriggerEnumMap = {
   ReminderTrigger.scheduled: 'scheduled',
   ReminderTrigger.onFrontChange: 'onFrontChange',
+};
+
+const _$ReminderFrequencyEnumMap = {
+  ReminderFrequency.daily: 'daily',
+  ReminderFrequency.weekly: 'weekly',
+  ReminderFrequency.interval: 'interval',
 };
