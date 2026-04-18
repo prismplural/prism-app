@@ -124,7 +124,12 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
         Expanded(
           child: SingleChildScrollView(
             controller: widget.scrollController,
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              24 + MediaQuery.of(context).viewInsets.bottom,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -213,34 +218,6 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.errorContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                AppIcons.warningRounded,
-                size: 20,
-                color: theme.colorScheme.onErrorContainer,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  context.l10n.dataManagementUnencryptedWarning,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onErrorContainer,
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
         const SizedBox(height: 20),

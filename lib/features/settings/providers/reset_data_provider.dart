@@ -414,7 +414,6 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM pk_mapping_state');
       await db.customStatement('DELETE FROM sp_sync_state');
       await db.customStatement('DELETE FROM sp_id_map');
-      await db.customStatement('DELETE FROM system_settings');
       await db.customStatement('DELETE FROM sync_quarantine');
     });
 
