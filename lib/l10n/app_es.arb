@@ -631,6 +631,10 @@
   "memberSectionConversations": "Conversaciones",
   "memberSectionNotes": "Notas",
   "memberSectionBio": "Notas",
+  "memberSectionProxyTags": "Etiquetas de proxy",
+  "memberProxyTagsManagedOnPk": "Las etiquetas de proxy se gestionan en PluralKit.",
+  "memberProxyTagsEditOnPk": "Editar en PluralKit",
+  "memberProxyTagsEmpty": "No hay etiquetas de proxy.",
   "memberEditTooltip": "Editar integrante",
   "memberMoreOptionsTooltip": "Más opciones",
   "memberAddNoteTooltip": "Agregar nota",
@@ -1520,6 +1524,10 @@
   "remindersDelayLabel": "Retraso tras el cambio de frente",
   "remindersImmediately": "Inmediatamente",
   "remindersDelayHours": "{count, plural, =1{1 hora} other{{count} horas}}",
+  "remindersTargetLabel": "Destino",
+  "remindersTargetAny": "Cualquier cambio de frente",
+  "remindersTargetDisclosure": "Se activa cuando Prism está en ejecución y detecta el cambio. Los cambios externos registrados mientras Prism está cerrado pueden no activar este recordatorio.",
+  "remindersSubtitleTargetPrefix": "Cuando {name} está al frente",
   "settingsAboutAppName": "Prism",
   "settingsAboutTagline": "Gestión de sistemas plurales",
   "settingsAboutVersion": "Versión {version}",
@@ -1763,5 +1771,15 @@
   "onboardingSyncNoDataToRestore": "Sin datos previos para restaurar — empezando desde cero.",
   "onboardingSyncStillPullingBackground": "Aún descargando actualizaciones en segundo plano. Puedes continuar.",
   "onboardingSyncPhaseAnnouncement": "Ahora: {phase}",
-  "onboardingSyncRestoredSummary": "Se restauraron {members} miembros y {messages} mensajes."
+  "onboardingSyncRestoredSummary": "Se restauraron {members} miembros y {messages} mensajes.",
+
+  "pkProfileDisclosureTitle": "¿Importar tu perfil de sistema desde PluralKit?",
+  "pkProfileDisclosureSubtitle": "Solo copiaremos lo que marques.",
+  "pkProfileDisclosureImport": "Importar selección",
+  "pkProfileDisclosureSkip": "Omitir",
+  "pkProfileFieldName": "Nombre del sistema",
+  "pkProfileFieldDescription": "Descripción",
+  "pkProfileFieldTag": "Etiqueta del sistema",
+  "pkProfileFieldAvatar": "Avatar del sistema",
+  "pkProfileFieldOverwriteHint": "Prism ya tiene un valor — marca para sobrescribir."
 }

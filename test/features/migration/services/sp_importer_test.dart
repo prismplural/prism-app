@@ -102,6 +102,13 @@ class _FakeMemberRepository implements MemberRepository {
         (m) => m?.id == id,
         orElse: () => null,
       ));
+
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 class _FakeSessionRepository implements FrontingSessionRepository {
@@ -217,6 +224,14 @@ class _FakeSessionRepository implements FrontingSessionRepository {
   @override
   Stream<domain.FrontingSession?> watchSessionById(String id) =>
       Stream.value(null);
+
+  @override
+  Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
+      const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 class _FakeConversationRepository implements ConversationRepository {
@@ -756,13 +771,14 @@ void main() {
       );
 
       expect(result.avatarsDownloaded, 0);
+      // After refactoring the per-URL HTTP guard into the shared
+      // fetchAvatarBytes helper, callers get a generic per-member "avatar
+      // download failed" warning. The content-type check is now covered
+      // end-to-end by avatar_fetcher_test.dart.
       expect(
-        result.warnings.any(
-          (w) => w.toLowerCase().contains('non-image') ||
-              w.toLowerCase().contains('text/html'),
-        ),
+        result.warnings.any((w) => w.toLowerCase().contains('avatar')),
         isTrue,
-        reason: 'Expected a warning about non-image content type',
+        reason: 'Expected a per-member avatar-download warning',
       );
     });
   });

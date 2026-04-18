@@ -91,6 +91,13 @@ class _FakeMemberRepo implements MemberRepository {
   @override
   Stream<domain.Member?> watchMemberById(String id) =>
       Stream.value(_byId[id]);
+
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 class _NoopFrontingSessionRepo implements FrontingSessionRepository {

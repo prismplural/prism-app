@@ -28,6 +28,7 @@ class RemindersNotifier extends AsyncNotifier<void> {
     int? intervalDays,
     String? timeOfDay,
     int? delayHours,
+    String? targetMemberId,
     ReminderFrequency frequency = ReminderFrequency.daily,
     List<int>? weeklyDays,
   }) async {
@@ -42,6 +43,7 @@ class RemindersNotifier extends AsyncNotifier<void> {
         intervalDays: intervalDays,
         timeOfDay: timeOfDay,
         delayHours: delayHours,
+        targetMemberId: targetMemberId,
         frequency: frequency,
         weeklyDays: weeklyDays,
         isActive: true,

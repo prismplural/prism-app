@@ -150,6 +150,91 @@ void main() {
       expect(fields['interval_days'], isNull);
     });
 
+    test(
+      'applyFields writes target_member_id column (plan 06 per-member target)',
+      () async {
+        final syncAdapter = buildSyncAdapterWithCompletion(db);
+        final reminders = syncAdapter.adapter.entities.singleWhere(
+          (entity) => entity.tableName == 'reminders',
+        );
+
+        final createdAt = DateTime.utc(2026, 4, 1).toIso8601String();
+        final modifiedAt = DateTime.utc(2026, 4, 2).toIso8601String();
+
+        await reminders.applyFields('reminder-targeted', {
+          'name': 'When Alex fronts',
+          'message': 'Alex is out',
+          'trigger': 1,
+          'frequency': null,
+          'weekly_days': null,
+          'interval_days': null,
+          'time_of_day': null,
+          'delay_hours': 0,
+          'target_member_id': 'alex-uuid',
+          'is_active': true,
+          'created_at': createdAt,
+          'modified_at': modifiedAt,
+          'is_deleted': false,
+        });
+
+        final row = await (db.select(
+          db.reminders,
+        )..where((t) => t.id.equals('reminder-targeted'))).getSingleOrNull();
+
+        expect(row, isNotNull);
+        expect(row!.targetMemberId, 'alex-uuid');
+      },
+    );
+
+    test(
+      'toSyncFields emits target_member_id (null + non-null round-trip)',
+      () async {
+        final syncAdapter = buildSyncAdapterWithCompletion(db);
+        final reminders = syncAdapter.adapter.entities.singleWhere(
+          (entity) => entity.tableName == 'reminders',
+        );
+
+        final anyRow = database.ReminderRow(
+          id: 'r-any',
+          name: 'Any',
+          message: 'm',
+          trigger: 1,
+          frequency: null,
+          intervalDays: null,
+          weeklyDays: null,
+          timeOfDay: null,
+          delayHours: 0,
+          targetMemberId: null,
+          isActive: true,
+          createdAt: DateTime.utc(2026, 4, 1),
+          modifiedAt: DateTime.utc(2026, 4, 2),
+          isDeleted: false,
+        );
+        final anyFields = reminders.toSyncFields(anyRow);
+        expect(anyFields, contains('target_member_id'));
+        expect(anyFields['target_member_id'], isNull);
+
+        final targetedRow = database.ReminderRow(
+          id: 'r-tgt',
+          name: 'Target',
+          message: 'm',
+          trigger: 1,
+          frequency: null,
+          intervalDays: null,
+          weeklyDays: null,
+          timeOfDay: null,
+          delayHours: 0,
+          targetMemberId: 'member-x',
+          isActive: true,
+          createdAt: DateTime.utc(2026, 4, 1),
+          modifiedAt: DateTime.utc(2026, 4, 2),
+          isDeleted: false,
+        );
+        final targetedFields = reminders.toSyncFields(targetedRow);
+        expect(targetedFields['target_member_id'], 'member-x');
+      },
+    );
+
     test('toSyncFields emits interval frequency row fields', () async {
       final syncAdapter = buildSyncAdapterWithCompletion(db);
       final reminders = syncAdapter.adapter.entities.singleWhere(

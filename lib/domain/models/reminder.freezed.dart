@@ -15,7 +15,12 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Reminder {
 
- String get id; String get name; String get message; ReminderTrigger get trigger; ReminderFrequency get frequency; List<int>? get weeklyDays; int? get intervalDays; String? get timeOfDay; int? get delayHours; bool get isActive; DateTime get createdAt; DateTime get modifiedAt;
+ String get id; String get name; String get message; ReminderTrigger get trigger; ReminderFrequency get frequency; List<int>? get weeklyDays; int? get intervalDays; String? get timeOfDay; int? get delayHours;/// Optional target member ID. null = fires on any front change;
+/// non-null = fires only when the referenced member is in the current
+/// fronter set. Custom fronts are represented as tagged members, so the
+/// same column covers both SP timer type=0 (member) and type=1 (custom
+/// front).
+ String? get targetMemberId; bool get isActive; DateTime get createdAt; DateTime get modifiedAt;
 /// Create a copy of Reminder
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +33,16 @@ $ReminderCopyWith<Reminder> get copyWith => _$ReminderCopyWithImpl<Reminder>(thi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Reminder&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.message, message) || other.message == message)&&(identical(other.trigger, trigger) || other.trigger == trigger)&&(identical(other.frequency, frequency) || other.frequency == frequency)&&const DeepCollectionEquality().equals(other.weeklyDays, weeklyDays)&&(identical(other.intervalDays, intervalDays) || other.intervalDays == intervalDays)&&(identical(other.timeOfDay, timeOfDay) || other.timeOfDay == timeOfDay)&&(identical(other.delayHours, delayHours) || other.delayHours == delayHours)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.modifiedAt, modifiedAt) || other.modifiedAt == modifiedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Reminder&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.message, message) || other.message == message)&&(identical(other.trigger, trigger) || other.trigger == trigger)&&(identical(other.frequency, frequency) || other.frequency == frequency)&&const DeepCollectionEquality().equals(other.weeklyDays, weeklyDays)&&(identical(other.intervalDays, intervalDays) || other.intervalDays == intervalDays)&&(identical(other.timeOfDay, timeOfDay) || other.timeOfDay == timeOfDay)&&(identical(other.delayHours, delayHours) || other.delayHours == delayHours)&&(identical(other.targetMemberId, targetMemberId) || other.targetMemberId == targetMemberId)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.modifiedAt, modifiedAt) || other.modifiedAt == modifiedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,message,trigger,frequency,const DeepCollectionEquality().hash(weeklyDays),intervalDays,timeOfDay,delayHours,isActive,createdAt,modifiedAt);
+int get hashCode => Object.hash(runtimeType,id,name,message,trigger,frequency,const DeepCollectionEquality().hash(weeklyDays),intervalDays,timeOfDay,delayHours,targetMemberId,isActive,createdAt,modifiedAt);
 
 @override
 String toString() {
-  return 'Reminder(id: $id, name: $name, message: $message, trigger: $trigger, frequency: $frequency, weeklyDays: $weeklyDays, intervalDays: $intervalDays, timeOfDay: $timeOfDay, delayHours: $delayHours, isActive: $isActive, createdAt: $createdAt, modifiedAt: $modifiedAt)';
+  return 'Reminder(id: $id, name: $name, message: $message, trigger: $trigger, frequency: $frequency, weeklyDays: $weeklyDays, intervalDays: $intervalDays, timeOfDay: $timeOfDay, delayHours: $delayHours, targetMemberId: $targetMemberId, isActive: $isActive, createdAt: $createdAt, modifiedAt: $modifiedAt)';
 }
 
 
@@ -48,7 +53,7 @@ abstract mixin class $ReminderCopyWith<$Res>  {
   factory $ReminderCopyWith(Reminder value, $Res Function(Reminder) _then) = _$ReminderCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String message, ReminderTrigger trigger, ReminderFrequency frequency, List<int>? weeklyDays, int? intervalDays, String? timeOfDay, int? delayHours, bool isActive, DateTime createdAt, DateTime modifiedAt
+ String id, String name, String message, ReminderTrigger trigger, ReminderFrequency frequency, List<int>? weeklyDays, int? intervalDays, String? timeOfDay, int? delayHours, String? targetMemberId, bool isActive, DateTime createdAt, DateTime modifiedAt
 });
 
 
@@ -65,7 +70,7 @@ class _$ReminderCopyWithImpl<$Res>
 
 /// Create a copy of Reminder
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? message = null,Object? trigger = null,Object? frequency = null,Object? weeklyDays = freezed,Object? intervalDays = freezed,Object? timeOfDay = freezed,Object? delayHours = freezed,Object? isActive = null,Object? createdAt = null,Object? modifiedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? message = null,Object? trigger = null,Object? frequency = null,Object? weeklyDays = freezed,Object? intervalDays = freezed,Object? timeOfDay = freezed,Object? delayHours = freezed,Object? targetMemberId = freezed,Object? isActive = null,Object? createdAt = null,Object? modifiedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -76,7 +81,8 @@ as ReminderFrequency,weeklyDays: freezed == weeklyDays ? _self.weeklyDays : week
 as List<int>?,intervalDays: freezed == intervalDays ? _self.intervalDays : intervalDays // ignore: cast_nullable_to_non_nullable
 as int?,timeOfDay: freezed == timeOfDay ? _self.timeOfDay : timeOfDay // ignore: cast_nullable_to_non_nullable
 as String?,delayHours: freezed == delayHours ? _self.delayHours : delayHours // ignore: cast_nullable_to_non_nullable
-as int?,isActive: null == isActive ? _self.isActive : isActive // ignore: cast_nullable_to_non_nullable
+as int?,targetMemberId: freezed == targetMemberId ? _self.targetMemberId : targetMemberId // ignore: cast_nullable_to_non_nullable
+as String?,isActive: null == isActive ? _self.isActive : isActive // ignore: cast_nullable_to_non_nullable
 as bool,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,modifiedAt: null == modifiedAt ? _self.modifiedAt : modifiedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
@@ -164,10 +170,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String message,  ReminderTrigger trigger,  ReminderFrequency frequency,  List<int>? weeklyDays,  int? intervalDays,  String? timeOfDay,  int? delayHours,  bool isActive,  DateTime createdAt,  DateTime modifiedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String message,  ReminderTrigger trigger,  ReminderFrequency frequency,  List<int>? weeklyDays,  int? intervalDays,  String? timeOfDay,  int? delayHours,  String? targetMemberId,  bool isActive,  DateTime createdAt,  DateTime modifiedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Reminder() when $default != null:
-return $default(_that.id,_that.name,_that.message,_that.trigger,_that.frequency,_that.weeklyDays,_that.intervalDays,_that.timeOfDay,_that.delayHours,_that.isActive,_that.createdAt,_that.modifiedAt);case _:
+return $default(_that.id,_that.name,_that.message,_that.trigger,_that.frequency,_that.weeklyDays,_that.intervalDays,_that.timeOfDay,_that.delayHours,_that.targetMemberId,_that.isActive,_that.createdAt,_that.modifiedAt);case _:
   return orElse();
 
 }
@@ -185,10 +191,10 @@ return $default(_that.id,_that.name,_that.message,_that.trigger,_that.frequency,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String message,  ReminderTrigger trigger,  ReminderFrequency frequency,  List<int>? weeklyDays,  int? intervalDays,  String? timeOfDay,  int? delayHours,  bool isActive,  DateTime createdAt,  DateTime modifiedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String message,  ReminderTrigger trigger,  ReminderFrequency frequency,  List<int>? weeklyDays,  int? intervalDays,  String? timeOfDay,  int? delayHours,  String? targetMemberId,  bool isActive,  DateTime createdAt,  DateTime modifiedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Reminder():
-return $default(_that.id,_that.name,_that.message,_that.trigger,_that.frequency,_that.weeklyDays,_that.intervalDays,_that.timeOfDay,_that.delayHours,_that.isActive,_that.createdAt,_that.modifiedAt);case _:
+return $default(_that.id,_that.name,_that.message,_that.trigger,_that.frequency,_that.weeklyDays,_that.intervalDays,_that.timeOfDay,_that.delayHours,_that.targetMemberId,_that.isActive,_that.createdAt,_that.modifiedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -205,10 +211,10 @@ return $default(_that.id,_that.name,_that.message,_that.trigger,_that.frequency,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String message,  ReminderTrigger trigger,  ReminderFrequency frequency,  List<int>? weeklyDays,  int? intervalDays,  String? timeOfDay,  int? delayHours,  bool isActive,  DateTime createdAt,  DateTime modifiedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String message,  ReminderTrigger trigger,  ReminderFrequency frequency,  List<int>? weeklyDays,  int? intervalDays,  String? timeOfDay,  int? delayHours,  String? targetMemberId,  bool isActive,  DateTime createdAt,  DateTime modifiedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Reminder() when $default != null:
-return $default(_that.id,_that.name,_that.message,_that.trigger,_that.frequency,_that.weeklyDays,_that.intervalDays,_that.timeOfDay,_that.delayHours,_that.isActive,_that.createdAt,_that.modifiedAt);case _:
+return $default(_that.id,_that.name,_that.message,_that.trigger,_that.frequency,_that.weeklyDays,_that.intervalDays,_that.timeOfDay,_that.delayHours,_that.targetMemberId,_that.isActive,_that.createdAt,_that.modifiedAt);case _:
   return null;
 
 }
@@ -220,7 +226,7 @@ return $default(_that.id,_that.name,_that.message,_that.trigger,_that.frequency,
 @JsonSerializable()
 
 class _Reminder implements Reminder {
-  const _Reminder({required this.id, required this.name, required this.message, this.trigger = ReminderTrigger.scheduled, this.frequency = ReminderFrequency.daily, final  List<int>? weeklyDays, this.intervalDays, this.timeOfDay, this.delayHours, this.isActive = true, required this.createdAt, required this.modifiedAt}): _weeklyDays = weeklyDays;
+  const _Reminder({required this.id, required this.name, required this.message, this.trigger = ReminderTrigger.scheduled, this.frequency = ReminderFrequency.daily, final  List<int>? weeklyDays, this.intervalDays, this.timeOfDay, this.delayHours, this.targetMemberId, this.isActive = true, required this.createdAt, required this.modifiedAt}): _weeklyDays = weeklyDays;
   factory _Reminder.fromJson(Map<String, dynamic> json) => _$ReminderFromJson(json);
 
 @override final  String id;
@@ -240,6 +246,12 @@ class _Reminder implements Reminder {
 @override final  int? intervalDays;
 @override final  String? timeOfDay;
 @override final  int? delayHours;
+/// Optional target member ID. null = fires on any front change;
+/// non-null = fires only when the referenced member is in the current
+/// fronter set. Custom fronts are represented as tagged members, so the
+/// same column covers both SP timer type=0 (member) and type=1 (custom
+/// front).
+@override final  String? targetMemberId;
 @override@JsonKey() final  bool isActive;
 @override final  DateTime createdAt;
 @override final  DateTime modifiedAt;
@@ -257,16 +269,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Reminder&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.message, message) || other.message == message)&&(identical(other.trigger, trigger) || other.trigger == trigger)&&(identical(other.frequency, frequency) || other.frequency == frequency)&&const DeepCollectionEquality().equals(other._weeklyDays, _weeklyDays)&&(identical(other.intervalDays, intervalDays) || other.intervalDays == intervalDays)&&(identical(other.timeOfDay, timeOfDay) || other.timeOfDay == timeOfDay)&&(identical(other.delayHours, delayHours) || other.delayHours == delayHours)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.modifiedAt, modifiedAt) || other.modifiedAt == modifiedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Reminder&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.message, message) || other.message == message)&&(identical(other.trigger, trigger) || other.trigger == trigger)&&(identical(other.frequency, frequency) || other.frequency == frequency)&&const DeepCollectionEquality().equals(other._weeklyDays, _weeklyDays)&&(identical(other.intervalDays, intervalDays) || other.intervalDays == intervalDays)&&(identical(other.timeOfDay, timeOfDay) || other.timeOfDay == timeOfDay)&&(identical(other.delayHours, delayHours) || other.delayHours == delayHours)&&(identical(other.targetMemberId, targetMemberId) || other.targetMemberId == targetMemberId)&&(identical(other.isActive, isActive) || other.isActive == isActive)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.modifiedAt, modifiedAt) || other.modifiedAt == modifiedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,message,trigger,frequency,const DeepCollectionEquality().hash(_weeklyDays),intervalDays,timeOfDay,delayHours,isActive,createdAt,modifiedAt);
+int get hashCode => Object.hash(runtimeType,id,name,message,trigger,frequency,const DeepCollectionEquality().hash(_weeklyDays),intervalDays,timeOfDay,delayHours,targetMemberId,isActive,createdAt,modifiedAt);
 
 @override
 String toString() {
-  return 'Reminder(id: $id, name: $name, message: $message, trigger: $trigger, frequency: $frequency, weeklyDays: $weeklyDays, intervalDays: $intervalDays, timeOfDay: $timeOfDay, delayHours: $delayHours, isActive: $isActive, createdAt: $createdAt, modifiedAt: $modifiedAt)';
+  return 'Reminder(id: $id, name: $name, message: $message, trigger: $trigger, frequency: $frequency, weeklyDays: $weeklyDays, intervalDays: $intervalDays, timeOfDay: $timeOfDay, delayHours: $delayHours, targetMemberId: $targetMemberId, isActive: $isActive, createdAt: $createdAt, modifiedAt: $modifiedAt)';
 }
 
 
@@ -277,7 +289,7 @@ abstract mixin class _$ReminderCopyWith<$Res> implements $ReminderCopyWith<$Res>
   factory _$ReminderCopyWith(_Reminder value, $Res Function(_Reminder) _then) = __$ReminderCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String message, ReminderTrigger trigger, ReminderFrequency frequency, List<int>? weeklyDays, int? intervalDays, String? timeOfDay, int? delayHours, bool isActive, DateTime createdAt, DateTime modifiedAt
+ String id, String name, String message, ReminderTrigger trigger, ReminderFrequency frequency, List<int>? weeklyDays, int? intervalDays, String? timeOfDay, int? delayHours, String? targetMemberId, bool isActive, DateTime createdAt, DateTime modifiedAt
 });
 
 
@@ -294,7 +306,7 @@ class __$ReminderCopyWithImpl<$Res>
 
 /// Create a copy of Reminder
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? message = null,Object? trigger = null,Object? frequency = null,Object? weeklyDays = freezed,Object? intervalDays = freezed,Object? timeOfDay = freezed,Object? delayHours = freezed,Object? isActive = null,Object? createdAt = null,Object? modifiedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? message = null,Object? trigger = null,Object? frequency = null,Object? weeklyDays = freezed,Object? intervalDays = freezed,Object? timeOfDay = freezed,Object? delayHours = freezed,Object? targetMemberId = freezed,Object? isActive = null,Object? createdAt = null,Object? modifiedAt = null,}) {
   return _then(_Reminder(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -305,7 +317,8 @@ as ReminderFrequency,weeklyDays: freezed == weeklyDays ? _self._weeklyDays : wee
 as List<int>?,intervalDays: freezed == intervalDays ? _self.intervalDays : intervalDays // ignore: cast_nullable_to_non_nullable
 as int?,timeOfDay: freezed == timeOfDay ? _self.timeOfDay : timeOfDay // ignore: cast_nullable_to_non_nullable
 as String?,delayHours: freezed == delayHours ? _self.delayHours : delayHours // ignore: cast_nullable_to_non_nullable
-as int?,isActive: null == isActive ? _self.isActive : isActive // ignore: cast_nullable_to_non_nullable
+as int?,targetMemberId: freezed == targetMemberId ? _self.targetMemberId : targetMemberId // ignore: cast_nullable_to_non_nullable
+as String?,isActive: null == isActive ? _self.isActive : isActive // ignore: cast_nullable_to_non_nullable
 as bool,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,modifiedAt: null == modifiedAt ? _self.modifiedAt : modifiedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,

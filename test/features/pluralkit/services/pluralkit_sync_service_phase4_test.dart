@@ -147,6 +147,12 @@ class _FakeClient implements PluralKitClient {
   Future<List<int>> downloadBytes(String url) async => const [];
 
   @override
+  Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
+
+  @override
+  Future<List<String>> getGroupMembers(String groupRef) async => const [];
+
+  @override
   void dispose() {}
 }
 
@@ -191,6 +197,13 @@ class _FakeMemberRepo implements MemberRepository {
 
   @override
   Future<int> getCount() async => members.length;
+
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 class _FakeSessionRepo implements FrontingSessionRepository {
@@ -300,6 +313,14 @@ class _FakeSessionRepo implements FrontingSessionRepository {
     int? withinDays,
   }) async =>
       {};
+
+  @override
+  Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
+      const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 // ---------------------------------------------------------------------------

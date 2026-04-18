@@ -327,6 +327,7 @@ DriftSyncEntity _membersEntity(
         'birthday': r.birthday,
         'proxy_tags_json': r.proxyTagsJson,
         'pluralkit_sync_ignored': r.pluralkitSyncIgnored,
+        'delete_push_started_at': r.deletePushStartedAt,
         'is_deleted': r.isDeleted,
       };
     },
@@ -360,6 +361,7 @@ DriftSyncEntity _membersEntity(
         birthday: f.stringFieldNullable('birthday'),
         proxyTagsJson: f.stringFieldNullable('proxy_tags_json'),
         pluralkitSyncIgnored: f.boolField('pluralkit_sync_ignored'),
+        deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.members).insertOnConflictUpdate(companion);
@@ -395,6 +397,7 @@ DriftSyncEntity _membersEntity(
         'birthday': row.birthday,
         'proxy_tags_json': row.proxyTagsJson,
         'pluralkit_sync_ignored': row.pluralkitSyncIgnored,
+        'delete_push_started_at': row.deletePushStartedAt,
         'is_deleted': row.isDeleted,
       };
     },
@@ -432,6 +435,7 @@ DriftSyncEntity _frontingSessionsEntity(
         'is_health_kit_import': r.isHealthKitImport,
         'pluralkit_uuid': r.pluralkitUuid,
         'pk_member_ids_json': r.pkMemberIdsJson,
+        'delete_push_started_at': r.deletePushStartedAt,
         'is_deleted': r.isDeleted,
       };
     },
@@ -456,6 +460,7 @@ DriftSyncEntity _frontingSessionsEntity(
         isHealthKitImport: f.boolField('is_health_kit_import'),
         pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
         pkMemberIdsJson: f.stringFieldNullable('pk_member_ids_json'),
+        deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.frontingSessions).insertOnConflictUpdate(companion);
@@ -482,6 +487,7 @@ DriftSyncEntity _frontingSessionsEntity(
         'is_health_kit_import': row.isHealthKitImport,
         'pluralkit_uuid': row.pluralkitUuid,
         'pk_member_ids_json': row.pkMemberIdsJson,
+        'delete_push_started_at': row.deletePushStartedAt,
         'is_deleted': row.isDeleted,
       };
     },
@@ -711,6 +717,7 @@ DriftSyncEntity _systemSettingsEntity(
         'timing_mode': r.timingMode,
         'notes_enabled': r.notesEnabled,
         'system_description': r.systemDescription,
+        'system_tag': r.systemTag,
         'system_avatar_data': r.systemAvatarData != null
             ? base64Encode(r.systemAvatarData!)
             : null,
@@ -773,6 +780,7 @@ DriftSyncEntity _systemSettingsEntity(
         timingMode: f.intField('timing_mode'),
         notesEnabled: f.boolField('notes_enabled'),
         systemDescription: f.stringFieldNullable('system_description'),
+        systemTag: f.stringFieldNullable('system_tag'),
         systemAvatarData: f.blobFieldNullable('system_avatar_data'),
         remindersEnabled: f.boolField('reminders_enabled'),
         syncNavigationEnabled: f.boolField('sync_navigation_enabled'),
@@ -830,6 +838,7 @@ DriftSyncEntity _systemSettingsEntity(
         'timing_mode': row.timingMode,
         'notes_enabled': row.notesEnabled,
         'system_description': row.systemDescription,
+        'system_tag': row.systemTag,
         'system_avatar_data': row.systemAvatarData != null
             ? base64Encode(row.systemAvatarData!)
             : null,
@@ -1331,6 +1340,7 @@ DriftSyncEntity _remindersEntity(
         'weekly_days': r.weeklyDays,
         'time_of_day': r.timeOfDay,
         'delay_hours': r.delayHours,
+        'target_member_id': r.targetMemberId,
         'is_active': r.isActive,
         'created_at': r.createdAt.toIso8601String(),
         'modified_at': r.modifiedAt.toIso8601String(),
@@ -1355,6 +1365,7 @@ DriftSyncEntity _remindersEntity(
         weeklyDays: f.stringFieldNullable('weekly_days'),
         timeOfDay: f.stringFieldNullable('time_of_day'),
         delayHours: f.intFieldNullable('delay_hours'),
+        targetMemberId: f.stringFieldNullable('target_member_id'),
         isActive: f.boolField('is_active'),
         createdAt: f.dateTimeField('created_at'),
         modifiedAt: f.dateTimeField('modified_at'),
@@ -1379,6 +1390,7 @@ DriftSyncEntity _remindersEntity(
         'weekly_days': row.weeklyDays,
         'time_of_day': row.timeOfDay,
         'delay_hours': row.delayHours,
+        'target_member_id': row.targetMemberId,
         'is_active': row.isActive,
         'created_at': row.createdAt.toIso8601String(),
         'modified_at': row.modifiedAt.toIso8601String(),
@@ -1417,6 +1429,9 @@ DriftSyncEntity _memberGroupsEntity(
         'group_type': r.groupType,
         'filter_rules': r.filterRules,
         'created_at': r.createdAt.toIso8601String(),
+        'pluralkit_id': r.pluralkitId,
+        'pluralkit_uuid': r.pluralkitUuid,
+        'last_seen_from_pk_at': r.lastSeenFromPkAt?.toIso8601String(),
         'is_deleted': r.isDeleted,
       };
     },
@@ -1439,6 +1454,9 @@ DriftSyncEntity _memberGroupsEntity(
         groupType: f.intField('group_type'),
         filterRules: f.stringFieldNullable('filter_rules'),
         createdAt: f.dateTimeField('created_at'),
+        pluralkitId: f.stringFieldNullable('pluralkit_id'),
+        pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
+        lastSeenFromPkAt: f.dateTimeFieldNullable('last_seen_from_pk_at'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.memberGroups).insertOnConflictUpdate(companion);
@@ -1461,6 +1479,9 @@ DriftSyncEntity _memberGroupsEntity(
         'group_type': row.groupType,
         'filter_rules': row.filterRules,
         'created_at': row.createdAt.toIso8601String(),
+        'pluralkit_id': row.pluralkitId,
+        'pluralkit_uuid': row.pluralkitUuid,
+        'last_seen_from_pk_at': row.lastSeenFromPkAt?.toIso8601String(),
         'is_deleted': row.isDeleted,
       };
     },

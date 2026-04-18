@@ -14,11 +14,14 @@ import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
 
 // ---------------------------------------------------------------------------
 // Sync state
@@ -105,6 +108,10 @@ const _pkTokenKey = 'prism_pluralkit_token';
 
 typedef SyncStateCallback = void Function(PluralKitSyncState state);
 
+/// Fields the user can choose to import from the PK system profile on first
+/// pull. See [PluralKitSyncService.adoptSystemProfile] (plan 04).
+enum PkProfileField { name, description, tag, avatar }
+
 /// Core PluralKit synchronization logic.
 ///
 /// Designed to be driven by a Riverpod notifier that passes a
@@ -113,10 +120,12 @@ class PluralKitSyncService {
   final MemberRepository _memberRepository;
   final FrontingSessionRepository _frontingSessionRepository;
   final PluralKitSyncDao _syncDao;
+  final SystemSettingsRepository? _settingsRepository;
   final FlutterSecureStorage _secureStorage;
   final Uuid _uuid;
   final PluralKitClient Function(String token)? _clientFactory;
   final String? _tokenOverride;
+  final PkGroupsImporter? _groupsImporter;
 
   PluralKitSyncState _state = const PluralKitSyncState();
   SyncStateCallback? onStateChanged;
@@ -125,17 +134,21 @@ class PluralKitSyncService {
     required MemberRepository memberRepository,
     required FrontingSessionRepository frontingSessionRepository,
     required PluralKitSyncDao syncDao,
+    SystemSettingsRepository? settingsRepository,
     FlutterSecureStorage? secureStorage,
     PluralKitClient Function(String token)? clientFactory,
     String? tokenOverride,
+    PkGroupsImporter? groupsImporter,
   }) : _memberRepository = memberRepository,
        _frontingSessionRepository = frontingSessionRepository,
        _syncDao = syncDao,
+       _settingsRepository = settingsRepository,
        _secureStorage =
            secureStorage ?? storage_config.secureStorage,
        _uuid = const Uuid(),
        _clientFactory = clientFactory,
-       _tokenOverride = tokenOverride;
+       _tokenOverride = tokenOverride,
+       _groupsImporter = groupsImporter;
 
   PluralKitSyncState get state => _state;
 
@@ -240,6 +253,11 @@ class PluralKitSyncService {
         linkedAt = DateTime.now().subtract(const Duration(milliseconds: 1));
       }
 
+      // Plan 02 R1: bump the local link epoch whenever the connected system
+      // changes identity. Tombstones stamped under the prior epoch will be
+      // skipped at push time on this device.
+      final bumpEpoch = existing.systemId != system.id;
+
       await _syncDao.upsertSyncState(
         PluralKitSyncStateCompanion(
           id: const Value('pk_config'),
@@ -251,6 +269,9 @@ class PluralKitSyncService {
           linkedAt: Value(linkedAt),
         ),
       );
+      if (bumpEpoch) {
+        await _syncDao.bumpLinkEpoch();
+      }
 
       _emit(_state.copyWith(
         isConnected: true,
@@ -294,6 +315,10 @@ class PluralKitSyncService {
         linkedAt: Value(null),
       ),
     );
+    // Plan 02 R1: bump on disconnect so tombstones made while linked become
+    // stale immediately. A later reconnect will bump again (new systemId
+    // path).
+    await _syncDao.bumpLinkEpoch();
     // Wipe prior Skip/Link/Import decisions — they're keyed by local member
     // IDs that may not even exist in the next connected system.
     await PkMappingStateDao(_syncDao.attachedDatabase).clearAll();
@@ -432,7 +457,12 @@ class PluralKitSyncService {
         }
       }
 
-      // -- Switches (10-95%) --
+      // -- Groups (10-15%) --
+      _emit(_state.copyWith(syncProgress: 0.10, syncStatus: 'Importing groups...'));
+      await _importGroups(client, overwriteMetadata: true);
+      _emit(_state.copyWith(syncProgress: 0.15));
+
+      // -- Switches (15-95%) --
       _emit(
         _state.copyWith(syncProgress: 0.10, syncStatus: 'Fetching switches...'),
       );
@@ -660,6 +690,9 @@ class PluralKitSyncService {
         );
       }
 
+      // -- Groups (membership reconcile only, see R5) --
+      await _importGroups(client, overwriteMetadata: false);
+
       // -- Pull recent switches (same as before) --
       int totalNew = 0;
       if (direction.pullEnabled) {
@@ -724,6 +757,21 @@ class PluralKitSyncService {
             )
           : 0;
 
+      // Plan 02: deletions. Switches-first so PK's cascade doesn't 404 every
+      // switch-delete we queued after a member-delete succeeds.
+      int switchesDeletedOnPk = 0;
+      int membersDeletedOnPk = 0;
+      if (direction.pushEnabled) {
+        switchesDeletedOnPk = await _pushPendingSwitchDeletions(
+          client: client,
+          onStaleLink: staleLinkMessages.add,
+        );
+        membersDeletedOnPk = await _pushPendingMemberDeletions(
+          client: client,
+          onStaleLink: staleLinkMessages.add,
+        );
+      }
+
       final now = DateTime.now();
       await _syncDao.upsertSyncState(
         PluralKitSyncStateCompanion(
@@ -740,6 +788,8 @@ class PluralKitSyncService {
         membersSkipped: summary?.membersSkipped ?? 0,
         switchesPulled: totalNew,
         switchesPushed: switchesPushed,
+        membersDeletedOnPk: membersDeletedOnPk,
+        switchesDeletedOnPk: switchesDeletedOnPk,
         staleLinkMessages: List.unmodifiable(staleLinkMessages),
       );
 
@@ -749,6 +799,16 @@ class PluralKitSyncService {
       }
       if (totalNew > 0) {
         statusParts.add('Pulled $totalNew switches');
+      }
+      if (finalSummary.switchesDeletedOnPk > 0) {
+        statusParts.add(
+          'Deleted ${finalSummary.switchesDeletedOnPk} switches on PK',
+        );
+      }
+      if (finalSummary.membersDeletedOnPk > 0) {
+        statusParts.add(
+          'Deleted ${finalSummary.membersDeletedOnPk} members on PK',
+        );
       }
 
       _emit(
@@ -778,6 +838,133 @@ class PluralKitSyncService {
     }
   }
 
+  /// Fetch the PK system-level avatar and store it on the local settings row.
+  ///
+  /// Returns `true` iff an avatar was fetched AND stored. Returns `false`
+  /// when PK reports no system avatar, when the helper declines the download
+  /// (timeout, non-image, oversize), or when no [SystemSettingsRepository]
+  /// was wired into this service.
+  ///
+  /// Track 04 (disclosure toggle) is the expected caller; it gates the call
+  /// behind a user-facing checkbox.
+  Future<bool> importSystemAvatar() async {
+    if (_settingsRepository == null) return false;
+    final client = await _buildClient();
+    if (client == null) throw StateError('Not connected');
+    try {
+      final system = await client.getSystem();
+      final url = system.avatarUrl;
+      if (url == null || url.isEmpty) return false;
+      final bytes = await fetchAvatarBytes(url);
+      if (bytes == null) return false;
+      await _settingsRepository.updateSystemAvatarData(bytes);
+      return true;
+    } finally {
+      client.dispose();
+    }
+  }
+
+  /// Fetch the PK system profile without writing anything. Callers show the
+  /// first-pull disclosure and then invoke [adoptSystemProfile] for the
+  /// subset of fields the user accepted.
+  ///
+  /// Returns `null` when the service is not connected (no token) — the setup
+  /// screen can then skip the disclosure entirely.
+  Future<PKSystem?> fetchSystemProfile() async {
+    final client = await _buildClient();
+    if (client == null) return null;
+    try {
+      return await client.getSystem();
+    } finally {
+      client.dispose();
+    }
+  }
+
+  /// Write the user-selected subset of the PK system profile into Prism's
+  /// `system_settings`. Each field write is isolated in its own try/catch so
+  /// a single failure doesn't abort the rest of the adoption. Failures are
+  /// surfaced via [PluralKitSyncState.syncError] but never raised — the
+  /// connection itself is already established at this point.
+  Future<void> adoptSystemProfile({
+    required PKSystem pk,
+    required Set<PkProfileField> accepted,
+  }) async {
+    if (_settingsRepository == null) return;
+    final failures = <String>[];
+
+    if (accepted.contains(PkProfileField.name) &&
+        pk.name != null && pk.name!.isNotEmpty) {
+      try {
+        await _settingsRepository.updateSystemName(pk.name);
+      } catch (e) {
+        failures.add('name ($e)');
+      }
+    }
+    if (accepted.contains(PkProfileField.description) &&
+        pk.description != null && pk.description!.isNotEmpty) {
+      try {
+        await _settingsRepository.updateSystemDescription(pk.description);
+      } catch (e) {
+        failures.add('description ($e)');
+      }
+    }
+    if (accepted.contains(PkProfileField.tag) &&
+        pk.tag != null && pk.tag!.isNotEmpty) {
+      try {
+        await _settingsRepository.updateSystemTag(pk.tag);
+      } catch (e) {
+        failures.add('tag ($e)');
+      }
+    }
+    if (accepted.contains(PkProfileField.avatar) &&
+        pk.avatarUrl != null && pk.avatarUrl!.isNotEmpty) {
+      try {
+        await importSystemAvatar();
+      } catch (e) {
+        failures.add('avatar ($e)');
+      }
+    }
+
+    if (failures.isNotEmpty) {
+      _emit(_state.copyWith(
+        syncError: 'Some profile fields did not import: '
+            '${failures.join(', ')}',
+      ));
+    }
+  }
+
+  /// Phase 1 PK-groups pull.
+  ///
+  /// - `overwriteMetadata=false` (background `syncRecentData`): new groups are
+  ///   inserted, memberships are reconciled against the authoritative PK set,
+  ///   but existing row metadata (name/description/color/displayOrder) is NOT
+  ///   overwritten. Local edits survive the sync.
+  /// - `overwriteMetadata=true` (`performFullImport` / explicit re-import):
+  ///   metadata is replaced with PK's values.
+  ///
+  /// Returns 0 when no importer was wired (e.g. older tests that construct
+  /// the service without an AppDatabase reference) — callers can still proceed.
+  Future<PkGroupsImportResult?> _importGroups(
+    PluralKitClient client, {
+    required bool overwriteMetadata,
+  }) async {
+    final importer = _groupsImporter;
+    if (importer == null) return null;
+    try {
+      final pkGroups = await client.getGroups(withMembers: true);
+      return await importer.importGroups(
+        client,
+        pkGroups,
+        overwriteMetadata: overwriteMetadata,
+      );
+    } catch (e) {
+      // Groups are not a first-class blocker for the rest of the sync — don't
+      // abort members/switches on a group-fetch failure.
+      debugPrint('[PK] group import failed: $e');
+      return null;
+    }
+  }
+
   // -- private helpers ------------------------------------------------------
 
   Future<void> _importMembers(
@@ -793,14 +980,13 @@ class PluralKitSyncService {
     }
 
     for (final pk in pkMembers) {
+      // PK serves avatars from a public CDN (not the API host) and requires
+      // no auth header, so the shared helper's short-lived http.Client is
+      // fine here. Failures (timeout, non-image, oversize) yield null and
+      // leave the existing avatar untouched.
       Uint8List? avatarData;
-      if (pk.avatarUrl != null) {
-        try {
-          final bytes = await client.downloadBytes(pk.avatarUrl!);
-          avatarData = Uint8List.fromList(bytes);
-        } catch (_) {
-          // Avatar download failure is non-fatal
-        }
+      if (pk.avatarUrl != null && pk.avatarUrl!.isNotEmpty) {
+        avatarData = await fetchAvatarBytes(pk.avatarUrl!);
       }
 
       final localMember = byPkUuid[pk.uuid];
@@ -1000,6 +1186,18 @@ class PluralKitSyncService {
         if (!wasDup) existingPkUuids.add(sw.id);
       }
 
+      // Phase 1 R3 — insert-only re-attribution pass for PK groups. After
+      // the mapping flow applies new member links, any group memberships
+      // that were deferred on first pull can now be inserted.
+      final importer = _groupsImporter;
+      if (importer != null) {
+        try {
+          await importer.reattribute(client);
+        } catch (e) {
+          debugPrint('[PK] group reattribute failed: $e');
+        }
+      }
+
       _emit(_state.copyWith(
         isSyncing: false,
         syncProgress: 1.0,
@@ -1069,6 +1267,199 @@ class PluralKitSyncService {
       }
     });
     return pending.length;
+  }
+
+  // -- Plan 02: PK deletion push --------------------------------------------
+
+  /// Threshold for the R6 multi-device coordination stamp. If another device
+  /// recently claimed the push (within this window), we back off; past this
+  /// window we assume the other device crashed or is offline and take over.
+  static const _deletePushTakeoverThreshold = Duration(minutes: 10);
+
+  /// Push pending switch deletions. Returns the number that succeeded.
+  Future<int> _pushPendingSwitchDeletions({
+    required PluralKitClient client,
+    void Function(String message)? onStaleLink,
+    PkPushService? pushServiceOverride,
+  }) async {
+    final currentEpoch = await _syncDao.getLinkEpoch();
+    final candidates =
+        await _frontingSessionRepository.getDeletedLinkedSessions();
+    if (candidates.isEmpty) return 0;
+
+    final push = pushServiceOverride ?? PkPushService();
+    int deleted = 0;
+
+    for (final session in candidates) {
+      // R6: cross-device coordination stamp. If another device started
+      // pushing this within the takeover window, let them finish.
+      final startedAtMs = session.deletePushStartedAt;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (startedAtMs != null) {
+        final age = Duration(milliseconds: nowMs - startedAtMs);
+        if (age < _deletePushTakeoverThreshold) {
+          debugPrint(
+            '[PK] Switch deletion for ${session.id} started by another '
+            'device ${age.inSeconds}s ago — skipping this pass.',
+          );
+          continue;
+        }
+        // else: stale lease, take over.
+      } else {
+        // Claim the lease via the synced update so peers see it.
+        await _frontingSessionRepository.stampDeletePushStartedAt(
+          session.id,
+          nowMs,
+        );
+      }
+
+      // R2: re-read and re-check every invariant at execution time.
+      final fresh =
+          await _frontingSessionRepository.getSessionById(session.id);
+      if (fresh == null) continue;
+      if (!fresh.isDeleted) {
+        debugPrint(
+          '[PK] Session ${session.id} was resurrected by CRDT merge; '
+          'aborting DELETE.',
+        );
+        continue;
+      }
+      if (fresh.pluralkitUuid == null ||
+          fresh.pluralkitUuid != session.pluralkitUuid) {
+        debugPrint(
+          '[PK] Session ${session.id} pluralkit_uuid changed since dequeue; '
+          'aborting DELETE.',
+        );
+        continue;
+      }
+      // R1: epoch gate. deleteIntentEpoch is local and not synced.
+      // getDeletedLinkedSessions returns rows where it's non-null.
+      final intentEpoch = session.deleteIntentEpoch;
+      if (intentEpoch != currentEpoch) {
+        debugPrint(
+          '[PK] Session ${session.id} intent epoch $intentEpoch != current '
+          '$currentEpoch; aborting DELETE (stale link).',
+        );
+        continue;
+      }
+
+      final pkUuid = fresh.pluralkitUuid!;
+      try {
+        await push.pushSwitchDeletion(session.id, pkUuid, client);
+        await _frontingSessionRepository.clearPluralKitLink(session.id);
+        deleted++;
+      } on PkDeletionForbiddenException catch (e) {
+        onStaleLink?.call(
+          'PluralKit refused switch deletion — your token may not own this '
+          'switch. Check your token and retry. (pkUuid=${e.pkId})',
+        );
+      } on PluralKitAuthError {
+        rethrow;
+      } catch (e) {
+        debugPrint('[PK] Switch deletion failed for ${session.id}: $e');
+      }
+    }
+    return deleted;
+  }
+
+  /// Push pending member deletions. Runs AFTER switch deletions (caller
+  /// orders). R5 cascade guard included: skip any member that still has
+  /// live local sessions linked to PK.
+  Future<int> _pushPendingMemberDeletions({
+    required PluralKitClient client,
+    void Function(String message)? onStaleLink,
+    PkPushService? pushServiceOverride,
+  }) async {
+    final currentEpoch = await _syncDao.getLinkEpoch();
+    final candidates = await _memberRepository.getDeletedLinkedMembers();
+    if (candidates.isEmpty) return 0;
+
+    // R5: fetch live sessions once and check in-memory.
+    final liveSessions = await _frontingSessionRepository.getAllSessions();
+    final membersWithLiveLinkedSessions = <String>{};
+    for (final s in liveSessions) {
+      if (s.isDeleted) continue; // getAllSessions already filters, defensive
+      if (s.pluralkitUuid == null) continue;
+      final mid = s.memberId;
+      if (mid != null) membersWithLiveLinkedSessions.add(mid);
+    }
+
+    final push = pushServiceOverride ?? PkPushService();
+    int deleted = 0;
+
+    for (final member in candidates) {
+      if (membersWithLiveLinkedSessions.contains(member.id)) {
+        debugPrint(
+          '[PK] R5 cascade guard: member ${member.id} has live linked '
+          'sessions; skipping DELETE.',
+        );
+        onStaleLink?.call(
+          "Skipped deleting PluralKit member '${member.name}' — it still "
+          'has linked local switches. Delete those first, or undelete the '
+          'member to keep it.',
+        );
+        continue;
+      }
+
+      // R6: coordination lease.
+      final startedAtMs = member.deletePushStartedAt;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (startedAtMs != null) {
+        final age = Duration(milliseconds: nowMs - startedAtMs);
+        if (age < _deletePushTakeoverThreshold) {
+          debugPrint(
+            '[PK] Member deletion for ${member.id} started by another '
+            'device ${age.inSeconds}s ago — skipping.',
+          );
+          continue;
+        }
+      } else {
+        await _memberRepository.stampDeletePushStartedAt(member.id, nowMs);
+      }
+
+      // R2 re-read.
+      final fresh = await _memberRepository.getMemberById(member.id);
+      if (fresh == null) continue;
+      if (!fresh.isDeleted) {
+        debugPrint(
+          '[PK] Member ${member.id} was resurrected by CRDT merge; aborting.',
+        );
+        continue;
+      }
+      if (fresh.pluralkitId == null || fresh.pluralkitId != member.pluralkitId) {
+        debugPrint(
+          '[PK] Member ${member.id} pluralkit_id changed since dequeue; '
+          'aborting DELETE.',
+        );
+        continue;
+      }
+      final intentEpoch = member.deleteIntentEpoch;
+      if (intentEpoch != currentEpoch) {
+        debugPrint(
+          '[PK] Member ${member.id} intent epoch $intentEpoch != current '
+          '$currentEpoch; aborting DELETE (stale link).',
+        );
+        continue;
+      }
+
+      final pkId = fresh.pluralkitId!;
+      try {
+        await push.pushMemberDeletion(member.id, pkId, client);
+        await _memberRepository.clearPluralKitLink(member.id);
+        deleted++;
+      } on PkDeletionForbiddenException catch (e) {
+        onStaleLink?.call(
+          "PluralKit refused member deletion of '${member.name}' — your "
+          'token may not own this member. Check your token and retry. '
+          '(pkId=${e.pkId})',
+        );
+      } on PluralKitAuthError {
+        rethrow;
+      } catch (e) {
+        debugPrint('[PK] Member deletion failed for ${member.id}: $e');
+      }
+    }
+    return deleted;
   }
 
   static bool _listEquals(List<String> a, List<String> b) {

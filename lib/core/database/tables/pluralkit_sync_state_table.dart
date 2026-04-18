@@ -23,6 +23,15 @@ class PluralKitSyncState extends Table {
   /// doesn't shift the push window.
   DateTimeColumn get linkedAt => dateTime().nullable()();
 
+  /// Monotonically-increasing counter bumped whenever the PK connection
+  /// changes identity (new system on [setToken], or [clearToken]). Plan 02
+  /// R1: stamped onto tombstones at delete time as `delete_intent_epoch`,
+  /// then compared at push time to suppress deletions made under a prior
+  /// link. Local-only — not synced across devices (each device tracks its
+  /// own connection history, and cross-device coordination is handled via
+  /// the synced `delete_push_started_at` timestamp instead).
+  IntColumn get linkEpoch => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

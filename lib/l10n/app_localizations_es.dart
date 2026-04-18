@@ -2233,6 +2233,19 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberSectionBio => 'Notas';
 
   @override
+  String get memberSectionProxyTags => 'Etiquetas de proxy';
+
+  @override
+  String get memberProxyTagsManagedOnPk =>
+      'Las etiquetas de proxy se gestionan en PluralKit.';
+
+  @override
+  String get memberProxyTagsEditOnPk => 'Editar en PluralKit';
+
+  @override
+  String get memberProxyTagsEmpty => 'No hay etiquetas de proxy.';
+
+  @override
   String get memberEditTooltip => 'Editar integrante';
 
   @override
@@ -4760,7 +4773,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get pluralkitInfoMembers =>
-      'Los integrantes se comparan por UUID de PluralKit. Los existentes se actualizan; los nuevos se crean.';
+      'Después de conectar, vincula tus integrantes de PluralKit con los de Prism — o impórtalos como nuevos — para evitar duplicados.';
 
   @override
   String get pluralkitInfoSwitches =>
@@ -5414,6 +5427,21 @@ class AppLocalizationsEs extends AppLocalizations {
       one: '1 hora',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get remindersTargetLabel => 'Destino';
+
+  @override
+  String get remindersTargetAny => 'Cualquier cambio de frente';
+
+  @override
+  String get remindersTargetDisclosure =>
+      'Se activa cuando Prism está en ejecución y detecta el cambio. Los cambios externos registrados mientras Prism está cerrado pueden no activar este recordatorio.';
+
+  @override
+  String remindersSubtitleTargetPrefix(String name) {
+    return 'Cuando $name está al frente';
   }
 
   @override
@@ -6283,4 +6311,33 @@ class AppLocalizationsEs extends AppLocalizations {
   String onboardingSyncRestoredSummary(int members, int messages) {
     return 'Se restauraron $members miembros y $messages mensajes.';
   }
+
+  @override
+  String get pkProfileDisclosureTitle =>
+      '¿Importar tu perfil de sistema desde PluralKit?';
+
+  @override
+  String get pkProfileDisclosureSubtitle => 'Solo copiaremos lo que marques.';
+
+  @override
+  String get pkProfileDisclosureImport => 'Importar selección';
+
+  @override
+  String get pkProfileDisclosureSkip => 'Omitir';
+
+  @override
+  String get pkProfileFieldName => 'Nombre del sistema';
+
+  @override
+  String get pkProfileFieldDescription => 'Descripción';
+
+  @override
+  String get pkProfileFieldTag => 'Etiqueta del sistema';
+
+  @override
+  String get pkProfileFieldAvatar => 'Avatar del sistema';
+
+  @override
+  String get pkProfileFieldOverwriteHint =>
+      'Prism ya tiene un valor — marca para sobrescribir.';
 }

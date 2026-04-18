@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 50;
+  int get schemaVersion => 54;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -359,6 +359,115 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       }
+
+      if (from < 51) {
+        // Plan 03 Phase 1: PK-group link columns + partial unique indexes.
+        // Also `last_seen_from_pk_at` for the "stale" UI hint (R9).
+        final groupsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='member_groups'",
+        ).get();
+        if (groupsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE member_groups ADD COLUMN pluralkit_id TEXT',
+          );
+          await customStatement(
+            'ALTER TABLE member_groups ADD COLUMN pluralkit_uuid TEXT',
+          );
+          await customStatement(
+            'ALTER TABLE member_groups ADD COLUMN last_seen_from_pk_at '
+            'INTEGER',
+          );
+          await customStatement(
+            'CREATE UNIQUE INDEX IF NOT EXISTS '
+            'idx_member_groups_pluralkit_uuid '
+            'ON member_groups(pluralkit_uuid) '
+            'WHERE pluralkit_uuid IS NOT NULL',
+          );
+          // NOT unique (see plan R7): PK short IDs can be recycled across
+          // groups, so identity is UUID-only. Plain index for lookup speed.
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS '
+            'idx_member_groups_pluralkit_id '
+            'ON member_groups(pluralkit_id) '
+            'WHERE pluralkit_id IS NOT NULL',
+          );
+        }
+      }
+
+      if (from < 52) {
+        // Plan 02 (PK deletion push): link_epoch on sync state, plus
+        // delete_intent_epoch (local) + delete_push_started_at (synced) on
+        // members and fronting_sessions. All nullable / defaulted so the
+        // ALTERs leave existing rows valid without a data migration.
+        final pkStateExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='plural_kit_sync_state'",
+        ).get();
+        if (pkStateExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE plural_kit_sync_state ADD COLUMN '
+            'link_epoch INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+        final membersExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'",
+        ).get();
+        if (membersExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE members ADD COLUMN delete_intent_epoch INTEGER',
+          );
+          await customStatement(
+            'ALTER TABLE members ADD COLUMN delete_push_started_at INTEGER',
+          );
+        }
+        final sessionsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='fronting_sessions'",
+        ).get();
+        if (sessionsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE fronting_sessions ADD COLUMN '
+            'delete_intent_epoch INTEGER',
+          );
+          await customStatement(
+            'ALTER TABLE fronting_sessions ADD COLUMN '
+            'delete_push_started_at INTEGER',
+          );
+        }
+      }
+
+      if (from < 53) {
+        // Plan 04: PluralKit system profile disclosure — adds synced
+        // `system_tag` column to mirror the PK system `tag` field.
+        // Guard by table existence for old test stubs that upgrade from
+        // a fixture pre-dating the system_settings table.
+        final systemSettingsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='system_settings'",
+        ).get();
+        if (systemSettingsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN system_tag TEXT',
+          );
+        }
+      }
+
+      if (from < 54) {
+        // Plan 06: SP timer targeting — per-member reminders.
+        // Adds `target_member_id` to reminders. Nullable: null keeps the
+        // existing "fires on any front change" behavior, a non-null value
+        // narrows firing to switches where that member is in the current
+        // fronter set. Guard by table existence for old test stubs.
+        final remindersExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reminders'",
+        ).get();
+        if (remindersExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE reminders ADD COLUMN target_member_id TEXT',
+          );
+        }
+      }
     },
     onCreate: (migrator) async {
       await migrator.createAll();
@@ -380,6 +489,14 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
       'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_groups_pluralkit_uuid '
+      'ON member_groups(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_member_groups_pluralkit_id '
+      'ON member_groups(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
     );
   }
 

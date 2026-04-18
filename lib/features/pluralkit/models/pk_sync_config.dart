@@ -137,6 +137,10 @@ class PkSyncSummary {
   final int switchesPulled;
   final int switchesPushed;
 
+  /// Plan 02: how many PK-side deletions this push executed.
+  final int membersDeletedOnPk;
+  final int switchesDeletedOnPk;
+
   /// Human-readable messages describing links that PK 404'd during this run
   /// (member or switch targets that no longer exist on PK). These are
   /// surfaced to the user via `syncError` after the sync finishes — each
@@ -150,11 +154,18 @@ class PkSyncSummary {
     this.membersSkipped = 0,
     this.switchesPulled = 0,
     this.switchesPushed = 0,
+    this.membersDeletedOnPk = 0,
+    this.switchesDeletedOnPk = 0,
     this.staleLinkMessages = const [],
   });
 
   int get totalChanges =>
-      membersPulled + membersPushed + switchesPulled + switchesPushed;
+      membersPulled +
+      membersPushed +
+      switchesPulled +
+      switchesPushed +
+      membersDeletedOnPk +
+      switchesDeletedOnPk;
 
   Map<String, dynamic> toJson() => {
         'membersPulled': membersPulled,
@@ -162,6 +173,8 @@ class PkSyncSummary {
         'membersSkipped': membersSkipped,
         'switchesPulled': switchesPulled,
         'switchesPushed': switchesPushed,
+        'membersDeletedOnPk': membersDeletedOnPk,
+        'switchesDeletedOnPk': switchesDeletedOnPk,
         'staleLinkMessages': staleLinkMessages,
       };
 
@@ -172,6 +185,8 @@ class PkSyncSummary {
       membersSkipped: json['membersSkipped'] as int? ?? 0,
       switchesPulled: json['switchesPulled'] as int? ?? 0,
       switchesPushed: json['switchesPushed'] as int? ?? 0,
+      membersDeletedOnPk: json['membersDeletedOnPk'] as int? ?? 0,
+      switchesDeletedOnPk: json['switchesDeletedOnPk'] as int? ?? 0,
       staleLinkMessages: (json['staleLinkMessages'] as List?)
               ?.whereType<String>()
               .toList() ??
@@ -187,6 +202,12 @@ class PkSyncSummary {
     if (membersSkipped > 0) parts.add('$membersSkipped skipped');
     if (switchesPulled > 0) parts.add('$switchesPulled switches pulled');
     if (switchesPushed > 0) parts.add('$switchesPushed switches pushed');
+    if (membersDeletedOnPk > 0) {
+      parts.add('$membersDeletedOnPk members deleted on PK');
+    }
+    if (switchesDeletedOnPk > 0) {
+      parts.add('$switchesDeletedOnPk switches deleted on PK');
+    }
     if (staleLinkMessages.isNotEmpty) {
       parts.add('${staleLinkMessages.length} stale links cleared');
     }

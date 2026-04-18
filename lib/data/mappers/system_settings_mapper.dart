@@ -44,6 +44,7 @@ class SystemSettingsMapper {
       notesEnabled: row.notesEnabled,
       previousAccentColorHex: row.previousAccentColorHex,
       systemDescription: row.systemDescription,
+      systemTag: row.systemTag,
       systemAvatarData: row.systemAvatarData != null
           ? Uint8List.fromList(row.systemAvatarData!)
           : null,
@@ -103,6 +104,7 @@ class SystemSettingsMapper {
       notesEnabled: Value(model.notesEnabled),
       previousAccentColorHex: Value(model.previousAccentColorHex),
       systemDescription: Value(model.systemDescription),
+      systemTag: Value(model.systemTag),
       systemAvatarData: Value(model.systemAvatarData),
       remindersEnabled: Value(model.remindersEnabled),
       localeOverride: Value(model.localeOverride),

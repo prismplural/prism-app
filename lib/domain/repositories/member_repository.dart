@@ -11,4 +11,19 @@ abstract class MemberRepository {
   Future<void> deleteMember(String id);
   Future<List<domain.Member>> getMembersByIds(List<String> ids);
   Future<int> getCount();
+
+  // -- Plan 02 (PK deletion push) ------------------------------------------
+
+  /// Soft-deleted members that still have a PK link + a stamped intent
+  /// epoch. Not filtered by `is_deleted = false` (unlike [getAllMembers]).
+  Future<List<domain.Member>> getDeletedLinkedMembers();
+
+  /// Clear `pluralkitId` / `pluralkitUuid` on a tombstone row and emit a
+  /// CRDT op so peers converge. Row stays `is_deleted = true`. R3.
+  Future<void> clearPluralKitLink(String id);
+
+  /// Stamp the synced cross-device `delete_push_started_at` (ms since
+  /// epoch) via `syncRecordUpdate` so peer devices can see who's pushing.
+  /// R6.
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs);
 }

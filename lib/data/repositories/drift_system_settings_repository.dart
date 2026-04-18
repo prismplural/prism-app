@@ -338,6 +338,12 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateSystemTag(String? value) async {
+    await _dao.updateSystemTag(value);
+    await _syncField('system_tag', value);
+  }
+
+  @override
   Future<void> updateSystemAvatarData(Uint8List? value) async {
     await _dao.updateSystemAvatarData(value);
     await _syncField(
@@ -471,6 +477,7 @@ class DriftSystemSettingsRepository
       'timing_mode': s.timingMode.index,
       'notes_enabled': s.notesEnabled,
       'system_description': s.systemDescription,
+      'system_tag': s.systemTag,
       'system_avatar_data': s.systemAvatarData != null
           ? base64Encode(s.systemAvatarData!)
           : null,

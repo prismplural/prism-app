@@ -31,6 +31,9 @@ _FrontingSession _$FrontingSessionFromJson(Map<String, dynamic> json) =>
       quality: $enumDecodeNullable(_$SleepQualityEnumMap, json['quality']),
       isHealthKitImport: json['isHealthKitImport'] as bool? ?? false,
       pkMemberIdsJson: json['pkMemberIdsJson'] as String?,
+      isDeleted: json['isDeleted'] as bool? ?? false,
+      deleteIntentEpoch: (json['deleteIntentEpoch'] as num?)?.toInt(),
+      deletePushStartedAt: (json['deletePushStartedAt'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$FrontingSessionToJson(_FrontingSession instance) =>
@@ -47,6 +50,9 @@ Map<String, dynamic> _$FrontingSessionToJson(_FrontingSession instance) =>
       'quality': _$SleepQualityEnumMap[instance.quality],
       'isHealthKitImport': instance.isHealthKitImport,
       'pkMemberIdsJson': instance.pkMemberIdsJson,
+      'isDeleted': instance.isDeleted,
+      'deleteIntentEpoch': instance.deleteIntentEpoch,
+      'deletePushStartedAt': instance.deletePushStartedAt,
     };
 
 const _$FrontConfidenceEnumMap = {

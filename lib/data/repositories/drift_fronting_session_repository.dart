@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/fronting_sessions_dao.dart';
+import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/data/mappers/fronting_session_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
@@ -12,13 +13,17 @@ class DriftFrontingSessionRepository
     implements FrontingSessionRepository {
   final FrontingSessionsDao _dao;
   final ffi.PrismSyncHandle? _syncHandle;
+  // Plan 02 R1: optional link-epoch stamper (same pattern as the member repo).
+  final PluralKitSyncDao? _pkSyncDao;
 
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
   static const _table = 'fronting_sessions';
 
-  DriftFrontingSessionRepository(this._dao, this._syncHandle);
+  DriftFrontingSessionRepository(this._dao, this._syncHandle,
+      {PluralKitSyncDao? pkSyncDao})
+      : _pkSyncDao = pkSyncDao;
 
   @override
   Future<List<domain.FrontingSession>> getAllSessions() async {
@@ -165,8 +170,43 @@ class DriftFrontingSessionRepository
 
   @override
   Future<void> deleteSession(String id) async {
+    int? epoch;
+    final pkDao = _pkSyncDao;
+    final existing = await _dao.getSessionById(id);
+    final isLinked = existing != null &&
+        existing.pluralkitUuid != null &&
+        existing.pluralkitUuid!.isNotEmpty;
+    if (pkDao != null && isLinked) {
+      epoch = await pkDao.getLinkEpoch();
+    }
+
     await _dao.softDeleteSession(id);
+    if (epoch != null) {
+      await _dao.stampDeleteIntent(id, epoch);
+    }
     await syncRecordDelete(_table, id);
+  }
+
+  @override
+  Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async {
+    final rows = await _dao.getDeletedLinkedSessions();
+    return rows.map(FrontingSessionMapper.toDomain).toList();
+  }
+
+  @override
+  Future<void> clearPluralKitLink(String id) async {
+    await _dao.clearPluralKitLinkRaw(id);
+    await syncRecordUpdate(_table, id, {
+      'pluralkit_uuid': null,
+    });
+  }
+
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {
+    await _dao.stampDeletePushStartedAt(id, timestampMs);
+    await syncRecordUpdate(_table, id, {
+      'delete_push_started_at': timestampMs,
+    });
   }
 
   @override
