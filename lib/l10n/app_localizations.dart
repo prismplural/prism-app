@@ -2237,7 +2237,7 @@ abstract class AppLocalizations {
   /// Title of the sync troubleshooting screen
   ///
   /// In en, this message translates to:
-  /// **'Sync Troubleshooting'**
+  /// **'Prism Sync Troubleshooting'**
   String get syncTroubleshootingTitle;
 
   /// Section header: connection status
@@ -2363,7 +2363,7 @@ abstract class AppLocalizations {
   /// Button: open sync event log
   ///
   /// In en, this message translates to:
-  /// **'Open Sync Event Log'**
+  /// **'Open Prism Sync Event Log'**
   String get syncTroubleshootingOpenEventLog;
 
   /// Button: reset sync system
@@ -9947,7 +9947,7 @@ abstract class AppLocalizations {
   /// Title of the sync event log debug screen
   ///
   /// In en, this message translates to:
-  /// **'Sync Event Log'**
+  /// **'Prism Sync Event Log'**
   String get settingsSyncDebugTitle;
 
   /// Subtitle showing the number of sync events recorded
