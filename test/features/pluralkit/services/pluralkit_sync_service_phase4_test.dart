@@ -13,7 +13,6 @@ import 'package:prism_plurality/domain/repositories/fronting_session_repository.
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -537,7 +536,7 @@ void main() {
       // the FlutterSecureStorage write above goes through our mock handler.
 
       final pushed = await svc.pushPendingSwitches(
-        pushService: PkPushService(queue: PkRequestQueue()),
+        pushService: const PkPushService(),
       );
 
       expect(pushed, 1);
@@ -596,7 +595,7 @@ void main() {
           .write(key: 'prism_pluralkit_token', value: 't');
 
       final pushed = await svc.pushPendingSwitches(
-        pushService: PkPushService(queue: PkRequestQueue()),
+        pushService: const PkPushService(),
       );
       expect(pushed, 1, reason: 'session at linkedAt+1ms must be pushed');
     });
@@ -640,7 +639,7 @@ void main() {
           .write(key: 'prism_pluralkit_token', value: 't');
 
       final pushed = await svc.pushPendingSwitches(
-        pushService: PkPushService(queue: PkRequestQueue()),
+        pushService: const PkPushService(),
       );
 
       // Session remained pending (not marked with UUID).
@@ -688,7 +687,7 @@ void main() {
           .write(key: 'prism_pluralkit_token', value: 't');
 
       final pushed = await svc.pushPendingSwitches(
-        pushService: PkPushService(queue: PkRequestQueue()),
+        pushService: const PkPushService(),
       );
       expect(pushed, 0);
       expect(client.calls.where((c) => c.method == 'createSwitch'), isEmpty);
@@ -698,7 +697,7 @@ void main() {
   group('stale link 404 handling', () {
     test('pushMember 404 throws PkStaleLinkException', () async {
       final client = _FakeClient()..throwStaleOnUpdateMember = true;
-      final push = PkPushService(queue: PkRequestQueue());
+      final push = const PkPushService();
 
       final member = domain.Member(
         id: 'local-a',
@@ -756,7 +755,7 @@ void main() {
 
       final messages = <String>[];
       final pushed = await svc.pushPendingSwitches(
-        pushService: PkPushService(queue: PkRequestQueue()),
+        pushService: const PkPushService(),
         onStaleLink: messages.add,
       );
 
@@ -770,7 +769,7 @@ void main() {
     test('non-404 PK errors are not wrapped as stale', () async {
       final client = _FakeClient();
       // 500 error via a helper: override updateMember
-      final push = PkPushService(queue: PkRequestQueue());
+      final push = const PkPushService();
       final member = domain.Member(
         id: 'local-b',
         name: 'Bob',

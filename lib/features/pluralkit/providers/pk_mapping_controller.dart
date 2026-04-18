@@ -9,7 +9,6 @@ import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_member_matcher.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 
 /// Immutable state backing the mapping screen.
 class PkMappingState {
@@ -238,7 +237,7 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       final applier = PkMappingApplier(
         members: memberRepo,
         state: PkMappingStateDao(db),
-        pushService: PkPushService(queue: PkRequestQueue()),
+        pushService: const PkPushService(),
         client: client,
       );
 

@@ -1,6 +1,5 @@
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 /// Thrown when a PATCH/DELETE/PUSH targets a PK resource that no longer
@@ -37,10 +36,11 @@ class PkStaleLinkException implements Exception {
 enum PkStaleLinkKind { member, switchRecord }
 
 /// Pushes local Prism data to PluralKit.
+///
+/// Rate limiting and 429 retry are handled inside [PluralKitClient] via its
+/// internal request queue, so this service just calls client methods.
 class PkPushService {
-  final PkRequestQueue _queue;
-
-  PkPushService({PkRequestQueue? queue}) : _queue = queue ?? PkRequestQueue();
+  const PkPushService();
 
   /// Push a local member to PluralKit.
   ///
@@ -61,9 +61,7 @@ class PkPushService {
       // PATCH — include explicit nulls to clear fields on PK.
       final data = _memberToPayload(member, pkMember: pkMember, isPatch: true);
       try {
-        final updated = await _queue.enqueue(
-          () => client.updateMember(member.pluralkitId!, data),
-        );
+        final updated = await client.updateMember(member.pluralkitId!, data);
         return updated.id;
       } on PluralKitApiError catch (e) {
         if (e.statusCode == 404) {
@@ -79,9 +77,7 @@ class PkPushService {
     } else {
       // POST — create new PK member. Omit nulls (PK's POST treats omit = clear).
       final data = _memberToPayload(member, isPatch: false);
-      final created = await _queue.enqueue(
-        () => client.createMember(data),
-      );
+      final created = await client.createMember(data);
       return created.id;
     }
   }
@@ -105,9 +101,7 @@ class PkPushService {
     DateTime? timestamp,
   }) async {
     try {
-      return await _queue.enqueue(
-        () => client.createSwitch(pkMemberIds, timestamp: timestamp),
-      );
+      return await client.createSwitch(pkMemberIds, timestamp: timestamp);
     } on PluralKitApiError catch (e) {
       if (e.statusCode == 404) {
         throw PkStaleLinkException(
