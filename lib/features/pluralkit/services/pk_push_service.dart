@@ -167,6 +167,9 @@ class PkPushService {
       isPatch: isPatch,
     );
 
+    // proxy_tags intentionally omitted — pull-only today.
+    // See docs/plans/pk-sp-gaps/01-pk-proxy-tags.md before adding a push path.
+
     // Color — PK expects 6-char hex with no '#'. When local color is
     // disabled, skip color entirely. Toggling local color off must not
     // silently clear PK's color as a side effect; an explicit "clear PK

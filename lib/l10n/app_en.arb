@@ -2904,6 +2904,22 @@
   "@memberSectionBio": {
     "description": "Section header shown above member bio/notes field on detail screen"
   },
+  "memberSectionProxyTags": "Proxy Tags",
+  "@memberSectionProxyTags": {
+    "description": "Section header for PluralKit proxy tags on member detail screen"
+  },
+  "memberProxyTagsManagedOnPk": "Proxy tags are managed on PluralKit.",
+  "@memberProxyTagsManagedOnPk": {
+    "description": "Subtitle explaining that proxy tags cannot be edited in Prism"
+  },
+  "memberProxyTagsEditOnPk": "Edit on PluralKit",
+  "@memberProxyTagsEditOnPk": {
+    "description": "Button label that opens the member's PluralKit dashboard page"
+  },
+  "memberProxyTagsEmpty": "No proxy tags set.",
+  "@memberProxyTagsEmpty": {
+    "description": "Shown when a PK-linked member has no proxy tags"
+  },
   "memberEditTooltip": "Edit member",
   "@memberEditTooltip": {
     "description": "Tooltip for edit member button"
