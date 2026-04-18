@@ -151,6 +151,9 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(systemDescription: Value(value)),
   );
 
+  Future<void> updateSystemColor(String? value) =>
+      _updateField(SystemSettingsTableCompanion(systemColor: Value(value)));
+
   Future<void> updateSystemTag(String? value) =>
       _updateField(SystemSettingsTableCompanion(systemTag: Value(value)));
 

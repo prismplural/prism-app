@@ -4377,6 +4377,17 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _systemColorMeta = const VerificationMeta(
+    'systemColor',
+  );
+  @override
+  late final GeneratedColumn<String> systemColor = GeneratedColumn<String>(
+    'system_color',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _systemTagMeta = const VerificationMeta(
     'systemTag',
   );
@@ -4621,6 +4632,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     habitsBadgeEnabled,
     notesEnabled,
     systemDescription,
+    systemColor,
     systemTag,
     systemAvatarData,
     remindersEnabled,
@@ -4953,6 +4965,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('system_color')) {
+      context.handle(
+        _systemColorMeta,
+        systemColor.isAcceptableOrUnknown(
+          data['system_color']!,
+          _systemColorMeta,
+        ),
+      );
+    }
     if (data.containsKey('system_tag')) {
       context.handle(
         _systemTagMeta,
@@ -5238,6 +5259,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}system_description'],
       ),
+      systemColor: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}system_color'],
+      ),
       systemTag: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}system_tag'],
@@ -5349,6 +5374,7 @@ class SystemSettingsData extends DataClass
   final bool habitsBadgeEnabled;
   final bool notesEnabled;
   final String? systemDescription;
+  final String? systemColor;
   final String? systemTag;
   final Uint8List? systemAvatarData;
   final bool remindersEnabled;
@@ -5402,6 +5428,7 @@ class SystemSettingsData extends DataClass
     required this.habitsBadgeEnabled,
     required this.notesEnabled,
     this.systemDescription,
+    this.systemColor,
     this.systemTag,
     this.systemAvatarData,
     required this.remindersEnabled,
@@ -5480,6 +5507,9 @@ class SystemSettingsData extends DataClass
     if (!nullToAbsent || systemDescription != null) {
       map['system_description'] = Variable<String>(systemDescription);
     }
+    if (!nullToAbsent || systemColor != null) {
+      map['system_color'] = Variable<String>(systemColor);
+    }
     if (!nullToAbsent || systemTag != null) {
       map['system_tag'] = Variable<String>(systemTag);
     }
@@ -5553,6 +5583,9 @@ class SystemSettingsData extends DataClass
       systemDescription: systemDescription == null && nullToAbsent
           ? const Value.absent()
           : Value(systemDescription),
+      systemColor: systemColor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systemColor),
       systemTag: systemTag == null && nullToAbsent
           ? const Value.absent()
           : Value(systemTag),
@@ -5648,6 +5681,7 @@ class SystemSettingsData extends DataClass
       systemDescription: serializer.fromJson<String?>(
         json['systemDescription'],
       ),
+      systemColor: serializer.fromJson<String?>(json['systemColor']),
       systemTag: serializer.fromJson<String?>(json['systemTag']),
       systemAvatarData: serializer.fromJson<Uint8List?>(
         json['systemAvatarData'],
@@ -5732,6 +5766,7 @@ class SystemSettingsData extends DataClass
       'habitsBadgeEnabled': serializer.toJson<bool>(habitsBadgeEnabled),
       'notesEnabled': serializer.toJson<bool>(notesEnabled),
       'systemDescription': serializer.toJson<String?>(systemDescription),
+      'systemColor': serializer.toJson<String?>(systemColor),
       'systemTag': serializer.toJson<String?>(systemTag),
       'systemAvatarData': serializer.toJson<Uint8List?>(systemAvatarData),
       'remindersEnabled': serializer.toJson<bool>(remindersEnabled),
@@ -5790,6 +5825,7 @@ class SystemSettingsData extends DataClass
     bool? habitsBadgeEnabled,
     bool? notesEnabled,
     Value<String?> systemDescription = const Value.absent(),
+    Value<String?> systemColor = const Value.absent(),
     Value<String?> systemTag = const Value.absent(),
     Value<Uint8List?> systemAvatarData = const Value.absent(),
     bool? remindersEnabled,
@@ -5857,6 +5893,7 @@ class SystemSettingsData extends DataClass
     systemDescription: systemDescription.present
         ? systemDescription.value
         : this.systemDescription,
+    systemColor: systemColor.present ? systemColor.value : this.systemColor,
     systemTag: systemTag.present ? systemTag.value : this.systemTag,
     systemAvatarData: systemAvatarData.present
         ? systemAvatarData.value
@@ -5982,6 +6019,9 @@ class SystemSettingsData extends DataClass
       systemDescription: data.systemDescription.present
           ? data.systemDescription.value
           : this.systemDescription,
+      systemColor: data.systemColor.present
+          ? data.systemColor.value
+          : this.systemColor,
       systemTag: data.systemTag.present ? data.systemTag.value : this.systemTag,
       systemAvatarData: data.systemAvatarData.present
           ? data.systemAvatarData.value
@@ -6068,6 +6108,7 @@ class SystemSettingsData extends DataClass
           ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
           ..write('notesEnabled: $notesEnabled, ')
           ..write('systemDescription: $systemDescription, ')
+          ..write('systemColor: $systemColor, ')
           ..write('systemTag: $systemTag, ')
           ..write('systemAvatarData: $systemAvatarData, ')
           ..write('remindersEnabled: $remindersEnabled, ')
@@ -6126,6 +6167,7 @@ class SystemSettingsData extends DataClass
     habitsBadgeEnabled,
     notesEnabled,
     systemDescription,
+    systemColor,
     systemTag,
     $driftBlobEquality.hash(systemAvatarData),
     remindersEnabled,
@@ -6185,6 +6227,7 @@ class SystemSettingsData extends DataClass
           other.habitsBadgeEnabled == this.habitsBadgeEnabled &&
           other.notesEnabled == this.notesEnabled &&
           other.systemDescription == this.systemDescription &&
+          other.systemColor == this.systemColor &&
           other.systemTag == this.systemTag &&
           $driftBlobEquality.equals(
             other.systemAvatarData,
@@ -6243,6 +6286,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> habitsBadgeEnabled;
   final Value<bool> notesEnabled;
   final Value<String?> systemDescription;
+  final Value<String?> systemColor;
   final Value<String?> systemTag;
   final Value<Uint8List?> systemAvatarData;
   final Value<bool> remindersEnabled;
@@ -6297,6 +6341,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsBadgeEnabled = const Value.absent(),
     this.notesEnabled = const Value.absent(),
     this.systemDescription = const Value.absent(),
+    this.systemColor = const Value.absent(),
     this.systemTag = const Value.absent(),
     this.systemAvatarData = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
@@ -6352,6 +6397,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsBadgeEnabled = const Value.absent(),
     this.notesEnabled = const Value.absent(),
     this.systemDescription = const Value.absent(),
+    this.systemColor = const Value.absent(),
     this.systemTag = const Value.absent(),
     this.systemAvatarData = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
@@ -6407,6 +6453,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? habitsBadgeEnabled,
     Expression<bool>? notesEnabled,
     Expression<String>? systemDescription,
+    Expression<String>? systemColor,
     Expression<String>? systemTag,
     Expression<Uint8List>? systemAvatarData,
     Expression<bool>? remindersEnabled,
@@ -6476,6 +6523,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'habits_badge_enabled': habitsBadgeEnabled,
       if (notesEnabled != null) 'notes_enabled': notesEnabled,
       if (systemDescription != null) 'system_description': systemDescription,
+      if (systemColor != null) 'system_color': systemColor,
       if (systemTag != null) 'system_tag': systemTag,
       if (systemAvatarData != null) 'system_avatar_data': systemAvatarData,
       if (remindersEnabled != null) 'reminders_enabled': remindersEnabled,
@@ -6540,6 +6588,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? habitsBadgeEnabled,
     Value<bool>? notesEnabled,
     Value<String?>? systemDescription,
+    Value<String?>? systemColor,
     Value<String?>? systemTag,
     Value<Uint8List?>? systemAvatarData,
     Value<bool>? remindersEnabled,
@@ -6607,6 +6656,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       habitsBadgeEnabled: habitsBadgeEnabled ?? this.habitsBadgeEnabled,
       notesEnabled: notesEnabled ?? this.notesEnabled,
       systemDescription: systemDescription ?? this.systemDescription,
+      systemColor: systemColor ?? this.systemColor,
       systemTag: systemTag ?? this.systemTag,
       systemAvatarData: systemAvatarData ?? this.systemAvatarData,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
@@ -6764,6 +6814,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     if (systemDescription.present) {
       map['system_description'] = Variable<String>(systemDescription.value);
     }
+    if (systemColor.present) {
+      map['system_color'] = Variable<String>(systemColor.value);
+    }
     if (systemTag.present) {
       map['system_tag'] = Variable<String>(systemTag.value);
     }
@@ -6873,6 +6926,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
           ..write('notesEnabled: $notesEnabled, ')
           ..write('systemDescription: $systemDescription, ')
+          ..write('systemColor: $systemColor, ')
           ..write('systemTag: $systemTag, ')
           ..write('systemAvatarData: $systemAvatarData, ')
           ..write('remindersEnabled: $remindersEnabled, ')
@@ -21993,6 +22047,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> habitsBadgeEnabled,
       Value<bool> notesEnabled,
       Value<String?> systemDescription,
+      Value<String?> systemColor,
       Value<String?> systemTag,
       Value<Uint8List?> systemAvatarData,
       Value<bool> remindersEnabled,
@@ -22049,6 +22104,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> habitsBadgeEnabled,
       Value<bool> notesEnabled,
       Value<String?> systemDescription,
+      Value<String?> systemColor,
       Value<String?> systemTag,
       Value<Uint8List?> systemAvatarData,
       Value<bool> remindersEnabled,
@@ -22254,6 +22310,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<String> get systemDescription => $composableBuilder(
     column: $table.systemDescription,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get systemColor => $composableBuilder(
+    column: $table.systemColor,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22528,6 +22589,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get systemColor => $composableBuilder(
+    column: $table.systemColor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get systemTag => $composableBuilder(
     column: $table.systemTag,
     builder: (column) => ColumnOrderings(column),
@@ -22793,6 +22859,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get systemColor => $composableBuilder(
+    column: $table.systemColor,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get systemTag =>
       $composableBuilder(column: $table.systemTag, builder: (column) => column);
 
@@ -22948,6 +23019,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsBadgeEnabled = const Value.absent(),
                 Value<bool> notesEnabled = const Value.absent(),
                 Value<String?> systemDescription = const Value.absent(),
+                Value<String?> systemColor = const Value.absent(),
                 Value<String?> systemTag = const Value.absent(),
                 Value<Uint8List?> systemAvatarData = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
@@ -23003,6 +23075,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsBadgeEnabled: habitsBadgeEnabled,
                 notesEnabled: notesEnabled,
                 systemDescription: systemDescription,
+                systemColor: systemColor,
                 systemTag: systemTag,
                 systemAvatarData: systemAvatarData,
                 remindersEnabled: remindersEnabled,
@@ -23060,6 +23133,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsBadgeEnabled = const Value.absent(),
                 Value<bool> notesEnabled = const Value.absent(),
                 Value<String?> systemDescription = const Value.absent(),
+                Value<String?> systemColor = const Value.absent(),
                 Value<String?> systemTag = const Value.absent(),
                 Value<Uint8List?> systemAvatarData = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
@@ -23115,6 +23189,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsBadgeEnabled: habitsBadgeEnabled,
                 notesEnabled: notesEnabled,
                 systemDescription: systemDescription,
+                systemColor: systemColor,
                 systemTag: systemTag,
                 systemAvatarData: systemAvatarData,
                 remindersEnabled: remindersEnabled,

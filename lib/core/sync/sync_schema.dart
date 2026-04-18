@@ -109,6 +109,7 @@ const String prismSyncSchema = '''
         "sync_theme_enabled": "Bool",
         "timing_mode": "Int",
         "notes_enabled": "Bool",
+        "system_color": "String",
         "system_description": "String",
         "system_tag": "String",
         "system_avatar_data": "Blob",
