@@ -323,6 +323,10 @@ DriftSyncEntity _membersEntity(
         'pluralkit_uuid': r.pluralkitUuid,
         'pluralkit_id': r.pluralkitId,
         'markdown_enabled': r.markdownEnabled,
+        'display_name': r.displayName,
+        'birthday': r.birthday,
+        'proxy_tags_json': r.proxyTagsJson,
+        'pluralkit_sync_ignored': r.pluralkitSyncIgnored,
         'is_deleted': r.isDeleted,
       };
     },
@@ -352,6 +356,10 @@ DriftSyncEntity _membersEntity(
         pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
         pluralkitId: f.stringFieldNullable('pluralkit_id'),
         markdownEnabled: f.boolField('markdown_enabled'),
+        displayName: f.stringFieldNullable('display_name'),
+        birthday: f.stringFieldNullable('birthday'),
+        proxyTagsJson: f.stringFieldNullable('proxy_tags_json'),
+        pluralkitSyncIgnored: f.boolField('pluralkit_sync_ignored'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.members).insertOnConflictUpdate(companion);
@@ -383,6 +391,10 @@ DriftSyncEntity _membersEntity(
         'pluralkit_uuid': row.pluralkitUuid,
         'pluralkit_id': row.pluralkitId,
         'markdown_enabled': row.markdownEnabled,
+        'display_name': row.displayName,
+        'birthday': row.birthday,
+        'proxy_tags_json': row.proxyTagsJson,
+        'pluralkit_sync_ignored': row.pluralkitSyncIgnored,
         'is_deleted': row.isDeleted,
       };
     },
@@ -419,6 +431,7 @@ DriftSyncEntity _frontingSessionsEntity(
         'quality': r.quality,
         'is_health_kit_import': r.isHealthKitImport,
         'pluralkit_uuid': r.pluralkitUuid,
+        'pk_member_ids_json': r.pkMemberIdsJson,
         'is_deleted': r.isDeleted,
       };
     },
@@ -442,6 +455,7 @@ DriftSyncEntity _frontingSessionsEntity(
         quality: f.intFieldNullable('quality'),
         isHealthKitImport: f.boolField('is_health_kit_import'),
         pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
+        pkMemberIdsJson: f.stringFieldNullable('pk_member_ids_json'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.frontingSessions).insertOnConflictUpdate(companion);
@@ -467,6 +481,7 @@ DriftSyncEntity _frontingSessionsEntity(
         'quality': row.quality,
         'is_health_kit_import': row.isHealthKitImport,
         'pluralkit_uuid': row.pluralkitUuid,
+        'pk_member_ids_json': row.pkMemberIdsJson,
         'is_deleted': row.isDeleted,
       };
     },

@@ -376,6 +376,48 @@ void main() {
       expect(service.state.isConnected, isTrue);
       expect(service.state.syncError, isNull);
       expect(storageStub._store[_pkTokenKey], 'valid-token');
+      // Fresh connection gates auto-sync until mapping completes.
+      expect(service.state.needsMapping, isTrue);
+      expect(service.state.canAutoSync, isFalse);
+    });
+
+    test('acknowledgeMapping clears needsMapping and unlocks auto-sync',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(fakeClient: fakeClient, db: db);
+
+      await service.setToken('valid-token');
+      expect(service.state.canAutoSync, isFalse);
+
+      await service.acknowledgeMapping();
+      expect(service.state.needsMapping, isFalse);
+      expect(service.state.canAutoSync, isTrue);
+
+      // Survives reload.
+      final reloaded = _makeService(fakeClient: fakeClient, db: db);
+      await reloaded.loadState();
+      expect(reloaded.state.needsMapping, isFalse);
+      expect(reloaded.state.canAutoSync, isTrue);
+    });
+
+    test('buildClientIfConnected returns null while mapping pending', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(fakeClient: fakeClient, db: db);
+
+      await service.setToken('valid-token');
+      expect(await service.buildClientIfConnected(), isNull);
+
+      // But the mapping-aware path still gives a client.
+      expect(await service.buildClientIgnoringMappingGate(), isNotNull);
+
+      await service.acknowledgeMapping();
+      expect(await service.buildClientIfConnected(), isNotNull);
     });
 
     test('401 from getSystem: isConnected = false, token deleted from storage',

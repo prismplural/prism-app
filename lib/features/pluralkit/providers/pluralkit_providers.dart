@@ -140,8 +140,8 @@ final pkAutoPushProvider = Provider<void>((ref) {
   final syncState = ref.watch(pluralKitSyncProvider);
   final direction = ref.watch(pkSyncDirectionProvider);
 
-  // Only activate when PK is connected and push is enabled
-  if (!syncState.isConnected || !direction.pushEnabled) return;
+  // Only activate when PK is fully connected (mapping done) and push enabled.
+  if (!syncState.canAutoSync || !direction.pushEnabled) return;
 
   Timer? debounce;
   ref.onDispose(() => debounce?.cancel());

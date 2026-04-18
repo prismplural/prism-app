@@ -33,6 +33,10 @@ abstract class Member with _$Member {
     String? pluralkitUuid,
     String? pluralkitId,
     @Default(false) bool markdownEnabled,
+    String? displayName,
+    String? birthday,
+    String? proxyTagsJson,
+    @Default(false) bool pluralkitSyncIgnored,
   }) = _Member;
 
   factory Member.fromJson(Map<String, dynamic> json) => _$MemberFromJson(json);

@@ -25,6 +25,10 @@ class MemberMapper {
       pluralkitUuid: row.pluralkitUuid,
       pluralkitId: row.pluralkitId,
       markdownEnabled: row.markdownEnabled,
+      displayName: row.displayName,
+      birthday: row.birthday,
+      proxyTagsJson: row.proxyTagsJson,
+      pluralkitSyncIgnored: row.pluralkitSyncIgnored,
     );
   }
 
@@ -47,6 +51,10 @@ class MemberMapper {
       pluralkitUuid: Value(model.pluralkitUuid),
       pluralkitId: Value(model.pluralkitId),
       markdownEnabled: Value(model.markdownEnabled),
+      displayName: Value(model.displayName),
+      birthday: Value(model.birthday),
+      proxyTagsJson: Value(model.proxyTagsJson),
+      pluralkitSyncIgnored: Value(model.pluralkitSyncIgnored),
     );
   }
 }

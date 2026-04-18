@@ -47,6 +47,7 @@ class FrontingSessionMapper {
                 : domain.SleepQuality.unknown)
           : null,
       isHealthKitImport: row.isHealthKitImport,
+      pkMemberIdsJson: row.pkMemberIdsJson,
     );
   }
 
@@ -63,6 +64,7 @@ class FrontingSessionMapper {
       pluralkitUuid: Value(model.pluralkitUuid),
       quality: Value(model.quality?.index),
       isHealthKitImport: Value(model.isHealthKitImport),
+      pkMemberIdsJson: Value(model.pkMemberIdsJson),
     );
   }
 }

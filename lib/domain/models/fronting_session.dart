@@ -32,6 +32,7 @@ abstract class FrontingSession with _$FrontingSession {
     @Default(SessionType.normal) SessionType sessionType,
     SleepQuality? quality,
     @Default(false) bool isHealthKitImport,
+    String? pkMemberIdsJson,
   }) = _FrontingSession;
 
   bool get isActive => endTime == null;

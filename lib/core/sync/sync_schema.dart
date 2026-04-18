@@ -22,6 +22,10 @@ const String prismSyncSchema = '''
         "pluralkit_uuid": "String",
         "pluralkit_id": "String",
         "markdown_enabled": "Bool",
+        "display_name": "String",
+        "birthday": "String",
+        "proxy_tags_json": "String",
+        "pluralkit_sync_ignored": "Bool",
         "is_deleted": "Bool"
       }
     },
@@ -37,6 +41,7 @@ const String prismSyncSchema = '''
         "quality": "Int",
         "is_health_kit_import": "Bool",
         "pluralkit_uuid": "String",
+        "pk_member_ids_json": "String",
         "is_deleted": "Bool"
       }
     },
