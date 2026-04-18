@@ -3,15 +3,19 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/data_management/providers/data_management_providers.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart'
@@ -36,6 +40,25 @@ enum _ImportSource { none, pluralKit, prismExport, simplyPlural }
 class _ImportDataStepState extends ConsumerState<ImportDataStep> {
   _ImportSource _selected = _ImportSource.none;
 
+  void _returnToPicker() {
+    // Clear any pending import action so the bottom Continue advances
+    // past the import step when nothing is selected.
+    ref.read(onboardingPendingImportActionProvider.notifier).set(null);
+    setState(() => _selected = _ImportSource.none);
+  }
+
+  @override
+  void dispose() {
+    // Defer to next frame so we don't mutate providers during dispose.
+    final container = ProviderScope.containerOf(context, listen: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      container
+          .read(onboardingPendingImportActionProvider.notifier)
+          .set(null);
+    });
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
@@ -49,15 +72,15 @@ class _ImportDataStepState extends ConsumerState<ImportDataStep> {
         ),
         _ImportSource.pluralKit => _PluralKitImportFlow(
           key: const ValueKey('pk'),
-          onBack: () => setState(() => _selected = _ImportSource.none),
+          onBack: _returnToPicker,
         ),
         _ImportSource.prismExport => _PrismExportImportFlow(
           key: const ValueKey('prism-export'),
-          onBack: () => setState(() => _selected = _ImportSource.none),
+          onBack: _returnToPicker,
         ),
         _ImportSource.simplyPlural => _SimplyPluralImportFlow(
           key: const ValueKey('sp'),
-          onBack: () => setState(() => _selected = _ImportSource.none),
+          onBack: _returnToPicker,
         ),
       },
     );
@@ -256,7 +279,12 @@ class _PluralKitImportFlow extends ConsumerStatefulWidget {
       _PluralKitImportFlowState();
 }
 
+enum _PkMode { token, file }
+
 class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
+  _PkMode? _mode;
+
+  // Token path state.
   final _tokenController = TextEditingController();
   bool _obscureToken = true;
   bool _isImporting = false;
@@ -264,154 +292,707 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   String? _errorMessage;
   int _importedCount = 0;
 
+  // File path state — post-import optional token.
+  final _postFileTokenController = TextEditingController();
+  bool _obscurePostFileToken = true;
+  bool _isAttachingToken = false;
+  String? _postFileTokenError;
+  bool _fileImportFinalized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refreshPendingAction();
+    });
+  }
+
   @override
   void dispose() {
     _tokenController.dispose();
+    _postFileTokenController.dispose();
     super.dispose();
+  }
+
+  /// Route the bottom Continue button to the appropriate action for the
+  /// current mode + phase. Called whenever mode or file-import state changes.
+  void _refreshPendingAction() {
+    Future<void> Function()? pending;
+    if (_mode == null) {
+      pending = null;
+    } else if (_mode == _PkMode.token) {
+      pending = _handleImport;
+    } else {
+      final fileState = ref.read(pkFileImportProvider);
+      switch (fileState.step) {
+        case PkFileImportStep.idle:
+          pending = () async {
+            await ref.read(pkFileImportProvider.notifier).selectAndParseFile();
+          };
+          break;
+        case PkFileImportStep.previewing:
+          pending = _runFileImport;
+          break;
+        case PkFileImportStep.complete:
+          pending = _handlePostFileToken;
+          break;
+        case PkFileImportStep.error:
+          pending = () async {
+            ref.read(pkFileImportProvider.notifier).reset();
+          };
+          break;
+        case PkFileImportStep.parsing:
+        case PkFileImportStep.importing:
+          pending = null;
+          break;
+      }
+    }
+    ref.read(onboardingPendingImportActionProvider.notifier).set(pending);
+  }
+
+  void _pickMode(_PkMode mode) {
+    setState(() => _mode = mode);
+    _refreshPendingAction();
+  }
+
+  void _backToModePicker() {
+    // Clear any in-flight file import state so returning to picker doesn't
+    // strand the user mid-flow, and clear the pending Continue action.
+    ref.read(pkFileImportProvider.notifier).reset();
+    setState(() {
+      _mode = null;
+      _errorMessage = null;
+      _postFileTokenError = null;
+      _fileImportFinalized = false;
+    });
+    _refreshPendingAction();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
+    // Rebuild pending action when file state changes.
+    ref.listen<PkFileImportState>(pkFileImportProvider, (_, __) {
+      _refreshPendingAction();
+    });
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Back to source picker
           Align(
             alignment: Alignment.centerLeft,
-            child: _BackLink(onTap: widget.onBack),
-          ),
-          const SizedBox(height: 16),
-
-          // Instructions
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.warmWhite.withValues(alpha: 0.1)
-                  : AppColors.parchmentElevated,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.onboardingPluralKitHowToGetToken,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? AppColors.warmWhite.withValues(alpha: 0.9)
-                        : AppColors.warmBlack.withValues(alpha: 0.9),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _InstructionRow(number: '1', text: context.l10n.onboardingPluralKitStep1),
-                _InstructionRow(
-                  number: '2',
-                  text: context.l10n.onboardingPluralKitStep2,
-                ),
-                _InstructionRow(
-                  number: '3',
-                  text: context.l10n.onboardingPluralKitStep3,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Token field
-          Container(
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.warmWhite.withValues(alpha: 0.1)
-                  : AppColors.parchmentElevated,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: PrismTextField(
-              controller: _tokenController,
-              obscureText: _obscureToken,
-              style: TextStyle(
-                color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
-              ),
-              hintText: context.l10n.onboardingPluralKitTokenHint,
-              hintStyle: TextStyle(
-                color: isDark
-                    ? AppColors.warmWhite.withValues(alpha: 0.35)
-                    : AppColors.warmBlack.withValues(alpha: 0.35),
-              ),
-              fieldStyle: PrismTextFieldStyle.borderless,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              suffix: PrismFieldIconButton(
-                icon: _obscureToken
-                    ? AppIcons.visibilityOff
-                    : AppIcons.visibility,
-                color: isDark
-                    ? AppColors.warmWhite.withValues(alpha: 0.75)
-                    : AppColors.warmBlack.withValues(alpha: 0.75),
-                tooltip: _obscureToken ? context.l10n.showToken : context.l10n.hideToken,
-                onPressed: () => setState(() => _obscureToken = !_obscureToken),
-              ),
+            child: _BackLink(
+              onTap: _mode == null ? widget.onBack : _backToModePicker,
             ),
           ),
           const SizedBox(height: 16),
-
-          // Import button or success
-          if (_importSuccess)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Icon(AppIcons.checkCircle, color: Colors.green),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      context.l10n.onboardingPluralKitImportSuccess(_importedCount),
-                      style: TextStyle(
-                        color: isDark
-                            ? AppColors.warmWhite
-                            : AppColors.warmBlack,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
+          if (_mode == null)
+            _buildMethodPicker(context)
+          else if (_mode == _PkMode.token)
+            _buildTokenBody(context)
           else
-            _ActionButton(
-              label: context.l10n.onboardingPluralKitImportButton,
-              color: primary,
-              isLoading: _isImporting,
-              onPressed: _handleImport,
-            ),
-
-          // Error
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _errorMessage!,
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.error),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            _buildFileBody(context),
         ],
       ),
     );
   }
 
+  Widget _buildMethodPicker(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'How do you want to bring PluralKit data into Prism?',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: isDark
+                ? AppColors.mutedTextDark
+                : AppColors.mutedTextLight,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 24),
+        _SourceCard(
+          icon: AppIcons.sync,
+          color: theme.colorScheme.primary,
+          title: 'Connect with a token',
+          description:
+              'Recommended. Paste a PluralKit token and Prism will keep '
+              'pulling new switches and push your Prism fronts back to PK.',
+          onTap: () => _pickMode(_PkMode.token),
+        ),
+        const SizedBox(height: 12),
+        _SourceCard(
+          icon: AppIcons.fileUploadOutlined,
+          color: theme.colorScheme.primary,
+          title: 'Import from pk;export file',
+          description:
+              'Faster for large systems (thousands of members or switches). '
+              'You can add a token afterwards for ongoing sync.',
+          onTap: () => _pickMode(_PkMode.file),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Token path
+  // ---------------------------------------------------------------------------
+
+  Widget _buildTokenBody(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.warmWhite.withValues(alpha: 0.1)
+                : AppColors.parchmentElevated,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.onboardingPluralKitHowToGetToken,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppColors.warmWhite.withValues(alpha: 0.9)
+                      : AppColors.warmBlack.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _InstructionRow(
+                number: '1',
+                text: context.l10n.onboardingPluralKitStep1,
+              ),
+              _InstructionRow(
+                number: '2',
+                text: context.l10n.onboardingPluralKitStep2,
+              ),
+              _InstructionRow(
+                number: '3',
+                text: context.l10n.onboardingPluralKitStep3,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.warmWhite.withValues(alpha: 0.1)
+                : AppColors.parchmentElevated,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: PrismTextField(
+            controller: _tokenController,
+            obscureText: _obscureToken,
+            style: TextStyle(
+              color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
+            ),
+            hintText: context.l10n.onboardingPluralKitTokenHint,
+            hintStyle: TextStyle(
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.35)
+                  : AppColors.warmBlack.withValues(alpha: 0.35),
+            ),
+            fieldStyle: PrismTextFieldStyle.borderless,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+            suffix: PrismFieldIconButton(
+              icon: _obscureToken
+                  ? AppIcons.visibilityOff
+                  : AppIcons.visibility,
+              color: isDark
+                  ? AppColors.warmWhite.withValues(alpha: 0.75)
+                  : AppColors.warmBlack.withValues(alpha: 0.75),
+              tooltip: _obscureToken
+                  ? context.l10n.showToken
+                  : context.l10n.hideToken,
+              onPressed: () => setState(() => _obscureToken = !_obscureToken),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_importSuccess)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(AppIcons.checkCircle, color: Colors.green),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    context.l10n
+                        .onboardingPluralKitImportSuccess(_importedCount),
+                    style: TextStyle(
+                      color:
+                          isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          _ActionButton(
+            label: context.l10n.onboardingPluralKitImportButton,
+            color: primary,
+            isLoading: _isImporting,
+            onPressed: _handleImport,
+          ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _errorMessage!,
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: theme.colorScheme.error),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // File path
+  // ---------------------------------------------------------------------------
+
+  Widget _buildFileBody(BuildContext context) {
+    final fileState = ref.watch(pkFileImportProvider);
+    switch (fileState.step) {
+      case PkFileImportStep.idle:
+        return _buildFileIdle(context);
+      case PkFileImportStep.parsing:
+        return _buildFileBusy(context, 'Reading file…');
+      case PkFileImportStep.previewing:
+        return _buildFilePreview(context, fileState.export!);
+      case PkFileImportStep.importing:
+        return _buildFileBusy(
+          context,
+          fileState.progressLabel.isNotEmpty
+              ? fileState.progressLabel
+              : 'Importing…',
+        );
+      case PkFileImportStep.complete:
+        return _buildFileComplete(context, fileState.result!);
+      case PkFileImportStep.error:
+        return _buildFileError(context, fileState.error ?? 'Import failed.');
+    }
+  }
+
+  Widget _buildFileIdle(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.warmWhite.withValues(alpha: 0.1)
+                : AppColors.parchmentElevated,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Export your system from PluralKit',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppColors.warmWhite.withValues(alpha: 0.9)
+                      : AppColors.warmBlack.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const _InstructionRow(
+                number: '1',
+                text: 'In Discord, run pk;export and PluralKit will DM you a '
+                    'JSON file.',
+              ),
+              const _InstructionRow(
+                number: '2',
+                text: 'Download the file from that DM and keep it handy.',
+              ),
+              const _InstructionRow(
+                number: '3',
+                text:
+                    'Tap Select file below and pick the JSON. Large systems '
+                    '(thousands of members/switches) import faster this way.',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _ActionButton(
+          label: 'Select file',
+          color: primary,
+          onPressed: () {
+            ref.read(pkFileImportProvider.notifier).selectAndParseFile();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileBusy(BuildContext context, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          children: [
+            PrismSpinner(
+              color: textColor,
+              size: 52,
+              dotCount: 8,
+              duration: const Duration(milliseconds: 3000),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              label,
+              style: TextStyle(color: textColor),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilePreview(BuildContext context, PkFileExport export) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.warmWhite.withValues(alpha: 0.1)
+                : AppColors.parchmentElevated,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Found in this export',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppColors.warmWhite.withValues(alpha: 0.9)
+                      : AppColors.warmBlack.withValues(alpha: 0.9),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _PreviewRow(
+                label: context.l10n.onboardingImportPreviewMembers,
+                count: export.members.length,
+              ),
+              if (export.groups.isNotEmpty)
+                _PreviewRow(
+                  label: context.l10n.onboardingImportPreviewGroups,
+                  count: export.groups.length,
+                ),
+              _PreviewRow(
+                label: context.l10n.onboardingImportPreviewFrontingSessions,
+                count: export.switches.length,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ActionButton(
+          label: 'Import',
+          color: primary,
+          onPressed: _runFileImport,
+        ),
+        const SizedBox(height: 8),
+        Center(
+          child: GestureDetector(
+            onTap: () => ref.read(pkFileImportProvider.notifier).reset(),
+            child: Text(
+              'Pick a different file',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isDark
+                    ? AppColors.mutedTextDark
+                    : AppColors.mutedTextLight,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileComplete(BuildContext context, PkFileImportResult result) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+
+    // Runs once per successful import — seeds system name + flag before
+    // showing the optional-token recommendation.
+    if (!_fileImportFinalized) {
+      _fileImportFinalized = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final name = result.systemName?.trim();
+        if (name != null && name.isNotEmpty) {
+          ref.read(onboardingProvider.notifier).setSystemName(name);
+        }
+        ref
+            .read(onboardingProvider.notifier)
+            .setWasImportedFromPluralKit(true);
+      });
+    }
+
+    final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.green.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(AppIcons.checkCircle, color: Colors.green),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Imported ${result.membersImported} members and '
+                  '${result.switchesCreated} switches.',
+                  style: TextStyle(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark
+                ? AppColors.warmWhite.withValues(alpha: 0.1)
+                : AppColors.parchmentElevated,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Keep it in sync (optional)',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Paste a PluralKit token and Prism will keep pulling new '
+                'switches and pushing your Prism fronts back to PK. You can '
+                'do this later in Settings too.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isDark
+                      ? AppColors.mutedTextDark
+                      : AppColors.mutedTextLight,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.warmWhite.withValues(alpha: 0.06)
+                      : AppColors.parchment,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: PrismTextField(
+                  controller: _postFileTokenController,
+                  obscureText: _obscurePostFileToken,
+                  style: TextStyle(color: textColor),
+                  hintText: context.l10n.onboardingPluralKitTokenHint,
+                  hintStyle: TextStyle(
+                    color: isDark
+                        ? AppColors.warmWhite.withValues(alpha: 0.35)
+                        : AppColors.warmBlack.withValues(alpha: 0.35),
+                  ),
+                  fieldStyle: PrismTextFieldStyle.borderless,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  suffix: PrismFieldIconButton(
+                    icon: _obscurePostFileToken
+                        ? AppIcons.visibilityOff
+                        : AppIcons.visibility,
+                    color: isDark
+                        ? AppColors.warmWhite.withValues(alpha: 0.75)
+                        : AppColors.warmBlack.withValues(alpha: 0.75),
+                    tooltip: _obscurePostFileToken
+                        ? context.l10n.showToken
+                        : context.l10n.hideToken,
+                    onPressed: () => setState(
+                      () => _obscurePostFileToken = !_obscurePostFileToken,
+                    ),
+                  ),
+                ),
+              ),
+              if (_postFileTokenError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _postFileTokenError!,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.error),
+                ),
+              ],
+              const SizedBox(height: 12),
+              _ActionButton(
+                label: 'Connect token & continue',
+                color: primary,
+                isLoading: _isAttachingToken,
+                onPressed: _handlePostFileToken,
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: GestureDetector(
+                  onTap: _isAttachingToken ? null : _skipPostFileToken,
+                  child: Text(
+                    'Skip for now',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: isDark
+                          ? AppColors.mutedTextDark
+                          : AppColors.mutedTextLight,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFileError(BuildContext context, String message) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+    final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(AppIcons.errorOutline, color: Colors.red),
+              const SizedBox(width: 12),
+              Expanded(child: Text(message, style: TextStyle(color: textColor))),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _ActionButton(
+          label: context.l10n.tryAgain,
+          color: primary,
+          onPressed: () {
+            ref.read(pkFileImportProvider.notifier).reset();
+          },
+        ),
+      ],
+    );
+  }
+
+  Future<void> _runFileImport() async {
+    await ref.read(pkFileImportProvider.notifier).runImport();
+  }
+
+  Future<void> _handlePostFileToken() async {
+    final token = _postFileTokenController.text.trim();
+    if (token.isEmpty) {
+      _skipPostFileToken();
+      return;
+    }
+    setState(() {
+      _isAttachingToken = true;
+      _postFileTokenError = null;
+    });
+    try {
+      final pkNotifier = ref.read(pluralKitSyncProvider.notifier);
+      await pkNotifier.setToken(token);
+      final connected = await pkNotifier.testConnection();
+      if (!connected) {
+        await pkNotifier.clearToken();
+        if (!mounted) return;
+        setState(() {
+          _isAttachingToken = false;
+          _postFileTokenError =
+              context.l10n.onboardingPluralKitErrorCouldNotConnect;
+        });
+        return;
+      }
+      // Already imported members via the file; mapping is a no-op here.
+      await pkNotifier.acknowledgeMapping();
+      if (!mounted) return;
+      setState(() => _isAttachingToken = false);
+      _advance();
+    } catch (e, st) {
+      debugPrint('[PK_ONBOARDING] post-file token attach failed: $e\n$st');
+      if (!mounted) return;
+      setState(() {
+        _isAttachingToken = false;
+        _postFileTokenError = context.l10n.onboardingImportError(e);
+      });
+    }
+  }
+
+  void _skipPostFileToken() {
+    _advance();
+  }
+
+  void _advance() {
+    ref.read(onboardingPendingImportActionProvider.notifier).set(null);
+    ref.read(onboardingProvider.notifier).next();
+  }
+
   Future<void> _handleImport() async {
     final token = _tokenController.text.trim();
+    debugPrint('[PK_ONBOARDING] _handleImport: token length=${token.length}');
     if (token.isEmpty) {
       setState(() => _errorMessage = context.l10n.onboardingPluralKitErrorEnterToken);
       return;
@@ -424,10 +1005,22 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
 
     try {
       final pkNotifier = ref.read(pluralKitSyncProvider.notifier);
-      await pkNotifier.setToken(token);
 
+      debugPrint('[PK_ONBOARDING] calling setToken...');
+      await pkNotifier.setToken(token);
+      final stateAfterSet = ref.read(pluralKitSyncProvider);
+      debugPrint(
+        '[PK_ONBOARDING] after setToken: '
+        'isConnected=${stateAfterSet.isConnected} '
+        'needsMapping=${stateAfterSet.needsMapping} '
+        'syncError=${stateAfterSet.syncError}',
+      );
+
+      debugPrint('[PK_ONBOARDING] calling testConnection...');
       final connected = await pkNotifier.testConnection();
+      debugPrint('[PK_ONBOARDING] testConnection result: $connected');
       if (!connected) {
+        debugPrint('[PK_ONBOARDING] testConnection failed — clearing token');
         // Clear the invalid token so it doesn't persist
         await pkNotifier.clearToken();
         setState(() {
@@ -437,6 +1030,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         return;
       }
 
+      debugPrint('[PK_ONBOARDING] calling importMembersOnly...');
       // importMembersOnly() already creates/updates members in the DB via the
       // sync service's _importMembers helper (which deduplicates by PK UUID).
       // We intentionally do NOT create members again here — the previous code
@@ -444,18 +1038,57 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
       // not set pluralkitUuid, so the service's dedup couldn't catch them.
       final (systemName, importedMembers) = await pkNotifier
           .importMembersOnly();
+      debugPrint(
+        '[PK_ONBOARDING] importMembersOnly returned: '
+        'systemName=$systemName '
+        'importedMembers.length=${importedMembers.length}',
+      );
+
+      // Confirm the writes actually landed in the local DB by reading back.
+      try {
+        final repo = ref.read(memberRepositoryProvider);
+        final inDb = await repo.getAllMembers();
+        debugPrint(
+          '[PK_ONBOARDING] DB read-back: members in DB=${inDb.length} '
+          '(first 3 names=${inDb.take(3).map((m) => m.name).toList()})',
+        );
+      } catch (e, st) {
+        debugPrint('[PK_ONBOARDING] DB read-back FAILED: $e\n$st');
+      }
 
       if (systemName != null && systemName.isNotEmpty) {
         ref.read(onboardingProvider.notifier).setSystemName(systemName);
       }
       ref.read(onboardingProvider.notifier).setWasImportedFromPluralKit(true);
 
+      // Fresh-install onboarding has no existing data to "map to", so
+      // acknowledge the mapping and run a full import so switches (front
+      // history) and groups come along too — not just members.
+      try {
+        debugPrint('[PK_ONBOARDING] acknowledgeMapping + performFullImport...');
+        await pkNotifier.acknowledgeMapping();
+        await pkNotifier.performFullImport();
+        debugPrint('[PK_ONBOARDING] full import done');
+      } catch (e, st) {
+        // Non-fatal: members already imported. Log and continue so the user
+        // doesn't get blocked at onboarding if switch history fails.
+        debugPrint('[PK_ONBOARDING] full import failed (non-fatal): $e\n$st');
+      }
+
+      if (!mounted) return;
       setState(() {
         _isImporting = false;
         _importSuccess = true;
         _importedCount = importedMembers.length;
       });
-    } catch (e) {
+      debugPrint('[PK_ONBOARDING] _handleImport done — advancing');
+      // Clear the pending action so the next step's Continue behaves
+      // normally, then auto-advance to systemName so the imported
+      // system name is shown prefilled without requiring a second tap.
+      ref.read(onboardingPendingImportActionProvider.notifier).set(null);
+      ref.read(onboardingProvider.notifier).next();
+    } catch (e, st) {
+      debugPrint('[PK_ONBOARDING] _handleImport CAUGHT exception: $e\n$st');
       setState(() {
         _isImporting = false;
         _errorMessage = context.l10n.onboardingImportError(e);
@@ -655,6 +1288,35 @@ class _PrismExportImportFlowState
 
   @override
   Widget build(BuildContext context) {
+    // Register the pending Continue action based on the current Prism
+    // export state so Continue performs the same action as the inline
+    // button in each sub-step.
+    Future<void> Function()? pendingAction;
+    switch (_step) {
+      case _PrismExportStep.idle:
+        pendingAction = _pickFile;
+        break;
+      case _PrismExportStep.password:
+        pendingAction = _unlockFile;
+        break;
+      case _PrismExportStep.preview:
+        pendingAction = _startImport;
+        break;
+      case _PrismExportStep.error:
+        pendingAction = () async => _reset();
+        break;
+      case _PrismExportStep.decrypting:
+      case _PrismExportStep.importing:
+        pendingAction = null;
+        break;
+    }
+    final capturedAction = pendingAction;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref
+          .read(onboardingPendingImportActionProvider.notifier)
+          .set(capturedAction);
+    });
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -1004,6 +1666,43 @@ class _SimplyPluralImportFlowState
     final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     final migration = ref.watch(importerProvider);
 
+    // Register the pending Continue action based on the current SP state
+    // so tapping Continue performs the same action as the inline button.
+    Future<void> Function()? pendingAction;
+    switch (migration.step) {
+      case sp_importer.ImportState.idle:
+        pendingAction = () async {
+          await ref.read(importerProvider.notifier).selectAndParseFile();
+        };
+        break;
+      case sp_importer.ImportState.previewing:
+        pendingAction = () async {
+          ref.read(importerProvider.notifier).proceedFromPreview();
+        };
+        break;
+      case sp_importer.ImportState.error:
+        pendingAction = () async {
+          ref.read(importerProvider.notifier).reset();
+        };
+        break;
+      case sp_importer.ImportState.parsing:
+      case sp_importer.ImportState.verifying:
+      case sp_importer.ImportState.fetching:
+      case sp_importer.ImportState.chooseDispositions:
+      case sp_importer.ImportState.importing:
+      case sp_importer.ImportState.downloadingAvatars:
+      case sp_importer.ImportState.complete:
+        pendingAction = null;
+        break;
+    }
+    final capturedAction = pendingAction;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref
+          .read(onboardingPendingImportActionProvider.notifier)
+          .set(capturedAction);
+    });
+
     // When the SP import completes and the file carried a system name,
     // seed the onboarding system-name field so the user doesn't have to
     // retype something they already set in Simply Plural.
@@ -1015,8 +1714,14 @@ class _SimplyPluralImportFlowState
           .read(onboardingProvider.notifier)
           .setWasImportedFromSimplyPlural(true);
       final name = next.exportData?.systemName?.trim();
-      if (name == null || name.isEmpty) return;
-      ref.read(onboardingProvider.notifier).setSystemName(name);
+      if (name != null && name.isNotEmpty) {
+        ref.read(onboardingProvider.notifier).setSystemName(name);
+      }
+      final color = next.exportData?.systemColor?.trim();
+      if (color != null && color.isNotEmpty) {
+        final normalized = color.startsWith('#') ? color : '#$color';
+        ref.read(onboardingProvider.notifier).setAccentColor(normalized);
+      }
     });
 
     return SingleChildScrollView(

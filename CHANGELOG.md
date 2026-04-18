@@ -4,8 +4,16 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.12] - 2026-04-18
+
 ### Added
 - PluralKit sync now supports linking existing members via a new mapping screen, two-way field sync for `displayName` and `birthday`, proxy tag pull, and switch history push to PluralKit
+- PluralKit onboarding and settings now offer a dual-source picker: connect with an API token for ongoing sync, or import from a `pk;export` JSON file for large systems — mirroring Simply Plural's import pattern
+- Standalone `PkFileImportScreen` reuses the shared file-import state machine from both onboarding and PluralKit settings
+- Accent color picker is now shared between onboarding and settings, with a legibility warning when low-contrast accents would be hard to read against surface backgrounds
+
+### Changed
+- Token-based PK sync now adopts UUIDs in-place for sessions that were previously imported from a `pk;export` file, matching by (timestamp, sorted member IDs) so switches aren't duplicated when the same system is connected via both paths
 
 ## [0.3.10] - 2026-04-17
 

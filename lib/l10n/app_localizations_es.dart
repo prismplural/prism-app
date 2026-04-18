@@ -1633,6 +1633,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String get frontingMenuStartSleep => 'Empezar a dormir';
 
   @override
+  String get frontingMenuSyncPluralKit => 'Sincronizar con PluralKit';
+
+  @override
+  String get frontingPluralKitSyncingToast => 'Sincronizando con PluralKit…';
+
+  @override
+  String get frontingPluralKitSyncDoneToast =>
+      'Sincronización de PluralKit completa';
+
+  @override
+  String frontingPluralKitSyncFailedToast(Object error) {
+    return 'Error de sincronización de PluralKit: $error';
+  }
+
+  @override
   String get frontingWakeUpAsTitle => 'Despertar como...';
 
   @override
@@ -5586,6 +5601,18 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settingsAccentColorSystemPaletteNote =>
       'Usando la paleta de colores del sistema';
+
+  @override
+  String get accentLegibilityTooDark =>
+      'Este color es muy oscuro — puede ser difícil de ver en fondos oscuros.';
+
+  @override
+  String get accentLegibilityTooLight =>
+      'Este color es muy claro — puede ser difícil de ver en fondos claros.';
+
+  @override
+  String get accentLegibilityTooDesaturated =>
+      'Este color es muy gris — puede mezclarse con el fondo.';
 
   @override
   String get settingsChangePinTitle => 'Cambiar PIN';

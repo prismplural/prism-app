@@ -2930,6 +2930,30 @@ abstract class AppLocalizations {
   /// **'Start Sleep'**
   String get frontingMenuStartSleep;
 
+  /// Menu item to manually trigger a PluralKit sync
+  ///
+  /// In en, this message translates to:
+  /// **'Sync with PluralKit'**
+  String get frontingMenuSyncPluralKit;
+
+  /// Toast shown when a manual PluralKit sync starts
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing with PluralKit…'**
+  String get frontingPluralKitSyncingToast;
+
+  /// Toast shown when a manual PluralKit sync finishes
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit sync complete'**
+  String get frontingPluralKitSyncDoneToast;
+
+  /// Toast shown when a manual PluralKit sync fails
+  ///
+  /// In en, this message translates to:
+  /// **'PluralKit sync failed: {error}'**
+  String frontingPluralKitSyncFailedToast(Object error);
+
   /// Dialog title for selecting a member to front after waking up
   ///
   /// In en, this message translates to:
@@ -9517,6 +9541,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Using your system color palette'**
   String get settingsAccentColorSystemPaletteNote;
+
+  /// Warning when accent color has very low luminance
+  ///
+  /// In en, this message translates to:
+  /// **'This color is very dark — it may be hard to see on dark backgrounds.'**
+  String get accentLegibilityTooDark;
+
+  /// Warning when accent color has very high luminance
+  ///
+  /// In en, this message translates to:
+  /// **'This color is very light — it may be hard to see on light backgrounds.'**
+  String get accentLegibilityTooLight;
+
+  /// Warning when accent color has very low saturation
+  ///
+  /// In en, this message translates to:
+  /// **'This color is very gray — it may blend into the background.'**
+  String get accentLegibilityTooDesaturated;
 
   /// Title of the change PIN sheet
   ///

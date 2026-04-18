@@ -14,6 +14,23 @@ import 'package:prism_plurality/features/settings/providers/settings_providers.d
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
+/// Intercepts the bottom "Continue" button on the importData step so an
+/// inline import sub-flow (PK token, SP file, Prism export) can run its
+/// own action instead of silently skipping past it. When set, the Continue
+/// button invokes this callback instead of advancing the step. The callback
+/// is responsible for progressing onboarding on success.
+class OnboardingPendingImportAction
+    extends Notifier<Future<void> Function()?> {
+  @override
+  Future<void> Function()? build() => null;
+
+  void set(Future<void> Function()? action) => state = action;
+}
+
+final onboardingPendingImportActionProvider =
+    NotifierProvider<OnboardingPendingImportAction,
+        Future<void> Function()?>(OnboardingPendingImportAction.new);
+
 enum OnboardingStep {
   welcome,
   pinSetup,        // 6-digit PIN creation

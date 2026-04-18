@@ -1588,6 +1588,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get frontingMenuStartSleep => 'Start Sleep';
 
   @override
+  String get frontingMenuSyncPluralKit => 'Sync with PluralKit';
+
+  @override
+  String get frontingPluralKitSyncingToast => 'Syncing with PluralKit…';
+
+  @override
+  String get frontingPluralKitSyncDoneToast => 'PluralKit sync complete';
+
+  @override
+  String frontingPluralKitSyncFailedToast(Object error) {
+    return 'PluralKit sync failed: $error';
+  }
+
+  @override
   String get frontingWakeUpAsTitle => 'Wake Up As...';
 
   @override
@@ -5495,6 +5509,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsAccentColorSystemPaletteNote =>
       'Using your system color palette';
+
+  @override
+  String get accentLegibilityTooDark =>
+      'This color is very dark — it may be hard to see on dark backgrounds.';
+
+  @override
+  String get accentLegibilityTooLight =>
+      'This color is very light — it may be hard to see on light backgrounds.';
+
+  @override
+  String get accentLegibilityTooDesaturated =>
+      'This color is very gray — it may blend into the background.';
 
   @override
   String get settingsChangePinTitle => 'Change PIN';

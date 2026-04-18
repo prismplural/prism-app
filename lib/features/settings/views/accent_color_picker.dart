@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/accent_legibility.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-/// Preset colors available for accent color selection.
 class _PresetColor {
   const _PresetColor(this.hex);
   final String hex;
@@ -28,56 +26,54 @@ const _presetColors = [
   _PresetColor('#6B7280'),
 ];
 
-/// Parses a hex color string (with or without '#') into a [Color].
 Color _parseHex(String hex) {
   final cleaned = hex.replaceFirst('#', '');
   final value = int.tryParse('FF$cleaned', radix: 16) ?? 0xFFAF8EE9;
   return Color(value);
 }
 
-/// Converts a [Color] to a hex string with leading '#'.
 String _toHex(Color color) {
   final value = color.toARGB32();
   return '#${(value & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
 }
 
 /// A grid of preset color circles plus a custom color picker for choosing
-/// the app's accent color.
-///
-/// When [materialYouActive] is true, the presets are shown faded out with the
-/// system-derived accent displayed as a leading circle at full brightness.
-class AccentColorPicker extends ConsumerStatefulWidget {
+/// an accent color. The caller provides [currentHex] and [onChanged] so the
+/// widget can be reused for both app settings and onboarding.
+class AccentColorPicker extends StatelessWidget {
   const AccentColorPicker({
     required this.currentHex,
+    required this.onChanged,
     this.materialYouActive = false,
     super.key,
   });
 
   final String currentHex;
+  final ValueChanged<String> onChanged;
   final bool materialYouActive;
 
-  @override
-  ConsumerState<AccentColorPicker> createState() => _AccentColorPickerState();
-}
-
-class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
-  late String _selectedHex;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedHex = widget.currentHex;
+  bool _isPreset(String hex) {
+    return _presetColors.any((c) => c.hex.toUpperCase() == hex.toUpperCase());
   }
 
-  void _selectColor(String hex) {
-    setState(() {
-      _selectedHex = hex;
-    });
-    ref.read(settingsNotifierProvider.notifier).updateAccentColor(hex);
+  String _tooltipForPreset(BuildContext context, String hex) {
+    return switch (hex.toUpperCase()) {
+      '#B498C2' => context.l10n.settingsAccentColorPrismPurple,
+      '#2563EB' => context.l10n.settingsAccentColorBlue,
+      '#16A34A' => context.l10n.settingsAccentColorGreen,
+      '#DC2626' => context.l10n.settingsAccentColorRed,
+      '#EA580C' => context.l10n.settingsAccentColorOrange,
+      '#DB2777' => context.l10n.settingsAccentColorPink,
+      '#0D9488' => context.l10n.settingsAccentColorTeal,
+      '#D97706' => context.l10n.settingsAccentColorAmber,
+      '#4F46E5' => context.l10n.settingsAccentColorIndigo,
+      '#6B7280' => context.l10n.settingsAccentColorGray,
+      _ => hex,
+    };
   }
 
-  void _openColorPicker() {
-    var pickerColor = _parseHex(_selectedHex);
+  void _openColorPicker(BuildContext context) {
+    var pickerColor = _parseHex(currentHex);
 
     PrismDialog.show(
       context: context,
@@ -104,7 +100,7 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
         PrismButton(
           onPressed: () {
             Navigator.of(context).pop();
-            _selectColor(_toHex(pickerColor));
+            onChanged(_toHex(pickerColor));
           },
           label: context.l10n.settingsAccentColorSelect,
           tone: PrismButtonTone.filled,
@@ -113,31 +109,11 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
     );
   }
 
-  bool _isPreset(String hex) {
-    return _presetColors
-        .any((c) => c.hex.toUpperCase() == hex.toUpperCase());
-  }
-
-  String _tooltipForPreset(BuildContext context, String hex) {
-    return switch (hex.toUpperCase()) {
-      '#B498C2' => context.l10n.settingsAccentColorPrismPurple,
-      '#2563EB' => context.l10n.settingsAccentColorBlue,
-      '#16A34A' => context.l10n.settingsAccentColorGreen,
-      '#DC2626' => context.l10n.settingsAccentColorRed,
-      '#EA580C' => context.l10n.settingsAccentColorOrange,
-      '#DB2777' => context.l10n.settingsAccentColorPink,
-      '#0D9488' => context.l10n.settingsAccentColorTeal,
-      '#D97706' => context.l10n.settingsAccentColorAmber,
-      '#4F46E5' => context.l10n.settingsAccentColorIndigo,
-      '#6B7280' => context.l10n.settingsAccentColorGray,
-      _ => hex,
-    };
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isMaterialYou = widget.materialYouActive;
+    final isMaterialYou = materialYouActive;
     final systemAccent = Theme.of(context).colorScheme.primary;
+    final legibility = classifyAccentLegibility(_parseHex(currentHex));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,7 +122,6 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
           spacing: 12,
           runSpacing: 12,
           children: [
-            // When Material You is active, show the system accent first.
             if (isMaterialYou)
               _ColorCircle(
                 color: systemAccent,
@@ -160,17 +135,16 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
                     ? _parseHex(preset.hex).withValues(alpha: 0.35)
                     : _parseHex(preset.hex),
                 isSelected: !isMaterialYou &&
-                    preset.hex.toUpperCase() == _selectedHex.toUpperCase(),
-                onTap: isMaterialYou ? () {} : () => _selectColor(preset.hex),
+                    preset.hex.toUpperCase() == currentHex.toUpperCase(),
+                onTap: isMaterialYou ? () {} : () => onChanged(preset.hex),
                 tooltip: _tooltipForPreset(context, preset.hex),
               ),
-            // Custom color picker button
             if (!isMaterialYou)
               _ColorCircle(
-                color: !_isPreset(_selectedHex) ? _parseHex(_selectedHex) : null,
-                isSelected: !_isPreset(_selectedHex),
+                color: !_isPreset(currentHex) ? _parseHex(currentHex) : null,
+                isSelected: !_isPreset(currentHex),
                 isCustom: true,
-                onTap: _openColorPicker,
+                onTap: () => _openColorPicker(context),
                 tooltip: context.l10n.settingsAccentColorCustom,
               ),
           ],
@@ -187,7 +161,50 @@ class _AccentColorPickerState extends ConsumerState<AccentColorPicker> {
                         .withValues(alpha: 0.5),
                   ),
             ),
+          )
+        else if (legibility != AccentLegibility.ok)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _LegibilityWarning(kind: legibility),
           ),
+      ],
+    );
+  }
+}
+
+class _LegibilityWarning extends StatelessWidget {
+  const _LegibilityWarning({required this.kind});
+
+  final AccentLegibility kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final message = switch (kind) {
+      AccentLegibility.tooDark => context.l10n.accentLegibilityTooDark,
+      AccentLegibility.tooLight => context.l10n.accentLegibilityTooLight,
+      AccentLegibility.tooDesaturated =>
+        context.l10n.accentLegibilityTooDesaturated,
+      AccentLegibility.ok => '',
+    };
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          AppIcons.warningRounded,
+          size: 16,
+          color: theme.colorScheme.tertiary,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            message,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
       ],
     );
   }

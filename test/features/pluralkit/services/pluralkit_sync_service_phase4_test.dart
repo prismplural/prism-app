@@ -811,6 +811,102 @@ void main() {
       expect(client.calls, isEmpty);
     });
   });
+
+  group('chain-gap repair — ongoing sessions closed on next import', () {
+    // Models the reported bug: a prior sync imported session A as the
+    // newest (endTime=null). A later sync brings in session B. Before the
+    // fix, A stayed "ongoing" forever because endTime chaining was
+    // page-local. After the fix, importSwitchesAfterLink's post-pass
+    // closes A at B.startTime.
+    test('closes previously-ongoing session when a newer switch arrives',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final t1 = DateTime.utc(2026, 4, 18, 21, 44, 44);
+      final t2 = DateTime.utc(2026, 4, 18, 21, 45, 51);
+
+      final memberRepo = _FakeMemberRepo()..seed([
+        _member('local-a', pluralkitId: 'pkA'),
+        _member('local-b', pluralkitId: 'pkB'),
+      ]);
+      // Session A already in DB with endTime=null (carry-over from a
+      // prior sync where it was the newest switch).
+      final sessionRepo = _FakeSessionRepo()
+        ..sessions.add(domain.FrontingSession(
+          id: 's-a',
+          startTime: t1,
+          memberId: 'local-a',
+          pluralkitUuid: 'sw-a',
+          pkMemberIdsJson: jsonEncode(['pkA']),
+        ));
+
+      // Second sync returns only the new switch B (A is a dup).
+      final client = _FakeClient()
+        ..switchPages = [
+          [
+            PKSwitch(id: 'sw-a', timestamp: t1, members: const ['pkA']),
+            PKSwitch(id: 'sw-b', timestamp: t2, members: const ['pkB']),
+          ],
+          [],
+        ];
+
+      final svc = _makeService(
+          client: client, db: db, memberRepo: memberRepo, sessionRepo: sessionRepo);
+      await svc.setToken('t');
+      await svc.acknowledgeMapping();
+      await svc.importSwitchesAfterLink();
+
+      expect(sessionRepo.sessions.length, 2);
+      final a = sessionRepo.sessions.firstWhere((s) => s.id == 's-a');
+      final b = sessionRepo.sessions.firstWhere((s) => s.pluralkitUuid == 'sw-b');
+      expect(a.endTime, t2,
+          reason: 'prior ongoing session must be closed at next startTime');
+      expect(b.endTime, isNull,
+          reason: 'newest session stays ongoing');
+    });
+
+    test('closes at switch-out timestamp, not the next fronter', () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final tFront = DateTime.utc(2025, 11, 6, 3, 45);
+      final tOut = DateTime.utc(2026, 4, 18, 13, 13);
+      final tNext = DateTime.utc(2026, 4, 18, 21, 34);
+
+      final memberRepo = _FakeMemberRepo()
+        ..seed([_member('local-a', pluralkitId: 'pkA')]);
+      final sessionRepo = _FakeSessionRepo()
+        ..sessions.add(domain.FrontingSession(
+          id: 's-front',
+          startTime: tFront,
+          memberId: 'local-a',
+          pluralkitUuid: 'sw-front',
+          pkMemberIdsJson: jsonEncode(['pkA']),
+        ));
+
+      final client = _FakeClient()
+        ..switchPages = [
+          [
+            PKSwitch(id: 'sw-front', timestamp: tFront, members: const ['pkA']),
+            PKSwitch(id: 'sw-out', timestamp: tOut, members: const []),
+            PKSwitch(id: 'sw-next', timestamp: tNext, members: const ['pkA']),
+          ],
+          [],
+        ];
+
+      final svc = _makeService(
+          client: client, db: db, memberRepo: memberRepo, sessionRepo: sessionRepo);
+      await svc.setToken('t');
+      await svc.acknowledgeMapping();
+      await svc.importSwitchesAfterLink();
+
+      final front = sessionRepo.sessions.firstWhere((s) => s.id == 's-front');
+      expect(front.endTime, tOut,
+          reason:
+              'switch-out boundary should close the front, not the later re-front');
+    });
+  });
 }
 
 class _Throw500Client extends _FakeClient {

@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/views/pk_file_import_screen.dart';
 import 'package:prism_plurality/features/pluralkit/views/pk_mapping_screen.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_direction_picker.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_summary_card.dart';
@@ -149,6 +150,14 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
 
   Future<void> _importFromPK() async {
     await ref.read(pluralKitSyncProvider.notifier).performFullImport();
+  }
+
+  Future<void> _importFromFile() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PkFileImportScreen(),
+      ),
+    );
   }
 
   Future<void> _syncRecent() async {
@@ -361,6 +370,15 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          const SizedBox(height: 12),
+          PrismButton(
+            onPressed: _importFromFile,
+            icon: AppIcons.fileUploadOutlined,
+            // TODO(l10n)
+            label: 'Import from pk;export file',
+            tone: PrismButtonTone.outlined,
+            expanded: true,
+          ),
         ],
       ),
     );
@@ -417,6 +435,16 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           tone: PrismButtonTone.outlined,
           expanded: true,
           enabled: canSync,
+        ),
+        const SizedBox(height: 8),
+        PrismButton(
+          onPressed: _importFromFile,
+          icon: AppIcons.fileUploadOutlined,
+          // TODO(l10n)
+          label: 'Import from pk;export file',
+          tone: PrismButtonTone.outlined,
+          expanded: true,
+          enabled: !syncState.isSyncing,
         ),
         if (syncState.syncStatus.isNotEmpty && !syncState.isSyncing) ...[
           const SizedBox(height: 8),
