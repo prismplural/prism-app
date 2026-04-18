@@ -144,4 +144,66 @@ void main() {
       );
     });
   });
+
+  group('ExportCrypto — KDF parameter allowlist', () {
+    const plaintext = '{"test":true}';
+    const password = 'test-password-for-kdf-tests';
+
+    test('out-of-allowlist N causes FormatException before scrypt runs', () {
+      final encrypted = ExportCrypto.encrypt(plaintext, const [], password);
+      final tampered = Uint8List.fromList(encrypted);
+      // N is at bytes 6-9 (big-endian uint32). Set to 2^30 = 0x40000000.
+      tampered[6] = 0x40;
+      tampered[7] = 0x00;
+      tampered[8] = 0x00;
+      tampered[9] = 0x00;
+      expect(
+        () => ExportCrypto.decrypt(tampered, password),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('KDF'),
+          ),
+        ),
+      );
+    });
+
+    test('out-of-allowlist r causes FormatException', () {
+      final encrypted = ExportCrypto.encrypt(plaintext, const [], password);
+      final tampered = Uint8List.fromList(encrypted);
+      // r is at bytes 10-13. Set to 99.
+      tampered[10] = 0x00;
+      tampered[11] = 0x00;
+      tampered[12] = 0x00;
+      tampered[13] = 0x63;
+      expect(
+        () => ExportCrypto.decrypt(tampered, password),
+        throwsA(isA<FormatException>()),
+      );
+    });
+  });
+
+  group('ExportCrypto — trailing bytes', () {
+    const plaintext = '{"test":true}';
+    const password = 'test-password-for-trailing-tests';
+
+    test('trailing bytes after media section cause FormatException', () {
+      final encrypted = ExportCrypto.encrypt(plaintext, const [], password);
+      final withTrailing = Uint8List.fromList([...encrypted, 0xde, 0xad]);
+      expect(
+        () => ExportCrypto.decrypt(withTrailing, password),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('single trailing byte causes FormatException', () {
+      final encrypted = ExportCrypto.encrypt(plaintext, const [], password);
+      final withTrailing = Uint8List.fromList([...encrypted, 0x00]);
+      expect(
+        () => ExportCrypto.decrypt(withTrailing, password),
+        throwsA(isA<FormatException>()),
+      );
+    });
+  });
 }
