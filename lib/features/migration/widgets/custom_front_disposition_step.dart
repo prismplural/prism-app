@@ -8,8 +8,6 @@ import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
-import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Step shown between the preview and the actual import when the SP export
 /// contains custom fronts. Lets the user decide, per CF, how each one should
@@ -31,39 +29,34 @@ class CustomFrontDispositionStep extends ConsumerWidget {
       children: [
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            padding: const EdgeInsets.only(bottom: 96),
             children: [
-              Icon(
-                AppIcons.labelOutlined,
-                size: 48,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                context.l10n.migrationCfStepTitle,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
               Text(
                 context.l10n.migrationCfStepExplainer,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              _OptionsLegend(),
+              const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   onPressed: () => controller.resetToDefaults(data),
-                  icon: Icon(AppIcons.refresh, size: 18),
-                  label: Text(context.l10n.migrationCfResetDefaults),
+                  icon: Icon(AppIcons.refresh, size: 16),
+                  label: Text(
+                    context.l10n.migrationCfResetDefaults,
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               for (final cf in data.customFronts)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -78,7 +71,6 @@ class CustomFrontDispositionStep extends ConsumerWidget {
                         controller.setDisposition(cf.id, value),
                   ),
                 ),
-              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -119,16 +111,16 @@ class _CfCard extends StatelessWidget {
     return Color(parsed);
   }
 
-  String _optionDescription(BuildContext context, CfDisposition d) {
+  String _optionLabel(BuildContext context, CfDisposition d) {
     switch (d) {
       case CfDisposition.importAsMember:
-        return context.l10n.migrationCfOptionMemberDesc;
+        return context.l10n.migrationCfOptionMember;
       case CfDisposition.mergeAsNote:
-        return context.l10n.migrationCfOptionNoteDesc;
+        return context.l10n.migrationCfOptionNote;
       case CfDisposition.convertToSleep:
-        return context.l10n.migrationCfOptionSleepDesc;
+        return context.l10n.migrationCfOptionSleep;
       case CfDisposition.skip:
-        return context.l10n.migrationCfOptionSkipDesc;
+        return context.l10n.migrationCfOptionSkip;
     }
   }
 
@@ -155,8 +147,15 @@ class _CfCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return PrismSurface(
-      padding: const EdgeInsets.all(14),
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -164,8 +163,8 @@ class _CfCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 16,
-                height: 16,
+                width: 14,
+                height: 14,
                 margin: const EdgeInsets.only(top: 4),
                 decoration: BoxDecoration(
                   color: _swatchColor(theme),
@@ -189,14 +188,6 @@ class _CfCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _reasonText(context),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
                       context.l10n.migrationCfUsageSummary(
                         stats.asPrimary,
                         stats.asCoFronter,
@@ -206,37 +197,154 @@ class _CfCard extends StatelessWidget {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
+                    Text(
+                      _reasonText(context),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          PrismSegmentedControl<CfDisposition>(
-            selected: selected,
-            onChanged: onChanged,
-            segments: [
-              PrismSegment(
-                value: CfDisposition.importAsMember,
-                label: context.l10n.migrationCfOptionMember,
-              ),
-              PrismSegment(
-                value: CfDisposition.mergeAsNote,
-                label: context.l10n.migrationCfOptionNote,
-              ),
-              PrismSegment(
-                value: CfDisposition.convertToSleep,
-                label: context.l10n.migrationCfOptionSleep,
-              ),
-              PrismSegment(
-                value: CfDisposition.skip,
-                label: context.l10n.migrationCfOptionSkip,
-              ),
-            ],
-          ),
           const SizedBox(height: 8),
-          Text(
-            _optionDescription(context, selected),
+          for (final option in CfDisposition.values)
+            _OptionRow(
+              selected: selected == option,
+              label: _optionLabel(context, option),
+              onTap: () => onChanged(option),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OptionRow extends StatelessWidget {
+  const _OptionRow({
+    required this.selected,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final outline = theme.colorScheme.outlineVariant;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        child: Row(
+          children: [
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selected ? primary : outline,
+                  width: 2,
+                ),
+              ),
+              child: selected
+                  ? Center(
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OptionsLegend extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _LegendLine(
+            label: context.l10n.migrationCfOptionMember,
+            description: context.l10n.migrationCfOptionMemberDesc,
+          ),
+          const SizedBox(height: 6),
+          _LegendLine(
+            label: context.l10n.migrationCfOptionNote,
+            description: context.l10n.migrationCfOptionNoteDesc,
+          ),
+          const SizedBox(height: 6),
+          _LegendLine(
+            label: context.l10n.migrationCfOptionSleep,
+            description: context.l10n.migrationCfOptionSleepDesc,
+          ),
+          const SizedBox(height: 6),
+          _LegendLine(
+            label: context.l10n.migrationCfOptionSkip,
+            description: context.l10n.migrationCfOptionSkipDesc,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendLine extends StatelessWidget {
+  const _LegendLine({required this.label, required this.description});
+
+  final String label;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$label — ',
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          TextSpan(
+            text: description,
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -258,9 +366,8 @@ class _BottomBar extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      padding: const EdgeInsets.only(top: 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.92),
         border: Border(
           top: BorderSide(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
