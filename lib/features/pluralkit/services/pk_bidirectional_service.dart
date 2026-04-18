@@ -147,11 +147,13 @@ class PkBidirectionalService {
       }
     }
     if (_pushField(config.color, direction)) {
-      final localColor = local.customColorEnabled
-          ? _normalizeColor(local.customColorHex)
-          : null;
-      final pkColor = _normalizeColor(pk.color);
-      if (localColor != pkColor) return true;
+      // When local has no color enabled, don't sync color either way —
+      // toggling local color off must not silently clear PK's color.
+      if (local.customColorEnabled) {
+        final localColor = _normalizeColor(local.customColorHex);
+        final pkColor = _normalizeColor(pk.color);
+        if (localColor != pkColor) return true;
+      }
     }
     return false;
   }
@@ -175,14 +177,29 @@ class PkBidirectionalService {
     var updated = local;
     var changed = false;
 
+    // Pre-phase-3 the pull path wrote `pk.displayName ?? pk.name` into
+    // local.name (no separate displayName field). If an existing mapped
+    // member still has that legacy shape — local.displayName is null and
+    // local.name equals pk.displayName — promote local.name into displayName
+    // before touching name, so we don't silently rename to pk.name.
+    final needsDisplayNameMigration = pk.displayName != null &&
+        local.displayName == null &&
+        local.name == pk.displayName;
+    if (needsDisplayNameMigration &&
+        _pullField(config.displayName, direction)) {
+      updated = updated.copyWith(displayName: pk.displayName);
+      changed = true;
+    }
+
     if (_pullField(config.name, direction)) {
-      if (local.name != pk.name) {
+      if (updated.name != pk.name) {
         updated = updated.copyWith(name: pk.name);
         changed = true;
       }
     }
-    if (_pullField(config.displayName, direction)) {
-      if (local.displayName != pk.displayName) {
+    if (_pullField(config.displayName, direction) &&
+        !needsDisplayNameMigration) {
+      if (updated.displayName != pk.displayName) {
         updated = updated.copyWith(displayName: pk.displayName);
         changed = true;
       }

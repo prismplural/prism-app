@@ -101,19 +101,13 @@ class PkPushService {
       isPatch: isPatch,
     );
 
-    // Color — PK expects 6-char hex with no '#'. Treat
-    // customColorEnabled=false as "no color" (clear on PATCH when PK has one).
-    final localColor =
-        (member.customColorEnabled && member.customColorHex != null)
-            ? _stripHash(member.customColorHex!)
-            : null;
-    _setOrClear(
-      data,
-      'color',
-      local: localColor,
-      remote: pkMember?.color,
-      isPatch: isPatch,
-    );
+    // Color — PK expects 6-char hex with no '#'. When local color is
+    // disabled, skip color entirely. Toggling local color off must not
+    // silently clear PK's color as a side effect; an explicit "clear PK
+    // color" path would need dedicated UI.
+    if (member.customColorEnabled && member.customColorHex != null) {
+      data['color'] = _stripHash(member.customColorHex!);
+    }
 
     return data;
   }
