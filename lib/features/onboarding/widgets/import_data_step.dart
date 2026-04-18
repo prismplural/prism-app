@@ -853,10 +853,50 @@ class _PrismExportImportFlowState
                 label: context.l10n.onboardingImportPreviewFrontingSessions,
                 count: preview.frontSessions,
               ),
+              if (preview.sleepSessions > 0)
+                _PreviewRow(
+                  label: context.l10n.onboardingImportPreviewSleepSessions,
+                  count: preview.sleepSessions,
+                ),
+              if (preview.memberGroups > 0)
+                _PreviewRow(
+                  label: context.l10n.onboardingImportPreviewGroups,
+                  count: preview.memberGroups,
+                ),
               _PreviewRow(label: context.l10n.onboardingImportPreviewConversations, count: preview.conversations),
               _PreviewRow(label: context.l10n.onboardingImportPreviewMessages, count: preview.messages),
+              if (preview.polls > 0)
+                _PreviewRow(
+                  label: context.l10n.onboardingImportPreviewPolls,
+                  count: preview.polls,
+                ),
               _PreviewRow(label: context.l10n.onboardingImportPreviewHabits, count: preview.habits),
               _PreviewRow(label: context.l10n.onboardingImportPreviewNotes, count: preview.notes),
+              if (preview.frontSessionComments > 0)
+                _PreviewRow(
+                  label: context.l10n.onboardingImportPreviewComments,
+                  count: preview.frontSessionComments,
+                ),
+              if (preview.customFields > 0)
+                _PreviewRow(
+                  label: context.l10n.onboardingImportPreviewCustomFields,
+                  count: preview.customFields,
+                ),
+              if (preview.reminders > 0)
+                _PreviewRow(
+                  label: context.l10n.onboardingImportPreviewReminders,
+                  count: preview.reminders,
+                ),
+              if (preview.friends > 0)
+                _PreviewRow(
+                  label: context.l10n.onboardingImportPreviewFriends,
+                  count: preview.friends,
+                ),
+              if (preview.mediaAttachments > 0)
+                _PreviewRow(
+                  label: context.l10n.onboardingImportPreviewMediaAttachments,
+                  count: preview.mediaAttachments,
+                ),
               Divider(
                 color: isDark
                     ? const Color(0x22FFFFFF)
@@ -1083,22 +1123,59 @@ class _SimplyPluralImportFlowState
                   const SizedBox(height: 12),
                   _PreviewRow(
                     label: context.l10n.onboardingImportPreviewMembers,
-                    count:
-                        migration.exportData!.members.length +
-                        migration.exportData!.customFronts.length,
+                    count: migration.exportData!.members.length,
                   ),
+                  if (migration.exportData!.customFronts.isNotEmpty)
+                    _PreviewRow(
+                      label: context.l10n.onboardingImportPreviewCustomFronts,
+                      count: migration.exportData!.customFronts.length,
+                    ),
                   _PreviewRow(
                     label: context.l10n.onboardingImportPreviewFrontingSessions,
                     count: migration.exportData!.frontHistory.length,
                   ),
-                  _PreviewRow(
-                    label: context.l10n.onboardingImportPreviewConversations,
-                    count: migration.exportData!.channels.length,
-                  ),
-                  _PreviewRow(
-                    label: context.l10n.onboardingImportPreviewMessages,
-                    count: migration.exportData!.messages.length,
-                  ),
+                  if (migration.exportData!.groups.isNotEmpty)
+                    _PreviewRow(
+                      label: context.l10n.onboardingImportPreviewGroups,
+                      count: migration.exportData!.groups.length,
+                    ),
+                  if (migration.exportData!.channels.isNotEmpty)
+                    _PreviewRow(
+                      label: context.l10n.onboardingImportPreviewConversations,
+                      count: migration.exportData!.channels.length,
+                    ),
+                  if (migration.exportData!.messages.isNotEmpty)
+                    _PreviewRow(
+                      label: context.l10n.onboardingImportPreviewMessages,
+                      count: migration.exportData!.messages.length,
+                    ),
+                  if (migration.exportData!.polls.isNotEmpty)
+                    _PreviewRow(
+                      label: context.l10n.onboardingImportPreviewPolls,
+                      count: migration.exportData!.polls.length,
+                    ),
+                  if (migration.exportData!.notes.isNotEmpty)
+                    _PreviewRow(
+                      label: context.l10n.onboardingImportPreviewNotes,
+                      count: migration.exportData!.notes.length,
+                    ),
+                  if (migration.exportData!.comments.isNotEmpty)
+                    _PreviewRow(
+                      label: context.l10n.onboardingImportPreviewComments,
+                      count: migration.exportData!.comments.length,
+                    ),
+                  if (migration.exportData!.customFields.isNotEmpty)
+                    _PreviewRow(
+                      label: context.l10n.onboardingImportPreviewCustomFields,
+                      count: migration.exportData!.customFields.length,
+                    ),
+                  if (migration.exportData!.automatedTimers.isNotEmpty ||
+                      migration.exportData!.repeatedTimers.isNotEmpty)
+                    _PreviewRow(
+                      label: context.l10n.onboardingImportPreviewReminders,
+                      count: migration.exportData!.automatedTimers.length +
+                          migration.exportData!.repeatedTimers.length,
+                    ),
                 ],
               ),
             ),

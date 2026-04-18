@@ -3628,6 +3628,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingImportPreviewTotalRecords => 'Total records';
 
   @override
+  String get onboardingImportPreviewCustomFronts => 'Custom fronts';
+
+  @override
+  String get onboardingImportPreviewGroups => 'Groups';
+
+  @override
+  String get onboardingImportPreviewPolls => 'Polls';
+
+  @override
+  String get onboardingImportPreviewCustomFields => 'Custom fields';
+
+  @override
+  String get onboardingImportPreviewComments => 'Comments';
+
+  @override
+  String get onboardingImportPreviewReminders => 'Reminders';
+
+  @override
+  String get onboardingImportPreviewSleepSessions => 'Sleep sessions';
+
+  @override
+  String get onboardingImportPreviewFriends => 'Friends';
+
+  @override
+  String get onboardingImportPreviewMediaAttachments => 'Media attachments';
+
+  @override
   String get onboardingDataReadyMembers => 'Members';
 
   @override

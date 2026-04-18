@@ -3700,6 +3700,33 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingImportPreviewTotalRecords => 'Total de registros';
 
   @override
+  String get onboardingImportPreviewCustomFronts => 'Fronts personalizados';
+
+  @override
+  String get onboardingImportPreviewGroups => 'Grupos';
+
+  @override
+  String get onboardingImportPreviewPolls => 'Encuestas';
+
+  @override
+  String get onboardingImportPreviewCustomFields => 'Campos personalizados';
+
+  @override
+  String get onboardingImportPreviewComments => 'Comentarios';
+
+  @override
+  String get onboardingImportPreviewReminders => 'Recordatorios';
+
+  @override
+  String get onboardingImportPreviewSleepSessions => 'Sesiones de sueño';
+
+  @override
+  String get onboardingImportPreviewFriends => 'Amigos';
+
+  @override
+  String get onboardingImportPreviewMediaAttachments => 'Archivos adjuntos';
+
+  @override
   String get onboardingDataReadyMembers => 'Integrantes';
 
   @override
