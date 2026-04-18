@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 54;
+  int get schemaVersion => 55;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -465,6 +465,21 @@ class AppDatabase extends _$AppDatabase {
         if (remindersExists.isNotEmpty) {
           await customStatement(
             'ALTER TABLE reminders ADD COLUMN target_member_id TEXT',
+          );
+        }
+      }
+
+      if (from < 55) {
+        // System Info redesign: nullable hex color for the system.
+        // Imported from Simply Plural's system color field; also exposed
+        // by the upcoming System Info page color picker.
+        final systemSettingsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='system_settings'",
+        ).get();
+        if (systemSettingsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN system_color TEXT',
           );
         }
       }

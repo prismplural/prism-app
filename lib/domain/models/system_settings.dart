@@ -145,6 +145,7 @@ abstract class SystemSettings with _$SystemSettings {
     @Default('') String previousAccentColorHex,
     // Phase 3: Synced settings
     String? systemDescription,
+    String? systemColor,
     // Plan 04: synced PluralKit system profile tag.
     String? systemTag,
     @JsonKey(fromJson: _uint8ListFromJson, toJson: _uint8ListToJson)
