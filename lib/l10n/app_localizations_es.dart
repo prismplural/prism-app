@@ -3755,6 +3755,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Así se identificará tu sistema en la app.';
 
   @override
+  String get onboardingSystemNameHelperTextImported =>
+      'Lo sacamos de tu importación — edítalo si prefieres algo distinto.';
+
+  @override
   String get onboardingWhosFrontingSelectHint =>
       'Toca para seleccionar quién está al frente ahora';
 

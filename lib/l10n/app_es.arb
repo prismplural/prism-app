@@ -1058,6 +1058,7 @@
   "onboardingDataReadySyncedData": "Datos sincronizados",
   "onboardingSystemNameHint": "Ingresa el nombre del sistema",
   "onboardingSystemNameHelperText": "Así se identificará tu sistema en la app.",
+  "onboardingSystemNameHelperTextImported": "Lo sacamos de tu importación — edítalo si prefieres algo distinto.",
   "onboardingWhosFrontingSelectHint": "Toca para seleccionar quién está al frente ahora",
   "onboardingWhosFrontingNoMembers": "Aún no hay integrantes.\nVuelve atrás para agregar integrantes primero.",
   "onboardingChatSuggestedChannels": "Canales sugeridos",

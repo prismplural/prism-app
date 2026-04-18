@@ -30,9 +30,26 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
 
   @override
   Widget build(BuildContext context) {
+    // If the name was set externally (e.g. by the SP import listener) after
+    // this step was first built, sync it into the controller so the user
+    // sees the pre-filled value.
+    ref.listen(onboardingProvider, (prev, next) {
+      if (prev?.systemName == next.systemName) return;
+      if (_controller.text == next.systemName) return;
+      _controller.text = next.systemName;
+      _controller.selection = TextSelection.collapsed(
+        offset: _controller.text.length,
+      );
+    });
+
     final onboarding = ref.watch(onboardingProvider);
-    final autoFocus = !onboarding.wasImportedFromPluralKit;
+    final wasImported = onboarding.wasImportedFromPluralKit ||
+        onboarding.wasImportedFromSimplyPlural;
+    final autoFocus = !wasImported;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final helperText = wasImported && onboarding.systemName.trim().isNotEmpty
+        ? context.l10n.onboardingSystemNameHelperTextImported
+        : context.l10n.onboardingSystemNameHelperText;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -74,7 +91,7 @@ class _SystemNameStepState extends ConsumerState<SystemNameStep> {
           ),
           const SizedBox(height: 16),
           Text(
-            context.l10n.onboardingSystemNameHelperText,
+            helperText,
             style: TextStyle(
               color: isDark
                   ? AppColors.mutedTextDark

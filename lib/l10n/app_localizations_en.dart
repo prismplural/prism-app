@@ -3683,6 +3683,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'This is how your system will be identified in the app.';
 
   @override
+  String get onboardingSystemNameHelperTextImported =>
+      'We pulled this from your import — edit it if you\'d like something different.';
+
+  @override
   String get onboardingWhosFrontingSelectHint =>
       'Tap to select who is currently fronting';
 
