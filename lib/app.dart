@@ -59,15 +59,20 @@ class _PrismAppState extends ConsumerState<PrismApp> {
       ffi.reconnectWebsocket(handle: handle).catchError((e) {
         debugPrint('WebSocket reconnect on resume failed (non-fatal): $e');
       });
-      ffi.onResume(handle: handle).catchError((e) {
-        // Non-fatal: sync engine may not be configured yet
-        debugPrint('onResume failed (non-fatal): $e');
-      });
-      // Kick off an explicit sync cycle on resume. `triggerSync` is
-      // fire-and-forget and swallows errors so a failed sync doesn't
-      // crash the UI — the auto-sync driver will retry in the background.
-      // See Appendix B.3 / Bucket 4A of the 2026-04-11 robustness plan.
-      triggerSync(handle);
+      // Only nudge the sync engine when it's actually configured. Calling
+      // onResume before pairing / unlock produces `sync not configured`
+      // error spam that's not actionable.
+      final health = ref.read(syncHealthProvider);
+      if (health == SyncHealthState.healthy) {
+        ffi.onResume(handle: handle).catchError((e) {
+          debugPrint('onResume failed (non-fatal): $e');
+        });
+        // Kick off an explicit sync cycle on resume. `triggerSync` is
+        // fire-and-forget and swallows errors so a failed sync doesn't
+        // crash the UI — the auto-sync driver will retry in the background.
+        // See Appendix B.3 / Bucket 4A of the 2026-04-11 robustness plan.
+        triggerSync(handle);
+      }
     }
   }
 

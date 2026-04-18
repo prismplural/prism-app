@@ -9,7 +9,9 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
+import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
@@ -222,6 +224,13 @@ class _AppShellState extends ConsumerState<AppShell>
 
     // Keep syncStatusProvider alive so DeviceRevoked events are received.
     ref.watch(syncStatusProvider);
+
+    // Push any pending fronting sessions to PluralKit whenever the active
+    // session changes (start / end / switch fronter). Fire-and-forget —
+    // the notifier no-ops when PK isn't connected or mapping is incomplete.
+    ref.listen(activeSessionProvider, (_, _) {
+      ref.read(pluralKitSyncProvider.notifier).pushPendingSwitches();
+    });
 
     // Show password sheet when sync needs the user's password — but not
     // while the PIN lock overlay is up (or still resolving), otherwise the

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/features/settings/views/accent_color_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class PreferencesStep extends ConsumerStatefulWidget {
@@ -274,39 +275,11 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
           ),
           const SizedBox(height: 10),
 
-          // Color grid
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 6,
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-            ),
-            itemCount: predefinedColors.length,
-            itemBuilder: (context, index) {
-              final hex = predefinedColors[index];
-              final color = hexToColor(hex);
-              final isSelected = onboarding.accentColorHex == hex;
-
-              return GestureDetector(
-                onTap: () => notifier.setAccentColor(hex),
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: color,
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: color.withValues(alpha: 0.6),
-                              blurRadius: 8,
-                            ),
-                          ]
-                        : null,
-                  ),
-                ),
-              );
-            },
+          // Color grid — shared with settings so presets + custom picker +
+          // legibility warning stay in sync across the app.
+          AccentColorPicker(
+            currentHex: onboarding.accentColorHex,
+            onChanged: notifier.setAccentColor,
           ),
 
           const SizedBox(height: 24),

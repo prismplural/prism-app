@@ -254,9 +254,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             onPressed: () {
                               if (isCompleteStep) {
                                 _completeOnboarding();
-                              } else {
-                                notifier.next();
+                                return;
                               }
+                              // If an import sub-flow has registered a
+                              // pending action, run it instead of silently
+                              // skipping past the inline import UI.
+                              final pending = ref.read(
+                                onboardingPendingImportActionProvider,
+                              );
+                              if (pending != null) {
+                                pending();
+                                return;
+                              }
+                              notifier.next();
                             },
                           ),
                         ],

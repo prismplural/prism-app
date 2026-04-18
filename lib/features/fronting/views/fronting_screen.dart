@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/fronting/widgets/quick_front_section.da
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/polls/views/create_poll_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -331,6 +332,10 @@ class _AddButtonState extends ConsumerState<_AddButton> {
   @override
   Widget build(BuildContext context) {
     final terms = watchTerminology(context, ref);
+    final pkState = ref.watch(pluralKitSyncProvider);
+    final pkReady = pkState.isConnected &&
+        !pkState.needsMapping &&
+        !pkState.isSyncing;
 
     // Build menu items for the blur popup.
     final menuItems = <_MenuItem>[];
@@ -381,6 +386,15 @@ class _AddButtonState extends ConsumerState<_AddButton> {
           );
         },
       ),
+      if (pkReady)
+        _MenuItem(
+          icon: AppIcons.refresh,
+          label: context.l10n.frontingMenuSyncPluralKit,
+          onTap: (close) {
+            close();
+            _runPluralKitSync(context, ref);
+          },
+        ),
       _MenuItem(
         icon: AppIcons.bedtimeRounded,
         label: context.l10n.frontingMenuStartSleep,
@@ -440,6 +454,26 @@ class _AddButtonState extends ConsumerState<_AddButton> {
 
   void _openAddSessionSheet(BuildContext context) {
     AddFrontSessionSheet.show(context);
+  }
+
+  Future<void> _runPluralKitSync(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(pluralKitSyncProvider.notifier).syncRecentData(
+            isManual: true,
+            direction: ref.read(pkSyncDirectionProvider),
+          );
+      if (!context.mounted) return;
+      PrismToast.success(
+        context,
+        message: context.l10n.frontingPluralKitSyncDoneToast,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      PrismToast.error(
+        context,
+        message: context.l10n.frontingPluralKitSyncFailedToast(e),
+      );
+    }
   }
 
   void _showWakeUpPicker(BuildContext context, WidgetRef ref) {

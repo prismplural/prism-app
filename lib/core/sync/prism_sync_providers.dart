@@ -292,23 +292,27 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       // initial trigger, and on a fresh process `last_sync_time` is None so the
       // Rust-side 5s staleness gate does not help us. Kick explicitly, in the
       // background. Run *after* cacheRuntimeKeys + drainRustStore because all three
-      // contend for the same Rust handle mutex.
-      unawaited(
-        () async {
-          try {
-            await ffi.onResume(handle: handle);
-            // Persist any state the sync cycle mutated (session_token refresh,
-            // epoch advance, etc.) before a subsequent crash could lose it.
-            await drainRustStore(handle);
-          } catch (e, st) {
-            ErrorReportingService.instance.report(
-              'Startup catch-up sync failed (non-fatal): $e',
-              severity: ErrorSeverity.warning,
-              stackTrace: st,
-            );
-          }
-        }(),
-      );
+      // contend for the same Rust handle mutex. Skip when the engine is not
+      // configured (unpaired / needs-password) — onResume would just fail with
+      // `sync not configured`.
+      if (health == SyncHealthState.healthy) {
+        unawaited(
+          () async {
+            try {
+              await ffi.onResume(handle: handle);
+              // Persist any state the sync cycle mutated (session_token refresh,
+              // epoch advance, etc.) before a subsequent crash could lose it.
+              await drainRustStore(handle);
+            } catch (e, st) {
+              ErrorReportingService.instance.report(
+                'Startup catch-up sync failed (non-fatal): $e',
+                severity: ErrorSeverity.warning,
+                stackTrace: st,
+              );
+            }
+          }(),
+        );
+      }
     }
 
     return handle;

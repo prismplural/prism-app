@@ -108,6 +108,9 @@ class AppearanceSettingsScreen extends ConsumerWidget {
               child: PrismSectionCard(
                 child: AccentColorPicker(
                   currentHex: settings.accentColorHex,
+                  onChanged: (hex) => ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateAccentColor(hex),
                   materialYouActive:
                       settings.themeStyle == ThemeStyle.materialYou,
                 ),

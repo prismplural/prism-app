@@ -6,6 +6,7 @@ import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_file_parser.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -119,6 +120,27 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
       _service.importMembersOnly();
 
   Future<void> performFullImport() => _service.performFullImport();
+
+  Future<void> acknowledgeMapping() => _service.acknowledgeMapping();
+
+  Future<PkFileImportResult> importFromFile(
+    PkFileExport export, {
+    void Function(double progress, String status)? onProgress,
+  }) =>
+      _service.importFromFile(export, onProgress: onProgress);
+
+  /// Push any locally-created fronting sessions to PluralKit. Safe to call
+  /// on every front change: it no-ops when the service isn't connected /
+  /// is mid-mapping, and deduplicates already-pushed sessions via
+  /// `pluralkitUuid`.
+  Future<int> pushPendingSwitches() async {
+    if (!state.isConnected || state.needsMapping) return 0;
+    try {
+      return await _service.pushPendingSwitches();
+    } catch (_) {
+      return 0;
+    }
+  }
 
   Future<PkSyncSummary?> syncRecentData({
     bool isManual = false,
