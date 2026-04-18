@@ -1,7 +1,7 @@
 /// Integration test against a real .prism export file.
 ///
-/// Requires: REDACTED_EXPORT_PATH
-/// Skips automatically if the file is not present (safe for CI).
+/// Requires: PRISM_TEST_EXPORT_PATH and PRISM_TEST_EXPORT_PASSWORD env vars.
+/// Skips automatically if the env vars are not set or the file is not present (safe for CI).
 library;
 
 import 'dart:io';
@@ -26,11 +26,13 @@ import 'package:prism_plurality/data/repositories/drift_reminders_repository.dar
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 
-const _exportPath = 'REDACTED_EXPORT_PATH';
-const _exportPassword = 'REDACTED_TEST_PASSWORD';
+final _exportPath = Platform.environment['PRISM_TEST_EXPORT_PATH'] ?? '';
+final _exportPassword = Platform.environment['PRISM_TEST_EXPORT_PASSWORD'] ?? '';
 
-final _fileExists = File(_exportPath).existsSync();
-final _skip = _fileExists ? null : 'export file not found: $_exportPath';
+final _fileExists = _exportPath.isNotEmpty && File(_exportPath).existsSync();
+final _skip = (_exportPath.isEmpty || _exportPassword.isEmpty || !_fileExists)
+    ? 'set PRISM_TEST_EXPORT_PATH and PRISM_TEST_EXPORT_PASSWORD env vars to run'
+    : null;
 
 DataImportService _makeImport(AppDatabase db, Directory cacheDir) =>
     DataImportService(
