@@ -1011,6 +1011,9 @@ class _SimplyPluralImportFlowState
       final justCompleted = prev?.step != sp_importer.ImportState.complete &&
           next.step == sp_importer.ImportState.complete;
       if (!justCompleted) return;
+      ref
+          .read(onboardingProvider.notifier)
+          .setWasImportedFromSimplyPlural(true);
       final name = next.exportData?.systemName?.trim();
       if (name == null || name.isEmpty) return;
       ref.read(onboardingProvider.notifier).setSystemName(name);

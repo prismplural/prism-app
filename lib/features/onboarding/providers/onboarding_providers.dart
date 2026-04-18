@@ -101,6 +101,7 @@ class OnboardingState {
   final bool sleepTrackingEnabled;
   final String? selectedFronterId;
   final bool wasImportedFromPluralKit;
+  final bool wasImportedFromSimplyPlural;
   final OnboardingDataCounts? importedDataCounts;
   final String? customTermSingular;
   final String? customTermPlural;
@@ -130,6 +131,7 @@ class OnboardingState {
     this.sleepTrackingEnabled = true,
     this.selectedFronterId,
     this.wasImportedFromPluralKit = false,
+    this.wasImportedFromSimplyPlural = false,
     this.importedDataCounts,
     this.customTermSingular,
     this.customTermPlural,
@@ -156,6 +158,7 @@ class OnboardingState {
     bool? sleepTrackingEnabled,
     String? selectedFronterId,
     bool? wasImportedFromPluralKit,
+    bool? wasImportedFromSimplyPlural,
     Object? importedDataCounts = _sentinel,
     Object? customTermSingular = _sentinel,
     Object? customTermPlural = _sentinel,
@@ -183,6 +186,8 @@ class OnboardingState {
           : (selectedFronterId ?? this.selectedFronterId),
       wasImportedFromPluralKit:
           wasImportedFromPluralKit ?? this.wasImportedFromPluralKit,
+      wasImportedFromSimplyPlural:
+          wasImportedFromSimplyPlural ?? this.wasImportedFromSimplyPlural,
       importedDataCounts: importedDataCounts == _sentinel
           ? this.importedDataCounts
           : importedDataCounts as OnboardingDataCounts?,
@@ -415,6 +420,10 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   void setWasImportedFromPluralKit(bool value) {
     state = state.copyWith(wasImportedFromPluralKit: value);
+  }
+
+  void setWasImportedFromSimplyPlural(bool value) {
+    state = state.copyWith(wasImportedFromSimplyPlural: value);
   }
 
   void showImportedDataReady(OnboardingDataCounts counts) {

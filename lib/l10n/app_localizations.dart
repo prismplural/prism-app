@@ -6446,6 +6446,12 @@ abstract class AppLocalizations {
   /// **'This is how your system will be identified in the app.'**
   String get onboardingSystemNameHelperText;
 
+  /// Helper text on the name-your-system step when the name was pre-filled from an import
+  ///
+  /// In en, this message translates to:
+  /// **'We pulled this from your import — edit it if you\'d like something different.'**
+  String get onboardingSystemNameHelperTextImported;
+
   /// Hint text above the fronter grid in whos fronting step
   ///
   /// In en, this message translates to:
