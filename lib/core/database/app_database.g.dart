@@ -11834,6 +11834,40 @@ class $MemberGroupsTable extends MemberGroups
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _pluralkitIdMeta = const VerificationMeta(
+    'pluralkitId',
+  );
+  @override
+  late final GeneratedColumn<String> pluralkitId = GeneratedColumn<String>(
+    'pluralkit_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pluralkitUuidMeta = const VerificationMeta(
+    'pluralkitUuid',
+  );
+  @override
+  late final GeneratedColumn<String> pluralkitUuid = GeneratedColumn<String>(
+    'pluralkit_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastSeenFromPkAtMeta = const VerificationMeta(
+    'lastSeenFromPkAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSeenFromPkAt =
+      GeneratedColumn<DateTime>(
+        'last_seen_from_pk_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -11847,6 +11881,9 @@ class $MemberGroupsTable extends MemberGroups
     filterRules,
     createdAt,
     isDeleted,
+    pluralkitId,
+    pluralkitUuid,
+    lastSeenFromPkAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -11941,6 +11978,33 @@ class $MemberGroupsTable extends MemberGroups
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('pluralkit_id')) {
+      context.handle(
+        _pluralkitIdMeta,
+        pluralkitId.isAcceptableOrUnknown(
+          data['pluralkit_id']!,
+          _pluralkitIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pluralkit_uuid')) {
+      context.handle(
+        _pluralkitUuidMeta,
+        pluralkitUuid.isAcceptableOrUnknown(
+          data['pluralkit_uuid']!,
+          _pluralkitUuidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_seen_from_pk_at')) {
+      context.handle(
+        _lastSeenFromPkAtMeta,
+        lastSeenFromPkAt.isAcceptableOrUnknown(
+          data['last_seen_from_pk_at']!,
+          _lastSeenFromPkAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -11994,6 +12058,18 @@ class $MemberGroupsTable extends MemberGroups
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      pluralkitId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pluralkit_id'],
+      ),
+      pluralkitUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pluralkit_uuid'],
+      ),
+      lastSeenFromPkAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_seen_from_pk_at'],
+      ),
     );
   }
 
@@ -12015,6 +12091,16 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
   final String? filterRules;
   final DateTime createdAt;
   final bool isDeleted;
+
+  /// PluralKit 5-char short ID (display only, never used for identity matching).
+  final String? pluralkitId;
+
+  /// PluralKit canonical UUID — the sole identity key for PK-linked groups.
+  final String? pluralkitUuid;
+
+  /// Last time we observed this group in a PK pull. Synced so all devices
+  /// agree on the "stale" UI hint for groups that have disappeared from PK.
+  final DateTime? lastSeenFromPkAt;
   const MemberGroupRow({
     required this.id,
     required this.name,
@@ -12027,6 +12113,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     this.filterRules,
     required this.createdAt,
     required this.isDeleted,
+    this.pluralkitId,
+    this.pluralkitUuid,
+    this.lastSeenFromPkAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -12052,6 +12141,15 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || pluralkitId != null) {
+      map['pluralkit_id'] = Variable<String>(pluralkitId);
+    }
+    if (!nullToAbsent || pluralkitUuid != null) {
+      map['pluralkit_uuid'] = Variable<String>(pluralkitUuid);
+    }
+    if (!nullToAbsent || lastSeenFromPkAt != null) {
+      map['last_seen_from_pk_at'] = Variable<DateTime>(lastSeenFromPkAt);
+    }
     return map;
   }
 
@@ -12078,6 +12176,15 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           : Value(filterRules),
       createdAt: Value(createdAt),
       isDeleted: Value(isDeleted),
+      pluralkitId: pluralkitId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pluralkitId),
+      pluralkitUuid: pluralkitUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pluralkitUuid),
+      lastSeenFromPkAt: lastSeenFromPkAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSeenFromPkAt),
     );
   }
 
@@ -12098,6 +12205,11 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       filterRules: serializer.fromJson<String?>(json['filterRules']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      pluralkitId: serializer.fromJson<String?>(json['pluralkitId']),
+      pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
+      lastSeenFromPkAt: serializer.fromJson<DateTime?>(
+        json['lastSeenFromPkAt'],
+      ),
     );
   }
   @override
@@ -12115,6 +12227,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       'filterRules': serializer.toJson<String?>(filterRules),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'pluralkitId': serializer.toJson<String?>(pluralkitId),
+      'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
+      'lastSeenFromPkAt': serializer.toJson<DateTime?>(lastSeenFromPkAt),
     };
   }
 
@@ -12130,6 +12245,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     Value<String?> filterRules = const Value.absent(),
     DateTime? createdAt,
     bool? isDeleted,
+    Value<String?> pluralkitId = const Value.absent(),
+    Value<String?> pluralkitUuid = const Value.absent(),
+    Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
   }) => MemberGroupRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -12144,6 +12262,13 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     filterRules: filterRules.present ? filterRules.value : this.filterRules,
     createdAt: createdAt ?? this.createdAt,
     isDeleted: isDeleted ?? this.isDeleted,
+    pluralkitId: pluralkitId.present ? pluralkitId.value : this.pluralkitId,
+    pluralkitUuid: pluralkitUuid.present
+        ? pluralkitUuid.value
+        : this.pluralkitUuid,
+    lastSeenFromPkAt: lastSeenFromPkAt.present
+        ? lastSeenFromPkAt.value
+        : this.lastSeenFromPkAt,
   );
   MemberGroupRow copyWithCompanion(MemberGroupsCompanion data) {
     return MemberGroupRow(
@@ -12166,6 +12291,15 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           : this.filterRules,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      pluralkitId: data.pluralkitId.present
+          ? data.pluralkitId.value
+          : this.pluralkitId,
+      pluralkitUuid: data.pluralkitUuid.present
+          ? data.pluralkitUuid.value
+          : this.pluralkitUuid,
+      lastSeenFromPkAt: data.lastSeenFromPkAt.present
+          ? data.lastSeenFromPkAt.value
+          : this.lastSeenFromPkAt,
     );
   }
 
@@ -12182,7 +12316,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           ..write('groupType: $groupType, ')
           ..write('filterRules: $filterRules, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('pluralkitId: $pluralkitId, ')
+          ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('lastSeenFromPkAt: $lastSeenFromPkAt')
           ..write(')'))
         .toString();
   }
@@ -12200,6 +12337,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     filterRules,
     createdAt,
     isDeleted,
+    pluralkitId,
+    pluralkitUuid,
+    lastSeenFromPkAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -12215,7 +12355,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           other.groupType == this.groupType &&
           other.filterRules == this.filterRules &&
           other.createdAt == this.createdAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.pluralkitId == this.pluralkitId &&
+          other.pluralkitUuid == this.pluralkitUuid &&
+          other.lastSeenFromPkAt == this.lastSeenFromPkAt);
 }
 
 class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
@@ -12230,6 +12373,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
   final Value<String?> filterRules;
   final Value<DateTime> createdAt;
   final Value<bool> isDeleted;
+  final Value<String?> pluralkitId;
+  final Value<String?> pluralkitUuid;
+  final Value<DateTime?> lastSeenFromPkAt;
   final Value<int> rowid;
   const MemberGroupsCompanion({
     this.id = const Value.absent(),
@@ -12243,6 +12389,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.filterRules = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.pluralkitId = const Value.absent(),
+    this.pluralkitUuid = const Value.absent(),
+    this.lastSeenFromPkAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemberGroupsCompanion.insert({
@@ -12257,6 +12406,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.filterRules = const Value.absent(),
     required DateTime createdAt,
     this.isDeleted = const Value.absent(),
+    this.pluralkitId = const Value.absent(),
+    this.pluralkitUuid = const Value.absent(),
+    this.lastSeenFromPkAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -12273,6 +12425,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Expression<String>? filterRules,
     Expression<DateTime>? createdAt,
     Expression<bool>? isDeleted,
+    Expression<String>? pluralkitId,
+    Expression<String>? pluralkitUuid,
+    Expression<DateTime>? lastSeenFromPkAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -12287,6 +12442,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       if (filterRules != null) 'filter_rules': filterRules,
       if (createdAt != null) 'created_at': createdAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (pluralkitId != null) 'pluralkit_id': pluralkitId,
+      if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
+      if (lastSeenFromPkAt != null) 'last_seen_from_pk_at': lastSeenFromPkAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -12303,6 +12461,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Value<String?>? filterRules,
     Value<DateTime>? createdAt,
     Value<bool>? isDeleted,
+    Value<String?>? pluralkitId,
+    Value<String?>? pluralkitUuid,
+    Value<DateTime?>? lastSeenFromPkAt,
     Value<int>? rowid,
   }) {
     return MemberGroupsCompanion(
@@ -12317,6 +12478,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       filterRules: filterRules ?? this.filterRules,
       createdAt: createdAt ?? this.createdAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      pluralkitId: pluralkitId ?? this.pluralkitId,
+      pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
+      lastSeenFromPkAt: lastSeenFromPkAt ?? this.lastSeenFromPkAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -12357,6 +12521,15 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (pluralkitId.present) {
+      map['pluralkit_id'] = Variable<String>(pluralkitId.value);
+    }
+    if (pluralkitUuid.present) {
+      map['pluralkit_uuid'] = Variable<String>(pluralkitUuid.value);
+    }
+    if (lastSeenFromPkAt.present) {
+      map['last_seen_from_pk_at'] = Variable<DateTime>(lastSeenFromPkAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -12377,6 +12550,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
           ..write('filterRules: $filterRules, ')
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('pluralkitId: $pluralkitId, ')
+          ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('lastSeenFromPkAt: $lastSeenFromPkAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -24955,6 +25131,9 @@ typedef $$MemberGroupsTableCreateCompanionBuilder =
       Value<String?> filterRules,
       required DateTime createdAt,
       Value<bool> isDeleted,
+      Value<String?> pluralkitId,
+      Value<String?> pluralkitUuid,
+      Value<DateTime?> lastSeenFromPkAt,
       Value<int> rowid,
     });
 typedef $$MemberGroupsTableUpdateCompanionBuilder =
@@ -24970,6 +25149,9 @@ typedef $$MemberGroupsTableUpdateCompanionBuilder =
       Value<String?> filterRules,
       Value<DateTime> createdAt,
       Value<bool> isDeleted,
+      Value<String?> pluralkitId,
+      Value<String?> pluralkitUuid,
+      Value<DateTime?> lastSeenFromPkAt,
       Value<int> rowid,
     });
 
@@ -25034,6 +25216,21 @@ class $$MemberGroupsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pluralkitId => $composableBuilder(
+    column: $table.pluralkitId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSeenFromPkAt => $composableBuilder(
+    column: $table.lastSeenFromPkAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -25101,6 +25298,21 @@ class $$MemberGroupsTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get pluralkitId => $composableBuilder(
+    column: $table.pluralkitId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSeenFromPkAt => $composableBuilder(
+    column: $table.lastSeenFromPkAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemberGroupsTableAnnotationComposer
@@ -25152,6 +25364,21 @@ class $$MemberGroupsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get pluralkitId => $composableBuilder(
+    column: $table.pluralkitId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastSeenFromPkAt => $composableBuilder(
+    column: $table.lastSeenFromPkAt,
+    builder: (column) => column,
+  );
 }
 
 class $$MemberGroupsTableTableManager
@@ -25196,6 +25423,9 @@ class $$MemberGroupsTableTableManager
                 Value<String?> filterRules = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String?> pluralkitId = const Value.absent(),
+                Value<String?> pluralkitUuid = const Value.absent(),
+                Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion(
                 id: id,
@@ -25209,6 +25439,9 @@ class $$MemberGroupsTableTableManager
                 filterRules: filterRules,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                pluralkitId: pluralkitId,
+                pluralkitUuid: pluralkitUuid,
+                lastSeenFromPkAt: lastSeenFromPkAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -25224,6 +25457,9 @@ class $$MemberGroupsTableTableManager
                 Value<String?> filterRules = const Value.absent(),
                 required DateTime createdAt,
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String?> pluralkitId = const Value.absent(),
+                Value<String?> pluralkitUuid = const Value.absent(),
+                Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion.insert(
                 id: id,
@@ -25237,6 +25473,9 @@ class $$MemberGroupsTableTableManager
                 filterRules: filterRules,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                pluralkitId: pluralkitId,
+                pluralkitUuid: pluralkitUuid,
+                lastSeenFromPkAt: lastSeenFromPkAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

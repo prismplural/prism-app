@@ -115,4 +115,53 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
                 e.memberId.equals(memberId) &
                 e.isDeleted.equals(false)))
           .getSingleOrNull();
+
+  // ── PluralKit linkage ───────────────────────────────────────────
+
+  /// Look up an existing group by its PluralKit UUID. Identity is UUID-only
+  /// (R7): PK short IDs can be recycled, so we never match on them.
+  Future<MemberGroupRow?> findByPluralkitUuid(String uuid) =>
+      (select(memberGroups)
+            ..where((g) => g.pluralkitUuid.equals(uuid)))
+          .getSingleOrNull();
+
+  Future<List<MemberGroupRow>> getAllGroupsIncludingDeleted() =>
+      select(memberGroups).get();
+
+  Future<List<MemberGroupRow>> getAllActiveGroups() =>
+      (select(memberGroups)..where((g) => g.isDeleted.equals(false))).get();
+
+  /// Live entries for a group, without streaming.
+  Future<List<MemberGroupEntryRow>> entriesForGroup(String groupId) =>
+      (select(memberGroupEntries)
+            ..where((e) =>
+                e.groupId.equals(groupId) & e.isDeleted.equals(false)))
+          .get();
+
+  /// Insert-or-update a member group row. Used by the PK group importer to
+  /// persist metadata updates; membership is reconciled via [upsertEntry] /
+  /// [softDeleteEntry].
+  Future<void> upsertGroup(MemberGroupsCompanion c) =>
+      into(memberGroups).insertOnConflictUpdate(c);
+
+  /// Insert-or-update a membership entry. The caller is responsible for
+  /// choosing the primary key (deterministic sha256 for PK-originated entries,
+  /// see plan R6). Re-activates a soft-deleted entry on conflict.
+  Future<void> upsertEntry(MemberGroupEntriesCompanion c) =>
+      into(memberGroupEntries).insertOnConflictUpdate(c);
+
+  /// Soft-delete a membership entry by id.
+  Future<void> softDeleteEntry(String id) =>
+      (update(memberGroupEntries)..where((e) => e.id.equals(id)))
+          .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));
+
+  /// Next `display_order` for a new group — `max(existing) + 1`. Returns 0
+  /// when there are no groups.
+  Future<int> nextDisplayOrder() async {
+    final rows = await customSelect(
+      'SELECT COALESCE(MAX(display_order), -1) + 1 AS next FROM member_groups',
+    ).get();
+    if (rows.isEmpty) return 0;
+    return rows.single.read<int>('next');
+  }
 }

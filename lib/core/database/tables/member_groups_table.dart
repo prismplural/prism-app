@@ -14,6 +14,16 @@ class MemberGroups extends Table {
   DateTimeColumn get createdAt => dateTime()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 
+  /// PluralKit 5-char short ID (display only, never used for identity matching).
+  TextColumn get pluralkitId => text().nullable()();
+
+  /// PluralKit canonical UUID — the sole identity key for PK-linked groups.
+  TextColumn get pluralkitUuid => text().nullable()();
+
+  /// Last time we observed this group in a PK pull. Synced so all devices
+  /// agree on the "stale" UI hint for groups that have disappeared from PK.
+  DateTimeColumn get lastSeenFromPkAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

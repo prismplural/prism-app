@@ -89,6 +89,87 @@ class PKMember {
   }
 }
 
+class PKGroup {
+  /// 5-character PluralKit short ID (display only).
+  final String id;
+
+  /// Full UUID — the canonical identity key.
+  final String uuid;
+  final String name;
+  final String? displayName;
+  final String? description;
+
+  /// 6-char hex without `#`.
+  final String? color;
+
+  /// PK `icon` is a URL (not an emoji). Phase 1 stores this nowhere; kept on
+  /// the model for future use (group avatar blob follow-up).
+  final String? iconUrl;
+
+  /// PK `banner` URL. Not persisted today.
+  final String? bannerUrl;
+
+  /// Membership list for this group, as PK member UUIDs (PK returns `members`
+  /// inline when `with_members=true`).
+  ///
+  /// **Null means "unknown"** — e.g. privacy hid the field or the fallback
+  /// fetch failed. Callers MUST NOT use null to drive removals (see plan R2).
+  /// An empty list means legitimately empty (no members).
+  final List<String>? memberIds;
+
+  const PKGroup({
+    required this.id,
+    required this.uuid,
+    required this.name,
+    this.displayName,
+    this.description,
+    this.color,
+    this.iconUrl,
+    this.bannerUrl,
+    this.memberIds,
+  });
+
+  factory PKGroup.fromJson(Map<String, dynamic> json) {
+    List<String>? memberIds;
+    if (json.containsKey('members')) {
+      final raw = json['members'];
+      if (raw is List) {
+        final parsed = <String>[];
+        for (final entry in raw) {
+          if (entry is String) {
+            // `/groups/{ref}/members` returns String[] of UUIDs when
+            // `with_members=true` isn't used, but the groups list itself
+            // with `with_members=true` returns full member objects.
+            parsed.add(entry);
+          } else if (entry is Map<String, dynamic>) {
+            final uuid = entry['uuid'];
+            if (uuid is String) {
+              parsed.add(uuid);
+            }
+          }
+        }
+        memberIds = parsed;
+      } else if (raw == null) {
+        // PK can serialize `members: null` when the caller lacks scope — treat
+        // the same as "unknown" to be safe.
+        memberIds = null;
+      }
+    }
+
+    return PKGroup(
+      id: json['id'] as String,
+      uuid: json['uuid'] as String,
+      name: json['name'] as String,
+      displayName: json['display_name'] as String?,
+      description: json['description'] as String?,
+      color: json['color'] as String?,
+      iconUrl: json['icon'] as String?,
+      bannerUrl: json['banner'] as String?,
+      memberIds: memberIds,
+    );
+  }
+}
+
 class PKSwitch {
   final String id;
   final DateTime timestamp;

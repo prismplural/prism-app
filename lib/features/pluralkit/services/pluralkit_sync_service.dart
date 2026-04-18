@@ -18,6 +18,7 @@ import 'package:prism_plurality/domain/repositories/system_settings_repository.d
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
@@ -120,6 +121,7 @@ class PluralKitSyncService {
   final Uuid _uuid;
   final PluralKitClient Function(String token)? _clientFactory;
   final String? _tokenOverride;
+  final PkGroupsImporter? _groupsImporter;
 
   PluralKitSyncState _state = const PluralKitSyncState();
   SyncStateCallback? onStateChanged;
@@ -132,6 +134,7 @@ class PluralKitSyncService {
     FlutterSecureStorage? secureStorage,
     PluralKitClient Function(String token)? clientFactory,
     String? tokenOverride,
+    PkGroupsImporter? groupsImporter,
   }) : _memberRepository = memberRepository,
        _frontingSessionRepository = frontingSessionRepository,
        _syncDao = syncDao,
@@ -140,7 +143,8 @@ class PluralKitSyncService {
            secureStorage ?? storage_config.secureStorage,
        _uuid = const Uuid(),
        _clientFactory = clientFactory,
-       _tokenOverride = tokenOverride;
+       _tokenOverride = tokenOverride,
+       _groupsImporter = groupsImporter;
 
   PluralKitSyncState get state => _state;
 
@@ -437,7 +441,12 @@ class PluralKitSyncService {
         }
       }
 
-      // -- Switches (10-95%) --
+      // -- Groups (10-15%) --
+      _emit(_state.copyWith(syncProgress: 0.10, syncStatus: 'Importing groups...'));
+      await _importGroups(client, overwriteMetadata: true);
+      _emit(_state.copyWith(syncProgress: 0.15));
+
+      // -- Switches (15-95%) --
       _emit(
         _state.copyWith(syncProgress: 0.10, syncStatus: 'Fetching switches...'),
       );
@@ -665,6 +674,9 @@ class PluralKitSyncService {
         );
       }
 
+      // -- Groups (membership reconcile only, see R5) --
+      await _importGroups(client, overwriteMetadata: false);
+
       // -- Pull recent switches (same as before) --
       int totalNew = 0;
       if (direction.pullEnabled) {
@@ -806,6 +818,38 @@ class PluralKitSyncService {
       return true;
     } finally {
       client.dispose();
+    }
+  }
+
+  /// Phase 1 PK-groups pull.
+  ///
+  /// - `overwriteMetadata=false` (background `syncRecentData`): new groups are
+  ///   inserted, memberships are reconciled against the authoritative PK set,
+  ///   but existing row metadata (name/description/color/displayOrder) is NOT
+  ///   overwritten. Local edits survive the sync.
+  /// - `overwriteMetadata=true` (`performFullImport` / explicit re-import):
+  ///   metadata is replaced with PK's values.
+  ///
+  /// Returns 0 when no importer was wired (e.g. older tests that construct
+  /// the service without an AppDatabase reference) — callers can still proceed.
+  Future<PkGroupsImportResult?> _importGroups(
+    PluralKitClient client, {
+    required bool overwriteMetadata,
+  }) async {
+    final importer = _groupsImporter;
+    if (importer == null) return null;
+    try {
+      final pkGroups = await client.getGroups(withMembers: true);
+      return await importer.importGroups(
+        client,
+        pkGroups,
+        overwriteMetadata: overwriteMetadata,
+      );
+    } catch (e) {
+      // Groups are not a first-class blocker for the rest of the sync — don't
+      // abort members/switches on a group-fetch failure.
+      debugPrint('[PK] group import failed: $e');
+      return null;
     }
   }
 
@@ -1028,6 +1072,18 @@ class PluralKitSyncService {
           existingPkUuids: existingPkUuids,
         );
         if (!wasDup) existingPkUuids.add(sw.id);
+      }
+
+      // Phase 1 R3 — insert-only re-attribution pass for PK groups. After
+      // the mapping flow applies new member links, any group memberships
+      // that were deferred on first pull can now be inserted.
+      final importer = _groupsImporter;
+      if (importer != null) {
+        try {
+          await importer.reattribute(client);
+        } catch (e) {
+          debugPrint('[PK] group reattribute failed: $e');
+        }
       }
 
       _emit(_state.copyWith(

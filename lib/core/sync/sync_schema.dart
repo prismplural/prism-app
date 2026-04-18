@@ -197,6 +197,9 @@ const String prismSyncSchema = '''
         "group_type": "Int",
         "filter_rules": "String",
         "created_at": "DateTime",
+        "pluralkit_id": "String",
+        "pluralkit_uuid": "String",
+        "last_seen_from_pk_at": "DateTime",
         "is_deleted": "Bool"
       }
     },

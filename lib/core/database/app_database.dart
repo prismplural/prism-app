@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 50;
+  int get schemaVersion => 51;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -359,6 +359,41 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       }
+
+      if (from < 51) {
+        // Plan 03 Phase 1: PK-group link columns + partial unique indexes.
+        // Also `last_seen_from_pk_at` for the "stale" UI hint (R9).
+        final groupsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='member_groups'",
+        ).get();
+        if (groupsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE member_groups ADD COLUMN pluralkit_id TEXT',
+          );
+          await customStatement(
+            'ALTER TABLE member_groups ADD COLUMN pluralkit_uuid TEXT',
+          );
+          await customStatement(
+            'ALTER TABLE member_groups ADD COLUMN last_seen_from_pk_at '
+            'INTEGER',
+          );
+          await customStatement(
+            'CREATE UNIQUE INDEX IF NOT EXISTS '
+            'idx_member_groups_pluralkit_uuid '
+            'ON member_groups(pluralkit_uuid) '
+            'WHERE pluralkit_uuid IS NOT NULL',
+          );
+          // NOT unique (see plan R7): PK short IDs can be recycled across
+          // groups, so identity is UUID-only. Plain index for lookup speed.
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS '
+            'idx_member_groups_pluralkit_id '
+            'ON member_groups(pluralkit_id) '
+            'WHERE pluralkit_id IS NOT NULL',
+          );
+        }
+      }
     },
     onCreate: (migrator) async {
       await migrator.createAll();
@@ -380,6 +415,14 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
       'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_member_groups_pluralkit_uuid '
+      'ON member_groups(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_member_groups_pluralkit_id '
+      'ON member_groups(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
     );
   }
 
