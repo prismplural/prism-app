@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/settings/providers/sync_setup_provider.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_content.dart';
@@ -32,6 +33,10 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
   @override
   void initState() {
     super.initState();
+    // Pre-fill the registration-token field with any value baked into the
+    // binary at build time (see BuildInfo.betaRegistrationToken). Empty when
+    // unset, which leaves the field blank for open-source / self-host builds.
+    _registrationTokenController.text = BuildInfo.betaRegistrationToken;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(syncSetupProvider);
     });

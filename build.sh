@@ -108,6 +108,17 @@ compute_build_info() {
     BUILD_INFO_DEFINES="${BUILD_INFO_DEFINES} --dart-define=GIT_DESCRIBE=${git_describe}"
     BUILD_INFO_DEFINES="${BUILD_INFO_DEFINES} --dart-define=GIT_BRANCH=${git_branch}"
     BUILD_INFO_DEFINES="${BUILD_INFO_DEFINES} --dart-define=BUILT_AT=${built_at}"
+
+    # Optional: bake a beta relay registration token into the binary so
+    # TestFlight / beta testers don't have to type it by hand. The token
+    # itself is NEVER committed to this repo; it's passed in via the
+    # PRISM_BETA_REGISTRATION_TOKEN env var from a wrapper script that
+    # sources a gitignored env file outside the app/ tree. If unset, the
+    # token field stays blank and the app builds cleanly for self-hosters.
+    if [ -n "${PRISM_BETA_REGISTRATION_TOKEN:-}" ]; then
+        BUILD_INFO_DEFINES="${BUILD_INFO_DEFINES} --dart-define=PRISM_BETA_REGISTRATION_TOKEN=${PRISM_BETA_REGISTRATION_TOKEN}"
+    fi
+
     export BUILD_INFO_DEFINES
 }
 
