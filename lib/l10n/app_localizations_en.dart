@@ -6228,4 +6228,248 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get pkProfileFieldOverwriteHint =>
       'Prism already has a value — tick to overwrite.';
+
+  @override
+  String get migrationCfStepTitle => 'Custom fronts';
+
+  @override
+  String get migrationCfStepExplainer =>
+      'Simply Plural has custom fronts (Co-fronting, Asleep, and others). Prism doesn\'t track these as first-class statuses. Pick how to handle each one.';
+
+  @override
+  String get migrationCfResetDefaults => 'Reset to smart defaults';
+
+  @override
+  String get migrationCfBack => 'Back';
+
+  @override
+  String get migrationCfContinue => 'Continue';
+
+  @override
+  String get migrationCfOptionMember => 'Import as member';
+
+  @override
+  String get migrationCfOptionNote => 'Merge into notes';
+
+  @override
+  String get migrationCfOptionSleep => 'Convert to sleep';
+
+  @override
+  String get migrationCfOptionSkip => 'Skip';
+
+  @override
+  String get migrationCfOptionMemberDesc =>
+      'Creates a member with this name. Front history entries for it are kept as member sessions.';
+
+  @override
+  String get migrationCfOptionNoteDesc =>
+      'No member is created. The custom front\'s name is appended to the notes of sessions it touches.';
+
+  @override
+  String get migrationCfOptionSleepDesc =>
+      'Front history entries where this is the primary fronter become sleep sessions instead.';
+
+  @override
+  String get migrationCfOptionSkipDesc =>
+      'No member, no note. Sessions with no other fronter are dropped.';
+
+  @override
+  String get migrationCfReasonSleepName => 'Name matches sleep keywords';
+
+  @override
+  String get migrationCfReasonZeroUsage =>
+      'Never used in front history or timers';
+
+  @override
+  String get migrationCfReasonCoFronterOnly => 'Only used as co-fronter';
+
+  @override
+  String get migrationCfReasonPrimaryHeavy => 'Used mostly as primary fronter';
+
+  @override
+  String get migrationCfReasonFallback =>
+      'Mixed usage — safest to preserve as a note';
+
+  @override
+  String migrationCfUsageSummary(int primary, int coFront, int timers) {
+    String _temp0 = intl.Intl.pluralLogic(
+      primary,
+      locale: localeName,
+      other: '$primary primary',
+      one: '1 primary',
+      zero: 'Never primary',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      coFront,
+      locale: localeName,
+      other: '$coFront co-front',
+      one: '1 co-front',
+      zero: '0 co-front',
+    );
+    String _temp2 = intl.Intl.pluralLogic(
+      timers,
+      locale: localeName,
+      other: '$timers timers',
+      one: '1 timer',
+      zero: '0 timers',
+    );
+    return '$_temp0 · $_temp1 · $_temp2';
+  }
+
+  @override
+  String migrationCfPreviewBreakdown(
+    int asMember,
+    int asSleep,
+    int asNote,
+    int asSkip,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      asMember,
+      locale: localeName,
+      other: '$asMember as members',
+      one: '1 as member',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      asSleep,
+      locale: localeName,
+      other: '$asSleep as sleep',
+      one: '1 as sleep',
+    );
+    String _temp2 = intl.Intl.pluralLogic(
+      asNote,
+      locale: localeName,
+      other: '$asNote notes',
+      one: '1 note',
+    );
+    String _temp3 = intl.Intl.pluralLogic(
+      asSkip,
+      locale: localeName,
+      other: '$asSkip skipped',
+      one: '1 skipped',
+    );
+    return '$_temp0 · $_temp1 · $_temp2 · $_temp3';
+  }
+
+  @override
+  String migrationWarnCfDroppedEntries(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count front-history entries dropped (primary was a skipped custom front with no co-fronters).',
+      one:
+          '1 front-history entry dropped (primary was a skipped custom front with no co-fronters).',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepCoFrontersDiscarded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count sleep-mode sessions had co-fronters that were discarded.',
+      one: '1 sleep-mode session had co-fronters that were discarded.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepCoFronterAsNote(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count front sessions had a sleep custom front as co-fronter, preserved as note only.',
+      one:
+          '1 front session had a sleep custom front as co-fronter, preserved as note only.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepOverlap(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count sleep sessions overlap with other sessions in your timeline — resolve in the Fronting tab.',
+      one:
+          '1 sleep session overlaps with other sessions in your timeline — resolve in the Fronting tab.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfCommentsDropped(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count comments dropped (attached to skipped custom-front sessions).',
+      one: '1 comment dropped (attached to skipped custom-front sessions).',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfStaleMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count previously-imported custom fronts are no longer imported as members; the existing member records remain — delete manually if you want them gone.',
+      one:
+          '1 previously-imported custom front is no longer imported as a member; the existing member record remains — delete manually if you want it gone.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfDeletedRefs(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count front-history references pointed to custom fronts deleted in SP — handled as notes.',
+      one:
+          '1 front-history reference pointed to a custom front deleted in SP — handled as a note.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepClamped(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count open-ended SP sleep entries clamped to 24h duration.',
+      one: '1 open-ended SP sleep entry clamped to 24h duration.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfTimersAdjusted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count timers targeted custom fronts that aren\'t imported as members — target dropped or timer removed.',
+      one:
+          '1 timer targeted a custom front that isn\'t imported as a member — target dropped or timer removed.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepDedup(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count duplicate-start SP sleep entries collapsed.',
+      one: '1 duplicate-start SP sleep entry collapsed.',
+    );
+    return '$_temp0';
+  }
 }

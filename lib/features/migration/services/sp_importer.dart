@@ -22,6 +22,7 @@ import 'package:prism_plurality/domain/repositories/conversation_categories_repo
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
+import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
 import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
 
 /// Import progress state.
@@ -31,6 +32,7 @@ enum ImportState {
   verifying,
   fetching,
   previewing,
+  chooseDispositions,
   importing,
   downloadingAvatars,
   complete,
@@ -137,6 +139,7 @@ class SpImporter {
     SpImportDao? spImportDao,
     bool downloadAvatars = true,
     bool clearExistingData = false,
+    Map<String, CfDisposition>? customFrontDispositions,
     void Function(int current, int total, String label)? onProgress,
   }) async {
     final stopwatch = Stopwatch()..start();
@@ -151,7 +154,10 @@ class SpImporter {
       }
     }
 
-    final mapper = SpMapper(existingMappings: existingMappings);
+    final mapper = SpMapper(
+      existingMappings: existingMappings,
+      customFrontDispositions: customFrontDispositions,
+    );
     final mapped = mapper.mapAll(data);
 
     final totalItems = mapped.members.length +
@@ -174,6 +180,17 @@ class SpImporter {
     // When clearExistingData is true, the wipe happens inside the same
     // transaction so a failed import rolls back everything — no data loss.
     await db.transaction(() async {
+      // Scrub stale CF-as-member persisted mappings (plan §Classification)
+      // inside the transaction so a failed import rolls back the scrub too.
+      // Done before upserting new mappings so the DAO ends up consistent
+      // with the user's updated disposition choices.
+      if (spImportDao != null && mapper.pendingStaleMappingDeletes.isNotEmpty) {
+        await spImportDao.deleteMappings(
+          mapper.pendingStaleMappingDeletes,
+          'member',
+        );
+      }
+
       if (clearExistingData) {
         onProgress?.call(0, totalItems, 'Clearing existing data...');
         await db.customStatement('DELETE FROM habit_completions');

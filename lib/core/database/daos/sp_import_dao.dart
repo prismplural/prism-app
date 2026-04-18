@@ -26,4 +26,16 @@ class SpImportDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> upsertMappings(List<SpIdMapTableCompanion> rows) =>
       batch((b) => b.insertAllOnConflictUpdate(spIdMapTable, rows));
+
+  /// Delete id-map rows matching any of [spIds] within [entityType].
+  /// Used by the SP importer to scrub stale CF-as-member mappings whose
+  /// user disposition is no longer `importAsMember` (plan §Classification).
+  Future<void> deleteMappings(List<String> spIds, String entityType) async {
+    if (spIds.isEmpty) return;
+    await (delete(spIdMapTable)
+          ..where(
+            (t) => t.entityType.equals(entityType) & t.spId.isIn(spIds),
+          ))
+        .go();
+  }
 }
