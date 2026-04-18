@@ -16,6 +16,7 @@ final pluralKitSyncServiceProvider = Provider<PluralKitSyncService>((ref) {
     memberRepository: ref.watch(memberRepositoryProvider),
     frontingSessionRepository: ref.watch(frontingSessionRepositoryProvider),
     syncDao: ref.watch(pluralKitSyncDaoProvider),
+    settingsRepository: ref.watch(systemSettingsRepositoryProvider),
   );
 });
 
