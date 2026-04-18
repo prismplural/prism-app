@@ -7,9 +7,9 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
 
 /// Orchestrates bidirectional sync between Prism and PluralKit.
 ///
-/// Compares local members with PK members, and depending on per-member
-/// field config, either pulls (PK -> Prism), pushes (Prism -> PK), or
-/// uses last-modified heuristics for bidirectional fields.
+/// Compares local members with PK members and, per-field and per-direction,
+/// either pulls (PK -> Prism, writing via `memberRepository.updateMember`)
+/// or pushes (Prism -> PK, via `PkPushService`).
 class PkBidirectionalService {
   final PkPushService _pushService;
 
@@ -22,7 +22,7 @@ class PkBidirectionalService {
   /// [pkMembers] — all members fetched from PK.
   /// [fieldConfigs] — per-member field direction config (keyed by local member ID).
   /// [direction] — overall sync direction.
-  /// [lastSyncDate] — the last time a sync completed (used for change detection).
+  /// [lastSyncDate] — the last time a sync completed (unused here, kept for API stability).
   /// [memberRepository] — for persisting pulled changes.
   /// [client] — PK API client.
   ///
@@ -76,16 +76,22 @@ class PkBidirectionalService {
         // Check if local data is newer and should be pushed
         final hasLocalChanges = _hasLocalChanges(local, pk, config, direction);
         if (hasLocalChanges) {
-          await _pushService.pushMember(local, client);
+          await _pushService.pushMember(local, client, pkMember: pk);
           pushed++;
           continue;
         }
       }
 
       if (direction.pullEnabled) {
-        // Check if PK data differs and should be pulled
-        final hasPkChanges = _hasPkChanges(local, pk, config, direction);
-        if (hasPkChanges) {
+        // Apply PK-side changes to the local member.
+        final applied = await _applyPkChanges(
+          local,
+          pk,
+          config,
+          direction,
+          memberRepository,
+        );
+        if (applied) {
           pulled++;
           continue;
         }
@@ -122,47 +128,122 @@ class PkBidirectionalService {
     PkFieldSyncConfig config,
     PkSyncDirection direction,
   ) {
-    if (config.name.pushEnabled || direction == PkSyncDirection.pushOnly) {
-      if (local.name != (pk.displayName ?? pk.name)) return true;
+    if (_pushField(config.name, direction)) {
+      if (local.name != pk.name) return true;
     }
-    if (config.pronouns.pushEnabled || direction == PkSyncDirection.pushOnly) {
+    if (_pushField(config.displayName, direction)) {
+      if (local.displayName != pk.displayName) return true;
+    }
+    if (_pushField(config.pronouns, direction)) {
       if (local.pronouns != pk.pronouns) return true;
     }
-    if (config.description.pushEnabled ||
-        direction == PkSyncDirection.pushOnly) {
+    if (_pushField(config.description, direction)) {
       if (local.bio != pk.description) return true;
     }
-    if (config.color.pushEnabled || direction == PkSyncDirection.pushOnly) {
-      final localColor = _normalizeColor(local.customColorHex);
-      final pkColor = _normalizeColor(pk.color);
-      if (local.customColorEnabled && localColor != pkColor) return true;
+    if (_pushField(config.birthday, direction)) {
+      if (_normalizeBirthday(local.birthday) !=
+          _normalizeBirthday(pk.birthday)) {
+        return true;
+      }
     }
-    return false;
-  }
-
-  /// Check if the PK member has changes that should be pulled into Prism.
-  bool _hasPkChanges(
-    domain.Member local,
-    PKMember pk,
-    PkFieldSyncConfig config,
-    PkSyncDirection direction,
-  ) {
-    if (config.name.pullEnabled || direction == PkSyncDirection.pullOnly) {
-      if (local.name != (pk.displayName ?? pk.name)) return true;
-    }
-    if (config.pronouns.pullEnabled || direction == PkSyncDirection.pullOnly) {
-      if (local.pronouns != pk.pronouns) return true;
-    }
-    if (config.description.pullEnabled ||
-        direction == PkSyncDirection.pullOnly) {
-      if (local.bio != pk.description) return true;
-    }
-    if (config.color.pullEnabled || direction == PkSyncDirection.pullOnly) {
-      final localColor = _normalizeColor(local.customColorHex);
+    if (_pushField(config.color, direction)) {
+      final localColor = local.customColorEnabled
+          ? _normalizeColor(local.customColorHex)
+          : null;
       final pkColor = _normalizeColor(pk.color);
       if (localColor != pkColor) return true;
     }
     return false;
+  }
+
+  /// Apply PK-side changes to the local member. Writes via [memberRepository]
+  /// when any pull-direction field differs. Returns whether anything was
+  /// applied (so the caller can bump the "pulled" counter).
+  ///
+  /// Note: `proxyTags` is always pull-only — there is no push path. It is
+  /// applied here regardless of direction config (guarded by overall
+  /// `direction.pullEnabled`, which the caller already checks).
+  Future<bool> _applyPkChanges(
+    domain.Member local,
+    PKMember pk,
+    PkFieldSyncConfig config,
+    PkSyncDirection direction,
+    MemberRepository memberRepository,
+  ) async {
+    if (!direction.pullEnabled) return false;
+
+    var updated = local;
+    var changed = false;
+
+    if (_pullField(config.name, direction)) {
+      if (local.name != pk.name) {
+        updated = updated.copyWith(name: pk.name);
+        changed = true;
+      }
+    }
+    if (_pullField(config.displayName, direction)) {
+      if (local.displayName != pk.displayName) {
+        updated = updated.copyWith(displayName: pk.displayName);
+        changed = true;
+      }
+    }
+    if (_pullField(config.pronouns, direction)) {
+      if (local.pronouns != pk.pronouns) {
+        updated = updated.copyWith(pronouns: pk.pronouns);
+        changed = true;
+      }
+    }
+    if (_pullField(config.description, direction)) {
+      if (local.bio != pk.description) {
+        updated = updated.copyWith(bio: pk.description);
+        changed = true;
+      }
+    }
+    if (_pullField(config.birthday, direction)) {
+      final localBd = _normalizeBirthday(local.birthday);
+      final pkBd = _normalizeBirthday(pk.birthday);
+      if (localBd != pkBd) {
+        updated = updated.copyWith(birthday: pk.birthday);
+        changed = true;
+      }
+    }
+    if (_pullField(config.color, direction)) {
+      final localColor = _normalizeColor(local.customColorHex);
+      final pkColor = _normalizeColor(pk.color);
+      if (localColor != pkColor) {
+        updated = updated.copyWith(
+          customColorHex: pk.color,
+          customColorEnabled: pk.color != null && pk.color!.isNotEmpty,
+        );
+        changed = true;
+      }
+    }
+
+    // proxy_tags is pull-only — no per-field config.
+    if (pk.proxyTagsJson != null && local.proxyTagsJson != pk.proxyTagsJson) {
+      updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
+      changed = true;
+    }
+
+    if (changed) {
+      await memberRepository.updateMember(updated);
+    }
+    return changed;
+  }
+
+  /// Whether a field should be pushed given its per-field config and the
+  /// overall direction. Overall direction takes precedence when it is
+  /// push-only or pull-only (forces push/no-push regardless of per-field).
+  bool _pushField(PkSyncDirection field, PkSyncDirection overall) {
+    if (overall == PkSyncDirection.pullOnly) return false;
+    if (overall == PkSyncDirection.pushOnly) return true;
+    return field.pushEnabled;
+  }
+
+  bool _pullField(PkSyncDirection field, PkSyncDirection overall) {
+    if (overall == PkSyncDirection.pushOnly) return false;
+    if (overall == PkSyncDirection.pullOnly) return true;
+    return field.pullEnabled;
   }
 
   /// Normalize a color hex string for comparison (strip '#', lowercase).
@@ -171,5 +252,18 @@ class PkBidirectionalService {
     var c = color.toLowerCase();
     if (c.startsWith('#')) c = c.substring(1);
     return c;
+  }
+
+  /// Normalize a birthday for equality comparison.
+  ///
+  /// PK emits `YYYY-MM-DD` with a `0004` sentinel for "no year." We keep the
+  /// raw string on both sides, but normalize by lowercasing whitespace so
+  /// `" 2020-01-15"` and `"2020-01-15"` compare equal. No year-0004
+  /// collapsing — PK itself is stable about the sentinel, so round-trip is
+  /// byte-identical unless a human edits it.
+  String? _normalizeBirthday(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
   }
 }

@@ -13,7 +13,6 @@ import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 // ---------------------------------------------------------------------------
@@ -594,41 +593,12 @@ class PluralKitSyncService {
         }
       }
 
-      // -- Push current front as a switch (if push enabled) --
-      int switchesPushed = 0;
-      if (direction.pushEnabled) {
-        _emit(
-          _state.copyWith(
-            syncProgress: 0.8,
-            syncStatus: 'Pushing local changes...',
-          ),
-        );
-
-        try {
-          final activeSessions =
-              await _frontingSessionRepository.getActiveSessions();
-          if (activeSessions.isNotEmpty) {
-            final pushService = PkPushService();
-            // Batch-fetch to avoid N+1 queries
-            final allMembersForPush = await _memberRepository.getAllMembers();
-            final memberByIdMap = {for (final m in allMembersForPush) m.id: m};
-            final pkMemberIds = <String>[];
-            for (final session in activeSessions) {
-              if (session.memberId == null) continue;
-              final member = memberByIdMap[session.memberId!];
-              if (member?.pluralkitId != null) {
-                pkMemberIds.add(member!.pluralkitId!);
-              }
-            }
-            if (pkMemberIds.isNotEmpty) {
-              await pushService.pushSwitch(pkMemberIds, client);
-              switchesPushed = 1;
-            }
-          }
-        } catch (_) {
-          // Non-fatal — we still count the pull as successful
-        }
-      }
+      // Switch push is handled by Phase 4's scoped push (post-link-date
+      // sessions only, with explicit switch-out at endTime). The old
+      // auto-push-current-front-as-switch block was removed because it
+      // created duplicate switches on every sync (never stored the returned
+      // PK switch ID).
+      const int switchesPushed = 0;
 
       final now = DateTime.now();
       await _syncDao.upsertSyncState(
@@ -654,9 +624,6 @@ class PluralKitSyncService {
       }
       if (totalNew > 0) {
         statusParts.add('Pulled $totalNew switches');
-      }
-      if (switchesPushed > 0) {
-        statusParts.add('Pushed current front');
       }
 
       _emit(

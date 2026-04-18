@@ -14,21 +14,26 @@ class PkPushService {
   /// If the member has a [pluralkitId], performs a PATCH (update).
   /// Otherwise performs a POST (create) and returns the new PK member ID.
   ///
+  /// When [pkMember] is supplied (PATCH path), fields that are null locally
+  /// but non-null on PK are sent as explicit `null` in the PATCH body so PK
+  /// clears them. This matters because PK treats omitted keys as "preserve."
+  ///
   /// Returns the PK 5-character member ID (existing or newly created).
   Future<String> pushMember(
     domain.Member member,
-    PluralKitClient client,
-  ) async {
-    final data = _memberToPayload(member);
-
+    PluralKitClient client, {
+    PKMember? pkMember,
+  }) async {
     if (member.pluralkitId != null && member.pluralkitId!.isNotEmpty) {
-      // Update existing PK member
+      // PATCH — include explicit nulls to clear fields on PK.
+      final data = _memberToPayload(member, pkMember: pkMember, isPatch: true);
       final updated = await _queue.enqueue(
         () => client.updateMember(member.pluralkitId!, data),
       );
       return updated.id;
     } else {
-      // Create new PK member
+      // POST — create new PK member. Omit nulls (PK's POST treats omit = clear).
+      final data = _memberToPayload(member, isPatch: false);
       final created = await _queue.enqueue(
         () => client.createMember(data),
       );
@@ -53,26 +58,87 @@ class PkPushService {
   /// Convert a local Member to a PK-compatible JSON payload.
   ///
   /// Skips avatar (blob-to-URL conversion not supported by PK API).
-  Map<String, dynamic> _memberToPayload(domain.Member member) {
+  ///
+  /// For PATCH ([isPatch] = true), fields that are null locally but non-null
+  /// on [pkMember] are serialized as explicit `null` so PK clears them.
+  /// Fields that are null on both sides are omitted. For POST, nulls are
+  /// always omitted (PK treats omit = clear on POST).
+  Map<String, dynamic> _memberToPayload(
+    domain.Member member, {
+    PKMember? pkMember,
+    required bool isPatch,
+  }) {
     final data = <String, dynamic>{
       'name': member.name,
     };
 
-    if (member.pronouns != null) {
-      data['pronouns'] = member.pronouns;
-    }
-    if (member.bio != null) {
-      data['description'] = member.bio;
-    }
-    if (member.customColorHex != null && member.customColorEnabled) {
-      // PK expects color without '#' prefix
-      var color = member.customColorHex!;
-      if (color.startsWith('#')) {
-        color = color.substring(1);
-      }
-      data['color'] = color;
-    }
+    _setOrClear(
+      data,
+      'display_name',
+      local: member.displayName,
+      remote: pkMember?.displayName,
+      isPatch: isPatch,
+    );
+    _setOrClear(
+      data,
+      'pronouns',
+      local: member.pronouns,
+      remote: pkMember?.pronouns,
+      isPatch: isPatch,
+    );
+    _setOrClear(
+      data,
+      'description',
+      local: member.bio,
+      remote: pkMember?.description,
+      isPatch: isPatch,
+    );
+    _setOrClear(
+      data,
+      'birthday',
+      local: member.birthday,
+      remote: pkMember?.birthday,
+      isPatch: isPatch,
+    );
+
+    // Color — PK expects 6-char hex with no '#'. Treat
+    // customColorEnabled=false as "no color" (clear on PATCH when PK has one).
+    final localColor =
+        (member.customColorEnabled && member.customColorHex != null)
+            ? _stripHash(member.customColorHex!)
+            : null;
+    _setOrClear(
+      data,
+      'color',
+      local: localColor,
+      remote: pkMember?.color,
+      isPatch: isPatch,
+    );
 
     return data;
   }
+
+  /// Helper: write [key] to [data] using null-clearing semantics.
+  ///
+  /// - Local non-null: always set.
+  /// - Local null, remote non-null, PATCH: set to explicit `null` to clear PK.
+  /// - Otherwise: omit.
+  void _setOrClear(
+    Map<String, dynamic> data,
+    String key, {
+    required String? local,
+    required String? remote,
+    required bool isPatch,
+  }) {
+    if (local != null) {
+      data[key] = local;
+      return;
+    }
+    if (isPatch && remote != null) {
+      data[key] = null;
+    }
+  }
+
+  String _stripHash(String color) =>
+      color.startsWith('#') ? color.substring(1) : color;
 }
