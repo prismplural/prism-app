@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' as drift;
+import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
@@ -286,5 +288,86 @@ void main() {
         expect(settings.hasCompletedOnboarding, isFalse);
       },
     );
+  });
+
+  group('DataImportService.resolveBytes — Prism JSON rejection', () {
+    test('unencrypted Prism JSON (has "formatVersion") throws FormatException', () {
+      final prismJson = utf8.encode('{"formatVersion":"prism_v3","headmates":[]}');
+      expect(
+        () => DataImportService.resolveBytes(Uint8List.fromList(prismJson)),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            equals('unencrypted-prism-backup'),
+          ),
+        ),
+      );
+    });
+
+    test('third-party SP JSON (no "formatVersion") is accepted', () {
+      final spJson = utf8.encode('{"content":"Hello"}');
+      final result = DataImportService.resolveBytes(Uint8List.fromList(spJson));
+      expect(result.json, equals('{"content":"Hello"}'));
+      expect(result.mediaBlobs, isEmpty);
+    });
+
+    test('binary garbage that fails UTF-8 decode throws FormatException', () {
+      final garbage = Uint8List.fromList([0xff, 0xfe, 0xfd, 0x00, 0x01]);
+      expect(
+        () => DataImportService.resolveBytes(garbage),
+        throwsA(isA<FormatException>()),
+      );
+    });
+  });
+
+  group('DataImportService.resolveBytes — media manifest validation', () {
+    const password = 'test-password-manifest-2026';
+
+    Uint8List _makeEncrypted(String json, List<({String mediaId, Uint8List blob})> blobs) =>
+        ExportCrypto.encrypt(json, blobs, password);
+
+    test('blob whose mediaId is not in manifest throws FormatException', () {
+      // JSON has empty mediaAttachments; binary has 1 blob — mismatch
+      final json = '{"mediaAttachments":[]}';
+      final blob = Uint8List.fromList([1, 2, 3]);
+      final encrypted = _makeEncrypted(json, [(mediaId: 'extra-id', blob: blob)]);
+      expect(
+        () => DataImportService.resolveBytes(encrypted, password: password),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'message',
+            contains('corrupted'),
+          ),
+        ),
+      );
+    });
+
+    test('blob whose mediaId matches a thumbnailMediaId in the manifest is accepted', () {
+      const thumbId = 'thumb-abc-123';
+      final json = '{"mediaAttachments":[{"mediaId":"main-abc","thumbnailMediaId":"$thumbId"}]}';
+      final blob = Uint8List.fromList([10, 20, 30]);
+      final encrypted = _makeEncrypted(json, [(mediaId: thumbId, blob: blob)]);
+      final result = DataImportService.resolveBytes(encrypted, password: password);
+      expect(result.mediaBlobs.length, equals(1));
+      expect(result.mediaBlobs.first.mediaId, equals(thumbId));
+    });
+
+    test('blob whose mediaId matches a mediaId in the manifest is accepted', () {
+      const mainId = 'main-abc-456';
+      final json = '{"mediaAttachments":[{"mediaId":"$mainId","thumbnailMediaId":""}]}';
+      final blob = Uint8List.fromList([7, 8, 9]);
+      final encrypted = _makeEncrypted(json, [(mediaId: mainId, blob: blob)]);
+      final result = DataImportService.resolveBytes(encrypted, password: password);
+      expect(result.mediaBlobs.length, equals(1));
+    });
+
+    test('no blobs skips manifest validation (no JSON parse needed)', () {
+      final json = '{"mediaAttachments":[]}';
+      final encrypted = _makeEncrypted(json, const []);
+      final result = DataImportService.resolveBytes(encrypted, password: password);
+      expect(result.mediaBlobs, isEmpty);
+    });
   });
 }
