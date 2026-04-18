@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -21,6 +22,8 @@ import 'package:prism_plurality/features/onboarding/widgets/sync_device_step.dar
 import 'package:prism_plurality/features/onboarding/widgets/pin_setup_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/recovery_phrase_onboarding_step.dart';
 import 'package:prism_plurality/features/onboarding/widgets/biometric_setup_step.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/features/onboarding/services/onboarding_commit_service.dart';
 import 'package:prism_plurality/features/onboarding/utils/onboarding_step_l10n.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -262,6 +265,37 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 ],
               ),
             ),
+            if (!kReleaseMode)
+              Positioned(
+                right: 12,
+                bottom: 12,
+                child: SafeArea(
+                  child: Material(
+                    color: Colors.orange.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(20),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: _isCompleting ? null : _devSkipToApp,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Text(
+                          'DEV: Skip to app',
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -360,6 +394,41 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       if (mounted) {
         setState(() => _isCompleting = false);
       }
+    }
+  }
+
+  /// Dev-only: create a minimal system (one member + completed flag) and jump
+  /// straight to the home screen. Used for perf profiling so a fresh DB
+  /// doesn't require tapping through onboarding every time. Hidden in
+  /// release builds via [kReleaseMode].
+  Future<void> _devSkipToApp() async {
+    if (_isCompleting) return;
+    setState(() => _isCompleting = true);
+    try {
+      final memberRepo = ref.read(memberRepositoryProvider);
+      if (await memberRepo.getCount() == 0) {
+        await memberRepo.createMember(
+          domain.Member(
+            id: 'dev-member-0',
+            name: 'Dev',
+            emoji: '🧪',
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+      await ref
+          .read(onboardingCommitServiceProvider)
+          .completeImportedBootstrap();
+      if (!mounted) return;
+      context.go(AppRoutePaths.home);
+    } catch (e) {
+      if (!mounted) return;
+      PrismToast.error(
+        context,
+        message: context.l10n.onboardingErrorCompletingSetup(e),
+      );
+    } finally {
+      if (mounted) setState(() => _isCompleting = false);
     }
   }
 }
