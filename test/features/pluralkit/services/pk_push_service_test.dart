@@ -238,6 +238,8 @@ void main() {
       );
     });
   });
+
+  _registerDeletionTests();
 }
 
 class _Throw404OnCreateSwitchClient extends FakePluralKitClient {
@@ -252,4 +254,159 @@ class _Throw500OnCreateSwitchClient extends FakePluralKitClient {
   Future<PKSwitch> createSwitch(List<String> memberIds,
           {DateTime? timestamp}) async =>
       throw const PluralKitApiError(500, 'boom');
+}
+
+// ---------------------------------------------------------------------------
+// Plan 02 — deletion test fakes
+// ---------------------------------------------------------------------------
+
+/// Programmable fake: each call to deleteMember/deleteSwitch consumes the
+/// next status code from the configured script. `null` = success (204).
+/// `429` triggers a [PluralKitRateLimitError]; other ints throw
+/// [PluralKitApiError] with that status. Lets us exercise the 429-retry
+/// path deterministically.
+class _ScriptedDeletionClient implements PluralKitClient {
+  final List<int?> memberScript;
+  final List<int?> switchScript;
+  int memberCalls = 0;
+  int switchCalls = 0;
+
+  _ScriptedDeletionClient({
+    this.memberScript = const [],
+    this.switchScript = const [],
+  });
+
+  @override
+  Future<void> deleteMember(String id) async {
+    final status = memberScript[memberCalls++];
+    if (status == null) return;
+    if (status == 429) {
+      throw const PluralKitRateLimitError(
+        'rate limited',
+        Duration.zero,
+      );
+    }
+    throw PluralKitApiError(status, 'err');
+  }
+
+  @override
+  Future<void> deleteSwitch(String switchId) async {
+    final status = switchScript[switchCalls++];
+    if (status == null) return;
+    if (status == 429) {
+      throw const PluralKitRateLimitError(
+        'rate limited',
+        Duration.zero,
+      );
+    }
+    throw PluralKitApiError(status, 'err');
+  }
+
+  // -- unused stubs ----------------------------------------------------------
+  @override
+  Future<PKMember> createMember(Map<String, dynamic> data) =>
+      throw UnimplementedError();
+  @override
+  Future<PKMember> updateMember(String id, Map<String, dynamic> data) =>
+      throw UnimplementedError();
+  @override
+  Future<PKSwitch> createSwitch(List<String> memberIds,
+          {DateTime? timestamp}) =>
+      throw UnimplementedError();
+  @override
+  Future<PKSwitch> updateSwitch(String switchId,
+          {required DateTime timestamp}) =>
+      throw UnimplementedError();
+  @override
+  Future<PKSwitch> updateSwitchMembers(
+          String switchId, List<String> memberIds) =>
+      throw UnimplementedError();
+  @override
+  Future<PKSystem> getSystem() => throw UnimplementedError();
+  @override
+  Future<List<PKMember>> getMembers() => throw UnimplementedError();
+  @override
+  Future<List<PKSwitch>> getSwitches({DateTime? before, int limit = 100}) =>
+      throw UnimplementedError();
+  @override
+  Future<List<int>> downloadBytes(String url) => throw UnimplementedError();
+  @override
+  Future<List<PKGroup>> getGroups({bool withMembers = true}) async => const [];
+  @override
+  Future<List<String>> getGroupMembers(String groupRef) async => const [];
+  @override
+  void dispose() {}
+}
+
+void _registerDeletionTests() {
+  group('pushMemberDeletion', () {
+    test('204 success completes normally', () async {
+      final client = _ScriptedDeletionClient(memberScript: [null]);
+      final svc = PkPushService(queue: PkRequestQueue());
+      await svc.pushMemberDeletion('local-1', 'pk123', client);
+      expect(client.memberCalls, 1);
+    });
+
+    test('404 swallowed as success (R4 gated by caller)', () async {
+      final client = _ScriptedDeletionClient(memberScript: [404]);
+      final svc = PkPushService(queue: PkRequestQueue());
+      await svc.pushMemberDeletion('local-1', 'pk123', client);
+      expect(client.memberCalls, 1);
+    });
+
+    test('403 throws PkDeletionForbiddenException', () async {
+      final client = _ScriptedDeletionClient(memberScript: [403]);
+      final svc = PkPushService(queue: PkRequestQueue());
+      await expectLater(
+        svc.pushMemberDeletion('local-1', 'pk123', client),
+        throwsA(isA<PkDeletionForbiddenException>()
+            .having((e) => e.kind, 'kind', PkStaleLinkKind.member)
+            .having((e) => e.localId, 'localId', 'local-1')
+            .having((e) => e.pkId, 'pkId', 'pk123')),
+      );
+    });
+
+    test('429 retried then succeeds', () async {
+      final client = _ScriptedDeletionClient(memberScript: [429, null]);
+      final svc = PkPushService(queue: PkRequestQueue());
+      await svc.pushMemberDeletion('local-1', 'pk123', client);
+      expect(client.memberCalls, 2);
+    });
+  });
+
+  group('pushSwitchDeletion', () {
+    test('204 success completes normally', () async {
+      final client = _ScriptedDeletionClient(switchScript: [null]);
+      final svc = PkPushService(queue: PkRequestQueue());
+      await svc.pushSwitchDeletion('sess-1', 'uuid-1', client);
+      expect(client.switchCalls, 1);
+    });
+
+    test('404 swallowed as success', () async {
+      final client = _ScriptedDeletionClient(switchScript: [404]);
+      final svc = PkPushService(queue: PkRequestQueue());
+      await svc.pushSwitchDeletion('sess-1', 'uuid-1', client);
+      expect(client.switchCalls, 1);
+    });
+
+    test('403 throws PkDeletionForbiddenException with switchRecord kind',
+        () async {
+      final client = _ScriptedDeletionClient(switchScript: [403]);
+      final svc = PkPushService(queue: PkRequestQueue());
+      await expectLater(
+        svc.pushSwitchDeletion('sess-1', 'uuid-1', client),
+        throwsA(isA<PkDeletionForbiddenException>()
+            .having((e) => e.kind, 'kind', PkStaleLinkKind.switchRecord)
+            .having((e) => e.localId, 'localId', 'sess-1')
+            .having((e) => e.pkId, 'pkId', 'uuid-1')),
+      );
+    });
+
+    test('429 retried then succeeds', () async {
+      final client = _ScriptedDeletionClient(switchScript: [429, null]);
+      final svc = PkPushService(queue: PkRequestQueue());
+      await svc.pushSwitchDeletion('sess-1', 'uuid-1', client);
+      expect(client.switchCalls, 2);
+    });
+  });
 }

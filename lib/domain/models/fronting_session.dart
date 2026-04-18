@@ -33,6 +33,10 @@ abstract class FrontingSession with _$FrontingSession {
     SleepQuality? quality,
     @Default(false) bool isHealthKitImport,
     String? pkMemberIdsJson,
+    // Plan 02 (PK deletion push). See Member for rationale.
+    @Default(false) bool isDeleted,
+    int? deleteIntentEpoch,
+    int? deletePushStartedAt,
   }) = _FrontingSession;
 
   bool get isActive => endTime == null;

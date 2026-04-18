@@ -46,6 +46,60 @@ class MembersDao extends DatabaseAccessor<AppDatabase> with _$MembersDaoMixin {
       (update(members)..where((m) => m.id.equals(id))).write(
           const MembersCompanion(isDeleted: Value(true)));
 
+  /// Plan 02: tombstoned members that still carry a PK link and a delete
+  /// intent stamped under some link epoch. Callers must additionally gate
+  /// by `deleteIntentEpoch == state.linkEpoch` at push time (R1) — this
+  /// query surfaces the candidate set only.
+  Future<List<Member>> getDeletedLinkedMembers() => (select(members)
+        ..where((m) =>
+            m.isDeleted.equals(true) &
+            m.pluralkitId.isNotNull() &
+            m.deleteIntentEpoch.isNotNull()))
+      .get();
+
+  /// Plan 02: live local sessions for a member that still point at PK. Used
+  /// by the R5 cascade guard: if any exist when we want to push a member
+  /// DELETE, we skip the member DELETE this pass to keep PK's cascade from
+  /// silently deleting switches Prism still considers live.
+  Future<List<FrontingSession>> _getLiveLinkedSessionsForMember(
+          String memberId) =>
+      (select(attachedDatabase.frontingSessions)
+            ..where((s) =>
+                s.memberId.equals(memberId) &
+                s.isDeleted.equals(false) &
+                s.pluralkitUuid.isNotNull()))
+          .get();
+
+  /// Plan 02 R5 hook — convenience wrapper.
+  Future<bool> hasLiveLinkedSessionsForMember(String memberId) async {
+    final rows = await _getLiveLinkedSessionsForMember(memberId);
+    return rows.isNotEmpty;
+  }
+
+  /// Plan 02 R3: clear the PK link on a tombstone (row stays `is_deleted = 1`).
+  /// Bypasses the `is_deleted = false` filter that exists on most writers so
+  /// the cleanup runs after the tombstone was written. Callers should route
+  /// via the repository's `clearPluralKitLink` so a CRDT op is also emitted.
+  Future<void> clearPluralKitLinkRaw(String id) =>
+      (update(members)..where((m) => m.id.equals(id))).write(
+          const MembersCompanion(
+            pluralkitId: Value(null),
+            pluralkitUuid: Value(null),
+          ));
+
+  /// Plan 02 R1: stamp delete intent on a member tombstone. Called in the
+  /// same transaction as `softDeleteMember` by the repository.
+  Future<void> stampDeleteIntent(String id, int epoch) =>
+      (update(members)..where((m) => m.id.equals(id))).write(
+          MembersCompanion(deleteIntentEpoch: Value(epoch)));
+
+  /// Plan 02 R6: stamp the cross-device coordination timestamp. Callers
+  /// should route this through `syncRecordUpdate` as well so other devices
+  /// see it. The DAO-level write is the local half.
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
+      (update(members)..where((m) => m.id.equals(id))).write(
+          MembersCompanion(deletePushStartedAt: Value(timestampMs)));
+
   Future<List<Member>> getMembersByIds(List<String> ids) =>
       (select(members)..where((m) => m.id.isIn(ids))).get();
 

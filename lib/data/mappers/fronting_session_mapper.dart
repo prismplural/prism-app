@@ -48,6 +48,9 @@ class FrontingSessionMapper {
           : null,
       isHealthKitImport: row.isHealthKitImport,
       pkMemberIdsJson: row.pkMemberIdsJson,
+      isDeleted: row.isDeleted,
+      deleteIntentEpoch: row.deleteIntentEpoch,
+      deletePushStartedAt: row.deletePushStartedAt,
     );
   }
 
@@ -65,6 +68,9 @@ class FrontingSessionMapper {
       quality: Value(model.quality?.index),
       isHealthKitImport: Value(model.isHealthKitImport),
       pkMemberIdsJson: Value(model.pkMemberIdsJson),
+      isDeleted: Value(model.isDeleted),
+      deleteIntentEpoch: Value(model.deleteIntentEpoch),
+      deletePushStartedAt: Value(model.deletePushStartedAt),
     );
   }
 }

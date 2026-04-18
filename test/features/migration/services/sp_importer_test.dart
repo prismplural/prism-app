@@ -102,6 +102,13 @@ class _FakeMemberRepository implements MemberRepository {
         (m) => m?.id == id,
         orElse: () => null,
       ));
+
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 class _FakeSessionRepository implements FrontingSessionRepository {
@@ -217,6 +224,14 @@ class _FakeSessionRepository implements FrontingSessionRepository {
   @override
   Stream<domain.FrontingSession?> watchSessionById(String id) =>
       Stream.value(null);
+
+  @override
+  Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
+      const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 class _FakeConversationRepository implements ConversationRepository {

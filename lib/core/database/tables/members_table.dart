@@ -35,6 +35,17 @@ class Members extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 
+  // -- Plan 02 (PK deletion push) --
+  //
+  // R1: Link epoch stamped at delete time. Local-only (not synced). Compared
+  // against `pluralkit_sync_state.link_epoch` at push time; a mismatch aborts
+  // the PK DELETE (tombstone was made under a prior link / disconnected).
+  IntColumn get deleteIntentEpoch => integer().nullable()();
+  // R6: Cross-device coordination timestamp (ms since epoch, synced). First
+  // device that takes ownership of pushing the DELETE stamps this; other
+  // devices skip while it's fresh (< 10 min) and take over once stale.
+  IntColumn get deletePushStartedAt => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
