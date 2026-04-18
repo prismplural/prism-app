@@ -181,28 +181,35 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      step.localizedTitle(context),
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineLarge
-                          ?.copyWith(
-                            fontSize: 28,
-                            color: isDark
-                                ? AppColors.warmWhite
-                                : AppColors.warmBlack,
-                          ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        step.localizedTitle(context),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineLarge
+                            ?.copyWith(
+                              fontSize: 28,
+                              color: isDark
+                                  ? AppColors.warmWhite
+                                  : AppColors.warmBlack,
+                            ),
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      step.localizedSubtitle(context),
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: isDark
-                            ? AppColors.mutedTextDark
-                            : AppColors.mutedTextLight,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Text(
+                        step.localizedSubtitle(context),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: isDark
+                              ? AppColors.mutedTextDark
+                              : AppColors.mutedTextLight,
+                        ),
                       ),
-                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
                   ],
