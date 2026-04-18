@@ -1,7 +1,8 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/app_database.dart' hide Member;
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
@@ -140,6 +141,18 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Push a single linked member's edits to PK. No-op when disconnected,
+  /// mid-mapping, when the sync direction is pull-only, or when the member
+  /// isn't linked. Safe to call from UI listeners — errors are swallowed.
+  Future<void> pushMemberUpdate(Member member) async {
+    if (!state.canAutoSync) return;
+    if (!ref.read(pkSyncDirectionProvider).pushEnabled) return;
+    if (member.pluralkitId == null || member.pluralkitId!.isEmpty) return;
+    try {
+      await _service.pushMemberUpdate(member);
+    } catch (_) {}
   }
 
   Future<PkSyncSummary?> syncRecentData({
