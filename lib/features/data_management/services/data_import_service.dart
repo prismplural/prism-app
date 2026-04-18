@@ -207,10 +207,15 @@ class DataImportService {
   final FriendsRepository friendsRepository;
   final Future<Directory> Function() _appSupportDirectoryProvider;
 
+  static final _uuidRegex = RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+  );
+
   /// Resolve raw file bytes to a JSON string and optional media blobs.
   ///
   /// PRISM3 encrypted files return both the JSON and any embedded media blobs.
-  /// Plain-text JSON files (e.g. Simply Plural exports) return empty mediaBlobs.
+  /// Third-party JSON files (e.g. Simply Plural exports) return empty mediaBlobs.
+  /// Unencrypted Prism backups are rejected — all Prism backups must be encrypted.
   static ({String json, List<({String mediaId, Uint8List blob})> mediaBlobs})
   resolveBytes(Uint8List bytes, {String? password}) {
     if (ExportCrypto.isEncrypted(bytes)) {
@@ -220,9 +225,46 @@ class DataImportService {
         );
       }
       final result = ExportCrypto.decrypt(bytes, password);
+      _validateMediaManifest(result.json, result.mediaBlobs);
       return (json: result.json, mediaBlobs: result.mediaBlobs);
     }
-    return (json: utf8.decode(bytes), mediaBlobs: const []);
+    final String raw;
+    try {
+      raw = utf8.decode(bytes);
+    } catch (_) {
+      throw const FormatException('File is not a valid export');
+    }
+    // Unencrypted Prism backups are not accepted — re-export from the app.
+    if (raw.contains('"formatVersion"')) {
+      throw const FormatException('unencrypted-prism-backup');
+    }
+    return (json: raw, mediaBlobs: const []);
+  }
+
+  /// Validate that every outer media blob has an ID present in the authenticated
+  /// JSON manifest (mediaAttachments array). Checks both mediaId and thumbnailMediaId.
+  static void _validateMediaManifest(
+    String json,
+    List<({String mediaId, Uint8List blob})> blobs,
+  ) {
+    if (blobs.isEmpty) return;
+    final decoded = jsonDecode(json) as Map<String, dynamic>;
+    final attachments = (decoded['mediaAttachments'] as List<dynamic>? ?? [])
+        .cast<Map<String, dynamic>>();
+    final allowed = <String>{};
+    for (final a in attachments) {
+      final id = a['mediaId'] as String? ?? '';
+      final tid = a['thumbnailMediaId'] as String? ?? '';
+      if (id.isNotEmpty) allowed.add(id);
+      if (tid.isNotEmpty) allowed.add(tid);
+    }
+    for (final entry in blobs) {
+      if (!allowed.contains(entry.mediaId)) {
+        throw const FormatException(
+          'Backup file is corrupted or cannot be verified',
+        );
+      }
+    }
   }
 
   /// Recognized format versions that this service can import.
@@ -288,7 +330,17 @@ class DataImportService {
       );
     }
 
-    final result = await db.transaction(() async {
+    // Write media blobs to temp files BEFORE the DB transaction so a failed
+    // transaction doesn't leave metadata rows pointing at missing .enc files.
+    Directory? mediaDir;
+    if (mediaBlobs.isNotEmpty) {
+      mediaDir = await _mediaDirectory();
+      await _writeMediaToTemp(mediaBlobs, mediaDir);
+    }
+
+    final ImportResult result;
+    try {
+      result = await db.transaction(() async {
       // 1. Import members (first pass: create)
       var membersCreated = 0;
       final existingMembers = await memberRepository.getAllMembers();
@@ -948,26 +1000,58 @@ class DataImportService {
         friendsCreated: friendsCreated,
         mediaAttachmentsCreated: mediaAttachmentsCreated,
       );
-    });
-
-    // Write media blobs to local encrypted cache so they are available
-    // immediately without downloading from the relay.
-    if (mediaBlobs.isNotEmpty) {
-      await _cacheMediaBlobs(mediaBlobs);
+      });
+    } catch (e) {
+      // Transaction failed — delete temp media files to avoid orphans
+      if (mediaDir != null) await _cleanupTempMedia(mediaBlobs, mediaDir);
+      rethrow;
     }
+
+    // Atomically rename temp media files to final paths after DB commit
+    if (mediaDir != null) await _finalizeMedia(mediaBlobs, mediaDir);
 
     return result;
   }
 
-  Future<void> _cacheMediaBlobs(
-    List<({String mediaId, Uint8List blob})> blobs,
-  ) async {
+  Future<Directory> _mediaDirectory() async {
     final appSupport = await _appSupportDirectoryProvider();
-    final mediaDir = Directory('${appSupport.path}/prism_media');
-    await mediaDir.create(recursive: true);
+    final dir = Directory('${appSupport.path}/prism_media');
+    await dir.create(recursive: true);
+    return dir;
+  }
+
+  Future<void> _writeMediaToTemp(
+    List<({String mediaId, Uint8List blob})> blobs,
+    Directory mediaDir,
+  ) async {
     for (final entry in blobs) {
-      final file = File('${mediaDir.path}/${entry.mediaId}.enc');
-      await file.writeAsBytes(entry.blob);
+      if (!_uuidRegex.hasMatch(entry.mediaId)) {
+        throw FormatException('Invalid media ID: ${entry.mediaId}');
+      }
+      final tmp = File('${mediaDir.path}/${entry.mediaId}.enc.tmp');
+      await tmp.writeAsBytes(entry.blob);
+    }
+  }
+
+  Future<void> _finalizeMedia(
+    List<({String mediaId, Uint8List blob})> blobs,
+    Directory mediaDir,
+  ) async {
+    for (final entry in blobs) {
+      final tmp = File('${mediaDir.path}/${entry.mediaId}.enc.tmp');
+      await tmp.rename('${mediaDir.path}/${entry.mediaId}.enc');
+    }
+  }
+
+  Future<void> _cleanupTempMedia(
+    List<({String mediaId, Uint8List blob})> blobs,
+    Directory mediaDir,
+  ) async {
+    for (final entry in blobs) {
+      try {
+        final tmp = File('${mediaDir.path}/${entry.mediaId}.enc.tmp');
+        if (await tmp.exists()) await tmp.delete();
+      } catch (_) {}
     }
   }
 }
