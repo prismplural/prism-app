@@ -3408,11 +3408,8 @@ class AppLocalizationsEs extends AppLocalizations {
       'Tus palabras, tus colores, tus funciones. Prism se adapta a cómo funciona tu sistema.';
 
   @override
-  String get onboardingAddMembersSkylarsDefaults => 'Defaults de Skylar';
-
-  @override
   String get onboardingAddMembersNoMembers =>
-      'Aún no hay integrantes.\nToca «Agregar integrante» o usa los predeterminados.';
+      'Aún no hay integrantes.\nToca «Agregar integrante» para empezar.';
 
   @override
   String get onboardingAddMembersRemoveMember => 'Eliminar integrante';

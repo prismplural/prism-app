@@ -16,26 +16,6 @@ import '../../helpers/fake_repositories.dart';
 void main() {
   group('OnboardingNotifier', () {
     test(
-      'addDefaultMembers persists members through the member repository',
-      () async {
-        final memberRepository = FakeMemberRepository();
-        final container = ProviderContainer(
-          overrides: [
-            memberRepositoryProvider.overrideWithValue(memberRepository),
-          ],
-        );
-        addTearDown(container.dispose);
-
-        await container.read(onboardingProvider.notifier).addDefaultMembers();
-
-        final members = await memberRepository.getAllMembers();
-        expect(members, hasLength(8));
-        expect(members.first.name, 'Zari');
-        expect(members.last.name, 'Flux');
-      },
-    );
-
-    test(
       'createMember and deleteMember delegate to the persisted source of truth',
       () async {
         final memberRepository = FakeMemberRepository();

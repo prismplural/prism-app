@@ -4543,11 +4543,7 @@
   "@onboardingWelcomeBuiltForYouDescription": {
     "description": "Feature row description in welcome step"
   },
-  "onboardingAddMembersSkylarsDefaults": "Skylar's Defaults",
-  "@onboardingAddMembersSkylarsDefaults": {
-    "description": "Button label to load default members in add members step"
-  },
-  "onboardingAddMembersNoMembers": "No members yet.\nTap \"Add Member\" or use the defaults.",
+  "onboardingAddMembersNoMembers": "No members yet.\nTap \"Add Member\" to get started.",
   "@onboardingAddMembersNoMembers": {
     "description": "Empty state text in add members step"
   },

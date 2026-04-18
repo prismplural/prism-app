@@ -203,18 +203,6 @@ class OnboardingState {
 }
 
 class OnboardingNotifier extends Notifier<OnboardingState> {
-  static const _defaultMembers =
-      <({String name, String pronouns, String emoji})>[
-        (name: 'Zari', pronouns: 'they/she', emoji: '\u2728'),
-        (name: 'Ethan', pronouns: 'he/him', emoji: '\u26AB\uFE0F'),
-        (name: 'Aimee', pronouns: 'she/her', emoji: '\u{1F31F}'),
-        (name: 'Melanie', pronouns: 'she/her', emoji: '\u{1F496}'),
-        (name: 'Christopher', pronouns: 'he/him', emoji: '\u26D3\uFE0F'),
-        (name: 'Raine', pronouns: 'she/her', emoji: '\u{1F33A}'),
-        (name: 'Aria', pronouns: 'she/her', emoji: '\u{1F48E}'),
-        (name: 'Flux', pronouns: 'it/its', emoji: '\u{1F300}'),
-      ];
-
   @override
   OnboardingState build() => const OnboardingState();
 
@@ -434,26 +422,6 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       importedDataCounts: counts,
       currentStep: OnboardingStep.importedDataReady,
     );
-  }
-
-  Future<void> addDefaultMembers() async {
-    try {
-      final notifier = ref.read(membersNotifierProvider.notifier);
-      for (final member in _defaultMembers) {
-        await notifier.createMember(
-          name: member.name,
-          pronouns: member.pronouns,
-          emoji: member.emoji,
-        );
-      }
-    } catch (e, st) {
-      ErrorReportingService.instance.report(
-        'Failed to add default members during onboarding: $e',
-        severity: ErrorSeverity.error,
-        stackTrace: st,
-      );
-      rethrow;
-    }
   }
 
   Future<void> createMember({
