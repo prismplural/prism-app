@@ -2024,4 +2024,43 @@ class PluralKitSyncService {
       client.dispose();
     }
   }
+
+  /// Lightweight poll: GET /systems/@me/fronters and only trigger a full
+  /// `syncRecentData` ingest when the current PK switch id isn't already
+  /// stored on any local session. Designed for periodic foreground polling
+  /// — honors rate limits via the client's request queue and no-ops when
+  /// auto-sync isn't ready.
+  ///
+  /// Returns true when the full ingest path ran (switch was new), false
+  /// otherwise. Errors are swallowed with a debugPrint.
+  Future<bool> pollFrontersOnly() async {
+    if (!_state.canAutoSync) return false;
+    final client = await _buildClient();
+    if (client == null) return false;
+
+    try {
+      final PKSwitch? current = await client.getCurrentFronters();
+      if (current == null) return false;
+
+      // If we've already ingested this switch, skip the heavier path.
+      final sessions = await _frontingSessionRepository.getAllSessions();
+      final seen = sessions.any((s) => s.pluralkitUuid == current.id);
+      if (seen) return false;
+
+      // Fall through to the full reconcile — it already handles dedup,
+      // UUID adoption, and the open-switch close-out. Pull-only direction
+      // keeps this tick polite; the user's configured direction still
+      // governs pushes elsewhere.
+      await syncRecentData(
+        isManual: false,
+        direction: PkSyncDirection.pullOnly,
+      );
+      return true;
+    } catch (e) {
+      debugPrint('[PK] pollFrontersOnly failed: $e');
+      return false;
+    } finally {
+      client.dispose();
+    }
+  }
 }

@@ -188,6 +188,17 @@ class PluralKitClient {
         .toList();
   }
 
+  /// GET /systems/@me/fronters — fetch the current front.
+  ///
+  /// Returns the current switch (id, timestamp, fronting members) or null
+  /// when the system has no switches yet (PK returns 204). One cheap request
+  /// — intended for periodic foreground polling.
+  Future<PKSwitch?> getCurrentFronters() async {
+    final json = await _get('$_baseUrl/systems/@me/fronters');
+    if (json == null) return null;
+    return PKSwitch.fromJson(json as Map<String, dynamic>);
+  }
+
   /// GET /systems/@me/groups — fetch all groups of the authenticated system.
   ///
   /// When [withMembers] is true, PK inlines the members list on each group
@@ -198,9 +209,7 @@ class PluralKitClient {
     final uri = Uri.parse('$_baseUrl/systems/@me/groups').replace(
       queryParameters: withMembers ? {'with_members': 'true'} : null,
     );
-    final response =
-        await _http.get(uri, headers: _headers).timeout(_httpTimeout);
-    final json = _handleResponse(response) as List<dynamic>;
+    final json = await _get(uri.toString()) as List<dynamic>;
     return json
         .map((e) => PKGroup.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -212,11 +221,8 @@ class PluralKitClient {
   /// `getGroups(withMembers: true)`. PK returns a list of member objects (or
   /// string UUIDs); we extract UUIDs either way.
   Future<List<String>> getGroupMembers(String groupRef) async {
-    final response = await _http.get(
-      Uri.parse('$_baseUrl/groups/$groupRef/members'),
-      headers: _headers,
-    ).timeout(_httpTimeout);
-    final json = _handleResponse(response) as List<dynamic>;
+    final json =
+        await _get('$_baseUrl/groups/$groupRef/members') as List<dynamic>;
     final out = <String>[];
     for (final entry in json) {
       if (entry is String) {
