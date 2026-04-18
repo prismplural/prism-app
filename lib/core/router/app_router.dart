@@ -374,13 +374,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'debug',
                     redirect: (context, state) =>
-                        kDebugMode ? null : AppRoutePaths.settings,
+                        !kReleaseMode ? null : AppRoutePaths.settings,
                     builder: (context, state) => const DebugScreen(),
                   ),
                   GoRoute(
                     path: 'component-gallery',
                     redirect: (context, state) =>
-                        kDebugMode ? null : AppRoutePaths.settings,
+                        !kReleaseMode ? null : AppRoutePaths.settings,
                     builder: (context, state) => const ComponentGalleryScreen(),
                   ),
                   GoRoute(
