@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:intl/intl.dart';
@@ -252,7 +253,9 @@ class DataExportService {
     final cacheDir = await _cacheDirectoryProvider();
     final dateStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
     final file = File('${cacheDir.path}/Prism-Export-$dateStr.prism');
-    final encrypted = ExportCrypto.encrypt(jsonStr, mediaBlobs, password);
+    final encrypted = await Isolate.run(
+      () => ExportCrypto.encrypt(jsonStr, mediaBlobs, password),
+    );
     await file.writeAsBytes(encrypted);
     return file;
   }

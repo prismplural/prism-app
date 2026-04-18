@@ -3520,6 +3520,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get onboardingImportUnencryptedBackup =>
+      'This backup isn\'t encrypted. Re-export from the app to get a secure .prism file.';
+
+  @override
   String get onboardingPrismExportHowToExport => 'How to export from Prism:';
 
   @override
@@ -4910,6 +4914,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String dataManagementDecryptionFailed(String error) {
     return 'Decryption failed: $error';
   }
+
+  @override
+  String get dataManagementUnencryptedBackup =>
+      'This backup isn\'t encrypted. Re-export from the app to get a secure .prism file.';
 
   @override
   String get dataManagementPasswordEmptyImport => 'Password cannot be empty';

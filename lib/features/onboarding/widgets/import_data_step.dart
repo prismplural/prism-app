@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -466,7 +467,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
 // Prism export import flow
 // ---------------------------------------------------------------------------
 
-enum _PrismExportStep { idle, password, preview, importing, error }
+enum _PrismExportStep { idle, password, decrypting, preview, importing, error }
 
 class _PrismExportImportFlow extends ConsumerStatefulWidget {
   const _PrismExportImportFlow({super.key, required this.onBack});
@@ -549,21 +550,24 @@ class _PrismExportImportFlowState
     }
   }
 
-  void _unlockFile() {
+  Future<void> _unlockFile() async {
     final password = _passwordController.text;
     if (password.isEmpty) {
       setState(() => _passwordError = context.l10n.onboardingImportPasswordEmpty);
       return;
     }
-
+    setState(() {
+      _step = _PrismExportStep.decrypting;
+      _passwordError = null;
+    });
+    final bytes = _fileBytes!;
+    final pass = password;
     try {
-      final resolved = DataImportService.resolveBytes(
-        _fileBytes!,
-        password: password,
+      final resolved = await Isolate.run(
+        () => DataImportService.resolveBytes(bytes, password: pass),
       );
       final service = ref.read(dataImportServiceProvider);
       final preview = service.parsePreview(resolved.json);
-
       if (!mounted) return;
       setState(() {
         _step = _PrismExportStep.preview;
@@ -572,13 +576,22 @@ class _PrismExportImportFlowState
         _preview = preview;
         _passwordError = null;
       });
+    } on FormatException catch (e) {
+      if (!mounted) return;
+      final msg = e.message;
+      setState(() {
+        _step = _PrismExportStep.password;
+        _passwordError = msg == 'unencrypted-prism-backup'
+            ? context.l10n.onboardingImportUnencryptedBackup
+            : msg.contains('mac check') || msg.contains('wrong')
+                ? context.l10n.onboardingImportIncorrectPassword
+                : context.l10n.onboardingImportDecryptionFailed(msg);
+      });
     } catch (e) {
       if (!mounted) return;
-      final message = e.toString();
       setState(() {
-        _passwordError = message.contains('mac check')
-            ? context.l10n.onboardingImportIncorrectPassword
-            : context.l10n.onboardingImportDecryptionFailed(message);
+        _step = _PrismExportStep.password;
+        _passwordError = context.l10n.onboardingImportDecryptionFailed(e.toString());
       });
     }
   }
@@ -599,6 +612,12 @@ class _PrismExportImportFlowState
       );
       if (!mounted) return;
 
+      setState(() {
+        _fileBytes = null;
+        _jsonContent = null;
+        _mediaBlobs = const [];
+        _passwordController.clear();
+      });
       ref
           .read(onboardingProvider.notifier)
           .showImportedDataReady(
@@ -639,7 +658,7 @@ class _PrismExportImportFlowState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_step != _PrismExportStep.importing)
+          if (_step != _PrismExportStep.importing && _step != _PrismExportStep.decrypting)
             Align(
               alignment: Alignment.centerLeft,
               child: _BackLink(onTap: widget.onBack),
@@ -648,6 +667,7 @@ class _PrismExportImportFlowState
           switch (_step) {
             _PrismExportStep.idle => _buildIdle(),
             _PrismExportStep.password => _buildPassword(),
+            _PrismExportStep.decrypting => _buildImporting(),
             _PrismExportStep.preview => _buildPreview(),
             _PrismExportStep.importing => _buildImporting(),
             _PrismExportStep.error => _buildError(),
