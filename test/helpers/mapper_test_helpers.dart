@@ -48,6 +48,7 @@ db.Member makeDbMember({
     pluralkitUuid: pluralkitUuid,
     pluralkitId: pluralkitId,
     markdownEnabled: markdownEnabled,
+    pluralkitSyncIgnored: false,
     isDeleted: false,
   );
 }

@@ -157,6 +157,7 @@ void main() {
         pluralkitUuid: companion.pluralkitUuid.value,
         pluralkitId: companion.pluralkitId.value,
         markdownEnabled: companion.markdownEnabled.value,
+        pluralkitSyncIgnored: false,
         isDeleted: false,
       );
 

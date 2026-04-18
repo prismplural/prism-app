@@ -24,3 +24,4 @@ export 'sharing_requests_table.dart';
 export 'media_attachments_table.dart';
 export 'sp_sync_state_table.dart';
 export 'sp_id_map_table.dart';
+export 'pk_mapping_state_table.dart';

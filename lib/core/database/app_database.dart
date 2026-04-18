@@ -20,6 +20,7 @@ import 'package:prism_plurality/core/database/daos/friends_dao.dart';
 import 'package:prism_plurality/core/database/daos/sharing_requests_dao.dart';
 import 'package:prism_plurality/core/database/daos/media_attachments_dao.dart';
 import 'package:prism_plurality/core/database/daos/sp_import_dao.dart';
+import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/tables/tables.dart';
 
 part 'app_database.g.dart';
@@ -52,6 +53,7 @@ part 'app_database.g.dart';
     MediaAttachments,
     SpSyncStateTable,
     SpIdMapTable,
+    PkMappingState,
   ],
   daos: [
     MembersDao,
@@ -75,13 +77,14 @@ part 'app_database.g.dart';
     SharingRequestsDao,
     MediaAttachmentsDao,
     SpImportDao,
+    PkMappingStateDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 47;
+  int get schemaVersion => 48;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -258,13 +261,95 @@ class AppDatabase extends _$AppDatabase {
           'ON sp_id_map (entity_type)',
         );
       }
+
+      if (from < 48) {
+        // New PK-sync columns on existing tables. All nullable / default
+        // false so existing rows remain valid without a data migration.
+        // Guard each ALTER by table existence — older baseline test stubs
+        // don't include every table.
+        final membersExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'",
+        ).get();
+        if (membersExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE members ADD COLUMN display_name TEXT',
+          );
+          await customStatement(
+            'ALTER TABLE members ADD COLUMN birthday TEXT',
+          );
+          await customStatement(
+            'ALTER TABLE members ADD COLUMN proxy_tags_json TEXT',
+          );
+          await customStatement(
+            'ALTER TABLE members ADD COLUMN pluralkit_sync_ignored '
+            'INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+        final sessionsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='fronting_sessions'",
+        ).get();
+        if (sessionsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE fronting_sessions ADD COLUMN pk_member_ids_json TEXT',
+          );
+        }
+
+        // Resumable mapping-applier state table (see pk_mapping_state_table.dart).
+        // Use Drift's generated DDL so the upgrade matches onCreate exactly and
+        // tracks any future schema changes to the PkMappingState table.
+        final pkMappingStateExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='pk_mapping_state'",
+        ).get();
+        if (pkMappingStateExists.isEmpty) {
+          await migrator.createTable(pkMappingState);
+        }
+
+        // Partial unique indexes — enforce "at most one local row per PK
+        // identifier" without blocking rows that have no PK linkage.
+        if (membersExists.isNotEmpty) {
+          await customStatement(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_uuid '
+            'ON members(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
+          );
+          await customStatement(
+            'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_id '
+            'ON members(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
+          );
+        }
+        if (sessionsExists.isNotEmpty) {
+          await customStatement(
+            'CREATE UNIQUE INDEX IF NOT EXISTS '
+            'idx_fronting_sessions_pluralkit_uuid '
+            'ON fronting_sessions(pluralkit_uuid) '
+            'WHERE pluralkit_uuid IS NOT NULL',
+          );
+        }
+      }
     },
     onCreate: (migrator) async {
       await migrator.createAll();
       await _createCurrentIndexes();
+      await _createPkUniqueIndexes();
       await _createChatMessagesFtsArtifacts();
     },
   );
+
+  Future<void> _createPkUniqueIndexes() async {
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_uuid '
+      'ON members(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_members_pluralkit_id '
+      'ON members(pluralkit_id) WHERE pluralkit_id IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_fronting_sessions_pluralkit_uuid '
+      'ON fronting_sessions(pluralkit_uuid) WHERE pluralkit_uuid IS NOT NULL',
+    );
+  }
 
   Future<void> _createCurrentIndexes() async {
     await customStatement(
@@ -471,4 +556,6 @@ class AppDatabase extends _$AppDatabase {
   RemindersDao get remindersDao => RemindersDao(this);
   @override
   SpImportDao get spImportDao => SpImportDao(this);
+  @override
+  PkMappingStateDao get pkMappingStateDao => PkMappingStateDao(this);
 }

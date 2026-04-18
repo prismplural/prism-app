@@ -25,9 +25,16 @@ class PluralKitAuthError extends PluralKitApiError {
 }
 
 /// 429 Too Many Requests — rate-limited.
+///
+/// [retryAfter], when non-null, is the duration the server asked us to wait
+/// before retrying. Parsed from (in priority order) `Retry-After` (seconds)
+/// or `X-RateLimit-Reset` (unix epoch seconds) response headers.
 class PluralKitRateLimitError extends PluralKitApiError {
+  final Duration? retryAfter;
+
   const PluralKitRateLimitError(
-      [String message = 'Rate limited — please wait and try again'])
+      [String message = 'Rate limited — please wait and try again',
+      this.retryAfter])
       : super(429, message);
 }
 
@@ -59,6 +66,32 @@ class PluralKitClient {
         'User-Agent': 'PrismPlurality/1.0',
       };
 
+  /// Extract a retry delay from 429 response headers, if any. Prefers
+  /// the HTTP standard `Retry-After` header (seconds) and falls back to
+  /// `X-RateLimit-Reset` (unix epoch seconds). Returns null if neither
+  /// is present or parseable.
+  static Duration? _parseRetryAfter(Map<String, String> headers) {
+    // http package lowercases header names.
+    final retryAfter = headers['retry-after'];
+    if (retryAfter != null) {
+      final seconds = int.tryParse(retryAfter.trim());
+      if (seconds != null && seconds >= 0) {
+        return Duration(seconds: seconds);
+      }
+    }
+    final reset = headers['x-ratelimit-reset'];
+    if (reset != null) {
+      final epochSeconds = int.tryParse(reset.trim());
+      if (epochSeconds != null) {
+        final resetAt =
+            DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000, isUtc: true);
+        final delta = resetAt.difference(DateTime.now().toUtc());
+        if (delta > Duration.zero) return delta;
+      }
+    }
+    return null;
+  }
+
   /// Parse response body or throw typed error.
   dynamic _handleResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -69,7 +102,10 @@ class PluralKitClient {
       case 401:
         throw const PluralKitAuthError();
       case 429:
-        throw const PluralKitRateLimitError();
+        throw PluralKitRateLimitError(
+          'Rate limited — please wait and try again',
+          _parseRetryAfter(response.headers),
+        );
       default:
         throw PluralKitApiError(response.statusCode, response.body);
     }

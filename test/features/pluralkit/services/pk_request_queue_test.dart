@@ -43,9 +43,10 @@ void main() {
     await f2;
 
     stopwatch.stop();
-    // The second request should wait at least ~500ms after the first
-    // Use a slightly lower threshold to account for timer imprecision
-    expect(stopwatch.elapsedMilliseconds, greaterThanOrEqualTo(400));
+    // The second request should wait at least ~333ms after the first
+    // (3/s bucket). Use a slightly lower threshold to account for timer
+    // imprecision.
+    expect(stopwatch.elapsedMilliseconds, greaterThanOrEqualTo(280));
   });
 
   // ── Error propagation ─────────────────────────────────────────────────────
@@ -86,6 +87,28 @@ void main() {
     await expectLater(future, throwsA(isA<PluralKitRateLimitError>()));
     // Should attempt 1 initial + 3 retries = 4 total
     expect(attempts, 4);
+  });
+
+  test('rate-limit retry honors server-provided retryAfter', () async {
+    var attempts = 0;
+    final stopwatch = Stopwatch()..start();
+
+    final result = await queue.enqueue(() async {
+      attempts++;
+      if (attempts < 2) {
+        throw const PluralKitRateLimitError(
+          'slow down',
+          Duration(milliseconds: 400),
+        );
+      }
+      return 'ok';
+    });
+
+    stopwatch.stop();
+    expect(result, 'ok');
+    expect(attempts, 2);
+    // Should have waited roughly the server-provided 400ms before retry.
+    expect(stopwatch.elapsedMilliseconds, greaterThanOrEqualTo(350));
   });
 
   // ── Multiple queued requests ──────────────────────────────────────────────

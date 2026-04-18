@@ -411,6 +411,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM media_attachments');
       await db.customStatement('DELETE FROM members');
       await db.customStatement('DELETE FROM plural_kit_sync_state');
+      await db.customStatement('DELETE FROM pk_mapping_state');
       await db.customStatement('DELETE FROM sp_sync_state');
       await db.customStatement('DELETE FROM sp_id_map');
       await db.customStatement('DELETE FROM system_settings');
@@ -477,6 +478,7 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       'friends',
       'members',
       'plural_kit_sync_state',
+      'pk_mapping_state',
       'sp_sync_state',
       'sp_id_map',
       'sync_quarantine',

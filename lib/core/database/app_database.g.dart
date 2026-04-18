@@ -188,6 +188,53 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _displayNameMeta = const VerificationMeta(
+    'displayName',
+  );
+  @override
+  late final GeneratedColumn<String> displayName = GeneratedColumn<String>(
+    'display_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _birthdayMeta = const VerificationMeta(
+    'birthday',
+  );
+  @override
+  late final GeneratedColumn<String> birthday = GeneratedColumn<String>(
+    'birthday',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _proxyTagsJsonMeta = const VerificationMeta(
+    'proxyTagsJson',
+  );
+  @override
+  late final GeneratedColumn<String> proxyTagsJson = GeneratedColumn<String>(
+    'proxy_tags_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pluralkitSyncIgnoredMeta =
+      const VerificationMeta('pluralkitSyncIgnored');
+  @override
+  late final GeneratedColumn<bool> pluralkitSyncIgnored = GeneratedColumn<bool>(
+    'pluralkit_sync_ignored',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pluralkit_sync_ignored" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _markdownEnabledMeta = const VerificationMeta(
     'markdownEnabled',
   );
@@ -236,6 +283,10 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     parentSystemId,
     pluralkitUuid,
     pluralkitId,
+    displayName,
+    birthday,
+    proxyTagsJson,
+    pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
   ];
@@ -371,6 +422,39 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         ),
       );
     }
+    if (data.containsKey('display_name')) {
+      context.handle(
+        _displayNameMeta,
+        displayName.isAcceptableOrUnknown(
+          data['display_name']!,
+          _displayNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('birthday')) {
+      context.handle(
+        _birthdayMeta,
+        birthday.isAcceptableOrUnknown(data['birthday']!, _birthdayMeta),
+      );
+    }
+    if (data.containsKey('proxy_tags_json')) {
+      context.handle(
+        _proxyTagsJsonMeta,
+        proxyTagsJson.isAcceptableOrUnknown(
+          data['proxy_tags_json']!,
+          _proxyTagsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pluralkit_sync_ignored')) {
+      context.handle(
+        _pluralkitSyncIgnoredMeta,
+        pluralkitSyncIgnored.isAcceptableOrUnknown(
+          data['pluralkit_sync_ignored']!,
+          _pluralkitSyncIgnoredMeta,
+        ),
+      );
+    }
     if (data.containsKey('markdown_enabled')) {
       context.handle(
         _markdownEnabledMeta,
@@ -459,6 +543,22 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.string,
         data['${effectivePrefix}pluralkit_id'],
       ),
+      displayName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_name'],
+      ),
+      birthday: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}birthday'],
+      ),
+      proxyTagsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}proxy_tags_json'],
+      ),
+      pluralkitSyncIgnored: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pluralkit_sync_ignored'],
+      )!,
       markdownEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}markdown_enabled'],
@@ -493,6 +593,10 @@ class Member extends DataClass implements Insertable<Member> {
   final String? parentSystemId;
   final String? pluralkitUuid;
   final String? pluralkitId;
+  final String? displayName;
+  final String? birthday;
+  final String? proxyTagsJson;
+  final bool pluralkitSyncIgnored;
   final bool markdownEnabled;
   final bool isDeleted;
   const Member({
@@ -512,6 +616,10 @@ class Member extends DataClass implements Insertable<Member> {
     this.parentSystemId,
     this.pluralkitUuid,
     this.pluralkitId,
+    this.displayName,
+    this.birthday,
+    this.proxyTagsJson,
+    required this.pluralkitSyncIgnored,
     required this.markdownEnabled,
     required this.isDeleted,
   });
@@ -550,6 +658,16 @@ class Member extends DataClass implements Insertable<Member> {
     if (!nullToAbsent || pluralkitId != null) {
       map['pluralkit_id'] = Variable<String>(pluralkitId);
     }
+    if (!nullToAbsent || displayName != null) {
+      map['display_name'] = Variable<String>(displayName);
+    }
+    if (!nullToAbsent || birthday != null) {
+      map['birthday'] = Variable<String>(birthday);
+    }
+    if (!nullToAbsent || proxyTagsJson != null) {
+      map['proxy_tags_json'] = Variable<String>(proxyTagsJson);
+    }
+    map['pluralkit_sync_ignored'] = Variable<bool>(pluralkitSyncIgnored);
     map['markdown_enabled'] = Variable<bool>(markdownEnabled);
     map['is_deleted'] = Variable<bool>(isDeleted);
     return map;
@@ -585,6 +703,16 @@ class Member extends DataClass implements Insertable<Member> {
       pluralkitId: pluralkitId == null && nullToAbsent
           ? const Value.absent()
           : Value(pluralkitId),
+      displayName: displayName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(displayName),
+      birthday: birthday == null && nullToAbsent
+          ? const Value.absent()
+          : Value(birthday),
+      proxyTagsJson: proxyTagsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(proxyTagsJson),
+      pluralkitSyncIgnored: Value(pluralkitSyncIgnored),
       markdownEnabled: Value(markdownEnabled),
       isDeleted: Value(isDeleted),
     );
@@ -612,6 +740,12 @@ class Member extends DataClass implements Insertable<Member> {
       parentSystemId: serializer.fromJson<String?>(json['parentSystemId']),
       pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
       pluralkitId: serializer.fromJson<String?>(json['pluralkitId']),
+      displayName: serializer.fromJson<String?>(json['displayName']),
+      birthday: serializer.fromJson<String?>(json['birthday']),
+      proxyTagsJson: serializer.fromJson<String?>(json['proxyTagsJson']),
+      pluralkitSyncIgnored: serializer.fromJson<bool>(
+        json['pluralkitSyncIgnored'],
+      ),
       markdownEnabled: serializer.fromJson<bool>(json['markdownEnabled']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
     );
@@ -636,6 +770,10 @@ class Member extends DataClass implements Insertable<Member> {
       'parentSystemId': serializer.toJson<String?>(parentSystemId),
       'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
       'pluralkitId': serializer.toJson<String?>(pluralkitId),
+      'displayName': serializer.toJson<String?>(displayName),
+      'birthday': serializer.toJson<String?>(birthday),
+      'proxyTagsJson': serializer.toJson<String?>(proxyTagsJson),
+      'pluralkitSyncIgnored': serializer.toJson<bool>(pluralkitSyncIgnored),
       'markdownEnabled': serializer.toJson<bool>(markdownEnabled),
       'isDeleted': serializer.toJson<bool>(isDeleted),
     };
@@ -658,6 +796,10 @@ class Member extends DataClass implements Insertable<Member> {
     Value<String?> parentSystemId = const Value.absent(),
     Value<String?> pluralkitUuid = const Value.absent(),
     Value<String?> pluralkitId = const Value.absent(),
+    Value<String?> displayName = const Value.absent(),
+    Value<String?> birthday = const Value.absent(),
+    Value<String?> proxyTagsJson = const Value.absent(),
+    bool? pluralkitSyncIgnored,
     bool? markdownEnabled,
     bool? isDeleted,
   }) => Member(
@@ -685,6 +827,12 @@ class Member extends DataClass implements Insertable<Member> {
         ? pluralkitUuid.value
         : this.pluralkitUuid,
     pluralkitId: pluralkitId.present ? pluralkitId.value : this.pluralkitId,
+    displayName: displayName.present ? displayName.value : this.displayName,
+    birthday: birthday.present ? birthday.value : this.birthday,
+    proxyTagsJson: proxyTagsJson.present
+        ? proxyTagsJson.value
+        : this.proxyTagsJson,
+    pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
     markdownEnabled: markdownEnabled ?? this.markdownEnabled,
     isDeleted: isDeleted ?? this.isDeleted,
   );
@@ -720,6 +868,16 @@ class Member extends DataClass implements Insertable<Member> {
       pluralkitId: data.pluralkitId.present
           ? data.pluralkitId.value
           : this.pluralkitId,
+      displayName: data.displayName.present
+          ? data.displayName.value
+          : this.displayName,
+      birthday: data.birthday.present ? data.birthday.value : this.birthday,
+      proxyTagsJson: data.proxyTagsJson.present
+          ? data.proxyTagsJson.value
+          : this.proxyTagsJson,
+      pluralkitSyncIgnored: data.pluralkitSyncIgnored.present
+          ? data.pluralkitSyncIgnored.value
+          : this.pluralkitSyncIgnored,
       markdownEnabled: data.markdownEnabled.present
           ? data.markdownEnabled.value
           : this.markdownEnabled,
@@ -746,6 +904,10 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('parentSystemId: $parentSystemId, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('pluralkitId: $pluralkitId, ')
+          ..write('displayName: $displayName, ')
+          ..write('birthday: $birthday, ')
+          ..write('proxyTagsJson: $proxyTagsJson, ')
+          ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted')
           ..write(')'))
@@ -753,7 +915,7 @@ class Member extends DataClass implements Insertable<Member> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     name,
     pronouns,
@@ -770,9 +932,13 @@ class Member extends DataClass implements Insertable<Member> {
     parentSystemId,
     pluralkitUuid,
     pluralkitId,
+    displayName,
+    birthday,
+    proxyTagsJson,
+    pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -796,6 +962,10 @@ class Member extends DataClass implements Insertable<Member> {
           other.parentSystemId == this.parentSystemId &&
           other.pluralkitUuid == this.pluralkitUuid &&
           other.pluralkitId == this.pluralkitId &&
+          other.displayName == this.displayName &&
+          other.birthday == this.birthday &&
+          other.proxyTagsJson == this.proxyTagsJson &&
+          other.pluralkitSyncIgnored == this.pluralkitSyncIgnored &&
           other.markdownEnabled == this.markdownEnabled &&
           other.isDeleted == this.isDeleted);
 }
@@ -817,6 +987,10 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<String?> parentSystemId;
   final Value<String?> pluralkitUuid;
   final Value<String?> pluralkitId;
+  final Value<String?> displayName;
+  final Value<String?> birthday;
+  final Value<String?> proxyTagsJson;
+  final Value<bool> pluralkitSyncIgnored;
   final Value<bool> markdownEnabled;
   final Value<bool> isDeleted;
   final Value<int> rowid;
@@ -837,6 +1011,10 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.parentSystemId = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
     this.pluralkitId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.birthday = const Value.absent(),
+    this.proxyTagsJson = const Value.absent(),
+    this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -858,6 +1036,10 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.parentSystemId = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
     this.pluralkitId = const Value.absent(),
+    this.displayName = const Value.absent(),
+    this.birthday = const Value.absent(),
+    this.proxyTagsJson = const Value.absent(),
+    this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -881,6 +1063,10 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<String>? parentSystemId,
     Expression<String>? pluralkitUuid,
     Expression<String>? pluralkitId,
+    Expression<String>? displayName,
+    Expression<String>? birthday,
+    Expression<String>? proxyTagsJson,
+    Expression<bool>? pluralkitSyncIgnored,
     Expression<bool>? markdownEnabled,
     Expression<bool>? isDeleted,
     Expression<int>? rowid,
@@ -903,6 +1089,11 @@ class MembersCompanion extends UpdateCompanion<Member> {
       if (parentSystemId != null) 'parent_system_id': parentSystemId,
       if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
       if (pluralkitId != null) 'pluralkit_id': pluralkitId,
+      if (displayName != null) 'display_name': displayName,
+      if (birthday != null) 'birthday': birthday,
+      if (proxyTagsJson != null) 'proxy_tags_json': proxyTagsJson,
+      if (pluralkitSyncIgnored != null)
+        'pluralkit_sync_ignored': pluralkitSyncIgnored,
       if (markdownEnabled != null) 'markdown_enabled': markdownEnabled,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (rowid != null) 'rowid': rowid,
@@ -926,6 +1117,10 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<String?>? parentSystemId,
     Value<String?>? pluralkitUuid,
     Value<String?>? pluralkitId,
+    Value<String?>? displayName,
+    Value<String?>? birthday,
+    Value<String?>? proxyTagsJson,
+    Value<bool>? pluralkitSyncIgnored,
     Value<bool>? markdownEnabled,
     Value<bool>? isDeleted,
     Value<int>? rowid,
@@ -947,6 +1142,10 @@ class MembersCompanion extends UpdateCompanion<Member> {
       parentSystemId: parentSystemId ?? this.parentSystemId,
       pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
       pluralkitId: pluralkitId ?? this.pluralkitId,
+      displayName: displayName ?? this.displayName,
+      birthday: birthday ?? this.birthday,
+      proxyTagsJson: proxyTagsJson ?? this.proxyTagsJson,
+      pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
       markdownEnabled: markdownEnabled ?? this.markdownEnabled,
       isDeleted: isDeleted ?? this.isDeleted,
       rowid: rowid ?? this.rowid,
@@ -1004,6 +1203,20 @@ class MembersCompanion extends UpdateCompanion<Member> {
     if (pluralkitId.present) {
       map['pluralkit_id'] = Variable<String>(pluralkitId.value);
     }
+    if (displayName.present) {
+      map['display_name'] = Variable<String>(displayName.value);
+    }
+    if (birthday.present) {
+      map['birthday'] = Variable<String>(birthday.value);
+    }
+    if (proxyTagsJson.present) {
+      map['proxy_tags_json'] = Variable<String>(proxyTagsJson.value);
+    }
+    if (pluralkitSyncIgnored.present) {
+      map['pluralkit_sync_ignored'] = Variable<bool>(
+        pluralkitSyncIgnored.value,
+      );
+    }
     if (markdownEnabled.present) {
       map['markdown_enabled'] = Variable<bool>(markdownEnabled.value);
     }
@@ -1035,6 +1248,10 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('parentSystemId: $parentSystemId, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('pluralkitId: $pluralkitId, ')
+          ..write('displayName: $displayName, ')
+          ..write('birthday: $birthday, ')
+          ..write('proxyTagsJson: $proxyTagsJson, ')
+          ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('rowid: $rowid')
@@ -1172,6 +1389,17 @@ class $FrontingSessionsTable extends FrontingSessions
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pkMemberIdsJsonMeta = const VerificationMeta(
+    'pkMemberIdsJson',
+  );
+  @override
+  late final GeneratedColumn<String> pkMemberIdsJson = GeneratedColumn<String>(
+    'pk_member_ids_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isDeletedMeta = const VerificationMeta(
     'isDeleted',
   );
@@ -1200,6 +1428,7 @@ class $FrontingSessionsTable extends FrontingSessions
     quality,
     isHealthKitImport,
     pluralkitUuid,
+    pkMemberIdsJson,
     isDeleted,
   ];
   @override
@@ -1293,6 +1522,15 @@ class $FrontingSessionsTable extends FrontingSessions
         ),
       );
     }
+    if (data.containsKey('pk_member_ids_json')) {
+      context.handle(
+        _pkMemberIdsJsonMeta,
+        pkMemberIdsJson.isAcceptableOrUnknown(
+          data['pk_member_ids_json']!,
+          _pkMemberIdsJsonMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_deleted')) {
       context.handle(
         _isDeletedMeta,
@@ -1352,6 +1590,10 @@ class $FrontingSessionsTable extends FrontingSessions
         DriftSqlType.string,
         data['${effectivePrefix}pluralkit_uuid'],
       ),
+      pkMemberIdsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_member_ids_json'],
+      ),
       isDeleted: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
@@ -1377,6 +1619,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   final int? quality;
   final bool isHealthKitImport;
   final String? pluralkitUuid;
+  final String? pkMemberIdsJson;
   final bool isDeleted;
   const FrontingSession({
     required this.id,
@@ -1390,6 +1633,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     this.quality,
     required this.isHealthKitImport,
     this.pluralkitUuid,
+    this.pkMemberIdsJson,
     required this.isDeleted,
   });
   @override
@@ -1417,6 +1661,9 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     map['is_health_kit_import'] = Variable<bool>(isHealthKitImport);
     if (!nullToAbsent || pluralkitUuid != null) {
       map['pluralkit_uuid'] = Variable<String>(pluralkitUuid);
+    }
+    if (!nullToAbsent || pkMemberIdsJson != null) {
+      map['pk_member_ids_json'] = Variable<String>(pkMemberIdsJson);
     }
     map['is_deleted'] = Variable<bool>(isDeleted);
     return map;
@@ -1447,6 +1694,9 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       pluralkitUuid: pluralkitUuid == null && nullToAbsent
           ? const Value.absent()
           : Value(pluralkitUuid),
+      pkMemberIdsJson: pkMemberIdsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkMemberIdsJson),
       isDeleted: Value(isDeleted),
     );
   }
@@ -1468,6 +1718,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       quality: serializer.fromJson<int?>(json['quality']),
       isHealthKitImport: serializer.fromJson<bool>(json['isHealthKitImport']),
       pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
+      pkMemberIdsJson: serializer.fromJson<String?>(json['pkMemberIdsJson']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
     );
   }
@@ -1486,6 +1737,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       'quality': serializer.toJson<int?>(quality),
       'isHealthKitImport': serializer.toJson<bool>(isHealthKitImport),
       'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
+      'pkMemberIdsJson': serializer.toJson<String?>(pkMemberIdsJson),
       'isDeleted': serializer.toJson<bool>(isDeleted),
     };
   }
@@ -1502,6 +1754,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     Value<int?> quality = const Value.absent(),
     bool? isHealthKitImport,
     Value<String?> pluralkitUuid = const Value.absent(),
+    Value<String?> pkMemberIdsJson = const Value.absent(),
     bool? isDeleted,
   }) => FrontingSession(
     id: id ?? this.id,
@@ -1517,6 +1770,9 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     pluralkitUuid: pluralkitUuid.present
         ? pluralkitUuid.value
         : this.pluralkitUuid,
+    pkMemberIdsJson: pkMemberIdsJson.present
+        ? pkMemberIdsJson.value
+        : this.pkMemberIdsJson,
     isDeleted: isDeleted ?? this.isDeleted,
   );
   FrontingSession copyWithCompanion(FrontingSessionsCompanion data) {
@@ -1542,6 +1798,9 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       pluralkitUuid: data.pluralkitUuid.present
           ? data.pluralkitUuid.value
           : this.pluralkitUuid,
+      pkMemberIdsJson: data.pkMemberIdsJson.present
+          ? data.pkMemberIdsJson.value
+          : this.pkMemberIdsJson,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
     );
   }
@@ -1560,6 +1819,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           ..write('quality: $quality, ')
           ..write('isHealthKitImport: $isHealthKitImport, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('pkMemberIdsJson: $pkMemberIdsJson, ')
           ..write('isDeleted: $isDeleted')
           ..write(')'))
         .toString();
@@ -1578,6 +1838,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     quality,
     isHealthKitImport,
     pluralkitUuid,
+    pkMemberIdsJson,
     isDeleted,
   );
   @override
@@ -1595,6 +1856,7 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           other.quality == this.quality &&
           other.isHealthKitImport == this.isHealthKitImport &&
           other.pluralkitUuid == this.pluralkitUuid &&
+          other.pkMemberIdsJson == this.pkMemberIdsJson &&
           other.isDeleted == this.isDeleted);
 }
 
@@ -1610,6 +1872,7 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
   final Value<int?> quality;
   final Value<bool> isHealthKitImport;
   final Value<String?> pluralkitUuid;
+  final Value<String?> pkMemberIdsJson;
   final Value<bool> isDeleted;
   final Value<int> rowid;
   const FrontingSessionsCompanion({
@@ -1624,6 +1887,7 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     this.quality = const Value.absent(),
     this.isHealthKitImport = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
+    this.pkMemberIdsJson = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1639,6 +1903,7 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     this.quality = const Value.absent(),
     this.isHealthKitImport = const Value.absent(),
     this.pluralkitUuid = const Value.absent(),
+    this.pkMemberIdsJson = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -1655,6 +1920,7 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     Expression<int>? quality,
     Expression<bool>? isHealthKitImport,
     Expression<String>? pluralkitUuid,
+    Expression<String>? pkMemberIdsJson,
     Expression<bool>? isDeleted,
     Expression<int>? rowid,
   }) {
@@ -1670,6 +1936,7 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
       if (quality != null) 'quality': quality,
       if (isHealthKitImport != null) 'is_health_kit_import': isHealthKitImport,
       if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
+      if (pkMemberIdsJson != null) 'pk_member_ids_json': pkMemberIdsJson,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1687,6 +1954,7 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     Value<int?>? quality,
     Value<bool>? isHealthKitImport,
     Value<String?>? pluralkitUuid,
+    Value<String?>? pkMemberIdsJson,
     Value<bool>? isDeleted,
     Value<int>? rowid,
   }) {
@@ -1702,6 +1970,7 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
       quality: quality ?? this.quality,
       isHealthKitImport: isHealthKitImport ?? this.isHealthKitImport,
       pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
+      pkMemberIdsJson: pkMemberIdsJson ?? this.pkMemberIdsJson,
       isDeleted: isDeleted ?? this.isDeleted,
       rowid: rowid ?? this.rowid,
     );
@@ -1743,6 +2012,9 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     if (pluralkitUuid.present) {
       map['pluralkit_uuid'] = Variable<String>(pluralkitUuid.value);
     }
+    if (pkMemberIdsJson.present) {
+      map['pk_member_ids_json'] = Variable<String>(pkMemberIdsJson.value);
+    }
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
@@ -1766,6 +2038,7 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
           ..write('quality: $quality, ')
           ..write('isHealthKitImport: $isHealthKitImport, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('pkMemberIdsJson: $pkMemberIdsJson, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -18525,6 +18798,608 @@ class SpIdMapTableCompanion extends UpdateCompanion<SpIdMapRow> {
   }
 }
 
+class $PkMappingStateTable extends PkMappingState
+    with TableInfo<$PkMappingStateTable, PkMappingStateData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PkMappingStateTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _decisionTypeMeta = const VerificationMeta(
+    'decisionType',
+  );
+  @override
+  late final GeneratedColumn<String> decisionType = GeneratedColumn<String>(
+    'decision_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pkMemberIdMeta = const VerificationMeta(
+    'pkMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> pkMemberId = GeneratedColumn<String>(
+    'pk_member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pkMemberUuidMeta = const VerificationMeta(
+    'pkMemberUuid',
+  );
+  @override
+  late final GeneratedColumn<String> pkMemberUuid = GeneratedColumn<String>(
+    'pk_member_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _localMemberIdMeta = const VerificationMeta(
+    'localMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> localMemberId = GeneratedColumn<String>(
+    'local_member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
+  @override
+  late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    decisionType,
+    pkMemberId,
+    pkMemberUuid,
+    localMemberId,
+    status,
+    errorMessage,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pk_mapping_state';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PkMappingStateData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('decision_type')) {
+      context.handle(
+        _decisionTypeMeta,
+        decisionType.isAcceptableOrUnknown(
+          data['decision_type']!,
+          _decisionTypeMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_decisionTypeMeta);
+    }
+    if (data.containsKey('pk_member_id')) {
+      context.handle(
+        _pkMemberIdMeta,
+        pkMemberId.isAcceptableOrUnknown(
+          data['pk_member_id']!,
+          _pkMemberIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pk_member_uuid')) {
+      context.handle(
+        _pkMemberUuidMeta,
+        pkMemberUuid.isAcceptableOrUnknown(
+          data['pk_member_uuid']!,
+          _pkMemberUuidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('local_member_id')) {
+      context.handle(
+        _localMemberIdMeta,
+        localMemberId.isAcceptableOrUnknown(
+          data['local_member_id']!,
+          _localMemberIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('error_message')) {
+      context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
+          _errorMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PkMappingStateData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PkMappingStateData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      decisionType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}decision_type'],
+      )!,
+      pkMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_member_id'],
+      ),
+      pkMemberUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pk_member_uuid'],
+      ),
+      localMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_member_id'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $PkMappingStateTable createAlias(String alias) {
+    return $PkMappingStateTable(attachedDatabase, alias);
+  }
+}
+
+class PkMappingStateData extends DataClass
+    implements Insertable<PkMappingStateData> {
+  /// Deterministic decision ID — stable across retries so the applier can
+  /// resume. Typically derived from the target (e.g. `link:<pkUuid>`).
+  final String id;
+
+  /// One of: `link`, `import`, `push`, `skip`.
+  final String decisionType;
+
+  /// PK short 5-char member ID, if known.
+  final String? pkMemberId;
+
+  /// PK member UUID, if known.
+  final String? pkMemberUuid;
+
+  /// Local Prism member ID, if the decision touches an existing local member.
+  final String? localMemberId;
+
+  /// Lifecycle: `pending` | `applied` | `failed` | `rejected`.
+  final String status;
+
+  /// Populated when `status == 'failed'` so the UI can surface per-item errors.
+  final String? errorMessage;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const PkMappingStateData({
+    required this.id,
+    required this.decisionType,
+    this.pkMemberId,
+    this.pkMemberUuid,
+    this.localMemberId,
+    required this.status,
+    this.errorMessage,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['decision_type'] = Variable<String>(decisionType);
+    if (!nullToAbsent || pkMemberId != null) {
+      map['pk_member_id'] = Variable<String>(pkMemberId);
+    }
+    if (!nullToAbsent || pkMemberUuid != null) {
+      map['pk_member_uuid'] = Variable<String>(pkMemberUuid);
+    }
+    if (!nullToAbsent || localMemberId != null) {
+      map['local_member_id'] = Variable<String>(localMemberId);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || errorMessage != null) {
+      map['error_message'] = Variable<String>(errorMessage);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  PkMappingStateCompanion toCompanion(bool nullToAbsent) {
+    return PkMappingStateCompanion(
+      id: Value(id),
+      decisionType: Value(decisionType),
+      pkMemberId: pkMemberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkMemberId),
+      pkMemberUuid: pkMemberUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pkMemberUuid),
+      localMemberId: localMemberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localMemberId),
+      status: Value(status),
+      errorMessage: errorMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMessage),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory PkMappingStateData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PkMappingStateData(
+      id: serializer.fromJson<String>(json['id']),
+      decisionType: serializer.fromJson<String>(json['decisionType']),
+      pkMemberId: serializer.fromJson<String?>(json['pkMemberId']),
+      pkMemberUuid: serializer.fromJson<String?>(json['pkMemberUuid']),
+      localMemberId: serializer.fromJson<String?>(json['localMemberId']),
+      status: serializer.fromJson<String>(json['status']),
+      errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'decisionType': serializer.toJson<String>(decisionType),
+      'pkMemberId': serializer.toJson<String?>(pkMemberId),
+      'pkMemberUuid': serializer.toJson<String?>(pkMemberUuid),
+      'localMemberId': serializer.toJson<String?>(localMemberId),
+      'status': serializer.toJson<String>(status),
+      'errorMessage': serializer.toJson<String?>(errorMessage),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  PkMappingStateData copyWith({
+    String? id,
+    String? decisionType,
+    Value<String?> pkMemberId = const Value.absent(),
+    Value<String?> pkMemberUuid = const Value.absent(),
+    Value<String?> localMemberId = const Value.absent(),
+    String? status,
+    Value<String?> errorMessage = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => PkMappingStateData(
+    id: id ?? this.id,
+    decisionType: decisionType ?? this.decisionType,
+    pkMemberId: pkMemberId.present ? pkMemberId.value : this.pkMemberId,
+    pkMemberUuid: pkMemberUuid.present ? pkMemberUuid.value : this.pkMemberUuid,
+    localMemberId: localMemberId.present
+        ? localMemberId.value
+        : this.localMemberId,
+    status: status ?? this.status,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  PkMappingStateData copyWithCompanion(PkMappingStateCompanion data) {
+    return PkMappingStateData(
+      id: data.id.present ? data.id.value : this.id,
+      decisionType: data.decisionType.present
+          ? data.decisionType.value
+          : this.decisionType,
+      pkMemberId: data.pkMemberId.present
+          ? data.pkMemberId.value
+          : this.pkMemberId,
+      pkMemberUuid: data.pkMemberUuid.present
+          ? data.pkMemberUuid.value
+          : this.pkMemberUuid,
+      localMemberId: data.localMemberId.present
+          ? data.localMemberId.value
+          : this.localMemberId,
+      status: data.status.present ? data.status.value : this.status,
+      errorMessage: data.errorMessage.present
+          ? data.errorMessage.value
+          : this.errorMessage,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PkMappingStateData(')
+          ..write('id: $id, ')
+          ..write('decisionType: $decisionType, ')
+          ..write('pkMemberId: $pkMemberId, ')
+          ..write('pkMemberUuid: $pkMemberUuid, ')
+          ..write('localMemberId: $localMemberId, ')
+          ..write('status: $status, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    decisionType,
+    pkMemberId,
+    pkMemberUuid,
+    localMemberId,
+    status,
+    errorMessage,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PkMappingStateData &&
+          other.id == this.id &&
+          other.decisionType == this.decisionType &&
+          other.pkMemberId == this.pkMemberId &&
+          other.pkMemberUuid == this.pkMemberUuid &&
+          other.localMemberId == this.localMemberId &&
+          other.status == this.status &&
+          other.errorMessage == this.errorMessage &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PkMappingStateCompanion extends UpdateCompanion<PkMappingStateData> {
+  final Value<String> id;
+  final Value<String> decisionType;
+  final Value<String?> pkMemberId;
+  final Value<String?> pkMemberUuid;
+  final Value<String?> localMemberId;
+  final Value<String> status;
+  final Value<String?> errorMessage;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const PkMappingStateCompanion({
+    this.id = const Value.absent(),
+    this.decisionType = const Value.absent(),
+    this.pkMemberId = const Value.absent(),
+    this.pkMemberUuid = const Value.absent(),
+    this.localMemberId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PkMappingStateCompanion.insert({
+    required String id,
+    required String decisionType,
+    this.pkMemberId = const Value.absent(),
+    this.pkMemberUuid = const Value.absent(),
+    this.localMemberId = const Value.absent(),
+    this.status = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       decisionType = Value(decisionType),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<PkMappingStateData> custom({
+    Expression<String>? id,
+    Expression<String>? decisionType,
+    Expression<String>? pkMemberId,
+    Expression<String>? pkMemberUuid,
+    Expression<String>? localMemberId,
+    Expression<String>? status,
+    Expression<String>? errorMessage,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (decisionType != null) 'decision_type': decisionType,
+      if (pkMemberId != null) 'pk_member_id': pkMemberId,
+      if (pkMemberUuid != null) 'pk_member_uuid': pkMemberUuid,
+      if (localMemberId != null) 'local_member_id': localMemberId,
+      if (status != null) 'status': status,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PkMappingStateCompanion copyWith({
+    Value<String>? id,
+    Value<String>? decisionType,
+    Value<String?>? pkMemberId,
+    Value<String?>? pkMemberUuid,
+    Value<String?>? localMemberId,
+    Value<String>? status,
+    Value<String?>? errorMessage,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return PkMappingStateCompanion(
+      id: id ?? this.id,
+      decisionType: decisionType ?? this.decisionType,
+      pkMemberId: pkMemberId ?? this.pkMemberId,
+      pkMemberUuid: pkMemberUuid ?? this.pkMemberUuid,
+      localMemberId: localMemberId ?? this.localMemberId,
+      status: status ?? this.status,
+      errorMessage: errorMessage ?? this.errorMessage,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (decisionType.present) {
+      map['decision_type'] = Variable<String>(decisionType.value);
+    }
+    if (pkMemberId.present) {
+      map['pk_member_id'] = Variable<String>(pkMemberId.value);
+    }
+    if (pkMemberUuid.present) {
+      map['pk_member_uuid'] = Variable<String>(pkMemberUuid.value);
+    }
+    if (localMemberId.present) {
+      map['local_member_id'] = Variable<String>(localMemberId.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (errorMessage.present) {
+      map['error_message'] = Variable<String>(errorMessage.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PkMappingStateCompanion(')
+          ..write('id: $id, ')
+          ..write('decisionType: $decisionType, ')
+          ..write('pkMemberId: $pkMemberId, ')
+          ..write('pkMemberUuid: $pkMemberUuid, ')
+          ..write('localMemberId: $localMemberId, ')
+          ..write('status: $status, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -18571,6 +19446,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $SpIdMapTableTable spIdMapTable = $SpIdMapTableTable(this);
+  late final $PkMappingStateTable pkMappingState = $PkMappingStateTable(this);
   late final MembersDao membersDao = MembersDao(this as AppDatabase);
   late final FrontingSessionsDao frontingSessionsDao = FrontingSessionsDao(
     this as AppDatabase,
@@ -18616,6 +19492,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this as AppDatabase,
   );
   late final SpImportDao spImportDao = SpImportDao(this as AppDatabase);
+  late final PkMappingStateDao pkMappingStateDao = PkMappingStateDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -18647,6 +19526,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     mediaAttachments,
     spSyncStateTable,
     spIdMapTable,
+    pkMappingState,
   ];
 }
 
@@ -18668,6 +19548,10 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<String?> parentSystemId,
       Value<String?> pluralkitUuid,
       Value<String?> pluralkitId,
+      Value<String?> displayName,
+      Value<String?> birthday,
+      Value<String?> proxyTagsJson,
+      Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
       Value<int> rowid,
@@ -18690,6 +19574,10 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<String?> parentSystemId,
       Value<String?> pluralkitUuid,
       Value<String?> pluralkitId,
+      Value<String?> displayName,
+      Value<String?> birthday,
+      Value<String?> proxyTagsJson,
+      Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
       Value<int> rowid,
@@ -18781,6 +19669,26 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<String> get pluralkitId => $composableBuilder(
     column: $table.pluralkitId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get birthday => $composableBuilder(
+    column: $table.birthday,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get proxyTagsJson => $composableBuilder(
+    column: $table.proxyTagsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get pluralkitSyncIgnored => $composableBuilder(
+    column: $table.pluralkitSyncIgnored,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18884,6 +19792,26 @@ class $$MembersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get birthday => $composableBuilder(
+    column: $table.birthday,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get proxyTagsJson => $composableBuilder(
+    column: $table.proxyTagsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get pluralkitSyncIgnored => $composableBuilder(
+    column: $table.pluralkitSyncIgnored,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get markdownEnabled => $composableBuilder(
     column: $table.markdownEnabled,
     builder: (column) => ColumnOrderings(column),
@@ -18966,6 +19894,24 @@ class $$MembersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get displayName => $composableBuilder(
+    column: $table.displayName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get birthday =>
+      $composableBuilder(column: $table.birthday, builder: (column) => column);
+
+  GeneratedColumn<String> get proxyTagsJson => $composableBuilder(
+    column: $table.proxyTagsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get pluralkitSyncIgnored => $composableBuilder(
+    column: $table.pluralkitSyncIgnored,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get markdownEnabled => $composableBuilder(
     column: $table.markdownEnabled,
     builder: (column) => column,
@@ -19019,6 +19965,10 @@ class $$MembersTableTableManager
                 Value<String?> parentSystemId = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<String?> pluralkitId = const Value.absent(),
+                Value<String?> displayName = const Value.absent(),
+                Value<String?> birthday = const Value.absent(),
+                Value<String?> proxyTagsJson = const Value.absent(),
+                Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -19039,6 +19989,10 @@ class $$MembersTableTableManager
                 parentSystemId: parentSystemId,
                 pluralkitUuid: pluralkitUuid,
                 pluralkitId: pluralkitId,
+                displayName: displayName,
+                birthday: birthday,
+                proxyTagsJson: proxyTagsJson,
+                pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,
                 rowid: rowid,
@@ -19061,6 +20015,10 @@ class $$MembersTableTableManager
                 Value<String?> parentSystemId = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<String?> pluralkitId = const Value.absent(),
+                Value<String?> displayName = const Value.absent(),
+                Value<String?> birthday = const Value.absent(),
+                Value<String?> proxyTagsJson = const Value.absent(),
+                Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -19081,6 +20039,10 @@ class $$MembersTableTableManager
                 parentSystemId: parentSystemId,
                 pluralkitUuid: pluralkitUuid,
                 pluralkitId: pluralkitId,
+                displayName: displayName,
+                birthday: birthday,
+                proxyTagsJson: proxyTagsJson,
+                pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,
                 rowid: rowid,
@@ -19120,6 +20082,7 @@ typedef $$FrontingSessionsTableCreateCompanionBuilder =
       Value<int?> quality,
       Value<bool> isHealthKitImport,
       Value<String?> pluralkitUuid,
+      Value<String?> pkMemberIdsJson,
       Value<bool> isDeleted,
       Value<int> rowid,
     });
@@ -19136,6 +20099,7 @@ typedef $$FrontingSessionsTableUpdateCompanionBuilder =
       Value<int?> quality,
       Value<bool> isHealthKitImport,
       Value<String?> pluralkitUuid,
+      Value<String?> pkMemberIdsJson,
       Value<bool> isDeleted,
       Value<int> rowid,
     });
@@ -19201,6 +20165,11 @@ class $$FrontingSessionsTableFilterComposer
 
   ColumnFilters<String> get pluralkitUuid => $composableBuilder(
     column: $table.pluralkitUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkMemberIdsJson => $composableBuilder(
+    column: $table.pkMemberIdsJson,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -19274,6 +20243,11 @@ class $$FrontingSessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get pkMemberIdsJson => $composableBuilder(
+    column: $table.pkMemberIdsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
@@ -19332,6 +20306,11 @@ class $$FrontingSessionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get pkMemberIdsJson => $composableBuilder(
+    column: $table.pkMemberIdsJson,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 }
@@ -19384,6 +20363,7 @@ class $$FrontingSessionsTableTableManager
                 Value<int?> quality = const Value.absent(),
                 Value<bool> isHealthKitImport = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
+                Value<String?> pkMemberIdsJson = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontingSessionsCompanion(
@@ -19398,6 +20378,7 @@ class $$FrontingSessionsTableTableManager
                 quality: quality,
                 isHealthKitImport: isHealthKitImport,
                 pluralkitUuid: pluralkitUuid,
+                pkMemberIdsJson: pkMemberIdsJson,
                 isDeleted: isDeleted,
                 rowid: rowid,
               ),
@@ -19414,6 +20395,7 @@ class $$FrontingSessionsTableTableManager
                 Value<int?> quality = const Value.absent(),
                 Value<bool> isHealthKitImport = const Value.absent(),
                 Value<String?> pluralkitUuid = const Value.absent(),
+                Value<String?> pkMemberIdsJson = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontingSessionsCompanion.insert(
@@ -19428,6 +20410,7 @@ class $$FrontingSessionsTableTableManager
                 quality: quality,
                 isHealthKitImport: isHealthKitImport,
                 pluralkitUuid: pluralkitUuid,
+                pkMemberIdsJson: pkMemberIdsJson,
                 isDeleted: isDeleted,
                 rowid: rowid,
               ),
@@ -27454,6 +28437,298 @@ typedef $$SpIdMapTableTableProcessedTableManager =
       SpIdMapRow,
       PrefetchHooks Function()
     >;
+typedef $$PkMappingStateTableCreateCompanionBuilder =
+    PkMappingStateCompanion Function({
+      required String id,
+      required String decisionType,
+      Value<String?> pkMemberId,
+      Value<String?> pkMemberUuid,
+      Value<String?> localMemberId,
+      Value<String> status,
+      Value<String?> errorMessage,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$PkMappingStateTableUpdateCompanionBuilder =
+    PkMappingStateCompanion Function({
+      Value<String> id,
+      Value<String> decisionType,
+      Value<String?> pkMemberId,
+      Value<String?> pkMemberUuid,
+      Value<String?> localMemberId,
+      Value<String> status,
+      Value<String?> errorMessage,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$PkMappingStateTableFilterComposer
+    extends Composer<_$AppDatabase, $PkMappingStateTable> {
+  $$PkMappingStateTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get decisionType => $composableBuilder(
+    column: $table.decisionType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkMemberId => $composableBuilder(
+    column: $table.pkMemberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pkMemberUuid => $composableBuilder(
+    column: $table.pkMemberUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localMemberId => $composableBuilder(
+    column: $table.localMemberId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PkMappingStateTableOrderingComposer
+    extends Composer<_$AppDatabase, $PkMappingStateTable> {
+  $$PkMappingStateTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get decisionType => $composableBuilder(
+    column: $table.decisionType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkMemberId => $composableBuilder(
+    column: $table.pkMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pkMemberUuid => $composableBuilder(
+    column: $table.pkMemberUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localMemberId => $composableBuilder(
+    column: $table.localMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PkMappingStateTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PkMappingStateTable> {
+  $$PkMappingStateTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get decisionType => $composableBuilder(
+    column: $table.decisionType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pkMemberId => $composableBuilder(
+    column: $table.pkMemberId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pkMemberUuid => $composableBuilder(
+    column: $table.pkMemberUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get localMemberId => $composableBuilder(
+    column: $table.localMemberId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PkMappingStateTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PkMappingStateTable,
+          PkMappingStateData,
+          $$PkMappingStateTableFilterComposer,
+          $$PkMappingStateTableOrderingComposer,
+          $$PkMappingStateTableAnnotationComposer,
+          $$PkMappingStateTableCreateCompanionBuilder,
+          $$PkMappingStateTableUpdateCompanionBuilder,
+          (
+            PkMappingStateData,
+            BaseReferences<
+              _$AppDatabase,
+              $PkMappingStateTable,
+              PkMappingStateData
+            >,
+          ),
+          PkMappingStateData,
+          PrefetchHooks Function()
+        > {
+  $$PkMappingStateTableTableManager(
+    _$AppDatabase db,
+    $PkMappingStateTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PkMappingStateTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PkMappingStateTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PkMappingStateTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> decisionType = const Value.absent(),
+                Value<String?> pkMemberId = const Value.absent(),
+                Value<String?> pkMemberUuid = const Value.absent(),
+                Value<String?> localMemberId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PkMappingStateCompanion(
+                id: id,
+                decisionType: decisionType,
+                pkMemberId: pkMemberId,
+                pkMemberUuid: pkMemberUuid,
+                localMemberId: localMemberId,
+                status: status,
+                errorMessage: errorMessage,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String decisionType,
+                Value<String?> pkMemberId = const Value.absent(),
+                Value<String?> pkMemberUuid = const Value.absent(),
+                Value<String?> localMemberId = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => PkMappingStateCompanion.insert(
+                id: id,
+                decisionType: decisionType,
+                pkMemberId: pkMemberId,
+                pkMemberUuid: pkMemberUuid,
+                localMemberId: localMemberId,
+                status: status,
+                errorMessage: errorMessage,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PkMappingStateTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PkMappingStateTable,
+      PkMappingStateData,
+      $$PkMappingStateTableFilterComposer,
+      $$PkMappingStateTableOrderingComposer,
+      $$PkMappingStateTableAnnotationComposer,
+      $$PkMappingStateTableCreateCompanionBuilder,
+      $$PkMappingStateTableUpdateCompanionBuilder,
+      (
+        PkMappingStateData,
+        BaseReferences<_$AppDatabase, $PkMappingStateTable, PkMappingStateData>,
+      ),
+      PkMappingStateData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -27513,4 +28788,6 @@ class $AppDatabaseManager {
       $$SpSyncStateTableTableTableManager(_db, _db.spSyncStateTable);
   $$SpIdMapTableTableTableManager get spIdMapTable =>
       $$SpIdMapTableTableTableManager(_db, _db.spIdMapTable);
+  $$PkMappingStateTableTableManager get pkMappingState =>
+      $$PkMappingStateTableTableManager(_db, _db.pkMappingState);
 }

@@ -46,6 +46,7 @@ const _allUserDataTables = [
   'media_attachments',
   'sp_sync_state',
   'sp_id_map',
+  'pk_mapping_state',
 ];
 
 void main() {
@@ -792,6 +793,19 @@ class _ResetHarness {
             spId: Value('sp-member-1'),
             entityType: Value('member'),
             prismId: Value('member-1'),
+          ),
+        );
+
+    // ── PK mapping state ──────────────────────────────────────────────
+    await db.into(db.pkMappingState).insert(
+          PkMappingStateCompanion(
+            id: const Value('link:pk-uuid-1'),
+            decisionType: const Value('link'),
+            pkMemberUuid: const Value('pk-uuid-1'),
+            localMemberId: const Value('member-1'),
+            status: const Value('pending'),
+            createdAt: Value(now),
+            updatedAt: Value(now),
           ),
         );
 
