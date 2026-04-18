@@ -184,6 +184,11 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     final db = ref.read(databaseProvider);
     _log('Resetting chat data');
     await db.transaction(() async {
+      // FTS first — the chat_messages_fts_delete trigger does a full FTS
+      // table scan per deleted row. Wiping FTS up front makes the trigger
+      // a no-op and turns a minutes-long delete into milliseconds on large
+      // chat histories.
+      await db.customStatement('DELETE FROM chat_messages_fts');
       await db.customStatement('DELETE FROM chat_messages');
       await db.customStatement('DELETE FROM conversation_categories');
       await db.customStatement('DELETE FROM conversations');
@@ -394,6 +399,9 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM poll_votes');
       await db.customStatement('DELETE FROM poll_options');
       await db.customStatement('DELETE FROM polls');
+      // FTS first so the chat_messages_fts_delete trigger is a no-op. See
+      // _resetChat for the full explanation.
+      await db.customStatement('DELETE FROM chat_messages_fts');
       await db.customStatement('DELETE FROM chat_messages');
       await db.customStatement('DELETE FROM conversation_categories');
       await db.customStatement('DELETE FROM conversations');
