@@ -91,6 +91,7 @@ class PluralKitSyncService {
   final FlutterSecureStorage _secureStorage;
   final Uuid _uuid;
   final PluralKitClient Function(String token)? _clientFactory;
+  final String? _tokenOverride;
 
   PluralKitSyncState _state = const PluralKitSyncState();
   SyncStateCallback? onStateChanged;
@@ -101,13 +102,15 @@ class PluralKitSyncService {
     required PluralKitSyncDao syncDao,
     FlutterSecureStorage? secureStorage,
     PluralKitClient Function(String token)? clientFactory,
+    String? tokenOverride,
   }) : _memberRepository = memberRepository,
        _frontingSessionRepository = frontingSessionRepository,
        _syncDao = syncDao,
        _secureStorage =
            secureStorage ?? storage_config.secureStorage,
        _uuid = const Uuid(),
-       _clientFactory = clientFactory;
+       _clientFactory = clientFactory,
+       _tokenOverride = tokenOverride;
 
   PluralKitSyncState get state => _state;
 
@@ -118,7 +121,9 @@ class PluralKitSyncService {
 
   // -- helpers --------------------------------------------------------------
 
-  Future<String?> _getToken() => _secureStorage.read(key: _pkTokenKey);
+  Future<String?> _getToken() => _tokenOverride != null
+      ? Future.value(_tokenOverride)
+      : _secureStorage.read(key: _pkTokenKey);
 
   PluralKitClient _makeClient(String token) =>
       _clientFactory != null
