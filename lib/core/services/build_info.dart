@@ -49,4 +49,14 @@ class BuildInfo {
 
   /// True if the build was not wrapped by `build.sh` (all fields default).
   static bool get isLocalDev => gitDescribe == 'dev';
+
+  /// Optional beta relay registration token baked into the binary at build
+  /// time. Used to pre-fill the registration token field during sync setup
+  /// so TestFlight/beta testers don't have to type it by hand. Empty when
+  /// unset — the token itself is never committed; it's injected via
+  /// `--dart-define=PRISM_BETA_REGISTRATION_TOKEN=…` from a build wrapper
+  /// that reads the value from an environment file outside this repo.
+  static const String betaRegistrationToken = String.fromEnvironment(
+    'PRISM_BETA_REGISTRATION_TOKEN',
+  );
 }

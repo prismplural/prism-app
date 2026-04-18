@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/first_device_admission_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
@@ -66,7 +67,12 @@ class SyncSetupState {
 
 class SyncSetupNotifier extends Notifier<SyncSetupState> {
   @override
-  SyncSetupState build() => const SyncSetupState();
+  SyncSetupState build() {
+    const bakedToken = BuildInfo.betaRegistrationToken;
+    return SyncSetupState(
+      registrationToken: bakedToken.isEmpty ? null : bakedToken,
+    );
+  }
 
   void setRelayUrl(String url) {
     state = state.copyWith(relayUrl: url);
