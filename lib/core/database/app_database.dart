@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 52;
+  int get schemaVersion => 53;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -435,6 +435,14 @@ class AppDatabase extends _$AppDatabase {
             'delete_push_started_at INTEGER',
           );
         }
+      }
+
+      if (from < 53) {
+        // Plan 04: PluralKit system profile disclosure — adds synced
+        // `system_tag` column to mirror the PK system `tag` field.
+        await customStatement(
+          'ALTER TABLE system_settings ADD COLUMN system_tag TEXT',
+        );
       }
     },
     onCreate: (migrator) async {

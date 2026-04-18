@@ -1767,5 +1767,15 @@
   "onboardingSyncNoDataToRestore": "Sin datos previos para restaurar — empezando desde cero.",
   "onboardingSyncStillPullingBackground": "Aún descargando actualizaciones en segundo plano. Puedes continuar.",
   "onboardingSyncPhaseAnnouncement": "Ahora: {phase}",
-  "onboardingSyncRestoredSummary": "Se restauraron {members} miembros y {messages} mensajes."
+  "onboardingSyncRestoredSummary": "Se restauraron {members} miembros y {messages} mensajes.",
+
+  "pkProfileDisclosureTitle": "¿Importar tu perfil de sistema desde PluralKit?",
+  "pkProfileDisclosureSubtitle": "Solo copiaremos lo que marques.",
+  "pkProfileDisclosureImport": "Importar selección",
+  "pkProfileDisclosureSkip": "Omitir",
+  "pkProfileFieldName": "Nombre del sistema",
+  "pkProfileFieldDescription": "Descripción",
+  "pkProfileFieldTag": "Etiqueta del sistema",
+  "pkProfileFieldAvatar": "Avatar del sistema",
+  "pkProfileFieldOverwriteHint": "Prism ya tiene un valor — marca para sobrescribir."
 }

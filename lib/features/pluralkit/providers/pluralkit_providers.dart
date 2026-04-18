@@ -125,6 +125,14 @@ class PluralKitSyncNotifier extends Notifier<PluralKitSyncState> {
     PkSyncDirection direction = PkSyncDirection.pullOnly,
   }) =>
       _service.syncRecentData(isManual: isManual, direction: direction);
+
+  Future<PKSystem?> fetchSystemProfile() => _service.fetchSystemProfile();
+
+  Future<void> adoptSystemProfile({
+    required PKSystem pk,
+    required Set<PkProfileField> accepted,
+  }) =>
+      _service.adoptSystemProfile(pk: pk, accepted: accepted);
 }
 
 final pluralKitSyncProvider =

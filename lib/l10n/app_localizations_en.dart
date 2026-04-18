@@ -6187,4 +6187,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String onboardingSyncRestoredSummary(int members, int messages) {
     return 'Restored $members members and $messages messages.';
   }
+
+  @override
+  String get pkProfileDisclosureTitle =>
+      'Import your system profile from PluralKit?';
+
+  @override
+  String get pkProfileDisclosureSubtitle => 'We\'ll only copy what you check.';
+
+  @override
+  String get pkProfileDisclosureImport => 'Import selected';
+
+  @override
+  String get pkProfileDisclosureSkip => 'Skip';
+
+  @override
+  String get pkProfileFieldName => 'System name';
+
+  @override
+  String get pkProfileFieldDescription => 'Description';
+
+  @override
+  String get pkProfileFieldTag => 'System tag';
+
+  @override
+  String get pkProfileFieldAvatar => 'System avatar';
+
+  @override
+  String get pkProfileFieldOverwriteHint =>
+      'Prism already has a value — tick to overwrite.';
 }
