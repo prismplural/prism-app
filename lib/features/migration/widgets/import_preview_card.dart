@@ -125,6 +125,32 @@ class ImportPreviewCard extends ConsumerWidget {
               label: context.l10n.migrationPreviewPolls,
               count: data.polls.length,
             ),
+          if (data.notes.isNotEmpty)
+            _CountRow(
+              icon: AppIcons.noteOutlined,
+              label: context.l10n.migrationResultNotes,
+              count: data.notes.length,
+            ),
+          if (data.comments.isNotEmpty)
+            _CountRow(
+              icon: AppIcons.commentOutlined,
+              label: context.l10n.migrationResultComments,
+              count: data.comments.length,
+            ),
+          if (data.customFields.isNotEmpty)
+            _CountRow(
+              icon: AppIcons.textFields,
+              label: context.l10n.migrationResultCustomFields,
+              count: data.customFields.length,
+            ),
+          if (data.automatedTimers.isNotEmpty ||
+              data.repeatedTimers.isNotEmpty)
+            _CountRow(
+              icon: AppIcons.alarm,
+              label: context.l10n.migrationResultReminders,
+              count: data.automatedTimers.length +
+                  data.repeatedTimers.length,
+            ),
           const SizedBox(height: 8),
           Divider(color: theme.colorScheme.outlineVariant),
           const SizedBox(height: 4),

@@ -4889,6 +4889,42 @@
   "@onboardingImportPreviewTotalRecords": {
     "description": "Label for total records row in import preview"
   },
+  "onboardingImportPreviewCustomFronts": "Custom fronts",
+  "@onboardingImportPreviewCustomFronts": {
+    "description": "Label for custom fronts row in import preview"
+  },
+  "onboardingImportPreviewGroups": "Groups",
+  "@onboardingImportPreviewGroups": {
+    "description": "Label for groups row in import preview"
+  },
+  "onboardingImportPreviewPolls": "Polls",
+  "@onboardingImportPreviewPolls": {
+    "description": "Label for polls row in import preview"
+  },
+  "onboardingImportPreviewCustomFields": "Custom fields",
+  "@onboardingImportPreviewCustomFields": {
+    "description": "Label for custom fields row in import preview"
+  },
+  "onboardingImportPreviewComments": "Comments",
+  "@onboardingImportPreviewComments": {
+    "description": "Label for comments row in import preview"
+  },
+  "onboardingImportPreviewReminders": "Reminders",
+  "@onboardingImportPreviewReminders": {
+    "description": "Label for reminders row in import preview"
+  },
+  "onboardingImportPreviewSleepSessions": "Sleep sessions",
+  "@onboardingImportPreviewSleepSessions": {
+    "description": "Label for sleep sessions row in import preview"
+  },
+  "onboardingImportPreviewFriends": "Friends",
+  "@onboardingImportPreviewFriends": {
+    "description": "Label for friends row in import preview"
+  },
+  "onboardingImportPreviewMediaAttachments": "Media attachments",
+  "@onboardingImportPreviewMediaAttachments": {
+    "description": "Label for media attachments row in import preview"
+  },
   "onboardingDataReadyMembers": "Members",
   "@onboardingDataReadyMembers": {
     "description": "Label for members row in data ready view"

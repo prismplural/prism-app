@@ -6338,6 +6338,60 @@ abstract class AppLocalizations {
   /// **'Total records'**
   String get onboardingImportPreviewTotalRecords;
 
+  /// Label for custom fronts row in import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Custom fronts'**
+  String get onboardingImportPreviewCustomFronts;
+
+  /// Label for groups row in import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get onboardingImportPreviewGroups;
+
+  /// Label for polls row in import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Polls'**
+  String get onboardingImportPreviewPolls;
+
+  /// Label for custom fields row in import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Custom fields'**
+  String get onboardingImportPreviewCustomFields;
+
+  /// Label for comments row in import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Comments'**
+  String get onboardingImportPreviewComments;
+
+  /// Label for reminders row in import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get onboardingImportPreviewReminders;
+
+  /// Label for sleep sessions row in import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep sessions'**
+  String get onboardingImportPreviewSleepSessions;
+
+  /// Label for friends row in import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get onboardingImportPreviewFriends;
+
+  /// Label for media attachments row in import preview
+  ///
+  /// In en, this message translates to:
+  /// **'Media attachments'**
+  String get onboardingImportPreviewMediaAttachments;
+
   /// Label for members row in data ready view
   ///
   /// In en, this message translates to:
