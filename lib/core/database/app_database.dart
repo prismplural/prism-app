@@ -440,9 +440,17 @@ class AppDatabase extends _$AppDatabase {
       if (from < 53) {
         // Plan 04: PluralKit system profile disclosure — adds synced
         // `system_tag` column to mirror the PK system `tag` field.
-        await customStatement(
-          'ALTER TABLE system_settings ADD COLUMN system_tag TEXT',
-        );
+        // Guard by table existence for old test stubs that upgrade from
+        // a fixture pre-dating the system_settings table.
+        final systemSettingsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='system_settings'",
+        ).get();
+        if (systemSettingsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN system_tag TEXT',
+          );
+        }
       }
 
       if (from < 54) {
