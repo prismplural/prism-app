@@ -185,7 +185,9 @@ class DataImportService {
     required this.conversationCategoriesRepository,
     required this.remindersRepository,
     required this.friendsRepository,
-  });
+    Future<Directory> Function()? appSupportDirectoryProvider,
+  }) : _appSupportDirectoryProvider =
+           appSupportDirectoryProvider ?? getApplicationSupportDirectory;
 
   final AppDatabase db;
   final MemberRepository memberRepository;
@@ -203,6 +205,7 @@ class DataImportService {
   final ConversationCategoriesRepository conversationCategoriesRepository;
   final RemindersRepository remindersRepository;
   final FriendsRepository friendsRepository;
+  final Future<Directory> Function() _appSupportDirectoryProvider;
 
   /// Resolve raw file bytes to a JSON string and optional media blobs.
   ///
@@ -959,7 +962,7 @@ class DataImportService {
   Future<void> _cacheMediaBlobs(
     List<({String mediaId, Uint8List blob})> blobs,
   ) async {
-    final appSupport = await getApplicationSupportDirectory();
+    final appSupport = await _appSupportDirectoryProvider();
     final mediaDir = Directory('${appSupport.path}/prism_media');
     await mediaDir.create(recursive: true);
     for (final entry in blobs) {
