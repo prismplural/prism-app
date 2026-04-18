@@ -125,6 +125,34 @@ class _IdleView extends StatelessWidget {
             ref.read(importerProvider.notifier).selectAndParseFile();
           },
         ),
+        const SizedBox(height: 16),
+
+        // Reminders trade-off note — surfaced before the user picks a method
+        // so reminder-heavy systems don't pick API and then realize too late.
+        PrismSurface(
+          fillColor: theme.colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.5,
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Icon(
+                AppIcons.infoOutline,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.l10n.migrationRemindersApiNote,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 24),
 
         // Supported data note
