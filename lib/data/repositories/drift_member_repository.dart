@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/members_dao.dart';
+import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/data/mappers/member_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
 import 'package:prism_plurality/domain/models/member.dart' as domain;
@@ -12,13 +13,17 @@ import 'package:prism_plurality/shared/utils/avatar_normalizer.dart';
 class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
   final MembersDao _dao;
   final ffi.PrismSyncHandle? _syncHandle;
+  // Plan 02 R1: optional — when wired, `deleteMember` stamps the current PK
+  // link epoch onto the tombstone so push-time can gate stale intents.
+  final PluralKitSyncDao? _pkSyncDao;
 
   @override
   ffi.PrismSyncHandle? get syncHandle => _syncHandle;
 
   static const _table = 'members';
 
-  DriftMemberRepository(this._dao, this._syncHandle);
+  DriftMemberRepository(this._dao, this._syncHandle, {PluralKitSyncDao? pkSyncDao})
+      : _pkSyncDao = pkSyncDao;
 
   @override
   Future<List<domain.Member>> getAllMembers() async {
@@ -71,8 +76,54 @@ class DriftMemberRepository with SyncRecordMixin implements MemberRepository {
 
   @override
   Future<void> deleteMember(String id) async {
+    // Plan 02 R1: if this member has a PK link and a sync DAO is wired,
+    // stamp the current link epoch on the tombstone in the same transaction
+    // so the PK push path can distinguish "tombstoned under this link" from
+    // "tombstoned under a prior link / while disconnected." Members without
+    // a PK link skip the stamp — there's nothing to push anyway.
+    int? epoch;
+    final pkDao = _pkSyncDao;
+    final existing = await _dao.getMemberById(id);
+    final isLinked = existing != null &&
+        ((existing.pluralkitId != null && existing.pluralkitId!.isNotEmpty) ||
+            (existing.pluralkitUuid != null &&
+                existing.pluralkitUuid!.isNotEmpty));
+    if (pkDao != null && isLinked) {
+      epoch = await pkDao.getLinkEpoch();
+    }
+
     await _dao.softDeleteMember(id);
+    if (epoch != null) {
+      await _dao.stampDeleteIntent(id, epoch);
+    }
     await syncRecordDelete(_table, id);
+  }
+
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() async {
+    final rows = await _dao.getDeletedLinkedMembers();
+    return rows.map(MemberMapper.toDomain).toList();
+  }
+
+  @override
+  Future<void> clearPluralKitLink(String id) async {
+    await _dao.clearPluralKitLinkRaw(id);
+    // Plan 02 R3: emit a CRDT op so peers converge. We deliberately send
+    // only the changed fields (no full re-write) — recordUpdate is the
+    // right channel; recordDelete has already been emitted for the
+    // tombstone.
+    await syncRecordUpdate(_table, id, {
+      'pluralkit_id': null,
+      'pluralkit_uuid': null,
+    });
+  }
+
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {
+    await _dao.stampDeletePushStartedAt(id, timestampMs);
+    await syncRecordUpdate(_table, id, {
+      'delete_push_started_at': timestampMs,
+    });
   }
 
   @override

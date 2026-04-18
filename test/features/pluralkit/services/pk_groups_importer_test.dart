@@ -50,6 +50,13 @@ class _FakeMemberRepo implements MemberRepository {
       throw UnimplementedError();
   @override
   Future<int> getCount() async => members.length;
+
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 class _NoopClient implements PluralKitClient {

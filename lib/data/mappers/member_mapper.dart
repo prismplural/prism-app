@@ -29,6 +29,9 @@ class MemberMapper {
       birthday: row.birthday,
       proxyTagsJson: row.proxyTagsJson,
       pluralkitSyncIgnored: row.pluralkitSyncIgnored,
+      isDeleted: row.isDeleted,
+      deleteIntentEpoch: row.deleteIntentEpoch,
+      deletePushStartedAt: row.deletePushStartedAt,
     );
   }
 
@@ -55,6 +58,9 @@ class MemberMapper {
       birthday: Value(model.birthday),
       proxyTagsJson: Value(model.proxyTagsJson),
       pluralkitSyncIgnored: Value(model.pluralkitSyncIgnored),
+      isDeleted: Value(model.isDeleted),
+      deleteIntentEpoch: Value(model.deleteIntentEpoch),
+      deletePushStartedAt: Value(model.deletePushStartedAt),
     );
   }
 }

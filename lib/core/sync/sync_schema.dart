@@ -26,6 +26,7 @@ const String prismSyncSchema = '''
         "birthday": "String",
         "proxy_tags_json": "String",
         "pluralkit_sync_ignored": "Bool",
+        "delete_push_started_at": "Int",
         "is_deleted": "Bool"
       }
     },
@@ -42,6 +43,7 @@ const String prismSyncSchema = '''
         "is_health_kit_import": "Bool",
         "pluralkit_uuid": "String",
         "pk_member_ids_json": "String",
+        "delete_push_started_at": "Int",
         "is_deleted": "Bool"
       }
     },

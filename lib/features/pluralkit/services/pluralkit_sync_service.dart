@@ -249,6 +249,11 @@ class PluralKitSyncService {
         linkedAt = DateTime.now().subtract(const Duration(milliseconds: 1));
       }
 
+      // Plan 02 R1: bump the local link epoch whenever the connected system
+      // changes identity. Tombstones stamped under the prior epoch will be
+      // skipped at push time on this device.
+      final bumpEpoch = existing.systemId != system.id;
+
       await _syncDao.upsertSyncState(
         PluralKitSyncStateCompanion(
           id: const Value('pk_config'),
@@ -260,6 +265,9 @@ class PluralKitSyncService {
           linkedAt: Value(linkedAt),
         ),
       );
+      if (bumpEpoch) {
+        await _syncDao.bumpLinkEpoch();
+      }
 
       _emit(_state.copyWith(
         isConnected: true,
@@ -303,6 +311,10 @@ class PluralKitSyncService {
         linkedAt: Value(null),
       ),
     );
+    // Plan 02 R1: bump on disconnect so tombstones made while linked become
+    // stale immediately. A later reconnect will bump again (new systemId
+    // path).
+    await _syncDao.bumpLinkEpoch();
     // Wipe prior Skip/Link/Import decisions — they're keyed by local member
     // IDs that may not even exist in the next connected system.
     await PkMappingStateDao(_syncDao.attachedDatabase).clearAll();
@@ -741,6 +753,21 @@ class PluralKitSyncService {
             )
           : 0;
 
+      // Plan 02: deletions. Switches-first so PK's cascade doesn't 404 every
+      // switch-delete we queued after a member-delete succeeds.
+      int switchesDeletedOnPk = 0;
+      int membersDeletedOnPk = 0;
+      if (direction.pushEnabled) {
+        switchesDeletedOnPk = await _pushPendingSwitchDeletions(
+          client: client,
+          onStaleLink: staleLinkMessages.add,
+        );
+        membersDeletedOnPk = await _pushPendingMemberDeletions(
+          client: client,
+          onStaleLink: staleLinkMessages.add,
+        );
+      }
+
       final now = DateTime.now();
       await _syncDao.upsertSyncState(
         PluralKitSyncStateCompanion(
@@ -757,6 +784,8 @@ class PluralKitSyncService {
         membersSkipped: summary?.membersSkipped ?? 0,
         switchesPulled: totalNew,
         switchesPushed: switchesPushed,
+        membersDeletedOnPk: membersDeletedOnPk,
+        switchesDeletedOnPk: switchesDeletedOnPk,
         staleLinkMessages: List.unmodifiable(staleLinkMessages),
       );
 
@@ -766,6 +795,16 @@ class PluralKitSyncService {
       }
       if (totalNew > 0) {
         statusParts.add('Pulled $totalNew switches');
+      }
+      if (finalSummary.switchesDeletedOnPk > 0) {
+        statusParts.add(
+          'Deleted ${finalSummary.switchesDeletedOnPk} switches on PK',
+        );
+      }
+      if (finalSummary.membersDeletedOnPk > 0) {
+        statusParts.add(
+          'Deleted ${finalSummary.membersDeletedOnPk} members on PK',
+        );
       }
 
       _emit(
@@ -1155,6 +1194,199 @@ class PluralKitSyncService {
       }
     });
     return pending.length;
+  }
+
+  // -- Plan 02: PK deletion push --------------------------------------------
+
+  /// Threshold for the R6 multi-device coordination stamp. If another device
+  /// recently claimed the push (within this window), we back off; past this
+  /// window we assume the other device crashed or is offline and take over.
+  static const _deletePushTakeoverThreshold = Duration(minutes: 10);
+
+  /// Push pending switch deletions. Returns the number that succeeded.
+  Future<int> _pushPendingSwitchDeletions({
+    required PluralKitClient client,
+    void Function(String message)? onStaleLink,
+    PkPushService? pushServiceOverride,
+  }) async {
+    final currentEpoch = await _syncDao.getLinkEpoch();
+    final candidates =
+        await _frontingSessionRepository.getDeletedLinkedSessions();
+    if (candidates.isEmpty) return 0;
+
+    final push = pushServiceOverride ?? PkPushService();
+    int deleted = 0;
+
+    for (final session in candidates) {
+      // R6: cross-device coordination stamp. If another device started
+      // pushing this within the takeover window, let them finish.
+      final startedAtMs = session.deletePushStartedAt;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (startedAtMs != null) {
+        final age = Duration(milliseconds: nowMs - startedAtMs);
+        if (age < _deletePushTakeoverThreshold) {
+          debugPrint(
+            '[PK] Switch deletion for ${session.id} started by another '
+            'device ${age.inSeconds}s ago — skipping this pass.',
+          );
+          continue;
+        }
+        // else: stale lease, take over.
+      } else {
+        // Claim the lease via the synced update so peers see it.
+        await _frontingSessionRepository.stampDeletePushStartedAt(
+          session.id,
+          nowMs,
+        );
+      }
+
+      // R2: re-read and re-check every invariant at execution time.
+      final fresh =
+          await _frontingSessionRepository.getSessionById(session.id);
+      if (fresh == null) continue;
+      if (!fresh.isDeleted) {
+        debugPrint(
+          '[PK] Session ${session.id} was resurrected by CRDT merge; '
+          'aborting DELETE.',
+        );
+        continue;
+      }
+      if (fresh.pluralkitUuid == null ||
+          fresh.pluralkitUuid != session.pluralkitUuid) {
+        debugPrint(
+          '[PK] Session ${session.id} pluralkit_uuid changed since dequeue; '
+          'aborting DELETE.',
+        );
+        continue;
+      }
+      // R1: epoch gate. deleteIntentEpoch is local and not synced.
+      // getDeletedLinkedSessions returns rows where it's non-null.
+      final intentEpoch = session.deleteIntentEpoch;
+      if (intentEpoch != currentEpoch) {
+        debugPrint(
+          '[PK] Session ${session.id} intent epoch $intentEpoch != current '
+          '$currentEpoch; aborting DELETE (stale link).',
+        );
+        continue;
+      }
+
+      final pkUuid = fresh.pluralkitUuid!;
+      try {
+        await push.pushSwitchDeletion(session.id, pkUuid, client);
+        await _frontingSessionRepository.clearPluralKitLink(session.id);
+        deleted++;
+      } on PkDeletionForbiddenException catch (e) {
+        onStaleLink?.call(
+          'PluralKit refused switch deletion — your token may not own this '
+          'switch. Check your token and retry. (pkUuid=${e.pkId})',
+        );
+      } on PluralKitAuthError {
+        rethrow;
+      } catch (e) {
+        debugPrint('[PK] Switch deletion failed for ${session.id}: $e');
+      }
+    }
+    return deleted;
+  }
+
+  /// Push pending member deletions. Runs AFTER switch deletions (caller
+  /// orders). R5 cascade guard included: skip any member that still has
+  /// live local sessions linked to PK.
+  Future<int> _pushPendingMemberDeletions({
+    required PluralKitClient client,
+    void Function(String message)? onStaleLink,
+    PkPushService? pushServiceOverride,
+  }) async {
+    final currentEpoch = await _syncDao.getLinkEpoch();
+    final candidates = await _memberRepository.getDeletedLinkedMembers();
+    if (candidates.isEmpty) return 0;
+
+    // R5: fetch live sessions once and check in-memory.
+    final liveSessions = await _frontingSessionRepository.getAllSessions();
+    final membersWithLiveLinkedSessions = <String>{};
+    for (final s in liveSessions) {
+      if (s.isDeleted) continue; // getAllSessions already filters, defensive
+      if (s.pluralkitUuid == null) continue;
+      final mid = s.memberId;
+      if (mid != null) membersWithLiveLinkedSessions.add(mid);
+    }
+
+    final push = pushServiceOverride ?? PkPushService();
+    int deleted = 0;
+
+    for (final member in candidates) {
+      if (membersWithLiveLinkedSessions.contains(member.id)) {
+        debugPrint(
+          '[PK] R5 cascade guard: member ${member.id} has live linked '
+          'sessions; skipping DELETE.',
+        );
+        onStaleLink?.call(
+          "Skipped deleting PluralKit member '${member.name}' — it still "
+          'has linked local switches. Delete those first, or undelete the '
+          'member to keep it.',
+        );
+        continue;
+      }
+
+      // R6: coordination lease.
+      final startedAtMs = member.deletePushStartedAt;
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      if (startedAtMs != null) {
+        final age = Duration(milliseconds: nowMs - startedAtMs);
+        if (age < _deletePushTakeoverThreshold) {
+          debugPrint(
+            '[PK] Member deletion for ${member.id} started by another '
+            'device ${age.inSeconds}s ago — skipping.',
+          );
+          continue;
+        }
+      } else {
+        await _memberRepository.stampDeletePushStartedAt(member.id, nowMs);
+      }
+
+      // R2 re-read.
+      final fresh = await _memberRepository.getMemberById(member.id);
+      if (fresh == null) continue;
+      if (!fresh.isDeleted) {
+        debugPrint(
+          '[PK] Member ${member.id} was resurrected by CRDT merge; aborting.',
+        );
+        continue;
+      }
+      if (fresh.pluralkitId == null || fresh.pluralkitId != member.pluralkitId) {
+        debugPrint(
+          '[PK] Member ${member.id} pluralkit_id changed since dequeue; '
+          'aborting DELETE.',
+        );
+        continue;
+      }
+      final intentEpoch = member.deleteIntentEpoch;
+      if (intentEpoch != currentEpoch) {
+        debugPrint(
+          '[PK] Member ${member.id} intent epoch $intentEpoch != current '
+          '$currentEpoch; aborting DELETE (stale link).',
+        );
+        continue;
+      }
+
+      final pkId = fresh.pluralkitId!;
+      try {
+        await push.pushMemberDeletion(member.id, pkId, client);
+        await _memberRepository.clearPluralKitLink(member.id);
+        deleted++;
+      } on PkDeletionForbiddenException catch (e) {
+        onStaleLink?.call(
+          "PluralKit refused member deletion of '${member.name}' — your "
+          'token may not own this member. Check your token and retry. '
+          '(pkId=${e.pkId})',
+        );
+      } on PluralKitAuthError {
+        rethrow;
+      } catch (e) {
+        debugPrint('[PK] Member deletion failed for ${member.id}: $e');
+      }
+    }
+    return deleted;
   }
 
   static bool _listEquals(List<String> a, List<String> b) {

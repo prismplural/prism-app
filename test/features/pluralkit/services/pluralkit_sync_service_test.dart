@@ -199,6 +199,13 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Future<int> getCount() async => _members.length;
+
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 // ---------------------------------------------------------------------------
@@ -341,6 +348,14 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
     int? withinDays,
   }) async =>
       {};
+
+  @override
+  Future<List<domain.FrontingSession>> getDeletedLinkedSessions() async =>
+      const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 // ---------------------------------------------------------------------------

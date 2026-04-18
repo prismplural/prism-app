@@ -99,6 +99,7 @@ final memberRepositoryProvider = Provider<MemberRepository>(
   (ref) => DriftMemberRepository(
     ref.watch(membersDaoProvider),
     _resolveSyncHandle(ref),
+    pkSyncDao: ref.watch(pluralKitSyncDaoProvider),
   ),
 );
 
@@ -106,6 +107,7 @@ final frontingSessionRepositoryProvider = Provider<FrontingSessionRepository>(
   (ref) => DriftFrontingSessionRepository(
     ref.watch(frontingSessionsDaoProvider),
     _resolveSyncHandle(ref),
+    pkSyncDao: ref.watch(pluralKitSyncDaoProvider),
   ),
 );
 

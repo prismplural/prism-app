@@ -120,6 +120,13 @@ class FakeMemberRepository implements MemberRepository {
       ids.map((id) => _members[id]).whereType<domain.Member>().toList();
   @override
   Future<int> getCount() async => _members.length;
+
+  @override
+  Future<List<domain.Member>> getDeletedLinkedMembers() async => const [];
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 // ---------------------------------------------------------------------------

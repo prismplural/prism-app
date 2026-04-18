@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 51;
+  int get schemaVersion => 52;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -391,6 +391,48 @@ class AppDatabase extends _$AppDatabase {
             'idx_member_groups_pluralkit_id '
             'ON member_groups(pluralkit_id) '
             'WHERE pluralkit_id IS NOT NULL',
+          );
+        }
+      }
+
+      if (from < 52) {
+        // Plan 02 (PK deletion push): link_epoch on sync state, plus
+        // delete_intent_epoch (local) + delete_push_started_at (synced) on
+        // members and fronting_sessions. All nullable / defaulted so the
+        // ALTERs leave existing rows valid without a data migration.
+        final pkStateExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='plural_kit_sync_state'",
+        ).get();
+        if (pkStateExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE plural_kit_sync_state ADD COLUMN '
+            'link_epoch INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+        final membersExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='members'",
+        ).get();
+        if (membersExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE members ADD COLUMN delete_intent_epoch INTEGER',
+          );
+          await customStatement(
+            'ALTER TABLE members ADD COLUMN delete_push_started_at INTEGER',
+          );
+        }
+        final sessionsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='fronting_sessions'",
+        ).get();
+        if (sessionsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE fronting_sessions ADD COLUMN '
+            'delete_intent_epoch INTEGER',
+          );
+          await customStatement(
+            'ALTER TABLE fronting_sessions ADD COLUMN '
+            'delete_push_started_at INTEGER',
           );
         }
       }

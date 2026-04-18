@@ -327,6 +327,7 @@ DriftSyncEntity _membersEntity(
         'birthday': r.birthday,
         'proxy_tags_json': r.proxyTagsJson,
         'pluralkit_sync_ignored': r.pluralkitSyncIgnored,
+        'delete_push_started_at': r.deletePushStartedAt,
         'is_deleted': r.isDeleted,
       };
     },
@@ -360,6 +361,7 @@ DriftSyncEntity _membersEntity(
         birthday: f.stringFieldNullable('birthday'),
         proxyTagsJson: f.stringFieldNullable('proxy_tags_json'),
         pluralkitSyncIgnored: f.boolField('pluralkit_sync_ignored'),
+        deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.members).insertOnConflictUpdate(companion);
@@ -395,6 +397,7 @@ DriftSyncEntity _membersEntity(
         'birthday': row.birthday,
         'proxy_tags_json': row.proxyTagsJson,
         'pluralkit_sync_ignored': row.pluralkitSyncIgnored,
+        'delete_push_started_at': row.deletePushStartedAt,
         'is_deleted': row.isDeleted,
       };
     },
@@ -432,6 +435,7 @@ DriftSyncEntity _frontingSessionsEntity(
         'is_health_kit_import': r.isHealthKitImport,
         'pluralkit_uuid': r.pluralkitUuid,
         'pk_member_ids_json': r.pkMemberIdsJson,
+        'delete_push_started_at': r.deletePushStartedAt,
         'is_deleted': r.isDeleted,
       };
     },
@@ -456,6 +460,7 @@ DriftSyncEntity _frontingSessionsEntity(
         isHealthKitImport: f.boolField('is_health_kit_import'),
         pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
         pkMemberIdsJson: f.stringFieldNullable('pk_member_ids_json'),
+        deletePushStartedAt: f.intFieldNullable('delete_push_started_at'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.frontingSessions).insertOnConflictUpdate(companion);
@@ -482,6 +487,7 @@ DriftSyncEntity _frontingSessionsEntity(
         'is_health_kit_import': row.isHealthKitImport,
         'pluralkit_uuid': row.pluralkitUuid,
         'pk_member_ids_json': row.pkMemberIdsJson,
+        'delete_push_started_at': row.deletePushStartedAt,
         'is_deleted': row.isDeleted,
       };
     },
