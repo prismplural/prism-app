@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 48;
+  int get schemaVersion => 49;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -324,6 +324,22 @@ class AppDatabase extends _$AppDatabase {
             'idx_fronting_sessions_pluralkit_uuid '
             'ON fronting_sessions(pluralkit_uuid) '
             'WHERE pluralkit_uuid IS NOT NULL',
+          );
+        }
+      }
+
+      if (from < 49) {
+        // Plan 08 Phase 1: connected_pending_map gate. Existing rows keep
+        // `mapping_acknowledged = 0` so anyone already connected is routed
+        // through the new mapping flow once, instead of silently skipping it.
+        final pkExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='plural_kit_sync_state'",
+        ).get();
+        if (pkExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE plural_kit_sync_state ADD COLUMN '
+            'mapping_acknowledged INTEGER NOT NULL DEFAULT 0',
           );
         }
       }

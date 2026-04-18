@@ -24,6 +24,10 @@ _Member _$MemberFromJson(Map<String, dynamic> json) => _Member(
   pluralkitUuid: json['pluralkitUuid'] as String?,
   pluralkitId: json['pluralkitId'] as String?,
   markdownEnabled: json['markdownEnabled'] as bool? ?? false,
+  displayName: json['displayName'] as String?,
+  birthday: json['birthday'] as String?,
+  proxyTagsJson: json['proxyTagsJson'] as String?,
+  pluralkitSyncIgnored: json['pluralkitSyncIgnored'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$MemberToJson(_Member instance) => <String, dynamic>{
@@ -44,4 +48,8 @@ Map<String, dynamic> _$MemberToJson(_Member instance) => <String, dynamic>{
   'pluralkitUuid': instance.pluralkitUuid,
   'pluralkitId': instance.pluralkitId,
   'markdownEnabled': instance.markdownEnabled,
+  'displayName': instance.displayName,
+  'birthday': instance.birthday,
+  'proxyTagsJson': instance.proxyTagsJson,
+  'pluralkitSyncIgnored': instance.pluralkitSyncIgnored,
 };

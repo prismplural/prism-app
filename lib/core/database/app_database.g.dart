@@ -8635,6 +8635,20 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _mappingAcknowledgedMeta =
+      const VerificationMeta('mappingAcknowledged');
+  @override
+  late final GeneratedColumn<bool> mappingAcknowledged = GeneratedColumn<bool>(
+    'mapping_acknowledged',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("mapping_acknowledged" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -8643,6 +8657,7 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     lastManualSyncDate,
     isConnected,
     fieldSyncConfig,
+    mappingAcknowledged,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -8703,6 +8718,15 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         ),
       );
     }
+    if (data.containsKey('mapping_acknowledged')) {
+      context.handle(
+        _mappingAcknowledgedMeta,
+        mappingAcknowledged.isAcceptableOrUnknown(
+          data['mapping_acknowledged']!,
+          _mappingAcknowledgedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -8736,6 +8760,10 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         DriftSqlType.string,
         data['${effectivePrefix}field_sync_config'],
       ),
+      mappingAcknowledged: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}mapping_acknowledged'],
+      )!,
     );
   }
 
@@ -8753,6 +8781,12 @@ class PluralKitSyncStateData extends DataClass
   final DateTime? lastManualSyncDate;
   final bool isConnected;
   final String? fieldSyncConfig;
+
+  /// True once the user has completed (or explicitly dismissed) the member
+  /// mapping flow for the current PK connection. While false, the connection
+  /// is in `connected_pending_map` — auto-push and auto-sync are gated off.
+  /// Reset to false on re-connect (new token).
+  final bool mappingAcknowledged;
   const PluralKitSyncStateData({
     required this.id,
     this.systemId,
@@ -8760,6 +8794,7 @@ class PluralKitSyncStateData extends DataClass
     this.lastManualSyncDate,
     required this.isConnected,
     this.fieldSyncConfig,
+    required this.mappingAcknowledged,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -8778,6 +8813,7 @@ class PluralKitSyncStateData extends DataClass
     if (!nullToAbsent || fieldSyncConfig != null) {
       map['field_sync_config'] = Variable<String>(fieldSyncConfig);
     }
+    map['mapping_acknowledged'] = Variable<bool>(mappingAcknowledged);
     return map;
   }
 
@@ -8797,6 +8833,7 @@ class PluralKitSyncStateData extends DataClass
       fieldSyncConfig: fieldSyncConfig == null && nullToAbsent
           ? const Value.absent()
           : Value(fieldSyncConfig),
+      mappingAcknowledged: Value(mappingAcknowledged),
     );
   }
 
@@ -8814,6 +8851,9 @@ class PluralKitSyncStateData extends DataClass
       ),
       isConnected: serializer.fromJson<bool>(json['isConnected']),
       fieldSyncConfig: serializer.fromJson<String?>(json['fieldSyncConfig']),
+      mappingAcknowledged: serializer.fromJson<bool>(
+        json['mappingAcknowledged'],
+      ),
     );
   }
   @override
@@ -8826,6 +8866,7 @@ class PluralKitSyncStateData extends DataClass
       'lastManualSyncDate': serializer.toJson<DateTime?>(lastManualSyncDate),
       'isConnected': serializer.toJson<bool>(isConnected),
       'fieldSyncConfig': serializer.toJson<String?>(fieldSyncConfig),
+      'mappingAcknowledged': serializer.toJson<bool>(mappingAcknowledged),
     };
   }
 
@@ -8836,6 +8877,7 @@ class PluralKitSyncStateData extends DataClass
     Value<DateTime?> lastManualSyncDate = const Value.absent(),
     bool? isConnected,
     Value<String?> fieldSyncConfig = const Value.absent(),
+    bool? mappingAcknowledged,
   }) => PluralKitSyncStateData(
     id: id ?? this.id,
     systemId: systemId.present ? systemId.value : this.systemId,
@@ -8847,6 +8889,7 @@ class PluralKitSyncStateData extends DataClass
     fieldSyncConfig: fieldSyncConfig.present
         ? fieldSyncConfig.value
         : this.fieldSyncConfig,
+    mappingAcknowledged: mappingAcknowledged ?? this.mappingAcknowledged,
   );
   PluralKitSyncStateData copyWithCompanion(PluralKitSyncStateCompanion data) {
     return PluralKitSyncStateData(
@@ -8864,6 +8907,9 @@ class PluralKitSyncStateData extends DataClass
       fieldSyncConfig: data.fieldSyncConfig.present
           ? data.fieldSyncConfig.value
           : this.fieldSyncConfig,
+      mappingAcknowledged: data.mappingAcknowledged.present
+          ? data.mappingAcknowledged.value
+          : this.mappingAcknowledged,
     );
   }
 
@@ -8875,7 +8921,8 @@ class PluralKitSyncStateData extends DataClass
           ..write('lastSyncDate: $lastSyncDate, ')
           ..write('lastManualSyncDate: $lastManualSyncDate, ')
           ..write('isConnected: $isConnected, ')
-          ..write('fieldSyncConfig: $fieldSyncConfig')
+          ..write('fieldSyncConfig: $fieldSyncConfig, ')
+          ..write('mappingAcknowledged: $mappingAcknowledged')
           ..write(')'))
         .toString();
   }
@@ -8888,6 +8935,7 @@ class PluralKitSyncStateData extends DataClass
     lastManualSyncDate,
     isConnected,
     fieldSyncConfig,
+    mappingAcknowledged,
   );
   @override
   bool operator ==(Object other) =>
@@ -8898,7 +8946,8 @@ class PluralKitSyncStateData extends DataClass
           other.lastSyncDate == this.lastSyncDate &&
           other.lastManualSyncDate == this.lastManualSyncDate &&
           other.isConnected == this.isConnected &&
-          other.fieldSyncConfig == this.fieldSyncConfig);
+          other.fieldSyncConfig == this.fieldSyncConfig &&
+          other.mappingAcknowledged == this.mappingAcknowledged);
 }
 
 class PluralKitSyncStateCompanion
@@ -8909,6 +8958,7 @@ class PluralKitSyncStateCompanion
   final Value<DateTime?> lastManualSyncDate;
   final Value<bool> isConnected;
   final Value<String?> fieldSyncConfig;
+  final Value<bool> mappingAcknowledged;
   final Value<int> rowid;
   const PluralKitSyncStateCompanion({
     this.id = const Value.absent(),
@@ -8917,6 +8967,7 @@ class PluralKitSyncStateCompanion
     this.lastManualSyncDate = const Value.absent(),
     this.isConnected = const Value.absent(),
     this.fieldSyncConfig = const Value.absent(),
+    this.mappingAcknowledged = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PluralKitSyncStateCompanion.insert({
@@ -8926,6 +8977,7 @@ class PluralKitSyncStateCompanion
     this.lastManualSyncDate = const Value.absent(),
     this.isConnected = const Value.absent(),
     this.fieldSyncConfig = const Value.absent(),
+    this.mappingAcknowledged = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<PluralKitSyncStateData> custom({
@@ -8935,6 +8987,7 @@ class PluralKitSyncStateCompanion
     Expression<DateTime>? lastManualSyncDate,
     Expression<bool>? isConnected,
     Expression<String>? fieldSyncConfig,
+    Expression<bool>? mappingAcknowledged,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -8945,6 +8998,8 @@ class PluralKitSyncStateCompanion
         'last_manual_sync_date': lastManualSyncDate,
       if (isConnected != null) 'is_connected': isConnected,
       if (fieldSyncConfig != null) 'field_sync_config': fieldSyncConfig,
+      if (mappingAcknowledged != null)
+        'mapping_acknowledged': mappingAcknowledged,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -8956,6 +9011,7 @@ class PluralKitSyncStateCompanion
     Value<DateTime?>? lastManualSyncDate,
     Value<bool>? isConnected,
     Value<String?>? fieldSyncConfig,
+    Value<bool>? mappingAcknowledged,
     Value<int>? rowid,
   }) {
     return PluralKitSyncStateCompanion(
@@ -8965,6 +9021,7 @@ class PluralKitSyncStateCompanion
       lastManualSyncDate: lastManualSyncDate ?? this.lastManualSyncDate,
       isConnected: isConnected ?? this.isConnected,
       fieldSyncConfig: fieldSyncConfig ?? this.fieldSyncConfig,
+      mappingAcknowledged: mappingAcknowledged ?? this.mappingAcknowledged,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -8992,6 +9049,9 @@ class PluralKitSyncStateCompanion
     if (fieldSyncConfig.present) {
       map['field_sync_config'] = Variable<String>(fieldSyncConfig.value);
     }
+    if (mappingAcknowledged.present) {
+      map['mapping_acknowledged'] = Variable<bool>(mappingAcknowledged.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -9007,6 +9067,7 @@ class PluralKitSyncStateCompanion
           ..write('lastManualSyncDate: $lastManualSyncDate, ')
           ..write('isConnected: $isConnected, ')
           ..write('fieldSyncConfig: $fieldSyncConfig, ')
+          ..write('mappingAcknowledged: $mappingAcknowledged, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -23358,6 +23419,7 @@ typedef $$PluralKitSyncStateTableCreateCompanionBuilder =
       Value<DateTime?> lastManualSyncDate,
       Value<bool> isConnected,
       Value<String?> fieldSyncConfig,
+      Value<bool> mappingAcknowledged,
       Value<int> rowid,
     });
 typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
@@ -23368,6 +23430,7 @@ typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
       Value<DateTime?> lastManualSyncDate,
       Value<bool> isConnected,
       Value<String?> fieldSyncConfig,
+      Value<bool> mappingAcknowledged,
       Value<int> rowid,
     });
 
@@ -23407,6 +23470,11 @@ class $$PluralKitSyncStateTableFilterComposer
 
   ColumnFilters<String> get fieldSyncConfig => $composableBuilder(
     column: $table.fieldSyncConfig,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get mappingAcknowledged => $composableBuilder(
+    column: $table.mappingAcknowledged,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -23449,6 +23517,11 @@ class $$PluralKitSyncStateTableOrderingComposer
     column: $table.fieldSyncConfig,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get mappingAcknowledged => $composableBuilder(
+    column: $table.mappingAcknowledged,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PluralKitSyncStateTableAnnotationComposer
@@ -23483,6 +23556,11 @@ class $$PluralKitSyncStateTableAnnotationComposer
 
   GeneratedColumn<String> get fieldSyncConfig => $composableBuilder(
     column: $table.fieldSyncConfig,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get mappingAcknowledged => $composableBuilder(
+    column: $table.mappingAcknowledged,
     builder: (column) => column,
   );
 }
@@ -23533,6 +23611,7 @@ class $$PluralKitSyncStateTableTableManager
                 Value<DateTime?> lastManualSyncDate = const Value.absent(),
                 Value<bool> isConnected = const Value.absent(),
                 Value<String?> fieldSyncConfig = const Value.absent(),
+                Value<bool> mappingAcknowledged = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion(
                 id: id,
@@ -23541,6 +23620,7 @@ class $$PluralKitSyncStateTableTableManager
                 lastManualSyncDate: lastManualSyncDate,
                 isConnected: isConnected,
                 fieldSyncConfig: fieldSyncConfig,
+                mappingAcknowledged: mappingAcknowledged,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -23551,6 +23631,7 @@ class $$PluralKitSyncStateTableTableManager
                 Value<DateTime?> lastManualSyncDate = const Value.absent(),
                 Value<bool> isConnected = const Value.absent(),
                 Value<String?> fieldSyncConfig = const Value.absent(),
+                Value<bool> mappingAcknowledged = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion.insert(
                 id: id,
@@ -23559,6 +23640,7 @@ class $$PluralKitSyncStateTableTableManager
                 lastManualSyncDate: lastManualSyncDate,
                 isConnected: isConnected,
                 fieldSyncConfig: fieldSyncConfig,
+                mappingAcknowledged: mappingAcknowledged,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

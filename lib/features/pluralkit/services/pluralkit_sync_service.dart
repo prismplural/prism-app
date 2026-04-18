@@ -27,6 +27,11 @@ class PluralKitSyncState {
   final String syncStatus;
   final String? syncError;
   final bool isConnected;
+
+  /// True while a connection exists but the user hasn't completed (or
+  /// dismissed) the member mapping flow yet. See plan 08 — in this state,
+  /// auto-push and auto-sync are gated off to prevent duplicate members.
+  final bool needsMapping;
   final DateTime? lastSyncDate;
   final DateTime? lastManualSyncDate;
 
@@ -36,6 +41,7 @@ class PluralKitSyncState {
     this.syncStatus = '',
     this.syncError,
     this.isConnected = false,
+    this.needsMapping = false,
     this.lastSyncDate,
     this.lastManualSyncDate,
   });
@@ -47,6 +53,7 @@ class PluralKitSyncState {
     String? syncError,
     bool clearError = false,
     bool? isConnected,
+    bool? needsMapping,
     DateTime? lastSyncDate,
     DateTime? lastManualSyncDate,
   }) {
@@ -56,10 +63,15 @@ class PluralKitSyncState {
       syncStatus: syncStatus ?? this.syncStatus,
       syncError: clearError ? null : (syncError ?? this.syncError),
       isConnected: isConnected ?? this.isConnected,
+      needsMapping: needsMapping ?? this.needsMapping,
       lastSyncDate: lastSyncDate ?? this.lastSyncDate,
       lastManualSyncDate: lastManualSyncDate ?? this.lastManualSyncDate,
     );
   }
+
+  /// True when the connection is fully usable — connected AND mapping
+  /// complete. Callers gate auto-push / auto-sync on this.
+  bool get canAutoSync => isConnected && !needsMapping;
 
   /// Whether a manual sync can be triggered (60-second cooldown).
   bool get canManualSync =>
@@ -141,7 +153,19 @@ class PluralKitSyncService {
   // -- public API -----------------------------------------------------------
 
   /// Build a PK client if connected. Exposed for use by auto-push.
+  ///
+  /// Returns null while the connection is in `connected_pending_map` —
+  /// auto-push must not run until the mapping flow completes. Callers that
+  /// explicitly need the client regardless (e.g. the mapping screen itself)
+  /// should use [buildClientIgnoringMappingGate].
   Future<PluralKitClient?> buildClientIfConnected() async {
+    if (!_state.canAutoSync) return null;
+    return _buildClient();
+  }
+
+  /// Build a PK client even while mapping is pending — used by the mapping
+  /// applier and the mapping screen itself.
+  Future<PluralKitClient?> buildClientIgnoringMappingGate() async {
     if (!_state.isConnected) return null;
     return _buildClient();
   }
@@ -152,10 +176,24 @@ class PluralKitSyncService {
     _emit(
       _state.copyWith(
         isConnected: row.isConnected,
+        needsMapping: row.isConnected && !row.mappingAcknowledged,
         lastSyncDate: row.lastSyncDate,
         lastManualSyncDate: row.lastManualSyncDate,
       ),
     );
+  }
+
+  /// Flip the connection out of `connected_pending_map` — called after the
+  /// mapping screen finishes Apply, or when the user explicitly dismisses it.
+  /// Auto-push / auto-sync unlock after this is called.
+  Future<void> acknowledgeMapping() async {
+    await _syncDao.upsertSyncState(
+      const PluralKitSyncStateCompanion(
+        id: Value('pk_config'),
+        mappingAcknowledged: Value(true),
+      ),
+    );
+    _emit(_state.copyWith(needsMapping: false));
   }
 
   /// Store the token, test the connection, and persist connected state.
@@ -178,10 +216,17 @@ class PluralKitSyncService {
           id: const Value('pk_config'),
           systemId: Value(system.id),
           isConnected: const Value(true),
+          // Fresh connection → user hasn't mapped yet. Gate auto-sync until
+          // the mapping screen runs (or user dismisses it).
+          mappingAcknowledged: const Value(false),
         ),
       );
 
-      _emit(_state.copyWith(isConnected: true, clearError: true));
+      _emit(_state.copyWith(
+        isConnected: true,
+        needsMapping: true,
+        clearError: true,
+      ));
     } on PluralKitAuthError {
       await _secureStorage.delete(key: _pkTokenKey);
       _emit(

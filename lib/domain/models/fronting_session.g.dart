@@ -30,6 +30,7 @@ _FrontingSession _$FrontingSessionFromJson(Map<String, dynamic> json) =>
           SessionType.normal,
       quality: $enumDecodeNullable(_$SleepQualityEnumMap, json['quality']),
       isHealthKitImport: json['isHealthKitImport'] as bool? ?? false,
+      pkMemberIdsJson: json['pkMemberIdsJson'] as String?,
     );
 
 Map<String, dynamic> _$FrontingSessionToJson(_FrontingSession instance) =>
@@ -45,6 +46,7 @@ Map<String, dynamic> _$FrontingSessionToJson(_FrontingSession instance) =>
       'sessionType': _$SessionTypeEnumMap[instance.sessionType]!,
       'quality': _$SleepQualityEnumMap[instance.quality],
       'isHealthKitImport': instance.isHealthKitImport,
+      'pkMemberIdsJson': instance.pkMemberIdsJson,
     };
 
 const _$FrontConfidenceEnumMap = {
