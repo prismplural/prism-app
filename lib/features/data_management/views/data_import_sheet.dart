@@ -509,6 +509,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
               _errorMessage = null;
               _fileBytes = null;
               _jsonContent = null;
+              _mediaBlobs = const [];
               _passwordController.clear();
               _passwordError = null;
             });

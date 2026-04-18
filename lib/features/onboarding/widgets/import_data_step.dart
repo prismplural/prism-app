@@ -645,6 +645,7 @@ class _PrismExportImportFlowState
       _errorMessage = null;
       _jsonContent = null;
       _fileBytes = null;
+      _mediaBlobs = const [];
       _preview = null;
       _passwordError = null;
       _passwordController.clear();
