@@ -775,9 +775,39 @@ class SpMapper {
     final now = DateTime.now();
 
     // Automated timers → onFrontChange reminders.
+    //
+    // SP's `type` field selects the target:
+    //   0 = specific member    → resolve via _memberIdMap
+    //   1 = custom front       → resolve via _memberIdMap (custom fronts are
+    //                            imported as tagged members and share the
+    //                            same id map)
+    //   2 = any front change   → no target; fires on every switch
+    //
+    // If the target id doesn't resolve (archived in SP, missing from the
+    // export, etc.), we drop the target (reminder becomes "any front change")
+    // and count it for the import disclosure.
+    var droppedTargets = 0;
+    var resolvedTargets = 0;
     for (final timer in automatedTimers) {
       final name = timer.name.isNotEmpty ? timer.name : 'Imported Timer';
       final message = timer.message ?? name;
+
+      String? targetMemberId;
+      final type = timer.type;
+      if (type == 0 || type == 1) {
+        final spId = timer.targetId;
+        if (spId != null) {
+          final resolved = _memberIdMap[spId];
+          if (resolved != null) {
+            targetMemberId = resolved;
+            resolvedTargets++;
+          } else {
+            droppedTargets++;
+          }
+        } else {
+          droppedTargets++;
+        }
+      }
 
       reminders.add(domain.Reminder(
         id: _uuid.v4(),
@@ -785,10 +815,30 @@ class SpMapper {
         message: message,
         trigger: domain.ReminderTrigger.onFrontChange,
         delayHours: timer.delayHours?.toInt(),
+        targetMemberId: targetMemberId,
         isActive: timer.enabled,
         createdAt: now,
         modifiedAt: now,
       ));
+    }
+
+    // Surface target-resolution stats for the import disclosure screen. The
+    // "fires only when Prism is running" caveat is part of the honesty copy
+    // in CreateReminderSheet; we restate it here so users reviewing the
+    // import preview understand the local-only nature of member-targeted
+    // reminders.
+    if (resolvedTargets > 0) {
+      warnings.add(
+        '$resolvedTargets imported timer${resolvedTargets == 1 ? '' : 's'} '
+        'will fire only when Prism is running and sees the switch.',
+      );
+    }
+    if (droppedTargets > 0) {
+      warnings.add(
+        '$droppedTargets imported timer${droppedTargets == 1 ? '' : 's'} '
+        'had a target that could not be resolved and will fire on any front '
+        'change.',
+      );
     }
 
     // Repeated timers → scheduled reminders.

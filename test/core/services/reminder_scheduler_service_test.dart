@@ -94,6 +94,7 @@ Reminder _reminder({
   List<int>? weeklyDays,
   int? intervalDays,
   String? timeOfDay = '09:00',
+  String? targetMemberId,
   bool isActive = true,
 }) {
   final now = DateTime(2026, 1, 1);
@@ -106,6 +107,7 @@ Reminder _reminder({
     weeklyDays: weeklyDays,
     intervalDays: intervalDays,
     timeOfDay: timeOfDay,
+    targetMemberId: targetMemberId,
     isActive: isActive,
     createdAt: now,
     modifiedAt: now,
@@ -448,6 +450,72 @@ void main() {
         fake.methodCalls.where((m) => m.startsWith('scheduleExact')).length,
         0,
       );
+    });
+  });
+
+  // ── Per-member firing filter (plan 06) ──────────────────────────────
+
+  group('fireFrontChangeReminders — target filter', () {
+    test('null target fires on any switch', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      await service.scheduleReminder(_reminder(
+        id: 'r-any',
+        trigger: ReminderTrigger.onFrontChange,
+        // targetMemberId intentionally null.
+      ));
+
+      await service.fireFrontChangeReminders({'alex'});
+      await service.fireFrontChangeReminders({'sam'});
+      await service.fireFrontChangeReminders(const <String>{});
+
+      expect(fake.showImmediateCalls, hasLength(3));
+    });
+
+    test('member target fires only when that member is fronting', () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      await service.scheduleReminder(_reminder(
+        id: 'r-alex',
+        trigger: ReminderTrigger.onFrontChange,
+        targetMemberId: 'alex',
+      ));
+
+      await service.fireFrontChangeReminders({'sam'}); // not alex
+      expect(fake.showImmediateCalls, isEmpty);
+
+      await service.fireFrontChangeReminders({'alex'});
+      expect(fake.showImmediateCalls, hasLength(1));
+
+      await service.fireFrontChangeReminders({'alex', 'sam'}); // co-front
+      expect(fake.showImmediateCalls, hasLength(2));
+    });
+
+    test('mix: null target always fires, targeted only when matching',
+        () async {
+      final fake = _FakeLocalNotificationService();
+      final service = ReminderSchedulerService(fake);
+      await service.scheduleReminder(_reminder(
+        id: 'r-any',
+        name: 'any',
+        trigger: ReminderTrigger.onFrontChange,
+      ));
+      await service.scheduleReminder(_reminder(
+        id: 'r-alex',
+        name: 'alex',
+        trigger: ReminderTrigger.onFrontChange,
+        targetMemberId: 'alex',
+      ));
+
+      await service.fireFrontChangeReminders({'sam'});
+      // Only the null-target reminder fires.
+      expect(fake.showImmediateCalls, hasLength(1));
+      expect(fake.showImmediateCalls.single.$2, 'any');
+
+      fake.showImmediateCalls.clear();
+      await service.fireFrontChangeReminders({'alex'});
+      // Both fire.
+      expect(fake.showImmediateCalls, hasLength(2));
     });
   });
 }

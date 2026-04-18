@@ -9236,6 +9236,30 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 hour} other{{count} hours}}'**
   String remindersDelayHours(int count);
 
+  /// Section label for the optional member target picker on a front-change reminder
+  ///
+  /// In en, this message translates to:
+  /// **'Target'**
+  String get remindersTargetLabel;
+
+  /// Target picker option meaning the reminder fires on any front change (no specific member)
+  ///
+  /// In en, this message translates to:
+  /// **'Any front change'**
+  String get remindersTargetAny;
+
+  /// Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is zero-knowledge, so the relay cannot push notifications for a specific member switch.
+  ///
+  /// In en, this message translates to:
+  /// **'Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.'**
+  String get remindersTargetDisclosure;
+
+  /// Reminder list subtitle prefix shown when a front-change reminder targets a specific member
+  ///
+  /// In en, this message translates to:
+  /// **'When {name} fronts'**
+  String remindersSubtitleTargetPrefix(String name);
+
   /// App name headline in the About section
   ///
   /// In en, this message translates to:
