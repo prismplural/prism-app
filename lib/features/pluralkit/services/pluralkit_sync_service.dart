@@ -326,6 +326,11 @@ class PluralKitSyncService {
 
   /// Full import: members + switches history.
   Future<void> performFullImport() async {
+    if (_state.needsMapping) {
+      throw StateError(
+        'Mapping pending — complete the mapping flow before auto-syncing.',
+      );
+    }
     final client = await _buildClient();
     if (client == null) throw StateError('Not connected');
 
@@ -472,6 +477,11 @@ class PluralKitSyncService {
     bool isManual = false,
     PkSyncDirection direction = PkSyncDirection.pullOnly,
   }) async {
+    if (_state.needsMapping) {
+      throw StateError(
+        'Mapping pending — complete the mapping flow before auto-syncing.',
+      );
+    }
     if (_state.lastSyncDate == null) {
       // Never synced before — perform full import
       await performFullImport();

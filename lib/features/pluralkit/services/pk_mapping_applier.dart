@@ -125,7 +125,7 @@ class PkMappingApplier {
         case PkImportDecision():
           await _applyImport(decision);
         case PkPushNewDecision():
-          await _applyPushNew(decision);
+          await _applyPushNew(decision, existing);
         case PkSkipDecision():
           await _applySkip(decision);
       }
@@ -220,13 +220,26 @@ class PkMappingApplier {
     await _members.createMember(member);
   }
 
-  Future<void> _applyPushNew(PkPushNewDecision d) async {
+  Future<void> _applyPushNew(
+    PkPushNewDecision d,
+    PkMappingStateData? priorState,
+  ) async {
     final local = await _members.getMemberById(d.localMemberId);
     if (local == null) {
       throw StateError('Local member ${d.localMemberId} not found');
     }
     // Idempotent: if already has a PK ID, no-op.
     if (local.pluralkitId != null && local.pluralkitUuid != null) return;
+
+    // Crash-recovery: prior run POSTed but never wrote the local member.
+    // pk_mapping_state has the PK id/uuid — reuse them instead of re-POSTing.
+    if (priorState?.pkMemberId != null && priorState?.pkMemberUuid != null) {
+      await _members.updateMember(local.copyWith(
+        pluralkitId: priorState!.pkMemberId,
+        pluralkitUuid: priorState.pkMemberUuid,
+      ));
+      return;
+    }
 
     // If pluralkitId exists but uuid missing, fetch to complete the pairing.
     if (local.pluralkitId != null && local.pluralkitUuid == null) {
@@ -252,10 +265,26 @@ class PkMappingApplier {
       (m) => m.id == createdId,
       orElse: () => _pkSentinel,
     );
+    final createdUuid = identical(created, _pkSentinel) ? null : created.uuid;
+
+    // Persist the returned PK identifiers to pk_mapping_state BEFORE writing
+    // the member, so a crash between here and the member update doesn't cause
+    // a duplicate POST on retry.
+    final now = _now();
+    await _state.upsert(PkMappingStateCompanion(
+      id: Value(d.id),
+      decisionType: const Value('push'),
+      pkMemberId: Value(createdId),
+      pkMemberUuid: Value(createdUuid),
+      localMemberId: Value(d.localMemberId),
+      status: const Value('pending'),
+      createdAt: Value(priorState?.createdAt ?? now),
+      updatedAt: Value(now),
+    ));
+
     await _members.updateMember(local.copyWith(
       pluralkitId: createdId,
-      pluralkitUuid:
-          identical(created, _pkSentinel) ? null : created.uuid,
+      pluralkitUuid: createdUuid,
     ));
   }
 

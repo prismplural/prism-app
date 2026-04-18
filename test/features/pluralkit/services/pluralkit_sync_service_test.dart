@@ -605,6 +605,7 @@ void main() {
 
       // Connect the service (sets isConnected = true in state and storage)
       await service.setToken('valid-token');
+      await service.acknowledgeMapping();
       expect(service.state.isConnected, isTrue);
 
       // lastSyncDate is null — syncRecentData should branch into performFullImport
@@ -647,6 +648,7 @@ void main() {
       );
 
       await service.setToken('valid-token');
+      await service.acknowledgeMapping();
       // lastSyncDate null → full import path
       await service.syncRecentData();
 
@@ -722,6 +724,7 @@ void main() {
         );
 
         await service.setToken('valid-token');
+        await service.acknowledgeMapping();
         await service.syncRecentData();
 
         // Processing 100 consecutive duplicates triggers early exit.
