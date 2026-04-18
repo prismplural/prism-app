@@ -22,6 +22,7 @@ import 'package:prism_plurality/domain/repositories/conversation_categories_repo
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/features/migration/services/sp_mapper.dart';
+import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
 
 /// Import progress state.
 enum ImportState {
@@ -52,6 +53,7 @@ class ImportResult {
   final int groupsImported;
   final int remindersImported;
   final int avatarsDownloaded;
+  final bool systemAvatarDownloaded;
   final List<String> warnings;
   final Duration duration;
 
@@ -67,6 +69,7 @@ class ImportResult {
     this.groupsImported = 0,
     this.remindersImported = 0,
     required this.avatarsDownloaded,
+    this.systemAvatarDownloaded = false,
     required this.warnings,
     required this.duration,
   });
@@ -347,7 +350,28 @@ class SpImporter {
     // 6. Download avatars (best-effort, outside the transaction).
     //    Network I/O cannot be rolled back; failures here are silently skipped.
     var avatarsDownloaded = 0;
+    var systemAvatarDownloaded = false;
     final warnings = List<String>.of(mapped.warnings);
+
+    // 6a. System-level avatar. SP stores this on users[0] (separate from
+    //     member avatars); mirror the member flow — fetch+store best-effort
+    //     outside the transaction.
+    if (downloadAvatars &&
+        settingsRepo != null &&
+        mapped.systemAvatarUrl != null &&
+        mapped.systemAvatarUrl!.isNotEmpty) {
+      final bytes = await fetchAvatarBytes(
+        mapped.systemAvatarUrl!,
+        client: _http,
+      );
+      if (bytes != null) {
+        await settingsRepo.updateSystemAvatarData(bytes);
+        systemAvatarDownloaded = true;
+      } else {
+        warnings.add('System avatar failed to download');
+      }
+    }
+
     if (downloadAvatars && mapped.avatarUrls.isNotEmpty) {
       final result = await _downloadAvatars(
         mapped.members,
@@ -383,6 +407,7 @@ class SpImporter {
       groupsImported: mapped.groups.length,
       remindersImported: mapped.reminders.length,
       avatarsDownloaded: avatarsDownloaded,
+      systemAvatarDownloaded: systemAvatarDownloaded,
       warnings: warnings,
       duration: stopwatch.elapsed,
     );
@@ -403,24 +428,14 @@ class SpImporter {
       final url = avatarUrls[member.id];
       if (url == null) continue;
 
-      try {
-        final response = await _http
-            .get(Uri.parse(url))
-            .timeout(const Duration(seconds: 10));
-
-        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-          final contentType = response.headers['content-type'] ?? '';
-          if (!contentType.startsWith('image/')) {
-            warnings?.add('Avatar download returned non-image content for ${member.id} ($contentType)');
-            failed++;
-            continue;
-          }
-          await memberRepo.updateMember(
-            member.copyWith(avatarImageData: response.bodyBytes),
-          );
-          downloaded++;
-        }
-      } catch (_) {
+      final bytes = await fetchAvatarBytes(url, client: _http);
+      if (bytes != null) {
+        await memberRepo.updateMember(
+          member.copyWith(avatarImageData: bytes),
+        );
+        downloaded++;
+      } else {
+        warnings?.add('Avatar download failed for ${member.id}');
         failed++;
       }
 

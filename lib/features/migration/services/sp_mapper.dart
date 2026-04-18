@@ -43,6 +43,7 @@ class MappedData {
   final String? systemName;
   final String? systemColor;
   final String? systemDescription;
+  final String? systemAvatarUrl;
 
   const MappedData({
     required this.members,
@@ -63,6 +64,7 @@ class MappedData {
     this.systemName,
     this.systemColor,
     this.systemDescription,
+    this.systemAvatarUrl,
   });
 }
 
@@ -198,6 +200,7 @@ class SpMapper {
       systemName: data.systemName,
       systemColor: data.systemColor,
       systemDescription: data.systemDescription,
+      systemAvatarUrl: data.systemAvatarUrl,
     );
   }
 

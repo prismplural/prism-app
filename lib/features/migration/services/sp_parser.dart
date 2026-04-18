@@ -19,6 +19,7 @@ class SpExportData {
   final String? systemName;
   final String? systemColor;
   final String? systemDescription;
+  final String? systemAvatarUrl;
 
   const SpExportData({
     required this.members,
@@ -38,6 +39,7 @@ class SpExportData {
     this.systemName,
     this.systemColor,
     this.systemDescription,
+    this.systemAvatarUrl,
   });
 
   int get totalEntities =>
@@ -727,6 +729,7 @@ class SpParser {
     String? systemName;
     String? systemColor;
     String? systemDescription;
+    String? systemAvatarUrl;
     final settings = json['settings'];
     if (settings is Map<String, dynamic>) {
       systemName =
@@ -741,6 +744,22 @@ class SpParser {
         systemName ??= user['username'] as String?;
         systemColor ??= user['color'] as String?;
         systemDescription ??= user['desc'] as String?;
+
+        // System-level avatar: prefer direct URL, else construct the
+        // serve.apparyllis.com URL from (uid, avatarUuid). Mirrors the
+        // per-member logic in sp_mapper.dart.
+        final uid = user['uid'] as String? ?? user['_id'] as String?;
+        final avatarUrl = user['avatarUrl'] as String?;
+        final avatarUuid = user['avatarUuid'] as String?;
+        if (avatarUrl != null && avatarUrl.isNotEmpty) {
+          systemAvatarUrl = avatarUrl;
+        } else if (uid != null &&
+            uid.isNotEmpty &&
+            avatarUuid != null &&
+            avatarUuid.isNotEmpty) {
+          systemAvatarUrl =
+              'https://serve.apparyllis.com/avatars/$uid/$avatarUuid';
+        }
       }
     }
 
@@ -768,6 +787,7 @@ class SpParser {
       systemName: systemName,
       systemColor: systemColor,
       systemDescription: systemDescription,
+      systemAvatarUrl: systemAvatarUrl,
     );
   }
 

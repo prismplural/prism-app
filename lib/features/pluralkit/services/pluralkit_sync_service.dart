@@ -14,11 +14,13 @@ import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
+import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
+import 'package:prism_plurality/shared/utils/avatar_fetcher.dart';
 
 // ---------------------------------------------------------------------------
 // Sync state
@@ -113,6 +115,7 @@ class PluralKitSyncService {
   final MemberRepository _memberRepository;
   final FrontingSessionRepository _frontingSessionRepository;
   final PluralKitSyncDao _syncDao;
+  final SystemSettingsRepository? _settingsRepository;
   final FlutterSecureStorage _secureStorage;
   final Uuid _uuid;
   final PluralKitClient Function(String token)? _clientFactory;
@@ -125,12 +128,14 @@ class PluralKitSyncService {
     required MemberRepository memberRepository,
     required FrontingSessionRepository frontingSessionRepository,
     required PluralKitSyncDao syncDao,
+    SystemSettingsRepository? settingsRepository,
     FlutterSecureStorage? secureStorage,
     PluralKitClient Function(String token)? clientFactory,
     String? tokenOverride,
   }) : _memberRepository = memberRepository,
        _frontingSessionRepository = frontingSessionRepository,
        _syncDao = syncDao,
+       _settingsRepository = settingsRepository,
        _secureStorage =
            secureStorage ?? storage_config.secureStorage,
        _uuid = const Uuid(),
@@ -778,6 +783,32 @@ class PluralKitSyncService {
     }
   }
 
+  /// Fetch the PK system-level avatar and store it on the local settings row.
+  ///
+  /// Returns `true` iff an avatar was fetched AND stored. Returns `false`
+  /// when PK reports no system avatar, when the helper declines the download
+  /// (timeout, non-image, oversize), or when no [SystemSettingsRepository]
+  /// was wired into this service.
+  ///
+  /// Track 04 (disclosure toggle) is the expected caller; it gates the call
+  /// behind a user-facing checkbox.
+  Future<bool> importSystemAvatar() async {
+    if (_settingsRepository == null) return false;
+    final client = await _buildClient();
+    if (client == null) throw StateError('Not connected');
+    try {
+      final system = await client.getSystem();
+      final url = system.avatarUrl;
+      if (url == null || url.isEmpty) return false;
+      final bytes = await fetchAvatarBytes(url);
+      if (bytes == null) return false;
+      await _settingsRepository.updateSystemAvatarData(bytes);
+      return true;
+    } finally {
+      client.dispose();
+    }
+  }
+
   // -- private helpers ------------------------------------------------------
 
   Future<void> _importMembers(
@@ -793,14 +824,13 @@ class PluralKitSyncService {
     }
 
     for (final pk in pkMembers) {
+      // PK serves avatars from a public CDN (not the API host) and requires
+      // no auth header, so the shared helper's short-lived http.Client is
+      // fine here. Failures (timeout, non-image, oversize) yield null and
+      // leave the existing avatar untouched.
       Uint8List? avatarData;
-      if (pk.avatarUrl != null) {
-        try {
-          final bytes = await client.downloadBytes(pk.avatarUrl!);
-          avatarData = Uint8List.fromList(bytes);
-        } catch (_) {
-          // Avatar download failure is non-fatal
-        }
+      if (pk.avatarUrl != null && pk.avatarUrl!.isNotEmpty) {
+        avatarData = await fetchAvatarBytes(pk.avatarUrl!);
       }
 
       final localMember = byPkUuid[pk.uuid];
