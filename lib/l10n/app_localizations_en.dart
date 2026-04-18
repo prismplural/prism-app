@@ -5341,6 +5341,21 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get remindersTargetLabel => 'Target';
+
+  @override
+  String get remindersTargetAny => 'Any front change';
+
+  @override
+  String get remindersTargetDisclosure =>
+      'Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.';
+
+  @override
+  String remindersSubtitleTargetPrefix(String name) {
+    return 'When $name fronts';
+  }
+
+  @override
   String get settingsAboutAppName => 'Prism';
 
   @override

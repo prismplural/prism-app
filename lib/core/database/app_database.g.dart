@@ -15536,6 +15536,17 @@ class $RemindersTable extends Reminders
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _targetMemberIdMeta = const VerificationMeta(
+    'targetMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> targetMemberId = GeneratedColumn<String>(
+    'target_member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -15599,6 +15610,7 @@ class $RemindersTable extends Reminders
     weeklyDays,
     timeOfDay,
     delayHours,
+    targetMemberId,
     isActive,
     createdAt,
     modifiedAt,
@@ -15676,6 +15688,15 @@ class $RemindersTable extends Reminders
         delayHours.isAcceptableOrUnknown(data['delay_hours']!, _delayHoursMeta),
       );
     }
+    if (data.containsKey('target_member_id')) {
+      context.handle(
+        _targetMemberIdMeta,
+        targetMemberId.isAcceptableOrUnknown(
+          data['target_member_id']!,
+          _targetMemberIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_active')) {
       context.handle(
         _isActiveMeta,
@@ -15749,6 +15770,10 @@ class $RemindersTable extends Reminders
         DriftSqlType.int,
         data['${effectivePrefix}delay_hours'],
       ),
+      targetMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_member_id'],
+      ),
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -15784,6 +15809,11 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
   final String? weeklyDays;
   final String? timeOfDay;
   final int? delayHours;
+
+  /// Optional member ID this reminder targets. When null, a front-change
+  /// reminder fires on any switch; when set, it fires only when the referenced
+  /// member (or custom-front-tagged member) is in the current fronter set.
+  final String? targetMemberId;
   final bool isActive;
   final DateTime createdAt;
   final DateTime modifiedAt;
@@ -15798,6 +15828,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     this.weeklyDays,
     this.timeOfDay,
     this.delayHours,
+    this.targetMemberId,
     required this.isActive,
     required this.createdAt,
     required this.modifiedAt,
@@ -15824,6 +15855,9 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     }
     if (!nullToAbsent || delayHours != null) {
       map['delay_hours'] = Variable<int>(delayHours);
+    }
+    if (!nullToAbsent || targetMemberId != null) {
+      map['target_member_id'] = Variable<String>(targetMemberId);
     }
     map['is_active'] = Variable<bool>(isActive);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -15853,6 +15887,9 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
       delayHours: delayHours == null && nullToAbsent
           ? const Value.absent()
           : Value(delayHours),
+      targetMemberId: targetMemberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetMemberId),
       isActive: Value(isActive),
       createdAt: Value(createdAt),
       modifiedAt: Value(modifiedAt),
@@ -15875,6 +15912,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
       weeklyDays: serializer.fromJson<String?>(json['weeklyDays']),
       timeOfDay: serializer.fromJson<String?>(json['timeOfDay']),
       delayHours: serializer.fromJson<int?>(json['delayHours']),
+      targetMemberId: serializer.fromJson<String?>(json['targetMemberId']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       modifiedAt: serializer.fromJson<DateTime>(json['modifiedAt']),
@@ -15894,6 +15932,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
       'weeklyDays': serializer.toJson<String?>(weeklyDays),
       'timeOfDay': serializer.toJson<String?>(timeOfDay),
       'delayHours': serializer.toJson<int?>(delayHours),
+      'targetMemberId': serializer.toJson<String?>(targetMemberId),
       'isActive': serializer.toJson<bool>(isActive),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'modifiedAt': serializer.toJson<DateTime>(modifiedAt),
@@ -15911,6 +15950,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     Value<String?> weeklyDays = const Value.absent(),
     Value<String?> timeOfDay = const Value.absent(),
     Value<int?> delayHours = const Value.absent(),
+    Value<String?> targetMemberId = const Value.absent(),
     bool? isActive,
     DateTime? createdAt,
     DateTime? modifiedAt,
@@ -15925,6 +15965,9 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     weeklyDays: weeklyDays.present ? weeklyDays.value : this.weeklyDays,
     timeOfDay: timeOfDay.present ? timeOfDay.value : this.timeOfDay,
     delayHours: delayHours.present ? delayHours.value : this.delayHours,
+    targetMemberId: targetMemberId.present
+        ? targetMemberId.value
+        : this.targetMemberId,
     isActive: isActive ?? this.isActive,
     createdAt: createdAt ?? this.createdAt,
     modifiedAt: modifiedAt ?? this.modifiedAt,
@@ -15947,6 +15990,9 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
       delayHours: data.delayHours.present
           ? data.delayHours.value
           : this.delayHours,
+      targetMemberId: data.targetMemberId.present
+          ? data.targetMemberId.value
+          : this.targetMemberId,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       modifiedAt: data.modifiedAt.present
@@ -15968,6 +16014,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
           ..write('weeklyDays: $weeklyDays, ')
           ..write('timeOfDay: $timeOfDay, ')
           ..write('delayHours: $delayHours, ')
+          ..write('targetMemberId: $targetMemberId, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
           ..write('modifiedAt: $modifiedAt, ')
@@ -15987,6 +16034,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     weeklyDays,
     timeOfDay,
     delayHours,
+    targetMemberId,
     isActive,
     createdAt,
     modifiedAt,
@@ -16005,6 +16053,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
           other.weeklyDays == this.weeklyDays &&
           other.timeOfDay == this.timeOfDay &&
           other.delayHours == this.delayHours &&
+          other.targetMemberId == this.targetMemberId &&
           other.isActive == this.isActive &&
           other.createdAt == this.createdAt &&
           other.modifiedAt == this.modifiedAt &&
@@ -16021,6 +16070,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
   final Value<String?> weeklyDays;
   final Value<String?> timeOfDay;
   final Value<int?> delayHours;
+  final Value<String?> targetMemberId;
   final Value<bool> isActive;
   final Value<DateTime> createdAt;
   final Value<DateTime> modifiedAt;
@@ -16036,6 +16086,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     this.weeklyDays = const Value.absent(),
     this.timeOfDay = const Value.absent(),
     this.delayHours = const Value.absent(),
+    this.targetMemberId = const Value.absent(),
     this.isActive = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.modifiedAt = const Value.absent(),
@@ -16052,6 +16103,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     this.weeklyDays = const Value.absent(),
     this.timeOfDay = const Value.absent(),
     this.delayHours = const Value.absent(),
+    this.targetMemberId = const Value.absent(),
     this.isActive = const Value.absent(),
     required DateTime createdAt,
     required DateTime modifiedAt,
@@ -16072,6 +16124,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     Expression<String>? weeklyDays,
     Expression<String>? timeOfDay,
     Expression<int>? delayHours,
+    Expression<String>? targetMemberId,
     Expression<bool>? isActive,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? modifiedAt,
@@ -16088,6 +16141,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
       if (weeklyDays != null) 'weekly_days': weeklyDays,
       if (timeOfDay != null) 'time_of_day': timeOfDay,
       if (delayHours != null) 'delay_hours': delayHours,
+      if (targetMemberId != null) 'target_member_id': targetMemberId,
       if (isActive != null) 'is_active': isActive,
       if (createdAt != null) 'created_at': createdAt,
       if (modifiedAt != null) 'modified_at': modifiedAt,
@@ -16106,6 +16160,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     Value<String?>? weeklyDays,
     Value<String?>? timeOfDay,
     Value<int?>? delayHours,
+    Value<String?>? targetMemberId,
     Value<bool>? isActive,
     Value<DateTime>? createdAt,
     Value<DateTime>? modifiedAt,
@@ -16122,6 +16177,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
       weeklyDays: weeklyDays ?? this.weeklyDays,
       timeOfDay: timeOfDay ?? this.timeOfDay,
       delayHours: delayHours ?? this.delayHours,
+      targetMemberId: targetMemberId ?? this.targetMemberId,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
@@ -16160,6 +16216,9 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     if (delayHours.present) {
       map['delay_hours'] = Variable<int>(delayHours.value);
     }
+    if (targetMemberId.present) {
+      map['target_member_id'] = Variable<String>(targetMemberId.value);
+    }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
@@ -16190,6 +16249,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
           ..write('weeklyDays: $weeklyDays, ')
           ..write('timeOfDay: $timeOfDay, ')
           ..write('delayHours: $delayHours, ')
+          ..write('targetMemberId: $targetMemberId, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
           ..write('modifiedAt: $modifiedAt, ')
@@ -27366,6 +27426,7 @@ typedef $$RemindersTableCreateCompanionBuilder =
       Value<String?> weeklyDays,
       Value<String?> timeOfDay,
       Value<int?> delayHours,
+      Value<String?> targetMemberId,
       Value<bool> isActive,
       required DateTime createdAt,
       required DateTime modifiedAt,
@@ -27383,6 +27444,7 @@ typedef $$RemindersTableUpdateCompanionBuilder =
       Value<String?> weeklyDays,
       Value<String?> timeOfDay,
       Value<int?> delayHours,
+      Value<String?> targetMemberId,
       Value<bool> isActive,
       Value<DateTime> createdAt,
       Value<DateTime> modifiedAt,
@@ -27441,6 +27503,11 @@ class $$RemindersTableFilterComposer
 
   ColumnFilters<int> get delayHours => $composableBuilder(
     column: $table.delayHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetMemberId => $composableBuilder(
+    column: $table.targetMemberId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -27519,6 +27586,11 @@ class $$RemindersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get targetMemberId => $composableBuilder(
+    column: $table.targetMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
@@ -27582,6 +27654,11 @@ class $$RemindersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get targetMemberId => $composableBuilder(
+    column: $table.targetMemberId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
 
@@ -27637,6 +27714,7 @@ class $$RemindersTableTableManager
                 Value<String?> weeklyDays = const Value.absent(),
                 Value<String?> timeOfDay = const Value.absent(),
                 Value<int?> delayHours = const Value.absent(),
+                Value<String?> targetMemberId = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> modifiedAt = const Value.absent(),
@@ -27652,6 +27730,7 @@ class $$RemindersTableTableManager
                 weeklyDays: weeklyDays,
                 timeOfDay: timeOfDay,
                 delayHours: delayHours,
+                targetMemberId: targetMemberId,
                 isActive: isActive,
                 createdAt: createdAt,
                 modifiedAt: modifiedAt,
@@ -27669,6 +27748,7 @@ class $$RemindersTableTableManager
                 Value<String?> weeklyDays = const Value.absent(),
                 Value<String?> timeOfDay = const Value.absent(),
                 Value<int?> delayHours = const Value.absent(),
+                Value<String?> targetMemberId = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime modifiedAt,
@@ -27684,6 +27764,7 @@ class $$RemindersTableTableManager
                 weeklyDays: weeklyDays,
                 timeOfDay: timeOfDay,
                 delayHours: delayHours,
+                targetMemberId: targetMemberId,
                 isActive: isActive,
                 createdAt: createdAt,
                 modifiedAt: modifiedAt,

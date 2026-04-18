@@ -269,6 +269,7 @@ const String prismSyncSchema = '''
         "interval_days": "Int",
         "time_of_day": "String",
         "delay_hours": "Int",
+        "target_member_id": "String",
         "is_active": "Bool",
         "created_at": "DateTime",
         "modified_at": "DateTime",

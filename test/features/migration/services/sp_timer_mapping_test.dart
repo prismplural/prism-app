@@ -349,6 +349,150 @@ void main() {
       );
     });
 
+    // ── Plan 06: per-member targeting ──────────────────────────────
+
+    test('type=0 member target resolves to Prism member ID', () {
+      final data = _makeExportData(
+        members: const [
+          SpMember(id: 'sp-alex', name: 'Alex'),
+        ],
+        automatedTimers: const [
+          SpAutomatedTimer(
+            id: 'at-alex',
+            name: 'When Alex fronts',
+            type: 0,
+            targetId: 'sp-alex',
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      final alexPrismId = mapper.memberIdMap['sp-alex'];
+      expect(alexPrismId, isNotNull);
+      expect(result.reminders, hasLength(1));
+      expect(result.reminders.first.targetMemberId, alexPrismId);
+    });
+
+    test('type=1 custom front resolves to custom-front tagged member', () {
+      final data = _makeExportData(
+        customFronts: const [
+          SpCustomFront(id: 'sp-cf1', name: 'At work'),
+        ],
+        automatedTimers: const [
+          SpAutomatedTimer(
+            id: 'at-cf',
+            name: 'At work',
+            type: 1,
+            targetId: 'sp-cf1',
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      final cfPrismId = mapper.memberIdMap['sp-cf1'];
+      expect(cfPrismId, isNotNull,
+          reason: 'custom front should share _memberIdMap with members');
+      expect(result.reminders, hasLength(1));
+      expect(result.reminders.first.targetMemberId, cfPrismId);
+    });
+
+    test('type=2 any front change → no target', () {
+      final data = _makeExportData(
+        automatedTimers: const [
+          SpAutomatedTimer(
+            id: 'at-any',
+            name: 'Still fronting?',
+            type: 2,
+            targetId: 'ignored',
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.reminders, hasLength(1));
+      expect(result.reminders.first.targetMemberId, isNull);
+    });
+
+    test('unresolved target id is dropped and counted in warnings', () {
+      final data = _makeExportData(
+        automatedTimers: const [
+          SpAutomatedTimer(
+            id: 'at-missing',
+            name: 'Ghost target',
+            type: 0,
+            targetId: 'sp-does-not-exist',
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(result.reminders, hasLength(1));
+      expect(result.reminders.first.targetMemberId, isNull);
+      expect(
+        result.warnings.any((w) => w.contains('could not be resolved')),
+        isTrue,
+      );
+    });
+
+    test('resolved targets surface a local-only disclosure warning', () {
+      final data = _makeExportData(
+        members: const [SpMember(id: 'sp-a', name: 'A')],
+        automatedTimers: const [
+          SpAutomatedTimer(
+            id: 'at-a',
+            name: 'When A',
+            type: 0,
+            targetId: 'sp-a',
+          ),
+        ],
+      );
+
+      final mapper = SpMapper();
+      final result = mapper.mapAll(data);
+
+      expect(
+        result.warnings
+            .any((w) => w.contains('fire only when Prism is running')),
+        isTrue,
+      );
+    });
+
+    test('SpAutomatedTimer.fromJson parses type and action target', () {
+      final timer = SpAutomatedTimer.fromJson({
+        '_id': 'at1',
+        'name': 'T',
+        'type': 0,
+        'action': 'sp-member-1',
+      });
+      expect(timer.type, 0);
+      expect(timer.targetId, 'sp-member-1');
+    });
+
+    test('SpAutomatedTimer.fromJson falls back to memberId key', () {
+      final timer = SpAutomatedTimer.fromJson({
+        '_id': 'at2',
+        'name': 'T',
+        'type': 1,
+        'memberId': 'sp-cf-1',
+      });
+      expect(timer.type, 1);
+      expect(timer.targetId, 'sp-cf-1');
+    });
+
+    test('SpAutomatedTimer.fromJson with missing type → null', () {
+      final timer = SpAutomatedTimer.fromJson({'_id': 'at3', 'name': 'T'});
+      expect(timer.type, isNull);
+      expect(timer.targetId, isNull);
+    });
+
     test('each mapped reminder gets a unique ID', () {
       final data = _makeExportData(
         automatedTimers: [

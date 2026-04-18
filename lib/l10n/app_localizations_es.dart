@@ -5430,6 +5430,21 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get remindersTargetLabel => 'Destino';
+
+  @override
+  String get remindersTargetAny => 'Cualquier cambio de frente';
+
+  @override
+  String get remindersTargetDisclosure =>
+      'Se activa cuando Prism está en ejecución y detecta el cambio. Los cambios externos registrados mientras Prism está cerrado pueden no activar este recordatorio.';
+
+  @override
+  String remindersSubtitleTargetPrefix(String name) {
+    return 'Cuando $name está al frente';
+  }
+
+  @override
   String get settingsAboutAppName => 'Prism';
 
   @override

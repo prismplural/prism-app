@@ -613,6 +613,13 @@ class SpAutomatedTimer {
   final String? message;
   final num? delayHours;
   final bool enabled;
+  /// SP timer target type. 0 = specific member, 1 = custom front, 2 = any
+  /// front change. null if the export omitted the field (treated as "any").
+  final int? type;
+  /// Target member or custom-front id when [type] is 0 or 1.
+  /// Source fields vary across SP export versions; the parser tries `action`
+  /// first (string id of the target), then `id` / `targetId`.
+  final String? targetId;
 
   const SpAutomatedTimer({
     required this.id,
@@ -620,9 +627,28 @@ class SpAutomatedTimer {
     this.message,
     this.delayHours,
     this.enabled = true,
+    this.type,
+    this.targetId,
   });
 
   factory SpAutomatedTimer.fromJson(Map<String, dynamic> json) {
+    // `type` is an int in the SP schema. Accept a string fallback defensively
+    // since some export variants stringify small ints.
+    int? parseType(dynamic v) {
+      if (v is int) return v;
+      if (v is String) return int.tryParse(v);
+      return null;
+    }
+
+    // Target id: SP uses different field names across versions; be lenient.
+    String? parseTargetId(Map<String, dynamic> m) {
+      for (final key in const ['action', 'targetId', 'memberId', 'memberID']) {
+        final v = m[key];
+        if (v is String && v.isNotEmpty) return v;
+      }
+      return null;
+    }
+
     return SpAutomatedTimer(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       name: (json['name'] ?? 'Timer').toString(),
@@ -633,6 +659,8 @@ class SpAutomatedTimer {
               ? num.tryParse(json['delayInHours'] as String)
               : null,
       enabled: json['enabled'] != false,
+      type: parseType(json['type']),
+      targetId: parseTargetId(json),
     );
   }
 }

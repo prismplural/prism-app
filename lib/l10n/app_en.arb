@@ -6535,6 +6535,17 @@
     "description": "Delay picker option for number of hours",
     "placeholders": { "count": { "type": "int" } }
   },
+  "remindersTargetLabel": "Target",
+  "@remindersTargetLabel": { "description": "Section label for the optional member target picker on a front-change reminder" },
+  "remindersTargetAny": "Any front change",
+  "@remindersTargetAny": { "description": "Target picker option meaning the reminder fires on any front change (no specific member)" },
+  "remindersTargetDisclosure": "Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.",
+  "@remindersTargetDisclosure": { "description": "Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is zero-knowledge, so the relay cannot push notifications for a specific member switch." },
+  "remindersSubtitleTargetPrefix": "When {name} fronts",
+  "@remindersSubtitleTargetPrefix": {
+    "description": "Reminder list subtitle prefix shown when a front-change reminder targets a specific member",
+    "placeholders": { "name": { "type": "String" } }
+  },
   "settingsAboutAppName": "Prism",
   "@settingsAboutAppName": { "description": "App name headline in the About section" },
   "settingsAboutTagline": "Plural system management",

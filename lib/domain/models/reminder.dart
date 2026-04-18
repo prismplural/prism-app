@@ -26,6 +26,12 @@ abstract class Reminder with _$Reminder {
     int? intervalDays,
     String? timeOfDay,
     int? delayHours,
+    /// Optional target member ID. null = fires on any front change;
+    /// non-null = fires only when the referenced member is in the current
+    /// fronter set. Custom fronts are represented as tagged members, so the
+    /// same column covers both SP timer type=0 (member) and type=1 (custom
+    /// front).
+    String? targetMemberId,
     @Default(true) bool isActive,
     required DateTime createdAt,
     required DateTime modifiedAt,

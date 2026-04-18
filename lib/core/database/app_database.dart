@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 53;
+  int get schemaVersion => 54;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -443,6 +443,22 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'ALTER TABLE system_settings ADD COLUMN system_tag TEXT',
         );
+      }
+
+      if (from < 54) {
+        // Plan 06: SP timer targeting — per-member reminders.
+        // Adds `target_member_id` to reminders. Nullable: null keeps the
+        // existing "fires on any front change" behavior, a non-null value
+        // narrows firing to switches where that member is in the current
+        // fronter set. Guard by table existence for old test stubs.
+        final remindersExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reminders'",
+        ).get();
+        if (remindersExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE reminders ADD COLUMN target_member_id TEXT',
+          );
+        }
       }
     },
     onCreate: (migrator) async {

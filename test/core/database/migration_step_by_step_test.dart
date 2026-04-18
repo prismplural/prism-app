@@ -177,9 +177,9 @@ void main() {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
 
-      // Current schema version should be 52. Update this when adding
+      // Current schema version should be 54. Update this when adding
       // new migrations to ensure the version is bumped.
-      expect(db.schemaVersion, 52);
+      expect(db.schemaVersion, 54);
     });
   });
 }
