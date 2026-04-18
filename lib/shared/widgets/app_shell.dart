@@ -857,26 +857,32 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                           ),
                         ),
                       ),
-                      // Tab items
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(tabCount, (index) {
-                          final tab = widget.primaryTabs[index];
-                          final isSelected = index == widget.currentIndex;
-                          return Expanded(
-                            child: _NavBarItem(
-                              tab: tab,
-                              terminologyPlural: terminologyPlural,
-                              isSelected: isSelected,
-                              accentColor: widget.accentColor,
-                              isDark: isDark,
-                              showSyncBadge: showSyncBadge,
-                              habitsDueCount: dueCount,
-                              chatUnreadCount: chatUnreadCount,
-                              onTap: () => widget.onTap(index),
-                            ),
-                          );
-                        }),
+                      // Tab items — force the row to fill the nav bar
+                      // height so each item's content vertically centers the
+                      // same way it does in overflow mode (where the tall
+                      // _MoreTrigger sibling forces the row to full height).
+                      SizedBox(
+                        height: kFloatingNavBarHeight,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(tabCount, (index) {
+                            final tab = widget.primaryTabs[index];
+                            final isSelected = index == widget.currentIndex;
+                            return Expanded(
+                              child: _NavBarItem(
+                                tab: tab,
+                                terminologyPlural: terminologyPlural,
+                                isSelected: isSelected,
+                                accentColor: widget.accentColor,
+                                isDark: isDark,
+                                showSyncBadge: showSyncBadge,
+                                habitsDueCount: dueCount,
+                                chatUnreadCount: chatUnreadCount,
+                                onTap: () => widget.onTap(index),
+                              ),
+                            );
+                          }),
+                        ),
                       ),
                     ],
                   );
