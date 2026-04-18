@@ -395,7 +395,7 @@ abstract class AppLocalizations {
   /// Settings link: Sync
   ///
   /// In en, this message translates to:
-  /// **'Sync'**
+  /// **'Prism Sync'**
   String get settingsSync;
 
   /// Settings link: Sharing
@@ -569,7 +569,7 @@ abstract class AppLocalizations {
   /// Sync settings screen title
   ///
   /// In en, this message translates to:
-  /// **'Sync'**
+  /// **'Prism Sync'**
   String get syncTitle;
 
   /// Title shown when sync health is disconnected
