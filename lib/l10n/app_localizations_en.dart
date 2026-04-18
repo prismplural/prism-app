@@ -170,7 +170,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsNotifications => 'Notifications';
 
   @override
-  String get settingsSync => 'Sync';
+  String get settingsSync => 'Prism Sync';
 
   @override
   String get settingsSharing => 'Sharing';
@@ -266,7 +266,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appearanceFronting => 'Fronting';
 
   @override
-  String get syncTitle => 'Sync';
+  String get syncTitle => 'Prism Sync';
 
   @override
   String get syncDisconnectedTitle => 'Sync was disconnected';
@@ -1191,7 +1191,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get devicesIdCopied => 'Device ID copied';
 
   @override
-  String get syncTroubleshootingTitle => 'Sync Troubleshooting';
+  String get syncTroubleshootingTitle => 'Prism Sync Troubleshooting';
 
   @override
   String get syncTroubleshootingConnectionStatus => 'Connection Status';
@@ -1259,7 +1259,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncTroubleshootingForceSync => 'Force Sync';
 
   @override
-  String get syncTroubleshootingOpenEventLog => 'Open Sync Event Log';
+  String get syncTroubleshootingOpenEventLog => 'Open Prism Sync Event Log';
 
   @override
   String get syncTroubleshootingResetSync => 'Reset Sync System';
@@ -5753,7 +5753,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDataBrowserSessionEndTimeActive => 'null (active)';
 
   @override
-  String get settingsSyncDebugTitle => 'Sync Event Log';
+  String get settingsSyncDebugTitle => 'Prism Sync Event Log';
 
   @override
   String settingsSyncDebugEventCount(int count) {

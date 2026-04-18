@@ -237,7 +237,7 @@
   "@settingsNotifications": {
     "description": "Settings link: Notifications"
   },
-  "settingsSync": "Sync",
+  "settingsSync": "Prism Sync",
   "@settingsSync": {
     "description": "Settings link: Sync"
   },
@@ -373,7 +373,7 @@
   "@appearanceFronting": {
     "description": "Fronting pill label in the appearance preview card"
   },
-  "syncTitle": "Sync",
+  "syncTitle": "Prism Sync",
   "@syncTitle": {
     "description": "Sync settings screen title"
   },
@@ -1634,7 +1634,7 @@
   "@devicesIdCopied": {
     "description": "Toast when device ID is copied to clipboard"
   },
-  "syncTroubleshootingTitle": "Sync Troubleshooting",
+  "syncTroubleshootingTitle": "Prism Sync Troubleshooting",
   "@syncTroubleshootingTitle": {
     "description": "Title of the sync troubleshooting screen"
   },
@@ -1723,7 +1723,7 @@
   "@syncTroubleshootingForceSync": {
     "description": "Button: force sync now"
   },
-  "syncTroubleshootingOpenEventLog": "Open Sync Event Log",
+  "syncTroubleshootingOpenEventLog": "Open Prism Sync Event Log",
   "@syncTroubleshootingOpenEventLog": {
     "description": "Button: open sync event log"
   },
@@ -6838,7 +6838,7 @@
   "@settingsDataBrowserTapToLoad": { "description": "Subtitle shown on a conversation row before messages are loaded" },
   "settingsDataBrowserSessionEndTimeActive": "null (active)",
   "@settingsDataBrowserSessionEndTimeActive": { "description": "Value shown in the endTime field for an active session" },
-  "settingsSyncDebugTitle": "Sync Event Log",
+  "settingsSyncDebugTitle": "Prism Sync Event Log",
   "@settingsSyncDebugTitle": { "description": "Title of the sync event log debug screen" },
   "settingsSyncDebugEventCount": "{count, plural, =1{1 event} other{{count} events}}",
   "@settingsSyncDebugEventCount": {

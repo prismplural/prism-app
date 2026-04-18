@@ -170,7 +170,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsNotifications => 'Notificaciones';
 
   @override
-  String get settingsSync => 'Sincronización';
+  String get settingsSync => 'Prism Sync';
 
   @override
   String get settingsSharing => 'Compartir';
@@ -268,7 +268,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get appearanceFronting => 'Al frente';
 
   @override
-  String get syncTitle => 'Sincronización';
+  String get syncTitle => 'Prism Sync';
 
   @override
   String get syncDisconnectedTitle => 'La sincronización fue desconectada';
@@ -1220,7 +1220,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncTroubleshootingTitle =>
-      'Resolución de Problemas de Sincronización';
+      'Resolución de Problemas de Prism Sync';
 
   @override
   String get syncTroubleshootingConnectionStatus => 'Estado de Conexión';
@@ -1290,7 +1290,8 @@ class AppLocalizationsEs extends AppLocalizations {
   String get syncTroubleshootingForceSync => 'Forzar Sincronización';
 
   @override
-  String get syncTroubleshootingOpenEventLog => 'Abrir Registro de Eventos';
+  String get syncTroubleshootingOpenEventLog =>
+      'Abrir Registro de Eventos de Prism Sync';
 
   @override
   String get syncTroubleshootingResetSync =>
@@ -5854,7 +5855,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settingsDataBrowserSessionEndTimeActive => 'null (activo)';
 
   @override
-  String get settingsSyncDebugTitle => 'Registro de eventos de sincronización';
+  String get settingsSyncDebugTitle => 'Registro de eventos de Prism Sync';
 
   @override
   String settingsSyncDebugEventCount(int count) {
