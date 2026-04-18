@@ -5846,16 +5846,10 @@ abstract class AppLocalizations {
   /// **'Your words, your colors, your features. Prism adapts to how your system works.'**
   String get onboardingWelcomeBuiltForYouDescription;
 
-  /// Button label to load default members in add members step
-  ///
-  /// In en, this message translates to:
-  /// **'Skylar\'s Defaults'**
-  String get onboardingAddMembersSkylarsDefaults;
-
   /// Empty state text in add members step
   ///
   /// In en, this message translates to:
-  /// **'No members yet.\nTap \"Add Member\" or use the defaults.'**
+  /// **'No members yet.\nTap \"Add Member\" to get started.'**
   String get onboardingAddMembersNoMembers;
 
   /// Tooltip for the remove member button in add members list

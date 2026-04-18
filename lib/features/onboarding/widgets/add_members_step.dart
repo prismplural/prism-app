@@ -17,7 +17,6 @@ class AddMembersStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
     final membersAsync = ref.watch(allMembersProvider);
     final members = membersAsync.value ?? [];
 
@@ -25,41 +24,6 @@ class AddMembersStep extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
-          // Skylar's Defaults button - only when no members exist
-          if (members.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: GestureDetector(
-                onTap: () =>
-                    ref.read(onboardingProvider.notifier).addDefaultMembers(),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: primary.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: primary.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(AppIcons.autoAwesome, color: primary, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        context.l10n.onboardingAddMembersSkylarsDefaults,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
           // Members list
           Expanded(
             child: members.isEmpty
