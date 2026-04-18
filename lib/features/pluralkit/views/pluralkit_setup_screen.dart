@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
+import 'package:prism_plurality/features/pluralkit/views/pk_mapping_screen.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_direction_picker.dart';
 import 'package:prism_plurality/features/pluralkit/widgets/pk_sync_summary_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
@@ -79,6 +81,16 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     }
   }
 
+  Future<void> _openMappingScreen() async {
+    // Reset the controller so the mapping screen fetches fresh data.
+    ref.invalidate(pkMappingControllerProvider);
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const PkMappingScreen(),
+      ),
+    );
+  }
+
   Future<void> _importFromPK() async {
     await ref.read(pluralKitSyncProvider.notifier).performFullImport();
   }
@@ -142,8 +154,14 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             ),
           ],
 
+          // -- Mapping gate banner --
+          if (syncState.isConnected && syncState.needsMapping) ...[
+            const SizedBox(height: 16),
+            _buildMappingBanner(theme),
+          ],
+
           // -- Section 2: Sync Direction --
-          if (syncState.isConnected) ...[
+          if (syncState.canAutoSync) ...[
             const SizedBox(height: 24),
             _SectionHeader(title: context.l10n.pluralkitSyncDirection),
             const SizedBox(height: 8),
@@ -151,7 +169,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           ],
 
           // -- Section 3: Sync Actions --
-          if (syncState.isConnected) ...[
+          if (syncState.canAutoSync) ...[
             const SizedBox(height: 24),
             _SectionHeader(title: context.l10n.pluralkitSyncActions),
             const SizedBox(height: 8),
@@ -159,10 +177,19 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               _buildSyncProgress(syncState, theme)
             else
               _buildSyncActions(syncState, theme),
+            const SizedBox(height: 8),
+            PrismButton(
+              // TODO(l10n)
+              label: 'Re-run member mapping',
+              onPressed: _openMappingScreen,
+              icon: AppIcons.people,
+              tone: PrismButtonTone.outlined,
+              expanded: true,
+            ),
           ],
 
           // -- Section 4: Sync Summary --
-          if (syncState.isConnected) ...[
+          if (syncState.canAutoSync) ...[
             _buildSyncSummarySection(),
           ],
 
@@ -345,6 +372,51 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildMappingBanner(ThemeData theme) {
+    return PrismSectionCard(
+      padding: const EdgeInsets.all(16),
+      accentColor: theme.colorScheme.primary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(AppIcons.people, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  // TODO(l10n)
+                  'Link your PluralKit members to get started',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            // TODO(l10n)
+            'Match PluralKit members to members in Prism (or import them as new) '
+            'before syncing. This avoids duplicate members.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          PrismButton(
+            onPressed: _openMappingScreen,
+            icon: AppIcons.link,
+            // TODO(l10n)
+            label: 'Link members',
+            tone: PrismButtonTone.filled,
+            expanded: true,
+          ),
+        ],
+      ),
     );
   }
 
