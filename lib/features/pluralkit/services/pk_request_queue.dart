@@ -12,12 +12,21 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dar
 /// sequentially. Handles 429 responses with exponential backoff, honoring
 /// any `Retry-After` / `X-RateLimit-Reset` delay the server provides.
 class PkRequestQueue {
-  static const _minInterval = Duration(milliseconds: 333);
-  static const _maxRetries = 3;
+  static const defaultMinInterval = Duration(milliseconds: 333);
+  static const defaultMaxRetries = 3;
+
+  final Duration _minInterval;
+  final int _maxRetries;
 
   final _queue = <_QueueEntry<dynamic>>[];
   bool _processing = false;
   DateTime _lastRequestTime = DateTime.fromMillisecondsSinceEpoch(0);
+
+  PkRequestQueue({
+    Duration minInterval = defaultMinInterval,
+    int maxRetries = defaultMaxRetries,
+  })  : _minInterval = minInterval,
+        _maxRetries = maxRetries;
 
   /// Enqueue a request. Returns a Future that completes with the result
   /// once the request has been executed (respecting rate limits).

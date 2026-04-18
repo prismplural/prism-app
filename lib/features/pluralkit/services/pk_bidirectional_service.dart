@@ -14,7 +14,7 @@ class PkBidirectionalService {
   final PkPushService _pushService;
 
   PkBidirectionalService({PkPushService? pushService})
-      : _pushService = pushService ?? PkPushService();
+      : _pushService = pushService ?? const PkPushService();
 
   /// Sync members bidirectionally.
   ///

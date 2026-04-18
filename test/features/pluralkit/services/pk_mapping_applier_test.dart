@@ -8,7 +8,6 @@ import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_mapping_applier.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 /// In-memory member repo — minimum surface the applier touches.
@@ -144,7 +143,7 @@ void main() {
     return PkMappingApplier(
       members: repo,
       state: dao,
-      pushService: PkPushService(queue: PkRequestQueue()),
+      pushService: const PkPushService(),
       client: client,
     );
   }

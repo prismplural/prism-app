@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 
 // ---------------------------------------------------------------------------
 // Errors
@@ -51,12 +52,15 @@ class PluralKitClient {
 
   final String _token;
   final http.Client _http;
+  final PkRequestQueue _queue;
 
   PluralKitClient({
     required String token,
     http.Client? httpClient,
+    PkRequestQueue? queue,
   })  : _token = token,
-        _http = httpClient ?? http.Client();
+        _http = httpClient ?? http.Client(),
+        _queue = queue ?? PkRequestQueue();
 
   // -- helpers --------------------------------------------------------------
 
@@ -111,51 +115,51 @@ class PluralKitClient {
     }
   }
 
-  Future<dynamic> _post(String url, Map<String, dynamic> body) async {
-    final response = await _http.post(
-      Uri.parse(url),
-      headers: _headers,
-      body: jsonEncode(body),
-    ).timeout(_httpTimeout);
-    return _handleResponse(response);
-  }
+  Future<dynamic> _get(String url) => _queue.enqueue(() async {
+        final response = await _http
+            .get(Uri.parse(url), headers: _headers)
+            .timeout(_httpTimeout);
+        return _handleResponse(response);
+      });
 
-  Future<dynamic> _patch(String url, Map<String, dynamic> body) async {
-    final response = await _http.patch(
-      Uri.parse(url),
-      headers: _headers,
-      body: jsonEncode(body),
-    ).timeout(_httpTimeout);
-    return _handleResponse(response);
-  }
+  Future<dynamic> _post(String url, Map<String, dynamic> body) =>
+      _queue.enqueue(() async {
+        final response = await _http.post(
+          Uri.parse(url),
+          headers: _headers,
+          body: jsonEncode(body),
+        ).timeout(_httpTimeout);
+        return _handleResponse(response);
+      });
 
-  Future<dynamic> _delete(String url) async {
-    final response = await _http.delete(
-      Uri.parse(url),
-      headers: _headers,
-    ).timeout(_httpTimeout);
-    return _handleResponse(response);
-  }
+  Future<dynamic> _patch(String url, Map<String, dynamic> body) =>
+      _queue.enqueue(() async {
+        final response = await _http.patch(
+          Uri.parse(url),
+          headers: _headers,
+          body: jsonEncode(body),
+        ).timeout(_httpTimeout);
+        return _handleResponse(response);
+      });
+
+  Future<dynamic> _delete(String url) => _queue.enqueue(() async {
+        final response = await _http
+            .delete(Uri.parse(url), headers: _headers)
+            .timeout(_httpTimeout);
+        return _handleResponse(response);
+      });
 
   // -- public API -----------------------------------------------------------
 
   /// GET /systems/@me — fetch the authenticated system.
   Future<PKSystem> getSystem() async {
-    final response = await _http.get(
-      Uri.parse('$_baseUrl/systems/@me'),
-      headers: _headers,
-    ).timeout(_httpTimeout);
-    final json = _handleResponse(response) as Map<String, dynamic>;
+    final json = await _get('$_baseUrl/systems/@me') as Map<String, dynamic>;
     return PKSystem.fromJson(json);
   }
 
   /// GET /systems/@me/members — fetch all members of the authenticated system.
   Future<List<PKMember>> getMembers() async {
-    final response = await _http.get(
-      Uri.parse('$_baseUrl/systems/@me/members'),
-      headers: _headers,
-    ).timeout(_httpTimeout);
-    final json = _handleResponse(response) as List<dynamic>;
+    final json = await _get('$_baseUrl/systems/@me/members') as List<dynamic>;
     return json
         .map((e) => PKMember.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -178,8 +182,7 @@ class PluralKitClient {
 
     final uri = Uri.parse('$_baseUrl/systems/@me/switches')
         .replace(queryParameters: params);
-    final response = await _http.get(uri, headers: _headers).timeout(_httpTimeout);
-    final json = _handleResponse(response) as List<dynamic>;
+    final json = await _get(uri.toString()) as List<dynamic>;
     return json
         .map((e) => PKSwitch.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -243,7 +246,6 @@ class PluralKitClient {
       '$_baseUrl/systems/@me/switches/$switchId/members',
       <String, dynamic>{'members': memberIds},
     );
-    // PK returns the updated switch object (member objects form).
     return PKSwitch.fromJson(json as Map<String, dynamic>);
   }
 
@@ -258,14 +260,19 @@ class PluralKitClient {
   }
 
   /// Download raw bytes from a URL (e.g. avatar images).
-  Future<List<int>> downloadBytes(String url) async {
-    final response = await _http.get(Uri.parse(url)).timeout(_httpTimeout);
-    if (response.statusCode != 200) {
-      throw PluralKitApiError(
-          response.statusCode, 'Failed to download $url');
-    }
-    return response.bodyBytes;
-  }
+  ///
+  /// Routed through the same rate-limit queue as API calls to prevent
+  /// concurrent bursts during import. Avatar CDNs don't share the API's
+  /// 3/s budget, but single-path pacing is a safe default.
+  Future<List<int>> downloadBytes(String url) => _queue.enqueue(() async {
+        final response =
+            await _http.get(Uri.parse(url)).timeout(_httpTimeout);
+        if (response.statusCode != 200) {
+          throw PluralKitApiError(
+              response.statusCode, 'Failed to download $url');
+        }
+        return response.bodyBytes;
+      });
 
   /// Dispose the underlying HTTP client.
   void dispose() => _http.close();

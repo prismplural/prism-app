@@ -5,7 +5,6 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_bidirectional_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
 // ---------------------------------------------------------------------------
@@ -188,7 +187,7 @@ void main() {
     fakeClient = FakePluralKitClient();
     fakeRepo = FakeMemberRepository();
     service = PkBidirectionalService(
-      pushService: PkPushService(queue: PkRequestQueue()),
+      pushService: const PkPushService(),
     );
   });
 

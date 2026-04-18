@@ -1115,7 +1115,7 @@ class PluralKitSyncService {
     final client = await _buildClient();
     if (client == null) throw StateError('Not connected');
 
-    final push = pushService ?? PkPushService();
+    final push = pushService ?? const PkPushService();
 
     try {
       final members = await _memberRepository.getAllMembers();
