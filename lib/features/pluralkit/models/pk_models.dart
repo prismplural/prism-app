@@ -4,6 +4,8 @@
 /// transient API responses that don't need immutability or equality.
 library;
 
+import 'dart:convert';
+
 class PKSystem {
   final String id;
   final String? name;
@@ -43,6 +45,16 @@ class PKMember {
   final String? color;
   final String? avatarUrl;
 
+  /// PK birthday wire string — `YYYY-MM-DD`. Year `0004` means "no year"
+  /// (PK's sentinel for hidden year). Kept as a raw string to avoid lossy
+  /// DateTime round-trips.
+  final String? birthday;
+
+  /// Raw JSON for PK `proxy_tags` array (`[{prefix, suffix}, ...]`).
+  /// Stored verbatim so we can pull without a dedicated editor UI.
+  /// `null` means PK did not supply the field; `"[]"` means empty array.
+  final String? proxyTagsJson;
+
   const PKMember({
     required this.id,
     required this.uuid,
@@ -52,9 +64,16 @@ class PKMember {
     this.description,
     this.color,
     this.avatarUrl,
+    this.birthday,
+    this.proxyTagsJson,
   });
 
   factory PKMember.fromJson(Map<String, dynamic> json) {
+    String? proxyTagsJson;
+    final rawProxyTags = json['proxy_tags'];
+    if (rawProxyTags is List) {
+      proxyTagsJson = jsonEncode(rawProxyTags);
+    }
     return PKMember(
       id: json['id'] as String,
       uuid: json['uuid'] as String,
@@ -64,6 +83,8 @@ class PKMember {
       description: json['description'] as String?,
       color: json['color'] as String?,
       avatarUrl: json['avatar_url'] as String?,
+      birthday: json['birthday'] as String?,
+      proxyTagsJson: proxyTagsJson,
     );
   }
 }

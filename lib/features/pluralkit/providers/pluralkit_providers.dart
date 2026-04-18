@@ -1,15 +1,10 @@
-import 'dart:async';
-
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
-import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
-import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
-import 'package:prism_plurality/features/pluralkit/services/pk_push_service.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -127,78 +122,7 @@ final pluralKitSyncProvider =
   PluralKitSyncNotifier.new,
 );
 
-// ---------------------------------------------------------------------------
-// Auto-push provider — watches fronting sessions and pushes new switches
-// ---------------------------------------------------------------------------
-
-/// Watches active fronting sessions and automatically pushes new switches
-/// to PluralKit when the direction is pushOnly or bidirectional.
-///
-/// Debounced by 30 seconds to avoid spamming the PK API during rapid
-/// front changes.
-final pkAutoPushProvider = Provider<void>((ref) {
-  final syncState = ref.watch(pluralKitSyncProvider);
-  final direction = ref.watch(pkSyncDirectionProvider);
-
-  // Only activate when PK is fully connected (mapping done) and push enabled.
-  if (!syncState.canAutoSync || !direction.pushEnabled) return;
-
-  Timer? debounce;
-  ref.onDispose(() => debounce?.cancel());
-
-  // Watch active sessions for changes
-  ref.listen(activeSessionsProvider, (previous, next) {
-    final prevSessions = previous?.value ?? [];
-    final nextSessions = next.value ?? [];
-
-    // Only push when sessions actually change
-    if (_sessionListEquals(prevSessions, nextSessions)) return;
-
-    debounce?.cancel();
-    debounce = Timer(const Duration(seconds: 30), () async {
-      try {
-        final service = ref.read(pluralKitSyncServiceProvider);
-        final client = await service.buildClientIfConnected();
-        if (client == null) return;
-
-        final memberRepo = ref.read(memberRepositoryProvider);
-        final sessions = next.value ?? [];
-
-        // Batch-fetch all members to avoid N+1 queries
-        final allMembers = await memberRepo.getAllMembers();
-        final memberById = {for (final m in allMembers) m.id: m};
-
-        // Collect PK member IDs for current fronters
-        final pkMemberIds = <String>[];
-        for (final session in sessions) {
-          if (session.memberId == null) continue;
-          final member = memberById[session.memberId!];
-          if (member?.pluralkitId != null) {
-            pkMemberIds.add(member!.pluralkitId!);
-          }
-        }
-
-        if (pkMemberIds.isNotEmpty) {
-          final pushService = PkPushService();
-          await pushService.pushSwitch(pkMemberIds, client);
-        }
-
-        client.dispose();
-      } catch (_) {
-        // Auto-push failures are silent — manual sync will surface errors
-      }
-    });
-  });
-});
-
-bool _sessionListEquals(
-  List<domain.FrontingSession> a,
-  List<domain.FrontingSession> b,
-) {
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i].id != b[i].id) return false;
-    if (a[i].memberId != b[i].memberId) return false;
-  }
-  return true;
-}
+// Auto-push-current-front-as-switch was removed in Phase 3 — it created
+// duplicate PK switches on every session change because the returned PK
+// switch ID was never stored. Phase 4's scoped switch push replaces it
+// (post-link-date sessions only, with endTime-aware switch-out).

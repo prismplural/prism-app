@@ -46,15 +46,19 @@ enum PkSyncDirection {
 /// The top-level JSON is a map keyed by member ID to [PkFieldSyncConfig].
 class PkFieldSyncConfig {
   final PkSyncDirection name;
+  final PkSyncDirection displayName;
   final PkSyncDirection pronouns;
   final PkSyncDirection description;
   final PkSyncDirection color;
+  final PkSyncDirection birthday;
 
   const PkFieldSyncConfig({
     this.name = PkSyncDirection.bidirectional,
+    this.displayName = PkSyncDirection.bidirectional,
     this.pronouns = PkSyncDirection.bidirectional,
     this.description = PkSyncDirection.bidirectional,
     this.color = PkSyncDirection.bidirectional,
+    this.birthday = PkSyncDirection.bidirectional,
   });
 
   /// Returns the direction for a named field.
@@ -62,12 +66,16 @@ class PkFieldSyncConfig {
     switch (field) {
       case 'name':
         return name;
+      case 'displayName':
+        return displayName;
       case 'pronouns':
         return pronouns;
       case 'description':
         return description;
       case 'color':
         return color;
+      case 'birthday':
+        return birthday;
       default:
         return PkSyncDirection.bidirectional;
     }
@@ -75,34 +83,44 @@ class PkFieldSyncConfig {
 
   Map<String, dynamic> toJson() => {
         'name': name.toJson(),
+        'displayName': displayName.toJson(),
         'pronouns': pronouns.toJson(),
         'description': description.toJson(),
         'color': color.toJson(),
+        'birthday': birthday.toJson(),
       };
 
   factory PkFieldSyncConfig.fromJson(Map<String, dynamic> json) {
     return PkFieldSyncConfig(
       name: PkSyncDirection.fromJson(json['name'] as String? ?? 'bidirectional'),
+      displayName: PkSyncDirection.fromJson(
+          json['displayName'] as String? ?? 'bidirectional'),
       pronouns:
           PkSyncDirection.fromJson(json['pronouns'] as String? ?? 'bidirectional'),
       description: PkSyncDirection.fromJson(
           json['description'] as String? ?? 'bidirectional'),
       color:
           PkSyncDirection.fromJson(json['color'] as String? ?? 'bidirectional'),
+      birthday: PkSyncDirection.fromJson(
+          json['birthday'] as String? ?? 'bidirectional'),
     );
   }
 
   PkFieldSyncConfig copyWith({
     PkSyncDirection? name,
+    PkSyncDirection? displayName,
     PkSyncDirection? pronouns,
     PkSyncDirection? description,
     PkSyncDirection? color,
+    PkSyncDirection? birthday,
   }) {
     return PkFieldSyncConfig(
       name: name ?? this.name,
+      displayName: displayName ?? this.displayName,
       pronouns: pronouns ?? this.pronouns,
       description: description ?? this.description,
       color: color ?? this.color,
+      birthday: birthday ?? this.birthday,
     );
   }
 }
