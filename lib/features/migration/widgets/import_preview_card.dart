@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
+import 'package:prism_plurality/features/migration/services/sp_custom_front_disposition.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 
 /// Card displaying a summary of what will be imported.
-class ImportPreviewCard extends StatelessWidget {
+class ImportPreviewCard extends ConsumerWidget {
   const ImportPreviewCard({
     super.key,
     required this.data,
@@ -17,8 +20,38 @@ class ImportPreviewCard extends StatelessWidget {
   final List<String> warnings;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final dispositions = ref.watch(cfDispositionProvider);
+
+    // Only show the breakdown line if every CF has a disposition chosen.
+    String? cfBreakdown;
+    if (data.customFronts.isNotEmpty &&
+        data.customFronts
+            .every((cf) => dispositions.containsKey(cf.id))) {
+      var asMember = 0;
+      var asSleep = 0;
+      var asNote = 0;
+      var asSkip = 0;
+      for (final cf in data.customFronts) {
+        switch (dispositions[cf.id]!) {
+          case CfDisposition.importAsMember:
+            asMember++;
+          case CfDisposition.convertToSleep:
+            asSleep++;
+          case CfDisposition.mergeAsNote:
+            asNote++;
+          case CfDisposition.skip:
+            asSkip++;
+        }
+      }
+      cfBreakdown = context.l10n.migrationCfPreviewBreakdown(
+        asMember,
+        asSleep,
+        asNote,
+        asSkip,
+      );
+    }
 
     return PrismSurface(
       padding: const EdgeInsets.all(16),
@@ -51,6 +84,17 @@ class ImportPreviewCard extends StatelessWidget {
               icon: AppIcons.labelOutlined,
               label: context.l10n.migrationPreviewCustomFronts,
               count: data.customFronts.length,
+            ),
+          if (cfBreakdown != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 24, top: 2, bottom: 2),
+              child: Text(
+                cfBreakdown,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
             ),
           _CountRow(
             icon: AppIcons.flashOn,

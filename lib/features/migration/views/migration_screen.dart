@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
+import 'package:prism_plurality/features/migration/widgets/custom_front_disposition_step.dart';
 import 'package:prism_plurality/features/migration/widgets/import_preview_card.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -48,6 +49,8 @@ class MigrationScreen extends ConsumerWidget {
           data: migration.exportData!,
           ref: ref,
         ),
+        ImportState.chooseDispositions =>
+          CustomFrontDispositionStep(data: migration.exportData!),
         ImportState.importing ||
         ImportState.downloadingAvatars => _ImportingView(state: migration),
         ImportState.complete => _CompleteView(
@@ -733,7 +736,9 @@ class _PreviewView extends StatelessWidget {
                 children: [
                   PrismButton(
                     onPressed: () {
-                      ref.read(importerProvider.notifier).executeImport();
+                      ref
+                          .read(importerProvider.notifier)
+                          .proceedFromPreview();
                     },
                     icon: AppIcons.download,
                     label: context.l10n.migrationImportAllAddToExisting,
@@ -755,7 +760,7 @@ class _PreviewView extends StatelessWidget {
             }
             return PrismButton(
               onPressed: () {
-                ref.read(importerProvider.notifier).executeImport();
+                ref.read(importerProvider.notifier).proceedFromPreview();
               },
               icon: AppIcons.download,
               label: context.l10n.migrationImportAll,
@@ -765,7 +770,7 @@ class _PreviewView extends StatelessWidget {
           },
           loading: () => PrismButton(
             onPressed: () {
-              ref.read(importerProvider.notifier).executeImport();
+              ref.read(importerProvider.notifier).proceedFromPreview();
             },
             icon: AppIcons.download,
             label: context.l10n.migrationImportAll,
@@ -774,7 +779,7 @@ class _PreviewView extends StatelessWidget {
           ),
           error: (_, _) => PrismButton(
             onPressed: () {
-              ref.read(importerProvider.notifier).executeImport();
+              ref.read(importerProvider.notifier).proceedFromPreview();
             },
             icon: AppIcons.download,
             label: context.l10n.migrationImportAll,
@@ -805,7 +810,7 @@ class _PreviewView extends StatelessWidget {
       destructive: true,
     ).then((confirmed) {
       if (confirmed) {
-        ref.read(importerProvider.notifier).executeImport(resetFirst: true);
+        ref.read(importerProvider.notifier).proceedFromPreview(resetFirst: true);
       }
     });
   }

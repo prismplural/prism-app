@@ -6337,4 +6337,252 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get pkProfileFieldOverwriteHint =>
       'Prism ya tiene un valor — marca para sobrescribir.';
+
+  @override
+  String get migrationCfStepTitle => 'Frentes personalizados';
+
+  @override
+  String get migrationCfStepExplainer =>
+      'Simply Plural tiene frentes personalizados (Co-fronting, Dormido y otros). Prism no los maneja como estados de primera clase. Elige qué hacer con cada uno.';
+
+  @override
+  String get migrationCfResetDefaults => 'Restablecer valores predeterminados';
+
+  @override
+  String get migrationCfBack => 'Atrás';
+
+  @override
+  String get migrationCfContinue => 'Continuar';
+
+  @override
+  String get migrationCfOptionMember => 'Importar como integrante';
+
+  @override
+  String get migrationCfOptionNote => 'Fusionar en notas';
+
+  @override
+  String get migrationCfOptionSleep => 'Convertir en sueño';
+
+  @override
+  String get migrationCfOptionSkip => 'Omitir';
+
+  @override
+  String get migrationCfOptionMemberDesc =>
+      'Crea un integrante con este nombre. Las entradas del historial al frente se guardan como sesiones del integrante.';
+
+  @override
+  String get migrationCfOptionNoteDesc =>
+      'No se crea ningún integrante. El nombre del frente personalizado se añade a las notas de las sesiones que lo mencionan.';
+
+  @override
+  String get migrationCfOptionSleepDesc =>
+      'Las entradas del historial al frente en las que éste es el fronter principal se convierten en sesiones de sueño.';
+
+  @override
+  String get migrationCfOptionSkipDesc =>
+      'Sin integrante y sin nota. Las sesiones sin otro fronter se descartan.';
+
+  @override
+  String get migrationCfReasonSleepName =>
+      'El nombre coincide con palabras clave de sueño';
+
+  @override
+  String get migrationCfReasonZeroUsage =>
+      'Nunca se usa en el historial al frente ni en temporizadores';
+
+  @override
+  String get migrationCfReasonCoFronterOnly => 'Solo se usa como co-fronter';
+
+  @override
+  String get migrationCfReasonPrimaryHeavy =>
+      'Se usa principalmente como fronter primario';
+
+  @override
+  String get migrationCfReasonFallback =>
+      'Uso variado — lo más seguro es conservarlo como nota';
+
+  @override
+  String migrationCfUsageSummary(int primary, int coFront, int timers) {
+    String _temp0 = intl.Intl.pluralLogic(
+      primary,
+      locale: localeName,
+      other: '$primary primarios',
+      one: '1 primario',
+      zero: 'Nunca primario',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      coFront,
+      locale: localeName,
+      other: '$coFront co-front',
+      one: '1 co-front',
+      zero: '0 co-front',
+    );
+    String _temp2 = intl.Intl.pluralLogic(
+      timers,
+      locale: localeName,
+      other: '$timers temporizadores',
+      one: '1 temporizador',
+      zero: '0 temporizadores',
+    );
+    return '$_temp0 · $_temp1 · $_temp2';
+  }
+
+  @override
+  String migrationCfPreviewBreakdown(
+    int asMember,
+    int asSleep,
+    int asNote,
+    int asSkip,
+  ) {
+    String _temp0 = intl.Intl.pluralLogic(
+      asMember,
+      locale: localeName,
+      other: '$asMember como integrantes',
+      one: '1 como integrante',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      asSleep,
+      locale: localeName,
+      other: '$asSleep como sueño',
+      one: '1 como sueño',
+    );
+    String _temp2 = intl.Intl.pluralLogic(
+      asNote,
+      locale: localeName,
+      other: '$asNote notas',
+      one: '1 nota',
+    );
+    String _temp3 = intl.Intl.pluralLogic(
+      asSkip,
+      locale: localeName,
+      other: '$asSkip omitidos',
+      one: '1 omitido',
+    );
+    return '$_temp0 · $_temp1 · $_temp2 · $_temp3';
+  }
+
+  @override
+  String migrationWarnCfDroppedEntries(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Se descartaron $count entradas del historial al frente (el principal era un frente personalizado omitido sin co-fronters).',
+      one:
+          'Se descartó 1 entrada del historial al frente (el principal era un frente personalizado omitido sin co-fronters).',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepCoFrontersDiscarded(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count sesiones en modo sueño tenían co-fronters que fueron descartados.',
+      one: '1 sesión en modo sueño tenía co-fronters que fueron descartados.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepCoFronterAsNote(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count sesiones al frente tenían un frente personalizado de sueño como co-fronter; se conservaron solo como nota.',
+      one:
+          '1 sesión al frente tenía un frente personalizado de sueño como co-fronter; se conservó solo como nota.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepOverlap(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count sesiones de sueño se solapan con otras sesiones en tu cronología — resuélvelo en la pestaña Al frente.',
+      one:
+          '1 sesión de sueño se solapa con otras sesiones en tu cronología — resuélvelo en la pestaña Al frente.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfCommentsDropped(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Se descartaron $count comentarios (adjuntos a sesiones de frentes personalizados omitidas).',
+      one:
+          'Se descartó 1 comentario (adjunto a sesiones de frentes personalizados omitidas).',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfStaleMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count frentes personalizados importados previamente ya no se importan como integrantes; los registros de integrantes existentes permanecen — elimínalos manualmente si quieres quitarlos.',
+      one:
+          '1 frente personalizado importado previamente ya no se importa como integrante; el registro del integrante existente permanece — elimínalo manualmente si quieres quitarlo.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfDeletedRefs(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count referencias del historial al frente apuntaban a frentes personalizados eliminados en SP — se trataron como notas.',
+      one:
+          '1 referencia del historial al frente apuntaba a un frente personalizado eliminado en SP — se trató como nota.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepClamped(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entradas de sueño abiertas en SP se limitaron a 24 h.',
+      one: '1 entrada de sueño abierta en SP se limitó a 24 h.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfTimersAdjusted(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count temporizadores apuntaban a frentes personalizados que no se importaron como integrantes — se descartó el objetivo o se eliminaron los temporizadores.',
+      one:
+          '1 temporizador apuntaba a un frente personalizado que no se importó como integrante — se descartó el objetivo o se eliminó el temporizador.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String migrationWarnCfSleepDedup(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entradas de sueño duplicadas de SP se combinaron.',
+      one: '1 entrada de sueño duplicada de SP se combinó.',
+    );
+    return '$_temp0';
+  }
 }

@@ -10747,6 +10747,191 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Prism already has a value — tick to overwrite.'**
   String get pkProfileFieldOverwriteHint;
+
+  /// Top bar title for the SP custom-fronts disposition step
+  ///
+  /// In en, this message translates to:
+  /// **'Custom fronts'**
+  String get migrationCfStepTitle;
+
+  /// Header copy on the custom-fronts disposition step
+  ///
+  /// In en, this message translates to:
+  /// **'Simply Plural has custom fronts (Co-fronting, Asleep, and others). Prism doesn\'t track these as first-class statuses. Pick how to handle each one.'**
+  String get migrationCfStepExplainer;
+
+  /// Button that re-seeds custom front dispositions from the heuristics
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to smart defaults'**
+  String get migrationCfResetDefaults;
+
+  /// Back button on the custom-fronts disposition step
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get migrationCfBack;
+
+  /// Continue button on the custom-fronts disposition step
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get migrationCfContinue;
+
+  /// Disposition option: create a tagged member for the custom front
+  ///
+  /// In en, this message translates to:
+  /// **'Import as member'**
+  String get migrationCfOptionMember;
+
+  /// Disposition option: append the CF name to affected session notes
+  ///
+  /// In en, this message translates to:
+  /// **'Merge into notes'**
+  String get migrationCfOptionNote;
+
+  /// Disposition option: turn primary CF entries into sleep sessions
+  ///
+  /// In en, this message translates to:
+  /// **'Convert to sleep'**
+  String get migrationCfOptionSleep;
+
+  /// Disposition option: drop the CF entirely
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get migrationCfOptionSkip;
+
+  /// Longer description of the import-as-member disposition
+  ///
+  /// In en, this message translates to:
+  /// **'Creates a member with this name. Front history entries for it are kept as member sessions.'**
+  String get migrationCfOptionMemberDesc;
+
+  /// Longer description of the merge-as-note disposition
+  ///
+  /// In en, this message translates to:
+  /// **'No member is created. The custom front\'s name is appended to the notes of sessions it touches.'**
+  String get migrationCfOptionNoteDesc;
+
+  /// Longer description of the convert-to-sleep disposition
+  ///
+  /// In en, this message translates to:
+  /// **'Front history entries where this is the primary fronter become sleep sessions instead.'**
+  String get migrationCfOptionSleepDesc;
+
+  /// Longer description of the skip disposition
+  ///
+  /// In en, this message translates to:
+  /// **'No member, no note. Sessions with no other fronter are dropped.'**
+  String get migrationCfOptionSkipDesc;
+
+  /// Smart-default reason: CF name looked like sleep
+  ///
+  /// In en, this message translates to:
+  /// **'Name matches sleep keywords'**
+  String get migrationCfReasonSleepName;
+
+  /// Smart-default reason: CF is unused
+  ///
+  /// In en, this message translates to:
+  /// **'Never used in front history or timers'**
+  String get migrationCfReasonZeroUsage;
+
+  /// Smart-default reason: CF only appears as co-fronter
+  ///
+  /// In en, this message translates to:
+  /// **'Only used as co-fronter'**
+  String get migrationCfReasonCoFronterOnly;
+
+  /// Smart-default reason: CF dominates as primary
+  ///
+  /// In en, this message translates to:
+  /// **'Used mostly as primary fronter'**
+  String get migrationCfReasonPrimaryHeavy;
+
+  /// Smart-default reason: fallback disposition
+  ///
+  /// In en, this message translates to:
+  /// **'Mixed usage — safest to preserve as a note'**
+  String get migrationCfReasonFallback;
+
+  /// Per-CF usage summary: primary / co-fronter / timer counts
+  ///
+  /// In en, this message translates to:
+  /// **'{primary, plural, =0{Never primary} =1{1 primary} other{{primary} primary}} · {coFront, plural, =0{0 co-front} =1{1 co-front} other{{coFront} co-front}} · {timers, plural, =0{0 timers} =1{1 timer} other{{timers} timers}}'**
+  String migrationCfUsageSummary(int primary, int coFront, int timers);
+
+  /// Import-preview card summary of the chosen custom-front dispositions
+  ///
+  /// In en, this message translates to:
+  /// **'{asMember, plural, =1{1 as member} other{{asMember} as members}} · {asSleep, plural, =1{1 as sleep} other{{asSleep} as sleep}} · {asNote, plural, =1{1 note} other{{asNote} notes}} · {asSkip, plural, =1{1 skipped} other{{asSkip} skipped}}'**
+  String migrationCfPreviewBreakdown(
+    int asMember,
+    int asSleep,
+    int asNote,
+    int asSkip,
+  );
+
+  /// Warning: sessions dropped because their primary was a skipped CF and nothing could be promoted
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 front-history entry dropped (primary was a skipped custom front with no co-fronters).} other{{count} front-history entries dropped (primary was a skipped custom front with no co-fronters).}}'**
+  String migrationWarnCfDroppedEntries(int count);
+
+  /// Warning: sleep-converted sessions had co-fronters dropped
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 sleep-mode session had co-fronters that were discarded.} other{{count} sleep-mode sessions had co-fronters that were discarded.}}'**
+  String migrationWarnCfSleepCoFrontersDiscarded(int count);
+
+  /// Warning: sleep CF in co-fronter list preserved as note
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 front session had a sleep custom front as co-fronter, preserved as note only.} other{{count} front sessions had a sleep custom front as co-fronter, preserved as note only.}}'**
+  String migrationWarnCfSleepCoFronterAsNote(int count);
+
+  /// Warning: sleep sessions overlap existing/other sessions
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 sleep session overlaps with other sessions in your timeline — resolve in the Fronting tab.} other{{count} sleep sessions overlap with other sessions in your timeline — resolve in the Fronting tab.}}'**
+  String migrationWarnCfSleepOverlap(int count);
+
+  /// Warning: comments orphaned by dropped CF entries
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 comment dropped (attached to skipped custom-front sessions).} other{{count} comments dropped (attached to skipped custom-front sessions).}}'**
+  String migrationWarnCfCommentsDropped(int count);
+
+  /// Warning: prior-import CF members were scrubbed from the map but not the DB
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 previously-imported custom front is no longer imported as a member; the existing member record remains — delete manually if you want it gone.} other{{count} previously-imported custom fronts are no longer imported as members; the existing member records remain — delete manually if you want them gone.}}'**
+  String migrationWarnCfStaleMembers(int count);
+
+  /// Warning: synthetic CF fallback used because referenced CF was missing
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 front-history reference pointed to a custom front deleted in SP — handled as a note.} other{{count} front-history references pointed to custom fronts deleted in SP — handled as notes.}}'**
+  String migrationWarnCfDeletedRefs(int count);
+
+  /// Warning: open-ended sleep entries were clamped to 24h
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 open-ended SP sleep entry clamped to 24h duration.} other{{count} open-ended SP sleep entries clamped to 24h duration.}}'**
+  String migrationWarnCfSleepClamped(int count);
+
+  /// Warning: timers pointing at non-member CFs were adjusted
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 timer targeted a custom front that isn\'t imported as a member — target dropped or timer removed.} other{{count} timers targeted custom fronts that aren\'t imported as members — target dropped or timer removed.}}'**
+  String migrationWarnCfTimersAdjusted(int count);
+
+  /// Warning: same-start SP sleep entries were deduped
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 duplicate-start SP sleep entry collapsed.} other{{count} duplicate-start SP sleep entries collapsed.}}'**
+  String migrationWarnCfSleepDedup(int count);
 }
 
 class _AppLocalizationsDelegate
