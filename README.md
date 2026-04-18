@@ -46,6 +46,18 @@ The sync engine is a Rust library ([prism-sync](https://github.com/prismplural/p
 included via path dependencies. See the sync repo for build instructions if you need to
 modify the Rust side.
 
+### Running your own relay
+
+Sync is optional. If you want it, you can use a shared community relay or host your
+own — the relay only ever sees encrypted blobs. See the
+[self-hosting guide](https://github.com/prismplural/prism-sync/blob/main/self-host/SELF-HOSTING.md)
+in the sync repo (Docker Compose and Kubernetes manifests included). Once it's up,
+point the app at your relay URL in Settings → Sync.
+
+### Security
+
+For vulnerability reports, see [SECURITY.md](SECURITY.md).
+
 ### Voice notes
 
 New voice notes use a mobile-first Ogg Opus path.

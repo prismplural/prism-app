@@ -1,9 +1,11 @@
 /// Integration test: full PluralKit sync pipeline using a real API token.
 ///
-/// Excluded from CI. Run manually:
-///   flutter test --tags integration test/features/pluralkit/services/pk_api_integration_test.dart
+/// Excluded from CI. Run manually with a PluralKit token in PK_TOKEN:
+///   PK_TOKEN=<your-token> flutter test --tags integration \
+///     test/features/pluralkit/services/pk_api_integration_test.dart
 ///
-/// Set PK_TOKEN env var to override the default test account token.
+/// The test hits the live PluralKit API — use a dedicated test account,
+/// not your real system.
 @Tags(['integration'])
 library;
 
@@ -17,17 +19,16 @@ import 'package:prism_plurality/data/repositories/drift_fronting_session_reposit
 import 'package:prism_plurality/data/repositories/drift_member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
-// ---------------------------------------------------------------------------
-// Token — set PK_TOKEN env var to override; falls back to dedicated test
-// account token (not personal credentials — a read-only integration test
-// account at pluralkit.me/profile).
-// ---------------------------------------------------------------------------
-
-const _testAccountToken =
-    'REDACTED_PK_TEST_TOKEN';
-
-String get _token =>
-    Platform.environment['PK_TOKEN'] ?? _testAccountToken;
+String get _token {
+  final env = Platform.environment['PK_TOKEN'];
+  if (env == null || env.isEmpty) {
+    throw StateError(
+      'PK_TOKEN env var is required to run this integration test. '
+      'Set it to a PluralKit API token (use a dedicated test account).',
+    );
+  }
+  return env;
+}
 
 // ---------------------------------------------------------------------------
 // Tests
