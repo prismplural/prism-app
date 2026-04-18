@@ -366,6 +366,10 @@ class DataImportService {
             pluralkitUuid: h.pluralkitUuid,
             pluralkitId: h.pluralkitId,
             markdownEnabled: h.markdownEnabled,
+            displayName: h.displayName,
+            birthday: h.birthday,
+            proxyTagsJson: h.proxyTagsJson,
+            pluralkitSyncIgnored: h.pluralkitSyncIgnored,
           ),
         );
         membersCreated++;
@@ -405,6 +409,7 @@ class DataImportService {
                 ? FrontConfidence.values[s.confidence!]
                 : null,
             pluralkitUuid: s.pluralkitUuid,
+            pkMemberIdsJson: s.pkMemberIdsJson,
           ),
         );
         frontSessionsCreated++;

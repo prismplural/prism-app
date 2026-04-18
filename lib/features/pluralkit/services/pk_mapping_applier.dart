@@ -189,12 +189,62 @@ class PkMappingApplier {
     }
     // Idempotent: if already linked to this PK member, no-op.
     if (local.pluralkitUuid == d.pkMember.uuid) return;
-    await _members.updateMember(local.copyWith(
-      pluralkitUuid: d.pkMember.uuid,
-      pluralkitId: d.pkMember.id,
+
+    // Plan 08 "Conflict semantics on link": on first link, if the local field
+    // is the Prism default (empty/null/placeholder), accept PK's value —
+    // effectively a pull-on-link for defaults. Otherwise keep local, and the
+    // per-field push direction will reconcile on the next sync.
+    //
+    // We also download PK's avatar if local has none, so the linked member
+    // gets its picture without waiting for a full re-import.
+    final pk = d.pkMember;
+    var updated = local.copyWith(
+      pluralkitUuid: pk.uuid,
+      pluralkitId: pk.id,
       pluralkitSyncIgnored: false,
-    ));
+    );
+
+    if (_isDefaultName(local.name) && pk.name.isNotEmpty) {
+      updated = updated.copyWith(name: pk.name);
+    }
+    if (_isNullOrEmpty(local.displayName) && !_isNullOrEmpty(pk.displayName)) {
+      updated = updated.copyWith(displayName: pk.displayName);
+    }
+    if (_isNullOrEmpty(local.pronouns) && !_isNullOrEmpty(pk.pronouns)) {
+      updated = updated.copyWith(pronouns: pk.pronouns);
+    }
+    if (_isNullOrEmpty(local.bio) && !_isNullOrEmpty(pk.description)) {
+      updated = updated.copyWith(bio: pk.description);
+    }
+    if (_isNullOrEmpty(local.birthday) && !_isNullOrEmpty(pk.birthday)) {
+      updated = updated.copyWith(birthday: pk.birthday);
+    }
+    if ((!local.customColorEnabled || _isNullOrEmpty(local.customColorHex)) &&
+        !_isNullOrEmpty(pk.color)) {
+      updated = updated.copyWith(
+        customColorHex: '#${pk.color}',
+        customColorEnabled: true,
+      );
+    }
+    if (local.proxyTagsJson == null && pk.proxyTagsJson != null) {
+      updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
+    }
+    if (local.avatarImageData == null && pk.avatarUrl != null) {
+      final bytes = await _downloadAvatarBytes(pk.avatarUrl!);
+      if (bytes != null) {
+        updated = updated.copyWith(avatarImageData: bytes);
+      }
+    }
+
+    await _members.updateMember(updated);
   }
+
+  static bool _isNullOrEmpty(String? s) => s == null || s.isEmpty;
+
+  /// Conservative "is the local name a default placeholder?" check. We only
+  /// treat literally empty names as defaults — real user-typed names (even
+  /// "New Member") are kept, per the plan's guidance to be conservative.
+  static bool _isDefaultName(String name) => name.isEmpty;
 
   Future<void> _applyImport(PkImportDecision d) async {
     // Idempotent: if a local with this UUID already exists, no-op.
@@ -205,6 +255,13 @@ class PkMappingApplier {
     );
     if (!identical(byUuid, _sentinel)) return;
 
+    // Download avatar when PK has one, matching the PluralKitSyncService
+    // _importMembers behavior so mapping-UI Imports don't produce avatar-less
+    // members. Failure is non-fatal.
+    final avatarBytes = d.pkMember.avatarUrl != null
+        ? await _downloadAvatarBytes(d.pkMember.avatarUrl!)
+        : null;
+
     final member = domain.Member(
       id: _uuid.v4(),
       name: d.pkMember.name,
@@ -213,11 +270,29 @@ class PkMappingApplier {
       customColorHex: d.pkMember.color != null ? '#${d.pkMember.color}' : null,
       customColorEnabled: d.pkMember.color != null,
       displayName: d.pkMember.displayName,
+      birthday: d.pkMember.birthday,
+      proxyTagsJson: d.pkMember.proxyTagsJson,
+      avatarImageData: avatarBytes,
       pluralkitUuid: d.pkMember.uuid,
       pluralkitId: d.pkMember.id,
       createdAt: _now(),
     );
     await _members.createMember(member);
+  }
+
+  /// Avatar download helper. Mirrors the inline logic in
+  /// PluralKitSyncService._importMembers — duplicated here to respect the
+  /// file-ownership split between this applier and pluralkit_sync_service.dart.
+  // TODO(pk): consolidate with PluralKitSyncService._importMembers avatar
+  // download into a shared util once the two files can be touched together.
+  Future<Uint8List?> _downloadAvatarBytes(String url) async {
+    try {
+      final bytes = await _client.downloadBytes(url);
+      return Uint8List.fromList(bytes);
+    } catch (_) {
+      // Avatar download failure is non-fatal — proceed without the picture.
+      return null;
+    }
   }
 
   Future<void> _applyPushNew(

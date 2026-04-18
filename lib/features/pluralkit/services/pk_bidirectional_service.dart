@@ -133,6 +133,14 @@ class PkBidirectionalService {
   }
 
   /// Check if the local member has changes that should be pushed to PK.
+  ///
+  /// Plan 08 "Conflict semantics on link": we never push an empty local value
+  /// over a populated PK value — that would be a "null-clear on link" for any
+  /// field the user hadn't set locally. Linking is supposed to be safe by
+  /// default; the mapping applier pulls PK's values into default-local fields
+  /// at link time (see `_applyLink`), so by the time this runs for a freshly
+  /// linked member the local side already reflects PK. The null-guard here is
+  /// belt-and-suspenders in case a link arrives via another path.
   bool _hasLocalChanges(
     domain.Member local,
     PKMember pk,
@@ -140,20 +148,31 @@ class PkBidirectionalService {
     PkSyncDirection direction,
   ) {
     if (_pushField(config.name, direction)) {
-      if (local.name != pk.name) return true;
+      // name can't be null; still skip push when local is empty string.
+      if (local.name != pk.name && local.name.isNotEmpty) return true;
     }
     if (_pushField(config.displayName, direction)) {
-      if (local.displayName != pk.displayName) return true;
+      if (local.displayName != pk.displayName &&
+          !_wouldClear(local.displayName, pk.displayName)) {
+        return true;
+      }
     }
     if (_pushField(config.pronouns, direction)) {
-      if (local.pronouns != pk.pronouns) return true;
+      if (local.pronouns != pk.pronouns &&
+          !_wouldClear(local.pronouns, pk.pronouns)) {
+        return true;
+      }
     }
     if (_pushField(config.description, direction)) {
-      if (local.bio != pk.description) return true;
+      if (local.bio != pk.description &&
+          !_wouldClear(local.bio, pk.description)) {
+        return true;
+      }
     }
     if (_pushField(config.birthday, direction)) {
-      if (_normalizeBirthday(local.birthday) !=
-          _normalizeBirthday(pk.birthday)) {
+      final localBd = _normalizeBirthday(local.birthday);
+      final pkBd = _normalizeBirthday(pk.birthday);
+      if (localBd != pkBd && !_wouldClear(localBd, pkBd)) {
         return true;
       }
     }
@@ -163,10 +182,20 @@ class PkBidirectionalService {
       if (local.customColorEnabled) {
         final localColor = _normalizeColor(local.customColorHex);
         final pkColor = _normalizeColor(pk.color);
-        if (localColor != pkColor) return true;
+        if (localColor != pkColor && !_wouldClear(localColor, pkColor)) {
+          return true;
+        }
       }
     }
     return false;
+  }
+
+  /// True when pushing would amount to null-clearing PK: local is null/empty
+  /// and PK has a real value. The caller treats this as "no local changes."
+  bool _wouldClear(String? local, String? pk) {
+    final localEmpty = local == null || local.isEmpty;
+    final pkEmpty = pk == null || pk.isEmpty;
+    return localEmpty && !pkEmpty;
   }
 
   /// Apply PK-side changes to the local member. Writes via [memberRepository]

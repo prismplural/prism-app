@@ -10,6 +10,7 @@ import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/repositories/fronting_session_repository.dart';
 import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
@@ -485,6 +486,52 @@ void main() {
       expect(service.state.lastSyncDate, isNull);
       expect(storageStub._store.containsKey(_pkTokenKey), isFalse);
     });
+
+    test(
+        'truncates pk_mapping_state + resets needsMapping (regression B3)',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final fakeClient = FakePluralKitClient();
+      final service = _makeService(fakeClient: fakeClient, db: db);
+
+      // Seed a mapping-state row — simulates a prior Skip decision the user
+      // made against the previously-connected PK system.
+      await db.pkMappingStateDao.upsert(
+        PkMappingStateCompanion(
+          id: const Value('local-123:pk-abc'),
+          localMemberId: const Value('local-123'),
+          pkMemberUuid: const Value('pk-abc'),
+          pkMemberId: const Value('abc'),
+          decisionType: const Value('skip'),
+          status: const Value('applied'),
+          createdAt: Value(DateTime(2026, 1, 1)),
+          updatedAt: Value(DateTime(2026, 1, 1)),
+        ),
+      );
+
+      await service.setToken('valid-token');
+      expect(service.state.needsMapping, isTrue);
+
+      // Precondition — row exists.
+      final before = await db.pkMappingStateDao.getAll();
+      expect(before, hasLength(1));
+
+      await service.clearToken();
+
+      // Mapping table is wiped so a future reconnect starts clean.
+      final after = await db.pkMappingStateDao.getAll();
+      expect(after, isEmpty,
+          reason: 'clearToken must truncate pk_mapping_state (B3)');
+
+      // needsMapping / mappingAcknowledged are reset so a reconnect will
+      // trigger the mapping flow again rather than silently inheriting
+      // the prior acknowledgement.
+      expect(service.state.needsMapping, isFalse);
+      final row = await db.pluralKitSyncDao.getSyncState();
+      expect(row.mappingAcknowledged, isFalse);
+    });
   });
 
   // ── _buildClient / token guards ──────────────────────────────────────────────
@@ -748,4 +795,84 @@ void main() {
       },
     );
   });
+
+  // ── S3: stale-link surfacing into syncError ─────────────────────────────────
+
+  group('syncRecentData stale-link surfacing (regression S3)', () {
+    test('pushPendingSwitches 404 populates syncError with user-facing message',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final sessionRepo = FakeFrontingSessionRepository();
+      final memberRepo = FakeMemberRepository();
+
+      // Linked member so the post-linkedAt session is eligible to push.
+      memberRepo.seed([
+        domain.Member(
+          id: 'local-a',
+          name: 'Alice',
+          emoji: '❔',
+          isActive: true,
+          createdAt: DateTime(2026, 1, 1),
+          pluralkitId: 'pkA',
+        ),
+      ]);
+
+      final fakeClient = _StaleCreateSwitchClient();
+
+      final service = PluralKitSyncService(
+        memberRepository: memberRepo,
+        frontingSessionRepository: sessionRepo,
+        syncDao: db.pluralKitSyncDao,
+        secureStorage: const FlutterSecureStorage(),
+        clientFactory: (_) => fakeClient,
+      );
+
+      await service.setToken('valid-token');
+      await service.acknowledgeMapping();
+
+      // Pin linkedAt to a known point and seed a lastSyncDate so syncRecentData
+      // hits the recent-changes path (not performFullImport). The session
+      // below must start AFTER linkedAt to be push-eligible.
+      final linkedAt = DateTime(2026, 1, 15);
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          linkedAt: Value(linkedAt),
+          lastSyncDate: Value(DateTime(2026, 1, 20)),
+        ),
+      );
+      await service.loadState();
+
+      // Session created after linkedAt — should be pushed.
+      sessionRepo.sessions.add(
+        domain.FrontingSession(
+          id: 's-new',
+          startTime: DateTime(2026, 2, 1, 12),
+          memberId: 'local-a',
+        ),
+      );
+      expect(service.state.needsMapping, isFalse);
+
+      final summary = await service.syncRecentData(
+        direction: PkSyncDirection.pushOnly,
+      );
+
+      // Stale message surfaced via the summary and the state.
+      expect(summary, isNotNull);
+      expect(summary!.staleLinkMessages, isNotEmpty);
+      expect(service.state.syncError, isNotNull);
+      expect(service.state.syncError!, contains('server'));
+    });
+  });
+}
+
+// Subclass of FakePluralKitClient that always 404s createSwitch, simulating
+// PK having deleted the member/system referenced by a pending local switch.
+class _StaleCreateSwitchClient extends FakePluralKitClient {
+  @override
+  Future<PKSwitch> createSwitch(List<String> memberIds, {DateTime? timestamp}) {
+    throw const PluralKitApiError(404, 'stale');
+  }
 }

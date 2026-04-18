@@ -88,7 +88,10 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
   @override
   Future<PkMappingState> build() async {
     final syncService = ref.read(pluralKitSyncServiceProvider);
-    final (_, pkMembers) = await syncService.importMembersOnly();
+    // Read-only fetch — do NOT write PK members into the local table here.
+    // Writes happen later, per-decision, via the mapping applier so the user's
+    // Skip/Link choices actually matter. See bug B1.
+    final (_, pkMembers) = await syncService.fetchPkMembersWithoutImport();
 
     final memberRepo = ref.read(memberRepositoryProvider);
     final locals = (await memberRepo.getAllMembers())

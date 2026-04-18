@@ -244,6 +244,10 @@ class V3Headmate {
     this.pluralkitUuid,
     this.pluralkitId,
     this.markdownEnabled = false,
+    this.displayName,
+    this.birthday,
+    this.proxyTagsJson,
+    this.pluralkitSyncIgnored = false,
   });
 
   final String id;
@@ -263,6 +267,11 @@ class V3Headmate {
   final String? pluralkitUuid;
   final String? pluralkitId;
   final bool markdownEnabled;
+  // PluralKit Phase 2 fields (additive; older exports default to null/false)
+  final String? displayName;
+  final String? birthday;
+  final String? proxyTagsJson;
+  final bool pluralkitSyncIgnored;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -282,6 +291,10 @@ class V3Headmate {
     if (pluralkitUuid != null) 'pluralkitUuid': pluralkitUuid,
     if (pluralkitId != null) 'pluralkitId': pluralkitId,
     'markdownEnabled': markdownEnabled,
+    if (displayName != null) 'displayName': displayName,
+    if (birthday != null) 'birthday': birthday,
+    if (proxyTagsJson != null) 'proxyTagsJson': proxyTagsJson,
+    'pluralkitSyncIgnored': pluralkitSyncIgnored,
   };
 
   factory V3Headmate.fromJson(Map<String, dynamic> json) => V3Headmate(
@@ -302,6 +315,10 @@ class V3Headmate {
     pluralkitUuid: json['pluralkitUuid'] as String?,
     pluralkitId: json['pluralkitId'] as String?,
     markdownEnabled: json['markdownEnabled'] as bool? ?? false,
+    displayName: json['displayName'] as String?,
+    birthday: json['birthday'] as String?,
+    proxyTagsJson: json['proxyTagsJson'] as String?,
+    pluralkitSyncIgnored: json['pluralkitSyncIgnored'] as bool? ?? false,
   );
 
   /// Convert base64 profilePhotoData to Uint8List.
@@ -323,6 +340,7 @@ class V3FrontSession {
     this.notes,
     this.confidence,
     this.pluralkitUuid,
+    this.pkMemberIdsJson,
   });
 
   final String id;
@@ -333,6 +351,9 @@ class V3FrontSession {
   final String? notes;
   final int? confidence;
   final String? pluralkitUuid;
+  // PluralKit Phase 2: JSON-encoded list of PK member UUIDs for this switch
+  // (additive; older exports default to null).
+  final String? pkMemberIdsJson;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -343,6 +364,7 @@ class V3FrontSession {
     if (notes != null) 'notes': notes,
     if (confidence != null) 'confidence': confidence,
     if (pluralkitUuid != null) 'pluralkitUuid': pluralkitUuid,
+    if (pkMemberIdsJson != null) 'pkMemberIdsJson': pkMemberIdsJson,
   };
 
   factory V3FrontSession.fromJson(Map<String, dynamic> json) => V3FrontSession(
@@ -355,6 +377,7 @@ class V3FrontSession {
     notes: json['notes'] as String?,
     confidence: json['confidence'] as int?,
     pluralkitUuid: json['pluralkitUuid'] as String?,
+    pkMemberIdsJson: json['pkMemberIdsJson'] as String?,
   );
 }
 

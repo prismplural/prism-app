@@ -47,6 +47,8 @@ void _installSecureStorageStub() {
 
 class _FakeMemberRepo implements MemberRepository {
   final Map<String, domain.Member> _byId = {};
+  int createCallCount = 0;
+  int updateCallCount = 0;
 
   _FakeMemberRepo(Iterable<domain.Member> seed) {
     for (final m in seed) {
@@ -59,9 +61,16 @@ class _FakeMemberRepo implements MemberRepository {
   @override
   Future<domain.Member?> getMemberById(String id) async => _byId[id];
   @override
-  Future<void> createMember(domain.Member m) async => _byId[m.id] = m;
+  Future<void> createMember(domain.Member m) async {
+    createCallCount++;
+    _byId[m.id] = m;
+  }
+
   @override
-  Future<void> updateMember(domain.Member m) async => _byId[m.id] = m;
+  Future<void> updateMember(domain.Member m) async {
+    updateCallCount++;
+    _byId[m.id] = m;
+  }
   @override
   Future<void> deleteMember(String id) async => _byId.remove(id);
   @override
@@ -385,6 +394,29 @@ void main() {
     final loser = s.decisionsByPkUuid['pk-alice'];
     expect(loser, isA<PkSkipDecision>(),
         reason: 'Defensive path must Skip, never silently Import');
+  });
+
+  test(
+      'build: does NOT write to the member repository (regression B1)',
+      () async {
+    // Precondition — setToken already wrote the fake PK system name, but
+    // that path targets pluralkit_sync_state, not members. Capture the
+    // member-write counts right before reading the controller so we can
+    // assert no new writes during build().
+    repo.createCallCount = 0;
+    repo.updateCallCount = 0;
+
+    final state = await container.read(pkMappingControllerProvider.future);
+
+    // Sanity: PK members were fetched read-only.
+    expect(state.pkMembers, hasLength(2));
+
+    // The mapping controller must not auto-create or update members during
+    // build(); writes happen later, per-decision, via the applier on Apply.
+    expect(repo.createCallCount, 0,
+        reason: 'build() must not call createMember (B1)');
+    expect(repo.updateCallCount, 0,
+        reason: 'build() must not call updateMember (B1)');
   });
 
   test('build: excludes pluralkitSyncIgnored locals from decisions', () async {
