@@ -252,6 +252,20 @@ class SettingsNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> updateSystemTag(String? value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateSystemTag(value);
+    });
+  }
+
+  Future<void> updateSystemColor(String? colorHex) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateSystemColor(colorHex);
+    });
+  }
+
   Future<void> updateSystemAvatarData(Uint8List? value) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
