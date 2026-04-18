@@ -328,8 +328,7 @@ class SpImporter {
           await settingsRepo.updateSystemName(mapped.systemName);
         }
         if (mapped.systemColor != null && mapped.systemColor!.isNotEmpty) {
-          await settingsRepo.updateAccentColorHex(
-              mapped.systemColor!.replaceFirst('#', ''));
+          await settingsRepo.updateSystemColor(mapped.systemColor);
         }
         if (mapped.systemDescription != null &&
             mapped.systemDescription!.isNotEmpty) {
