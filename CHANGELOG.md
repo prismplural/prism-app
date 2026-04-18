@@ -4,6 +4,9 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- PluralKit sync now supports linking existing members via a new mapping screen, two-way field sync for `displayName` and `birthday`, proxy tag pull, and switch history push to PluralKit
+
 ## [0.3.10] - 2026-04-17
 
 ### Added
