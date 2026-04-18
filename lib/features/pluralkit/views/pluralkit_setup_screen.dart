@@ -389,7 +389,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               Expanded(
                 child: Text(
                   // TODO(l10n)
-                  'Link your PluralKit members to get started',
+                  'One more step: link your members',
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -400,8 +400,10 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           const SizedBox(height: 8),
           Text(
             // TODO(l10n)
-            'Match PluralKit members to members in Prism (or import them as new) '
-            'before syncing. This avoids duplicate members.',
+            "You're connected. Before sync turns on, match each PluralKit "
+            'member to a member in Prism — or import them as new. This '
+            'prevents duplicates and keeps switch history attached to the '
+            'right person.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),

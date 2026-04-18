@@ -16,8 +16,11 @@ import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 
 /// Sentinel values for the PK-row select.
-const _kImport = '__import__';
-const _kSkip = '__skip__';
+///
+/// Exported so widget tests can reference the same constants rather than
+/// duplicating bare strings.
+const kPkRowImportSentinel = '__import__';
+const kPkRowSkipSentinel = '__skip__';
 
 class PkMappingScreen extends ConsumerWidget {
   const PkMappingScreen({super.key});
@@ -113,8 +116,9 @@ class _MappingBody extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
             // TODO(l10n)
-            'Match each PluralKit member to one in Prism, import as new, '
-            'or skip. Any Prism members not linked can be pushed to PluralKit.',
+            'For each PluralKit member, link to an existing Prism member, '
+            'import as new, or skip. Unlinked Prism members can be pushed '
+            'to PluralKit below.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -245,9 +249,9 @@ class _PkMemberRow extends ConsumerWidget {
     if (decision is PkLinkDecision) {
       selectedValue = decision.localMemberId;
     } else if (decision is PkSkipDecision) {
-      selectedValue = _kSkip;
+      selectedValue = kPkRowSkipSentinel;
     } else {
-      selectedValue = _kImport;
+      selectedValue = kPkRowImportSentinel;
     }
 
     // Local IDs already linked to a DIFFERENT PK member are not available.
@@ -260,12 +264,12 @@ class _PkMemberRow extends ConsumerWidget {
 
     final items = <PrismSelectItem<String>>[
       PrismSelectItem(
-        value: _kImport,
+        value: kPkRowImportSentinel,
         label: 'Import as new', // TODO(l10n)
         leading: Icon(AppIcons.cloudDownload),
       ),
       PrismSelectItem(
-        value: _kSkip,
+        value: kPkRowSkipSentinel,
         label: 'Skip', // TODO(l10n)
         leading: Icon(AppIcons.linkOff),
       ),
@@ -321,12 +325,12 @@ class _PkMemberRow extends ConsumerWidget {
                     if (value == null) return;
                     final controller =
                         ref.read(pkMappingControllerProvider.notifier);
-                    if (value == _kImport) {
+                    if (value == kPkRowImportSentinel) {
                       controller.setPkDecision(
                         pkMember.uuid,
                         PkImportDecision(pkMember: pkMember),
                       );
-                    } else if (value == _kSkip) {
+                    } else if (value == kPkRowSkipSentinel) {
                       controller.setPkDecision(
                         pkMember.uuid,
                         PkSkipDecision(pkMemberUuid: pkMember.uuid),
