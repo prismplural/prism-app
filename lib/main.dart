@@ -13,6 +13,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 // import 'package:workmanager/workmanager.dart';
 
+import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -22,6 +23,7 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  BootTimings.mark('binding');
 
   // F1: Global error boundaries — install immediately so startup failures are reported.
   FlutterError.onError = (details) {
@@ -95,6 +97,7 @@ void main() async {
       ) ??
       ThemeStyle.standard;
 
+  BootTimings.mark('runApp');
   runApp(
     ProviderScope(
       overrides: [

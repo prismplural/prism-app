@@ -13,6 +13,7 @@ import 'package:prism_sync_drift/prism_sync_drift.dart';
 
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
@@ -193,6 +194,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   /// the platform keychain so that initialize/unlock/configureEngine can
   /// access persisted credentials.
   Future<ffi.PrismSyncHandle> createHandle({required String relayUrl}) async {
+    BootTimings.mark('createHandle:entry');
     final previousHandle = _handle;
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
@@ -229,9 +231,11 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       schemaJson: prismSyncSchema,
       databaseKey: databaseKey,
     );
+    BootTimings.mark('createHandle:createPrismSync');
 
     // Seed Rust's in-memory SecureStore from platform keychain
     await _seedRustStore(handle);
+    BootTimings.mark('createHandle:_seedRustStore');
 
     // Publish the handle before auto-configuring. Startup auto-sync can emit
     // RemoteChanges almost immediately after configureEngine/setAutoSync, and
@@ -244,6 +248,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
 
     // Auto-configure sync engine if credentials already exist (app restart)
     final health = await _autoConfigureIfReady(handle);
+    BootTimings.mark('createHandle:_autoConfigureIfReady');
     ref.read(syncHealthProvider.notifier).setState(health);
 
     // Persist any Rust state changes from configureEngine (prevents credential
@@ -281,6 +286,29 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
           stackTrace: st,
         );
       }
+      BootTimings.mark('createHandle:drainRustStore');
+
+      // Cold-start catch-up. `setAutoSync` enables the driver but does not emit an
+      // initial trigger, and on a fresh process `last_sync_time` is None so the
+      // Rust-side 5s staleness gate does not help us. Kick explicitly, in the
+      // background. Run *after* cacheRuntimeKeys + drainRustStore because all three
+      // contend for the same Rust handle mutex.
+      unawaited(
+        () async {
+          try {
+            await ffi.onResume(handle: handle);
+            // Persist any state the sync cycle mutated (session_token refresh,
+            // epoch advance, etc.) before a subsequent crash could lose it.
+            await drainRustStore(handle);
+          } catch (e, st) {
+            ErrorReportingService.instance.report(
+              'Startup catch-up sync failed (non-fatal): $e',
+              severity: ErrorSeverity.warning,
+              stackTrace: st,
+            );
+          }
+        }(),
+      );
     }
 
     return handle;
@@ -375,18 +403,9 @@ Future<SyncHealthState> _autoConfigureIfReady(
       debugPrint('[SYNC] Failed to backfill database key (non-fatal): $e');
     }
 
-    // Pull any batches that accumulated while this device was offline. This
-    // is especially important on cold start because a reconnect alone only
-    // restores the WebSocket; it does not guarantee a catch-up pull.
-    try {
-      await ffi.onResume(handle: handle);
-    } catch (e, st) {
-      ErrorReportingService.instance.report(
-        'Startup catch-up sync failed (non-fatal): $e',
-        severity: ErrorSeverity.warning,
-        stackTrace: st,
-      );
-    }
+    // Cold-start catch-up sync is scheduled as fire-and-forget in
+    // `createHandle()` after `cacheRuntimeKeys` + `drainRustStore`, so it does
+    // not block startup. See the `unawaited(...)` block there.
 
     return SyncHealthState.healthy;
   } catch (e, st) {
