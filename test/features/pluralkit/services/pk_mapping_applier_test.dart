@@ -64,11 +64,17 @@ class FakePluralKitClient extends PluralKitClient {
   final List<Map<String, dynamic>> createdPayloads = [];
   int createCallCount = 0;
   PKMember Function(Map<String, dynamic>)? onCreate;
+  final Map<String, List<int>> avatarBytes;
+  final List<String> downloadedUrls = [];
+  Object? downloadError;
 
   FakePluralKitClient({
     List<PKMember>? members,
     this.onCreate,
+    Map<String, List<int>>? avatarBytes,
+    this.downloadError,
   })  : allMembers = members ?? [],
+        avatarBytes = avatarBytes ?? {},
         super(token: 'fake-token', httpClient: http.Client());
 
   @override
@@ -91,6 +97,13 @@ class FakePluralKitClient extends PluralKitClient {
   @override
   Future<PKMember> updateMember(String id, Map<String, dynamic> data) async {
     return PKMember(id: id, uuid: 'existing-uuid', name: data['name'] as String);
+  }
+
+  @override
+  Future<List<int>> downloadBytes(String url) async {
+    downloadedUrls.add(url);
+    if (downloadError != null) throw downloadError!;
+    return avatarBytes[url] ?? const [];
   }
 }
 
@@ -277,6 +290,162 @@ void main() {
     final pushState = await dao.getById('push:l1');
     expect(pushState!.status, 'failed');
     expect(pushState.errorMessage, contains('bad'));
+  });
+
+  // -------------------------------------------------------------------------
+  // Plan 08 "Conflict semantics on link" — default-local fields accept PK
+  // -------------------------------------------------------------------------
+
+  test('link: local defaults are replaced by PK values on link', () async {
+    // Local member has empty/null fields (Prism defaults). Linking must pull
+    // PK's populated values so subsequent syncs don't spuriously push nulls.
+    final local = domain.Member(
+      id: 'l1',
+      name: '',
+      createdAt: DateTime(2026),
+      // all other fields default: pronouns null, bio null, displayName null,
+      // customColorEnabled false, birthday null, proxyTagsJson null.
+    );
+    final repo = FakeMemberRepo([local]);
+    final client = FakePluralKitClient();
+    final applier = buildApplier(repo: repo, client: client);
+
+    const pk = PKMember(
+      id: 'abcde',
+      uuid: 'u-link',
+      name: 'Alice',
+      displayName: 'Ali ✨',
+      pronouns: 'she/her',
+      description: 'bio',
+      color: '7c3aed',
+      birthday: '2020-01-15',
+      proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
+    );
+    final results = await applier.apply([
+      const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
+    ]);
+
+    expect(results.single.outcome, PkApplyOutcome.applied);
+    final updated = (await repo.getMemberById('l1'))!;
+    expect(updated.pluralkitUuid, 'u-link');
+    expect(updated.name, 'Alice');
+    expect(updated.displayName, 'Ali ✨');
+    expect(updated.pronouns, 'she/her');
+    expect(updated.bio, 'bio');
+    expect(updated.birthday, '2020-01-15');
+    expect(updated.customColorHex, '#7c3aed');
+    expect(updated.customColorEnabled, isTrue);
+    expect(updated.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
+  });
+
+  test('link: populated local fields are kept (no overwrite)', () async {
+    final local = domain.Member(
+      id: 'l1',
+      name: 'MyAlice',
+      displayName: 'MyDisplay',
+      pronouns: 'they/them',
+      bio: 'my bio',
+      birthday: '1990-05-05',
+      customColorEnabled: true,
+      customColorHex: '#ff0000',
+      createdAt: DateTime(2026),
+    );
+    final repo = FakeMemberRepo([local]);
+    final client = FakePluralKitClient();
+    final applier = buildApplier(repo: repo, client: client);
+
+    const pk = PKMember(
+      id: 'abcde',
+      uuid: 'u-link',
+      name: 'PKAlice',
+      displayName: 'PKDisplay',
+      pronouns: 'she/her',
+      description: 'pk bio',
+      color: '00ff00',
+      birthday: '2020-01-15',
+    );
+    await applier.apply([
+      const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
+    ]);
+
+    final updated = (await repo.getMemberById('l1'))!;
+    expect(updated.name, 'MyAlice');
+    expect(updated.displayName, 'MyDisplay');
+    expect(updated.pronouns, 'they/them');
+    expect(updated.bio, 'my bio');
+    expect(updated.birthday, '1990-05-05');
+    expect(updated.customColorHex, '#ff0000');
+    // Link fields still get written.
+    expect(updated.pluralkitId, 'abcde');
+    expect(updated.pluralkitUuid, 'u-link');
+  });
+
+  test('link: downloads PK avatar when local has none', () async {
+    final repo = FakeMemberRepo([_local(id: 'l1', name: 'Alice')]);
+    final client = FakePluralKitClient(avatarBytes: {
+      'https://pk/avatar.png': [1, 2, 3, 4],
+    });
+    final applier = buildApplier(repo: repo, client: client);
+
+    const pk = PKMember(
+      id: 'abcde',
+      uuid: 'u-link',
+      name: 'Alice',
+      avatarUrl: 'https://pk/avatar.png',
+    );
+    await applier.apply([
+      const PkLinkDecision(localMemberId: 'l1', pkMember: pk),
+    ]);
+
+    expect(client.downloadedUrls, contains('https://pk/avatar.png'));
+    final updated = (await repo.getMemberById('l1'))!;
+    expect(updated.avatarImageData, isNotNull);
+    expect(updated.avatarImageData!, [1, 2, 3, 4]);
+  });
+
+  // -------------------------------------------------------------------------
+  // Import avatar download — plan S9
+  // -------------------------------------------------------------------------
+
+  test('import: downloads avatar when pk.avatarUrl is set', () async {
+    final repo = FakeMemberRepo([]);
+    final client = FakePluralKitClient(avatarBytes: {
+      'https://pk/x.png': [9, 8, 7],
+    });
+    final applier = buildApplier(repo: repo, client: client);
+
+    const pk = PKMember(
+      id: 'abcde',
+      uuid: 'u-imp',
+      name: 'Imp',
+      avatarUrl: 'https://pk/x.png',
+    );
+    await applier.apply([const PkImportDecision(pkMember: pk)]);
+
+    final all = await repo.getAllMembers();
+    expect(all, hasLength(1));
+    expect(all.single.avatarImageData, isNotNull);
+    expect(all.single.avatarImageData!, [9, 8, 7]);
+    expect(client.downloadedUrls, contains('https://pk/x.png'));
+  });
+
+  test('import: avatar download failure is non-fatal', () async {
+    final repo = FakeMemberRepo([]);
+    final client = FakePluralKitClient(
+      downloadError: const PluralKitApiError(500, 'server'),
+    );
+    final applier = buildApplier(repo: repo, client: client);
+
+    const pk = PKMember(
+      id: 'abcde',
+      uuid: 'u-imp',
+      name: 'Imp',
+      avatarUrl: 'https://pk/x.png',
+    );
+    final results = await applier.apply([const PkImportDecision(pkMember: pk)]);
+    expect(results.single.outcome, PkApplyOutcome.applied);
+    final all = await repo.getAllMembers();
+    expect(all.single.avatarImageData, isNull);
   });
 
   test('retry: failed → successful on second run', () async {

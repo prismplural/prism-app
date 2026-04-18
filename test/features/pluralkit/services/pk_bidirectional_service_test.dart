@@ -567,9 +567,11 @@ void main() {
   // _memberToPayload null-clearing (via pk_push_service's PATCH)
   // -------------------------------------------------------------------------
 
-  group('pushOnly with pkMember supplied sends explicit nulls', () {
-    test('PATCH clears pronouns when local is null but PK is non-null',
+  group('push null-clear safety (plan 08 first-link semantics)', () {
+    test('does NOT push when local pronouns null and PK has a value',
         () async {
+      // Per plan 08 "Conflict semantics on link", an empty local value must
+      // never null-clear PK — that would be a destructive first-link push.
       final local = _localMember(
         id: 'local-1',
         name: 'Alice',
@@ -578,7 +580,7 @@ void main() {
       );
       final pk = _pkMember(id: 'pk001', name: 'Alice', pronouns: 'he/him');
 
-      await service.syncMembers(
+      final summary = await service.syncMembers(
         localMembers: [local],
         pkMembers: [pk],
         fieldConfigs: {},
@@ -588,12 +590,60 @@ void main() {
         client: fakeClient,
       );
 
-      // The update call should carry pronouns: null explicitly.
+      expect(summary.membersPushed, 0);
+      expect(
+        fakeClient.calls.any((c) => c.method == 'updateMember'),
+        isFalse,
+        reason: 'Null local must not clear PK via push',
+      );
+    });
+
+    test('does NOT push when local bio empty and PK has a value', () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice',
+        pluralkitId: 'pk001',
+        bio: null,
+      );
+      final pk = _pkMember(id: 'pk001', name: 'Alice', description: 'hi');
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 0);
+    });
+
+    test('still pushes when local is populated and differs', () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice',
+        pluralkitId: 'pk001',
+        pronouns: 'they/them',
+      );
+      final pk = _pkMember(id: 'pk001', name: 'Alice', pronouns: 'he/him');
+
+      final summary = await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      expect(summary.membersPushed, 1);
       final updateCall = fakeClient.calls
           .firstWhere((c) => c.method == 'updateMember');
       final payload = updateCall.args[1] as Map<String, dynamic>;
-      expect(payload.containsKey('pronouns'), isTrue);
-      expect(payload['pronouns'], isNull);
+      expect(payload['pronouns'], 'they/them');
     });
   });
 

@@ -137,12 +137,20 @@ class PkSyncSummary {
   final int switchesPulled;
   final int switchesPushed;
 
+  /// Human-readable messages describing links that PK 404'd during this run
+  /// (member or switch targets that no longer exist on PK). These are
+  /// surfaced to the user via `syncError` after the sync finishes — each
+  /// corresponds to a local link that was cleared so the user can re-link
+  /// from the mapping screen.
+  final List<String> staleLinkMessages;
+
   const PkSyncSummary({
     this.membersPulled = 0,
     this.membersPushed = 0,
     this.membersSkipped = 0,
     this.switchesPulled = 0,
     this.switchesPushed = 0,
+    this.staleLinkMessages = const [],
   });
 
   int get totalChanges =>
@@ -154,6 +162,7 @@ class PkSyncSummary {
         'membersSkipped': membersSkipped,
         'switchesPulled': switchesPulled,
         'switchesPushed': switchesPushed,
+        'staleLinkMessages': staleLinkMessages,
       };
 
   factory PkSyncSummary.fromJson(Map<String, dynamic> json) {
@@ -163,6 +172,10 @@ class PkSyncSummary {
       membersSkipped: json['membersSkipped'] as int? ?? 0,
       switchesPulled: json['switchesPulled'] as int? ?? 0,
       switchesPushed: json['switchesPushed'] as int? ?? 0,
+      staleLinkMessages: (json['staleLinkMessages'] as List?)
+              ?.whereType<String>()
+              .toList() ??
+          const [],
     );
   }
 
@@ -174,6 +187,9 @@ class PkSyncSummary {
     if (membersSkipped > 0) parts.add('$membersSkipped skipped');
     if (switchesPulled > 0) parts.add('$switchesPulled switches pulled');
     if (switchesPushed > 0) parts.add('$switchesPushed switches pushed');
+    if (staleLinkMessages.isNotEmpty) {
+      parts.add('${staleLinkMessages.length} stale links cleared');
+    }
     return parts.isEmpty ? 'No changes' : parts.join(', ');
   }
 }

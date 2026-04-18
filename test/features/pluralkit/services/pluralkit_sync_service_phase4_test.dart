@@ -718,6 +718,55 @@ void main() {
       );
     });
 
+    test(
+        'pushPendingSwitches invokes onStaleLink callback on 404 '
+        '(regression S3)',
+        () async {
+      final db = _makeDb();
+      addTearDown(db.close);
+
+      final memberRepo = _FakeMemberRepo()
+        ..seed([_member('local-a', pluralkitId: 'pkA')]);
+
+      final sessionRepo = _FakeSessionRepo()
+        ..sessions.add(domain.FrontingSession(
+          id: 's-stale',
+          startTime: DateTime(2026, 2, 1, 10),
+          memberId: 'local-a',
+        ));
+
+      final client = _FakeClient()..throwStaleOnCreateSwitch = true;
+      final svc = _makeService(
+          client: client,
+          db: db,
+          memberRepo: memberRepo,
+          sessionRepo: sessionRepo);
+
+      await db.pluralKitSyncDao.upsertSyncState(
+        PluralKitSyncStateCompanion(
+          id: const Value('pk_config'),
+          isConnected: const Value(true),
+          mappingAcknowledged: const Value(true),
+          linkedAt: Value(DateTime(2026, 1, 15)),
+        ),
+      );
+      await svc.loadState();
+      await const FlutterSecureStorage()
+          .write(key: 'prism_pluralkit_token', value: 't');
+
+      final messages = <String>[];
+      final pushed = await svc.pushPendingSwitches(
+        pushService: PkPushService(queue: PkRequestQueue()),
+        onStaleLink: messages.add,
+      );
+
+      expect(pushed, 0);
+      expect(messages, isNotEmpty,
+          reason: 'stale-link 404 must surface via onStaleLink callback (S3)');
+      expect(messages.single,
+          contains('switch target was removed on the server'));
+    });
+
     test('non-404 PK errors are not wrapped as stale', () async {
       final client = _FakeClient();
       // 500 error via a helper: override updateMember

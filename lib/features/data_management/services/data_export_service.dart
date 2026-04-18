@@ -305,6 +305,10 @@ class DataExportService {
     pluralkitUuid: m.pluralkitUuid,
     pluralkitId: m.pluralkitId,
     markdownEnabled: m.markdownEnabled,
+    displayName: m.displayName,
+    birthday: m.birthday,
+    proxyTagsJson: m.proxyTagsJson,
+    pluralkitSyncIgnored: m.pluralkitSyncIgnored,
   );
 
   V3FrontSession _mapFrontSession(FrontingSession s) => V3FrontSession(
@@ -316,6 +320,7 @@ class DataExportService {
     notes: s.notes,
     confidence: s.confidence?.index,
     pluralkitUuid: s.pluralkitUuid,
+    pkMemberIdsJson: s.pkMemberIdsJson,
   );
 
   V3SleepSession _mapSleepSession(FrontingSession s) => V3SleepSession(

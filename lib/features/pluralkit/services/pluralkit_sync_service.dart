@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart'
     as storage_config;
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/daos/pk_mapping_state_dao.dart';
 import 'package:prism_plurality/core/database/daos/pluralkit_sync_dao.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
@@ -274,6 +275,12 @@ class PluralKitSyncService {
   }
 
   /// Remove the token and reset connected state.
+  ///
+  /// Also truncates the PK mapping-state table and resets
+  /// [PluralKitSyncState.needsMapping] so a future reconnect (potentially
+  /// against a different PK system) starts with a fresh mapping flow — stale
+  /// Skip/Link decisions keyed by the previous session's local member IDs
+  /// would otherwise silently skip or link members the user never saw.
   Future<void> clearToken() async {
     await _secureStorage.delete(key: _pkTokenKey);
     await _syncDao.upsertSyncState(
@@ -281,11 +288,15 @@ class PluralKitSyncService {
         id: Value('pk_config'),
         systemId: Value(null),
         isConnected: Value(false),
+        mappingAcknowledged: Value(false),
         lastSyncDate: Value(null),
         lastManualSyncDate: Value(null),
         linkedAt: Value(null),
       ),
     );
+    // Wipe prior Skip/Link/Import decisions — they're keyed by local member
+    // IDs that may not even exist in the next connected system.
+    await PkMappingStateDao(_syncDao.attachedDatabase).clearAll();
     _emit(const PluralKitSyncState());
   }
 
@@ -299,6 +310,27 @@ class PluralKitSyncService {
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// Read-only fetch: returns PK system name and members without writing
+  /// anything to the local members table. Used by the mapping screen so we
+  /// don't auto-create clones before the user makes mapping decisions.
+  ///
+  /// Unlike [importMembersOnly], this path does NOT download avatars or
+  /// call [_importMembers]. Avatar downloads and row writes happen later,
+  /// per-decision, via the mapping applier.
+  Future<(String? systemName, List<PKMember> pkMembers)>
+  fetchPkMembersWithoutImport() async {
+    final client = await _buildClient();
+    if (client == null) throw StateError('Not connected');
+
+    try {
+      final system = await client.getSystem();
+      final pkMembers = await client.getMembers();
+      return (system.name, pkMembers);
+    } finally {
+      client.dispose();
     }
   }
 
@@ -561,6 +593,12 @@ class PluralKitSyncService {
         }
       }
 
+      // Accumulates messages for PK-side 404s we detected during this run.
+      // Surfaced via `syncError` at the end so the user sees that a linked
+      // member or switch was deleted on PK (otherwise the unlink would be
+      // silent — see bug S3).
+      final staleLinkMessages = <String>[];
+
       // -- Bidirectional member sync --
       PkSyncSummary? summary;
       if (direction.pushEnabled) {
@@ -577,6 +615,15 @@ class PluralKitSyncService {
         final row = await _syncDao.getSyncState();
         final fieldConfigs = parseFieldSyncConfig(row.fieldSyncConfig);
 
+        // Snapshot linked-member names before the bidirectional run so we can
+        // detect stale-link clears (pk_bidirectional_service clears
+        // `pluralkitId` / `pluralkitUuid` on 404 but doesn't surface anything
+        // to the user).
+        final linkedBefore = <String, String>{
+          for (final m in allMembers)
+            if (m.pluralkitId != null || m.pluralkitUuid != null) m.id: m.name,
+        };
+
         final biService = PkBidirectionalService();
         summary = await biService.syncMembers(
           localMembers: allMembers,
@@ -587,6 +634,23 @@ class PluralKitSyncService {
           memberRepository: _memberRepository,
           client: client,
         );
+
+        // Detect stale-link clears: any previously-linked local member that
+        // no longer has `pluralkitId` AND no longer has `pluralkitUuid` was
+        // unlinked by the bidirectional service's 404 branch.
+        final afterMembers = await _memberRepository.getAllMembers();
+        final afterById = {for (final m in afterMembers) m.id: m};
+        for (final entry in linkedBefore.entries) {
+          final now = afterById[entry.key];
+          if (now == null) continue;
+          if (now.pluralkitId == null && now.pluralkitUuid == null) {
+            staleLinkMessages.add(
+              "PluralKit member '${entry.value}' was removed on the "
+              'server — unlinked locally. Re-link from the mapping screen '
+              'to resume syncing.',
+            );
+          }
+        }
 
         _emit(
           _state.copyWith(
@@ -655,7 +719,9 @@ class PluralKitSyncService {
       // auto-push-current-front block which silently created duplicates on
       // every sync (it never persisted the returned PK switch ID).
       final int switchesPushed = direction.pushEnabled
-          ? await pushPendingSwitches()
+          ? await pushPendingSwitches(
+              onStaleLink: staleLinkMessages.add,
+            )
           : 0;
 
       final now = DateTime.now();
@@ -674,6 +740,7 @@ class PluralKitSyncService {
         membersSkipped: summary?.membersSkipped ?? 0,
         switchesPulled: totalNew,
         switchesPushed: switchesPushed,
+        staleLinkMessages: List.unmodifiable(staleLinkMessages),
       );
 
       final statusParts = <String>[];
@@ -691,6 +758,12 @@ class PluralKitSyncService {
           syncStatus: statusParts.isNotEmpty
               ? '${statusParts.join('. ')}.'
               : 'Everything is up to date.',
+          // Surface stale-link events so the UI can render them. Uses
+          // `syncError` (there's no dedicated warnings channel) — callers
+          // read `state.syncError` to show a banner/toast.
+          syncError:
+              staleLinkMessages.isEmpty ? null : staleLinkMessages.join('\n'),
+          clearError: staleLinkMessages.isEmpty,
           lastSyncDate: now,
           lastManualSyncDate: isManual ? now : _state.lastManualSyncDate,
         ),
@@ -1019,7 +1092,16 @@ class PluralKitSyncService {
   /// stored on the local session so subsequent syncs don't duplicate it.
   ///
   /// Returns the number of local sessions that were pushed.
-  Future<int> pushPendingSwitches({PkPushService? pushService}) async {
+  ///
+  /// When [onStaleLink] is provided, it is called once per session whose
+  /// push failed with a 404 (`PkStaleLinkException`). The caller can use
+  /// this to surface a user-facing message. The callback receives a short
+  /// human-readable description; the session is still counted as "not
+  /// pushed" and left retriable, same as before.
+  Future<int> pushPendingSwitches({
+    PkPushService? pushService,
+    void Function(String message)? onStaleLink,
+  }) async {
     if (!_state.isConnected) {
       throw StateError('Not connected — cannot push switches');
     }
@@ -1111,6 +1193,10 @@ class PluralKitSyncService {
           debugPrint(
             '[PK] Stale link on switch push (pkId=${e.pkId}); skipping '
             'session ${session.id}.',
+          );
+          onStaleLink?.call(
+            'A PluralKit switch target was removed on the server — '
+            'skipped pushing one local session. (pkId=${e.pkId})',
           );
         } catch (e) {
           // Non-stale failure mid-two-push. If the start already succeeded,

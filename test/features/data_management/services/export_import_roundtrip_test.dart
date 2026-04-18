@@ -655,6 +655,128 @@ void main() {
       },
     );
 
+    test(
+      'PluralKit Phase 2 member fields survive export → import',
+      () async {
+        // Arrange: create a member with all PK Phase 2 fields populated
+        final now = DateTime(2026, 4, 17, 12, 0, 0).toUtc();
+        await DriftMemberRepository(sourceDb.membersDao, null).createMember(
+          Member(
+            id: 'pk-member-1',
+            name: 'Alex',
+            pronouns: 'they/them',
+            emoji: '\u2728',
+            createdAt: now,
+            pluralkitUuid: '11111111-1111-1111-1111-111111111111',
+            pluralkitId: 'abcde',
+            displayName: 'Alex (fronting)',
+            birthday: '1995-06-15',
+            proxyTagsJson: '[{"prefix":"A:","suffix":null}]',
+            pluralkitSyncIgnored: true,
+          ),
+        );
+
+        // Act
+        final result = await _roundtrip(exportService, importService);
+        expect(result.membersCreated, 1);
+
+        // Assert: all PK fields round-tripped
+        final targetMemberRepo = DriftMemberRepository(
+          targetDb.membersDao,
+          null,
+        );
+        final imported = await targetMemberRepo.getAllMembers();
+        expect(imported, hasLength(1));
+        final m = imported.single;
+        expect(m.id, 'pk-member-1');
+        expect(m.pluralkitUuid, '11111111-1111-1111-1111-111111111111');
+        expect(m.pluralkitId, 'abcde');
+        expect(m.displayName, 'Alex (fronting)');
+        expect(m.birthday, '1995-06-15');
+        expect(m.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
+        expect(m.pluralkitSyncIgnored, true);
+      },
+    );
+
+    test(
+      'PluralKit Phase 2 fronting session pkMemberIdsJson survives roundtrip',
+      () async {
+        final now = DateTime(2026, 4, 17, 14, 0, 0).toUtc();
+
+        // Seed a member (FK target) and a session with pkMemberIdsJson
+        await DriftMemberRepository(sourceDb.membersDao, null).createMember(
+          Member(
+            id: 'pk-session-member',
+            name: 'Co-fronter',
+            emoji: '\u2728',
+            createdAt: now,
+          ),
+        );
+        await DriftFrontingSessionRepository(
+          sourceDb.frontingSessionsDao,
+          null,
+        ).createSession(
+          FrontingSession(
+            id: 'pk-session-1',
+            startTime: now.subtract(const Duration(hours: 1)),
+            endTime: now,
+            memberId: 'pk-session-member',
+            pluralkitUuid: '22222222-2222-2222-2222-222222222222',
+            pkMemberIdsJson:
+                '["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",'
+                '"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"]',
+          ),
+        );
+
+        final result = await _roundtrip(exportService, importService);
+        expect(result.frontSessionsCreated, 1);
+
+        final targetSessionsRepo = DriftFrontingSessionRepository(
+          targetDb.frontingSessionsDao,
+          null,
+        );
+        final imported = await targetSessionsRepo.getAllSessions();
+        expect(imported, hasLength(1));
+        final s = imported.single;
+        expect(s.id, 'pk-session-1');
+        expect(s.pluralkitUuid, '22222222-2222-2222-2222-222222222222');
+        expect(
+          s.pkMemberIdsJson,
+          '["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",'
+          '"bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"]',
+        );
+      },
+    );
+
+    test(
+      'V3Headmate/V3FrontSession fromJson defaults PK Phase 2 fields for old exports',
+      () {
+        // Old export without PK Phase 2 fields — must parse cleanly.
+        final oldHeadmateJson = <String, dynamic>{
+          'id': 'm1',
+          'name': 'Legacy',
+          'isActive': true,
+          'createdAt': '2026-01-01T00:00:00.000Z',
+          'displayOrder': 0,
+          'isAdmin': false,
+          'customColorEnabled': false,
+          'markdownEnabled': false,
+        };
+        final h = V3Headmate.fromJson(oldHeadmateJson);
+        expect(h.displayName, isNull);
+        expect(h.birthday, isNull);
+        expect(h.proxyTagsJson, isNull);
+        expect(h.pluralkitSyncIgnored, false);
+
+        final oldSessionJson = <String, dynamic>{
+          'id': 's1',
+          'startTime': '2026-01-01T00:00:00.000Z',
+        };
+        final s = V3FrontSession.fromJson(oldSessionJson);
+        expect(s.pkMemberIdsJson, isNull);
+      },
+    );
+
     test('idempotent import skips already-imported habits', () async {
       // Arrange: create one habit in source
       final now = DateTime(2026, 2, 1).toUtc();

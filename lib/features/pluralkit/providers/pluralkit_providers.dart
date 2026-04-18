@@ -50,9 +50,11 @@ class PkSyncDirectionNotifier extends Notifier<PkSyncDirection> {
     final config = parseFieldSyncConfig(row.fieldSyncConfig);
     config['__global__'] = PkFieldSyncConfig(
       name: direction,
+      displayName: direction,
       pronouns: direction,
       description: direction,
       color: direction,
+      birthday: direction,
     );
     await syncDao.upsertSyncState(
       PluralKitSyncStateCompanion(
