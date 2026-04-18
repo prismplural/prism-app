@@ -108,6 +108,10 @@ const _pkTokenKey = 'prism_pluralkit_token';
 
 typedef SyncStateCallback = void Function(PluralKitSyncState state);
 
+/// Fields the user can choose to import from the PK system profile on first
+/// pull. See [PluralKitSyncService.adoptSystemProfile] (plan 04).
+enum PkProfileField { name, description, tag, avatar }
+
 /// Core PluralKit synchronization logic.
 ///
 /// Designed to be driven by a Riverpod notifier that passes a
@@ -857,6 +861,75 @@ class PluralKitSyncService {
       return true;
     } finally {
       client.dispose();
+    }
+  }
+
+  /// Fetch the PK system profile without writing anything. Callers show the
+  /// first-pull disclosure and then invoke [adoptSystemProfile] for the
+  /// subset of fields the user accepted.
+  ///
+  /// Returns `null` when the service is not connected (no token) — the setup
+  /// screen can then skip the disclosure entirely.
+  Future<PKSystem?> fetchSystemProfile() async {
+    final client = await _buildClient();
+    if (client == null) return null;
+    try {
+      return await client.getSystem();
+    } finally {
+      client.dispose();
+    }
+  }
+
+  /// Write the user-selected subset of the PK system profile into Prism's
+  /// `system_settings`. Each field write is isolated in its own try/catch so
+  /// a single failure doesn't abort the rest of the adoption. Failures are
+  /// surfaced via [PluralKitSyncState.syncError] but never raised — the
+  /// connection itself is already established at this point.
+  Future<void> adoptSystemProfile({
+    required PKSystem pk,
+    required Set<PkProfileField> accepted,
+  }) async {
+    if (_settingsRepository == null) return;
+    final failures = <String>[];
+
+    if (accepted.contains(PkProfileField.name) &&
+        pk.name != null && pk.name!.isNotEmpty) {
+      try {
+        await _settingsRepository.updateSystemName(pk.name);
+      } catch (e) {
+        failures.add('name ($e)');
+      }
+    }
+    if (accepted.contains(PkProfileField.description) &&
+        pk.description != null && pk.description!.isNotEmpty) {
+      try {
+        await _settingsRepository.updateSystemDescription(pk.description);
+      } catch (e) {
+        failures.add('description ($e)');
+      }
+    }
+    if (accepted.contains(PkProfileField.tag) &&
+        pk.tag != null && pk.tag!.isNotEmpty) {
+      try {
+        await _settingsRepository.updateSystemTag(pk.tag);
+      } catch (e) {
+        failures.add('tag ($e)');
+      }
+    }
+    if (accepted.contains(PkProfileField.avatar) &&
+        pk.avatarUrl != null && pk.avatarUrl!.isNotEmpty) {
+      try {
+        await importSystemAvatar();
+      } catch (e) {
+        failures.add('avatar ($e)');
+      }
+    }
+
+    if (failures.isNotEmpty) {
+      _emit(_state.copyWith(
+        syncError: 'Some profile fields did not import: '
+            '${failures.join(', ')}',
+      ));
     }
   }
 

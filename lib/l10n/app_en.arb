@@ -7228,5 +7228,24 @@
       "messages": { "type": "int" }
     }
   },
-  "onboardingSyncRestoredSummary": "Restored {members} members and {messages} messages."
+  "onboardingSyncRestoredSummary": "Restored {members} members and {messages} messages.",
+
+  "pkProfileDisclosureTitle": "Import your system profile from PluralKit?",
+  "@pkProfileDisclosureTitle": { "description": "Title of the first-pull PK system profile disclosure sheet" },
+  "pkProfileDisclosureSubtitle": "We'll only copy what you check.",
+  "@pkProfileDisclosureSubtitle": { "description": "Subtitle of the first-pull PK system profile disclosure sheet" },
+  "pkProfileDisclosureImport": "Import selected",
+  "@pkProfileDisclosureImport": { "description": "Primary action on the PK system profile disclosure sheet" },
+  "pkProfileDisclosureSkip": "Skip",
+  "@pkProfileDisclosureSkip": { "description": "Secondary action on the PK system profile disclosure sheet" },
+  "pkProfileFieldName": "System name",
+  "@pkProfileFieldName": { "description": "Row label for the PK system name field on the disclosure sheet" },
+  "pkProfileFieldDescription": "Description",
+  "@pkProfileFieldDescription": { "description": "Row label for the PK system description field on the disclosure sheet" },
+  "pkProfileFieldTag": "System tag",
+  "@pkProfileFieldTag": { "description": "Row label for the PK system tag field on the disclosure sheet" },
+  "pkProfileFieldAvatar": "System avatar",
+  "@pkProfileFieldAvatar": { "description": "Row label for the PK system avatar field on the disclosure sheet" },
+  "pkProfileFieldOverwriteHint": "Prism already has a value — tick to overwrite.",
+  "@pkProfileFieldOverwriteHint": { "description": "Hint shown when a Prism system settings field is already populated and would be overwritten by PK import" }
 }

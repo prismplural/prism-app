@@ -4377,6 +4377,17 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _systemTagMeta = const VerificationMeta(
+    'systemTag',
+  );
+  @override
+  late final GeneratedColumn<String> systemTag = GeneratedColumn<String>(
+    'system_tag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _systemAvatarDataMeta = const VerificationMeta(
     'systemAvatarData',
   );
@@ -4610,6 +4621,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     habitsBadgeEnabled,
     notesEnabled,
     systemDescription,
+    systemTag,
     systemAvatarData,
     remindersEnabled,
     gifConsentState,
@@ -4941,6 +4953,12 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('system_tag')) {
+      context.handle(
+        _systemTagMeta,
+        systemTag.isAcceptableOrUnknown(data['system_tag']!, _systemTagMeta),
+      );
+    }
     if (data.containsKey('system_avatar_data')) {
       context.handle(
         _systemAvatarDataMeta,
@@ -5220,6 +5238,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}system_description'],
       ),
+      systemTag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}system_tag'],
+      ),
       systemAvatarData: attachedDatabase.typeMapping.read(
         DriftSqlType.blob,
         data['${effectivePrefix}system_avatar_data'],
@@ -5327,6 +5349,7 @@ class SystemSettingsData extends DataClass
   final bool habitsBadgeEnabled;
   final bool notesEnabled;
   final String? systemDescription;
+  final String? systemTag;
   final Uint8List? systemAvatarData;
   final bool remindersEnabled;
   final int gifConsentState;
@@ -5379,6 +5402,7 @@ class SystemSettingsData extends DataClass
     required this.habitsBadgeEnabled,
     required this.notesEnabled,
     this.systemDescription,
+    this.systemTag,
     this.systemAvatarData,
     required this.remindersEnabled,
     required this.gifConsentState,
@@ -5456,6 +5480,9 @@ class SystemSettingsData extends DataClass
     if (!nullToAbsent || systemDescription != null) {
       map['system_description'] = Variable<String>(systemDescription);
     }
+    if (!nullToAbsent || systemTag != null) {
+      map['system_tag'] = Variable<String>(systemTag);
+    }
     if (!nullToAbsent || systemAvatarData != null) {
       map['system_avatar_data'] = Variable<Uint8List>(systemAvatarData);
     }
@@ -5526,6 +5553,9 @@ class SystemSettingsData extends DataClass
       systemDescription: systemDescription == null && nullToAbsent
           ? const Value.absent()
           : Value(systemDescription),
+      systemTag: systemTag == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systemTag),
       systemAvatarData: systemAvatarData == null && nullToAbsent
           ? const Value.absent()
           : Value(systemAvatarData),
@@ -5618,6 +5648,7 @@ class SystemSettingsData extends DataClass
       systemDescription: serializer.fromJson<String?>(
         json['systemDescription'],
       ),
+      systemTag: serializer.fromJson<String?>(json['systemTag']),
       systemAvatarData: serializer.fromJson<Uint8List?>(
         json['systemAvatarData'],
       ),
@@ -5701,6 +5732,7 @@ class SystemSettingsData extends DataClass
       'habitsBadgeEnabled': serializer.toJson<bool>(habitsBadgeEnabled),
       'notesEnabled': serializer.toJson<bool>(notesEnabled),
       'systemDescription': serializer.toJson<String?>(systemDescription),
+      'systemTag': serializer.toJson<String?>(systemTag),
       'systemAvatarData': serializer.toJson<Uint8List?>(systemAvatarData),
       'remindersEnabled': serializer.toJson<bool>(remindersEnabled),
       'gifConsentState': serializer.toJson<int>(gifConsentState),
@@ -5758,6 +5790,7 @@ class SystemSettingsData extends DataClass
     bool? habitsBadgeEnabled,
     bool? notesEnabled,
     Value<String?> systemDescription = const Value.absent(),
+    Value<String?> systemTag = const Value.absent(),
     Value<Uint8List?> systemAvatarData = const Value.absent(),
     bool? remindersEnabled,
     int? gifConsentState,
@@ -5824,6 +5857,7 @@ class SystemSettingsData extends DataClass
     systemDescription: systemDescription.present
         ? systemDescription.value
         : this.systemDescription,
+    systemTag: systemTag.present ? systemTag.value : this.systemTag,
     systemAvatarData: systemAvatarData.present
         ? systemAvatarData.value
         : this.systemAvatarData,
@@ -5948,6 +5982,7 @@ class SystemSettingsData extends DataClass
       systemDescription: data.systemDescription.present
           ? data.systemDescription.value
           : this.systemDescription,
+      systemTag: data.systemTag.present ? data.systemTag.value : this.systemTag,
       systemAvatarData: data.systemAvatarData.present
           ? data.systemAvatarData.value
           : this.systemAvatarData,
@@ -6033,6 +6068,7 @@ class SystemSettingsData extends DataClass
           ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
           ..write('notesEnabled: $notesEnabled, ')
           ..write('systemDescription: $systemDescription, ')
+          ..write('systemTag: $systemTag, ')
           ..write('systemAvatarData: $systemAvatarData, ')
           ..write('remindersEnabled: $remindersEnabled, ')
           ..write('gifConsentState: $gifConsentState, ')
@@ -6090,6 +6126,7 @@ class SystemSettingsData extends DataClass
     habitsBadgeEnabled,
     notesEnabled,
     systemDescription,
+    systemTag,
     $driftBlobEquality.hash(systemAvatarData),
     remindersEnabled,
     gifConsentState,
@@ -6148,6 +6185,7 @@ class SystemSettingsData extends DataClass
           other.habitsBadgeEnabled == this.habitsBadgeEnabled &&
           other.notesEnabled == this.notesEnabled &&
           other.systemDescription == this.systemDescription &&
+          other.systemTag == this.systemTag &&
           $driftBlobEquality.equals(
             other.systemAvatarData,
             this.systemAvatarData,
@@ -6205,6 +6243,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> habitsBadgeEnabled;
   final Value<bool> notesEnabled;
   final Value<String?> systemDescription;
+  final Value<String?> systemTag;
   final Value<Uint8List?> systemAvatarData;
   final Value<bool> remindersEnabled;
   final Value<int> gifConsentState;
@@ -6258,6 +6297,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsBadgeEnabled = const Value.absent(),
     this.notesEnabled = const Value.absent(),
     this.systemDescription = const Value.absent(),
+    this.systemTag = const Value.absent(),
     this.systemAvatarData = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
     this.gifConsentState = const Value.absent(),
@@ -6312,6 +6352,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsBadgeEnabled = const Value.absent(),
     this.notesEnabled = const Value.absent(),
     this.systemDescription = const Value.absent(),
+    this.systemTag = const Value.absent(),
     this.systemAvatarData = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
     this.gifConsentState = const Value.absent(),
@@ -6366,6 +6407,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? habitsBadgeEnabled,
     Expression<bool>? notesEnabled,
     Expression<String>? systemDescription,
+    Expression<String>? systemTag,
     Expression<Uint8List>? systemAvatarData,
     Expression<bool>? remindersEnabled,
     Expression<int>? gifConsentState,
@@ -6434,6 +6476,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'habits_badge_enabled': habitsBadgeEnabled,
       if (notesEnabled != null) 'notes_enabled': notesEnabled,
       if (systemDescription != null) 'system_description': systemDescription,
+      if (systemTag != null) 'system_tag': systemTag,
       if (systemAvatarData != null) 'system_avatar_data': systemAvatarData,
       if (remindersEnabled != null) 'reminders_enabled': remindersEnabled,
       if (gifConsentState != null) 'gif_consent_state': gifConsentState,
@@ -6497,6 +6540,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? habitsBadgeEnabled,
     Value<bool>? notesEnabled,
     Value<String?>? systemDescription,
+    Value<String?>? systemTag,
     Value<Uint8List?>? systemAvatarData,
     Value<bool>? remindersEnabled,
     Value<int>? gifConsentState,
@@ -6563,6 +6607,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       habitsBadgeEnabled: habitsBadgeEnabled ?? this.habitsBadgeEnabled,
       notesEnabled: notesEnabled ?? this.notesEnabled,
       systemDescription: systemDescription ?? this.systemDescription,
+      systemTag: systemTag ?? this.systemTag,
       systemAvatarData: systemAvatarData ?? this.systemAvatarData,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       gifConsentState: gifConsentState ?? this.gifConsentState,
@@ -6719,6 +6764,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     if (systemDescription.present) {
       map['system_description'] = Variable<String>(systemDescription.value);
     }
+    if (systemTag.present) {
+      map['system_tag'] = Variable<String>(systemTag.value);
+    }
     if (systemAvatarData.present) {
       map['system_avatar_data'] = Variable<Uint8List>(systemAvatarData.value);
     }
@@ -6825,6 +6873,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
           ..write('notesEnabled: $notesEnabled, ')
           ..write('systemDescription: $systemDescription, ')
+          ..write('systemTag: $systemTag, ')
           ..write('systemAvatarData: $systemAvatarData, ')
           ..write('remindersEnabled: $remindersEnabled, ')
           ..write('gifConsentState: $gifConsentState, ')
@@ -21884,6 +21933,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> habitsBadgeEnabled,
       Value<bool> notesEnabled,
       Value<String?> systemDescription,
+      Value<String?> systemTag,
       Value<Uint8List?> systemAvatarData,
       Value<bool> remindersEnabled,
       Value<int> gifConsentState,
@@ -21939,6 +21989,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> habitsBadgeEnabled,
       Value<bool> notesEnabled,
       Value<String?> systemDescription,
+      Value<String?> systemTag,
       Value<Uint8List?> systemAvatarData,
       Value<bool> remindersEnabled,
       Value<int> gifConsentState,
@@ -22143,6 +22194,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<String> get systemDescription => $composableBuilder(
     column: $table.systemDescription,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get systemTag => $composableBuilder(
+    column: $table.systemTag,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22412,6 +22468,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get systemTag => $composableBuilder(
+    column: $table.systemTag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<Uint8List> get systemAvatarData => $composableBuilder(
     column: $table.systemAvatarData,
     builder: (column) => ColumnOrderings(column),
@@ -22672,6 +22733,9 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get systemTag =>
+      $composableBuilder(column: $table.systemTag, builder: (column) => column);
+
   GeneratedColumn<Uint8List> get systemAvatarData => $composableBuilder(
     column: $table.systemAvatarData,
     builder: (column) => column,
@@ -22824,6 +22888,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsBadgeEnabled = const Value.absent(),
                 Value<bool> notesEnabled = const Value.absent(),
                 Value<String?> systemDescription = const Value.absent(),
+                Value<String?> systemTag = const Value.absent(),
                 Value<Uint8List?> systemAvatarData = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> gifConsentState = const Value.absent(),
@@ -22878,6 +22943,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsBadgeEnabled: habitsBadgeEnabled,
                 notesEnabled: notesEnabled,
                 systemDescription: systemDescription,
+                systemTag: systemTag,
                 systemAvatarData: systemAvatarData,
                 remindersEnabled: remindersEnabled,
                 gifConsentState: gifConsentState,
@@ -22934,6 +23000,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsBadgeEnabled = const Value.absent(),
                 Value<bool> notesEnabled = const Value.absent(),
                 Value<String?> systemDescription = const Value.absent(),
+                Value<String?> systemTag = const Value.absent(),
                 Value<Uint8List?> systemAvatarData = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> gifConsentState = const Value.absent(),
@@ -22988,6 +23055,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsBadgeEnabled: habitsBadgeEnabled,
                 notesEnabled: notesEnabled,
                 systemDescription: systemDescription,
+                systemTag: systemTag,
                 systemAvatarData: systemAvatarData,
                 remindersEnabled: remindersEnabled,
                 gifConsentState: gifConsentState,

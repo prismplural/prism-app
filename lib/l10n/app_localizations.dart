@@ -10675,6 +10675,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restored {members} members and {messages} messages.'**
   String onboardingSyncRestoredSummary(int members, int messages);
+
+  /// Title of the first-pull PK system profile disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Import your system profile from PluralKit?'**
+  String get pkProfileDisclosureTitle;
+
+  /// Subtitle of the first-pull PK system profile disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll only copy what you check.'**
+  String get pkProfileDisclosureSubtitle;
+
+  /// Primary action on the PK system profile disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Import selected'**
+  String get pkProfileDisclosureImport;
+
+  /// Secondary action on the PK system profile disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get pkProfileDisclosureSkip;
+
+  /// Row label for the PK system name field on the disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'System name'**
+  String get pkProfileFieldName;
+
+  /// Row label for the PK system description field on the disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get pkProfileFieldDescription;
+
+  /// Row label for the PK system tag field on the disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'System tag'**
+  String get pkProfileFieldTag;
+
+  /// Row label for the PK system avatar field on the disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'System avatar'**
+  String get pkProfileFieldAvatar;
+
+  /// Hint shown when a Prism system settings field is already populated and would be overwritten by PK import
+  ///
+  /// In en, this message translates to:
+  /// **'Prism already has a value — tick to overwrite.'**
+  String get pkProfileFieldOverwriteHint;
 }
 
 class _AppLocalizationsDelegate

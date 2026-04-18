@@ -151,6 +151,9 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(systemDescription: Value(value)),
   );
 
+  Future<void> updateSystemTag(String? value) =>
+      _updateField(SystemSettingsTableCompanion(systemTag: Value(value)));
+
   // --- Blob fields (Phase 3) ---
 
   Future<void> updateSystemAvatarData(Uint8List? value) => _updateField(
