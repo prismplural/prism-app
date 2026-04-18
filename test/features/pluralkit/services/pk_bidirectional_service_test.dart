@@ -615,4 +615,130 @@ void main() {
       }
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Silent-rename migration — pre-phase-3 fallback (pk.displayName ?? pk.name)
+  // -------------------------------------------------------------------------
+
+  group('displayName migration from legacy local.name', () {
+    test(
+        'local.displayName null + local.name == pk.displayName → promote, do NOT rename',
+        () async {
+      // Pre-phase-3, local.name was set from pk.displayName (fallback).
+      // Phase 3 must promote that to displayName, not silently rename.
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice ✨',
+        pluralkitId: 'pk001',
+        pluralkitUuid: 'uuid-pk001',
+        // displayName: null (legacy shape)
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        uuid: 'uuid-pk001',
+        name: 'alice',
+        displayName: 'Alice ✨',
+      );
+
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pullOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      final calls = fakeRepo.calls
+          .where((c) => c.method == 'updateMember')
+          .toList();
+      expect(calls, isNotEmpty);
+      final updated = calls.last.args[0] as domain.Member;
+      expect(updated.displayName, 'Alice ✨',
+          reason: 'Legacy local.name must migrate into displayName');
+      expect(updated.name, 'alice',
+          reason: 'local.name then follows pk.name');
+    });
+
+    test('non-legacy case: local.displayName already set → normal pull',
+        () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: 'alice',
+        displayName: 'Alice ✨',
+        pluralkitId: 'pk001',
+        pluralkitUuid: 'uuid-pk001',
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        uuid: 'uuid-pk001',
+        name: 'alice',
+        displayName: 'Alice 🌟',
+      );
+
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pullOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      final updated = fakeRepo.calls
+          .where((c) => c.method == 'updateMember')
+          .last
+          .args[0] as domain.Member;
+      expect(updated.name, 'alice');
+      expect(updated.displayName, 'Alice 🌟');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Color: customColorEnabled=false must NOT clear PK's color
+  // -------------------------------------------------------------------------
+
+  group('color sync respects customColorEnabled', () {
+    test(
+        'customColorEnabled=false does not push color:null even with local hex set',
+        () async {
+      final local = _localMember(
+        id: 'local-1',
+        name: 'Alice',
+        pluralkitId: 'pk001',
+        pluralkitUuid: 'uuid-pk001',
+        customColorHex: '#ff0000',
+        customColorEnabled: false,
+        // Force a push with a different field so this member reaches the
+        // payload path.
+        pronouns: 'they/them',
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        uuid: 'uuid-pk001',
+        name: 'Alice',
+        pronouns: null,
+        color: '00ff00',
+      );
+
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.pushOnly,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      final updateCall = fakeClient.calls
+          .firstWhere((c) => c.method == 'updateMember');
+      final payload = updateCall.args[1] as Map<String, dynamic>;
+      expect(payload.containsKey('color'), isFalse,
+          reason:
+              'customColorEnabled=false must OMIT color, never send null to clear PK');
+    });
+  });
 }
