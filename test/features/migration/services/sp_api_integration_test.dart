@@ -1,9 +1,15 @@
 /// Integration test: full SP API import pipeline against a live SP account.
 ///
-/// Excluded from CI. Run manually:
-///   flutter test --tags integration test/features/migration/services/sp_api_integration_test.dart
+/// Excluded from CI. Run manually with an SP token in SP_TOKEN:
+///   SP_TOKEN=<your-token> flutter test --tags integration \
+///     test/features/migration/services/sp_api_integration_test.dart
+///
+/// The test hits the live Simply Plural API — use a dedicated test account,
+/// not your real system.
 @Tags(['integration'])
 library;
+
+import 'dart:io' show Platform;
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,8 +29,16 @@ import 'package:prism_plurality/data/repositories/drift_system_settings_reposito
 import 'package:prism_plurality/features/migration/services/sp_api_client.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 
-const _testToken =
-    'REDACTED_SP_TEST_TOKEN';
+String get _testToken {
+  final env = Platform.environment['SP_TOKEN'];
+  if (env == null || env.isEmpty) {
+    throw StateError(
+      'SP_TOKEN env var is required to run this integration test. '
+      'Set it to a Simply Plural API token (use a dedicated test account).',
+    );
+  }
+  return env;
+}
 
 void main() {
   group('SP API import — full pipeline integration', () {
