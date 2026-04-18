@@ -137,6 +137,11 @@ class ExportCrypto {
     offset += 4;
     final p = _readUint32BE(data, offset);
     offset += 4;
+
+    if (n != _scryptN || r != _scryptR || p != _scryptP) {
+      throw const FormatException('Unsupported KDF parameters');
+    }
+
     final salt = data.sublist(offset, offset + _saltLength);
     offset += _saltLength;
     final nonce = data.sublist(offset, offset + _nonceLength);
@@ -207,6 +212,10 @@ class ExportCrypto {
       offset += blobLen;
 
       mediaBlobs.add((mediaId: mediaId, blob: blob));
+    }
+
+    if (offset != data.length) {
+      throw const FormatException('Unexpected trailing bytes');
     }
 
     return (json: json, mediaBlobs: mediaBlobs);
