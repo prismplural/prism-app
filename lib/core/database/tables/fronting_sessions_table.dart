@@ -15,6 +15,10 @@ class FrontingSessions extends Table {
       boolean().withDefault(const Constant(false))();
   // PluralKit fields
   TextColumn get pluralkitUuid => text().nullable()();
+  // JSON list of PK short member IDs from the original switch. Lets us
+  // re-attribute local memberId / coFronterIds after a later link without
+  // re-fetching from PK.
+  TextColumn get pkMemberIdsJson => text().nullable()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 
   @override

@@ -81,13 +81,29 @@ class PKSwitch {
     required this.members,
   });
 
+  /// Parses a switch from either shape the PK API returns:
+  /// - `GET /systems/{ref}/switches` returns `members: string[]` (short IDs).
+  /// - `POST /systems/{ref}/switches` and `GET /systems/{ref}/fronters`
+  ///   return `members: Member[]` (full member objects).
+  ///
+  /// In both cases we keep `PKSwitch.members` as a `List<String>` of short IDs.
   factory PKSwitch.fromJson(Map<String, dynamic> json) {
+    final rawMembers = json['members'] as List<dynamic>? ?? const [];
+    final memberIds = <String>[];
+    for (final entry in rawMembers) {
+      if (entry is String) {
+        memberIds.add(entry);
+      } else if (entry is Map<String, dynamic>) {
+        final id = entry['id'];
+        if (id is String) {
+          memberIds.add(id);
+        }
+      }
+    }
     return PKSwitch(
       id: json['id'] as String,
       timestamp: DateTime.parse(json['timestamp'] as String),
-      members: (json['members'] as List<dynamic>)
-          .map((e) => e as String)
-          .toList(),
+      members: memberIds,
     );
   }
 }
