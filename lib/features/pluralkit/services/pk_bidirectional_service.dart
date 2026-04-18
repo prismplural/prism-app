@@ -76,9 +76,20 @@ class PkBidirectionalService {
         // Check if local data is newer and should be pushed
         final hasLocalChanges = _hasLocalChanges(local, pk, config, direction);
         if (hasLocalChanges) {
-          await _pushService.pushMember(local, client, pkMember: pk);
-          pushed++;
-          continue;
+          try {
+            await _pushService.pushMember(local, client, pkMember: pk);
+            pushed++;
+            continue;
+          } on PkStaleLinkException catch (_) {
+            // PK deleted the linked member out from under us. Clear the link
+            // so the user can re-link via the mapping screen and the next
+            // sync treats this as an unlinked local member.
+            await memberRepository.updateMember(
+              local.copyWith(pluralkitId: null, pluralkitUuid: null),
+            );
+            skipped++;
+            continue;
+          }
         }
       }
 

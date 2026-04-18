@@ -265,6 +265,23 @@ class PkMappingController extends AsyncNotifier<PkMappingState> {
       if (!hasFailures) {
         await syncService.acknowledgeMapping();
         if (!ref.mounted) return;
+
+        // Phase 4 bootstrap after Apply: import PK switch history, re-
+        // attribute any headless sessions against the fresh mapping, and
+        // push post-linkedAt local sessions to PK. Errors here must not
+        // undo the Apply itself — log and continue so the UI still flips
+        // out of `needsMapping`.
+        try {
+          await syncService.importSwitchesAfterLink();
+          if (!ref.mounted) return;
+          await syncService.reattributeSwitches();
+          if (!ref.mounted) return;
+          await syncService.pushPendingSwitches();
+        } catch (_) {
+          // Non-fatal — surfaces on next syncRecentData via state.syncError.
+        }
+        if (!ref.mounted) return;
+
         // Refresh the PK sync provider so UI picks up the new canAutoSync.
         ref.invalidate(pluralKitSyncProvider);
       }

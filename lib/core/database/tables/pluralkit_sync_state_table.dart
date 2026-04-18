@@ -16,6 +16,13 @@ class PluralKitSyncState extends Table {
   BoolColumn get mappingAcknowledged =>
       boolean().withDefault(const Constant(false))();
 
+  /// The time at which the current PK connection was linked — used to scope
+  /// switch push to sessions that started after linking. Set on `setToken`
+  /// (fresh connection) and cleared on `clearToken`. Remains stable across
+  /// subsequent `acknowledgeMapping()` calls so re-running the mapping flow
+  /// doesn't shift the push window.
+  DateTimeColumn get linkedAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

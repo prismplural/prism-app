@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 49;
+  int get schemaVersion => 50;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -340,6 +340,22 @@ class AppDatabase extends _$AppDatabase {
           await customStatement(
             'ALTER TABLE plural_kit_sync_state ADD COLUMN '
             'mapping_acknowledged INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+      }
+
+      if (from < 50) {
+        // Plan 08 Phase 4: `linked_at` timestamp for scoped switch push.
+        // Nullable — already-connected users who don't have one will only
+        // start pushing switches created after they re-acknowledge the
+        // mapping screen (which will backfill linkedAt).
+        final pkExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='plural_kit_sync_state'",
+        ).get();
+        if (pkExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE plural_kit_sync_state ADD COLUMN linked_at INTEGER',
           );
         }
       }
