@@ -191,7 +191,7 @@ class SettingsScreen extends ConsumerWidget {
                       onTap: () =>
                           context.push(AppRoutePaths.settingsEncryptionInfo),
                     ),
-                    if (kDebugMode)
+                    if (!kReleaseMode)
                       _SettingsLink(
                         icon: AppIcons.bugReportOutlined,
                         iconColor: Colors.orange,
