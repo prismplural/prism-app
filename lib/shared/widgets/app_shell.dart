@@ -223,14 +223,20 @@ class _AppShellState extends ConsumerState<AppShell>
     // Keep syncStatusProvider alive so DeviceRevoked events are received.
     ref.watch(syncStatusProvider);
 
-    // Show password sheet when sync needs the user's password.
+    // Show password sheet when sync needs the user's password — but not
+    // while the PIN lock overlay is up (or still resolving), otherwise the
+    // root modal sheet renders above the lock screen.
     ref.listen<SyncHealthState>(syncHealthProvider, (prev, next) {
       if (next == SyncHealthState.needsPassword &&
-          prev != SyncHealthState.needsPassword) {
+          prev != SyncHealthState.needsPassword &&
+          !_locked &&
+          _pinCheckResolved) {
         _showPasswordSheetIfNeeded(context, ref);
       }
     });
-    if (ref.read(syncHealthProvider) == SyncHealthState.needsPassword) {
+    if (!_locked &&
+        _pinCheckResolved &&
+        ref.read(syncHealthProvider) == SyncHealthState.needsPassword) {
       _showPasswordSheetIfNeeded(context, ref);
     }
 
@@ -292,6 +298,14 @@ class _AppShellState extends ConsumerState<AppShell>
       final bottomSafeArea = mediaQuery.viewPadding.bottom;
       final keyboardOpen = mediaQuery.viewInsets.bottom > 0;
       final hideNavBar = keyboardOpen || !isRootTab;
+      if (hideNavBar && _navExpanded) {
+        // Bar is gone — discard any stale expanded state so the overlay
+        // doesn't re-appear when the bar returns.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (_navExpanded) setState(() => _navExpanded = false);
+        });
+      }
       final scaffoldBg = Theme.of(context).scaffoldBackgroundColor;
 
       // On iOS the full safe area (~34pt) pushes the floating pill too high.
@@ -333,6 +347,14 @@ class _AppShellState extends ConsumerState<AppShell>
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
                             _navBarKey.currentState?._collapse();
+                            // Safety: the child may have already rebuilt with
+                            // fresh state (bar was hidden and re-shown) so
+                            // `_collapse()` can no-op. Reset parent state
+                            // unconditionally to avoid a stuck invisible
+                            // overlay blocking the screen.
+                            if (_navExpanded) {
+                              setState(() => _navExpanded = false);
+                            }
                           },
                           child: const SizedBox.expand(),
                         ),
@@ -482,6 +504,17 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
   void didUpdateWidget(covariant _FloatingNavBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     final idx = _primaryTabIndex;
+    final primaryChanged = !_sameBranchIndices(
+      widget.primaryTabs,
+      oldWidget.primaryTabs,
+    );
+    // If the set of primary tabs changed (tab moved in/out of overflow), the
+    // pill's spring target can be stale — snap it to the current index.
+    if (primaryChanged) {
+      _pillController.stop();
+      _pillController.value = idx >= 0 ? idx.toDouble() : 0;
+      return;
+    }
     if (idx >= 0 && oldWidget.currentIndex != widget.currentIndex) {
       final reduceMotion = MediaQuery.of(context).disableAnimations;
       if (reduceMotion) {
@@ -498,6 +531,14 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         );
       }
     }
+  }
+
+  static bool _sameBranchIndices(List<AppShellTab> a, List<AppShellTab> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].branchIndex != b[i].branchIndex) return false;
+    }
+    return true;
   }
 
   @override
@@ -686,9 +727,17 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                   AnimatedBuilder(
                                     animation: _pillController,
                                     builder: (context, child) {
+                                      final isRtl =
+                                          Directionality.of(context) ==
+                                          TextDirection.rtl;
+                                      final slot = isRtl
+                                          ? (widget.primaryTabs.length -
+                                                1 -
+                                                _pillController.value)
+                                          : _pillController.value;
                                       return Transform.translate(
                                         offset: Offset(
-                                          _pillController.value * segWidth + 8,
+                                          slot * segWidth + 8,
                                           0,
                                         ),
                                         child: child,
@@ -838,9 +887,14 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                       AnimatedBuilder(
                         animation: _pillController,
                         builder: (context, child) {
+                          final isRtl =
+                              Directionality.of(context) == TextDirection.rtl;
+                          final slot = isRtl
+                              ? (tabCount - 1 - _pillController.value)
+                              : _pillController.value;
                           return Transform.translate(
                             offset: Offset(
-                              _pillController.value * segmentWidth + 8,
+                              slot * segmentWidth + 8,
                               0,
                             ),
                             child: child,
