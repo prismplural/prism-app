@@ -199,51 +199,6 @@ void main() {
       db2.close();
     });
 
-    test('plaintext DB can be migrated to encrypted', () async {
-      final dbPath = '${tempDir.path}/test.db';
-      final hexKey = generateHexKey();
-      final dbFile = File(dbPath);
-
-      // Create plaintext DB with data
-      final db = raw.sqlite3.open(dbPath);
-      db.execute('CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT);');
-      db.execute("INSERT INTO test (id, value) VALUES (1, 'migrated');");
-      db.close();
-
-      // Migrate to encrypted
-      final result = await migratePlaintextToEncrypted(
-        dbFile: dbFile,
-        hexKey: hexKey,
-      );
-      expect(result, isTrue);
-
-      // Verify data survived migration
-      final db2 = raw.sqlite3.open(dbPath);
-      db2.execute("PRAGMA key = \"x'$hexKey'\";");
-      final rows = db2.select('SELECT value FROM test WHERE id = 1;');
-      expect(rows.first['value'], 'migrated');
-      db2.close();
-
-      // Verify it's not readable without key
-      final db3 = raw.sqlite3.open(dbPath);
-      expect(
-        () => db3.select('SELECT count(*) FROM sqlite_master;'),
-        throwsA(anything),
-      );
-      db3.close();
-    });
-
-    test('migration of nonexistent file returns true', () async {
-      final dbFile = File('${tempDir.path}/nonexistent.db');
-      final hexKey = generateHexKey();
-
-      final result = await migratePlaintextToEncrypted(
-        dbFile: dbFile,
-        hexKey: hexKey,
-      );
-      expect(result, isTrue);
-    });
-
     test('_tryOpenEncrypted-style probe succeeds with correct key', () {
       final dbPath = '${tempDir.path}/test.db';
       final hexKey = generateHexKey();
@@ -269,51 +224,6 @@ void main() {
       expect(readable, isTrue);
     });
 
-    test('_tryOpenPlaintext-style probe succeeds on plaintext DB', () {
-      final dbPath = '${tempDir.path}/test.db';
-
-      // Create plaintext DB
-      final db = raw.sqlite3.open(dbPath);
-      db.execute('CREATE TABLE test (id INTEGER PRIMARY KEY);');
-      db.close();
-
-      // Probe as plaintext
-      bool readable = false;
-      try {
-        final probe = raw.sqlite3.open(dbPath);
-        try {
-          probe.select('SELECT count(*) FROM sqlite_master;');
-          readable = true;
-        } finally {
-          probe.close();
-        }
-      } catch (_) {}
-      expect(readable, isTrue);
-    });
-
-    test('_tryOpenPlaintext-style probe fails on encrypted DB', () {
-      final dbPath = '${tempDir.path}/test.db';
-      final hexKey = generateHexKey();
-
-      // Create encrypted DB
-      final db = raw.sqlite3.open(dbPath);
-      db.execute("PRAGMA key = \"x'$hexKey'\";");
-      db.execute('CREATE TABLE test (id INTEGER PRIMARY KEY);');
-      db.close();
-
-      // Probe as plaintext — should fail
-      bool readable = false;
-      try {
-        final probe = raw.sqlite3.open(dbPath);
-        try {
-          probe.select('SELECT count(*) FROM sqlite_master;');
-          readable = true;
-        } finally {
-          probe.close();
-        }
-      } catch (_) {}
-      expect(readable, isFalse);
-    });
   });
 
   // ---------------------------------------------------------------------------

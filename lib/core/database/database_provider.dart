@@ -12,8 +12,8 @@ import 'package:prism_plurality/core/services/backup_exclusion.dart';
 
 /// The path to the app's main database file.
 ///
-/// Exposed so that callers (e.g. the encryption migration in main.dart) can
-/// access the file before the database is opened by Drift.
+/// Exposed so that startup and reset flows can access the file before Drift
+/// opens the database.
 Future<File> getDatabaseFile() async {
   final dbFolder = await getApplicationDocumentsDirectory();
   return File(p.join(dbFolder.path, 'prism.db'));
@@ -65,71 +65,22 @@ LazyDatabase _openConnection() {
         );
       }
 
-      // Key exists but can't open as encrypted — DB may be plaintext
-      // (upgrade from pre-encryption version where key was backfilled
-      // before migration ran).
-      // NOTE: migratePlaintextToEncrypted runs on the calling isolate (not a
-      // background isolate). This is acceptable because:
-      // 1. PRAGMA rekey is fast for typical database sizes (<100ms)
-      // 2. This is a one-time migration from pre-encryption app versions
-      // 3. LazyDatabase defers opening until first query, by which point
-      //    the UI typically shows a loading state
-      // For very large databases (>100MB), consider moving to compute().
-      if (_tryOpenPlaintext(file.path)) {
-        debugPrint('[DB_PROVIDER] Key exists but DB is plaintext — migrating');
-        final migrated = await migratePlaintextToEncrypted(
-          dbFile: file,
-          hexKey: hexKey,
-        );
-        if (migrated) {
-          return NativeDatabase.createInBackground(
-            file,
-            setup: makeCipherSetup(hexKey),
-          );
-        }
-        // Migration failed — fall back to plaintext to preserve data.
-        debugPrint('[DB_PROVIDER] Migration failed — falling back to plaintext');
-        return NativeDatabase.createInBackground(file);
-      }
-
-      // Key exists but DB is neither openable with it nor plaintext.
-      // Fail closed — the DB may be encrypted with a different key
-      // (e.g. backup/restore where the keychain didn't transfer).
+      // Key exists but DB does not open with it. Fail closed: the DB may be
+      // encrypted with a different key (for example after backup/restore where
+      // the keychain did not transfer), or it may be corrupted.
       throw StateError(
         'Database file exists but cannot be opened with the stored key '
-        'or as plaintext. It may be encrypted with a different key or '
-        'corrupted. A full data reset may be required.',
+        'or is corrupted. A full data reset may be required.',
       );
     }
 
     // ── Path 3: DB file exists + no key ─────────────────────────────────
-    // Upgrade from a version before always-on encryption, or keychain was
-    // cleared. Probe the file to determine its state.
-    if (_tryOpenPlaintext(file.path)) {
-      debugPrint('[DB_PROVIDER] No key, plaintext DB — generating key and migrating');
-      final key = await ensureLocalDatabaseKey();
-      final migrated = await migratePlaintextToEncrypted(
-        dbFile: file,
-        hexKey: key,
-      );
-      if (migrated) {
-        return NativeDatabase.createInBackground(
-          file,
-          setup: makeCipherSetup(key),
-        );
-      }
-      // Migration failed — fall back to plaintext to preserve data.
-      debugPrint('[DB_PROVIDER] Migration failed — falling back to plaintext');
-      return NativeDatabase.createInBackground(file);
-    }
-
-    // DB exists, no key, and it's not plaintext — encrypted with a lost key.
-    // Fail closed. This can happen after backup/restore where the
-    // first_unlock_this_device keychain item didn't transfer.
+    // DB exists but the keychain has no DB key. Fail closed. This can happen
+    // after backup/restore where the first_unlock_this_device keychain item
+    // did not transfer.
     throw StateError(
-      'Database file exists but cannot be opened as plaintext and no '
-      'encryption key is available. The key may have been lost during '
-      'backup/restore. A full data reset may be required.',
+      'Database file exists but no encryption key is available. The key may '
+      'have been lost during backup/restore. A full data reset may be required.',
     );
   });
 }
@@ -145,22 +96,6 @@ bool _tryOpenEncrypted(String path, String hexKey) {
     final db = raw.sqlite3.open(path);
     try {
       db.execute("PRAGMA key = \"x'$hexKey'\";");
-      db.select('SELECT count(*) FROM sqlite_master;');
-      return true;
-    } finally {
-      db.close();
-    }
-  } catch (_) {
-    return false;
-  }
-}
-
-/// Try to open the database as plaintext (no encryption key) and read from it.
-/// Returns true if the DB is readable without a key.
-bool _tryOpenPlaintext(String path) {
-  try {
-    final db = raw.sqlite3.open(path);
-    try {
       db.select('SELECT count(*) FROM sqlite_master;');
       return true;
     } finally {
