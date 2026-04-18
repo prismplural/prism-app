@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
@@ -16,7 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
-enum _ImportState { idle, password, preview, importing, complete, error }
+enum _ImportState { idle, password, decrypting, preview, importing, complete, error }
 
 class DataImportSheet extends ConsumerStatefulWidget {
   const DataImportSheet({super.key, this.scrollController});
@@ -89,36 +90,47 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     }
   }
 
-  void _onPasswordSubmit() {
+  Future<void> _onPasswordSubmit() async {
     final password = _passwordController.text;
     if (password.isEmpty) {
       setState(() => _passwordError = context.l10n.dataManagementPasswordEmptyImport);
       return;
     }
-
+    setState(() {
+      _state = _ImportState.decrypting;
+      _passwordError = null;
+    });
+    final bytes = _fileBytes!;
+    final pass = password;
     try {
-      final resolved = DataImportService.resolveBytes(
-        _fileBytes!,
-        password: password,
+      final resolved = await Isolate.run(
+        () => DataImportService.resolveBytes(bytes, password: pass),
       );
       final service = ref.read(dataImportServiceProvider);
       final preview = service.parsePreview(resolved.json);
-
       if (!mounted) return;
       setState(() {
         _state = _ImportState.preview;
         _jsonContent = resolved.json;
         _mediaBlobs = resolved.mediaBlobs;
         _preview = preview;
-        _passwordError = null;
+      });
+    } on FormatException catch (e) {
+      if (!mounted) return;
+      final msg = e.message;
+      setState(() {
+        _state = _ImportState.password;
+        _passwordError = msg == 'unencrypted-prism-backup'
+            ? context.l10n.dataManagementUnencryptedBackup
+            : msg.contains('mac check') || msg.contains('wrong')
+                ? context.l10n.dataManagementIncorrectPassword
+                : context.l10n.dataManagementDecryptionFailed(msg);
       });
     } catch (e) {
       if (!mounted) return;
-      final message = e.toString();
       setState(() {
-        _passwordError = message.contains('mac check')
-            ? context.l10n.dataManagementIncorrectPassword
-            : context.l10n.dataManagementDecryptionFailed(message);
+        _state = _ImportState.password;
+        _passwordError = context.l10n.dataManagementDecryptionFailed(e.toString());
       });
     }
   }
@@ -137,6 +149,10 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
       setState(() {
         _state = _ImportState.complete;
         _result = result;
+        _fileBytes = null;
+        _jsonContent = null;
+        _mediaBlobs = const [];
+        _passwordController.clear();
       });
     } catch (e) {
       if (!mounted) return;
@@ -165,6 +181,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
                 switch (_state) {
                   _ImportState.idle => _buildIdle(theme),
                   _ImportState.password => _buildPassword(theme),
+                  _ImportState.decrypting => _buildImporting(theme),
                   _ImportState.preview => _buildPreview(theme),
                   _ImportState.importing => _buildImporting(theme),
                   _ImportState.complete => _buildComplete(theme),

@@ -77,6 +77,8 @@ class _DataExportSheetState extends ConsumerState<DataExportSheet> {
       final service = ref.read(dataExportServiceProvider);
       file = await service.exportEncryptedData(password: password);
       if (!mounted) return;
+      _passwordController.clear();
+      _confirmController.clear();
       setState(() {
         _state = _ExportState.complete;
         _exportedFile = file;

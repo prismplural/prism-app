@@ -6140,6 +6140,12 @@ abstract class AppLocalizations {
   /// **'Decryption failed: {error}'**
   String onboardingImportDecryptionFailed(Object error);
 
+  /// Error when user imports an unencrypted Prism JSON backup during onboarding
+  ///
+  /// In en, this message translates to:
+  /// **'This backup isn\'t encrypted. Re-export from the app to get a secure .prism file.'**
+  String get onboardingImportUnencryptedBackup;
+
   /// Section header in Prism export import instructions
   ///
   /// In en, this message translates to:
@@ -8503,6 +8509,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Decryption failed: {error}'**
   String dataManagementDecryptionFailed(String error);
+
+  /// Error when user imports an unencrypted Prism JSON backup
+  ///
+  /// In en, this message translates to:
+  /// **'This backup isn\'t encrypted. Re-export from the app to get a secure .prism file.'**
+  String get dataManagementUnencryptedBackup;
 
   /// Validation error when import password is empty
   ///

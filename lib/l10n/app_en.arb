@@ -4759,6 +4759,8 @@
       }
     }
   },
+  "onboardingImportUnencryptedBackup": "This backup isn't encrypted. Re-export from the app to get a secure .prism file.",
+  "@onboardingImportUnencryptedBackup": { "description": "Error when user imports an unencrypted Prism JSON backup during onboarding" },
   "onboardingPrismExportHowToExport": "How to export from Prism:",
   "@onboardingPrismExportHowToExport": {
     "description": "Section header in Prism export import instructions"
@@ -6195,6 +6197,8 @@
       "error": { "type": "String" }
     }
   },
+  "dataManagementUnencryptedBackup": "This backup isn't encrypted. Re-export from the app to get a secure .prism file.",
+  "@dataManagementUnencryptedBackup": { "description": "Error when user imports an unencrypted Prism JSON backup" },
   "dataManagementPasswordEmptyImport": "Password cannot be empty",
   "@dataManagementPasswordEmptyImport": { "description": "Validation error when import password is empty" },
 
