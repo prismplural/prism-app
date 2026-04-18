@@ -465,6 +465,69 @@ void main() {
       expect(written.proxyTagsJson, '[{"prefix":"A:","suffix":null}]');
     });
 
+    test('bidirectional: PK proxyTagsJson overwrites divergent local value',
+        () async {
+      // Proxy tags are pull-only by design. Even in bidirectional mode, a
+      // local edit to proxyTagsJson loses to PK on the next sync — this
+      // locks current behavior and protects against silent regressions.
+      final local = _localMember(
+        id: 'local-1',
+        pluralkitId: 'pk001',
+        proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
+      );
+
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.bidirectional,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      final written = fakeRepo.calls
+          .firstWhere((c) => c.method == 'updateMember')
+          .args[0] as domain.Member;
+      expect(written.proxyTagsJson, '[{"prefix":"PK:","suffix":null}]');
+    });
+
+    test('push payload never includes proxy_tags', () async {
+      // A local displayName change forces a push. The request sent to
+      // PK must not carry a proxy_tags key, even if the local value
+      // differs from PK's.
+      final local = _localMember(
+        id: 'local-1',
+        pluralkitId: 'pk001',
+        displayName: 'NewDisplay',
+        proxyTagsJson: '[{"prefix":"LOCAL:","suffix":null}]',
+      );
+      final pk = _pkMember(
+        id: 'pk001',
+        displayName: 'OldDisplay',
+        proxyTagsJson: '[{"prefix":"PK:","suffix":null}]',
+      );
+
+      await service.syncMembers(
+        localMembers: [local],
+        pkMembers: [pk],
+        fieldConfigs: {},
+        direction: PkSyncDirection.bidirectional,
+        lastSyncDate: null,
+        memberRepository: fakeRepo,
+        client: fakeClient,
+      );
+
+      final updateCall = fakeClient.calls
+          .firstWhere((c) => c.method == 'updateMember');
+      final payload = updateCall.args[1] as Map<String, dynamic>;
+      expect(payload.containsKey('proxy_tags'), isFalse);
+    });
+
     test('no-op when nothing differs', () async {
       final local = _localMember(
         id: 'local-1',

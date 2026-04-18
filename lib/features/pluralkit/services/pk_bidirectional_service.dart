@@ -276,7 +276,8 @@ class PkBidirectionalService {
       }
     }
 
-    // proxy_tags is pull-only — no per-field config.
+    // proxy_tags is pull-only — Prism has no editor UI for proxy tags, so
+    // PK is authoritative. See docs/plans/pk-sp-gaps/01-pk-proxy-tags.md.
     if (pk.proxyTagsJson != null && local.proxyTagsJson != pk.proxyTagsJson) {
       updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
       changed = true;

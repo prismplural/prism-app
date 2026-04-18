@@ -3884,6 +3884,30 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get memberSectionBio;
 
+  /// Section header for PluralKit proxy tags on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy Tags'**
+  String get memberSectionProxyTags;
+
+  /// Subtitle explaining that proxy tags cannot be edited in Prism
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy tags are managed on PluralKit.'**
+  String get memberProxyTagsManagedOnPk;
+
+  /// Button label that opens the member's PluralKit dashboard page
+  ///
+  /// In en, this message translates to:
+  /// **'Edit on PluralKit'**
+  String get memberProxyTagsEditOnPk;
+
+  /// Shown when a PK-linked member has no proxy tags
+  ///
+  /// In en, this message translates to:
+  /// **'No proxy tags set.'**
+  String get memberProxyTagsEmpty;
+
   /// Tooltip for edit member button
   ///
   /// In en, this message translates to:
@@ -8090,10 +8114,10 @@ abstract class AppLocalizations {
   /// **'Your token is stored securely in the device keychain and never leaves your device.'**
   String get pluralkitInfoToken;
 
-  /// How It Works info row about member matching
+  /// How It Works info row about the link-members step
   ///
   /// In en, this message translates to:
-  /// **'Members are matched by PluralKit UUID. Existing members are updated, new ones are created.'**
+  /// **'After connecting, link your PluralKit members to Prism members — or import them as new — so nothing gets duplicated.'**
   String get pluralkitInfoMembers;
 
   /// How It Works info row about switch import

@@ -28,6 +28,7 @@ import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_chips.dart';
+import 'package:prism_plurality/features/members/widgets/proxy_tags_section.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
 import 'package:prism_plurality/features/members/widgets/notes_section.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
@@ -208,6 +209,8 @@ class _MemberDetailBody extends ConsumerWidget {
                   baseStyle: theme.textTheme.bodyLarge,
                 ),
               ),
+
+            ProxyTagsSection(member: member),
 
             CustomFieldsDisplay(memberId: member.id),
             NotesSection(memberId: member.id),

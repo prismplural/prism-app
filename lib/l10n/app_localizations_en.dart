@@ -2183,6 +2183,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberSectionBio => 'Notes';
 
   @override
+  String get memberSectionProxyTags => 'Proxy Tags';
+
+  @override
+  String get memberProxyTagsManagedOnPk =>
+      'Proxy tags are managed on PluralKit.';
+
+  @override
+  String get memberProxyTagsEditOnPk => 'Edit on PluralKit';
+
+  @override
+  String get memberProxyTagsEmpty => 'No proxy tags set.';
+
+  @override
   String get memberEditTooltip => 'Edit member';
 
   @override
@@ -4680,7 +4693,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pluralkitInfoMembers =>
-      'Members are matched by PluralKit UUID. Existing members are updated, new ones are created.';
+      'After connecting, link your PluralKit members to Prism members — or import them as new — so nothing gets duplicated.';
 
   @override
   String get pluralkitInfoSwitches =>
