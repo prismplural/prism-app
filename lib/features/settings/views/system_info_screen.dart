@@ -3,17 +3,21 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
-import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -30,49 +34,67 @@ class SystemInfoScreen extends ConsumerStatefulWidget {
 }
 
 class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
-  bool _editingSystemName = false;
-  bool _editingDescription = false;
+  bool _controllersInitialized = false;
   late TextEditingController _systemNameController;
+  late TextEditingController _systemTagController;
   late TextEditingController _descriptionController;
+  Timer? _saveDebounce;
 
   @override
   void initState() {
     super.initState();
     _systemNameController = TextEditingController();
+    _systemTagController = TextEditingController();
     _descriptionController = TextEditingController();
   }
 
   @override
   void dispose() {
+    _saveDebounce?.cancel();
     _systemNameController.dispose();
+    _systemTagController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
 
-  void _startEditingName(String? currentName) {
-    _systemNameController.text = currentName ?? '';
-    setState(() => _editingSystemName = true);
+  void _initControllersFromSettings(
+    String? name,
+    String? tag,
+    String? description,
+  ) {
+    _systemNameController.text = name ?? '';
+    _systemTagController.text = tag ?? '';
+    _descriptionController.text = description ?? '';
+    _controllersInitialized = true;
   }
 
-  void _saveSystemName() {
+  void _scheduleSave(VoidCallback save) {
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 300), save);
+  }
+
+  void _saveNameNow() {
+    _saveDebounce?.cancel();
     final name = _systemNameController.text.trim();
     ref
         .read(settingsNotifierProvider.notifier)
         .updateSystemName(name.isEmpty ? null : name);
-    setState(() => _editingSystemName = false);
   }
 
-  void _startEditingDescription(String? current) {
-    _descriptionController.text = current ?? '';
-    setState(() => _editingDescription = true);
+  void _saveTagNow() {
+    _saveDebounce?.cancel();
+    final tag = _systemTagController.text.trim();
+    ref
+        .read(settingsNotifierProvider.notifier)
+        .updateSystemTag(tag.isEmpty ? null : tag);
   }
 
-  void _saveDescription() {
+  void _saveDescriptionNow() {
+    _saveDebounce?.cancel();
     final desc = _descriptionController.text.trim();
     ref
         .read(settingsNotifierProvider.notifier)
         .updateSystemDescription(desc.isEmpty ? null : desc);
-    setState(() => _editingDescription = false);
   }
 
   Future<void> _pickAvatar() async {
@@ -93,6 +115,52 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     unawaited(ref.read(settingsNotifierProvider.notifier).updateSystemAvatarData(null));
   }
 
+  void _openColorPicker(BuildContext context, String? currentColorHex) {
+    final l10n = context.l10n;
+    var pickerColor = currentColorHex != null
+        ? AppColors.fromHex(currentColorHex)
+        : const Color(0xFFAF8EE9);
+
+    PrismDialog.show(
+      context: context,
+      title: l10n.systemInfoColorPickAction,
+      builder: (dialogContext) {
+        return SingleChildScrollView(
+          child: ColorPicker(
+            pickerColor: pickerColor,
+            onColorChanged: (color) {
+              pickerColor = color;
+            },
+            enableAlpha: false,
+            hexInputBar: true,
+            labelTypes: const [],
+            pickerAreaHeightPercent: 0.7,
+          ),
+        );
+      },
+      actions: [
+        PrismButton(
+          onPressed: () => Navigator.of(context).pop(),
+          label: l10n.cancel,
+        ),
+        PrismButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            final hex = (pickerColor.toARGB32() & 0xFFFFFF)
+                .toRadixString(16)
+                .padLeft(6, '0')
+                .toLowerCase();
+            ref
+                .read(settingsNotifierProvider.notifier)
+                .updateSystemColor(hex);
+          },
+          label: l10n.systemInfoColorPickAction,
+          tone: PrismButtonTone.filled,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(systemSettingsProvider);
@@ -109,10 +177,19 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
         loading: () => const PrismLoadingState(),
         error: (e, _) => Center(child: Text(context.l10n.errorWithDetail(e))),
         data: (settings) {
+          if (!_controllersInitialized) {
+            _initControllersFromSettings(
+              settings.systemName,
+              settings.systemTag,
+              settings.systemDescription,
+            );
+          }
+
           final members = membersAsync.whenOrNull(data: (m) => m) ?? [];
           final Uint8List? avatarData = settings.systemAvatarData;
-          final String? description = settings.systemDescription;
+          final String? colorHex = settings.systemColor;
           final theme = Theme.of(context);
+          final l10n = context.l10n;
 
           return ListView(
             padding: EdgeInsets.only(
@@ -122,240 +199,200 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
               bottom: NavBarInset.of(context),
             ),
             children: [
-              // Avatar section
+              // Avatar section — unchanged
               Center(
                 child: Semantics(
                   button: true,
                   label: 'Change system avatar',
                   child: GestureDetector(
-                  onTap: _pickAvatar,
-                  onLongPress: avatarData != null
-                      ? () {
-                          PrismSheet.show(
-                            context: context,
-                            builder: (ctx) => Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                PrismListRow(
-                                  leading: Icon(AppIcons.photoLibrary),
-                                  title: Text(context.l10n.systemInfoChangeAvatar),
-                                  onTap: () {
-                                    Navigator.of(ctx).pop();
-                                    _pickAvatar();
-                                  },
-                                ),
-                                PrismListRow(
-                                  leading: Icon(
-                                    AppIcons.deleteOutline,
-                                    color: theme.colorScheme.error,
+                    onTap: _pickAvatar,
+                    onLongPress: avatarData != null
+                        ? () {
+                            PrismSheet.show(
+                              context: context,
+                              builder: (ctx) => Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  PrismListRow(
+                                    leading: Icon(AppIcons.photoLibrary),
+                                    title: Text(l10n.systemInfoChangeAvatar),
+                                    onTap: () {
+                                      Navigator.of(ctx).pop();
+                                      _pickAvatar();
+                                    },
                                   ),
-                                  title: Text(
-                                    context.l10n.systemInfoRemoveAvatar,
-                                    style: TextStyle(
+                                  PrismListRow(
+                                    leading: Icon(
+                                      AppIcons.deleteOutline,
                                       color: theme.colorScheme.error,
                                     ),
+                                    title: Text(
+                                      l10n.systemInfoRemoveAvatar,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.error,
+                                      ),
+                                    ),
+                                    onTap: () {
+                                      Navigator.of(ctx).pop();
+                                      _removeAvatar();
+                                    },
                                   ),
-                                  onTap: () {
-                                    Navigator.of(ctx).pop();
-                                    _removeAvatar();
-                                  },
-                                ),
-                              ],
+                                ],
+                              ),
+                            );
+                          }
+                        : null,
+                    child: avatarData != null
+                        ? CircleAvatar(
+                            radius: 56,
+                            backgroundImage: MemoryImage(avatarData),
+                          )
+                        : members.isNotEmpty
+                        ? _AvatarCluster(members: members)
+                        : CircleAvatar(
+                            radius: 56,
+                            backgroundColor:
+                                theme.colorScheme.surfaceContainerHighest,
+                            child: Icon(
+                              AppIcons.addAPhotoOutlined,
+                              size: 32,
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
-                          );
-                        }
-                      : null,
-                  child: avatarData != null
-                      ? CircleAvatar(
-                          radius: 56,
-                          backgroundImage: MemoryImage(avatarData),
-                        )
-                      : members.isNotEmpty
-                      ? _AvatarCluster(members: members)
-                      : CircleAvatar(
-                          radius: 56,
-                          backgroundColor:
-                              theme.colorScheme.surfaceContainerHighest,
-                          child: Icon(
-                            AppIcons.addAPhotoOutlined,
-                            size: 32,
-                            color: theme.colorScheme.onSurfaceVariant,
                           ),
-                        ),
+                  ),
                 ),
-              ),
               ),
 
               const SizedBox(height: 24),
 
               // System name
-              PrismSectionCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                child: _editingSystemName
-                    ? Row(
-                        children: [
-                          Expanded(
-                            child: PrismTextField(
-                              controller: _systemNameController,
-                              hintText: context.l10n.systemInfoSystemNameHint,
-                              autofocus: true,
-                              onSubmitted: (_) => _saveSystemName(),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          PrismInlineIconButton(
-                            icon: AppIcons.check,
-                            iconSize: 20,
-                            tooltip: context.l10n.systemInfoSaveSystemName,
-                            onPressed: _saveSystemName,
-                          ),
-                          PrismInlineIconButton(
-                            icon: AppIcons.close,
-                            iconSize: 20,
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.5,
-                            ),
-                            tooltip: context.l10n.systemInfoCancelEditing,
-                            onPressed: () =>
-                                setState(() => _editingSystemName = false),
-                          ),
-                        ],
-                      )
-                    : Semantics(
-                        button: true,
-                        label: 'Edit system name',
-                        child: GestureDetector(
-                        onTap: () => _startEditingName(settings.systemName),
-                        behavior: HitTestBehavior.opaque,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    context.l10n.systemInfoNameLabel,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    settings.systemName ?? context.l10n.settingsFallbackSystemName,
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              AppIcons.editOutlined,
-                              size: 18,
-                              color: theme.colorScheme.primary.withValues(
-                                alpha: 0.6,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ),
+              PrismTextField(
+                controller: _systemNameController,
+                labelText: l10n.systemInfoNameLabel,
+                hintText: l10n.systemInfoSystemNameHint,
+                onChanged: (_) => _scheduleSave(_saveNameNow),
+                onSubmitted: (_) => _saveNameNow(),
+              ),
+
+              const SizedBox(height: 12),
+
+              // System tag
+              PrismTextField(
+                controller: _systemTagController,
+                labelText: l10n.systemInfoTagLabel,
+                hintText: l10n.systemInfoTagHint,
+                helperText: l10n.systemInfoTagHelper,
+                maxLength: 79,
+                onChanged: (_) => _scheduleSave(_saveTagNow),
+                onSubmitted: (_) => _saveTagNow(),
               ),
 
               const SizedBox(height: 12),
 
               // Description
+              PrismTextField(
+                controller: _descriptionController,
+                labelText: l10n.systemInfoDescriptionLabel,
+                hintText: l10n.systemInfoDescriptionHint,
+                maxLines: 4,
+                minLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => _scheduleSave(_saveDescriptionNow),
+                onSubmitted: (_) => _saveDescriptionNow(),
+              ),
+
+              const SizedBox(height: 12),
+
+              // System color
               PrismSectionCard(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 16,
+                  vertical: 14,
                 ),
-                child: _editingDescription
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: PrismTextField(
-                              controller: _descriptionController,
-                              hintText: context.l10n.systemInfoDescriptionHint,
-                              autofocus: true,
-                              maxLines: 3,
-                              minLines: 1,
-                              textCapitalization: TextCapitalization.sentences,
-                              onSubmitted: (_) => _saveDescription(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.systemInfoColorLabel,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Semantics(
+                          label: colorHex != null
+                              ? '#$colorHex'
+                              : l10n.systemInfoColorNoneSet,
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: colorHex != null
+                                  ? AppColors.fromHex(colorHex)
+                                  : theme.colorScheme.surfaceContainerHighest,
+                              border: Border.all(
+                                color: theme.colorScheme.outline
+                                    .withValues(alpha: 0.3),
+                                width: 1,
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          PrismInlineIconButton(
-                            icon: AppIcons.check,
-                            iconSize: 20,
-                            tooltip: context.l10n.systemInfoSaveDescription,
-                            onPressed: _saveDescription,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            colorHex != null
+                                ? '#$colorHex'
+                                : l10n.systemInfoColorNoneSet,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorHex != null
+                                  ? theme.colorScheme.onSurface
+                                  : theme.colorScheme.onSurfaceVariant
+                                        .withValues(alpha: 0.6),
+                              fontStyle: colorHex == null
+                                  ? FontStyle.italic
+                                  : null,
+                            ),
                           ),
+                        ),
+                        Semantics(
+                          button: true,
+                          label: l10n.systemInfoColorPickAction +
+                              (colorHex != null
+                                  ? ', currently #$colorHex'
+                                  : ', ${l10n.systemInfoColorNoneSet}'),
+                          excludeSemantics: true,
+                          child: PrismInlineIconButton(
+                            icon: AppIcons.colorize,
+                            iconSize: 20,
+                            tooltip: l10n.systemInfoColorPickAction,
+                            onPressed: () =>
+                                _openColorPicker(context, colorHex),
+                          ),
+                        ),
+                        if (colorHex != null) ...[
+                          const SizedBox(width: 4),
                           PrismInlineIconButton(
                             icon: AppIcons.close,
                             iconSize: 20,
-                            color: theme.colorScheme.onSurface.withValues(
-                              alpha: 0.5,
-                            ),
-                            tooltip: context.l10n.systemInfoCancelEditing,
-                            onPressed: () =>
-                                setState(() => _editingDescription = false),
+                            tooltip: l10n.systemInfoColorClearAction,
+                            onPressed: () => ref
+                                .read(settingsNotifierProvider.notifier)
+                                .updateSystemColor(null),
                           ),
                         ],
-                      )
-                    : Semantics(
-                        button: true,
-                        label: 'Edit system description',
-                        child: GestureDetector(
-                        onTap: () => _startEditingDescription(description),
-                        behavior: HitTestBehavior.opaque,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    context.l10n.systemInfoDescriptionLabel,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    description ?? context.l10n.systemInfoAddDescription,
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: description != null
-                                          ? theme.colorScheme.onSurface
-                                          : theme.colorScheme.onSurfaceVariant
-                                                .withValues(alpha: 0.5),
-                                      fontStyle: description == null
-                                          ? FontStyle.italic
-                                          : null,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Icon(
-                              AppIcons.editOutlined,
-                              size: 18,
-                              color: theme.colorScheme.primary.withValues(
-                                alpha: 0.6,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 16),
 
-              // Member count
+              // Member count caption
               if (members.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
