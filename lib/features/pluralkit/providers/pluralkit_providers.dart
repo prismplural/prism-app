@@ -2,9 +2,11 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_sync_config.dart';
+import 'package:prism_plurality/features/pluralkit/services/pk_groups_importer.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -12,11 +14,16 @@ import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_servi
 // ---------------------------------------------------------------------------
 
 final pluralKitSyncServiceProvider = Provider<PluralKitSyncService>((ref) {
+  final db = ref.watch(databaseProvider);
   return PluralKitSyncService(
     memberRepository: ref.watch(memberRepositoryProvider),
     frontingSessionRepository: ref.watch(frontingSessionRepositoryProvider),
     syncDao: ref.watch(pluralKitSyncDaoProvider),
     settingsRepository: ref.watch(systemSettingsRepositoryProvider),
+    groupsImporter: PkGroupsImporter(
+      db: db,
+      memberRepository: ref.watch(memberRepositoryProvider),
+    ),
   );
 });
 

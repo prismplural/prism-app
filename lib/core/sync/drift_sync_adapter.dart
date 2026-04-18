@@ -1417,6 +1417,9 @@ DriftSyncEntity _memberGroupsEntity(
         'group_type': r.groupType,
         'filter_rules': r.filterRules,
         'created_at': r.createdAt.toIso8601String(),
+        'pluralkit_id': r.pluralkitId,
+        'pluralkit_uuid': r.pluralkitUuid,
+        'last_seen_from_pk_at': r.lastSeenFromPkAt?.toIso8601String(),
         'is_deleted': r.isDeleted,
       };
     },
@@ -1439,6 +1442,9 @@ DriftSyncEntity _memberGroupsEntity(
         groupType: f.intField('group_type'),
         filterRules: f.stringFieldNullable('filter_rules'),
         createdAt: f.dateTimeField('created_at'),
+        pluralkitId: f.stringFieldNullable('pluralkit_id'),
+        pluralkitUuid: f.stringFieldNullable('pluralkit_uuid'),
+        lastSeenFromPkAt: f.dateTimeFieldNullable('last_seen_from_pk_at'),
         isDeleted: f.boolField('is_deleted'),
       );
       await db.into(db.memberGroups).insertOnConflictUpdate(companion);
@@ -1461,6 +1467,9 @@ DriftSyncEntity _memberGroupsEntity(
         'group_type': row.groupType,
         'filter_rules': row.filterRules,
         'created_at': row.createdAt.toIso8601String(),
+        'pluralkit_id': row.pluralkitId,
+        'pluralkit_uuid': row.pluralkitUuid,
+        'last_seen_from_pk_at': row.lastSeenFromPkAt?.toIso8601String(),
         'is_deleted': row.isDeleted,
       };
     },
