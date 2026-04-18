@@ -1378,7 +1378,7 @@
   "pluralkitHoursAgo": "hace {hours}h",
   "pluralkitHowItWorks": "Cómo funciona",
   "pluralkitImportButton": "Importar desde PluralKit",
-  "pluralkitInfoMembers": "Los integrantes se comparan por UUID de PluralKit. Los existentes se actualizan; los nuevos se crean.",
+  "pluralkitInfoMembers": "Después de conectar, vincula tus integrantes de PluralKit con los de Prism — o impórtalos como nuevos — para evitar duplicados.",
   "pluralkitInfoSwitches": "Los cambios se importan como sesiones al frente. Los cambios duplicados se omiten automáticamente.",
   "pluralkitInfoSync": "Compatible con sincronización en modo entrada, salida o bidireccional. Elige tu dirección preferida arriba.",
   "pluralkitInfoToken": "Tu token se almacena de forma segura en el llavero del dispositivo y nunca sale de él.",
