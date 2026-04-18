@@ -1984,4 +1984,44 @@ class PluralKitSyncService {
       client.dispose();
     }
   }
+
+  /// Push a single linked member's fields to PluralKit after a local edit.
+  ///
+  /// Caller is responsible for gating on connection state and push-direction
+  /// (see `PluralKitSyncNotifier.pushMemberUpdate`). A 404 from PK clears the
+  /// local link so the user can re-link via the mapping screen.
+  ///
+  /// Returns true if a PATCH was actually sent, false when skipped (no link,
+  /// not connected, etc.). Errors are swallowed with a debugPrint so a failed
+  /// push never breaks the user's edit flow — the next manual sync retries.
+  Future<bool> pushMemberUpdate(
+    domain.Member member, {
+    PkPushService? pushService,
+  }) async {
+    if (member.pluralkitId == null || member.pluralkitId!.isEmpty) return false;
+    if (!_state.canAutoSync) return false;
+
+    final client = await _buildClient();
+    if (client == null) return false;
+
+    final push = pushService ?? const PkPushService();
+    try {
+      await push.pushMember(member, client);
+      return true;
+    } on PkStaleLinkException {
+      // PK deleted the linked member. Clear the local link; a future manual
+      // sync or re-mapping will reconcile.
+      try {
+        await _memberRepository.updateMember(
+          member.copyWith(pluralkitId: null, pluralkitUuid: null),
+        );
+      } catch (_) {}
+      return false;
+    } catch (e) {
+      debugPrint('[PK] pushMemberUpdate failed for ${member.id}: $e');
+      return false;
+    } finally {
+      client.dispose();
+    }
+  }
 }

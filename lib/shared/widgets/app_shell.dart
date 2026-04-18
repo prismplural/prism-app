@@ -8,9 +8,11 @@ import 'package:go_router/go_router.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -99,6 +101,19 @@ Widget _maybeBadge({
     );
   }
   return child;
+}
+
+/// True when the two members have identical values for every field that
+/// PluralKit's member API cares about. Changes to purely-local fields
+/// (emoji, avatar bytes, isAdmin, etc.) don't trigger a PK push.
+bool _pkSyncRelevantFieldsEqual(Member a, Member b) {
+  return a.name == b.name &&
+      a.displayName == b.displayName &&
+      a.pronouns == b.pronouns &&
+      a.bio == b.bio &&
+      a.birthday == b.birthday &&
+      a.customColorEnabled == b.customColorEnabled &&
+      a.customColorHex == b.customColorHex;
 }
 
 class AppShell extends ConsumerStatefulWidget {
@@ -230,6 +245,24 @@ class _AppShellState extends ConsumerState<AppShell>
     // the notifier no-ops when PK isn't connected or mapping is incomplete.
     ref.listen(activeSessionProvider, (_, _) {
       ref.read(pluralKitSyncProvider.notifier).pushPendingSwitches();
+    });
+
+    // Push edits to linked PK members when their sync-relevant fields change.
+    // Fire-and-forget; the notifier no-ops when PK isn't connected, direction
+    // is pull-only, or the member isn't linked.
+    ref.listen(allMembersProvider, (prev, next) {
+      final prevList = prev?.value;
+      final nextList = next.value;
+      if (prevList == null || nextList == null) return;
+      final prevById = {for (final m in prevList) m.id: m};
+      final pkSync = ref.read(pluralKitSyncProvider.notifier);
+      for (final m in nextList) {
+        if (m.pluralkitId == null || m.pluralkitId!.isEmpty) continue;
+        final before = prevById[m.id];
+        if (before == null) continue; // newly inserted — handled by imports
+        if (_pkSyncRelevantFieldsEqual(before, m)) continue;
+        pkSync.pushMemberUpdate(m);
+      }
     });
 
     // Show password sheet when sync needs the user's password — but not
