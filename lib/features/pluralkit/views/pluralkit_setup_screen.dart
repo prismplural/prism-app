@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_mapping_controller.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
@@ -231,6 +232,15 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             _SectionHeader(title: context.l10n.pluralkitSyncDirection),
             const SizedBox(height: 8),
             _buildSyncDirectionSection(theme),
+          ],
+
+          // -- Section 2b: Auto-poll --
+          if (syncState.canAutoSync) ...[
+            const SizedBox(height: 24),
+            // TODO(l10n)
+            const _SectionHeader(title: 'Auto-sync'),
+            const SizedBox(height: 8),
+            _buildAutoPollSection(theme),
           ],
 
           // -- Section 3: Sync Actions --
@@ -532,6 +542,94 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildAutoPollSection(ThemeData theme) {
+    final settingsAsync = ref.watch(pkAutoPollSettingsProvider);
+    return PrismSectionCard(
+      padding: const EdgeInsets.all(16),
+      child: settingsAsync.when(
+        loading: () => const SizedBox(
+          height: 48,
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+        error: (e, _) => Text(
+          'Could not load auto-sync settings.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.error,
+          ),
+        ),
+        data: (settings) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pull new switches automatically',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'While Prism is open, check PluralKit for new '
+                        'switches on an interval. Pauses in the background.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Switch(
+                  value: settings.enabled,
+                  onChanged: (value) {
+                    ref
+                        .read(pkAutoPollSettingsProvider.notifier)
+                        .setEnabled(value);
+                  },
+                ),
+              ],
+            ),
+            if (settings.enabled) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Check every',
+                style: theme.textTheme.labelLarge,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final seconds in pkAutoPollIntervalChoices)
+                    ChoiceChip(
+                      label: Text(_formatInterval(seconds)),
+                      selected: settings.intervalSeconds == seconds,
+                      onSelected: (_) {
+                        ref
+                            .read(pkAutoPollSettingsProvider.notifier)
+                            .setIntervalSeconds(seconds);
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatInterval(int seconds) {
+    if (seconds < 60) return '${seconds}s';
+    final minutes = seconds ~/ 60;
+    return '${minutes}m';
   }
 
   Widget _buildSyncSummarySection() {

@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -146,6 +147,8 @@ class _AppShellState extends ConsumerState<AppShell>
     // listeners set up in build() will resolve it when they emit data.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkInitialLock();
+      // Kick the PK auto-poll into "foregrounded" state on first build.
+      ref.read(pkAutoPollProvider.notifier).markForegrounded(true);
     });
   }
 
@@ -182,9 +185,11 @@ class _AppShellState extends ConsumerState<AppShell>
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused) {
       _backgroundedAt = DateTime.now();
+      ref.read(pkAutoPollProvider.notifier).markForegrounded(false);
     } else if (state == AppLifecycleState.resumed) {
       _checkLockOnResume();
       ref.invalidate(currentDateProvider);
+      ref.read(pkAutoPollProvider.notifier).markForegrounded(true);
     }
   }
 
@@ -240,11 +245,17 @@ class _AppShellState extends ConsumerState<AppShell>
     // Keep syncStatusProvider alive so DeviceRevoked events are received.
     ref.watch(syncStatusProvider);
 
+    // Keep the PK auto-poll notifier alive for its timer lifecycle.
+    ref.watch(pkAutoPollProvider);
+
     // Push any pending fronting sessions to PluralKit whenever the active
     // session changes (start / end / switch fronter). Fire-and-forget —
     // the notifier no-ops when PK isn't connected or mapping is incomplete.
     ref.listen(activeSessionProvider, (_, _) {
       ref.read(pluralKitSyncProvider.notifier).pushPendingSwitches();
+      // Prevent the next auto-poll tick from re-ingesting the switch we
+      // just authored locally.
+      ref.read(pkAutoPollProvider.notifier).noteLocalPush();
     });
 
     // Push edits to linked PK members when their sync-relevant fields change.
