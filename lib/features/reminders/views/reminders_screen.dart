@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/reminder.dart';
+import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/features/reminders/providers/reminders_providers.dart';
 import 'package:prism_plurality/features/reminders/widgets/create_reminder_sheet.dart';
@@ -88,6 +89,20 @@ class _ReminderTile extends ConsumerWidget {
     final theme = Theme.of(context);
     final notifier = ref.read(remindersNotifierProvider.notifier);
 
+    String? targetName;
+    final targetId = reminder.targetMemberId;
+    if (targetId != null) {
+      final members = ref.watch(allMembersProvider).value;
+      if (members != null) {
+        for (final m in members) {
+          if (m.id == targetId) {
+            targetName = m.name;
+            break;
+          }
+        }
+      }
+    }
+
     return Dismissible(
       key: ValueKey(reminder.id),
       direction: DismissDirection.endToStart,
@@ -123,7 +138,7 @@ class _ReminderTile extends ConsumerWidget {
               ),
             ),
             subtitle: Text(
-              _formatReminderSubtitle(context, reminder),
+              _formatReminderSubtitle(context, reminder, targetName),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
@@ -146,10 +161,23 @@ class _ReminderTile extends ConsumerWidget {
   }
 }
 
-String _formatReminderSubtitle(BuildContext context, Reminder r) {
+String _formatReminderSubtitle(
+  BuildContext context,
+  Reminder r,
+  String? targetName,
+) {
   final l10n = context.l10n;
   if (r.trigger == ReminderTrigger.onFrontChange) {
+    // If this reminder targets a specific member, the subtitle leads with
+    // "When <name> fronts" so the target is visible at a glance. Falls back
+    // to the any-front-change copy if the member can't be resolved (e.g.
+    // deleted) or no target is set.
     final delay = r.delayHours ?? 0;
+    if (targetName != null && targetName.isNotEmpty) {
+      final prefix = l10n.remindersSubtitleTargetPrefix(targetName);
+      if (delay == 0) return prefix;
+      return '$prefix · ${l10n.remindersDelayHours(delay)}';
+    }
     if (delay == 0) return l10n.remindersSubtitleOnFrontChange;
     return l10n.remindersSubtitleOnFrontChangeDelay(delay);
   }

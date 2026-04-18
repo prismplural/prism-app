@@ -265,6 +265,27 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _deleteIntentEpochMeta = const VerificationMeta(
+    'deleteIntentEpoch',
+  );
+  @override
+  late final GeneratedColumn<int> deleteIntentEpoch = GeneratedColumn<int>(
+    'delete_intent_epoch',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletePushStartedAtMeta =
+      const VerificationMeta('deletePushStartedAt');
+  @override
+  late final GeneratedColumn<int> deletePushStartedAt = GeneratedColumn<int>(
+    'delete_push_started_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -289,6 +310,8 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
     pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
+    deleteIntentEpoch,
+    deletePushStartedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -470,6 +493,24 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('delete_intent_epoch')) {
+      context.handle(
+        _deleteIntentEpochMeta,
+        deleteIntentEpoch.isAcceptableOrUnknown(
+          data['delete_intent_epoch']!,
+          _deleteIntentEpochMeta,
+        ),
+      );
+    }
+    if (data.containsKey('delete_push_started_at')) {
+      context.handle(
+        _deletePushStartedAtMeta,
+        deletePushStartedAt.isAcceptableOrUnknown(
+          data['delete_push_started_at']!,
+          _deletePushStartedAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -567,6 +608,14 @@ class $MembersTable extends Members with TableInfo<$MembersTable, Member> {
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      deleteIntentEpoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delete_intent_epoch'],
+      ),
+      deletePushStartedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delete_push_started_at'],
+      ),
     );
   }
 
@@ -599,6 +648,8 @@ class Member extends DataClass implements Insertable<Member> {
   final bool pluralkitSyncIgnored;
   final bool markdownEnabled;
   final bool isDeleted;
+  final int? deleteIntentEpoch;
+  final int? deletePushStartedAt;
   const Member({
     required this.id,
     required this.name,
@@ -622,6 +673,8 @@ class Member extends DataClass implements Insertable<Member> {
     required this.pluralkitSyncIgnored,
     required this.markdownEnabled,
     required this.isDeleted,
+    this.deleteIntentEpoch,
+    this.deletePushStartedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -670,6 +723,12 @@ class Member extends DataClass implements Insertable<Member> {
     map['pluralkit_sync_ignored'] = Variable<bool>(pluralkitSyncIgnored);
     map['markdown_enabled'] = Variable<bool>(markdownEnabled);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deleteIntentEpoch != null) {
+      map['delete_intent_epoch'] = Variable<int>(deleteIntentEpoch);
+    }
+    if (!nullToAbsent || deletePushStartedAt != null) {
+      map['delete_push_started_at'] = Variable<int>(deletePushStartedAt);
+    }
     return map;
   }
 
@@ -715,6 +774,12 @@ class Member extends DataClass implements Insertable<Member> {
       pluralkitSyncIgnored: Value(pluralkitSyncIgnored),
       markdownEnabled: Value(markdownEnabled),
       isDeleted: Value(isDeleted),
+      deleteIntentEpoch: deleteIntentEpoch == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deleteIntentEpoch),
+      deletePushStartedAt: deletePushStartedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletePushStartedAt),
     );
   }
 
@@ -748,6 +813,10 @@ class Member extends DataClass implements Insertable<Member> {
       ),
       markdownEnabled: serializer.fromJson<bool>(json['markdownEnabled']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deleteIntentEpoch: serializer.fromJson<int?>(json['deleteIntentEpoch']),
+      deletePushStartedAt: serializer.fromJson<int?>(
+        json['deletePushStartedAt'],
+      ),
     );
   }
   @override
@@ -776,6 +845,8 @@ class Member extends DataClass implements Insertable<Member> {
       'pluralkitSyncIgnored': serializer.toJson<bool>(pluralkitSyncIgnored),
       'markdownEnabled': serializer.toJson<bool>(markdownEnabled),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deleteIntentEpoch': serializer.toJson<int?>(deleteIntentEpoch),
+      'deletePushStartedAt': serializer.toJson<int?>(deletePushStartedAt),
     };
   }
 
@@ -802,6 +873,8 @@ class Member extends DataClass implements Insertable<Member> {
     bool? pluralkitSyncIgnored,
     bool? markdownEnabled,
     bool? isDeleted,
+    Value<int?> deleteIntentEpoch = const Value.absent(),
+    Value<int?> deletePushStartedAt = const Value.absent(),
   }) => Member(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -835,6 +908,12 @@ class Member extends DataClass implements Insertable<Member> {
     pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
     markdownEnabled: markdownEnabled ?? this.markdownEnabled,
     isDeleted: isDeleted ?? this.isDeleted,
+    deleteIntentEpoch: deleteIntentEpoch.present
+        ? deleteIntentEpoch.value
+        : this.deleteIntentEpoch,
+    deletePushStartedAt: deletePushStartedAt.present
+        ? deletePushStartedAt.value
+        : this.deletePushStartedAt,
   );
   Member copyWithCompanion(MembersCompanion data) {
     return Member(
@@ -882,6 +961,12 @@ class Member extends DataClass implements Insertable<Member> {
           ? data.markdownEnabled.value
           : this.markdownEnabled,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deleteIntentEpoch: data.deleteIntentEpoch.present
+          ? data.deleteIntentEpoch.value
+          : this.deleteIntentEpoch,
+      deletePushStartedAt: data.deletePushStartedAt.present
+          ? data.deletePushStartedAt.value
+          : this.deletePushStartedAt,
     );
   }
 
@@ -909,7 +994,9 @@ class Member extends DataClass implements Insertable<Member> {
           ..write('proxyTagsJson: $proxyTagsJson, ')
           ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
+          ..write('deletePushStartedAt: $deletePushStartedAt')
           ..write(')'))
         .toString();
   }
@@ -938,6 +1025,8 @@ class Member extends DataClass implements Insertable<Member> {
     pluralkitSyncIgnored,
     markdownEnabled,
     isDeleted,
+    deleteIntentEpoch,
+    deletePushStartedAt,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -967,7 +1056,9 @@ class Member extends DataClass implements Insertable<Member> {
           other.proxyTagsJson == this.proxyTagsJson &&
           other.pluralkitSyncIgnored == this.pluralkitSyncIgnored &&
           other.markdownEnabled == this.markdownEnabled &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.deleteIntentEpoch == this.deleteIntentEpoch &&
+          other.deletePushStartedAt == this.deletePushStartedAt);
 }
 
 class MembersCompanion extends UpdateCompanion<Member> {
@@ -993,6 +1084,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
   final Value<bool> pluralkitSyncIgnored;
   final Value<bool> markdownEnabled;
   final Value<bool> isDeleted;
+  final Value<int?> deleteIntentEpoch;
+  final Value<int?> deletePushStartedAt;
   final Value<int> rowid;
   const MembersCompanion({
     this.id = const Value.absent(),
@@ -1017,6 +1110,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.deleteIntentEpoch = const Value.absent(),
+    this.deletePushStartedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MembersCompanion.insert({
@@ -1042,6 +1137,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
     this.pluralkitSyncIgnored = const Value.absent(),
     this.markdownEnabled = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.deleteIntentEpoch = const Value.absent(),
+    this.deletePushStartedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1069,6 +1166,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Expression<bool>? pluralkitSyncIgnored,
     Expression<bool>? markdownEnabled,
     Expression<bool>? isDeleted,
+    Expression<int>? deleteIntentEpoch,
+    Expression<int>? deletePushStartedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1096,6 +1195,9 @@ class MembersCompanion extends UpdateCompanion<Member> {
         'pluralkit_sync_ignored': pluralkitSyncIgnored,
       if (markdownEnabled != null) 'markdown_enabled': markdownEnabled,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deleteIntentEpoch != null) 'delete_intent_epoch': deleteIntentEpoch,
+      if (deletePushStartedAt != null)
+        'delete_push_started_at': deletePushStartedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1123,6 +1225,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
     Value<bool>? pluralkitSyncIgnored,
     Value<bool>? markdownEnabled,
     Value<bool>? isDeleted,
+    Value<int?>? deleteIntentEpoch,
+    Value<int?>? deletePushStartedAt,
     Value<int>? rowid,
   }) {
     return MembersCompanion(
@@ -1148,6 +1252,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
       pluralkitSyncIgnored: pluralkitSyncIgnored ?? this.pluralkitSyncIgnored,
       markdownEnabled: markdownEnabled ?? this.markdownEnabled,
       isDeleted: isDeleted ?? this.isDeleted,
+      deleteIntentEpoch: deleteIntentEpoch ?? this.deleteIntentEpoch,
+      deletePushStartedAt: deletePushStartedAt ?? this.deletePushStartedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1223,6 +1329,12 @@ class MembersCompanion extends UpdateCompanion<Member> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (deleteIntentEpoch.present) {
+      map['delete_intent_epoch'] = Variable<int>(deleteIntentEpoch.value);
+    }
+    if (deletePushStartedAt.present) {
+      map['delete_push_started_at'] = Variable<int>(deletePushStartedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1254,6 +1366,8 @@ class MembersCompanion extends UpdateCompanion<Member> {
           ..write('pluralkitSyncIgnored: $pluralkitSyncIgnored, ')
           ..write('markdownEnabled: $markdownEnabled, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
+          ..write('deletePushStartedAt: $deletePushStartedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1415,6 +1529,27 @@ class $FrontingSessionsTable extends FrontingSessions
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _deleteIntentEpochMeta = const VerificationMeta(
+    'deleteIntentEpoch',
+  );
+  @override
+  late final GeneratedColumn<int> deleteIntentEpoch = GeneratedColumn<int>(
+    'delete_intent_epoch',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _deletePushStartedAtMeta =
+      const VerificationMeta('deletePushStartedAt');
+  @override
+  late final GeneratedColumn<int> deletePushStartedAt = GeneratedColumn<int>(
+    'delete_push_started_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1430,6 +1565,8 @@ class $FrontingSessionsTable extends FrontingSessions
     pluralkitUuid,
     pkMemberIdsJson,
     isDeleted,
+    deleteIntentEpoch,
+    deletePushStartedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1537,6 +1674,24 @@ class $FrontingSessionsTable extends FrontingSessions
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('delete_intent_epoch')) {
+      context.handle(
+        _deleteIntentEpochMeta,
+        deleteIntentEpoch.isAcceptableOrUnknown(
+          data['delete_intent_epoch']!,
+          _deleteIntentEpochMeta,
+        ),
+      );
+    }
+    if (data.containsKey('delete_push_started_at')) {
+      context.handle(
+        _deletePushStartedAtMeta,
+        deletePushStartedAt.isAcceptableOrUnknown(
+          data['delete_push_started_at']!,
+          _deletePushStartedAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1598,6 +1753,14 @@ class $FrontingSessionsTable extends FrontingSessions
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      deleteIntentEpoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delete_intent_epoch'],
+      ),
+      deletePushStartedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}delete_push_started_at'],
+      ),
     );
   }
 
@@ -1621,6 +1784,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
   final String? pluralkitUuid;
   final String? pkMemberIdsJson;
   final bool isDeleted;
+  final int? deleteIntentEpoch;
+  final int? deletePushStartedAt;
   const FrontingSession({
     required this.id,
     required this.sessionType,
@@ -1635,6 +1800,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     this.pluralkitUuid,
     this.pkMemberIdsJson,
     required this.isDeleted,
+    this.deleteIntentEpoch,
+    this.deletePushStartedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1666,6 +1833,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       map['pk_member_ids_json'] = Variable<String>(pkMemberIdsJson);
     }
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || deleteIntentEpoch != null) {
+      map['delete_intent_epoch'] = Variable<int>(deleteIntentEpoch);
+    }
+    if (!nullToAbsent || deletePushStartedAt != null) {
+      map['delete_push_started_at'] = Variable<int>(deletePushStartedAt);
+    }
     return map;
   }
 
@@ -1698,6 +1871,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           ? const Value.absent()
           : Value(pkMemberIdsJson),
       isDeleted: Value(isDeleted),
+      deleteIntentEpoch: deleteIntentEpoch == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deleteIntentEpoch),
+      deletePushStartedAt: deletePushStartedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletePushStartedAt),
     );
   }
 
@@ -1720,6 +1899,10 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
       pkMemberIdsJson: serializer.fromJson<String?>(json['pkMemberIdsJson']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      deleteIntentEpoch: serializer.fromJson<int?>(json['deleteIntentEpoch']),
+      deletePushStartedAt: serializer.fromJson<int?>(
+        json['deletePushStartedAt'],
+      ),
     );
   }
   @override
@@ -1739,6 +1922,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
       'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
       'pkMemberIdsJson': serializer.toJson<String?>(pkMemberIdsJson),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'deleteIntentEpoch': serializer.toJson<int?>(deleteIntentEpoch),
+      'deletePushStartedAt': serializer.toJson<int?>(deletePushStartedAt),
     };
   }
 
@@ -1756,6 +1941,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     Value<String?> pluralkitUuid = const Value.absent(),
     Value<String?> pkMemberIdsJson = const Value.absent(),
     bool? isDeleted,
+    Value<int?> deleteIntentEpoch = const Value.absent(),
+    Value<int?> deletePushStartedAt = const Value.absent(),
   }) => FrontingSession(
     id: id ?? this.id,
     sessionType: sessionType ?? this.sessionType,
@@ -1774,6 +1961,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
         ? pkMemberIdsJson.value
         : this.pkMemberIdsJson,
     isDeleted: isDeleted ?? this.isDeleted,
+    deleteIntentEpoch: deleteIntentEpoch.present
+        ? deleteIntentEpoch.value
+        : this.deleteIntentEpoch,
+    deletePushStartedAt: deletePushStartedAt.present
+        ? deletePushStartedAt.value
+        : this.deletePushStartedAt,
   );
   FrontingSession copyWithCompanion(FrontingSessionsCompanion data) {
     return FrontingSession(
@@ -1802,6 +1995,12 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           ? data.pkMemberIdsJson.value
           : this.pkMemberIdsJson,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      deleteIntentEpoch: data.deleteIntentEpoch.present
+          ? data.deleteIntentEpoch.value
+          : this.deleteIntentEpoch,
+      deletePushStartedAt: data.deletePushStartedAt.present
+          ? data.deletePushStartedAt.value
+          : this.deletePushStartedAt,
     );
   }
 
@@ -1820,7 +2019,9 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           ..write('isHealthKitImport: $isHealthKitImport, ')
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('pkMemberIdsJson: $pkMemberIdsJson, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
+          ..write('deletePushStartedAt: $deletePushStartedAt')
           ..write(')'))
         .toString();
   }
@@ -1840,6 +2041,8 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
     pluralkitUuid,
     pkMemberIdsJson,
     isDeleted,
+    deleteIntentEpoch,
+    deletePushStartedAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -1857,7 +2060,9 @@ class FrontingSession extends DataClass implements Insertable<FrontingSession> {
           other.isHealthKitImport == this.isHealthKitImport &&
           other.pluralkitUuid == this.pluralkitUuid &&
           other.pkMemberIdsJson == this.pkMemberIdsJson &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.deleteIntentEpoch == this.deleteIntentEpoch &&
+          other.deletePushStartedAt == this.deletePushStartedAt);
 }
 
 class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
@@ -1874,6 +2079,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
   final Value<String?> pluralkitUuid;
   final Value<String?> pkMemberIdsJson;
   final Value<bool> isDeleted;
+  final Value<int?> deleteIntentEpoch;
+  final Value<int?> deletePushStartedAt;
   final Value<int> rowid;
   const FrontingSessionsCompanion({
     this.id = const Value.absent(),
@@ -1889,6 +2096,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     this.pluralkitUuid = const Value.absent(),
     this.pkMemberIdsJson = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.deleteIntentEpoch = const Value.absent(),
+    this.deletePushStartedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FrontingSessionsCompanion.insert({
@@ -1905,6 +2114,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     this.pluralkitUuid = const Value.absent(),
     this.pkMemberIdsJson = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.deleteIntentEpoch = const Value.absent(),
+    this.deletePushStartedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        startTime = Value(startTime);
@@ -1922,6 +2133,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     Expression<String>? pluralkitUuid,
     Expression<String>? pkMemberIdsJson,
     Expression<bool>? isDeleted,
+    Expression<int>? deleteIntentEpoch,
+    Expression<int>? deletePushStartedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1938,6 +2151,9 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
       if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
       if (pkMemberIdsJson != null) 'pk_member_ids_json': pkMemberIdsJson,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (deleteIntentEpoch != null) 'delete_intent_epoch': deleteIntentEpoch,
+      if (deletePushStartedAt != null)
+        'delete_push_started_at': deletePushStartedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1956,6 +2172,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     Value<String?>? pluralkitUuid,
     Value<String?>? pkMemberIdsJson,
     Value<bool>? isDeleted,
+    Value<int?>? deleteIntentEpoch,
+    Value<int?>? deletePushStartedAt,
     Value<int>? rowid,
   }) {
     return FrontingSessionsCompanion(
@@ -1972,6 +2190,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
       pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
       pkMemberIdsJson: pkMemberIdsJson ?? this.pkMemberIdsJson,
       isDeleted: isDeleted ?? this.isDeleted,
+      deleteIntentEpoch: deleteIntentEpoch ?? this.deleteIntentEpoch,
+      deletePushStartedAt: deletePushStartedAt ?? this.deletePushStartedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2018,6 +2238,12 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (deleteIntentEpoch.present) {
+      map['delete_intent_epoch'] = Variable<int>(deleteIntentEpoch.value);
+    }
+    if (deletePushStartedAt.present) {
+      map['delete_push_started_at'] = Variable<int>(deletePushStartedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2040,6 +2266,8 @@ class FrontingSessionsCompanion extends UpdateCompanion<FrontingSession> {
           ..write('pluralkitUuid: $pluralkitUuid, ')
           ..write('pkMemberIdsJson: $pkMemberIdsJson, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('deleteIntentEpoch: $deleteIntentEpoch, ')
+          ..write('deletePushStartedAt: $deletePushStartedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4149,6 +4377,17 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _systemTagMeta = const VerificationMeta(
+    'systemTag',
+  );
+  @override
+  late final GeneratedColumn<String> systemTag = GeneratedColumn<String>(
+    'system_tag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _systemAvatarDataMeta = const VerificationMeta(
     'systemAvatarData',
   );
@@ -4382,6 +4621,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     habitsBadgeEnabled,
     notesEnabled,
     systemDescription,
+    systemTag,
     systemAvatarData,
     remindersEnabled,
     gifConsentState,
@@ -4713,6 +4953,12 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('system_tag')) {
+      context.handle(
+        _systemTagMeta,
+        systemTag.isAcceptableOrUnknown(data['system_tag']!, _systemTagMeta),
+      );
+    }
     if (data.containsKey('system_avatar_data')) {
       context.handle(
         _systemAvatarDataMeta,
@@ -4992,6 +5238,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}system_description'],
       ),
+      systemTag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}system_tag'],
+      ),
       systemAvatarData: attachedDatabase.typeMapping.read(
         DriftSqlType.blob,
         data['${effectivePrefix}system_avatar_data'],
@@ -5099,6 +5349,7 @@ class SystemSettingsData extends DataClass
   final bool habitsBadgeEnabled;
   final bool notesEnabled;
   final String? systemDescription;
+  final String? systemTag;
   final Uint8List? systemAvatarData;
   final bool remindersEnabled;
   final int gifConsentState;
@@ -5151,6 +5402,7 @@ class SystemSettingsData extends DataClass
     required this.habitsBadgeEnabled,
     required this.notesEnabled,
     this.systemDescription,
+    this.systemTag,
     this.systemAvatarData,
     required this.remindersEnabled,
     required this.gifConsentState,
@@ -5228,6 +5480,9 @@ class SystemSettingsData extends DataClass
     if (!nullToAbsent || systemDescription != null) {
       map['system_description'] = Variable<String>(systemDescription);
     }
+    if (!nullToAbsent || systemTag != null) {
+      map['system_tag'] = Variable<String>(systemTag);
+    }
     if (!nullToAbsent || systemAvatarData != null) {
       map['system_avatar_data'] = Variable<Uint8List>(systemAvatarData);
     }
@@ -5298,6 +5553,9 @@ class SystemSettingsData extends DataClass
       systemDescription: systemDescription == null && nullToAbsent
           ? const Value.absent()
           : Value(systemDescription),
+      systemTag: systemTag == null && nullToAbsent
+          ? const Value.absent()
+          : Value(systemTag),
       systemAvatarData: systemAvatarData == null && nullToAbsent
           ? const Value.absent()
           : Value(systemAvatarData),
@@ -5390,6 +5648,7 @@ class SystemSettingsData extends DataClass
       systemDescription: serializer.fromJson<String?>(
         json['systemDescription'],
       ),
+      systemTag: serializer.fromJson<String?>(json['systemTag']),
       systemAvatarData: serializer.fromJson<Uint8List?>(
         json['systemAvatarData'],
       ),
@@ -5473,6 +5732,7 @@ class SystemSettingsData extends DataClass
       'habitsBadgeEnabled': serializer.toJson<bool>(habitsBadgeEnabled),
       'notesEnabled': serializer.toJson<bool>(notesEnabled),
       'systemDescription': serializer.toJson<String?>(systemDescription),
+      'systemTag': serializer.toJson<String?>(systemTag),
       'systemAvatarData': serializer.toJson<Uint8List?>(systemAvatarData),
       'remindersEnabled': serializer.toJson<bool>(remindersEnabled),
       'gifConsentState': serializer.toJson<int>(gifConsentState),
@@ -5530,6 +5790,7 @@ class SystemSettingsData extends DataClass
     bool? habitsBadgeEnabled,
     bool? notesEnabled,
     Value<String?> systemDescription = const Value.absent(),
+    Value<String?> systemTag = const Value.absent(),
     Value<Uint8List?> systemAvatarData = const Value.absent(),
     bool? remindersEnabled,
     int? gifConsentState,
@@ -5596,6 +5857,7 @@ class SystemSettingsData extends DataClass
     systemDescription: systemDescription.present
         ? systemDescription.value
         : this.systemDescription,
+    systemTag: systemTag.present ? systemTag.value : this.systemTag,
     systemAvatarData: systemAvatarData.present
         ? systemAvatarData.value
         : this.systemAvatarData,
@@ -5720,6 +5982,7 @@ class SystemSettingsData extends DataClass
       systemDescription: data.systemDescription.present
           ? data.systemDescription.value
           : this.systemDescription,
+      systemTag: data.systemTag.present ? data.systemTag.value : this.systemTag,
       systemAvatarData: data.systemAvatarData.present
           ? data.systemAvatarData.value
           : this.systemAvatarData,
@@ -5805,6 +6068,7 @@ class SystemSettingsData extends DataClass
           ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
           ..write('notesEnabled: $notesEnabled, ')
           ..write('systemDescription: $systemDescription, ')
+          ..write('systemTag: $systemTag, ')
           ..write('systemAvatarData: $systemAvatarData, ')
           ..write('remindersEnabled: $remindersEnabled, ')
           ..write('gifConsentState: $gifConsentState, ')
@@ -5862,6 +6126,7 @@ class SystemSettingsData extends DataClass
     habitsBadgeEnabled,
     notesEnabled,
     systemDescription,
+    systemTag,
     $driftBlobEquality.hash(systemAvatarData),
     remindersEnabled,
     gifConsentState,
@@ -5920,6 +6185,7 @@ class SystemSettingsData extends DataClass
           other.habitsBadgeEnabled == this.habitsBadgeEnabled &&
           other.notesEnabled == this.notesEnabled &&
           other.systemDescription == this.systemDescription &&
+          other.systemTag == this.systemTag &&
           $driftBlobEquality.equals(
             other.systemAvatarData,
             this.systemAvatarData,
@@ -5977,6 +6243,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<bool> habitsBadgeEnabled;
   final Value<bool> notesEnabled;
   final Value<String?> systemDescription;
+  final Value<String?> systemTag;
   final Value<Uint8List?> systemAvatarData;
   final Value<bool> remindersEnabled;
   final Value<int> gifConsentState;
@@ -6030,6 +6297,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsBadgeEnabled = const Value.absent(),
     this.notesEnabled = const Value.absent(),
     this.systemDescription = const Value.absent(),
+    this.systemTag = const Value.absent(),
     this.systemAvatarData = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
     this.gifConsentState = const Value.absent(),
@@ -6084,6 +6352,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.habitsBadgeEnabled = const Value.absent(),
     this.notesEnabled = const Value.absent(),
     this.systemDescription = const Value.absent(),
+    this.systemTag = const Value.absent(),
     this.systemAvatarData = const Value.absent(),
     this.remindersEnabled = const Value.absent(),
     this.gifConsentState = const Value.absent(),
@@ -6138,6 +6407,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<bool>? habitsBadgeEnabled,
     Expression<bool>? notesEnabled,
     Expression<String>? systemDescription,
+    Expression<String>? systemTag,
     Expression<Uint8List>? systemAvatarData,
     Expression<bool>? remindersEnabled,
     Expression<int>? gifConsentState,
@@ -6206,6 +6476,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'habits_badge_enabled': habitsBadgeEnabled,
       if (notesEnabled != null) 'notes_enabled': notesEnabled,
       if (systemDescription != null) 'system_description': systemDescription,
+      if (systemTag != null) 'system_tag': systemTag,
       if (systemAvatarData != null) 'system_avatar_data': systemAvatarData,
       if (remindersEnabled != null) 'reminders_enabled': remindersEnabled,
       if (gifConsentState != null) 'gif_consent_state': gifConsentState,
@@ -6269,6 +6540,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<bool>? habitsBadgeEnabled,
     Value<bool>? notesEnabled,
     Value<String?>? systemDescription,
+    Value<String?>? systemTag,
     Value<Uint8List?>? systemAvatarData,
     Value<bool>? remindersEnabled,
     Value<int>? gifConsentState,
@@ -6335,6 +6607,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       habitsBadgeEnabled: habitsBadgeEnabled ?? this.habitsBadgeEnabled,
       notesEnabled: notesEnabled ?? this.notesEnabled,
       systemDescription: systemDescription ?? this.systemDescription,
+      systemTag: systemTag ?? this.systemTag,
       systemAvatarData: systemAvatarData ?? this.systemAvatarData,
       remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       gifConsentState: gifConsentState ?? this.gifConsentState,
@@ -6491,6 +6764,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     if (systemDescription.present) {
       map['system_description'] = Variable<String>(systemDescription.value);
     }
+    if (systemTag.present) {
+      map['system_tag'] = Variable<String>(systemTag.value);
+    }
     if (systemAvatarData.present) {
       map['system_avatar_data'] = Variable<Uint8List>(systemAvatarData.value);
     }
@@ -6597,6 +6873,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('habitsBadgeEnabled: $habitsBadgeEnabled, ')
           ..write('notesEnabled: $notesEnabled, ')
           ..write('systemDescription: $systemDescription, ')
+          ..write('systemTag: $systemTag, ')
           ..write('systemAvatarData: $systemAvatarData, ')
           ..write('remindersEnabled: $remindersEnabled, ')
           ..write('gifConsentState: $gifConsentState, ')
@@ -8660,6 +8937,18 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _linkEpochMeta = const VerificationMeta(
+    'linkEpoch',
+  );
+  @override
+  late final GeneratedColumn<int> linkEpoch = GeneratedColumn<int>(
+    'link_epoch',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -8670,6 +8959,7 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
     fieldSyncConfig,
     mappingAcknowledged,
     linkedAt,
+    linkEpoch,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -8745,6 +9035,12 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         linkedAt.isAcceptableOrUnknown(data['linked_at']!, _linkedAtMeta),
       );
     }
+    if (data.containsKey('link_epoch')) {
+      context.handle(
+        _linkEpochMeta,
+        linkEpoch.isAcceptableOrUnknown(data['link_epoch']!, _linkEpochMeta),
+      );
+    }
     return context;
   }
 
@@ -8786,6 +9082,10 @@ class $PluralKitSyncStateTable extends PluralKitSyncState
         DriftSqlType.dateTime,
         data['${effectivePrefix}linked_at'],
       ),
+      linkEpoch: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}link_epoch'],
+      )!,
     );
   }
 
@@ -8816,6 +9116,15 @@ class PluralKitSyncStateData extends DataClass
   /// subsequent `acknowledgeMapping()` calls so re-running the mapping flow
   /// doesn't shift the push window.
   final DateTime? linkedAt;
+
+  /// Monotonically-increasing counter bumped whenever the PK connection
+  /// changes identity (new system on [setToken], or [clearToken]). Plan 02
+  /// R1: stamped onto tombstones at delete time as `delete_intent_epoch`,
+  /// then compared at push time to suppress deletions made under a prior
+  /// link. Local-only — not synced across devices (each device tracks its
+  /// own connection history, and cross-device coordination is handled via
+  /// the synced `delete_push_started_at` timestamp instead).
+  final int linkEpoch;
   const PluralKitSyncStateData({
     required this.id,
     this.systemId,
@@ -8825,6 +9134,7 @@ class PluralKitSyncStateData extends DataClass
     this.fieldSyncConfig,
     required this.mappingAcknowledged,
     this.linkedAt,
+    required this.linkEpoch,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -8847,6 +9157,7 @@ class PluralKitSyncStateData extends DataClass
     if (!nullToAbsent || linkedAt != null) {
       map['linked_at'] = Variable<DateTime>(linkedAt);
     }
+    map['link_epoch'] = Variable<int>(linkEpoch);
     return map;
   }
 
@@ -8870,6 +9181,7 @@ class PluralKitSyncStateData extends DataClass
       linkedAt: linkedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(linkedAt),
+      linkEpoch: Value(linkEpoch),
     );
   }
 
@@ -8891,6 +9203,7 @@ class PluralKitSyncStateData extends DataClass
         json['mappingAcknowledged'],
       ),
       linkedAt: serializer.fromJson<DateTime?>(json['linkedAt']),
+      linkEpoch: serializer.fromJson<int>(json['linkEpoch']),
     );
   }
   @override
@@ -8905,6 +9218,7 @@ class PluralKitSyncStateData extends DataClass
       'fieldSyncConfig': serializer.toJson<String?>(fieldSyncConfig),
       'mappingAcknowledged': serializer.toJson<bool>(mappingAcknowledged),
       'linkedAt': serializer.toJson<DateTime?>(linkedAt),
+      'linkEpoch': serializer.toJson<int>(linkEpoch),
     };
   }
 
@@ -8917,6 +9231,7 @@ class PluralKitSyncStateData extends DataClass
     Value<String?> fieldSyncConfig = const Value.absent(),
     bool? mappingAcknowledged,
     Value<DateTime?> linkedAt = const Value.absent(),
+    int? linkEpoch,
   }) => PluralKitSyncStateData(
     id: id ?? this.id,
     systemId: systemId.present ? systemId.value : this.systemId,
@@ -8930,6 +9245,7 @@ class PluralKitSyncStateData extends DataClass
         : this.fieldSyncConfig,
     mappingAcknowledged: mappingAcknowledged ?? this.mappingAcknowledged,
     linkedAt: linkedAt.present ? linkedAt.value : this.linkedAt,
+    linkEpoch: linkEpoch ?? this.linkEpoch,
   );
   PluralKitSyncStateData copyWithCompanion(PluralKitSyncStateCompanion data) {
     return PluralKitSyncStateData(
@@ -8951,6 +9267,7 @@ class PluralKitSyncStateData extends DataClass
           ? data.mappingAcknowledged.value
           : this.mappingAcknowledged,
       linkedAt: data.linkedAt.present ? data.linkedAt.value : this.linkedAt,
+      linkEpoch: data.linkEpoch.present ? data.linkEpoch.value : this.linkEpoch,
     );
   }
 
@@ -8964,7 +9281,8 @@ class PluralKitSyncStateData extends DataClass
           ..write('isConnected: $isConnected, ')
           ..write('fieldSyncConfig: $fieldSyncConfig, ')
           ..write('mappingAcknowledged: $mappingAcknowledged, ')
-          ..write('linkedAt: $linkedAt')
+          ..write('linkedAt: $linkedAt, ')
+          ..write('linkEpoch: $linkEpoch')
           ..write(')'))
         .toString();
   }
@@ -8979,6 +9297,7 @@ class PluralKitSyncStateData extends DataClass
     fieldSyncConfig,
     mappingAcknowledged,
     linkedAt,
+    linkEpoch,
   );
   @override
   bool operator ==(Object other) =>
@@ -8991,7 +9310,8 @@ class PluralKitSyncStateData extends DataClass
           other.isConnected == this.isConnected &&
           other.fieldSyncConfig == this.fieldSyncConfig &&
           other.mappingAcknowledged == this.mappingAcknowledged &&
-          other.linkedAt == this.linkedAt);
+          other.linkedAt == this.linkedAt &&
+          other.linkEpoch == this.linkEpoch);
 }
 
 class PluralKitSyncStateCompanion
@@ -9004,6 +9324,7 @@ class PluralKitSyncStateCompanion
   final Value<String?> fieldSyncConfig;
   final Value<bool> mappingAcknowledged;
   final Value<DateTime?> linkedAt;
+  final Value<int> linkEpoch;
   final Value<int> rowid;
   const PluralKitSyncStateCompanion({
     this.id = const Value.absent(),
@@ -9014,6 +9335,7 @@ class PluralKitSyncStateCompanion
     this.fieldSyncConfig = const Value.absent(),
     this.mappingAcknowledged = const Value.absent(),
     this.linkedAt = const Value.absent(),
+    this.linkEpoch = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PluralKitSyncStateCompanion.insert({
@@ -9025,6 +9347,7 @@ class PluralKitSyncStateCompanion
     this.fieldSyncConfig = const Value.absent(),
     this.mappingAcknowledged = const Value.absent(),
     this.linkedAt = const Value.absent(),
+    this.linkEpoch = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
   static Insertable<PluralKitSyncStateData> custom({
@@ -9036,6 +9359,7 @@ class PluralKitSyncStateCompanion
     Expression<String>? fieldSyncConfig,
     Expression<bool>? mappingAcknowledged,
     Expression<DateTime>? linkedAt,
+    Expression<int>? linkEpoch,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -9049,6 +9373,7 @@ class PluralKitSyncStateCompanion
       if (mappingAcknowledged != null)
         'mapping_acknowledged': mappingAcknowledged,
       if (linkedAt != null) 'linked_at': linkedAt,
+      if (linkEpoch != null) 'link_epoch': linkEpoch,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -9062,6 +9387,7 @@ class PluralKitSyncStateCompanion
     Value<String?>? fieldSyncConfig,
     Value<bool>? mappingAcknowledged,
     Value<DateTime?>? linkedAt,
+    Value<int>? linkEpoch,
     Value<int>? rowid,
   }) {
     return PluralKitSyncStateCompanion(
@@ -9073,6 +9399,7 @@ class PluralKitSyncStateCompanion
       fieldSyncConfig: fieldSyncConfig ?? this.fieldSyncConfig,
       mappingAcknowledged: mappingAcknowledged ?? this.mappingAcknowledged,
       linkedAt: linkedAt ?? this.linkedAt,
+      linkEpoch: linkEpoch ?? this.linkEpoch,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -9106,6 +9433,9 @@ class PluralKitSyncStateCompanion
     if (linkedAt.present) {
       map['linked_at'] = Variable<DateTime>(linkedAt.value);
     }
+    if (linkEpoch.present) {
+      map['link_epoch'] = Variable<int>(linkEpoch.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -9123,6 +9453,7 @@ class PluralKitSyncStateCompanion
           ..write('fieldSyncConfig: $fieldSyncConfig, ')
           ..write('mappingAcknowledged: $mappingAcknowledged, ')
           ..write('linkedAt: $linkedAt, ')
+          ..write('linkEpoch: $linkEpoch, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -11834,6 +12165,40 @@ class $MemberGroupsTable extends MemberGroups
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _pluralkitIdMeta = const VerificationMeta(
+    'pluralkitId',
+  );
+  @override
+  late final GeneratedColumn<String> pluralkitId = GeneratedColumn<String>(
+    'pluralkit_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pluralkitUuidMeta = const VerificationMeta(
+    'pluralkitUuid',
+  );
+  @override
+  late final GeneratedColumn<String> pluralkitUuid = GeneratedColumn<String>(
+    'pluralkit_uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastSeenFromPkAtMeta = const VerificationMeta(
+    'lastSeenFromPkAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastSeenFromPkAt =
+      GeneratedColumn<DateTime>(
+        'last_seen_from_pk_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -11847,6 +12212,9 @@ class $MemberGroupsTable extends MemberGroups
     filterRules,
     createdAt,
     isDeleted,
+    pluralkitId,
+    pluralkitUuid,
+    lastSeenFromPkAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -11941,6 +12309,33 @@ class $MemberGroupsTable extends MemberGroups
         isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
       );
     }
+    if (data.containsKey('pluralkit_id')) {
+      context.handle(
+        _pluralkitIdMeta,
+        pluralkitId.isAcceptableOrUnknown(
+          data['pluralkit_id']!,
+          _pluralkitIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('pluralkit_uuid')) {
+      context.handle(
+        _pluralkitUuidMeta,
+        pluralkitUuid.isAcceptableOrUnknown(
+          data['pluralkit_uuid']!,
+          _pluralkitUuidMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_seen_from_pk_at')) {
+      context.handle(
+        _lastSeenFromPkAtMeta,
+        lastSeenFromPkAt.isAcceptableOrUnknown(
+          data['last_seen_from_pk_at']!,
+          _lastSeenFromPkAtMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -11994,6 +12389,18 @@ class $MemberGroupsTable extends MemberGroups
         DriftSqlType.bool,
         data['${effectivePrefix}is_deleted'],
       )!,
+      pluralkitId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pluralkit_id'],
+      ),
+      pluralkitUuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pluralkit_uuid'],
+      ),
+      lastSeenFromPkAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_seen_from_pk_at'],
+      ),
     );
   }
 
@@ -12015,6 +12422,16 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
   final String? filterRules;
   final DateTime createdAt;
   final bool isDeleted;
+
+  /// PluralKit 5-char short ID (display only, never used for identity matching).
+  final String? pluralkitId;
+
+  /// PluralKit canonical UUID — the sole identity key for PK-linked groups.
+  final String? pluralkitUuid;
+
+  /// Last time we observed this group in a PK pull. Synced so all devices
+  /// agree on the "stale" UI hint for groups that have disappeared from PK.
+  final DateTime? lastSeenFromPkAt;
   const MemberGroupRow({
     required this.id,
     required this.name,
@@ -12027,6 +12444,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     this.filterRules,
     required this.createdAt,
     required this.isDeleted,
+    this.pluralkitId,
+    this.pluralkitUuid,
+    this.lastSeenFromPkAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -12052,6 +12472,15 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || pluralkitId != null) {
+      map['pluralkit_id'] = Variable<String>(pluralkitId);
+    }
+    if (!nullToAbsent || pluralkitUuid != null) {
+      map['pluralkit_uuid'] = Variable<String>(pluralkitUuid);
+    }
+    if (!nullToAbsent || lastSeenFromPkAt != null) {
+      map['last_seen_from_pk_at'] = Variable<DateTime>(lastSeenFromPkAt);
+    }
     return map;
   }
 
@@ -12078,6 +12507,15 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           : Value(filterRules),
       createdAt: Value(createdAt),
       isDeleted: Value(isDeleted),
+      pluralkitId: pluralkitId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pluralkitId),
+      pluralkitUuid: pluralkitUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pluralkitUuid),
+      lastSeenFromPkAt: lastSeenFromPkAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastSeenFromPkAt),
     );
   }
 
@@ -12098,6 +12536,11 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       filterRules: serializer.fromJson<String?>(json['filterRules']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      pluralkitId: serializer.fromJson<String?>(json['pluralkitId']),
+      pluralkitUuid: serializer.fromJson<String?>(json['pluralkitUuid']),
+      lastSeenFromPkAt: serializer.fromJson<DateTime?>(
+        json['lastSeenFromPkAt'],
+      ),
     );
   }
   @override
@@ -12115,6 +12558,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
       'filterRules': serializer.toJson<String?>(filterRules),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'pluralkitId': serializer.toJson<String?>(pluralkitId),
+      'pluralkitUuid': serializer.toJson<String?>(pluralkitUuid),
+      'lastSeenFromPkAt': serializer.toJson<DateTime?>(lastSeenFromPkAt),
     };
   }
 
@@ -12130,6 +12576,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     Value<String?> filterRules = const Value.absent(),
     DateTime? createdAt,
     bool? isDeleted,
+    Value<String?> pluralkitId = const Value.absent(),
+    Value<String?> pluralkitUuid = const Value.absent(),
+    Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
   }) => MemberGroupRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -12144,6 +12593,13 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     filterRules: filterRules.present ? filterRules.value : this.filterRules,
     createdAt: createdAt ?? this.createdAt,
     isDeleted: isDeleted ?? this.isDeleted,
+    pluralkitId: pluralkitId.present ? pluralkitId.value : this.pluralkitId,
+    pluralkitUuid: pluralkitUuid.present
+        ? pluralkitUuid.value
+        : this.pluralkitUuid,
+    lastSeenFromPkAt: lastSeenFromPkAt.present
+        ? lastSeenFromPkAt.value
+        : this.lastSeenFromPkAt,
   );
   MemberGroupRow copyWithCompanion(MemberGroupsCompanion data) {
     return MemberGroupRow(
@@ -12166,6 +12622,15 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           : this.filterRules,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      pluralkitId: data.pluralkitId.present
+          ? data.pluralkitId.value
+          : this.pluralkitId,
+      pluralkitUuid: data.pluralkitUuid.present
+          ? data.pluralkitUuid.value
+          : this.pluralkitUuid,
+      lastSeenFromPkAt: data.lastSeenFromPkAt.present
+          ? data.lastSeenFromPkAt.value
+          : this.lastSeenFromPkAt,
     );
   }
 
@@ -12182,7 +12647,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           ..write('groupType: $groupType, ')
           ..write('filterRules: $filterRules, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('pluralkitId: $pluralkitId, ')
+          ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('lastSeenFromPkAt: $lastSeenFromPkAt')
           ..write(')'))
         .toString();
   }
@@ -12200,6 +12668,9 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
     filterRules,
     createdAt,
     isDeleted,
+    pluralkitId,
+    pluralkitUuid,
+    lastSeenFromPkAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -12215,7 +12686,10 @@ class MemberGroupRow extends DataClass implements Insertable<MemberGroupRow> {
           other.groupType == this.groupType &&
           other.filterRules == this.filterRules &&
           other.createdAt == this.createdAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.pluralkitId == this.pluralkitId &&
+          other.pluralkitUuid == this.pluralkitUuid &&
+          other.lastSeenFromPkAt == this.lastSeenFromPkAt);
 }
 
 class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
@@ -12230,6 +12704,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
   final Value<String?> filterRules;
   final Value<DateTime> createdAt;
   final Value<bool> isDeleted;
+  final Value<String?> pluralkitId;
+  final Value<String?> pluralkitUuid;
+  final Value<DateTime?> lastSeenFromPkAt;
   final Value<int> rowid;
   const MemberGroupsCompanion({
     this.id = const Value.absent(),
@@ -12243,6 +12720,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.filterRules = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.pluralkitId = const Value.absent(),
+    this.pluralkitUuid = const Value.absent(),
+    this.lastSeenFromPkAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   MemberGroupsCompanion.insert({
@@ -12257,6 +12737,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     this.filterRules = const Value.absent(),
     required DateTime createdAt,
     this.isDeleted = const Value.absent(),
+    this.pluralkitId = const Value.absent(),
+    this.pluralkitUuid = const Value.absent(),
+    this.lastSeenFromPkAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -12273,6 +12756,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Expression<String>? filterRules,
     Expression<DateTime>? createdAt,
     Expression<bool>? isDeleted,
+    Expression<String>? pluralkitId,
+    Expression<String>? pluralkitUuid,
+    Expression<DateTime>? lastSeenFromPkAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -12287,6 +12773,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       if (filterRules != null) 'filter_rules': filterRules,
       if (createdAt != null) 'created_at': createdAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (pluralkitId != null) 'pluralkit_id': pluralkitId,
+      if (pluralkitUuid != null) 'pluralkit_uuid': pluralkitUuid,
+      if (lastSeenFromPkAt != null) 'last_seen_from_pk_at': lastSeenFromPkAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -12303,6 +12792,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     Value<String?>? filterRules,
     Value<DateTime>? createdAt,
     Value<bool>? isDeleted,
+    Value<String?>? pluralkitId,
+    Value<String?>? pluralkitUuid,
+    Value<DateTime?>? lastSeenFromPkAt,
     Value<int>? rowid,
   }) {
     return MemberGroupsCompanion(
@@ -12317,6 +12809,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
       filterRules: filterRules ?? this.filterRules,
       createdAt: createdAt ?? this.createdAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      pluralkitId: pluralkitId ?? this.pluralkitId,
+      pluralkitUuid: pluralkitUuid ?? this.pluralkitUuid,
+      lastSeenFromPkAt: lastSeenFromPkAt ?? this.lastSeenFromPkAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -12357,6 +12852,15 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (pluralkitId.present) {
+      map['pluralkit_id'] = Variable<String>(pluralkitId.value);
+    }
+    if (pluralkitUuid.present) {
+      map['pluralkit_uuid'] = Variable<String>(pluralkitUuid.value);
+    }
+    if (lastSeenFromPkAt.present) {
+      map['last_seen_from_pk_at'] = Variable<DateTime>(lastSeenFromPkAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -12377,6 +12881,9 @@ class MemberGroupsCompanion extends UpdateCompanion<MemberGroupRow> {
           ..write('filterRules: $filterRules, ')
           ..write('createdAt: $createdAt, ')
           ..write('isDeleted: $isDeleted, ')
+          ..write('pluralkitId: $pluralkitId, ')
+          ..write('pluralkitUuid: $pluralkitUuid, ')
+          ..write('lastSeenFromPkAt: $lastSeenFromPkAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -15029,6 +15536,17 @@ class $RemindersTable extends Reminders
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _targetMemberIdMeta = const VerificationMeta(
+    'targetMemberId',
+  );
+  @override
+  late final GeneratedColumn<String> targetMemberId = GeneratedColumn<String>(
+    'target_member_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
   );
@@ -15092,6 +15610,7 @@ class $RemindersTable extends Reminders
     weeklyDays,
     timeOfDay,
     delayHours,
+    targetMemberId,
     isActive,
     createdAt,
     modifiedAt,
@@ -15169,6 +15688,15 @@ class $RemindersTable extends Reminders
         delayHours.isAcceptableOrUnknown(data['delay_hours']!, _delayHoursMeta),
       );
     }
+    if (data.containsKey('target_member_id')) {
+      context.handle(
+        _targetMemberIdMeta,
+        targetMemberId.isAcceptableOrUnknown(
+          data['target_member_id']!,
+          _targetMemberIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('is_active')) {
       context.handle(
         _isActiveMeta,
@@ -15242,6 +15770,10 @@ class $RemindersTable extends Reminders
         DriftSqlType.int,
         data['${effectivePrefix}delay_hours'],
       ),
+      targetMemberId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_member_id'],
+      ),
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -15277,6 +15809,11 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
   final String? weeklyDays;
   final String? timeOfDay;
   final int? delayHours;
+
+  /// Optional member ID this reminder targets. When null, a front-change
+  /// reminder fires on any switch; when set, it fires only when the referenced
+  /// member (or custom-front-tagged member) is in the current fronter set.
+  final String? targetMemberId;
   final bool isActive;
   final DateTime createdAt;
   final DateTime modifiedAt;
@@ -15291,6 +15828,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     this.weeklyDays,
     this.timeOfDay,
     this.delayHours,
+    this.targetMemberId,
     required this.isActive,
     required this.createdAt,
     required this.modifiedAt,
@@ -15317,6 +15855,9 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     }
     if (!nullToAbsent || delayHours != null) {
       map['delay_hours'] = Variable<int>(delayHours);
+    }
+    if (!nullToAbsent || targetMemberId != null) {
+      map['target_member_id'] = Variable<String>(targetMemberId);
     }
     map['is_active'] = Variable<bool>(isActive);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -15346,6 +15887,9 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
       delayHours: delayHours == null && nullToAbsent
           ? const Value.absent()
           : Value(delayHours),
+      targetMemberId: targetMemberId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetMemberId),
       isActive: Value(isActive),
       createdAt: Value(createdAt),
       modifiedAt: Value(modifiedAt),
@@ -15368,6 +15912,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
       weeklyDays: serializer.fromJson<String?>(json['weeklyDays']),
       timeOfDay: serializer.fromJson<String?>(json['timeOfDay']),
       delayHours: serializer.fromJson<int?>(json['delayHours']),
+      targetMemberId: serializer.fromJson<String?>(json['targetMemberId']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       modifiedAt: serializer.fromJson<DateTime>(json['modifiedAt']),
@@ -15387,6 +15932,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
       'weeklyDays': serializer.toJson<String?>(weeklyDays),
       'timeOfDay': serializer.toJson<String?>(timeOfDay),
       'delayHours': serializer.toJson<int?>(delayHours),
+      'targetMemberId': serializer.toJson<String?>(targetMemberId),
       'isActive': serializer.toJson<bool>(isActive),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'modifiedAt': serializer.toJson<DateTime>(modifiedAt),
@@ -15404,6 +15950,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     Value<String?> weeklyDays = const Value.absent(),
     Value<String?> timeOfDay = const Value.absent(),
     Value<int?> delayHours = const Value.absent(),
+    Value<String?> targetMemberId = const Value.absent(),
     bool? isActive,
     DateTime? createdAt,
     DateTime? modifiedAt,
@@ -15418,6 +15965,9 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     weeklyDays: weeklyDays.present ? weeklyDays.value : this.weeklyDays,
     timeOfDay: timeOfDay.present ? timeOfDay.value : this.timeOfDay,
     delayHours: delayHours.present ? delayHours.value : this.delayHours,
+    targetMemberId: targetMemberId.present
+        ? targetMemberId.value
+        : this.targetMemberId,
     isActive: isActive ?? this.isActive,
     createdAt: createdAt ?? this.createdAt,
     modifiedAt: modifiedAt ?? this.modifiedAt,
@@ -15440,6 +15990,9 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
       delayHours: data.delayHours.present
           ? data.delayHours.value
           : this.delayHours,
+      targetMemberId: data.targetMemberId.present
+          ? data.targetMemberId.value
+          : this.targetMemberId,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       modifiedAt: data.modifiedAt.present
@@ -15461,6 +16014,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
           ..write('weeklyDays: $weeklyDays, ')
           ..write('timeOfDay: $timeOfDay, ')
           ..write('delayHours: $delayHours, ')
+          ..write('targetMemberId: $targetMemberId, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
           ..write('modifiedAt: $modifiedAt, ')
@@ -15480,6 +16034,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
     weeklyDays,
     timeOfDay,
     delayHours,
+    targetMemberId,
     isActive,
     createdAt,
     modifiedAt,
@@ -15498,6 +16053,7 @@ class ReminderRow extends DataClass implements Insertable<ReminderRow> {
           other.weeklyDays == this.weeklyDays &&
           other.timeOfDay == this.timeOfDay &&
           other.delayHours == this.delayHours &&
+          other.targetMemberId == this.targetMemberId &&
           other.isActive == this.isActive &&
           other.createdAt == this.createdAt &&
           other.modifiedAt == this.modifiedAt &&
@@ -15514,6 +16070,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
   final Value<String?> weeklyDays;
   final Value<String?> timeOfDay;
   final Value<int?> delayHours;
+  final Value<String?> targetMemberId;
   final Value<bool> isActive;
   final Value<DateTime> createdAt;
   final Value<DateTime> modifiedAt;
@@ -15529,6 +16086,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     this.weeklyDays = const Value.absent(),
     this.timeOfDay = const Value.absent(),
     this.delayHours = const Value.absent(),
+    this.targetMemberId = const Value.absent(),
     this.isActive = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.modifiedAt = const Value.absent(),
@@ -15545,6 +16103,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     this.weeklyDays = const Value.absent(),
     this.timeOfDay = const Value.absent(),
     this.delayHours = const Value.absent(),
+    this.targetMemberId = const Value.absent(),
     this.isActive = const Value.absent(),
     required DateTime createdAt,
     required DateTime modifiedAt,
@@ -15565,6 +16124,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     Expression<String>? weeklyDays,
     Expression<String>? timeOfDay,
     Expression<int>? delayHours,
+    Expression<String>? targetMemberId,
     Expression<bool>? isActive,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? modifiedAt,
@@ -15581,6 +16141,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
       if (weeklyDays != null) 'weekly_days': weeklyDays,
       if (timeOfDay != null) 'time_of_day': timeOfDay,
       if (delayHours != null) 'delay_hours': delayHours,
+      if (targetMemberId != null) 'target_member_id': targetMemberId,
       if (isActive != null) 'is_active': isActive,
       if (createdAt != null) 'created_at': createdAt,
       if (modifiedAt != null) 'modified_at': modifiedAt,
@@ -15599,6 +16160,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     Value<String?>? weeklyDays,
     Value<String?>? timeOfDay,
     Value<int?>? delayHours,
+    Value<String?>? targetMemberId,
     Value<bool>? isActive,
     Value<DateTime>? createdAt,
     Value<DateTime>? modifiedAt,
@@ -15615,6 +16177,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
       weeklyDays: weeklyDays ?? this.weeklyDays,
       timeOfDay: timeOfDay ?? this.timeOfDay,
       delayHours: delayHours ?? this.delayHours,
+      targetMemberId: targetMemberId ?? this.targetMemberId,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       modifiedAt: modifiedAt ?? this.modifiedAt,
@@ -15653,6 +16216,9 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
     if (delayHours.present) {
       map['delay_hours'] = Variable<int>(delayHours.value);
     }
+    if (targetMemberId.present) {
+      map['target_member_id'] = Variable<String>(targetMemberId.value);
+    }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
     }
@@ -15683,6 +16249,7 @@ class RemindersCompanion extends UpdateCompanion<ReminderRow> {
           ..write('weeklyDays: $weeklyDays, ')
           ..write('timeOfDay: $timeOfDay, ')
           ..write('delayHours: $delayHours, ')
+          ..write('targetMemberId: $targetMemberId, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
           ..write('modifiedAt: $modifiedAt, ')
@@ -19670,6 +20237,8 @@ typedef $$MembersTableCreateCompanionBuilder =
       Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
+      Value<int?> deleteIntentEpoch,
+      Value<int?> deletePushStartedAt,
       Value<int> rowid,
     });
 typedef $$MembersTableUpdateCompanionBuilder =
@@ -19696,6 +20265,8 @@ typedef $$MembersTableUpdateCompanionBuilder =
       Value<bool> pluralkitSyncIgnored,
       Value<bool> markdownEnabled,
       Value<bool> isDeleted,
+      Value<int?> deleteIntentEpoch,
+      Value<int?> deletePushStartedAt,
       Value<int> rowid,
     });
 
@@ -19815,6 +20386,16 @@ class $$MembersTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deleteIntentEpoch => $composableBuilder(
+    column: $table.deleteIntentEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletePushStartedAt => $composableBuilder(
+    column: $table.deletePushStartedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -19937,6 +20518,16 @@ class $$MembersTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get deleteIntentEpoch => $composableBuilder(
+    column: $table.deleteIntentEpoch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletePushStartedAt => $composableBuilder(
+    column: $table.deletePushStartedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MembersTableAnnotationComposer
@@ -20035,6 +20626,16 @@ class $$MembersTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<int> get deleteIntentEpoch => $composableBuilder(
+    column: $table.deleteIntentEpoch,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deletePushStartedAt => $composableBuilder(
+    column: $table.deletePushStartedAt,
+    builder: (column) => column,
+  );
 }
 
 class $$MembersTableTableManager
@@ -20087,6 +20688,8 @@ class $$MembersTableTableManager
                 Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<int?> deleteIntentEpoch = const Value.absent(),
+                Value<int?> deletePushStartedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MembersCompanion(
                 id: id,
@@ -20111,6 +20714,8 @@ class $$MembersTableTableManager
                 pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,
+                deleteIntentEpoch: deleteIntentEpoch,
+                deletePushStartedAt: deletePushStartedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -20137,6 +20742,8 @@ class $$MembersTableTableManager
                 Value<bool> pluralkitSyncIgnored = const Value.absent(),
                 Value<bool> markdownEnabled = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<int?> deleteIntentEpoch = const Value.absent(),
+                Value<int?> deletePushStartedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MembersCompanion.insert(
                 id: id,
@@ -20161,6 +20768,8 @@ class $$MembersTableTableManager
                 pluralkitSyncIgnored: pluralkitSyncIgnored,
                 markdownEnabled: markdownEnabled,
                 isDeleted: isDeleted,
+                deleteIntentEpoch: deleteIntentEpoch,
+                deletePushStartedAt: deletePushStartedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -20200,6 +20809,8 @@ typedef $$FrontingSessionsTableCreateCompanionBuilder =
       Value<String?> pluralkitUuid,
       Value<String?> pkMemberIdsJson,
       Value<bool> isDeleted,
+      Value<int?> deleteIntentEpoch,
+      Value<int?> deletePushStartedAt,
       Value<int> rowid,
     });
 typedef $$FrontingSessionsTableUpdateCompanionBuilder =
@@ -20217,6 +20828,8 @@ typedef $$FrontingSessionsTableUpdateCompanionBuilder =
       Value<String?> pluralkitUuid,
       Value<String?> pkMemberIdsJson,
       Value<bool> isDeleted,
+      Value<int?> deleteIntentEpoch,
+      Value<int?> deletePushStartedAt,
       Value<int> rowid,
     });
 
@@ -20291,6 +20904,16 @@ class $$FrontingSessionsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deleteIntentEpoch => $composableBuilder(
+    column: $table.deleteIntentEpoch,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get deletePushStartedAt => $composableBuilder(
+    column: $table.deletePushStartedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -20368,6 +20991,16 @@ class $$FrontingSessionsTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get deleteIntentEpoch => $composableBuilder(
+    column: $table.deleteIntentEpoch,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get deletePushStartedAt => $composableBuilder(
+    column: $table.deletePushStartedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$FrontingSessionsTableAnnotationComposer
@@ -20429,6 +21062,16 @@ class $$FrontingSessionsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<int> get deleteIntentEpoch => $composableBuilder(
+    column: $table.deleteIntentEpoch,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get deletePushStartedAt => $composableBuilder(
+    column: $table.deletePushStartedAt,
+    builder: (column) => column,
+  );
 }
 
 class $$FrontingSessionsTableTableManager
@@ -20481,6 +21124,8 @@ class $$FrontingSessionsTableTableManager
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<String?> pkMemberIdsJson = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<int?> deleteIntentEpoch = const Value.absent(),
+                Value<int?> deletePushStartedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontingSessionsCompanion(
                 id: id,
@@ -20496,6 +21141,8 @@ class $$FrontingSessionsTableTableManager
                 pluralkitUuid: pluralkitUuid,
                 pkMemberIdsJson: pkMemberIdsJson,
                 isDeleted: isDeleted,
+                deleteIntentEpoch: deleteIntentEpoch,
+                deletePushStartedAt: deletePushStartedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -20513,6 +21160,8 @@ class $$FrontingSessionsTableTableManager
                 Value<String?> pluralkitUuid = const Value.absent(),
                 Value<String?> pkMemberIdsJson = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<int?> deleteIntentEpoch = const Value.absent(),
+                Value<int?> deletePushStartedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => FrontingSessionsCompanion.insert(
                 id: id,
@@ -20528,6 +21177,8 @@ class $$FrontingSessionsTableTableManager
                 pluralkitUuid: pluralkitUuid,
                 pkMemberIdsJson: pkMemberIdsJson,
                 isDeleted: isDeleted,
+                deleteIntentEpoch: deleteIntentEpoch,
+                deletePushStartedAt: deletePushStartedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -21342,6 +21993,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<bool> habitsBadgeEnabled,
       Value<bool> notesEnabled,
       Value<String?> systemDescription,
+      Value<String?> systemTag,
       Value<Uint8List?> systemAvatarData,
       Value<bool> remindersEnabled,
       Value<int> gifConsentState,
@@ -21397,6 +22049,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<bool> habitsBadgeEnabled,
       Value<bool> notesEnabled,
       Value<String?> systemDescription,
+      Value<String?> systemTag,
       Value<Uint8List?> systemAvatarData,
       Value<bool> remindersEnabled,
       Value<int> gifConsentState,
@@ -21601,6 +22254,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<String> get systemDescription => $composableBuilder(
     column: $table.systemDescription,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get systemTag => $composableBuilder(
+    column: $table.systemTag,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -21870,6 +22528,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get systemTag => $composableBuilder(
+    column: $table.systemTag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<Uint8List> get systemAvatarData => $composableBuilder(
     column: $table.systemAvatarData,
     builder: (column) => ColumnOrderings(column),
@@ -22130,6 +22793,9 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get systemTag =>
+      $composableBuilder(column: $table.systemTag, builder: (column) => column);
+
   GeneratedColumn<Uint8List> get systemAvatarData => $composableBuilder(
     column: $table.systemAvatarData,
     builder: (column) => column,
@@ -22282,6 +22948,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsBadgeEnabled = const Value.absent(),
                 Value<bool> notesEnabled = const Value.absent(),
                 Value<String?> systemDescription = const Value.absent(),
+                Value<String?> systemTag = const Value.absent(),
                 Value<Uint8List?> systemAvatarData = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> gifConsentState = const Value.absent(),
@@ -22336,6 +23003,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsBadgeEnabled: habitsBadgeEnabled,
                 notesEnabled: notesEnabled,
                 systemDescription: systemDescription,
+                systemTag: systemTag,
                 systemAvatarData: systemAvatarData,
                 remindersEnabled: remindersEnabled,
                 gifConsentState: gifConsentState,
@@ -22392,6 +23060,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<bool> habitsBadgeEnabled = const Value.absent(),
                 Value<bool> notesEnabled = const Value.absent(),
                 Value<String?> systemDescription = const Value.absent(),
+                Value<String?> systemTag = const Value.absent(),
                 Value<Uint8List?> systemAvatarData = const Value.absent(),
                 Value<bool> remindersEnabled = const Value.absent(),
                 Value<int> gifConsentState = const Value.absent(),
@@ -22446,6 +23115,7 @@ class $$SystemSettingsTableTableTableManager
                 habitsBadgeEnabled: habitsBadgeEnabled,
                 notesEnabled: notesEnabled,
                 systemDescription: systemDescription,
+                systemTag: systemTag,
                 systemAvatarData: systemAvatarData,
                 remindersEnabled: remindersEnabled,
                 gifConsentState: gifConsentState,
@@ -23476,6 +24146,7 @@ typedef $$PluralKitSyncStateTableCreateCompanionBuilder =
       Value<String?> fieldSyncConfig,
       Value<bool> mappingAcknowledged,
       Value<DateTime?> linkedAt,
+      Value<int> linkEpoch,
       Value<int> rowid,
     });
 typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
@@ -23488,6 +24159,7 @@ typedef $$PluralKitSyncStateTableUpdateCompanionBuilder =
       Value<String?> fieldSyncConfig,
       Value<bool> mappingAcknowledged,
       Value<DateTime?> linkedAt,
+      Value<int> linkEpoch,
       Value<int> rowid,
     });
 
@@ -23537,6 +24209,11 @@ class $$PluralKitSyncStateTableFilterComposer
 
   ColumnFilters<DateTime> get linkedAt => $composableBuilder(
     column: $table.linkedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get linkEpoch => $composableBuilder(
+    column: $table.linkEpoch,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -23589,6 +24266,11 @@ class $$PluralKitSyncStateTableOrderingComposer
     column: $table.linkedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get linkEpoch => $composableBuilder(
+    column: $table.linkEpoch,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PluralKitSyncStateTableAnnotationComposer
@@ -23633,6 +24315,9 @@ class $$PluralKitSyncStateTableAnnotationComposer
 
   GeneratedColumn<DateTime> get linkedAt =>
       $composableBuilder(column: $table.linkedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get linkEpoch =>
+      $composableBuilder(column: $table.linkEpoch, builder: (column) => column);
 }
 
 class $$PluralKitSyncStateTableTableManager
@@ -23683,6 +24368,7 @@ class $$PluralKitSyncStateTableTableManager
                 Value<String?> fieldSyncConfig = const Value.absent(),
                 Value<bool> mappingAcknowledged = const Value.absent(),
                 Value<DateTime?> linkedAt = const Value.absent(),
+                Value<int> linkEpoch = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion(
                 id: id,
@@ -23693,6 +24379,7 @@ class $$PluralKitSyncStateTableTableManager
                 fieldSyncConfig: fieldSyncConfig,
                 mappingAcknowledged: mappingAcknowledged,
                 linkedAt: linkedAt,
+                linkEpoch: linkEpoch,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -23705,6 +24392,7 @@ class $$PluralKitSyncStateTableTableManager
                 Value<String?> fieldSyncConfig = const Value.absent(),
                 Value<bool> mappingAcknowledged = const Value.absent(),
                 Value<DateTime?> linkedAt = const Value.absent(),
+                Value<int> linkEpoch = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PluralKitSyncStateCompanion.insert(
                 id: id,
@@ -23715,6 +24403,7 @@ class $$PluralKitSyncStateTableTableManager
                 fieldSyncConfig: fieldSyncConfig,
                 mappingAcknowledged: mappingAcknowledged,
                 linkedAt: linkedAt,
+                linkEpoch: linkEpoch,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -24955,6 +25644,9 @@ typedef $$MemberGroupsTableCreateCompanionBuilder =
       Value<String?> filterRules,
       required DateTime createdAt,
       Value<bool> isDeleted,
+      Value<String?> pluralkitId,
+      Value<String?> pluralkitUuid,
+      Value<DateTime?> lastSeenFromPkAt,
       Value<int> rowid,
     });
 typedef $$MemberGroupsTableUpdateCompanionBuilder =
@@ -24970,6 +25662,9 @@ typedef $$MemberGroupsTableUpdateCompanionBuilder =
       Value<String?> filterRules,
       Value<DateTime> createdAt,
       Value<bool> isDeleted,
+      Value<String?> pluralkitId,
+      Value<String?> pluralkitUuid,
+      Value<DateTime?> lastSeenFromPkAt,
       Value<int> rowid,
     });
 
@@ -25034,6 +25729,21 @@ class $$MemberGroupsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
     column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pluralkitId => $composableBuilder(
+    column: $table.pluralkitId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastSeenFromPkAt => $composableBuilder(
+    column: $table.lastSeenFromPkAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -25101,6 +25811,21 @@ class $$MemberGroupsTableOrderingComposer
     column: $table.isDeleted,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get pluralkitId => $composableBuilder(
+    column: $table.pluralkitId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastSeenFromPkAt => $composableBuilder(
+    column: $table.lastSeenFromPkAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$MemberGroupsTableAnnotationComposer
@@ -25152,6 +25877,21 @@ class $$MemberGroupsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get pluralkitId => $composableBuilder(
+    column: $table.pluralkitId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get pluralkitUuid => $composableBuilder(
+    column: $table.pluralkitUuid,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastSeenFromPkAt => $composableBuilder(
+    column: $table.lastSeenFromPkAt,
+    builder: (column) => column,
+  );
 }
 
 class $$MemberGroupsTableTableManager
@@ -25196,6 +25936,9 @@ class $$MemberGroupsTableTableManager
                 Value<String?> filterRules = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String?> pluralkitId = const Value.absent(),
+                Value<String?> pluralkitUuid = const Value.absent(),
+                Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion(
                 id: id,
@@ -25209,6 +25952,9 @@ class $$MemberGroupsTableTableManager
                 filterRules: filterRules,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                pluralkitId: pluralkitId,
+                pluralkitUuid: pluralkitUuid,
+                lastSeenFromPkAt: lastSeenFromPkAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -25224,6 +25970,9 @@ class $$MemberGroupsTableTableManager
                 Value<String?> filterRules = const Value.absent(),
                 required DateTime createdAt,
                 Value<bool> isDeleted = const Value.absent(),
+                Value<String?> pluralkitId = const Value.absent(),
+                Value<String?> pluralkitUuid = const Value.absent(),
+                Value<DateTime?> lastSeenFromPkAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => MemberGroupsCompanion.insert(
                 id: id,
@@ -25237,6 +25986,9 @@ class $$MemberGroupsTableTableManager
                 filterRules: filterRules,
                 createdAt: createdAt,
                 isDeleted: isDeleted,
+                pluralkitId: pluralkitId,
+                pluralkitUuid: pluralkitUuid,
+                lastSeenFromPkAt: lastSeenFromPkAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -26674,6 +27426,7 @@ typedef $$RemindersTableCreateCompanionBuilder =
       Value<String?> weeklyDays,
       Value<String?> timeOfDay,
       Value<int?> delayHours,
+      Value<String?> targetMemberId,
       Value<bool> isActive,
       required DateTime createdAt,
       required DateTime modifiedAt,
@@ -26691,6 +27444,7 @@ typedef $$RemindersTableUpdateCompanionBuilder =
       Value<String?> weeklyDays,
       Value<String?> timeOfDay,
       Value<int?> delayHours,
+      Value<String?> targetMemberId,
       Value<bool> isActive,
       Value<DateTime> createdAt,
       Value<DateTime> modifiedAt,
@@ -26749,6 +27503,11 @@ class $$RemindersTableFilterComposer
 
   ColumnFilters<int> get delayHours => $composableBuilder(
     column: $table.delayHours,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetMemberId => $composableBuilder(
+    column: $table.targetMemberId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -26827,6 +27586,11 @@ class $$RemindersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get targetMemberId => $composableBuilder(
+    column: $table.targetMemberId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isActive => $composableBuilder(
     column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
@@ -26890,6 +27654,11 @@ class $$RemindersTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get targetMemberId => $composableBuilder(
+    column: $table.targetMemberId,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
 
@@ -26945,6 +27714,7 @@ class $$RemindersTableTableManager
                 Value<String?> weeklyDays = const Value.absent(),
                 Value<String?> timeOfDay = const Value.absent(),
                 Value<int?> delayHours = const Value.absent(),
+                Value<String?> targetMemberId = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> modifiedAt = const Value.absent(),
@@ -26960,6 +27730,7 @@ class $$RemindersTableTableManager
                 weeklyDays: weeklyDays,
                 timeOfDay: timeOfDay,
                 delayHours: delayHours,
+                targetMemberId: targetMemberId,
                 isActive: isActive,
                 createdAt: createdAt,
                 modifiedAt: modifiedAt,
@@ -26977,6 +27748,7 @@ class $$RemindersTableTableManager
                 Value<String?> weeklyDays = const Value.absent(),
                 Value<String?> timeOfDay = const Value.absent(),
                 Value<int?> delayHours = const Value.absent(),
+                Value<String?> targetMemberId = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime modifiedAt,
@@ -26992,6 +27764,7 @@ class $$RemindersTableTableManager
                 weeklyDays: weeklyDays,
                 timeOfDay: timeOfDay,
                 delayHours: delayHours,
+                targetMemberId: targetMemberId,
                 isActive: isActive,
                 createdAt: createdAt,
                 modifiedAt: modifiedAt,

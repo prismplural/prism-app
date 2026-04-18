@@ -28,6 +28,9 @@ _Member _$MemberFromJson(Map<String, dynamic> json) => _Member(
   birthday: json['birthday'] as String?,
   proxyTagsJson: json['proxyTagsJson'] as String?,
   pluralkitSyncIgnored: json['pluralkitSyncIgnored'] as bool? ?? false,
+  isDeleted: json['isDeleted'] as bool? ?? false,
+  deleteIntentEpoch: (json['deleteIntentEpoch'] as num?)?.toInt(),
+  deletePushStartedAt: (json['deletePushStartedAt'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$MemberToJson(_Member instance) => <String, dynamic>{
@@ -52,4 +55,7 @@ Map<String, dynamic> _$MemberToJson(_Member instance) => <String, dynamic>{
   'birthday': instance.birthday,
   'proxyTagsJson': instance.proxyTagsJson,
   'pluralkitSyncIgnored': instance.pluralkitSyncIgnored,
+  'isDeleted': instance.isDeleted,
+  'deleteIntentEpoch': instance.deleteIntentEpoch,
+  'deletePushStartedAt': instance.deletePushStartedAt,
 };

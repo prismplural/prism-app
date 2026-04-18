@@ -37,6 +37,12 @@ abstract class Member with _$Member {
     String? birthday,
     String? proxyTagsJson,
     @Default(false) bool pluralkitSyncIgnored,
+    // Plan 02 (PK deletion push). Set by the repo when a PK-linked member is
+    // soft-deleted; consumed only by the PK push path. `isDeleted` is mirrored
+    // onto the domain so sync-service re-read guards don't need the Drift row.
+    @Default(false) bool isDeleted,
+    int? deleteIntentEpoch,
+    int? deletePushStartedAt,
   }) = _Member;
 
   factory Member.fromJson(Map<String, dynamic> json) => _$MemberFromJson(json);

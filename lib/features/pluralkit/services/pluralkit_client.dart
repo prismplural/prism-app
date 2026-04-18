@@ -188,6 +188,47 @@ class PluralKitClient {
         .toList();
   }
 
+  /// GET /systems/@me/groups — fetch all groups of the authenticated system.
+  ///
+  /// When [withMembers] is true, PK inlines the members list on each group
+  /// (member objects with `uuid` fields) to avoid an N+1 round-trip. When the
+  /// inline list is absent (privacy or a server-side filter), callers can fall
+  /// back to [getGroupMembers].
+  Future<List<PKGroup>> getGroups({bool withMembers = true}) async {
+    final uri = Uri.parse('$_baseUrl/systems/@me/groups').replace(
+      queryParameters: withMembers ? {'with_members': 'true'} : null,
+    );
+    final response =
+        await _http.get(uri, headers: _headers).timeout(_httpTimeout);
+    final json = _handleResponse(response) as List<dynamic>;
+    return json
+        .map((e) => PKGroup.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// GET /groups/{ref}/members — fetch member UUIDs for a single group.
+  ///
+  /// Used as a fallback when privacy/scope hides the inline `members` field on
+  /// `getGroups(withMembers: true)`. PK returns a list of member objects (or
+  /// string UUIDs); we extract UUIDs either way.
+  Future<List<String>> getGroupMembers(String groupRef) async {
+    final response = await _http.get(
+      Uri.parse('$_baseUrl/groups/$groupRef/members'),
+      headers: _headers,
+    ).timeout(_httpTimeout);
+    final json = _handleResponse(response) as List<dynamic>;
+    final out = <String>[];
+    for (final entry in json) {
+      if (entry is String) {
+        out.add(entry);
+      } else if (entry is Map<String, dynamic>) {
+        final uuid = entry['uuid'];
+        if (uuid is String) out.add(uuid);
+      }
+    }
+    return out;
+  }
+
   /// POST /members — create a new member.
   Future<PKMember> createMember(Map<String, dynamic> data) async {
     final json =

@@ -3884,6 +3884,30 @@ abstract class AppLocalizations {
   /// **'Notes'**
   String get memberSectionBio;
 
+  /// Section header for PluralKit proxy tags on member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy Tags'**
+  String get memberSectionProxyTags;
+
+  /// Subtitle explaining that proxy tags cannot be edited in Prism
+  ///
+  /// In en, this message translates to:
+  /// **'Proxy tags are managed on PluralKit.'**
+  String get memberProxyTagsManagedOnPk;
+
+  /// Button label that opens the member's PluralKit dashboard page
+  ///
+  /// In en, this message translates to:
+  /// **'Edit on PluralKit'**
+  String get memberProxyTagsEditOnPk;
+
+  /// Shown when a PK-linked member has no proxy tags
+  ///
+  /// In en, this message translates to:
+  /// **'No proxy tags set.'**
+  String get memberProxyTagsEmpty;
+
   /// Tooltip for edit member button
   ///
   /// In en, this message translates to:
@@ -8090,10 +8114,10 @@ abstract class AppLocalizations {
   /// **'Your token is stored securely in the device keychain and never leaves your device.'**
   String get pluralkitInfoToken;
 
-  /// How It Works info row about member matching
+  /// How It Works info row about the link-members step
   ///
   /// In en, this message translates to:
-  /// **'Members are matched by PluralKit UUID. Existing members are updated, new ones are created.'**
+  /// **'After connecting, link your PluralKit members to Prism members — or import them as new — so nothing gets duplicated.'**
   String get pluralkitInfoMembers;
 
   /// How It Works info row about switch import
@@ -9211,6 +9235,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 hour} other{{count} hours}}'**
   String remindersDelayHours(int count);
+
+  /// Section label for the optional member target picker on a front-change reminder
+  ///
+  /// In en, this message translates to:
+  /// **'Target'**
+  String get remindersTargetLabel;
+
+  /// Target picker option meaning the reminder fires on any front change (no specific member)
+  ///
+  /// In en, this message translates to:
+  /// **'Any front change'**
+  String get remindersTargetAny;
+
+  /// Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is zero-knowledge, so the relay cannot push notifications for a specific member switch.
+  ///
+  /// In en, this message translates to:
+  /// **'Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.'**
+  String get remindersTargetDisclosure;
+
+  /// Reminder list subtitle prefix shown when a front-change reminder targets a specific member
+  ///
+  /// In en, this message translates to:
+  /// **'When {name} fronts'**
+  String remindersSubtitleTargetPrefix(String name);
 
   /// App name headline in the About section
   ///
@@ -10651,6 +10699,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restored {members} members and {messages} messages.'**
   String onboardingSyncRestoredSummary(int members, int messages);
+
+  /// Title of the first-pull PK system profile disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Import your system profile from PluralKit?'**
+  String get pkProfileDisclosureTitle;
+
+  /// Subtitle of the first-pull PK system profile disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'We\'ll only copy what you check.'**
+  String get pkProfileDisclosureSubtitle;
+
+  /// Primary action on the PK system profile disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Import selected'**
+  String get pkProfileDisclosureImport;
+
+  /// Secondary action on the PK system profile disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get pkProfileDisclosureSkip;
+
+  /// Row label for the PK system name field on the disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'System name'**
+  String get pkProfileFieldName;
+
+  /// Row label for the PK system description field on the disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get pkProfileFieldDescription;
+
+  /// Row label for the PK system tag field on the disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'System tag'**
+  String get pkProfileFieldTag;
+
+  /// Row label for the PK system avatar field on the disclosure sheet
+  ///
+  /// In en, this message translates to:
+  /// **'System avatar'**
+  String get pkProfileFieldAvatar;
+
+  /// Hint shown when a Prism system settings field is already populated and would be overwritten by PK import
+  ///
+  /// In en, this message translates to:
+  /// **'Prism already has a value — tick to overwrite.'**
+  String get pkProfileFieldOverwriteHint;
 }
 
 class _AppLocalizationsDelegate

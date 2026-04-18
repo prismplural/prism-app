@@ -28,6 +28,17 @@ abstract class FrontingSessionRepository {
   );
   Future<int> getCount();
   Future<int> getFrontingCount();
+
+  // -- Plan 02 (PK deletion push) ------------------------------------------
+
+  /// Soft-deleted sessions with a stamped PK switch UUID and intent epoch.
+  Future<List<domain.FrontingSession>> getDeletedLinkedSessions();
+
+  /// Clear `pluralkitUuid` on a tombstone row and emit a CRDT op. R3.
+  Future<void> clearPluralKitLink(String id);
+
+  /// Synced cross-device coordination stamp. R6.
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs);
   Future<Map<String, int>> getMemberFrontingCounts({
     int recentLimit = 50,
     int? startHour,

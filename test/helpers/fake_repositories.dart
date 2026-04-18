@@ -82,6 +82,15 @@ class FakeMemberRepository implements MemberRepository {
 
   @override
   Future<int> getCount() async => _members.length;
+
+  @override
+  Future<List<Member>> getDeletedLinkedMembers() async => const [];
+
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }
 
 // =============================================================================
@@ -237,6 +246,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   @override
   Future<void> updateSystemDescription(String? value) async =>
       updateSettings(settings.copyWith(systemDescription: value));
+  @override
+  Future<void> updateSystemTag(String? value) async =>
+      updateSettings(settings.copyWith(systemTag: value));
   @override
   Future<void> updateSystemAvatarData(Uint8List? value) async =>
       updateSettings(settings.copyWith(systemAvatarData: value));
@@ -600,4 +612,13 @@ class FakeFrontingSessionRepository implements FrontingSessionRepository {
     int? withinDays,
   }) async =>
       {};
+
+  @override
+  Future<List<FrontingSession>> getDeletedLinkedSessions() async => const [];
+
+  @override
+  Future<void> clearPluralKitLink(String id) async {}
+
+  @override
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) async {}
 }

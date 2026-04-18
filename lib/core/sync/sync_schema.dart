@@ -26,6 +26,7 @@ const String prismSyncSchema = '''
         "birthday": "String",
         "proxy_tags_json": "String",
         "pluralkit_sync_ignored": "Bool",
+        "delete_push_started_at": "Int",
         "is_deleted": "Bool"
       }
     },
@@ -42,6 +43,7 @@ const String prismSyncSchema = '''
         "is_health_kit_import": "Bool",
         "pluralkit_uuid": "String",
         "pk_member_ids_json": "String",
+        "delete_push_started_at": "Int",
         "is_deleted": "Bool"
       }
     },
@@ -108,6 +110,7 @@ const String prismSyncSchema = '''
         "timing_mode": "Int",
         "notes_enabled": "Bool",
         "system_description": "String",
+        "system_tag": "String",
         "system_avatar_data": "Blob",
         "reminders_enabled": "Bool",
         "sync_navigation_enabled": "Bool",
@@ -197,6 +200,9 @@ const String prismSyncSchema = '''
         "group_type": "Int",
         "filter_rules": "String",
         "created_at": "DateTime",
+        "pluralkit_id": "String",
+        "pluralkit_uuid": "String",
+        "last_seen_from_pk_at": "DateTime",
         "is_deleted": "Bool"
       }
     },
@@ -263,6 +269,7 @@ const String prismSyncSchema = '''
         "interval_days": "Int",
         "time_of_day": "String",
         "delay_hours": "Int",
+        "target_member_id": "String",
         "is_active": "Bool",
         "created_at": "DateTime",
         "modified_at": "DateTime",

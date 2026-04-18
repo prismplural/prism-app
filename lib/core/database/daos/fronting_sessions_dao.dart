@@ -159,6 +159,35 @@ class FrontingSessionsDao extends DatabaseAccessor<AppDatabase>
         const FrontingSessionsCompanion(isDeleted: Value(true)),
       );
 
+  /// Plan 02: tombstoned sessions that still carry a PK switch UUID and a
+  /// delete intent epoch. See `MembersDao.getDeletedLinkedMembers` for the
+  /// epoch-gated guard that callers must still apply before pushing.
+  Future<List<FrontingSession>> getDeletedLinkedSessions() =>
+      (select(frontingSessions)
+            ..where((s) =>
+                s.isDeleted.equals(true) &
+                s.pluralkitUuid.isNotNull() &
+                s.deleteIntentEpoch.isNotNull()))
+          .get();
+
+  /// Plan 02 R3: clear the PK link on a tombstone. Bypasses the
+  /// `is_deleted = false` filter. Repository callers should pair this with
+  /// a `syncRecordUpdate` so peers converge.
+  Future<void> clearPluralKitLinkRaw(String id) =>
+      (update(frontingSessions)..where((s) => s.id.equals(id))).write(
+        const FrontingSessionsCompanion(pluralkitUuid: Value(null)),
+      );
+
+  Future<void> stampDeleteIntent(String id, int epoch) =>
+      (update(frontingSessions)..where((s) => s.id.equals(id))).write(
+        FrontingSessionsCompanion(deleteIntentEpoch: Value(epoch)),
+      );
+
+  Future<void> stampDeletePushStartedAt(String id, int timestampMs) =>
+      (update(frontingSessions)..where((s) => s.id.equals(id))).write(
+        FrontingSessionsCompanion(deletePushStartedAt: Value(timestampMs)),
+      );
+
   Future<void> endSession(String id, DateTime endTime) =>
       (update(frontingSessions)..where((s) => s.id.equals(id))).write(
         FrontingSessionsCompanion(endTime: Value(endTime)),

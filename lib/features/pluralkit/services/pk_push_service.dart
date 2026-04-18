@@ -35,6 +35,28 @@ class PkStaleLinkException implements Exception {
 
 enum PkStaleLinkKind { member, switchRecord }
 
+/// Plan 02: thrown when PK rejects a DELETE with 403 — the token does not
+/// own the target resource. The caller must NOT clear the local link so the
+/// user can retry after fixing their token.
+class PkDeletionForbiddenException implements Exception {
+  final String localId;
+  final String pkId;
+  final PkStaleLinkKind kind;
+  final PluralKitApiError cause;
+
+  const PkDeletionForbiddenException({
+    required this.localId,
+    required this.pkId,
+    required this.kind,
+    required this.cause,
+  });
+
+  @override
+  String toString() =>
+      'PkDeletionForbiddenException(kind=$kind, localId=$localId, '
+      'pkId=$pkId, cause=$cause)';
+}
+
 /// Pushes local Prism data to PluralKit.
 ///
 /// Rate limiting and 429 retry are handled inside [PluralKitClient] via its
@@ -161,6 +183,9 @@ class PkPushService {
       isPatch: isPatch,
     );
 
+    // proxy_tags intentionally omitted — pull-only today.
+    // See docs/plans/pk-sp-gaps/01-pk-proxy-tags.md before adding a push path.
+
     // Color — PK expects 6-char hex with no '#'. When local color is
     // disabled, skip color entirely. Toggling local color off must not
     // silently clear PK's color as a side effect; an explicit "clear PK
@@ -195,4 +220,66 @@ class PkPushService {
 
   String _stripHash(String color) =>
       color.startsWith('#') ? color.substring(1) : color;
+
+  // -- Plan 02: deletions -----------------------------------------------------
+
+  /// Push a member deletion to PluralKit. Returns normally on 204 and 404
+  /// (both treated as "gone on PK" — caller clears the local link). Throws
+  /// [PkDeletionForbiddenException] on 403 so the caller can skip the link
+  /// clear and surface a message. Other errors propagate.
+  ///
+  /// [localId] is the Prism-side member id; [pkId] is PK's 5-char short id.
+  /// Callers MUST apply the R2 re-read guard immediately before invoking
+  /// this; the service intentionally has no DB access.
+  Future<void> pushMemberDeletion(
+    String localId,
+    String pkId,
+    PluralKitClient client,
+  ) async {
+    try {
+      await _queue.enqueue(() => client.deleteMember(pkId));
+    } on PluralKitApiError catch (e) {
+      if (e.statusCode == 404) {
+        // Treat as success — caller's guard already confirmed the epoch is
+        // current, so this 404 is "already deleted" rather than "wrong
+        // account". R4 is enforced at the orchestration layer (caller only
+        // invokes this after the R1 guard passes).
+        return;
+      }
+      if (e.statusCode == 403) {
+        throw PkDeletionForbiddenException(
+          localId: localId,
+          pkId: pkId,
+          kind: PkStaleLinkKind.member,
+          cause: e,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  /// Push a switch deletion. Same 204/404/403 semantics as
+  /// [pushMemberDeletion].
+  Future<void> pushSwitchDeletion(
+    String localId,
+    String pkUuid,
+    PluralKitClient client,
+  ) async {
+    try {
+      await _queue.enqueue(() => client.deleteSwitch(pkUuid));
+    } on PluralKitApiError catch (e) {
+      if (e.statusCode == 404) {
+        return;
+      }
+      if (e.statusCode == 403) {
+        throw PkDeletionForbiddenException(
+          localId: localId,
+          pkId: pkUuid,
+          kind: PkStaleLinkKind.switchRecord,
+          cause: e,
+        );
+      }
+      rethrow;
+    }
+  }
 }

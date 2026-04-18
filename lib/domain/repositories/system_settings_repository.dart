@@ -72,6 +72,8 @@ abstract class SystemSettingsRepository {
 
   // Phase 3: Synced settings
   Future<void> updateSystemDescription(String? value);
+  // Plan 04: PluralKit system tag.
+  Future<void> updateSystemTag(String? value);
   Future<void> updateSystemAvatarData(Uint8List? value);
 
   // Phase 3: Device-local settings

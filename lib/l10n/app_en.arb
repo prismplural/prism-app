@@ -2904,6 +2904,22 @@
   "@memberSectionBio": {
     "description": "Section header shown above member bio/notes field on detail screen"
   },
+  "memberSectionProxyTags": "Proxy Tags",
+  "@memberSectionProxyTags": {
+    "description": "Section header for PluralKit proxy tags on member detail screen"
+  },
+  "memberProxyTagsManagedOnPk": "Proxy tags are managed on PluralKit.",
+  "@memberProxyTagsManagedOnPk": {
+    "description": "Subtitle explaining that proxy tags cannot be edited in Prism"
+  },
+  "memberProxyTagsEditOnPk": "Edit on PluralKit",
+  "@memberProxyTagsEditOnPk": {
+    "description": "Button label that opens the member's PluralKit dashboard page"
+  },
+  "memberProxyTagsEmpty": "No proxy tags set.",
+  "@memberProxyTagsEmpty": {
+    "description": "Shown when a PK-linked member has no proxy tags"
+  },
   "memberEditTooltip": "Edit member",
   "@memberEditTooltip": {
     "description": "Tooltip for edit member button"
@@ -6519,6 +6535,17 @@
     "description": "Delay picker option for number of hours",
     "placeholders": { "count": { "type": "int" } }
   },
+  "remindersTargetLabel": "Target",
+  "@remindersTargetLabel": { "description": "Section label for the optional member target picker on a front-change reminder" },
+  "remindersTargetAny": "Any front change",
+  "@remindersTargetAny": { "description": "Target picker option meaning the reminder fires on any front change (no specific member)" },
+  "remindersTargetDisclosure": "Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.",
+  "@remindersTargetDisclosure": { "description": "Honesty disclosure shown when a member-targeted front-change reminder is configured. Prism is zero-knowledge, so the relay cannot push notifications for a specific member switch." },
+  "remindersSubtitleTargetPrefix": "When {name} fronts",
+  "@remindersSubtitleTargetPrefix": {
+    "description": "Reminder list subtitle prefix shown when a front-change reminder targets a specific member",
+    "placeholders": { "name": { "type": "String" } }
+  },
   "settingsAboutAppName": "Prism",
   "@settingsAboutAppName": { "description": "App name headline in the About section" },
   "settingsAboutTagline": "Plural system management",
@@ -7212,5 +7239,24 @@
       "messages": { "type": "int" }
     }
   },
-  "onboardingSyncRestoredSummary": "Restored {members} members and {messages} messages."
+  "onboardingSyncRestoredSummary": "Restored {members} members and {messages} messages.",
+
+  "pkProfileDisclosureTitle": "Import your system profile from PluralKit?",
+  "@pkProfileDisclosureTitle": { "description": "Title of the first-pull PK system profile disclosure sheet" },
+  "pkProfileDisclosureSubtitle": "We'll only copy what you check.",
+  "@pkProfileDisclosureSubtitle": { "description": "Subtitle of the first-pull PK system profile disclosure sheet" },
+  "pkProfileDisclosureImport": "Import selected",
+  "@pkProfileDisclosureImport": { "description": "Primary action on the PK system profile disclosure sheet" },
+  "pkProfileDisclosureSkip": "Skip",
+  "@pkProfileDisclosureSkip": { "description": "Secondary action on the PK system profile disclosure sheet" },
+  "pkProfileFieldName": "System name",
+  "@pkProfileFieldName": { "description": "Row label for the PK system name field on the disclosure sheet" },
+  "pkProfileFieldDescription": "Description",
+  "@pkProfileFieldDescription": { "description": "Row label for the PK system description field on the disclosure sheet" },
+  "pkProfileFieldTag": "System tag",
+  "@pkProfileFieldTag": { "description": "Row label for the PK system tag field on the disclosure sheet" },
+  "pkProfileFieldAvatar": "System avatar",
+  "@pkProfileFieldAvatar": { "description": "Row label for the PK system avatar field on the disclosure sheet" },
+  "pkProfileFieldOverwriteHint": "Prism already has a value — tick to overwrite.",
+  "@pkProfileFieldOverwriteHint": { "description": "Hint shown when a Prism system settings field is already populated and would be overwritten by PK import" }
 }

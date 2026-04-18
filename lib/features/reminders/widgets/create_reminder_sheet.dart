@@ -7,6 +7,8 @@ import 'package:prism_plurality/features/reminders/providers/reminders_providers
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/headmate_picker.dart';
+import 'package:prism_plurality/shared/widgets/info_banner.dart';
 import 'package:prism_plurality/shared/widgets/prism_select.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -35,6 +37,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
   int? _intervalDays;
   TimeOfDay? _timeOfDay;
   int? _delayHours;
+  String? _targetMemberId;
 
   bool get _isEditing => widget.editing != null;
   bool get _canSave =>
@@ -61,6 +64,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
         ? 2
         : (editingInterval ?? 2);
     _delayHours = r?.delayHours ?? 0;
+    _targetMemberId = r?.targetMemberId;
     final timeOfDay = r?.timeOfDay;
     if (timeOfDay != null) {
       final parts = timeOfDay.split(':');
@@ -248,6 +252,34 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
                       onChanged: (v) => setState(() => _delayHours = v),
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // Optional member target. null = any front change (current
+                  // behavior). Non-null narrows firing to switches where this
+                  // member is in the current fronter set.
+                  Text(
+                    context.l10n.remindersTargetLabel,
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  HeadmatePicker(
+                    selectedMemberId: _targetMemberId,
+                    includeUnknown: true,
+                    label: context.l10n.remindersTargetAny,
+                    onSelected: (id) => setState(() => _targetMemberId = id),
+                  ),
+                  if (_targetMemberId != null) ...[
+                    const SizedBox(height: 12),
+                    // Honesty disclosure: Prism's relay is zero-knowledge, so
+                    // member-targeted reminders can't be push-delivered — they
+                    // only fire when THIS device observes the switch.
+                    InfoBanner(
+                      icon: AppIcons.infoOutlineRounded,
+                      iconColor: theme.colorScheme.primary,
+                      title: context.l10n.remindersTargetLabel,
+                      message: context.l10n.remindersTargetDisclosure,
+                    ),
+                  ],
                 ],
 
                 if (_isEditing) ...[
@@ -293,6 +325,9 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
             ? _intervalDays
             : null;
 
+    final targetMemberId =
+        _trigger == ReminderTrigger.onFrontChange ? _targetMemberId : null;
+
     if (_isEditing) {
       notifier.updateReminder(
         widget.editing!.copyWith(
@@ -306,6 +341,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
           delayHours: _trigger == ReminderTrigger.onFrontChange
               ? _delayHours
               : null,
+          targetMemberId: targetMemberId,
         ),
       );
     } else {
@@ -320,6 +356,7 @@ class _CreateReminderSheetState extends ConsumerState<CreateReminderSheet> {
         delayHours: _trigger == ReminderTrigger.onFrontChange
             ? _delayHours
             : null,
+        targetMemberId: targetMemberId,
       );
     }
     Navigator.of(context).pop();

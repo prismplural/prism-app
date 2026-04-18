@@ -2183,6 +2183,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberSectionBio => 'Notes';
 
   @override
+  String get memberSectionProxyTags => 'Proxy Tags';
+
+  @override
+  String get memberProxyTagsManagedOnPk =>
+      'Proxy tags are managed on PluralKit.';
+
+  @override
+  String get memberProxyTagsEditOnPk => 'Edit on PluralKit';
+
+  @override
+  String get memberProxyTagsEmpty => 'No proxy tags set.';
+
+  @override
   String get memberEditTooltip => 'Edit member';
 
   @override
@@ -4680,7 +4693,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pluralkitInfoMembers =>
-      'Members are matched by PluralKit UUID. Existing members are updated, new ones are created.';
+      'After connecting, link your PluralKit members to Prism members — or import them as new — so nothing gets duplicated.';
 
   @override
   String get pluralkitInfoSwitches =>
@@ -5325,6 +5338,21 @@ class AppLocalizationsEn extends AppLocalizations {
       one: '1 hour',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get remindersTargetLabel => 'Target';
+
+  @override
+  String get remindersTargetAny => 'Any front change';
+
+  @override
+  String get remindersTargetDisclosure =>
+      'Fires when Prism is running and sees the switch. External switches logged while Prism is closed may not trigger this reminder.';
+
+  @override
+  String remindersSubtitleTargetPrefix(String name) {
+    return 'When $name fronts';
   }
 
   @override
@@ -6174,4 +6202,33 @@ class AppLocalizationsEn extends AppLocalizations {
   String onboardingSyncRestoredSummary(int members, int messages) {
     return 'Restored $members members and $messages messages.';
   }
+
+  @override
+  String get pkProfileDisclosureTitle =>
+      'Import your system profile from PluralKit?';
+
+  @override
+  String get pkProfileDisclosureSubtitle => 'We\'ll only copy what you check.';
+
+  @override
+  String get pkProfileDisclosureImport => 'Import selected';
+
+  @override
+  String get pkProfileDisclosureSkip => 'Skip';
+
+  @override
+  String get pkProfileFieldName => 'System name';
+
+  @override
+  String get pkProfileFieldDescription => 'Description';
+
+  @override
+  String get pkProfileFieldTag => 'System tag';
+
+  @override
+  String get pkProfileFieldAvatar => 'System avatar';
+
+  @override
+  String get pkProfileFieldOverwriteHint =>
+      'Prism already has a value — tick to overwrite.';
 }

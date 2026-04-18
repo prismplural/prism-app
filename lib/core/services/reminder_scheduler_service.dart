@@ -75,10 +75,25 @@ class ReminderSchedulerService {
     }
   }
 
-  /// Fire all pending front-change reminders. Called when active fronting
-  /// sessions change.
-  Future<void> fireFrontChangeReminders() async {
+  /// Fire pending front-change reminders filtered by the current fronter set.
+  ///
+  /// A reminder with [Reminder.targetMemberId] = null fires on any switch.
+  /// A reminder with a target member fires only when that member (or the
+  /// custom-front-tagged member representing an SP custom front) is in
+  /// [currentFronterIds].
+  ///
+  /// Note: This is local-device-only. These reminders fire when THIS device
+  /// observes the front change — either because it initiated the switch, or
+  /// because it received the switch via sync while Prism was running (or
+  /// during an iOS/Android background sync run). They will NOT fire promptly
+  /// when the app is closed and a co-fronter switches on another device.
+  /// The CreateReminderSheet discloses this to users.
+  Future<void> fireFrontChangeReminders(Set<String> currentFronterIds) async {
     for (final reminder in _pendingFrontChangeReminders) {
+      final target = reminder.targetMemberId;
+      if (target != null && !currentFronterIds.contains(target)) {
+        continue;
+      }
       await _showImmediate(reminder);
     }
   }
@@ -266,7 +281,16 @@ final reminderSchedulerListenerProvider = Provider<void>((ref) {
       final previousIds = previousSessions.map((s) => s.id).toSet();
       final currentIds = currentSessions.map((s) => s.id).toSet();
       if (!_setsEqual(previousIds, currentIds)) {
-        service.fireFrontChangeReminders().catchError((e) {
+        // Current fronter member IDs — include co-fronters, skip sessions
+        // with no member_id (shouldn't happen for active sessions, but be
+        // defensive).
+        final fronterIds = <String>{};
+        for (final s in currentSessions) {
+          final mid = s.memberId;
+          if (mid != null) fronterIds.add(mid);
+          fronterIds.addAll(s.coFronterIds);
+        }
+        service.fireFrontChangeReminders(fronterIds).catchError((e) {
           debugPrint('Front-change reminder fire failed (non-fatal): $e');
         });
       }

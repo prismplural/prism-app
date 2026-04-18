@@ -21,6 +21,10 @@ class FrontingSessions extends Table {
   TextColumn get pkMemberIdsJson => text().nullable()();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
 
+  // -- Plan 02 (PK deletion push) -- see members_table.dart for rationale.
+  IntColumn get deleteIntentEpoch => integer().nullable()();
+  IntColumn get deletePushStartedAt => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
