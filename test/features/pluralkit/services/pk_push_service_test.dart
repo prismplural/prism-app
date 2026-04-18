@@ -53,6 +53,19 @@ class FakePluralKitClient implements PluralKitClient {
     );
   }
 
+  @override
+  Future<PKSwitch> updateSwitch(String switchId,
+          {required DateTime timestamp}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<PKSwitch> updateSwitchMembers(
+          String switchId, List<String> memberIds) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> deleteSwitch(String switchId) => throw UnimplementedError();
+
   // -- unused stubs ----------------------------------------------------------
 
   @override
@@ -202,5 +215,37 @@ void main() {
 
       expect(fakeClient.calls.first.args[1], ts);
     });
+
+    test('wraps 404 as PkStaleLinkException with switchRecord kind', () async {
+      final throwing = _Throw404OnCreateSwitchClient();
+      expect(
+        () => pushService.pushSwitch(['pk001'], throwing),
+        throwsA(isA<PkStaleLinkException>()
+            .having((e) => e.kind, 'kind', PkStaleLinkKind.switchRecord)),
+      );
+    });
+
+    test('non-404 errors are not wrapped as stale-link', () async {
+      final throwing = _Throw500OnCreateSwitchClient();
+      expect(
+        () => pushService.pushSwitch(['pk001'], throwing),
+        throwsA(isA<PluralKitApiError>()
+            .having((e) => e is PkStaleLinkException, 'isStale', false)),
+      );
+    });
   });
+}
+
+class _Throw404OnCreateSwitchClient extends FakePluralKitClient {
+  @override
+  Future<PKSwitch> createSwitch(List<String> memberIds,
+          {DateTime? timestamp}) async =>
+      throw const PluralKitApiError(404, 'not found');
+}
+
+class _Throw500OnCreateSwitchClient extends FakePluralKitClient {
+  @override
+  Future<PKSwitch> createSwitch(List<String> memberIds,
+          {DateTime? timestamp}) async =>
+      throw const PluralKitApiError(500, 'boom');
 }

@@ -215,6 +215,43 @@ class PluralKitClient {
     return PKSwitch.fromJson(json);
   }
 
+  /// PATCH /systems/@me/switches/{switchId} — update a switch's timestamp.
+  ///
+  /// PK's PATCH endpoint on a switch only supports `timestamp`. Member changes
+  /// go through [updateSwitchMembers] via `PATCH /switches/{id}/members`.
+  Future<PKSwitch> updateSwitch(
+    String switchId, {
+    required DateTime timestamp,
+  }) async {
+    final body = <String, dynamic>{
+      'timestamp': timestamp.toUtc().toIso8601String(),
+    };
+    final json = await _patch(
+      '$_baseUrl/systems/@me/switches/$switchId',
+      body,
+    ) as Map<String, dynamic>;
+    return PKSwitch.fromJson(json);
+  }
+
+  /// PATCH /systems/@me/switches/{switchId}/members — replace the fronter list
+  /// on an existing switch. Member IDs are PK 5-char short IDs.
+  Future<PKSwitch> updateSwitchMembers(
+    String switchId,
+    List<String> memberIds,
+  ) async {
+    final json = await _patch(
+      '$_baseUrl/systems/@me/switches/$switchId/members',
+      <String, dynamic>{'members': memberIds},
+    );
+    // PK returns the updated switch object (member objects form).
+    return PKSwitch.fromJson(json as Map<String, dynamic>);
+  }
+
+  /// DELETE /systems/@me/switches/{switchId} — delete a switch.
+  Future<void> deleteSwitch(String switchId) async {
+    await _delete('$_baseUrl/systems/@me/switches/$switchId');
+  }
+
   /// DELETE /members/{id} — delete a member.
   Future<void> deleteMember(String id) async {
     await _delete('$_baseUrl/members/$id');

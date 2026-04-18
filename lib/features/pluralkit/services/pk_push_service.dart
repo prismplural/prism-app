@@ -3,6 +3,39 @@ import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_request_queue.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_client.dart';
 
+/// Thrown when a PATCH/DELETE/PUSH targets a PK resource that no longer
+/// exists on PK (404). Callers should treat this as "the local link is
+/// stale" — clear the relevant `pluralkitId` / `pluralkitUuid` columns and
+/// surface a user-visible warning so the user can re-link via the mapping
+/// screen.
+class PkStaleLinkException implements Exception {
+  /// The local-side identifier (member.id or fronting session id) that had
+  /// the stale link, so callers can route the cleanup without another lookup.
+  final String localId;
+
+  /// The PK-side identifier that returned 404, included for logging only.
+  final String pkId;
+
+  /// Which kind of link went stale — drives which local column to clear.
+  final PkStaleLinkKind kind;
+
+  final PluralKitApiError cause;
+
+  const PkStaleLinkException({
+    required this.localId,
+    required this.pkId,
+    required this.kind,
+    required this.cause,
+  });
+
+  @override
+  String toString() =>
+      'PkStaleLinkException(kind=$kind, localId=$localId, pkId=$pkId, '
+      'cause=$cause)';
+}
+
+enum PkStaleLinkKind { member, switchRecord }
+
 /// Pushes local Prism data to PluralKit.
 class PkPushService {
   final PkRequestQueue _queue;
@@ -27,10 +60,22 @@ class PkPushService {
     if (member.pluralkitId != null && member.pluralkitId!.isNotEmpty) {
       // PATCH — include explicit nulls to clear fields on PK.
       final data = _memberToPayload(member, pkMember: pkMember, isPatch: true);
-      final updated = await _queue.enqueue(
-        () => client.updateMember(member.pluralkitId!, data),
-      );
-      return updated.id;
+      try {
+        final updated = await _queue.enqueue(
+          () => client.updateMember(member.pluralkitId!, data),
+        );
+        return updated.id;
+      } on PluralKitApiError catch (e) {
+        if (e.statusCode == 404) {
+          throw PkStaleLinkException(
+            localId: member.id,
+            pkId: member.pluralkitId!,
+            kind: PkStaleLinkKind.member,
+            cause: e,
+          );
+        }
+        rethrow;
+      }
     } else {
       // POST — create new PK member. Omit nulls (PK's POST treats omit = clear).
       final data = _memberToPayload(member, isPatch: false);
@@ -45,14 +90,35 @@ class PkPushService {
   ///
   /// [pkMemberIds] should be the PK 5-character member IDs of the fronters.
   /// [timestamp] is optional; PK defaults to the current time if omitted.
+  ///
+  /// A 404 from PK is wrapped as [PkStaleLinkException] with
+  /// [PkStaleLinkKind.switchRecord] so callers can distinguish "this switch
+  /// no longer exists on PK" from other API errors. For a create call, 404
+  /// typically means one of the referenced member IDs is stale — but the
+  /// caller still routes cleanup by skipping the session; it doesn't know
+  /// which member is to blame, so we do not pass a [localId] that maps to
+  /// a member. [localId] is set to an empty string since the switch hasn't
+  /// been persisted yet.
   Future<PKSwitch> pushSwitch(
     List<String> pkMemberIds,
     PluralKitClient client, {
     DateTime? timestamp,
   }) async {
-    return _queue.enqueue(
-      () => client.createSwitch(pkMemberIds, timestamp: timestamp),
-    );
+    try {
+      return await _queue.enqueue(
+        () => client.createSwitch(pkMemberIds, timestamp: timestamp),
+      );
+    } on PluralKitApiError catch (e) {
+      if (e.statusCode == 404) {
+        throw PkStaleLinkException(
+          localId: '',
+          pkId: pkMemberIds.isEmpty ? '' : pkMemberIds.first,
+          kind: PkStaleLinkKind.switchRecord,
+          cause: e,
+        );
+      }
+      rethrow;
+    }
   }
 
   /// Convert a local Member to a PK-compatible JSON payload.
