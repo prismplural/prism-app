@@ -237,7 +237,7 @@ class PkPushService {
     PluralKitClient client,
   ) async {
     try {
-      await _queue.enqueue(() => client.deleteMember(pkId));
+      await client.deleteMember(pkId);
     } on PluralKitApiError catch (e) {
       if (e.statusCode == 404) {
         // Treat as success — caller's guard already confirmed the epoch is
@@ -266,7 +266,7 @@ class PkPushService {
     PluralKitClient client,
   ) async {
     try {
-      await _queue.enqueue(() => client.deleteSwitch(pkUuid));
+      await client.deleteSwitch(pkUuid);
     } on PluralKitApiError catch (e) {
       if (e.statusCode == 404) {
         return;
