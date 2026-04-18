@@ -6,7 +6,7 @@ set -euo pipefail
 # ─────────────────────────────────────────────────────────────────────
 
 MACOS_DEVICE="macos"
-ANDROID_DEVICE="adb-19101FDEE007T3-b9mL3t._adb-tls-connect._tcp"
+ANDROID_DEVICE="Pixel 6 Pro"
 IPHONE_DEVICE="00008120-0014759E3A33401E"
 
 RED='\033[0;31m'
