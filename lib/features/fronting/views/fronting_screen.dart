@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/domain/models/models.dart';
@@ -47,11 +48,17 @@ class FrontingScreen extends ConsumerStatefulWidget {
 
 class _FrontingScreenState extends ConsumerState<FrontingScreen> {
   final _scrollController = ScrollController();
+  bool _graceElapsed = false;
+  Timer? _graceTimer;
+  bool _markedMembersFirstEmit = false;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _graceTimer = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) setState(() => _graceElapsed = true);
+    });
   }
 
   void _onScroll() {
@@ -73,6 +80,7 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
 
   @override
   void dispose() {
+    _graceTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -82,6 +90,10 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     final theme = Theme.of(context);
     final membersAsync = ref.watch(activeMembersProvider);
 
+    if (!_markedMembersFirstEmit && !membersAsync.isLoading) {
+      _markedMembersFirstEmit = true;
+      BootTimings.mark('members first emit');
+    }
     // Scroll to top when the home tab is re-tapped.
     ref.listen(tabRetapProvider, (_, _) {
       if (_scrollController.hasClients) {
@@ -112,6 +124,28 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
     final sleepAsync = ref.watch(activeSleepSessionProvider);
     final isSleeping = sleepAsync.value != null;
     final isTimelineView = ref.watch(timelineViewActiveProvider);
+
+    // "Initial load only" — hasValue is false while the stream has not
+    // emitted yet; reloads keep hasValue=true so this flag goes false and we
+    // show the stale content normally while new data fetches.
+    bool initialLoading(AsyncValue v) => v.isLoading && !v.hasValue;
+
+    final showInitialLoader =
+        !isTimelineView &&
+        _graceElapsed &&
+        (initialLoading(membersAsync) || initialLoading(sleepAsync));
+
+    if (showInitialLoader) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Column(
+          children: [
+            PrismTopBar(title: systemName),
+            const Expanded(child: Center(child: PrismLoadingState())),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
