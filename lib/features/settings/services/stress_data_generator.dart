@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -78,6 +79,44 @@ class StressPreset {
     estimatedSizeMb: 500,
     estimatedSeconds: 180,
   );
+
+  // 5000-member system, 7 years of history. Plural systems this large
+  // really exist and this preset is meant to stress every query path.
+  static const huge = StressPreset(
+    label: 'Huge',
+    members: 5000,
+    sessions: 500000,
+    conversations: 500,
+    messages: 500000,
+    habits: 500,
+    completions: 50000,
+    notes: 3000,
+    polls: 300,
+    groups: 75,
+    customFields: 25,
+    years: 7,
+    estimatedSizeMb: 2500,
+    estimatedSeconds: 900,
+  );
+
+  // 10000-member system, 7 years. Upper bound for dogfooding — expect
+  // multi-GB database and many minutes of generation time.
+  static const massive = StressPreset(
+    label: 'Massive',
+    members: 10000,
+    sessions: 1000000,
+    conversations: 1000,
+    messages: 1000000,
+    habits: 1000,
+    completions: 100000,
+    notes: 6000,
+    polls: 500,
+    groups: 150,
+    customFields: 30,
+    years: 7,
+    estimatedSizeMb: 5000,
+    estimatedSeconds: 1800,
+  );
 }
 
 /// Progress update emitted during generation.
@@ -139,20 +178,42 @@ class StressDataGenerator {
   ];
 
   /// Generate stress data, yielding progress updates.
-  Stream<StressProgress> generate(StressPreset preset) async* {
+  ///
+  /// The whole generation runs inside a single Drift transaction so table
+  /// stream notifications are deferred until commit — otherwise every 2000-row
+  /// batch would trigger every UI stream to re-query the growing tables,
+  /// pegging the CPU and melting the device. One notification fires at the
+  /// end for all affected tables.
+  Stream<StressProgress> generate(StressPreset preset) {
+    final controller = StreamController<StressProgress>();
+    scheduleMicrotask(() async {
+      try {
+        await _db.transaction(() => _generate(preset, controller));
+      } catch (e, st) {
+        if (!controller.isClosed) controller.addError(e, st);
+      } finally {
+        if (!controller.isClosed) await controller.close();
+      }
+    });
+    return controller.stream;
+  }
+
+  Future<void> _generate(
+    StressPreset preset,
+    StreamController<StressProgress> sink,
+  ) async {
     final rng = Random(42); // Deterministic for reproducibility
 
     // Build Zipf-like member weights for session distribution.
     // Harmonic series: weight(rank) = 1/rank^0.8, so top 10% gets ~60%.
     final memberIds = List.generate(preset.members, (i) => 'stress-member-$i');
-    final weights = List.generate(
+    final memberCumulative = _buildCumulative(
       preset.members,
       (i) => 1.0 / pow(i + 1, 0.8),
     );
-    final totalWeight = weights.reduce((a, b) => a + b);
 
     // --- Members ---
-    yield StressProgress('Members', 0, preset.members);
+    sink.add(StressProgress('Members', 0, preset.members));
     for (var chunk = 0; chunk < preset.members; chunk += _chunkSize) {
       final end = min(chunk + _chunkSize, preset.members);
       await _db.batch((batch) {
@@ -173,12 +234,12 @@ class StressDataGenerator {
           );
         }
       });
-      yield StressProgress('Members', end, preset.members);
+      sink.add(StressProgress('Members', end, preset.members));
     }
 
     // --- Member Groups ---
     final groupIds = List.generate(preset.groups, (i) => 'stress-group-$i');
-    yield StressProgress('Groups', 0, preset.groups);
+    sink.add(StressProgress('Groups', 0, preset.groups));
     if (preset.groups > 0) {
       await _db.batch((batch) {
         for (var i = 0; i < preset.groups; i++) {
@@ -224,14 +285,14 @@ class StressDataGenerator {
         });
       }
     }
-    yield StressProgress('Groups', preset.groups, preset.groups);
+    sink.add(StressProgress('Groups', preset.groups, preset.groups));
 
     // --- Custom Fields ---
     final fieldIds = List.generate(
       preset.customFields,
       (i) => 'stress-field-$i',
     );
-    yield StressProgress('Custom Fields', 0, preset.customFields);
+    sink.add(StressProgress('Custom Fields', 0, preset.customFields));
     if (preset.customFields > 0) {
       await _db.batch((batch) {
         for (var i = 0; i < preset.customFields; i++) {
@@ -270,19 +331,19 @@ class StressDataGenerator {
         });
       }
     }
-    yield StressProgress('Custom Fields', preset.customFields, preset.customFields);
+    sink.add(StressProgress('Custom Fields', preset.customFields, preset.customFields));
 
     // --- Fronting Sessions ---
     final now = DateTime.now();
     final timeSpan = Duration(days: preset.years * 365);
     final earliest = now.subtract(timeSpan);
 
-    yield StressProgress('Fronting Sessions', 0, preset.sessions);
+    sink.add(StressProgress('Fronting Sessions', 0, preset.sessions));
     for (var chunk = 0; chunk < preset.sessions; chunk += _chunkSize) {
       final end = min(chunk + _chunkSize, preset.sessions);
       await _db.batch((batch) {
         for (var i = chunk; i < end; i++) {
-          final memberId = _pickWeighted(rng, memberIds, weights, totalWeight);
+          final memberId = memberIds[_pickCumulative(rng, memberCumulative)];
           final startOffset = Duration(
             seconds: rng.nextInt(timeSpan.inSeconds),
           );
@@ -324,13 +385,13 @@ class StressDataGenerator {
           );
         }
       });
-      yield StressProgress('Fronting Sessions', end, preset.sessions);
+      sink.add(StressProgress('Fronting Sessions', end, preset.sessions));
     }
 
     // --- Sleep Sessions ---
     // Generate ~1 sleep session per 2 days across the time span.
     final sleepCount = preset.years * 365 ~/ 2;
-    yield StressProgress('Sleep Sessions', 0, sleepCount);
+    sink.add(StressProgress('Sleep Sessions', 0, sleepCount));
     for (var chunk = 0; chunk < sleepCount; chunk += _chunkSize) {
       final end = min(chunk + _chunkSize, sleepCount);
       await _db.batch((batch) {
@@ -356,7 +417,7 @@ class StressDataGenerator {
           );
         }
       });
-      yield StressProgress('Sleep Sessions', end, sleepCount);
+      sink.add(StressProgress('Sleep Sessions', end, sleepCount));
     }
 
     // --- Conversation Categories ---
@@ -389,7 +450,7 @@ class StressDataGenerator {
     // Build participant lists during creation so messages can reference them.
     final convParticipants = <String, List<String>>{};
 
-    yield StressProgress('Conversations', 0, preset.conversations);
+    sink.add(StressProgress('Conversations', 0, preset.conversations));
     if (preset.conversations > 0) {
       await _db.batch((batch) {
         for (var i = 0; i < preset.conversations; i++) {
@@ -425,28 +486,22 @@ class StressDataGenerator {
         }
       });
     }
-    yield StressProgress('Conversations', preset.conversations, preset.conversations);
+    sink.add(StressProgress('Conversations', preset.conversations, preset.conversations));
 
     // Messages distributed with power law across conversations.
-    yield StressProgress('Messages', 0, preset.messages);
+    sink.add(StressProgress('Messages', 0, preset.messages));
     if (preset.messages > 0 && preset.conversations > 0) {
-      // Power-law weights for conversations (double for _pickWeighted).
-      final convWeights = List.generate(
+      final convCumulative = _buildCumulative(
         preset.conversations,
         (i) => (preset.conversations - i).toDouble(),
       );
-      final convTotalWeight = convWeights.reduce((a, b) => a + b);
 
       for (var chunk = 0; chunk < preset.messages; chunk += _chunkSize) {
         final end = min(chunk + _chunkSize, preset.messages);
         await _db.batch((batch) {
           for (var i = chunk; i < end; i++) {
-            final convId = _pickWeighted(
-              rng,
-              conversationIds,
-              convWeights,
-              convTotalWeight,
-            );
+            final convId =
+                conversationIds[_pickCumulative(rng, convCumulative)];
             final participants = convParticipants[convId]!;
             final authorId = participants[rng.nextInt(participants.length)];
             final msgTime = earliest.add(Duration(
@@ -485,13 +540,13 @@ class StressDataGenerator {
             );
           }
         });
-        yield StressProgress('Messages', end, preset.messages);
+        sink.add(StressProgress('Messages', end, preset.messages));
       }
     }
 
     // --- Habits ---
     final habitIds = List.generate(preset.habits, (i) => 'stress-habit-$i');
-    yield StressProgress('Habits', 0, preset.habits);
+    sink.add(StressProgress('Habits', 0, preset.habits));
     if (preset.habits > 0) {
       for (var chunk = 0; chunk < preset.habits; chunk += _chunkSize) {
         final end = min(chunk + _chunkSize, preset.habits);
@@ -516,12 +571,12 @@ class StressDataGenerator {
             );
           }
         });
-        yield StressProgress('Habits', end, preset.habits);
+        sink.add(StressProgress('Habits', end, preset.habits));
       }
     }
 
     // --- Habit Completions ---
-    yield StressProgress('Completions', 0, preset.completions);
+    sink.add(StressProgress('Completions', 0, preset.completions));
     if (preset.completions > 0 && preset.habits > 0) {
       for (var chunk = 0; chunk < preset.completions; chunk += _chunkSize) {
         final end = min(chunk + _chunkSize, preset.completions);
@@ -544,7 +599,7 @@ class StressDataGenerator {
             );
           }
         });
-        yield StressProgress('Completions', end, preset.completions);
+        sink.add(StressProgress('Completions', end, preset.completions));
       }
     }
 
@@ -579,7 +634,7 @@ class StressDataGenerator {
     }
 
     // --- Notes ---
-    yield StressProgress('Notes', 0, preset.notes);
+    sink.add(StressProgress('Notes', 0, preset.notes));
     if (preset.notes > 0) {
       for (var chunk = 0; chunk < preset.notes; chunk += _chunkSize) {
         final end = min(chunk + _chunkSize, preset.notes);
@@ -603,13 +658,13 @@ class StressDataGenerator {
             );
           }
         });
-        yield StressProgress('Notes', end, preset.notes);
+        sink.add(StressProgress('Notes', end, preset.notes));
       }
     }
 
     // --- Polls ---
     final pollIds = List.generate(preset.polls, (i) => 'stress-poll-$i');
-    yield StressProgress('Polls', 0, preset.polls);
+    sink.add(StressProgress('Polls', 0, preset.polls));
     if (preset.polls > 0) {
       await _db.batch((batch) {
         for (var i = 0; i < preset.polls; i++) {
@@ -681,12 +736,12 @@ class StressDataGenerator {
         });
       }
     }
-    yield StressProgress('Polls', preset.polls, preset.polls);
+    sink.add(StressProgress('Polls', preset.polls, preset.polls));
 
     // --- Front Session Comments ---
     // Add comments to ~10% of sessions.
     final commentCount = preset.sessions ~/ 10;
-    yield StressProgress('Comments', 0, commentCount);
+    sink.add(StressProgress('Comments', 0, commentCount));
     if (commentCount > 0) {
       for (var chunk = 0; chunk < commentCount; chunk += _chunkSize) {
         final end = min(chunk + _chunkSize, commentCount);
@@ -706,11 +761,11 @@ class StressDataGenerator {
             );
           }
         });
-        yield StressProgress('Comments', end, commentCount);
+        sink.add(StressProgress('Comments', end, commentCount));
       }
     }
 
-    yield const StressProgress('Done', 1, 1);
+    sink.add(const StressProgress('Done', 1, 1));
   }
 
   /// Delete all data with IDs starting with 'stress-'.
@@ -783,19 +838,34 @@ class StressDataGenerator {
     return result.read<int>('c') > 0;
   }
 
-  /// Pick a random element using weighted distribution.
-  static T _pickWeighted<T>(
-    Random rng,
-    List<T> items,
-    List<double> weights,
-    double totalWeight,
-  ) {
-    var roll = rng.nextDouble() * totalWeight;
-    for (var i = 0; i < items.length; i++) {
-      roll -= weights[i];
-      if (roll < 0) return items[i];
+  /// Build a cumulative-weight array for O(log N) weighted sampling.
+  /// The last entry equals the total weight.
+  static List<double> _buildCumulative(int n, double Function(int) weight) {
+    final out = List<double>.filled(n, 0);
+    var running = 0.0;
+    for (var i = 0; i < n; i++) {
+      running += weight(i);
+      out[i] = running;
     }
-    return items.last;
+    return out;
+  }
+
+  /// Pick an index using a precomputed cumulative-weight array via binary
+  /// search. O(log N) per call vs. O(N) for the previous linear scan —
+  /// the difference between milliseconds and minutes on large presets.
+  static int _pickCumulative(Random rng, List<double> cumulative) {
+    final roll = rng.nextDouble() * cumulative.last;
+    var lo = 0;
+    var hi = cumulative.length - 1;
+    while (lo < hi) {
+      final mid = (lo + hi) >> 1;
+      if (cumulative[mid] < roll) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
   }
 
   /// Generate random text from a word pool.

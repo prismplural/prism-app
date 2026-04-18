@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -430,20 +428,16 @@ class _DebugScreenState extends ConsumerState<DebugScreen> {
     }
   }
 
-  List<StressPreset> get _availablePresets {
-    if (kIsWeb) return [StressPreset.medium];
-    final isDesktop =
-        defaultTargetPlatform == TargetPlatform.macOS ||
-        defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.linux;
-    if (isDesktop) {
-      return [StressPreset.medium, StressPreset.large, StressPreset.extreme];
-    }
-    return [StressPreset.medium, StressPreset.large];
-  }
+  static const _availablePresets = [
+    StressPreset.medium,
+    StressPreset.large,
+    StressPreset.extreme,
+    StressPreset.huge,
+    StressPreset.massive,
+  ];
 
   Future<void> _showPresetPicker(BuildContext context) async {
-    final presets = _availablePresets;
+    const presets = _availablePresets;
     final preset = await PrismSheet.show<StressPreset>(
       context: context,
       title: context.l10n.debugSelectPreset,
