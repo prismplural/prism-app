@@ -52,7 +52,7 @@ class GroupParentPicker extends ConsumerWidget {
       ),
       error: (e, _) => Padding(
         padding: const EdgeInsets.all(16),
-        child: Text('Error loading groups: $e'),
+        child: Text(l10n.error),
       ),
       data: (allGroups) {
         // Build the candidate list, filtering out illegal choices.
@@ -99,29 +99,31 @@ class GroupParentPicker extends ConsumerWidget {
               ),
               const Divider(height: 1),
               Flexible(
-                child: ListView(
+                child: ListView.builder(
                   shrinkWrap: true,
-                  children: [
-                    // "No parent" option.
-                    ListTile(
-                      leading: Icon(
-                        AppIcons.folderOutlined,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      title: Text(l10n.memberGroupParentNone),
-                      trailing: currentParentId == null
-                          ? Icon(Icons.check, color: theme.colorScheme.primary)
-                          : null,
-                      onTap: () {
-                        onSelected(null);
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                    const Divider(height: 1),
-                    // Group options.
-                    for (final item in candidates)
-                      _buildGroupTile(context, item, theme, l10n),
-                  ],
+                  itemCount: candidates.length + 2,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return ListTile(
+                        leading: Icon(
+                          AppIcons.folderOutlined,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(l10n.memberGroupParentNone),
+                        trailing: currentParentId == null
+                            ? Icon(Icons.check,
+                                color: theme.colorScheme.primary)
+                            : null,
+                        onTap: () {
+                          onSelected(null);
+                          Navigator.of(context).pop();
+                        },
+                      );
+                    }
+                    if (index == 1) return const Divider(height: 1);
+                    return _buildGroupTile(
+                        context, candidates[index - 2], theme, l10n);
+                  },
                 ),
               ),
             ],
@@ -135,7 +137,7 @@ class GroupParentPicker extends ConsumerWidget {
     BuildContext context,
     _GroupPickerItem item,
     ThemeData theme,
-    dynamic l10n,
+    AppLocalizations l10n,
   ) {
     final group = item.group;
     final isAtDepthLimit = item.depth >= 3;

@@ -223,11 +223,12 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     final canSave = _nameController.text.trim().isNotEmpty;
 
     // Look up the display name for the currently selected parent group.
-    final allGroups = ref.watch(allGroupsProvider).value ?? [];
-    final parentGroup = _parentGroupId == null
+    // Use `select` so we only rebuild when the relevant group's name changes,
+    // not on every keystroke when other groups in the list change.
+    final parentDisplayName = _parentGroupId == null
         ? null
-        : allGroups.where((g) => g.id == _parentGroupId).firstOrNull;
-    final parentDisplayName = parentGroup?.name;
+        : ref.watch(allGroupsProvider.select((async) =>
+            async.value?.where((g) => g.id == _parentGroupId).firstOrNull?.name));
 
     return SafeArea(
       child: Column(
