@@ -132,7 +132,8 @@ class DriftMemberGroupsRepository
     while (queue.isNotEmpty) {
       final current = queue.removeLast();
       toDelete.add(current);
-      queue.addAll(byParent[current] ?? []);
+      queue.addAll(
+          (byParent[current] ?? []).where((id) => !toDelete.contains(id)));
     }
 
     // Pre-fetch entries for sync ops before the transaction deletes them.

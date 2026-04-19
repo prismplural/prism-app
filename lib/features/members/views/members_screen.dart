@@ -113,6 +113,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               onTap: () {
                 Navigator.of(ctx).pop();
                 setState(() => _showInactive = !_showInactive);
+                ref
+                    .read(showInactiveInGroupedListProvider.notifier)
+                    .set(_showInactive);
               },
             ),
             if (members != null && members.length > 1) ...[

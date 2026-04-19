@@ -128,6 +128,19 @@ final collapsedGroupsProvider =
     NotifierProvider<CollapsedGroupsNotifier, Set<String>>(
         CollapsedGroupsNotifier.new);
 
+/// When true, the grouped member list includes inactive members.
+/// Kept in sync with the show-inactive toggle in MembersScreen.
+class ShowInactiveInGroupedListNotifier extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool value) => state = value;
+}
+
+final showInactiveInGroupedListProvider =
+    NotifierProvider<ShowInactiveInGroupedListNotifier, bool>(
+        ShowInactiveInGroupedListNotifier.new);
+
 // ── Grouped member list ───────────────────────────────────────────────────────
 
 /// Items in the members tab grouped list.
@@ -169,6 +182,7 @@ final _groupedMemberListStructureProvider =
   final tree = ref.watch(groupTreeProvider);
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
   final allMembers = ref.watch(allMembersProvider).value ?? [];
+  final showInactive = ref.watch(showInactiveInGroupedListProvider);
 
   final memberById = {for (final m in allMembers) m.id: m};
 
@@ -178,7 +192,7 @@ final _groupedMemberListStructureProvider =
   for (final entry in allEntries) {
     groupedMemberIds.add(entry.memberId);
     final member = memberById[entry.memberId];
-    if (member != null && member.isActive) {
+    if (member != null && (showInactive || member.isActive)) {
       directMembersByGroup.putIfAbsent(entry.groupId, () => []).add(member);
     }
   }
@@ -200,7 +214,8 @@ final _groupedMemberListStructureProvider =
   }
 
   final ungrouped = allMembers
-      .where((m) => m.isActive && !groupedMemberIds.contains(m.id))
+      .where((m) =>
+          (showInactive || m.isActive) && !groupedMemberIds.contains(m.id))
       .toList();
   if (ungrouped.isNotEmpty) {
     result.add(const UngroupedSectionItem());
