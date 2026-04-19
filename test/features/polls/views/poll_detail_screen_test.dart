@@ -54,6 +54,9 @@ void main() {
             return Stream.value(matching.isEmpty ? null : matching.first);
           }),
           activeSessionProvider.overrideWith((ref) => Stream.value(null)),
+          memberFrontingCountsProvider.overrideWith(
+            (ref) async => const <String, int>{},
+          ),
           systemSettingsProvider.overrideWith(
             (ref) => Stream.value(const SystemSettings()),
           ),
@@ -103,6 +106,9 @@ void main() {
           return Stream.value(matching.isEmpty ? null : matching.first);
         }),
         activeSessionProvider.overrideWith((ref) => Stream.value(null)),
+        memberFrontingCountsProvider.overrideWith(
+          (ref) async => const <String, int>{},
+        ),
         systemSettingsProvider.overrideWith(
           (ref) => Stream.value(const SystemSettings()),
         ),
