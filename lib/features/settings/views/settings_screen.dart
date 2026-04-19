@@ -21,7 +21,10 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_settings_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// Main settings screen. Clean navigation list matching SwiftUI's layout:
 /// sections with icon-labeled links to sub-screens.
@@ -175,31 +178,19 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                _buildSection(
-                  title: context.l10n.settingsSectionAbout,
-                  rows: [
-                    _SettingsLink(
-                      icon: AppIcons.infoOutline,
-                      iconColor: Colors.purple,
-                      title: context.l10n.settingsAbout,
-                      onTap: () => context.push(AppRoutePaths.settingsAbout),
-                    ),
-                    _SettingsLink(
-                      icon: AppIcons.enhancedEncryptionOutlined,
-                      iconColor: Colors.blueGrey,
-                      title: context.l10n.settingsEncryptionPrivacy,
-                      onTap: () =>
-                          context.push(AppRoutePaths.settingsEncryptionInfo),
-                    ),
-                    if (!kReleaseMode)
+                _buildAboutRow(context, theme),
+                if (!kReleaseMode)
+                  _buildSection(
+                    title: '',
+                    rows: [
                       _SettingsLink(
                         icon: AppIcons.bugReportOutlined,
                         iconColor: Colors.orange,
                         title: context.l10n.settingsDebug,
                         onTap: () => context.push(AppRoutePaths.settingsDebug),
                       ),
-                  ],
-                ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -223,6 +214,36 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  static Widget _buildAboutRow(BuildContext context, ThemeData theme) {
+    final cornerStyle = PrismShapes.of(context).cornerStyle;
+    return Padding(
+      padding: PrismTokens.sectionPadding,
+      child: PrismGroupedSectionCard(
+        child: PrismListRow(
+          title: Text(context.l10n.settingsAbout),
+          onTap: () => context.push(AppRoutePaths.settingsAbout),
+          showChevron: true,
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.prismPurple,
+              borderRadius: cornerStyle == CornerStyle.angular
+                  ? BorderRadius.zero
+                  : BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Image.asset(
+                    'assets/icon_layers/Prism-Logo-Foreground.png',
+                    width: 28,
+                    height: 28,
+                  ),
+          ),
+        ),
       ),
     );
   }

@@ -171,6 +171,20 @@ class MobileVoiceRecorderBackend implements VoiceRecorderBackend {
       _recordingStartedAt = _now();
       _activeRecordingPath = recordingPath;
       await _recorder.start(path: recordingPath);
+
+      // Android's MediaRecorder takes several seconds to start returning
+      // meaningful amplitude values. Pre-seed with silence so the waveform
+      // appears immediately rather than staying blank for ~4 seconds.
+      if (_platform.isAndroid) {
+        const silenceDb = -60.0;
+        for (var i = 0; i < 3; i++) {
+          _amplitudeSamples.add(silenceDb);
+          if (!_meterController.isClosed) {
+            _meterController.add(silenceDb);
+          }
+        }
+      }
+
       _meterSubscription = _recorder.amplitudeStream(amplitudeInterval).listen((
         value,
       ) {
