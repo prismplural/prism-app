@@ -779,7 +779,7 @@ class UseProxyTagsForAuthoringNotifier extends AsyncNotifier<bool> {
   @override
   Future<bool> build() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_kUseProxyTagsForAuthoring) ?? false;
+    return prefs.getBool(_kUseProxyTagsForAuthoring) ?? true;
   }
 
   Future<void> set(bool value) async {
