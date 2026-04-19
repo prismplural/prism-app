@@ -141,6 +141,16 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     Map<String, DateTime> conversationSince,
   ) {
     if (conversationSince.isEmpty) return Stream.value({});
+    // SQLite's default SQLITE_MAX_COMPOUND_SELECT is 500 and the default
+    // statement length / variable count also constrain how large this UNION
+    // can grow. 400 leaves headroom; real systems today have <100
+    // conversations so hitting this would indicate a runaway caller.
+    assert(
+      conversationSince.length <= 400,
+      'watchAllUnreadCounts: too many conversations '
+      '(${conversationSince.length}) for a single UNION ALL query. '
+      'Batch the caller or switch to a different query shape.',
+    );
 
     // Single query: group by conversation_id with per-conversation cutoff via UNION ALL.
     final parts = <String>[];
@@ -182,6 +192,12 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     String memberId,
   ) {
     if (conversationSince.isEmpty) return Stream.value({});
+    // See watchAllUnreadCounts for the 400-conversation ceiling rationale.
+    assert(
+      conversationSince.length <= 400,
+      'watchConversationsWithMentions: too many conversations '
+      '(${conversationSince.length}) for a single UNION ALL query.',
+    );
 
     // Build a single query with UNION ALL for each conversation.
     final parts = <String>[];

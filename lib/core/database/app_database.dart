@@ -527,6 +527,23 @@ class AppDatabase extends _$AppDatabase {
       await _createPkUniqueIndexes();
       await _createChatMessagesFtsArtifacts();
     },
+    beforeOpen: (details) async {
+      // Downgrade guard. SQLite itself will happily open a file whose
+      // user_version is newer than the running app's schemaVersion —
+      // queries then fail at runtime with confusing "no such column"
+      // errors because the DAOs expect columns the older build never
+      // learned to add. Fail fast with an actionable message so a user
+      // who rolled back from TestFlight / beta knows to upgrade or
+      // export-reimport rather than hitting a corrupted-looking app.
+      final before = details.versionBefore;
+      if (before != null && before > schemaVersion) {
+        throw StateError(
+          'Database schema v$before is newer than this app (v$schemaVersion). '
+          'You have downgraded to an older build. Upgrade the app, or export '
+          'your data from the newer version and re-import into a fresh install.',
+        );
+      }
+    },
   );
 
   Future<void> _createPkUniqueIndexes() async {
