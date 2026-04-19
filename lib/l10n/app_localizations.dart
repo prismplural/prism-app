@@ -4442,6 +4442,54 @@ abstract class AppLocalizations {
   /// **'Delete'**
   String get memberGroupDeleteConfirm;
 
+  /// Subtitle in cascade delete sheet explaining sub-groups exist
+  ///
+  /// In en, this message translates to:
+  /// **'This group has sub-groups. What should happen to them?'**
+  String get memberGroupDeleteCascadeSubtitle;
+
+  /// Option to promote sub-groups to root before deleting parent
+  ///
+  /// In en, this message translates to:
+  /// **'Move sub-groups to top level'**
+  String get memberGroupDeletePromote;
+
+  /// Description for the promote option in cascade delete sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Sub-groups stay, just without a parent'**
+  String get memberGroupDeletePromoteSubtitle;
+
+  /// Option to recursively delete group and all sub-groups
+  ///
+  /// In en, this message translates to:
+  /// **'Delete everything'**
+  String get memberGroupDeleteAll;
+
+  /// Description for the delete-all option in cascade delete sheet
+  ///
+  /// In en, this message translates to:
+  /// **'All sub-groups will also be deleted'**
+  String get memberGroupDeleteAllSubtitle;
+
+  /// Confirmation dialog title for recursive group delete
+  ///
+  /// In en, this message translates to:
+  /// **'Delete sub-groups too?'**
+  String get memberGroupDeleteAllConfirmTitle;
+
+  /// Confirmation dialog message for recursive group delete
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete \"{name}\" and all its sub-groups. Members will not be deleted.'**
+  String memberGroupDeleteAllConfirmMessage(String name);
+
+  /// Toast shown after sub-groups are promoted to root
+  ///
+  /// In en, this message translates to:
+  /// **'Sub-groups moved to top level'**
+  String get memberGroupPromoted;
+
   /// Sheet title when editing an existing group
   ///
   /// In en, this message translates to:

@@ -94,6 +94,40 @@ class DriftMemberGroupsRepository
   }
 
   @override
+  Future<void> promoteChildrenToRoot(String groupId) async {
+    final children = await _dao.getDirectChildrenOf(groupId);
+    for (final child in children) {
+      final domain = MemberGroupMapper.toDomain(child);
+      final promoted = domain.copyWith(parentGroupId: null);
+      await _dao.updateGroup(child.id, MemberGroupMapper.toCompanion(promoted));
+      await syncRecordUpdate(_groupTable, child.id, _groupFields(promoted));
+    }
+    await deleteGroup(groupId);
+  }
+
+  @override
+  Future<void> deleteGroupWithDescendants(String groupId) async {
+    // BFS to collect all descendant IDs (max 3 levels, so at most ~100 groups).
+    final allGroups = await _dao.getAllActiveGroups();
+    final byParent = <String, List<String>>{};
+    for (final g in allGroups) {
+      if (g.parentGroupId != null) {
+        byParent.putIfAbsent(g.parentGroupId!, () => []).add(g.id);
+      }
+    }
+    final toDelete = <String>{};
+    final queue = [groupId];
+    while (queue.isNotEmpty) {
+      final current = queue.removeLast();
+      toDelete.add(current);
+      queue.addAll(byParent[current] ?? []);
+    }
+    for (final id in toDelete) {
+      await deleteGroup(id);
+    }
+  }
+
+  @override
   Future<void> addMemberToGroup(
       String groupId, String memberId, String entryId) async {
     final existing = await _dao.findEntry(groupId, memberId);

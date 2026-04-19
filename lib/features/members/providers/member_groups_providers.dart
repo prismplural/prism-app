@@ -285,6 +285,20 @@ class GroupNotifier extends AsyncNotifier<void> {
     });
   }
 
+  Future<void> promoteChildrenToRoot(String groupId) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberGroupsRepositoryProvider);
+      await repo.promoteChildrenToRoot(groupId);
+    });
+  }
+
+  Future<void> deleteGroupWithDescendants(String groupId) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(memberGroupsRepositoryProvider);
+      await repo.deleteGroupWithDescendants(groupId);
+    });
+  }
+
   Future<void> addMemberToGroup(String groupId, String memberId) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(memberGroupsRepositoryProvider);

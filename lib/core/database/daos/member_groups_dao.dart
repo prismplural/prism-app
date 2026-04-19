@@ -155,6 +155,12 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
       (update(memberGroupEntries)..where((e) => e.id.equals(id)))
           .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));
 
+  Future<List<MemberGroupRow>> getDirectChildrenOf(String parentGroupId) =>
+      (select(memberGroups)
+            ..where((g) => g.parentGroupId.equals(parentGroupId))
+            ..where((g) => g.isDeleted.equals(false)))
+          .get();
+
   Stream<List<MemberGroupRow>> watchChildGroups(String? parentGroupId) =>
       (select(memberGroups)
             ..where((g) => parentGroupId == null
