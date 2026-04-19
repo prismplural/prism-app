@@ -92,6 +92,10 @@ android {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Flutter 3.41.5 generates GeneratedPluginRegistrant.java with integration_test
+    // registered regardless of dev_dependency status, but only adds it as debugImplementation.
+    // Add it explicitly so release compilation finds the class; R8 will strip unused test code.
+    implementation(project(":integration_test"))
 }
 
 flutter {
