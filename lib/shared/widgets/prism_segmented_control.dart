@@ -136,7 +136,7 @@ class _PrismSegmentedControlState<T>
         decoration: BoxDecoration(
           color: trackColor,
           borderRadius: BorderRadius.circular(
-            PrismShapes.of(context).radius(8),
+            PrismShapes.of(context).radius(999),
           ),
           border: Border.all(color: trackBorderColor, width: 0.5),
         ),
@@ -160,7 +160,7 @@ class _PrismSegmentedControlState<T>
                         decoration: BoxDecoration(
                           color: pillColor,
                           borderRadius: BorderRadius.circular(
-                            PrismShapes.of(context).radius(6),
+                            PrismShapes.of(context).radius(999),
                           ),
                           border: Border.all(
                             color: pillBorderColor,

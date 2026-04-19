@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -43,19 +44,31 @@ class PrismSettingsRow extends StatelessWidget {
       destructive: destructive,
       showChevron: showChevron,
       trailing: trailing,
-      leading: TintedGlassSurface(
-        width: 40,
-        height: 40,
-        borderRadius: BorderRadius.zero,
-        tint: resolvedIconColor,
-        child: Icon(
-          icon,
-          size: 20,
-          color: enabled
-              ? AppColors.warmWhite.withValues(alpha: 0.85)
-              : theme.disabledColor.withValues(alpha: 0.5),
-        ),
-      ),
+      leading: PrismShapes.of(context).cornerStyle == CornerStyle.angular
+          ? TintedGlassSurface(
+              width: 40,
+              height: 40,
+              borderRadius: BorderRadius.zero,
+              tint: resolvedIconColor,
+              child: Icon(
+                icon,
+                size: 20,
+                color: enabled
+                    ? AppColors.warmWhite.withValues(alpha: 0.85)
+                    : theme.disabledColor.withValues(alpha: 0.5),
+              ),
+            )
+          : TintedGlassSurface.circle(
+              size: 40,
+              tint: resolvedIconColor,
+              child: Icon(
+                icon,
+                size: 20,
+                color: enabled
+                    ? AppColors.warmWhite.withValues(alpha: 0.85)
+                    : theme.disabledColor.withValues(alpha: 0.5),
+              ),
+            ),
     );
   }
 }
