@@ -383,7 +383,9 @@ class _ConfiguredView extends ConsumerWidget {
           child: PrismGroupedSectionCard(
             child: Column(
               children: [
-                _SyncThemeToggle(),
+                _SyncAppearanceToggle(),
+                const Divider(height: 1, indent: 60, endIndent: 12),
+                _IgnoreSyncedAppearanceToggle(),
                 const Divider(height: 1, indent: 60, endIndent: 12),
                 _SyncNavigationToggle(),
               ],
@@ -494,19 +496,37 @@ class _ConfiguredView extends ConsumerWidget {
 
 }
 
-class _SyncThemeToggle extends ConsumerWidget {
+class _SyncAppearanceToggle extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final value = ref.watch(syncThemeEnabledProvider);
+    final value = ref.watch(syncAppearanceEnabledProvider);
 
     return PrismSwitchRow(
       icon: AppIcons.paletteOutlined,
       iconColor: Colors.deepPurple,
-      title: context.l10n.appearanceSyncThemeTitle,
-      subtitle: context.l10n.appearanceSyncThemeSubtitle,
+      title: context.l10n.syncAppearanceToggleTitle,
+      subtitle: context.l10n.syncAppearanceToggleDescription,
       value: value,
       onChanged: (v) =>
           ref.read(settingsNotifierProvider.notifier).updateSyncThemeEnabled(v),
+    );
+  }
+}
+
+class _IgnoreSyncedAppearanceToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncValue = ref.watch(ignoreSyncedAppearanceProvider);
+    final value = asyncValue.whenOrNull(data: (v) => v) ?? false;
+
+    return PrismSwitchRow(
+      icon: AppIcons.devicesOther,
+      iconColor: Colors.blueGrey,
+      title: context.l10n.syncIgnoreAppearanceTitle,
+      subtitle: context.l10n.syncIgnoreAppearanceDescription,
+      value: value,
+      onChanged: (v) =>
+          ref.read(ignoreSyncedAppearanceProvider.notifier).set(v),
     );
   }
 }
