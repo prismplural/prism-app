@@ -476,6 +476,30 @@ abstract class AppLocalizations {
   /// **'Uses your system color palette'**
   String get appearanceUsesSystemPalette;
 
+  /// Appearance settings section: Corner style
+  ///
+  /// In en, this message translates to:
+  /// **'Corner style'**
+  String get appearanceCornerStyleTitle;
+
+  /// Corner style option: Rounded
+  ///
+  /// In en, this message translates to:
+  /// **'Rounded'**
+  String get appearanceCornerStyleRounded;
+
+  /// Corner style option: Angular
+  ///
+  /// In en, this message translates to:
+  /// **'Angular'**
+  String get appearanceCornerStyleAngular;
+
+  /// Description text for the corner style picker
+  ///
+  /// In en, this message translates to:
+  /// **'Choose between rounded or angular corners throughout the app.'**
+  String get appearanceCornerStyleDescription;
+
   /// Appearance settings section: Accent Color
   ///
   /// In en, this message translates to:
@@ -703,6 +727,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Share tab arrangement across devices'**
   String get syncNavigationLayoutSubtitle;
+
+  /// Toggle title: sync appearance across devices
+  ///
+  /// In en, this message translates to:
+  /// **'Sync appearance across devices'**
+  String get syncAppearanceToggleTitle;
+
+  /// Toggle subtitle: sync appearance across devices
+  ///
+  /// In en, this message translates to:
+  /// **'Share theme, accent color, and corner style between your paired devices.'**
+  String get syncAppearanceToggleDescription;
+
+  /// Toggle title: ignore synced appearance on this device
+  ///
+  /// In en, this message translates to:
+  /// **'Ignore synced appearance on this device'**
+  String get syncIgnoreAppearanceTitle;
+
+  /// Toggle subtitle: ignore synced appearance on this device
+  ///
+  /// In en, this message translates to:
+  /// **'Use local appearance settings on this device. Edits made here still sync to other devices if sharing is on.'**
+  String get syncIgnoreAppearanceDescription;
 
   /// Navigation settings: toggle to show/hide the timeline/list view toggle button in the Home top bar
   ///

@@ -212,6 +212,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appearanceUsesSystemPalette => 'Uses your system color palette';
 
   @override
+  String get appearanceCornerStyleTitle => 'Corner style';
+
+  @override
+  String get appearanceCornerStyleRounded => 'Rounded';
+
+  @override
+  String get appearanceCornerStyleAngular => 'Angular';
+
+  @override
+  String get appearanceCornerStyleDescription =>
+      'Choose between rounded or angular corners throughout the app.';
+
+  @override
   String get appearanceAccentColor => 'Accent Color';
 
   @override
@@ -337,6 +350,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get syncNavigationLayoutSubtitle =>
       'Share tab arrangement across devices';
+
+  @override
+  String get syncAppearanceToggleTitle => 'Sync appearance across devices';
+
+  @override
+  String get syncAppearanceToggleDescription =>
+      'Share theme, accent color, and corner style between your paired devices.';
+
+  @override
+  String get syncIgnoreAppearanceTitle =>
+      'Ignore synced appearance on this device';
+
+  @override
+  String get syncIgnoreAppearanceDescription =>
+      'Use local appearance settings on this device. Edits made here still sync to other devices if sharing is on.';
 
   @override
   String get navigationShowViewToggleTitle => 'Show view toggle in Home';

@@ -293,6 +293,22 @@
   "@appearanceUsesSystemPalette": {
     "description": "Label shown when Material You style is active"
   },
+  "appearanceCornerStyleTitle": "Corner style",
+  "@appearanceCornerStyleTitle": {
+    "description": "Appearance settings section: Corner style"
+  },
+  "appearanceCornerStyleRounded": "Rounded",
+  "@appearanceCornerStyleRounded": {
+    "description": "Corner style option: Rounded"
+  },
+  "appearanceCornerStyleAngular": "Angular",
+  "@appearanceCornerStyleAngular": {
+    "description": "Corner style option: Angular"
+  },
+  "appearanceCornerStyleDescription": "Choose between rounded or angular corners throughout the app.",
+  "@appearanceCornerStyleDescription": {
+    "description": "Description text for the corner style picker"
+  },
   "appearanceAccentColor": "Accent Color",
   "@appearanceAccentColor": {
     "description": "Appearance settings section: Accent Color"
@@ -464,6 +480,22 @@
   "syncNavigationLayoutSubtitle": "Share tab arrangement across devices",
   "@syncNavigationLayoutSubtitle": {
     "description": "Toggle subtitle: sync navigation layout"
+  },
+  "syncAppearanceToggleTitle": "Sync appearance across devices",
+  "@syncAppearanceToggleTitle": {
+    "description": "Toggle title: sync appearance across devices"
+  },
+  "syncAppearanceToggleDescription": "Share theme, accent color, and corner style between your paired devices.",
+  "@syncAppearanceToggleDescription": {
+    "description": "Toggle subtitle: sync appearance across devices"
+  },
+  "syncIgnoreAppearanceTitle": "Ignore synced appearance on this device",
+  "@syncIgnoreAppearanceTitle": {
+    "description": "Toggle title: ignore synced appearance on this device"
+  },
+  "syncIgnoreAppearanceDescription": "Use local appearance settings on this device. Edits made here still sync to other devices if sharing is on.",
+  "@syncIgnoreAppearanceDescription": {
+    "description": "Toggle subtitle: ignore synced appearance on this device"
   },
   "navigationShowViewToggleTitle": "Show view toggle in Home",
   "@navigationShowViewToggleTitle": { "description": "Navigation settings: toggle to show/hide the timeline/list view toggle button in the Home top bar" },

@@ -5,8 +5,8 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-import 'package:prism_plurality/domain/models/models.dart';
-import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
+import 'package:prism_plurality/domain/models/system_settings.dart' hide CornerStyle;
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/views/accent_color_picker.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
@@ -102,6 +102,28 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                     ),
                   ],
                 ],
+              ),
+            ),
+            PrismSection(
+              title: context.l10n.appearanceCornerStyleTitle,
+              description: context.l10n.appearanceCornerStyleDescription,
+              child: PrismSegmentedControl<CornerStyle>(
+                segments: [
+                  PrismSegment(
+                    value: CornerStyle.rounded,
+                    label: context.l10n.appearanceCornerStyleRounded,
+                  ),
+                  PrismSegment(
+                    value: CornerStyle.angular,
+                    label: context.l10n.appearanceCornerStyleAngular,
+                  ),
+                ],
+                selected: ref.watch(cornerStyleProvider),
+                onChanged: (value) {
+                  ref
+                      .read(settingsNotifierProvider.notifier)
+                      .updateCornerStyle(value);
+                },
               ),
             ),
             PrismSection(

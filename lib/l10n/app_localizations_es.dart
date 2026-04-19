@@ -214,6 +214,19 @@ class AppLocalizationsEs extends AppLocalizations {
       'Usa la paleta de colores del sistema';
 
   @override
+  String get appearanceCornerStyleTitle => 'Estilo de esquinas';
+
+  @override
+  String get appearanceCornerStyleRounded => 'Redondeadas';
+
+  @override
+  String get appearanceCornerStyleAngular => 'Angulares';
+
+  @override
+  String get appearanceCornerStyleDescription =>
+      'Elige entre esquinas redondeadas o angulares en toda la app.';
+
+  @override
   String get appearanceAccentColor => 'Color de acento';
 
   @override
@@ -345,6 +358,22 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get syncNavigationLayoutSubtitle =>
       'Compartir disposición de pestañas entre dispositivos';
+
+  @override
+  String get syncAppearanceToggleTitle =>
+      'Sincronizar apariencia entre dispositivos';
+
+  @override
+  String get syncAppearanceToggleDescription =>
+      'Comparte el tema, el color de acento y el estilo de esquinas entre tus dispositivos vinculados.';
+
+  @override
+  String get syncIgnoreAppearanceTitle =>
+      'Ignorar apariencia sincronizada en este dispositivo';
+
+  @override
+  String get syncIgnoreAppearanceDescription =>
+      'Usa la configuración de apariencia local en este dispositivo. Los cambios aquí se siguen sincronizando con otros dispositivos si el uso compartido está activo.';
 
   @override
   String get navigationShowViewToggleTitle =>
