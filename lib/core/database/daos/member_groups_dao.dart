@@ -155,11 +155,26 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
       (update(memberGroupEntries)..where((e) => e.id.equals(id)))
           .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));
 
-  /// Next `display_order` for a new group — `max(existing) + 1`. Returns 0
-  /// when there are no groups.
-  Future<int> nextDisplayOrder() async {
+  Stream<List<MemberGroupRow>> watchChildGroups(String? parentGroupId) =>
+      (select(memberGroups)
+            ..where((g) => parentGroupId == null
+                ? g.parentGroupId.isNull()
+                : g.parentGroupId.equals(parentGroupId))
+            ..where((g) => g.isDeleted.equals(false))
+            ..orderBy([(g) => OrderingTerm.asc(g.displayOrder)]))
+          .watch();
+
+  /// Next `display_order` scoped to siblings sharing the same [parentGroupId].
+  /// Returns 0 when no siblings exist.
+  Future<int> nextDisplayOrder(String? parentGroupId) async {
+    final sql = parentGroupId == null
+        ? 'SELECT COALESCE(MAX(display_order), -1) + 1 AS next FROM member_groups WHERE is_deleted = 0 AND parent_group_id IS NULL'
+        : 'SELECT COALESCE(MAX(display_order), -1) + 1 AS next FROM member_groups WHERE is_deleted = 0 AND parent_group_id = ?';
     final rows = await customSelect(
-      'SELECT COALESCE(MAX(display_order), -1) + 1 AS next FROM member_groups',
+      sql,
+      variables: parentGroupId != null
+          ? [Variable.withString(parentGroupId)]
+          : [],
     ).get();
     if (rows.isEmpty) return 0;
     return rows.single.read<int>('next');
