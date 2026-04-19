@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -384,7 +385,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                           builder: (context, child) => Material(
                             elevation: 4,
                             color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                             clipBehavior: Clip.antiAlias,
                             child: child,
                           ),

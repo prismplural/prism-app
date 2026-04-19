@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -133,7 +134,7 @@ class _NoteTile extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: _parseColor(note.colorHex!),
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
                 ),
               ),
               const SizedBox(width: 12),

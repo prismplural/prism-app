@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -108,7 +109,7 @@ class _NoteDetailBody extends ConsumerWidget {
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   color: _parseColor(note.colorHex!),
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
                 ),
               ),
             Builder(builder: (context) {

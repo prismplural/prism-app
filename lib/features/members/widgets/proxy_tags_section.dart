@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
@@ -153,7 +154,7 @@ class _ProxyTagChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
       ),
       child: Text(
         '${prefix}text$suffix',
