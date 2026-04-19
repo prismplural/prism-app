@@ -231,7 +231,8 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         );
 
         return SafeArea(
-          child: Column(
+          child: ClipRect(
+            child: Column(
             children: [
               PrismSheetTopBar(
                 title: conversation.title ?? context.l10n.chatConversationInfo,
@@ -335,6 +336,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                 ),
               ),
             ],
+          ),
           ),
         );
       },
