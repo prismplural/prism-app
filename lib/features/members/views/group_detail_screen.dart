@@ -380,7 +380,9 @@ class _GroupDetailBody extends ConsumerWidget {
       final confirmed = await PrismDialog.confirm(
         context: context,
         title: l10n.memberGroupFrontGroupConfirmTitle(group.name),
-        message: l10n.memberGroupFrontGroupConfirmMessage,
+        message: toAdd.length > 1
+            ? l10n.memberGroupFrontGroupConfirmMessage(toAdd.length)
+            : null,
       );
       if (!confirmed || !context.mounted) return;
     }

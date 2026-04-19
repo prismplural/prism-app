@@ -2666,8 +2666,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get memberGroupFrontGroupConfirmMessage =>
-      'Todos los integrantes de este grupo empezarán a estar al frente juntos.';
+  String memberGroupFrontGroupConfirmMessage(int count) {
+    return 'Se iniciará una sesión de co-frente con los $count integrantes.';
+  }
 
   @override
   String memberGroupFrontGroupSemantics(String name) {

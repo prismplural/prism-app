@@ -4610,11 +4610,11 @@ abstract class AppLocalizations {
   /// **'Front as {name}?'**
   String memberGroupFrontGroupConfirmTitle(String name);
 
-  /// Confirmation dialog body when fronting all members in a group
+  /// Confirmation dialog body when fronting multiple members in a group
   ///
   /// In en, this message translates to:
-  /// **'All members in this group will start fronting together.'**
-  String get memberGroupFrontGroupConfirmMessage;
+  /// **'This will start a co-front session with all {count} members.'**
+  String memberGroupFrontGroupConfirmMessage(int count);
 
   /// No description provided for @memberGroupFrontGroupSemantics.
   ///
