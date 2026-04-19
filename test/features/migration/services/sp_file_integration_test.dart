@@ -28,7 +28,7 @@ import 'package:prism_plurality/data/repositories/drift_system_settings_reposito
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 
 const _defaultExportPath =
-    '/Users/test/Downloads/export_7b35523dcdf0f69a3aed9e965506e1c0ad9d6a9df79ddba866cbd4bdc352703a.json';
+    '/Users/test/Downloads/export_7b35523dcdf0f69a3aed9e965506e1c0ad9d6a9df79ddba866cbd4bdc352703a(1).json';
 
 String get _exportPath =>
     const String.fromEnvironment('SP_EXPORT_FILE', defaultValue: _defaultExportPath);
@@ -63,6 +63,15 @@ void main() {
             reason: 'Export should have members');
         expect(exportData.frontHistory, isNotEmpty,
             reason: 'Export should have front history');
+        expect(exportData.groups.length, 2,
+            reason: 'Export has 1 root group (Littles) and 1 sub-group (Children)');
+        // Verify "root" parent sentinel is parsed without blowing up
+        final rootGroups =
+            exportData.groups.where((g) => g.parent == 'root').toList();
+        final subGroups =
+            exportData.groups.where((g) => g.parent != null && g.parent != 'root').toList();
+        expect(rootGroups.length, 1, reason: 'One root group');
+        expect(subGroups.length, 1, reason: 'One sub-group with a parent reference');
 
         // -- 2. Import into a fresh in-memory DB -----------------------------------
         final result = await importer.executeImport(
@@ -99,6 +108,8 @@ void main() {
             reason: 'Each SP channel should become a conversation');
         expect(result.messagesImported, greaterThan(0),
             reason: 'This export has chat messages');
+        expect(result.groupsImported, 2,
+            reason: 'Both SP groups should be imported');
 
         // -- 4. DB reflects the result --------------------------------------------
         final membersInDb = await db.membersDao.getAllMembers();
@@ -109,12 +120,40 @@ void main() {
             await db.frontingSessionsDao.getAllSessions();
         expect(sessionsInDb.length, result.sessionsImported);
 
+        // Groups: verify hierarchy landed correctly in the DB.
+        final groupsInDb = await db.memberGroupsDao.getAllActiveGroups();
+        expect(groupsInDb.length, 2);
+        final rootGroupsInDb =
+            groupsInDb.where((g) => g.parentGroupId == null).toList();
+        final childGroupsInDb =
+            groupsInDb.where((g) => g.parentGroupId != null).toList();
+        expect(rootGroupsInDb.length, 1,
+            reason: 'Littles should have no parent');
+        expect(childGroupsInDb.length, 1,
+            reason: 'Children should have Littles as parent');
+        // The child's parentGroupId should match the root group's Prism ID.
+        expect(childGroupsInDb.first.parentGroupId, rootGroupsInDb.first.id,
+            reason: 'Parent reference should resolve to the imported Prism ID');
+        // getDirectChildrenOf returns the sub-group.
+        final directChildren = await db.memberGroupsDao
+            .getDirectChildrenOf(rootGroupsInDb.first.id);
+        expect(directChildren.length, 1);
+        expect(directChildren.first.id, childGroupsInDb.first.id);
+        // Each group has 1 member entry.
+        final groupEntriesInDb = await db.memberGroupsDao.getAllGroupEntries();
+        expect(groupEntriesInDb.length, 2,
+            reason: 'One member per group');
+
         // -- 5. ID map was persisted -----------------------------------------------
         final idMappings = await db.spImportDao.getAllMappings();
         expect(idMappings, isNotEmpty);
         final memberMappings =
             idMappings.where((r) => r.entityType == 'member').toList();
         expect(memberMappings.length, result.membersImported);
+        final groupMappings =
+            idMappings.where((r) => r.entityType == 'group').toList();
+        expect(groupMappings.length, 2,
+            reason: 'SP→Prism ID map should have an entry for each group');
 
         // -- 6. Sync state was written --------------------------------------------
         final syncState = await db.spImportDao.getSyncState();
@@ -128,13 +167,15 @@ void main() {
         print('Parsed: ${exportData.members.length} members, '
             '${exportData.frontHistory.length} sessions, '
             '${exportData.channels.length} channels, '
-            '${exportData.messages.length} messages');
+            '${exportData.messages.length} messages, '
+            '${exportData.groups.length} groups');
         // ignore: avoid_print
         print('Imported: ${result.membersImported} members, '
             '${result.sessionsImported} sessions, '
             '${result.conversationsImported} conversations, '
             '${result.messagesImported} messages, '
-            '${result.pollsImported} polls');
+            '${result.pollsImported} polls, '
+            '${result.groupsImported} groups');
         // ignore: avoid_print
         print('Warnings (${result.warnings.length}): ${result.warnings}');
         // ignore: avoid_print
