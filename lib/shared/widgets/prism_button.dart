@@ -56,7 +56,6 @@ class _PrismButtonState extends State<PrismButton> {
         ? 16.0
         : 24.0;
     final verticalPadding = density == PrismControlDensity.compact ? 8.0 : 12.0;
-    final borderRadius = density == PrismControlDensity.compact ? 999.0 : 999.0;
     final foregroundColor = switch (tone) {
       PrismButtonTone.filled => canPress
           ? theme.colorScheme.onPrimary
@@ -120,7 +119,7 @@ class _PrismButtonState extends State<PrismButton> {
                 setState(() => _pressed = value);
               }
             },
-            borderRadius: BorderRadius.circular(borderRadius),
+            borderRadius: BorderRadius.zero,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               padding: EdgeInsets.symmetric(
@@ -128,7 +127,7 @@ class _PrismButtonState extends State<PrismButton> {
                 vertical: verticalPadding,
               ),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(borderRadius),
+                borderRadius: BorderRadius.zero,
                 color: backgroundColor,
                 border: Border.all(color: borderColor),
               ),
