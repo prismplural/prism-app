@@ -230,6 +230,12 @@ class DriftSystemSettingsRepository
   }
 
   @override
+  Future<void> updateCornerStyle(domain.CornerStyle value) async {
+    await _dao.updateThemeCornerStyle(value.index);
+    await _syncFieldIfThemeEnabled('theme_corner_style', value.index);
+  }
+
+  @override
   Future<void> updateTimingMode(domain.FrontingTimingMode value) async {
     await _dao.updateTimingMode(value.index);
     await _syncField('timing_mode', value.index);

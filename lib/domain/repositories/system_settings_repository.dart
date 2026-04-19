@@ -41,6 +41,7 @@ abstract class SystemSettingsRepository {
   Future<void> updateThemeMode(domain.AppThemeMode value);
   Future<void> updateThemeBrightness(domain.ThemeBrightness value);
   Future<void> updateThemeStyle(domain.ThemeStyle value);
+  Future<void> updateCornerStyle(domain.CornerStyle value);
   Future<void> updateTimingMode(domain.FrontingTimingMode value);
 
   // Int fields

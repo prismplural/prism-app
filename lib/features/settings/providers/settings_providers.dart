@@ -5,11 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
-import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 const _kThemeBrightnessCache = 'prism.cache.theme_brightness';
 const _kThemeStyleCache = 'prism.cache.theme_style';
+const _kThemeCornerStyleCache = 'prism.cache.theme_corner_style';
+const _kIgnoreSyncedAppearance = 'prism.pref.ignore_synced_appearance';
 
 /// Transient storage for a generated mnemonic during secret key setup.
 /// Auto-disposed when no longer watched (Riverpod 3 auto-disposes by default).
@@ -125,6 +129,16 @@ class SettingsNotifier extends AsyncNotifier<void> {
       await repo.updateThemeStyle(style);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_kThemeStyleCache, style.name);
+    });
+  }
+
+  Future<void> updateCornerStyle(CornerStyle style) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      // Bridge: UI enum → domain enum
+      await repo.updateCornerStyle(domain.CornerStyle.values[style.index]);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_kThemeCornerStyleCache, style.index);
     });
   }
 
@@ -393,8 +407,40 @@ final cachedThemeStyleProvider = Provider<ThemeStyle>(
   (_) => ThemeStyle.standard,
 );
 
+/// Seeded from SharedPreferences in main() before runApp().
+/// Falls back to rounded if no cache exists.
+/// Override in ProviderScope to supply the cached value.
+final cachedCornerStyleProvider = Provider<CornerStyle>(
+  (_) => CornerStyle.rounded,
+);
+
+/// Per-device local override: when true, the user prefers not to follow
+/// synced appearance settings (brightness, style, accent, corner style).
+/// Stored ONLY in SharedPreferences — never synced.
+final ignoreSyncedAppearanceProvider =
+    AsyncNotifierProvider<IgnoreSyncedAppearanceNotifier, bool>(
+      IgnoreSyncedAppearanceNotifier.new,
+    );
+
+class IgnoreSyncedAppearanceNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kIgnoreSyncedAppearance) ?? false;
+  }
+
+  Future<void> set(bool value) async {
+    state = AsyncValue.data(value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kIgnoreSyncedAppearance, value);
+  }
+}
+
 /// Current brightness preference.
+/// When ignoreSyncedAppearance is ON, reads the cached (local) value.
 final themeBrightnessProvider = Provider<ThemeBrightness>((ref) {
+  final ignoreSynced = ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ?? false;
+  if (ignoreSynced) return ref.watch(cachedThemeBrightnessProvider);
   return ref
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.themeBrightness) ??
@@ -402,11 +448,33 @@ final themeBrightnessProvider = Provider<ThemeBrightness>((ref) {
 });
 
 /// Current theme style preference.
+/// When ignoreSyncedAppearance is ON, reads the cached (local) value.
 final themeStyleProvider = Provider<ThemeStyle>((ref) {
+  final ignoreSynced = ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ?? false;
+  if (ignoreSynced) return ref.watch(cachedThemeStyleProvider);
   return ref
           .watch(systemSettingsProvider)
           .whenOrNull(data: (s) => s.themeStyle) ??
       ref.watch(cachedThemeStyleProvider);
+});
+
+/// Reactive corner style, gated by ignoreSyncedAppearance.
+/// When ignoreSyncedAppearance is ON, reads the cached (local) value.
+/// Exposes the UI-layer CornerStyle for consumption by app_theme.dart.
+final cornerStyleProvider = Provider<CornerStyle>((ref) {
+  final ignoreSynced = ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ?? false;
+  if (ignoreSynced) return ref.watch(cachedCornerStyleProvider);
+  final settings = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
+  if (settings == null) return ref.watch(cachedCornerStyleProvider);
+  // Bridge: domain enum index → UI enum
+  return CornerStyle.values[settings.cornerStyle.index];
+});
+
+/// Whether appearance settings are synced across devices.
+/// NOT gated by ignoreSyncedAppearance — this is the global "do we share" toggle.
+final syncAppearanceEnabledProvider = Provider<bool>((ref) {
+  final settings = ref.watch(systemSettingsProvider).whenOrNull(data: (s) => s);
+  return settings?.syncThemeEnabled ?? false;
 });
 
 /// Resolves a list of tab ID strings to AppShellTab objects, filtering by
@@ -466,7 +534,10 @@ final navBarOverflowTabsProvider = Provider<List<AppShellTab>>((ref) {
 });
 
 /// Narrow provider for accent color — only rebuilds dependents when accent color changes.
+/// When ignoreSyncedAppearance is ON, returns null so accent defaults to the cached/local value.
 final accentColorHexProvider = Provider<String?>((ref) {
+  final ignoreSynced = ref.watch(ignoreSyncedAppearanceProvider).whenOrNull(data: (v) => v) ?? false;
+  if (ignoreSynced) return null;
   return ref.watch(systemSettingsProvider).whenOrNull(
     data: (s) => s.accentColorHex,
   );
