@@ -30,7 +30,7 @@ usage() {
     echo -e "  ${GREEN}check${RESET}     Codegen + analyze + test (full pre-flight)"
     echo -e "  ${GREEN}codegen${RESET}   Run build_runner codegen"
     echo -e "  ${GREEN}devices${RESET}   List connected devices"
-    echo -e "  ${GREEN}clean${RESET}     Clean build artifacts (--mac/--android/--iphone/--all; default: all)"
+    echo -e "  ${GREEN}clean${RESET}     Clean build artifacts (--mac/--android/--iphone/--all; default: all; --deep for Rust + FRB)"
     echo ""
     echo -e "${BOLD}Targets (for run/build):${RESET}"
     echo -e "  ${GREEN}--mac${RESET}       macOS desktop"
@@ -178,35 +178,52 @@ cmd_check() {
 }
 
 cmd_clean() {
-    local do_ios=false do_mac=false do_android=false
+    local do_ios=false do_mac=false do_android=false do_deep=false
+    local explicit_target=false
 
-    if [ $# -eq 0 ]; then
+    for arg in "$@"; do
+        case "$arg" in
+            --iphone)   do_ios=true; explicit_target=true ;;
+            --mac)      do_mac=true; explicit_target=true ;;
+            --android)  do_android=true; explicit_target=true ;;
+            --all)      do_ios=true; do_mac=true; do_android=true; explicit_target=true ;;
+            --deep)     do_deep=true ;;
+            *)          echo "Unknown option: $arg"; usage; exit 1 ;;
+        esac
+    done
+
+    if ! $explicit_target; then
         do_ios=true; do_mac=true; do_android=true
-    else
-        for arg in "$@"; do
-            case "$arg" in
-                --iphone)   do_ios=true ;;
-                --mac)      do_mac=true ;;
-                --android)  do_android=true ;;
-                --all)      do_ios=true; do_mac=true; do_android=true ;;
-                *)          echo "Unknown option: $arg"; usage; exit 1 ;;
-            esac
-        done
     fi
 
     step "Cleaning Flutter"
     flutter clean
 
     if $do_ios || $do_mac; then
-        step "Cleaning Pods"
-        $do_ios && rm -rf ios/Pods
-        $do_mac && rm -rf macos/Pods
+        step "Cleaning Pods + Xcode DerivedData"
+        # DerivedData caches the Rust FFI framework; stale copies here are the
+        # #1 cause of EXC_BAD_ACCESS in DartWorker after branch switches.
+        rm -rf ~/Library/Developer/Xcode/DerivedData/Runner-*
+        if $do_ios; then
+            rm -rf ios/Pods ios/Podfile.lock ios/.symlinks ios/Flutter/ephemeral
+        fi
+        if $do_mac; then
+            rm -rf macos/Pods macos/Podfile.lock macos/Flutter/ephemeral
+        fi
     fi
 
     if $do_android; then
         step "Cleaning Gradle"
         (cd android && ./gradlew --stop 2>/dev/null || true)
         rm -rf android/.gradle
+    fi
+
+    if $do_deep; then
+        step "Deep clean: Rust target"
+        (cd ../sync && cargo clean) || fail "cargo clean failed"
+        step "Regenerating flutter_rust_bridge bindings"
+        (cd ../sync && flutter_rust_bridge_codegen generate) \
+            || fail "flutter_rust_bridge_codegen failed (is it installed?)"
     fi
 
     success "Clean complete"
