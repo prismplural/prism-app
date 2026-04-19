@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -61,7 +62,7 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
           tint: widget.tint,
           child: Material(
             color: Colors.transparent,
-            shape: const CircleBorder(),
+            shape: PrismShapes.of(context).circleOrSquareBorder(),
             child: InkResponse(
               onTap: canPress ? widget.onPressed : null,
               onLongPress: canPress ? widget.onLongPress : null,
@@ -70,7 +71,7 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
                   setState(() => _pressed = value);
                 }
               },
-              customBorder: const CircleBorder(),
+              customBorder: PrismShapes.of(context).circleOrSquareBorder(),
               radius: widget.size / 2,
               child: SizedBox(
                 width: widget.size,

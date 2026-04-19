@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -356,7 +357,8 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              shape: BoxShape.circle,
+                              shape: PrismShapes.of(context).avatarShape(),
+                              borderRadius: PrismShapes.of(context).avatarBorderRadius(),
                               color: systemColor ??
                                   theme.colorScheme.surfaceContainerHighest,
                               border: Border.all(
@@ -492,7 +494,8 @@ class _AvatarCluster extends StatelessWidget {
                 width: 20,
                 height: 20,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
+                  shape: PrismShapes.of(context).avatarShape(),
+                  borderRadius: PrismShapes.of(context).avatarBorderRadius(),
                   color: theme.colorScheme.surfaceContainerHighest,
                 ),
                 child: Center(
