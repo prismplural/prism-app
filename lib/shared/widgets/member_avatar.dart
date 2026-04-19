@@ -9,11 +9,12 @@ import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 enum MemberAvatarShape { circle, square }
 
-/// Reusable circular avatar widget for system members.
+/// Reusable avatar widget for system members.
 ///
 /// Displays the member's avatar image if available, otherwise falls back
-/// to their emoji in a colored circle. The circle color uses the member's
-/// custom color when enabled, or the theme primary color.
+/// to their emoji in a colored container. The container color uses the member's
+/// custom color when enabled, or the theme primary color. Shape is controlled
+/// by [shape] — circle (default) or square.
 class MemberAvatar extends StatelessWidget {
   const MemberAvatar({
     super.key,
@@ -68,50 +69,33 @@ class MemberAvatar extends StatelessWidget {
       final imageInset = size * 0.1;
       final imageSize = size - imageInset * 2;
       final pixelSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
+      final image = Image.memory(
+        avatarImageData!,
+        width: imageSize,
+        height: imageSize,
+        cacheWidth: pixelSize,
+        cacheHeight: pixelSize,
+        fit: BoxFit.cover,
+        semanticLabel: memberName != null
+            ? context.l10n.memberAvatarSemantics(memberName!)
+            : context.l10n.memberAvatarSemanticsUnnamed,
+        color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
+        colorBlendMode: dimmed ? BlendMode.modulate : null,
+        errorBuilder: (_, _, _) => _centeredEmoji(size),
+      );
       if (shape == MemberAvatarShape.square) {
         child = TintedGlassSurface(
           width: size,
           height: size,
           borderRadius: BorderRadius.zero,
           tint: tint,
-          child: ClipRRect(
-            borderRadius: BorderRadius.zero,
-            child: Image.memory(
-              avatarImageData!,
-              width: imageSize,
-              height: imageSize,
-              cacheWidth: pixelSize,
-              cacheHeight: pixelSize,
-              fit: BoxFit.cover,
-              semanticLabel: memberName != null
-                  ? context.l10n.memberAvatarSemantics(memberName!)
-                  : context.l10n.memberAvatarSemanticsUnnamed,
-              color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
-              colorBlendMode: dimmed ? BlendMode.modulate : null,
-              errorBuilder: (_, _, _) => _centeredEmoji(size),
-            ),
-          ),
+          child: ClipRRect(borderRadius: BorderRadius.zero, child: image),
         );
       } else {
         child = TintedGlassSurface.circle(
           size: size,
           tint: tint,
-          child: ClipOval(
-            child: Image.memory(
-              avatarImageData!,
-              width: imageSize,
-              height: imageSize,
-              cacheWidth: pixelSize,
-              cacheHeight: pixelSize,
-              fit: BoxFit.cover,
-              semanticLabel: memberName != null
-                  ? context.l10n.memberAvatarSemantics(memberName!)
-                  : context.l10n.memberAvatarSemanticsUnnamed,
-              color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
-              colorBlendMode: dimmed ? BlendMode.modulate : null,
-              errorBuilder: (_, _, _) => _centeredEmoji(size),
-            ),
-          ),
+          child: ClipOval(child: image),
         );
       }
     } else {
