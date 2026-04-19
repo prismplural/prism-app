@@ -43,8 +43,10 @@ class PrismSettingsRow extends StatelessWidget {
       destructive: destructive,
       showChevron: showChevron,
       trailing: trailing,
-      leading: TintedGlassSurface.circle(
-        size: 40,
+      leading: TintedGlassSurface(
+        width: 40,
+        height: 40,
+        borderRadius: BorderRadius.zero,
         tint: resolvedIconColor,
         child: Icon(
           icon,
