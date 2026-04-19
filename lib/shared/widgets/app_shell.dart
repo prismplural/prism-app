@@ -221,9 +221,13 @@ class _AppShellState extends ConsumerState<AppShell>
 
     // Auto-split: if the user has >5 primary tabs but hasn't explicitly
     // configured overflow items, split the excess into overflow automatically.
+    // activeNavBarTabsProvider always places Settings last, so a naive sublist(5)
+    // would push Settings into overflow where it's locked and can't be moved back.
+    // Instead, keep Settings pinned at position 4 and move slots [4..n-2] to overflow.
     if (primaryTabs.length > 5 && overflowTabs.isEmpty) {
-      overflowTabs = primaryTabs.sublist(5);
-      primaryTabs = primaryTabs.sublist(0, 5);
+      final settingsTab = primaryTabs.last;
+      overflowTabs = primaryTabs.sublist(4, primaryTabs.length - 1);
+      primaryTabs = [...primaryTabs.sublist(0, 4), settingsTab];
     }
 
     // All tabs combined for index mapping.
