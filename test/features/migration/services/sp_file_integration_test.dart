@@ -27,8 +27,7 @@ import 'package:prism_plurality/data/repositories/drift_reminders_repository.dar
 import 'package:prism_plurality/data/repositories/drift_system_settings_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 
-const _defaultExportPath =
-    '/Users/test/Downloads/export_7b35523dcdf0f69a3aed9e965506e1c0ad9d6a9df79ddba866cbd4bdc352703a(1).json';
+const _defaultExportPath = 'test/fixtures/sp_export.json';
 
 String get _exportPath =>
     const String.fromEnvironment('SP_EXPORT_FILE', defaultValue: _defaultExportPath);
