@@ -11,6 +11,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_filter_bar.dart';
+import 'package:prism_plurality/features/members/widgets/group_section_header.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -19,7 +20,6 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/domain/models/member.dart';
-import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/shared/widgets/member_card.dart';
 import 'package:prism_plurality/shared/widgets/member_search_delegate.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
@@ -46,6 +46,17 @@ class MembersScreen extends ConsumerStatefulWidget {
 
 class _MembersScreenState extends ConsumerState<MembersScreen> {
   bool _showInactive = false;
+
+  // Section keys for scroll-to-section navigation in the grouped list.
+  final Map<String, GlobalKey> _sectionKeys = {};
+  final GlobalKey _ungroupedKey = GlobalKey();
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   /// Whether we're inside the top-level /members branch or /settings/members.
   bool get _isTopLevelBranch {
@@ -264,21 +275,42 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     ref.read(membersNotifierProvider.notifier).reorderMembers(reordered);
   }
 
-  List<Member> _applyGroupFilter(
-    List<Member> members,
-    String? activeFilter,
-    List<MemberGroupEntry> allEntries,
-  ) {
-    if (activeFilter == null) return members;
-    if (activeFilter == '__ungrouped__') {
-      final groupedIds = allEntries.map((e) => e.memberId).toSet();
-      return members.where((m) => !groupedIds.contains(m.id)).toList();
+  void _scrollToGroup(String? groupId) {
+    if (groupId == null) {
+      // "All" — expand everything; no scroll.
+      ref.read(collapsedGroupsProvider.notifier).expandAll();
+      return;
     }
-    final groupMemberIds = allEntries
-        .where((e) => e.groupId == activeFilter)
-        .map((e) => e.memberId)
-        .toSet();
-    return members.where((m) => groupMemberIds.contains(m.id)).toList();
+
+    GlobalKey? key;
+    if (groupId == '__ungrouped__') {
+      key = _ungroupedKey;
+    } else {
+      key = _sectionKeys[groupId];
+    }
+
+    final collapsed = ref.read(collapsedGroupsProvider);
+    final needsExpand =
+        groupId != '__ungrouped__' && collapsed.contains(groupId);
+    if (needsExpand) {
+      ref.read(collapsedGroupsProvider.notifier).toggle(groupId);
+    }
+
+    void doScroll() {
+      final ctx = key?.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+
+    if (needsExpand || key?.currentContext == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => doScroll());
+    } else {
+      doScroll();
+    }
   }
 
   @override
@@ -288,19 +320,6 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
         : ref.watch(activeMembersProvider);
     final activeSessionsAsync = ref.watch(activeSessionsProvider);
     final terms = watchTerminology(context, ref);
-    final activeFilter = ref.watch(activeGroupFilterProvider);
-    final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
-
-    // Clear the active filter if its group was deleted.
-    final allGroups = ref.watch(allGroupsProvider).value ?? [];
-    if (activeFilter != null &&
-        activeFilter != '__ungrouped__' &&
-        allGroups.isNotEmpty &&
-        !allGroups.any((g) => g.id == activeFilter)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(activeGroupFilterProvider.notifier).setFilter(null);
-      });
-    }
 
     // Build a set of currently-fronting member IDs.
     final frontingIds = activeSessionsAsync.whenOrNull(
@@ -308,6 +327,9 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
               sessions.map((s) => s.memberId).whereType<String>().toSet(),
         ) ??
         <String>{};
+
+    final groups = ref.watch(allGroupsProvider).value ?? [];
+    final hasGroups = groups.isNotEmpty;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -329,12 +351,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
       bodyPadding: EdgeInsets.zero,
       body: Column(
         children: [
-          const MemberGroupFilterBar(),
+          MemberGroupFilterBar(
+            onChipTap: hasGroups ? _scrollToGroup : null,
+          ),
           Expanded(
             child: AnimatedSwitcher(
               duration: Anim.md,
               child: KeyedSubtree(
-                key: ValueKey((_showInactive, activeFilter)),
+                key: ValueKey(_showInactive),
                 child: membersAsync.when(
                   loading: () => const PrismLoadingState(),
                   error: (e, _) => Center(
@@ -347,8 +371,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                     ),
                   ),
                   data: (rawMembers) {
-                    final members = _applyGroupFilter(rawMembers, activeFilter, allEntries);
-                    if (members.isEmpty) {
+                    if (rawMembers.isEmpty) {
                       return EmptyState(
                         icon: Icon(AppIcons.peopleOutline),
                         title: _showInactive
@@ -360,47 +383,15 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                       );
                     }
 
-                    // Disable drag-reorder while a group filter is active —
-                    // reordering a subset would corrupt global display order.
-                    if (activeFilter != null) {
-                      return ListView.builder(
-                        padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-                        itemCount: members.length,
-                        itemBuilder: (context, index) {
-                          final member = members[index];
-                          final isFronting = frontingIds.contains(member.id);
-                          return _buildMemberTile(member, isFronting, terms);
-                        },
-                      );
+                    if (!hasGroups) {
+                      return _buildFlatList(rawMembers, frontingIds, terms);
                     }
 
-                    return ReorderableListView.builder(
-                      padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-                      itemCount: members.length,
-                      onReorder: (oldIndex, newIndex) =>
-                          _onReorder(members, oldIndex, newIndex),
-                      proxyDecorator: (child, index, animation) {
-                        return AnimatedBuilder(
-                          animation: animation,
-                          builder: (context, child) => Material(
-                            elevation: 4,
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
-                            clipBehavior: Clip.antiAlias,
-                            child: child,
-                          ),
-                          child: child,
-                        );
-                      },
-                      itemBuilder: (context, index) {
-                        final member = members[index];
-                        final isFronting = frontingIds.contains(member.id);
-                        return _buildMemberTile(
-                          member, isFronting, terms,
-                          reorderIndex: index,
-                        );
-                      },
-                    );
+                    final groupedItems =
+                        ref.watch(groupedMemberListProvider);
+                    final counts = ref.watch(groupMemberCountsProvider);
+                    return _buildGroupedList(
+                        groupedItems, counts, frontingIds, terms);
                   },
                 ),
               ),
@@ -408,6 +399,106 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFlatList(
+    List<Member> members,
+    Set<String> frontingIds,
+    dynamic terms,
+  ) {
+    return ReorderableListView.builder(
+      padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
+      itemCount: members.length,
+      onReorder: (oldIndex, newIndex) =>
+          _onReorder(members, oldIndex, newIndex),
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) => Material(
+            elevation: 4,
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius:
+                BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            clipBehavior: Clip.antiAlias,
+            child: child,
+          ),
+          child: child,
+        );
+      },
+      itemBuilder: (context, index) {
+        final member = members[index];
+        final isFronting = frontingIds.contains(member.id);
+        return _buildMemberTile(
+          member,
+          isFronting,
+          terms,
+          reorderIndex: index,
+        );
+      },
+    );
+  }
+
+  Widget _buildGroupedList(
+    List<GroupedMemberListItem> items,
+    Map<String, int> counts,
+    Set<String> frontingIds,
+    dynamic terms,
+  ) {
+    return CustomScrollView(
+      controller: _scrollController,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.only(top: 4, bottom: NavBarInset.of(context)),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final item = items[index];
+                if (item is GroupSectionItem) {
+                  final key = _sectionKeys.putIfAbsent(
+                      item.group.id, GlobalKey.new);
+                  return GroupSectionHeader(
+                    key: key,
+                    group: item.group,
+                    depth: item.depth.clamp(0, 2),
+                    memberCount: counts[item.group.id] ?? 0,
+                    isCollapsed: item.isCollapsed,
+                    canCollapse: true,
+                    onToggle: () => ref
+                        .read(collapsedGroupsProvider.notifier)
+                        .toggle(item.group.id),
+                  );
+                }
+                if (item is UngroupedSectionItem) {
+                  final ungroupedCount = items
+                      .skip(index + 1)
+                      .whereType<MemberRowItem>()
+                      .length;
+                  return GroupSectionHeader(
+                    key: _ungroupedKey,
+                    group: null,
+                    depth: 0,
+                    memberCount: ungroupedCount,
+                    isCollapsed: false,
+                    canCollapse: false,
+                    onToggle: null,
+                  );
+                }
+                if (item is MemberRowItem) {
+                  final isFronting = frontingIds.contains(item.member.id);
+                  final indent = item.depth.clamp(0, 2) * 16.0;
+                  return Padding(
+                    padding: EdgeInsets.only(left: indent),
+                    child: _buildMemberTile(item.member, isFronting, terms),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+              childCount: items.length,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
