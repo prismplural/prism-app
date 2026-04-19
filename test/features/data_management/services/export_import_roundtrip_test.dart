@@ -30,7 +30,7 @@ import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/repositories/habit_repository.dart';
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
-import 'package:prism_plurality/features/data_management/models/v3_export_models.dart';
+import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
 import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 
@@ -114,7 +114,7 @@ DataImportService _makeImport(AppDatabase db) => DataImportService(
   friendsRepository: DriftFriendsRepository(db.friendsDao, null),
 );
 
-/// Serialize a [V3Export] to JSON string and back through [DataImportService].
+/// Serialize a [V1Export] to JSON string and back through [DataImportService].
 Future<ImportResult> _roundtrip(
   DataExportService exportSvc,
   DataImportService importSvc,
@@ -306,9 +306,9 @@ void main() {
       },
     );
 
-    test('V3SystemSettings JSON serialization includes all new fields', () {
+    test('V1SystemSettings JSON serialization includes all new fields', () {
       // Verify toJson/fromJson symmetry for the 5 new fields
-      final original = V3SystemSettings(
+      final original = V1SystemSettings(
         themeBrightness: 2, // materialYou
         themeStyle: 1, // oled
         quickSwitchThresholdSeconds: 60,
@@ -323,7 +323,7 @@ void main() {
       expect(json['chatLogsFront'], true);
       expect(json['syncThemeEnabled'], true);
 
-      final roundtripped = V3SystemSettings.fromJson(json);
+      final roundtripped = V1SystemSettings.fromJson(json);
       expect(roundtripped.themeBrightness, original.themeBrightness);
       expect(roundtripped.themeStyle, original.themeStyle);
       expect(
@@ -335,7 +335,7 @@ void main() {
     });
 
     test(
-      'V3SystemSettings fromJson defaults new fields to safe values for old exports',
+      'V1SystemSettings fromJson defaults new fields to safe values for old exports',
       () {
         // Simulate an old export that lacks the 5 new fields
         final oldJson = <String, dynamic>{
@@ -353,7 +353,7 @@ void main() {
           'hasCompletedOnboarding': false,
         };
 
-        final parsed = V3SystemSettings.fromJson(oldJson);
+        final parsed = V1SystemSettings.fromJson(oldJson);
         expect(parsed.themeBrightness, 0); // system
         expect(parsed.themeStyle, 0); // standard
         expect(parsed.quickSwitchThresholdSeconds, 30);
@@ -749,7 +749,7 @@ void main() {
     );
 
     test(
-      'V3Headmate/V3FrontSession fromJson defaults PK Phase 2 fields for old exports',
+      'V1Headmate/V1FrontSession fromJson defaults PK Phase 2 fields for old exports',
       () {
         // Old export without PK Phase 2 fields — must parse cleanly.
         final oldHeadmateJson = <String, dynamic>{
@@ -762,7 +762,7 @@ void main() {
           'customColorEnabled': false,
           'markdownEnabled': false,
         };
-        final h = V3Headmate.fromJson(oldHeadmateJson);
+        final h = V1Headmate.fromJson(oldHeadmateJson);
         expect(h.displayName, isNull);
         expect(h.birthday, isNull);
         expect(h.proxyTagsJson, isNull);
@@ -772,7 +772,7 @@ void main() {
           'id': 's1',
           'startTime': '2026-01-01T00:00:00.000Z',
         };
-        final s = V3FrontSession.fromJson(oldSessionJson);
+        final s = V1FrontSession.fromJson(oldSessionJson);
         expect(s.pkMemberIdsJson, isNull);
       },
     );

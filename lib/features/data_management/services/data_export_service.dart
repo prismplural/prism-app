@@ -23,7 +23,7 @@ import 'package:prism_plurality/domain/repositories/front_session_comments_repos
 import 'package:prism_plurality/domain/repositories/conversation_categories_repository.dart';
 import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
-import 'package:prism_plurality/features/data_management/models/v3_export_models.dart';
+import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 
 class DataExportService {
@@ -70,11 +70,11 @@ class DataExportService {
   final Future<Directory> Function() _cacheDirectoryProvider;
   final Future<Directory> Function() _appSupportDirectoryProvider;
 
-  /// Build the [V3Export] model from the current database state.
+  /// Build the [V1Export] model from the current database state.
   ///
   /// This is separated from file I/O so it can be used in tests without
   /// requiring a platform channel (path_provider).
-  Future<V3Export> buildExport() async {
+  Future<V1Export> buildExport() async {
     // Fetch all data
     final members = await memberRepository.getAllMembers();
     final frontSessions = await frontingSessionRepository.getFrontingSessions();
@@ -93,7 +93,7 @@ class DataExportService {
     final votesByOption = await pollRepository.getAllVotesGroupedByOption();
     final exportedPollIds = polls.map((p) => p.id).toSet();
 
-    final allOptions = <V3PollOption>[];
+    final allOptions = <V1PollOption>[];
     for (final MapEntry(key: pollId, value: options) in optionsByPoll.entries) {
       if (!exportedPollIds.contains(pollId)) continue;
       for (final option in options) {
@@ -103,64 +103,64 @@ class DataExportService {
     }
 
     // Convert to V3 models
-    final v3Headmates = members.map(_mapMember).toList();
-    final v3Sessions = frontSessions.map(_mapFrontSession).toList();
-    final v3SleepSessions = sleepSessions.map(_mapSleepSession).toList();
-    final v3Conversations = conversations.map(_mapConversation).toList();
-    final v3Messages = allMessages.map(_mapMessage).toList();
-    final v3Polls = polls.map(_mapPoll).toList();
-    final v3Settings = [_mapSettings(settings)];
+    final v1Headmates = members.map(_mapMember).toList();
+    final v1Sessions = frontSessions.map(_mapFrontSession).toList();
+    final v1SleepSessions = sleepSessions.map(_mapSleepSession).toList();
+    final v1Conversations = conversations.map(_mapConversation).toList();
+    final v1Messages = allMessages.map(_mapMessage).toList();
+    final v1Polls = polls.map(_mapPoll).toList();
+    final v1Settings = [_mapSettings(settings)];
 
     // Fetch habits and all completions in single queries
     final habits = await habitRepository.getAllHabits();
     final allCompletions = await habitRepository.getAllCompletions();
 
-    final v3Habits = habits.map(_mapHabit).toList();
-    final v3HabitCompletions = allCompletions.map(_mapHabitCompletion).toList();
+    final v1Habits = habits.map(_mapHabit).toList();
+    final v1HabitCompletions = allCompletions.map(_mapHabitCompletion).toList();
 
     // Fetch member groups and entries
     final memberGroups = await memberGroupsRepository.watchAllGroups().first;
     final allGroupEntries = await memberGroupsRepository.getAllGroupEntries();
-    final v3MemberGroups = memberGroups.map(_mapMemberGroup).toList();
-    final v3MemberGroupEntries = allGroupEntries
+    final v1MemberGroups = memberGroups.map(_mapMemberGroup).toList();
+    final v1MemberGroupEntries = allGroupEntries
         .map(_mapMemberGroupEntry)
         .toList();
 
     // Fetch custom fields and values
     final customFields = await customFieldsRepository.watchAllFields().first;
     final allFieldValues = await customFieldsRepository.getAllValues();
-    final v3CustomFields = customFields.map(_mapCustomField).toList();
-    final v3CustomFieldValues = allFieldValues
+    final v1CustomFields = customFields.map(_mapCustomField).toList();
+    final v1CustomFieldValues = allFieldValues
         .map(_mapCustomFieldValue)
         .toList();
 
     // Fetch notes
     final allNotes = await notesRepository.watchAllNotes().first;
-    final v3Notes = allNotes.map(_mapNote).toList();
+    final v1Notes = allNotes.map(_mapNote).toList();
 
     // Fetch front session comments
     final allComments = await frontSessionCommentsRepository.getAllComments();
-    final v3FrontSessionComments = allComments
+    final v1FrontSessionComments = allComments
         .map(_mapFrontSessionComment)
         .toList();
 
     // Fetch conversation categories
     final categories = await conversationCategoriesRepository.watchAll().first;
-    final v3ConversationCategories = categories
+    final v1ConversationCategories = categories
         .map(_mapConversationCategory)
         .toList();
 
     // Fetch reminders
     final reminders = await remindersRepository.watchAll().first;
-    final v3Reminders = reminders.map(_mapReminder).toList();
+    final v1Reminders = reminders.map(_mapReminder).toList();
 
     // Fetch friends
     final friends = await friendsRepository.watchAll().first;
-    final v3Friends = friends.map(_mapFriend).toList();
+    final v1Friends = friends.map(_mapFriend).toList();
 
     // Fetch media attachments
     final allMediaAttachments = await mediaAttachmentsDao.getAll();
-    final v3MediaAttachments = allMediaAttachments.map((a) => V3MediaAttachment(
+    final v1MediaAttachments = allMediaAttachments.map((a) => V1MediaAttachment(
       id: a.id,
       messageId: a.messageId,
       mediaId: a.mediaId,
@@ -181,7 +181,7 @@ class DataExportService {
 
     // Fetch PluralKit sync state
     final pkState = await pluralKitSyncDao.getSyncState();
-    final v3PkSyncState = V3PluralKitSyncState(
+    final v1PkSyncState = V1PluralKitSyncState(
       systemId: pkState.systemId,
       isConnected: pkState.isConnected,
       lastSyncDate: pkState.lastSyncDate?.toUtc().toIso8601String(),
@@ -189,54 +189,54 @@ class DataExportService {
     );
 
     final totalRecords =
-        v3Headmates.length +
-        v3Sessions.length +
-        v3SleepSessions.length +
-        v3Conversations.length +
-        v3Messages.length +
-        v3Polls.length +
+        v1Headmates.length +
+        v1Sessions.length +
+        v1SleepSessions.length +
+        v1Conversations.length +
+        v1Messages.length +
+        v1Polls.length +
         allOptions.length +
-        v3Settings.length +
-        v3Habits.length +
-        v3HabitCompletions.length +
-        v3MemberGroups.length +
-        v3MemberGroupEntries.length +
-        v3CustomFields.length +
-        v3CustomFieldValues.length +
-        v3Notes.length +
-        v3FrontSessionComments.length +
-        v3ConversationCategories.length +
-        v3Reminders.length +
-        v3Friends.length +
-        v3MediaAttachments.length;
+        v1Settings.length +
+        v1Habits.length +
+        v1HabitCompletions.length +
+        v1MemberGroups.length +
+        v1MemberGroupEntries.length +
+        v1CustomFields.length +
+        v1CustomFieldValues.length +
+        v1Notes.length +
+        v1FrontSessionComments.length +
+        v1ConversationCategories.length +
+        v1Reminders.length +
+        v1Friends.length +
+        v1MediaAttachments.length;
 
-    return V3Export(
-      formatVersion: '2025.1',
-      version: '3.0',
+    return V1Export(
+      formatVersion: '1.0',
+      version: '1.0',
       appName: 'Prism Plurality',
       exportDate: DateTime.now().toUtc().toIso8601String(),
       totalRecords: totalRecords,
-      headmates: v3Headmates,
-      frontSessions: v3Sessions,
-      sleepSessions: v3SleepSessions,
-      conversations: v3Conversations,
-      messages: v3Messages,
-      polls: v3Polls,
+      headmates: v1Headmates,
+      frontSessions: v1Sessions,
+      sleepSessions: v1SleepSessions,
+      conversations: v1Conversations,
+      messages: v1Messages,
+      polls: v1Polls,
       pollOptions: allOptions,
-      systemSettings: v3Settings,
-      habits: v3Habits,
-      habitCompletions: v3HabitCompletions,
-      pluralKitSyncState: v3PkSyncState,
-      memberGroups: v3MemberGroups,
-      memberGroupEntries: v3MemberGroupEntries,
-      customFields: v3CustomFields,
-      customFieldValues: v3CustomFieldValues,
-      notes: v3Notes,
-      frontSessionComments: v3FrontSessionComments,
-      conversationCategories: v3ConversationCategories,
-      reminders: v3Reminders,
-      friends: v3Friends,
-      mediaAttachments: v3MediaAttachments,
+      systemSettings: v1Settings,
+      habits: v1Habits,
+      habitCompletions: v1HabitCompletions,
+      pluralKitSyncState: v1PkSyncState,
+      memberGroups: v1MemberGroups,
+      memberGroupEntries: v1MemberGroupEntries,
+      customFields: v1CustomFields,
+      customFieldValues: v1CustomFieldValues,
+      notes: v1Notes,
+      frontSessionComments: v1FrontSessionComments,
+      conversationCategories: v1ConversationCategories,
+      reminders: v1Reminders,
+      friends: v1Friends,
+      mediaAttachments: v1MediaAttachments,
     );
   }
 
@@ -265,7 +265,7 @@ class DataExportService {
   /// Returns one entry per cached blob. Both main and thumbnail blobs are
   /// included (they share the same encryption key). Missing files are skipped.
   Future<List<({String mediaId, Uint8List blob})>> _collectMediaBlobs(
-    List<V3MediaAttachment> attachments,
+    List<V1MediaAttachment> attachments,
   ) async {
     final appSupport = await _appSupportDirectoryProvider();
     final mediaDir = Directory('${appSupport.path}/prism_media');
@@ -285,7 +285,7 @@ class DataExportService {
 
   // -- Mapping helpers -------------------------------------------------------
 
-  V3Headmate _mapMember(Member m) => V3Headmate(
+  V1Headmate _mapMember(Member m) => V1Headmate(
     id: m.id,
     name: m.name,
     pronouns: m.pronouns,
@@ -311,7 +311,7 @@ class DataExportService {
     pluralkitSyncIgnored: m.pluralkitSyncIgnored,
   );
 
-  V3FrontSession _mapFrontSession(FrontingSession s) => V3FrontSession(
+  V1FrontSession _mapFrontSession(FrontingSession s) => V1FrontSession(
     id: s.id,
     startTime: s.startTime.toUtc().toIso8601String(),
     endTime: s.endTime?.toUtc().toIso8601String(),
@@ -323,7 +323,7 @@ class DataExportService {
     pkMemberIdsJson: s.pkMemberIdsJson,
   );
 
-  V3SleepSession _mapSleepSession(FrontingSession s) => V3SleepSession(
+  V1SleepSession _mapSleepSession(FrontingSession s) => V1SleepSession(
     id: s.id,
     startTime: s.startTime.toUtc().toIso8601String(),
     endTime: s.endTime?.toUtc().toIso8601String(),
@@ -332,7 +332,7 @@ class DataExportService {
     isHealthKitImport: s.isHealthKitImport,
   );
 
-  V3Conversation _mapConversation(Conversation c) => V3Conversation(
+  V1Conversation _mapConversation(Conversation c) => V1Conversation(
     id: c.id,
     createdAt: c.createdAt.toUtc().toIso8601String(),
     lastActivityAt: c.lastActivityAt.toUtc().toIso8601String(),
@@ -355,7 +355,7 @@ class DataExportService {
     displayOrder: c.displayOrder,
   );
 
-  V3Message _mapMessage(ChatMessage m) => V3Message(
+  V1Message _mapMessage(ChatMessage m) => V1Message(
     id: m.id,
     content: m.content,
     timestamp: m.timestamp.toUtc().toIso8601String(),
@@ -365,7 +365,7 @@ class DataExportService {
     conversationId: m.conversationId,
     reactions: m.reactions
         .map(
-          (r) => V3MessageReaction(
+          (r) => V1MessageReaction(
             id: r.id,
             emoji: r.emoji,
             memberId: r.memberId,
@@ -378,7 +378,7 @@ class DataExportService {
     replyToContent: m.replyToContent,
   );
 
-  V3Poll _mapPoll(Poll p) => V3Poll(
+  V1Poll _mapPoll(Poll p) => V1Poll(
     id: p.id,
     question: p.question,
     description: p.description,
@@ -389,11 +389,11 @@ class DataExportService {
     createdAt: p.createdAt.toUtc().toIso8601String(),
   );
 
-  V3PollOption _mapPollOption(
+  V1PollOption _mapPollOption(
     PollOption o,
     String pollId,
     List<PollVote> votes,
-  ) => V3PollOption(
+  ) => V1PollOption(
     id: o.id,
     pollId: pollId,
     text: o.text,
@@ -402,7 +402,7 @@ class DataExportService {
     colorHex: o.colorHex,
     votes: votes
         .map(
-          (v) => V3PollVote(
+          (v) => V1PollVote(
             id: v.id,
             memberId: v.memberId,
             votedAt: v.votedAt.toUtc().toIso8601String(),
@@ -412,7 +412,7 @@ class DataExportService {
         .toList(),
   );
 
-  V3SystemSettings _mapSettings(SystemSettings s) => V3SystemSettings(
+  V1SystemSettings _mapSettings(SystemSettings s) => V1SystemSettings(
     systemName: s.systemName,
     sharingId: s.sharingId,
     showQuickFront: s.showQuickFront,
@@ -456,7 +456,7 @@ class DataExportService {
     chatBadgePreferences: s.chatBadgePreferences,
   );
 
-  V3Habit _mapHabit(Habit h) => V3Habit(
+  V1Habit _mapHabit(Habit h) => V1Habit(
     id: h.id,
     name: h.name,
     description: h.description,
@@ -479,7 +479,7 @@ class DataExportService {
     totalCompletions: h.totalCompletions,
   );
 
-  V3HabitCompletion _mapHabitCompletion(HabitCompletion c) => V3HabitCompletion(
+  V1HabitCompletion _mapHabitCompletion(HabitCompletion c) => V1HabitCompletion(
     id: c.id,
     habitId: c.habitId,
     completedAt: c.completedAt.toUtc().toIso8601String(),
@@ -491,7 +491,7 @@ class DataExportService {
     modifiedAt: c.modifiedAt.toUtc().toIso8601String(),
   );
 
-  V3MemberGroup _mapMemberGroup(MemberGroup g) => V3MemberGroup(
+  V1MemberGroup _mapMemberGroup(MemberGroup g) => V1MemberGroup(
     id: g.id,
     name: g.name,
     description: g.description,
@@ -502,10 +502,10 @@ class DataExportService {
     createdAt: g.createdAt.toUtc().toIso8601String(),
   );
 
-  V3MemberGroupEntry _mapMemberGroupEntry(MemberGroupEntry e) =>
-      V3MemberGroupEntry(id: e.id, groupId: e.groupId, memberId: e.memberId);
+  V1MemberGroupEntry _mapMemberGroupEntry(MemberGroupEntry e) =>
+      V1MemberGroupEntry(id: e.id, groupId: e.groupId, memberId: e.memberId);
 
-  V3CustomField _mapCustomField(CustomField f) => V3CustomField(
+  V1CustomField _mapCustomField(CustomField f) => V1CustomField(
     id: f.id,
     name: f.name,
     fieldType: f.fieldType.index,
@@ -514,15 +514,15 @@ class DataExportService {
     createdAt: f.createdAt.toUtc().toIso8601String(),
   );
 
-  V3CustomFieldValue _mapCustomFieldValue(CustomFieldValue v) =>
-      V3CustomFieldValue(
+  V1CustomFieldValue _mapCustomFieldValue(CustomFieldValue v) =>
+      V1CustomFieldValue(
         id: v.id,
         customFieldId: v.customFieldId,
         memberId: v.memberId,
         value: v.value,
       );
 
-  V3Note _mapNote(Note n) => V3Note(
+  V1Note _mapNote(Note n) => V1Note(
     id: n.id,
     title: n.title,
     body: n.body,
@@ -533,8 +533,8 @@ class DataExportService {
     modifiedAt: n.modifiedAt.toUtc().toIso8601String(),
   );
 
-  V3FrontSessionComment _mapFrontSessionComment(FrontSessionComment c) =>
-      V3FrontSessionComment(
+  V1FrontSessionComment _mapFrontSessionComment(FrontSessionComment c) =>
+      V1FrontSessionComment(
         id: c.id,
         sessionId: c.sessionId,
         body: c.body,
@@ -542,8 +542,8 @@ class DataExportService {
         createdAt: c.createdAt.toUtc().toIso8601String(),
       );
 
-  V3ConversationCategory _mapConversationCategory(ConversationCategory c) =>
-      V3ConversationCategory(
+  V1ConversationCategory _mapConversationCategory(ConversationCategory c) =>
+      V1ConversationCategory(
         id: c.id,
         name: c.name,
         displayOrder: c.displayOrder,
@@ -551,7 +551,7 @@ class DataExportService {
         modifiedAt: c.modifiedAt.toUtc().toIso8601String(),
       );
 
-  V3Reminder _mapReminder(Reminder r) => V3Reminder(
+  V1Reminder _mapReminder(Reminder r) => V1Reminder(
     id: r.id,
     name: r.name,
     message: r.message,
@@ -564,7 +564,7 @@ class DataExportService {
     modifiedAt: r.modifiedAt.toUtc().toIso8601String(),
   );
 
-  V3Friend _mapFriend(FriendRecord f) => V3Friend(
+  V1Friend _mapFriend(FriendRecord f) => V1Friend(
     id: f.id,
     displayName: f.displayName,
     publicKeyHex: f.publicKeyHex,

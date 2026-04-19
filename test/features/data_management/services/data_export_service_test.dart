@@ -100,7 +100,7 @@ void main() {
       final json = ExportCrypto.decrypt(bytes, 'test-password').json;
       final export = jsonDecode(json) as Map<String, dynamic>;
       expect(export['appName'], 'Prism Plurality');
-      expect(export['version'], '3.0');
+      expect(export['version'], '1.0');
     });
 
     test(
