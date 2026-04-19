@@ -81,6 +81,7 @@ class TimeOfDayChart extends StatelessWidget {
                         height: 8,
                         decoration: BoxDecoration(
                           color: _colorFor(bucket.name),
+                          // Intentionally circular even in angular mode — progress indicator convention.
                           shape: BoxShape.circle,
                         ),
                       ),

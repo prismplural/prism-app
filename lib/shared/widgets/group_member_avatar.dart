@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -62,15 +63,26 @@ class GroupMemberAvatar extends StatelessWidget {
     final visible = members.take(4).toList();
     final tintColor = tint ?? Theme.of(context).colorScheme.primary;
 
+    final angular = PrismShapes.of(context).cornerStyle == CornerStyle.angular;
+    final clipper = angular
+        ? ClipRRect(
+            borderRadius: BorderRadius.zero,
+            child: SizedBox.square(
+              dimension: size,
+              child: _buildLayout(context, visible, size),
+            ),
+          )
+        : ClipOval(
+            child: SizedBox.square(
+              dimension: size,
+              child: _buildLayout(context, visible, size),
+            ),
+          );
+
     return TintedGlassSurface.circle(
       size: size,
       tint: tintColor,
-      child: ClipOval(
-        child: SizedBox.square(
-          dimension: size,
-          child: _buildLayout(context, visible, size),
-        ),
-      ),
+      child: clipper,
     );
   }
 
@@ -148,19 +160,20 @@ class GroupMemberAvatar extends StatelessWidget {
   ) {
     if (member.avatarImageData != null && member.avatarImageData!.isNotEmpty) {
       final pixelSize = (itemSize * devicePixelRatio).ceil();
-      return ClipOval(
-        child: Image.memory(
-          member.avatarImageData!,
-          width: itemSize,
-          height: itemSize,
-          fit: BoxFit.cover,
-          cacheWidth: pixelSize,
-          cacheHeight: pixelSize,
-          semanticLabel: context.l10n.groupMemberAvatarSemantics,
-          errorBuilder: (_, _, _) =>
-               _miniEmoji(member.emoji, itemSize),
-        ),
+      final image = Image.memory(
+        member.avatarImageData!,
+        width: itemSize,
+        height: itemSize,
+        fit: BoxFit.cover,
+        cacheWidth: pixelSize,
+        cacheHeight: pixelSize,
+        semanticLabel: context.l10n.groupMemberAvatarSemantics,
+        errorBuilder: (_, _, _) => _miniEmoji(member.emoji, itemSize),
       );
+      final angular = PrismShapes.of(context).cornerStyle == CornerStyle.angular;
+      return angular
+          ? ClipRRect(borderRadius: BorderRadius.zero, child: image)
+          : ClipOval(child: image);
     }
     return _miniEmoji(member.emoji, itemSize);
   }

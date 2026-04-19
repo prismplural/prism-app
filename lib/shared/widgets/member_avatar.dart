@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatf
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// Reusable circular avatar widget for system members.
@@ -92,9 +93,11 @@ class MemberAvatar extends StatelessWidget {
     }
 
     if (showBorder) {
+      final shapes = PrismShapes.of(context);
       return Container(
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
+          shape: shapes.avatarShape(),
+          borderRadius: shapes.avatarBorderRadius(),
           border: Border.all(
             color: color.withValues(alpha: 0.5),
             width: 2,

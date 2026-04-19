@@ -549,6 +549,7 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
+                      // Intentionally circular even in angular mode — progress indicator convention.
                       shape: BoxShape.circle,
                       color: filled
                           ? AppColors.warmWhite
@@ -606,6 +607,7 @@ class _NumpadButton extends StatelessWidget {
         height: 72,
         alignment: Alignment.center,
         decoration: const BoxDecoration(
+          // Intentionally circular even in angular mode — progress indicator convention.
           shape: BoxShape.circle,
           color: Color(0x22FFFFFF),
         ),

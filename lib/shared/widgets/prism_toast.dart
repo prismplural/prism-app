@@ -331,13 +331,14 @@ class _ToastOverlayState extends State<_ToastOverlay>
                                 color: Colors.transparent,
                                 child: InkWell(
                                   onTap: widget.onDismiss,
-                                  customBorder: const CircleBorder(),
+                                  customBorder: PrismShapes.of(context).circleOrSquareBorder(),
                                   child: Ink(
                                     width: 30,
                                     height: 30,
                                     decoration: BoxDecoration(
                                       color: textColor.withValues(alpha: 0.08),
-                                      shape: BoxShape.circle,
+                                      shape: PrismShapes.of(context).avatarShape(),
+                                      borderRadius: PrismShapes.of(context).avatarBorderRadius(),
                                     ),
                                     child: Icon(
                                       AppIcons.closeRounded,

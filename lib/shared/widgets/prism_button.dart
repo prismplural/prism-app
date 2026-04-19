@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
 enum PrismButtonTone { subtle, filled, destructive, outlined }
@@ -225,7 +226,7 @@ class _PrismIconButtonState extends State<PrismIconButton> {
         duration: const Duration(milliseconds: 100),
         child: Material(
           color: Colors.transparent,
-          shape: const CircleBorder(),
+          shape: PrismShapes.of(context).circleOrSquareBorder(),
           child: InkResponse(
             onTap: canPress ? widget.onPressed : null,
             onLongPress: canPress ? widget.onLongPress : null,
@@ -235,13 +236,14 @@ class _PrismIconButtonState extends State<PrismIconButton> {
               }
             },
             radius: widget.size / 2,
-            customBorder: const CircleBorder(),
+            customBorder: PrismShapes.of(context).circleOrSquareBorder(),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 100),
               width: widget.size,
               height: widget.size,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                shape: PrismShapes.of(context).avatarShape(),
+                borderRadius: PrismShapes.of(context).avatarBorderRadius(),
                 color: canPress
                     ? color.withValues(alpha: _pressed ? 0.2 : 0.12)
                     : color.withValues(alpha: 0.05),
