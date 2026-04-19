@@ -531,26 +531,14 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                           ),
                   ),
                 ),
-                if (_isRecording) ...[
-                  const SizedBox(width: 8),
+                const SizedBox(width: 8),
+                // Left action button swaps between attachment and cancel.
+                if (_isRecording)
                   VoiceRecorderCancelButton(
                     size: inputHeight,
                     onCancel: () => setState(() => _isRecording = false),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: VoiceRecorder(
-                      onCancel: () => setState(() => _isRecording = false),
-                      height: inputHeight,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  VoiceRecorderSendButton(
-                    size: inputHeight,
-                    onSend: _sendVoiceNote,
-                  ),
-                ] else ...[
-                  const SizedBox(width: 8),
+                  )
+                else
                   AttachmentMenuButton(
                     gifEnabled: ref.watch(gifAttachmentEnabledProvider),
                     size: inputHeight,
@@ -558,51 +546,72 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                     onPhotoLibrary: () => _pickImage(ImageSource.gallery),
                     onGif: _showGifPicker,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: CompositedTransformTarget(
-                      link: _layerLink,
-                      child: _GlassTextField(
-                        controller: _controller,
-                        focusNode: _focusNode,
-                        minHeight: inputHeight,
-                        onChanged: (_) => setState(() {}),
-                        onSend: _sendMessage,
-                        onKeyEvent: _mentionOverlay != null
-                            ? (event) {
-                                final consumed =
-                                    _mentionOverlayKey.currentState
-                                        ?.handleKeyEvent(event) ??
-                                    false;
-                                if (event is KeyDownEvent &&
-                                    event.logicalKey ==
-                                        LogicalKeyboardKey.escape) {
-                                  _dismissMentionOverlay();
-                                  return true;
-                                }
-                                return consumed;
-                              }
-                            : null,
+                const SizedBox(width: 8),
+                // TextField stays in the tree at all times so the keyboard
+                // never dismisses when recording starts. VoiceRecorder
+                // overlays it; AbsorbPointer blocks stray touches through.
+                Expanded(
+                  child: Stack(
+                    children: [
+                      AbsorbPointer(
+                        absorbing: _isRecording,
+                        child: CompositedTransformTarget(
+                          link: _layerLink,
+                          child: _GlassTextField(
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            minHeight: inputHeight,
+                            onChanged: (_) => setState(() {}),
+                            onSend: _sendMessage,
+                            onKeyEvent: _mentionOverlay != null
+                                ? (event) {
+                                    final consumed =
+                                        _mentionOverlayKey.currentState
+                                            ?.handleKeyEvent(event) ??
+                                        false;
+                                    if (event is KeyDownEvent &&
+                                        event.logicalKey ==
+                                            LogicalKeyboardKey.escape) {
+                                      _dismissMentionOverlay();
+                                      return true;
+                                    }
+                                    return consumed;
+                                  }
+                                : null,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (_isRecording)
+                        VoiceRecorder(
+                          onCancel: () => setState(() => _isRecording = false),
+                          height: inputHeight,
+                        ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  if (_showMicButton && ref.watch(voiceNotesEnabledProvider))
-                    _MicButton(
-                      size: inputHeight,
-                      onPressed: () {
-                        HapticFeedback.mediumImpact();
-                        setState(() => _isRecording = true);
-                      },
-                    )
-                  else
-                    _SendButton(
-                      canSend: _canSend,
-                      isSending: _isSending,
-                      size: inputHeight,
-                      onPressed: _sendMessage,
-                    ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                // Right action button swaps between send variants and mic.
+                if (_isRecording)
+                  VoiceRecorderSendButton(
+                    size: inputHeight,
+                    onSend: _sendVoiceNote,
+                  )
+                else if (_showMicButton && ref.watch(voiceNotesEnabledProvider))
+                  _MicButton(
+                    size: inputHeight,
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      _focusNode.requestFocus();
+                      setState(() => _isRecording = true);
+                    },
+                  )
+                else
+                  _SendButton(
+                    canSend: _canSend,
+                    isSending: _isSending,
+                    size: inputHeight,
+                    onPressed: _sendMessage,
+                  ),
               ],
             ),
           ),

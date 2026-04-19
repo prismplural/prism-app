@@ -389,7 +389,7 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
     _targetPhase = n;
     _model = _WaveformModel(
       samples: List.of(widget.samples),
-      barProgress: List.filled(widget.samples.length, 1.0),
+      barProgress: List.filled(widget.samples.length, 1.0, growable: true),
       slidePhase: n,
       color: widget.color,
     );
