@@ -1,0 +1,46 @@
+default_platform(:ios)
+
+# Shared App Store Connect API key config
+# Requires env vars: ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_FILEPATH
+def asc_api_key
+  app_store_connect_api_key(
+    key_id: ENV["ASC_KEY_ID"],
+    issuer_id: ENV["ASC_ISSUER_ID"],
+    key_filepath: ENV["ASC_KEY_FILEPATH"],
+  )
+end
+
+platform :ios do
+  desc "Build and upload to TestFlight internal testing"
+  lane :internal do
+    # Build release IPA via Flutter
+    sh("cd .. && flutter build ipa --release")
+
+    ipa_path = Dir["build/ios/ipa/*.ipa"].first
+    UI.user_error!("No IPA found in build/ios/ipa/") unless ipa_path
+
+    upload_to_testflight(
+      api_key: asc_api_key,
+      ipa: ipa_path,
+      distribute_external: false,
+      notify_external_testers: false,
+      skip_waiting_for_build_processing: true,
+    )
+  end
+end
+
+platform :android do
+  desc "Build and upload to Play Store internal testing track"
+  lane :internal do
+    # Build release AAB via Flutter
+    sh("cd .. && flutter build appbundle --release")
+
+    upload_to_play_store(
+      track: "internal",
+      aab: "build/app/outputs/bundle/release/app-release.aab",
+      json_key: ENV["PLAY_STORE_JSON_KEY"],
+      package_name: "com.prismplural.prism",
+      release_status: "draft",
+    )
+  end
+end
