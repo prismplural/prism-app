@@ -1413,6 +1413,22 @@ class AppLocalizationsEn extends AppLocalizations {
       'Changing who\'s speaking in chat also logs a front';
 
   @override
+  String get featureChatProxyTagAuthoring =>
+      'Use proxy tags to author messages';
+
+  @override
+  String get featureChatProxyTagAuthoringSubtitle =>
+      'Type a PluralKit proxy tag (e.g. A:) to author as that alter for one message. Case-sensitive.';
+
+  @override
+  String chatPostingAsProxy(String name) {
+    return 'Posting as $name';
+  }
+
+  @override
+  String get chatPostingAsProxyDismiss => 'Don\'t post as proxy';
+
+  @override
   String get featureChatGifSearch => 'GIF Search';
 
   @override

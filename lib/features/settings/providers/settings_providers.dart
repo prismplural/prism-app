@@ -16,6 +16,7 @@ const _kThemeBrightnessCache = 'prism.cache.theme_brightness';
 const _kThemeStyleCache = 'prism.cache.theme_style';
 const _kThemeCornerStyleCache = 'prism.cache.theme_corner_style';
 const _kIgnoreSyncedAppearance = 'prism.pref.ignore_synced_appearance';
+const _kUseProxyTagsForAuthoring = 'prism.pref.use_proxy_tags_for_authoring';
 
 /// Transient storage for a generated mnemonic during secret key setup.
 /// Auto-disposed when no longer watched (Riverpod 3 auto-disposes by default).
@@ -736,6 +737,30 @@ final chatLogsFrontProvider = Provider<bool>((ref) {
           ) ??
       false;
 });
+
+/// Per-device local override: when true, the chat composer will author a
+/// message as the member whose PluralKit proxy tag matches the draft text.
+/// Stored ONLY in SharedPreferences — never synced. Proxy-tag authoring is a
+/// typing habit, not a persistent state change, and should not propagate
+/// across devices.
+final useProxyTagsForAuthoringProvider =
+    AsyncNotifierProvider<UseProxyTagsForAuthoringNotifier, bool>(
+      UseProxyTagsForAuthoringNotifier.new,
+    );
+
+class UseProxyTagsForAuthoringNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kUseProxyTagsForAuthoring) ?? false;
+  }
+
+  Future<void> set(bool value) async {
+    state = AsyncValue.data(value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kUseProxyTagsForAuthoring, value);
+  }
+}
 
 /// Narrow provider for `quickSwitchThresholdSeconds`.
 final quickSwitchThresholdProvider = Provider<int>((ref) {

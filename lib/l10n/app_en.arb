@@ -1910,6 +1910,27 @@
   "@featureChatLogFrontSubtitle": {
     "description": "Toggle subtitle: log front on speaker switch"
   },
+  "featureChatProxyTagAuthoring": "Use proxy tags to author messages",
+  "@featureChatProxyTagAuthoring": {
+    "description": "Toggle title: use PluralKit proxy tags to author single messages"
+  },
+  "featureChatProxyTagAuthoringSubtitle": "Type a PluralKit proxy tag (e.g. A:) to author as that alter for one message. Case-sensitive.",
+  "@featureChatProxyTagAuthoringSubtitle": {
+    "description": "Toggle subtitle: explains proxy-tag authoring, mentions PluralKit and case sensitivity"
+  },
+  "chatPostingAsProxy": "Posting as {name}",
+  "@chatPostingAsProxy": {
+    "description": "Chip label shown above the chat composer when a proxy tag matches the draft",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "chatPostingAsProxyDismiss": "Don't post as proxy",
+  "@chatPostingAsProxyDismiss": {
+    "description": "Accessibility label for the dismiss button on the proxy-tag authoring chip"
+  },
   "featureChatGifSearch": "GIF Search",
   "@featureChatGifSearch": {
     "description": "Toggle title: GIF search"

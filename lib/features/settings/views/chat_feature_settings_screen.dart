@@ -28,6 +28,10 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final chatEnabled = ref.watch(chatEnabledProvider);
     final chatLogsFront = ref.watch(chatLogsFrontProvider);
+    final useProxyTagsForAuthoring = ref
+            .watch(useProxyTagsForAuthoringProvider)
+            .whenOrNull(data: (v) => v) ??
+        false;
     final gifConfig = ref.watch(gifServiceConfigProvider).asData?.value;
     final gifConsentState = ref.watch(gifConsentStateProvider);
     final voiceNotesEnabled = ref.watch(voiceNotesEnabledProvider);
@@ -94,6 +98,17 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                       onChanged: (value) => ref
                           .read(settingsNotifierProvider.notifier)
                           .updateChatLogsFront(value),
+                    ),
+                    PrismSwitchRow(
+                      icon: AppIcons.editOutlined,
+                      iconColor: Colors.blue,
+                      title: context.l10n.featureChatProxyTagAuthoring,
+                      subtitle:
+                          context.l10n.featureChatProxyTagAuthoringSubtitle,
+                      value: useProxyTagsForAuthoring,
+                      onChanged: (value) => ref
+                          .read(useProxyTagsForAuthoringProvider.notifier)
+                          .set(value),
                     ),
                     PrismListRow(
                       leading: Icon(
