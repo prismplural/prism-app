@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
@@ -61,9 +62,11 @@ class PrismSheet extends StatelessWidget {
       backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
       // Suppress the stock M3 drag handle — _SheetChrome renders its own.
       showDragHandle: false,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(PrismTokens.radiusLarge),
+          top: Radius.circular(
+            PrismShapes.of(context).radius(PrismTokens.radiusLarge),
+          ),
         ),
       ),
       builder: (sheetContext) {
@@ -122,9 +125,11 @@ class PrismSheet extends StatelessWidget {
       enableDrag: false,
       showDragHandle: false,
       backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
-          top: Radius.circular(PrismTokens.radiusLarge),
+          top: Radius.circular(
+            PrismShapes.of(context).radius(PrismTokens.radiusLarge),
+          ),
         ),
       ),
       builder: (sheetContext) => _FullScreenSheetBody<T>(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_time_picker.dart';
@@ -199,14 +200,18 @@ class _Pill extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(PrismTokens.radiusSmall),
+        ),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.08)
                 : AppColors.warmBlack.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(PrismTokens.radiusSmall),
+            ),
             border: Border.all(
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.12)
@@ -241,11 +246,15 @@ class _PlaceholderPill extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(PrismTokens.radiusSmall),
+        ),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(PrismTokens.radiusSmall),
+            ),
             border: Border.all(
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.2),
               width: 0.5,

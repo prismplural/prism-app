@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// Reusable row primitive for navigation, metadata, and grouped list content.
@@ -136,7 +137,9 @@ class _PrismListRowState extends State<PrismListRow> {
                 }
               }
             : null,
-        borderRadius: BorderRadius.circular(PrismTokens.radiusMedium),
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+        ),
         child: child,
       ),
     );

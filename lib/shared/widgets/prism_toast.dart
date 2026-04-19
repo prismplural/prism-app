@@ -7,6 +7,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 
@@ -264,7 +265,9 @@ class _ToastOverlayState extends State<_ToastOverlay>
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 560),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(PrismTokens.radiusPill),
+                    ),
                     child: BackdropFilter(
                       filter: ImageFilter.blur(
                         sigmaX: PrismTokens.glassBlurStrong,
@@ -284,7 +287,7 @@ class _ToastOverlayState extends State<_ToastOverlay>
                                 : AppColors.warmWhite.withValues(alpha: 0.78),
                           ),
                           borderRadius: BorderRadius.circular(
-                            PrismTokens.radiusPill,
+                            PrismShapes.of(context).radius(PrismTokens.radiusPill),
                           ),
                           border: Border.all(
                             color: isDark

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// A cheap faux-glass surface that achieves a glassy appearance through
@@ -96,7 +97,10 @@ class TintedGlassSurface extends ConsumerWidget {
     // --- Shape helpers ---
     final effectiveBorderRadius = shape == BoxShape.circle
         ? null
-        : (borderRadius ?? BorderRadius.circular(PrismTokens.radiusMedium));
+        : (borderRadius ??
+            BorderRadius.circular(
+              PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+            ));
 
     // --- Highlight gradient (suppressed in accessible mode) ---
     final Decoration? highlightDecoration = isAccessible
