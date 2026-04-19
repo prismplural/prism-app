@@ -92,6 +92,7 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     final router = ref.watch(routerProvider);
     final brightness = ref.watch(themeBrightnessProvider);
     final style = ref.watch(themeStyleProvider);
+    final cornerStyle = ref.watch(cornerStyleProvider);
 
     // Resolve the user's accent color and font settings from narrow providers.
     final accentHex = ref.watch(accentColorHexProvider);
@@ -116,14 +117,14 @@ class _PrismAppState extends ConsumerState<PrismApp> {
 
         switch (style) {
           case ThemeStyle.materialYou:
-            lightTheme = AppTheme.materialYouLight(lightDynamic);
-            darkTheme = AppTheme.materialYouDark(darkDynamic);
+            lightTheme = AppTheme.materialYouLight(lightDynamic, cornerStyle: cornerStyle);
+            darkTheme = AppTheme.materialYouDark(darkDynamic, cornerStyle: cornerStyle);
           case ThemeStyle.oled:
-            lightTheme = AppTheme.light(accentColor: accentColor);
-            darkTheme = AppTheme.oled(accentColor: accentColor);
+            lightTheme = AppTheme.light(accentColor: accentColor, cornerStyle: cornerStyle);
+            darkTheme = AppTheme.oled(accentColor: accentColor, cornerStyle: cornerStyle);
           case ThemeStyle.standard:
-            lightTheme = AppTheme.light(accentColor: accentColor);
-            darkTheme = AppTheme.dark(accentColor: accentColor);
+            lightTheme = AppTheme.light(accentColor: accentColor, cornerStyle: cornerStyle);
+            darkTheme = AppTheme.dark(accentColor: accentColor, cornerStyle: cornerStyle);
         }
 
         // Strip Unbounded from display/headline roles when the user opts out.
