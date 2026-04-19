@@ -488,7 +488,7 @@ final syncAppearanceEnabledProvider = Provider<bool>((ref) {
 });
 
 /// Resolves a list of tab ID strings to AppShellTab objects, filtering by
-/// enabled state and deduplicating.
+/// enabled state and deduplicating against [seen].
 List<AppShellTab> _resolveTabIds(
   List<String> ids,
   ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders}) flags,
@@ -506,41 +506,68 @@ List<AppShellTab> _resolveTabIds(
   return result;
 }
 
-/// Computes the primary nav bar tabs (shown directly in the bar).
-final activeNavBarTabsProvider = Provider<List<AppShellTab>>((ref) {
-  final configuredIds = ref.watch(navBarItemsProvider);
-  final flags = ref.watch(featureFlagsProvider);
+/// Resolved nav layout: primary tabs rendered directly in the bar, plus
+/// overflow tabs reached through the More trigger.
+typedef NavLayout = ({List<AppShellTab> primary, List<AppShellTab> overflow});
 
-  // If empty, use legacy default
-  final tabIds = configuredIds.isEmpty ? defaultNavBarTabIds : configuredIds;
-
+/// Single source of truth for computing the resolved primary + overflow tab
+/// split. Used by both the rendered nav bar and the navigation settings UI
+/// so they never disagree.
+///
+/// Invariants:
+/// - Home is always the first primary tab.
+/// - Primary never exceeds [kMaxPrimaryNavTabs]; excess spills to the front
+///   of overflow preserving order.
+/// - A tab never appears in both primary and overflow.
+/// - Feature-disabled tabs are filtered out.
+NavLayout normalizeNavLayout({
+  required List<String> primaryIds,
+  required List<String> overflowIds,
+  required ({bool chat, bool polls, bool habits, bool sleep, bool notes, bool reminders}) flags,
+}) {
   final tabById = {for (final t in appShellTabs) t.id.name: t};
   final seen = <String>{};
-  final result = _resolveTabIds(tabIds, flags, tabById, seen);
 
-  // Ensure Home is first and Settings is last
-  result.removeWhere(
-      (t) => t.id == AppShellTabId.home || t.id == AppShellTabId.settings);
-  final homeTab = appShellTabs.firstWhere((t) => t.id == AppShellTabId.home);
-  final settingsTab =
-      appShellTabs.firstWhere((t) => t.id == AppShellTabId.settings);
-  result.insert(0, homeTab);
-  if (settingsTab.isEnabled(flags)) result.add(settingsTab);
+  var primary = _resolveTabIds(primaryIds, flags, tabById, seen);
 
-  return result;
+  // Force Home to position 0 (always-enabled).
+  primary.removeWhere((t) => t.id == AppShellTabId.home);
+  final homeTab = tabById[AppShellTabId.home.name]!;
+  primary.insert(0, homeTab);
+  seen.add(AppShellTabId.home.name);
+
+  final overflow = _resolveTabIds(overflowIds, flags, tabById, seen);
+
+  // Enforce the primary cap: excess spills to the front of overflow in order.
+  if (primary.length > kMaxPrimaryNavTabs) {
+    final excess = primary.sublist(kMaxPrimaryNavTabs);
+    primary = primary.sublist(0, kMaxPrimaryNavTabs);
+    overflow.insertAll(0, excess);
+  }
+
+  return (primary: primary, overflow: overflow);
+}
+
+NavLayout _watchNavLayout(Ref ref) {
+  final configured = ref.watch(navBarItemsProvider);
+  final overflowIds = ref.watch(navBarOverflowItemsProvider);
+  final flags = ref.watch(featureFlagsProvider);
+  final primaryIds = configured.isEmpty ? defaultNavBarTabIds : configured;
+  return normalizeNavLayout(
+    primaryIds: primaryIds,
+    overflowIds: overflowIds,
+    flags: flags,
+  );
+}
+
+/// Computes the primary nav bar tabs (shown directly in the bar).
+final activeNavBarTabsProvider = Provider<List<AppShellTab>>((ref) {
+  return _watchNavLayout(ref).primary;
 });
 
 /// Computes the overflow menu tabs (shown when the More trigger is expanded).
 final navBarOverflowTabsProvider = Provider<List<AppShellTab>>((ref) {
-  final overflowIds = ref.watch(navBarOverflowItemsProvider);
-  final flags = ref.watch(featureFlagsProvider);
-  if (overflowIds.isEmpty) return const [];
-
-  final tabById = {for (final t in appShellTabs) t.id.name: t};
-  // Don't deduplicate against primary here — the nav bar widget handles
-  // combining them. Just resolve the overflow list independently.
-  final seen = <String>{};
-  return _resolveTabIds(overflowIds, flags, tabById, seen);
+  return _watchNavLayout(ref).overflow;
 });
 
 /// Narrow provider for accent color — only rebuilds dependents when accent color changes.

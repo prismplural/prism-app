@@ -52,11 +52,11 @@ void main() {
       expect(tab.isLocked, isTrue);
     });
 
-    test('settings is locked', () {
+    test('settings is not locked (user may move it)', () {
       final tab = appShellTabs.firstWhere(
         (t) => t.id == AppShellTabId.settings,
       );
-      expect(tab.isLocked, isTrue);
+      expect(tab.isLocked, isFalse);
     });
 
     test('all other tabs are not locked', () {
@@ -64,6 +64,7 @@ void main() {
         AppShellTabId.chat,
         AppShellTabId.habits,
         AppShellTabId.polls,
+        AppShellTabId.settings,
         AppShellTabId.members,
         AppShellTabId.reminders,
         AppShellTabId.notes,

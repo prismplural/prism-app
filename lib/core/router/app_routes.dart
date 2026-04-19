@@ -31,7 +31,6 @@ abstract final class AppRoutePaths {
   static const settingsSync = '/settings/sync';
   static const settingsImportExport = '/settings/import-export';
   static const settingsReset = '/settings/reset';
-  static const settingsEncryptionInfo = '/settings/encryption-info';
   static const settingsSharing = '/settings/sharing';
   static const settingsDatabase = '/settings/database';
   static const settingsAbout = '/settings/about';
@@ -124,7 +123,8 @@ class AppShellTab {
   final String rootLocation;
 
   /// Whether this tab is locked in the nav bar (cannot be removed/reordered).
-  bool get isLocked => id == AppShellTabId.home || id == AppShellTabId.settings;
+  /// Only Home is locked — it must always be the first primary tab.
+  bool get isLocked => id == AppShellTabId.home;
 
   /// Display label, substituting user's terminology for the Members tab.
   String displayLabel({String? terminologyPlural}) {
@@ -266,3 +266,9 @@ final appShellTabs = [
 
 /// The default nav bar tab IDs when no custom configuration exists.
 const defaultNavBarTabIds = ['home', 'chat', 'habits', 'polls', 'settings'];
+
+/// Maximum number of tabs that can appear in the primary nav bar. Excess
+/// tabs spill into the overflow menu. This constraint is enforced by
+/// [normalizeNavLayout] and is the single source of truth for both the
+/// settings UI and the rendered nav bar.
+const int kMaxPrimaryNavTabs = 5;

@@ -48,7 +48,7 @@ void main() {
 
       final tabs = container.read(activeNavBarTabsProvider);
 
-      // Home is forced first, settings forced last, but polls before chat
+      // Home is forced first; settings order is whatever the user configured.
       expect(tabIds(tabs), [
         AppShellTabId.home,
         AppShellTabId.polls,
@@ -93,7 +93,7 @@ void main() {
       ]);
     });
 
-    test('home is always first and settings always last', () {
+    test('home is always first, settings position follows config', () {
       final container = makeContainer(
         settings: const SystemSettings(
           navBarItems: ['settings', 'polls', 'home', 'chat'],
@@ -104,7 +104,105 @@ void main() {
       final tabs = container.read(activeNavBarTabsProvider);
 
       expect(tabs.first.id, AppShellTabId.home);
-      expect(tabs.last.id, AppShellTabId.settings);
+      // Settings is movable — its relative order among non-Home tabs is
+      // preserved from the config.
+      expect(tabIds(tabs), [
+        AppShellTabId.home,
+        AppShellTabId.settings,
+        AppShellTabId.polls,
+        AppShellTabId.chat,
+      ]);
+    });
+
+    test('primary is capped at 5 and excess spills to overflow', () {
+      final container = makeContainer(
+        settings: const SystemSettings(
+          navBarItems: [
+            'home',
+            'chat',
+            'habits',
+            'polls',
+            'members',
+            'notes',
+            'reminders',
+            'settings',
+          ],
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final primary = container.read(activeNavBarTabsProvider);
+      final overflow = container.read(navBarOverflowTabsProvider);
+
+      expect(primary, hasLength(5));
+      expect(tabIds(primary), [
+        AppShellTabId.home,
+        AppShellTabId.chat,
+        AppShellTabId.habits,
+        AppShellTabId.polls,
+        AppShellTabId.members,
+      ]);
+      expect(tabIds(overflow), [
+        AppShellTabId.notes,
+        AppShellTabId.reminders,
+        AppShellTabId.settings,
+      ]);
+    });
+
+    test(
+        'regression: 6 primary ids + non-empty overflow still clamps to 5 '
+        '(user moved a tab to overflow; the old render-time auto-split only '
+        'fired when overflow was empty, so >5 primary would have rendered)',
+        () {
+      final container = makeContainer(
+        settings: const SystemSettings(
+          navBarItems: [
+            'home',
+            'chat',
+            'habits',
+            'polls',
+            'members',
+            'settings',
+          ],
+          navBarOverflowItems: ['notes'],
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final primary = container.read(activeNavBarTabsProvider);
+      final overflow = container.read(navBarOverflowTabsProvider);
+
+      expect(primary, hasLength(5));
+      expect(tabIds(primary), [
+        AppShellTabId.home,
+        AppShellTabId.chat,
+        AppShellTabId.habits,
+        AppShellTabId.polls,
+        AppShellTabId.members,
+      ]);
+      // Excess primary (settings) spills to the front of overflow,
+      // preserving order relative to the existing overflow items.
+      expect(tabIds(overflow), [AppShellTabId.settings, AppShellTabId.notes]);
+    });
+
+    test('tabs in configured overflow do not duplicate into primary', () {
+      final container = makeContainer(
+        settings: const SystemSettings(
+          navBarItems: ['home', 'chat', 'settings'],
+          navBarOverflowItems: ['polls', 'habits'],
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final primary = container.read(activeNavBarTabsProvider);
+      final overflow = container.read(navBarOverflowTabsProvider);
+
+      expect(tabIds(primary), [
+        AppShellTabId.home,
+        AppShellTabId.chat,
+        AppShellTabId.settings,
+      ]);
+      expect(tabIds(overflow), [AppShellTabId.polls, AppShellTabId.habits]);
     });
 
     test('duplicate IDs in config are deduplicated', () {
