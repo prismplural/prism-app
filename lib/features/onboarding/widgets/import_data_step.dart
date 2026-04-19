@@ -1009,6 +1009,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
 
   Future<void> _handleImport() async {
     if (_isImporting) return;
+    // SECRET: `token` is the user's PluralKit API token. Never log its value,
+    // its prefix/suffix, or any substring. `token.length` is safe; anything
+    // derived from the contents is not.
     final token = _tokenController.text.trim();
     debugPrint('[PK_ONBOARDING] _handleImport: token length=${token.length}');
     if (token.isEmpty) {

@@ -4,6 +4,15 @@ import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
+/// Sanctioned exception to the "always use `secureStorage` from
+/// `core/services/secure_storage.dart`" rule. The biometric DEK MUST be stored
+/// with hardware-enforced biometric access control (iOS: biometryCurrentSet in
+/// the Secure Enclave; Android: setUserAuthenticationRequired via Keystore) —
+/// the shared `secureStorage` constant uses `first_unlock_this_device` without
+/// biometric gating so background sync can read keys while the device is
+/// locked. Do not replace this instance with the shared one. If you need to
+/// touch this code, read the long-form rationale below before changing
+/// platform options.
 class BiometricService {
   BiometricService({
     LocalAuthentication? localAuth,
