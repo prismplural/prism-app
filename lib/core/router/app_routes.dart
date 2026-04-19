@@ -271,7 +271,13 @@ const defaultNavBarTabIds = ['home', 'chat', 'habits', 'polls', 'settings'];
 /// exists. Tabs whose feature flag is off are filtered out by
 /// [AppShellTab.isEnabled], so disabling Notes or Reminders in onboarding
 /// removes them automatically.
-const defaultNavBarOverflowTabIds = ['notes', 'reminders'];
+const defaultNavBarOverflowTabIds = [
+  'members',
+  'notes',
+  'reminders',
+  'statistics',
+  'timeline',
+];
 
 /// Maximum number of tabs that can appear in the primary nav bar. Excess
 /// tabs spill into the overflow menu. This constraint is enforced by
