@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -114,7 +115,7 @@ class _CreateInviteSheetState extends ConsumerState<CreateInviteSheet> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
                           ),
                           child: SelectableText(
                             _invite!.toShareString(),
