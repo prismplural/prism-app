@@ -219,6 +219,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
   Future<void> updateThemeStyle(int value) =>
       _updateField(SystemSettingsTableCompanion(themeStyle: Value(value)));
 
+  Future<void> updateThemeCornerStyle(int value) => _updateField(
+    SystemSettingsTableCompanion(themeCornerStyle: Value(value)),
+  );
+
   Future<void> updateTimingMode(int value) =>
       _updateField(SystemSettingsTableCompanion(timingMode: Value(value)));
 

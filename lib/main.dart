@@ -16,8 +16,9 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
-import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 // import 'package:prism_plurality/features/pluralkit/services/pluralkit_background_service.dart';
 import 'app.dart';
 
@@ -96,6 +97,8 @@ void main() async {
         (s) => s.name == prefs.getString('prism.cache.theme_style'),
       ) ??
       ThemeStyle.standard;
+  final cornerIndex = prefs.getInt('prism.cache.theme_corner_style') ?? 0;
+  final cachedCornerStyle = CornerStyle.values[cornerIndex];
 
   BootTimings.mark('runApp');
   runApp(
@@ -103,6 +106,7 @@ void main() async {
       overrides: [
         cachedThemeBrightnessProvider.overrideWithValue(cachedBrightness),
         cachedThemeStyleProvider.overrideWithValue(cachedStyle),
+        cachedCornerStyleProvider.overrideWithValue(cachedCornerStyle),
       ],
       // F7: Explicit retry filter — prevent infinite retry on programmer bugs.
       retry: (retryCount, error) {

@@ -188,6 +188,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateThemeStyle(ThemeStyle value) async =>
       updateSettings(settings.copyWith(themeStyle: value));
   @override
+  Future<void> updateCornerStyle(CornerStyle value) async =>
+      updateSettings(settings.copyWith(cornerStyle: value));
+  @override
   Future<void> updateTimingMode(FrontingTimingMode value) async =>
       updateSettings(settings.copyWith(timingMode: value));
   @override
