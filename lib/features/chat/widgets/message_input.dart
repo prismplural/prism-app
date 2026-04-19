@@ -553,31 +553,34 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                 Expanded(
                   child: Stack(
                     children: [
-                      AbsorbPointer(
-                        absorbing: _isRecording,
-                        child: CompositedTransformTarget(
-                          link: _layerLink,
-                          child: _GlassTextField(
-                            controller: _controller,
-                            focusNode: _focusNode,
-                            minHeight: inputHeight,
-                            onChanged: (_) => setState(() {}),
-                            onSend: _sendMessage,
-                            onKeyEvent: _mentionOverlay != null
-                                ? (event) {
-                                    final consumed =
-                                        _mentionOverlayKey.currentState
-                                            ?.handleKeyEvent(event) ??
-                                        false;
-                                    if (event is KeyDownEvent &&
-                                        event.logicalKey ==
-                                            LogicalKeyboardKey.escape) {
-                                      _dismissMentionOverlay();
-                                      return true;
+                      Opacity(
+                        opacity: _isRecording ? 0.0 : 1.0,
+                        child: AbsorbPointer(
+                          absorbing: _isRecording,
+                          child: CompositedTransformTarget(
+                            link: _layerLink,
+                            child: _GlassTextField(
+                              controller: _controller,
+                              focusNode: _focusNode,
+                              minHeight: inputHeight,
+                              onChanged: (_) => setState(() {}),
+                              onSend: _sendMessage,
+                              onKeyEvent: _mentionOverlay != null
+                                  ? (event) {
+                                      final consumed =
+                                          _mentionOverlayKey.currentState
+                                              ?.handleKeyEvent(event) ??
+                                          false;
+                                      if (event is KeyDownEvent &&
+                                          event.logicalKey ==
+                                              LogicalKeyboardKey.escape) {
+                                        _dismissMentionOverlay();
+                                        return true;
+                                      }
+                                      return consumed;
                                     }
-                                    return consumed;
-                                  }
-                                : null,
+                                  : null,
+                            ),
                           ),
                         ),
                       ),
