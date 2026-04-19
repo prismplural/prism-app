@@ -4,12 +4,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_editing_providers.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_validation_providers.dart';
 
 /// Tracks the count of unresolved timeline issues found after sync or edits.
 /// Displayed as a banner on the fronting tab.
+///
+/// Post-sync rescans are driven by [syncEventStreamProvider]: whenever a
+/// RemoteChanges event includes fronting_sessions rows, a broad rescan over
+/// the last 30 days is triggered automatically. No explicit wiring needed at
+/// call sites — the listener activates as soon as this provider is first
+/// watched (e.g. when the fronting-tab banner widget builds).
 final frontingIssueCountProvider =
     NotifierProvider<FrontingIssueCountNotifier, int>(
       FrontingIssueCountNotifier.new,
@@ -17,8 +24,40 @@ final frontingIssueCountProvider =
 
 class FrontingIssueCountNotifier extends Notifier<int> {
   @override
-  int build() => 0;
+  int build() {
+    // Listen for remote fronting_sessions changes and trigger a broad rescan.
+    // RemoteChanges events fire after Drift rows are already written, so the
+    // repository will return the updated data when the scan runs.
+    ref.listen(syncEventStreamProvider, (previous, next) {
+      next.whenData((event) {
+        if (!event.isRemoteChanges) return;
+        final hasFrontingChanges = event.changes.any(
+          (c) => c['table'] == 'fronting_sessions',
+        );
+        if (hasFrontingChanges) {
+          _triggerBroadRescan();
+        }
+      });
+    });
+    return 0;
+  }
+
   void setCount(int count) => state = count;
+
+  /// Rescans the last 30 days of sessions. Called after remote fronting_sessions
+  /// changes land in Drift so the banner count stays accurate across devices.
+  void _triggerBroadRescan() {
+    final now = DateTime.now();
+    final from = now.subtract(const Duration(days: 30));
+    final sanitizer = ref.read(frontingSanitizerServiceProvider);
+    unawaited(
+      sanitizer.scan(from: from, to: now).then((issues) {
+        state = issues.length;
+      }).catchError((Object e, StackTrace st) {
+        debugPrint('[FrontingRescan] Post-sync rescan failed: $e\n$st');
+      }),
+    );
+  }
 }
 
 /// Provides a [FrontingSanitizerService] wired to the repository, validator,
@@ -57,21 +96,3 @@ void triggerPostEditRescan(
   }));
 }
 
-// TODO(sync): Wire a post-sync rescan by listening to syncEventStreamProvider
-// for SyncCompleted events (see lib/core/sync/prism_sync_providers.dart,
-// SyncStatusNotifier.build() for the pattern). The challenge is that
-// triggerPostEditRescan needs a time range (sessionStart/sessionEnd), but
-// SyncCompleted events don't carry which fronting_sessions were affected.
-//
-// Approach: add a Riverpod provider that listens to syncEventStreamProvider,
-// filters for isSyncCompleted with no error, and triggers a broad rescan
-// (e.g. last 30 days). This provider would use Ref, not WidgetRef, so it
-// needs a Ref-compatible variant of triggerPostEditRescan. Example:
-//
-//   ref.listen(syncEventStreamProvider, (prev, next) {
-//     next.whenData((event) {
-//       if (event.isSyncCompleted) {
-//         triggerPostSyncRescan(ref, from: thirtyDaysAgo, to: now);
-//       }
-//     });
-//   });
