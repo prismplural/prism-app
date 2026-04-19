@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// A fully pill-shaped selectable chip.
@@ -66,15 +67,21 @@ class PrismChip extends StatelessWidget {
         duration: const Duration(milliseconds: 160),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(PrismTokens.radiusPill),
+          ),
           border: Border.all(color: borderColor, width: selected ? 1.5 : 1.0),
         ),
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(PrismTokens.radiusPill),
+          ),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(PrismTokens.radiusPill),
+            ),
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 avatar != null ? 8 : 14,
