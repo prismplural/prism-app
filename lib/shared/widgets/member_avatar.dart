@@ -7,6 +7,8 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
+enum MemberAvatarShape { circle, square }
+
 /// Reusable circular avatar widget for system members.
 ///
 /// Displays the member's avatar image if available, otherwise falls back
@@ -24,6 +26,7 @@ class MemberAvatar extends StatelessWidget {
     this.showBorder = false,
     this.tintOverride,
     this.opacity = 1.0,
+    this.shape = MemberAvatarShape.circle,
   });
 
   final Uint8List? avatarImageData;
@@ -44,6 +47,8 @@ class MemberAvatar extends StatelessWidget {
   /// compositing layer, so it is safe to use in scrolling surfaces.
   final double opacity;
 
+  final MemberAvatarShape shape;
+
   Color _circleColor(BuildContext context) {
     if (tintOverride != null) return tintOverride!;
     if (customColorEnabled && customColorHex != null) {
@@ -63,26 +68,52 @@ class MemberAvatar extends StatelessWidget {
       final imageInset = size * 0.1;
       final imageSize = size - imageInset * 2;
       final pixelSize = (imageSize * MediaQuery.devicePixelRatioOf(context)).ceil();
-      child = TintedGlassSurface.circle(
-        size: size,
-        tint: tint,
-        child: ClipOval(
-          child: Image.memory(
-            avatarImageData!,
-            width: imageSize,
-            height: imageSize,
-            cacheWidth: pixelSize,
-            cacheHeight: pixelSize,
-            fit: BoxFit.cover,
-            semanticLabel: memberName != null
-                ? context.l10n.memberAvatarSemantics(memberName!)
-                : context.l10n.memberAvatarSemanticsUnnamed,
-            color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
-            colorBlendMode: dimmed ? BlendMode.modulate : null,
-            errorBuilder: (_, _, _) => _centeredEmoji(size),
+      if (shape == MemberAvatarShape.square) {
+        child = TintedGlassSurface(
+          width: size,
+          height: size,
+          borderRadius: BorderRadius.zero,
+          tint: tint,
+          child: ClipRRect(
+            borderRadius: BorderRadius.zero,
+            child: Image.memory(
+              avatarImageData!,
+              width: imageSize,
+              height: imageSize,
+              cacheWidth: pixelSize,
+              cacheHeight: pixelSize,
+              fit: BoxFit.cover,
+              semanticLabel: memberName != null
+                  ? context.l10n.memberAvatarSemantics(memberName!)
+                  : context.l10n.memberAvatarSemanticsUnnamed,
+              color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
+              colorBlendMode: dimmed ? BlendMode.modulate : null,
+              errorBuilder: (_, _, _) => _centeredEmoji(size),
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        child = TintedGlassSurface.circle(
+          size: size,
+          tint: tint,
+          child: ClipOval(
+            child: Image.memory(
+              avatarImageData!,
+              width: imageSize,
+              height: imageSize,
+              cacheWidth: pixelSize,
+              cacheHeight: pixelSize,
+              fit: BoxFit.cover,
+              semanticLabel: memberName != null
+                  ? context.l10n.memberAvatarSemantics(memberName!)
+                  : context.l10n.memberAvatarSemanticsUnnamed,
+              color: dimmed ? Color.fromRGBO(255, 255, 255, opacity) : null,
+              colorBlendMode: dimmed ? BlendMode.modulate : null,
+              errorBuilder: (_, _, _) => _centeredEmoji(size),
+            ),
+          ),
+        );
+      }
     } else {
       child = _emojiCircle(tint);
       // Emoji glyphs are platform-rendered and cannot be tinted via paint-level
@@ -94,10 +125,11 @@ class MemberAvatar extends StatelessWidget {
 
     if (showBorder) {
       final shapes = PrismShapes.of(context);
+      final isSquare = shape == MemberAvatarShape.square;
       return Container(
         decoration: BoxDecoration(
-          shape: shapes.avatarShape(),
-          borderRadius: shapes.avatarBorderRadius(),
+          shape: isSquare ? BoxShape.rectangle : shapes.avatarShape(),
+          borderRadius: isSquare ? BorderRadius.zero : shapes.avatarBorderRadius(),
           border: Border.all(
             color: color.withValues(alpha: 0.5),
             width: 2,
@@ -114,6 +146,15 @@ class MemberAvatar extends StatelessWidget {
   }
 
   Widget _emojiCircle(Color color) {
+    if (shape == MemberAvatarShape.square) {
+      return TintedGlassSurface(
+        width: size,
+        height: size,
+        borderRadius: BorderRadius.zero,
+        tint: color,
+        child: _centeredEmoji(size),
+      );
+    }
     return TintedGlassSurface.circle(
       size: size,
       tint: color,
