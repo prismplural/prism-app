@@ -140,9 +140,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsSectionData => 'Data';
 
   @override
-  String get settingsSectionAbout => 'About';
-
-  @override
   String get settingsSystemInformation => 'System Information';
 
   @override
@@ -182,10 +179,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsResetData => 'Reset Data';
 
   @override
-  String get settingsAbout => 'About';
-
-  @override
-  String get settingsEncryptionPrivacy => 'Encryption & Privacy';
+  String get settingsAbout => 'About Prism';
 
   @override
   String get settingsDebug => 'Debug';
@@ -3333,50 +3327,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncSetupPairingFailed => 'Pairing Failed';
 
   @override
-  String get encryptionPrivacyIntroTitle =>
-      'Your data is encrypted on this device with keys only your PIN can unlock.';
-
-  @override
-  String get encryptionPrivacyIntroBody =>
-      'Even if someone copies this device\'s storage, they can\'t read your data without your PIN and recovery phrase.';
-
-  @override
-  String get encryptionPrivacySyncNote =>
-      'When sync is enabled, data is encrypted on your device before it leaves. The server only stores encrypted blobs it cannot read.';
-
-  @override
-  String get encryptionPrivacyHowItWorks => 'How it works';
-
-  @override
-  String get encryptionPrivacyDatabaseTitle => 'Database encryption';
-
-  @override
-  String get encryptionPrivacyDatabaseBody =>
-      'HKDF-SHA256(DEK, DeviceSecret) — per-device, PIN-derived key. Your device generates this key; no server ever sees it.';
-
-  @override
-  String get encryptionPrivacyMessageTitle => 'Message encryption';
-
-  @override
-  String get encryptionPrivacyMessageBody =>
-      'XChaCha20-Poly1305 with per-message keys derived from your Data Encryption Key (DEK).';
-
-  @override
-  String get encryptionPrivacyPostQuantumTitle =>
-      'Post-quantum device identity';
-
-  @override
-  String get encryptionPrivacyPostQuantumBody =>
-      'ML-KEM-768 (key exchange) and ML-DSA-65 (signatures) protect against future quantum attacks on device authentication.';
-
-  @override
-  String get encryptionPrivacyRecoveryTitle => 'Recovery';
-
-  @override
-  String get encryptionPrivacyRecoveryBody =>
-      'Your 12-word BIP39 recovery phrase re-derives all keys. Store it somewhere safe — it is the only way to recover your data if you lose your PIN.';
-
-  @override
   String memberAvatarSemantics(String name) {
     return '$name avatar';
   }
@@ -3527,6 +3477,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get onboardingFeaturesSleepTrackingDescription =>
       'Monitor sleep patterns and quality';
+
+  @override
+  String get onboardingFeaturesNotes => 'Notes';
+
+  @override
+  String get onboardingFeaturesNotesDescription =>
+      'A personal journal and writing space for your system';
+
+  @override
+  String get onboardingFeaturesReminders => 'Reminders';
+
+  @override
+  String get onboardingFeaturesRemindersDescription =>
+      'Set reminders for yourself or system members';
 
   @override
   String get onboardingCompleteTrackFrontingTitle => 'Track fronting';
@@ -5528,7 +5492,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsAboutGitHubComingSoon => 'GitHub link coming soon';
 
   @override
-  String get settingsAboutPrivacyComingSoon => 'Privacy policy coming soon';
+  String get settingsAboutSecurity => 'Security';
 
   @override
   String get settingsAboutFeedbackComingSoon => 'Feedback form coming soon';
