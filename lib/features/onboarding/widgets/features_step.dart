@@ -62,6 +62,26 @@ class FeaturesStep extends ConsumerWidget {
             onChanged: (v) =>
                 notifier.setFeatureToggle(sleepTrackingEnabled: v),
           ),
+          const SizedBox(height: 12),
+          _FeatureToggle(
+            icon: AppIcons.duotoneNotes,
+            isDark: isDark,
+            primary: primary,
+            title: context.l10n.onboardingFeaturesNotes,
+            description: context.l10n.onboardingFeaturesNotesDescription,
+            value: onboarding.notesEnabled,
+            onChanged: (v) => notifier.setFeatureToggle(notesEnabled: v),
+          ),
+          const SizedBox(height: 12),
+          _FeatureToggle(
+            icon: AppIcons.duotoneReminders,
+            isDark: isDark,
+            primary: primary,
+            title: context.l10n.onboardingFeaturesReminders,
+            description: context.l10n.onboardingFeaturesRemindersDescription,
+            value: onboarding.remindersEnabled,
+            onChanged: (v) => notifier.setFeatureToggle(remindersEnabled: v),
+          ),
         ],
       ),
     );

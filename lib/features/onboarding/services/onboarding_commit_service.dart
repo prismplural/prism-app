@@ -74,6 +74,8 @@ class OnboardingCommitService {
           pollsEnabled: onboarding.pollsEnabled,
           habitsEnabled: onboarding.habitsEnabled,
           sleepTrackingEnabled: onboarding.sleepTrackingEnabled,
+          notesEnabled: onboarding.notesEnabled,
+          remindersEnabled: onboarding.remindersEnabled,
           hasCompletedOnboarding: true,
         ),
       );

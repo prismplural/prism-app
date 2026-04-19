@@ -116,6 +116,8 @@ class OnboardingState {
   final bool pollsEnabled;
   final bool habitsEnabled;
   final bool sleepTrackingEnabled;
+  final bool notesEnabled;
+  final bool remindersEnabled;
   final String? selectedFronterId;
   final bool wasImportedFromPluralKit;
   final bool wasImportedFromSimplyPlural;
@@ -149,6 +151,8 @@ class OnboardingState {
     this.pollsEnabled = true,
     this.habitsEnabled = true,
     this.sleepTrackingEnabled = true,
+    this.notesEnabled = true,
+    this.remindersEnabled = true,
     this.selectedFronterId,
     this.wasImportedFromPluralKit = false,
     this.wasImportedFromSimplyPlural = false,
@@ -176,6 +180,8 @@ class OnboardingState {
     bool? pollsEnabled,
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
+    bool? notesEnabled,
+    bool? remindersEnabled,
     String? selectedFronterId,
     bool? wasImportedFromPluralKit,
     bool? wasImportedFromSimplyPlural,
@@ -201,6 +207,8 @@ class OnboardingState {
       pollsEnabled: pollsEnabled ?? this.pollsEnabled,
       habitsEnabled: habitsEnabled ?? this.habitsEnabled,
       sleepTrackingEnabled: sleepTrackingEnabled ?? this.sleepTrackingEnabled,
+      notesEnabled: notesEnabled ?? this.notesEnabled,
+      remindersEnabled: remindersEnabled ?? this.remindersEnabled,
       selectedFronterId: clearFronterId
           ? null
           : (selectedFronterId ?? this.selectedFronterId),
@@ -229,6 +237,16 @@ class OnboardingState {
 
 class OnboardingNotifier extends Notifier<OnboardingState> {
   static const _uuid = Uuid();
+
+  /// Reentrancy guard for [onPinConfirmed]. PinInputScreen has its own
+  /// `_isCompleting` guard at the widget layer (commit 69bbc9f0), but a
+  /// Riverpod invalidation of `onboardingProvider` — or any future caller
+  /// that bypasses the widget — could still fire [onPinConfirmed] twice
+  /// against the same FFI handle, which would call `ffi.initialize` twice
+  /// and corrupt the wrapped DEK / device keys. This provider-scoped flag
+  /// makes "at most one in-flight PIN derivation per notifier instance"
+  /// enforceable regardless of caller.
+  bool _pinSetupInFlight = false;
 
   @override
   OnboardingState build() => const OnboardingState();
@@ -271,6 +289,15 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   ///    mnemonic down. The phrase is NEVER persisted — it is an offline
   ///    backup credential.
   Future<void> onPinConfirmed(String pin) async {
+    if (_pinSetupInFlight) {
+      if (kDebugMode) {
+        debugPrint(
+          '[ONBOARDING] onPinConfirmed re-entered while in-flight; ignoring',
+        );
+      }
+      return;
+    }
+    _pinSetupInFlight = true;
     try {
       // 1. Get or create the sync handle (we need it for FFI calls).
       //    In new-device onboarding, no handle exists yet. We create one
@@ -339,6 +366,8 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
       );
       if (kDebugMode) debugPrint('[ONBOARDING] onPinConfirmed error: $e');
       rethrow;
+    } finally {
+      _pinSetupInFlight = false;
     }
   }
 
@@ -571,12 +600,16 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     bool? pollsEnabled,
     bool? habitsEnabled,
     bool? sleepTrackingEnabled,
+    bool? notesEnabled,
+    bool? remindersEnabled,
   }) {
     state = state.copyWith(
       chatEnabled: chatEnabled,
       pollsEnabled: pollsEnabled,
       habitsEnabled: habitsEnabled,
       sleepTrackingEnabled: sleepTrackingEnabled,
+      notesEnabled: notesEnabled,
+      remindersEnabled: remindersEnabled,
     );
   }
 }

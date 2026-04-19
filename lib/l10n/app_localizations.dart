@@ -332,12 +332,6 @@ abstract class AppLocalizations {
   /// **'Data'**
   String get settingsSectionData;
 
-  /// Settings section header: About
-  ///
-  /// In en, this message translates to:
-  /// **'About'**
-  String get settingsSectionAbout;
-
   /// Settings link: System Information
   ///
   /// In en, this message translates to:
@@ -416,17 +410,11 @@ abstract class AppLocalizations {
   /// **'Reset Data'**
   String get settingsResetData;
 
-  /// Settings link: About
+  /// Settings link and page title: About Prism
   ///
   /// In en, this message translates to:
-  /// **'About'**
+  /// **'About Prism'**
   String get settingsAbout;
-
-  /// Settings link: Encryption & Privacy
-  ///
-  /// In en, this message translates to:
-  /// **'Encryption & Privacy'**
-  String get settingsEncryptionPrivacy;
 
   /// Settings link: Debug
   ///
@@ -5834,78 +5822,6 @@ abstract class AppLocalizations {
   /// **'Pairing Failed'**
   String get syncSetupPairingFailed;
 
-  /// Lead statement on the encryption and privacy screen
-  ///
-  /// In en, this message translates to:
-  /// **'Your data is encrypted on this device with keys only your PIN can unlock.'**
-  String get encryptionPrivacyIntroTitle;
-
-  /// Supporting body text on the encryption and privacy screen
-  ///
-  /// In en, this message translates to:
-  /// **'Even if someone copies this device\'s storage, they can\'t read your data without your PIN and recovery phrase.'**
-  String get encryptionPrivacyIntroBody;
-
-  /// Zero-knowledge sync note on the encryption and privacy screen
-  ///
-  /// In en, this message translates to:
-  /// **'When sync is enabled, data is encrypted on your device before it leaves. The server only stores encrypted blobs it cannot read.'**
-  String get encryptionPrivacySyncNote;
-
-  /// Expandable section title on the encryption and privacy screen
-  ///
-  /// In en, this message translates to:
-  /// **'How it works'**
-  String get encryptionPrivacyHowItWorks;
-
-  /// Technical item title for database encryption details
-  ///
-  /// In en, this message translates to:
-  /// **'Database encryption'**
-  String get encryptionPrivacyDatabaseTitle;
-
-  /// Technical item body for database encryption details
-  ///
-  /// In en, this message translates to:
-  /// **'HKDF-SHA256(DEK, DeviceSecret) — per-device, PIN-derived key. Your device generates this key; no server ever sees it.'**
-  String get encryptionPrivacyDatabaseBody;
-
-  /// Technical item title for message encryption details
-  ///
-  /// In en, this message translates to:
-  /// **'Message encryption'**
-  String get encryptionPrivacyMessageTitle;
-
-  /// Technical item body for message encryption details
-  ///
-  /// In en, this message translates to:
-  /// **'XChaCha20-Poly1305 with per-message keys derived from your Data Encryption Key (DEK).'**
-  String get encryptionPrivacyMessageBody;
-
-  /// Technical item title for post-quantum identity details
-  ///
-  /// In en, this message translates to:
-  /// **'Post-quantum device identity'**
-  String get encryptionPrivacyPostQuantumTitle;
-
-  /// Technical item body for post-quantum identity details
-  ///
-  /// In en, this message translates to:
-  /// **'ML-KEM-768 (key exchange) and ML-DSA-65 (signatures) protect against future quantum attacks on device authentication.'**
-  String get encryptionPrivacyPostQuantumBody;
-
-  /// Technical item title for recovery details
-  ///
-  /// In en, this message translates to:
-  /// **'Recovery'**
-  String get encryptionPrivacyRecoveryTitle;
-
-  /// Technical item body for recovery details
-  ///
-  /// In en, this message translates to:
-  /// **'Your 12-word BIP39 recovery phrase re-derives all keys. Store it somewhere safe — it is the only way to recover your data if you lose your PIN.'**
-  String get encryptionPrivacyRecoveryBody;
-
   /// Semantics label for a member avatar image
   ///
   /// In en, this message translates to:
@@ -6175,6 +6091,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Monitor sleep patterns and quality'**
   String get onboardingFeaturesSleepTrackingDescription;
+
+  /// Feature toggle label for notes in features step
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get onboardingFeaturesNotes;
+
+  /// Feature toggle description for notes in features step
+  ///
+  /// In en, this message translates to:
+  /// **'A personal journal and writing space for your system'**
+  String get onboardingFeaturesNotesDescription;
+
+  /// Feature toggle label for reminders in features step
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get onboardingFeaturesReminders;
+
+  /// Feature toggle description for reminders in features step
+  ///
+  /// In en, this message translates to:
+  /// **'Set reminders for yourself or system members'**
+  String get onboardingFeaturesRemindersDescription;
 
   /// Next step row title in complete step
   ///
@@ -9566,11 +9506,11 @@ abstract class AppLocalizations {
   /// **'GitHub link coming soon'**
   String get settingsAboutGitHubComingSoon;
 
-  /// Toast shown when Privacy chip is tapped
+  /// Security chip label in About screen
   ///
   /// In en, this message translates to:
-  /// **'Privacy policy coming soon'**
-  String get settingsAboutPrivacyComingSoon;
+  /// **'Security'**
+  String get settingsAboutSecurity;
 
   /// Toast shown when Feedback chip is tapped
   ///
