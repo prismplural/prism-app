@@ -292,9 +292,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         }
                         final item = groupItems[index];
                         return switch (item) {
-                          DateSeparatorItem(:final date) =>
-                            DateSeparator(date: date),
+                          DateSeparatorItem(:final date) => DateSeparator(
+                              key: ValueKey('date_${date.toIso8601String()}'),
+                              date: date,
+                            ),
                           MessageGroup() => PrismMessageGroup(
+                              key: ValueKey(
+                                'group_${item.messages.firstOrNull?.id}',
+                              ),
                               group: item,
                               conversationId: widget.conversationId,
                               permissions: permissions,

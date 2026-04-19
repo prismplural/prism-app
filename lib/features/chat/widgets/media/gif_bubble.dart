@@ -151,9 +151,9 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
     _controller = controller;
 
     try {
-      await controller.setLooping(true);
       await controller.setVolume(0.0);
       await controller.initialize();
+      await controller.setLooping(true);
       if (!mounted) {
         unawaited(controller.dispose());
         return;
@@ -182,25 +182,22 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
     final maxWidth = screenWidth * 0.70;
     const maxHeight = 300.0;
 
-    // Compute constrained size from source dimensions
-    double effectiveWidth = (widget.width != null && widget.width! > 0)
+    // Source dimensions from API (or sensible defaults)
+    final srcWidth = (widget.width != null && widget.width! > 0)
         ? widget.width!
         : 240.0;
-    double effectiveHeight = (widget.height != null && widget.height! > 0)
+    final srcHeight = (widget.height != null && widget.height! > 0)
         ? widget.height!
         : 180.0;
 
-    // Scale down to fit max width
-    if (effectiveWidth > maxWidth) {
-      final scale = maxWidth / effectiveWidth;
-      effectiveWidth = maxWidth;
-      effectiveHeight = effectiveHeight * scale;
-    }
-    // Scale down to fit max height
+    // Always fill maxWidth (matching image bubble behavior for large images),
+    // then scale height proportionally and cap at maxHeight.
+    final aspectRatio = srcWidth / srcHeight;
+    double effectiveWidth = maxWidth;
+    double effectiveHeight = maxWidth / aspectRatio;
     if (effectiveHeight > maxHeight) {
-      final scale = maxHeight / effectiveHeight;
       effectiveHeight = maxHeight;
-      effectiveWidth = effectiveWidth * scale;
+      effectiveWidth = maxHeight * aspectRatio;
     }
 
     // URL validation — show expired state for invalid URLs
@@ -364,12 +361,16 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
 
     // Video ready — show video player
     if (_isVideoInitialized && _controller != null) {
-      return FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: _controller!.value.size.width,
-          height: _controller!.value.size.height,
-          child: VideoPlayer(_controller!),
+      return SizedBox(
+        width: w,
+        height: h,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: _controller!.value.size.width,
+            height: _controller!.value.size.height,
+            child: VideoPlayer(_controller!),
+          ),
         ),
       );
     }
