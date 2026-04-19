@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -216,7 +215,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                       width: _kRingSize,
                       height: _kRingSize,
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.zero,
                         border: Border.all(
                           color: accentColor,
                           width: _kRingWidth,
@@ -251,6 +250,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                     customColorEnabled: member.customColorEnabled,
                     customColorHex: member.customColorHex,
                     size: _kAvatarSize,
+                    shape: MemberAvatarShape.square,
                   ),
                 ],
               ),
@@ -287,25 +287,33 @@ class _ProgressRingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - strokeWidth) / 2;
+    if (progress == 0) return;
+
+    final inset = strokeWidth / 2;
+    final rect = Rect.fromLTWH(inset, inset, size.width - strokeWidth, size.height - strokeWidth);
+    final fullPath = Path()..addRect(rect);
+    final metrics = fullPath.computeMetrics().first;
+    final totalLength = metrics.length;
+    final halfTopEdge = (size.width - strokeWidth) / 2;
+    final sweepLength = totalLength * progress;
+    final startOffset = halfTopEdge;
+    final endOffset = startOffset + sweepLength;
 
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.square;
 
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2, // Start from top
-      2 * math.pi * progress,
-      false,
-      paint,
-    );
+    if (endOffset <= totalLength) {
+      canvas.drawPath(metrics.extractPath(startOffset, endOffset), paint);
+    } else {
+      canvas.drawPath(metrics.extractPath(startOffset, totalLength), paint);
+      canvas.drawPath(metrics.extractPath(0, endOffset - totalLength), paint);
+    }
   }
 
   @override
-  bool shouldRepaint(_ProgressRingPainter oldDelegate) =>
-      progress != oldDelegate.progress || color != oldDelegate.color;
+  bool shouldRepaint(_ProgressRingPainter old) =>
+      progress != old.progress || color != old.color || strokeWidth != old.strokeWidth;
 }
