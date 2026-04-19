@@ -1463,6 +1463,34 @@
   "@systemInfoSaveDescription": {
     "description": "Tooltip for save description button"
   },
+  "systemInfoTagLabel": "System tag",
+  "@systemInfoTagLabel": {
+    "description": "Label for the system tag field"
+  },
+  "systemInfoTagHint": "e.g. | Skylars",
+  "@systemInfoTagHint": {
+    "description": "Placeholder for the system tag field"
+  },
+  "systemInfoTagHelper": "Appended to proxied messages",
+  "@systemInfoTagHelper": {
+    "description": "Helper text below the system tag field"
+  },
+  "systemInfoColorLabel": "System color",
+  "@systemInfoColorLabel": {
+    "description": "Label for the system color row"
+  },
+  "systemInfoColorPickAction": "Pick color",
+  "@systemInfoColorPickAction": {
+    "description": "Button label / dialog title for picking a system color"
+  },
+  "systemInfoColorClearAction": "Clear color",
+  "@systemInfoColorClearAction": {
+    "description": "Button label for clearing the system color"
+  },
+  "systemInfoColorNoneSet": "No color set",
+  "@systemInfoColorNoneSet": {
+    "description": "Shown when no system color has been chosen"
+  },
   "devicesTitle": "Manage Devices",
   "@devicesTitle": {
     "description": "Device management screen title"

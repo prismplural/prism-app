@@ -247,6 +247,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   Future<void> updateSystemDescription(String? value) async =>
       updateSettings(settings.copyWith(systemDescription: value));
   @override
+  Future<void> updateSystemColor(String? colorHex) async =>
+      updateSettings(settings.copyWith(systemColor: colorHex));
+  @override
   Future<void> updateSystemTag(String? value) async =>
       updateSettings(settings.copyWith(systemTag: value));
   @override
