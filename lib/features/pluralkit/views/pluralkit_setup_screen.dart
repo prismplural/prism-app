@@ -23,6 +23,8 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -549,9 +551,9 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     return PrismSectionCard(
       padding: const EdgeInsets.all(16),
       child: settingsAsync.when(
-        loading: () => const SizedBox(
+        loading: () => SizedBox(
           height: 48,
-          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          child: Center(child: PrismSpinner(color: theme.colorScheme.primary, size: 20)),
         ),
         error: (e, _) => Text(
           'Could not load auto-sync settings.',
@@ -608,10 +610,10 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                 runSpacing: 8,
                 children: [
                   for (final seconds in pkAutoPollIntervalChoices)
-                    ChoiceChip(
-                      label: Text(_formatInterval(seconds)),
+                    PrismChip(
+                      label: _formatInterval(seconds),
                       selected: settings.intervalSeconds == seconds,
-                      onSelected: (_) {
+                      onTap: () {
                         ref
                             .read(pkAutoPollSettingsProvider.notifier)
                             .setIntervalSeconds(seconds);

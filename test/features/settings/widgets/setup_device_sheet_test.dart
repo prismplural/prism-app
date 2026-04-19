@@ -162,11 +162,14 @@ void main() {
     await tester.pumpAndSettle();
 
     // Advance past the mnemonic entry step (fake API validates anything).
-    await tester.enterText(
-      find.byType(TextField),
-      'abandon abandon abandon abandon abandon abandon '
-      'abandon abandon abandon abandon abandon about',
-    );
+    const phrase = 'abandon abandon abandon abandon abandon abandon '
+        'abandon abandon abandon abandon abandon about';
+    final words = phrase.split(' ');
+    for (var i = 0; i < 12; i++) {
+      await tester.enterText(find.byType(TextField).at(i), words[i]);
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
