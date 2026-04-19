@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -20,7 +21,6 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
-import 'package:prism_plurality/shared/widgets/prism_popup_menu.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/markdown_text.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -28,6 +28,9 @@ import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
+import 'package:prism_plurality/shared/widgets/blur_popup.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/member_search_delegate.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 
@@ -398,19 +401,33 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
               tooltip: context.l10n.pollsDetailClosePollTooltip,
               onPressed: _confirmClose,
             ),
-          PrismPopupMenu<String>(
-            items: [
-              PrismMenuItem(
-                value: 'delete',
-                label: context.l10n.delete,
-                icon: AppIcons.deleteOutline,
-                destructive: true,
-              ),
-            ],
-            onSelected: (action) {
-              if (action == 'delete') _confirmDelete();
+          BlurPopupAnchor(
+            trigger: BlurPopupTrigger.tap,
+            preferredDirection: BlurPopupDirection.down,
+            width: 180,
+            maxHeight: 120,
+            itemCount: 1,
+            itemBuilder: (context, index, close) {
+              final theme = Theme.of(context);
+              final color = theme.colorScheme.error;
+              return PrismListRow(
+                dense: true,
+                leading: Icon(AppIcons.deleteOutline, size: 20, color: color),
+                title: Text(
+                  context.l10n.delete,
+                  style: TextStyle(fontSize: 14, color: color),
+                ),
+                onTap: () {
+                  close();
+                  _confirmDelete();
+                },
+              );
             },
-            tooltip: context.l10n.pollsDetailMoreOptions,
+            child: PrismTopBarAction(
+              icon: AppIcons.moreVert,
+              tooltip: context.l10n.pollsDetailMoreOptions,
+              onPressed: null,
+            ),
           ),
         ],
       ),
@@ -507,38 +524,13 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                       ),
                     );
                   }
-                  return SizedBox(
-                    height: 48,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: members.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final member = members[index];
-                        final isSelected = votingAs == member.id;
-                        return PrismChip(
-                          label: member.name,
-                          selected: isSelected,
-                          onTap: () => ref
-                              .read(votingAsProvider.notifier)
-                              .setMember(member.id),
-                          avatar: MemberAvatar(
-                            avatarImageData: member.avatarImageData,
-                            memberName: member.name,
-                            emoji: member.emoji,
-                            customColorEnabled: member.customColorEnabled,
-                            customColorHex: member.customColorHex,
-                            size: 24,
-                          ),
-                          selectedColor:
-                              member.customColorEnabled &&
-                                  member.customColorHex != null
-                              ? AppColors.fromHex(member.customColorHex!)
-                              : null,
-                        );
-                      },
-                    ),
+                  return _VotingAsChipRow(
+                    members: members,
+                    votingAs: votingAs,
+                    options: widget.options,
+                    onSelectMember: (id) => ref
+                        .read(votingAsProvider.notifier)
+                        .setMember(id),
                   );
                 },
                 loading: () => const PrismLoadingState(),
@@ -606,6 +598,169 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
             const SizedBox(height: 32),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Voting-as chip row ────────────────────────────────────────────────────
+
+/// Horizontal scrolling chip row for selecting who is voting.
+///
+/// Order: [Select chip] → current fronter (if any) → others sorted by
+/// fronting frequency descending.
+///
+/// Voted members show a checkmark overlay on their avatar to indicate
+/// they have already cast a vote.
+class _VotingAsChipRow extends ConsumerWidget {
+  const _VotingAsChipRow({
+    required this.members,
+    required this.votingAs,
+    required this.options,
+    required this.onSelectMember,
+  });
+
+  final List<Member> members;
+  final String? votingAs;
+  final List<PollOption> options;
+  final ValueChanged<String> onSelectMember;
+
+  bool _hasVoted(String memberId) {
+    return options.any(
+      (option) => option.votes.any((vote) => vote.memberId == memberId),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeSession = ref.watch(activeSessionProvider).value;
+    final currentFronterId = activeSession?.memberId;
+    final frontingCountsAsync = ref.watch(memberFrontingCountsProvider);
+    final frontingCounts = frontingCountsAsync.value ?? const {};
+    final termPlural = watchTerminology(context, ref).pluralLower;
+
+    // Build the ordered member list: fronter first, then by frequency desc.
+    final fronterMember = currentFronterId != null
+        ? members.where((m) => m.id == currentFronterId).firstOrNull
+        : null;
+    final others = members
+        .where((m) => m.id != currentFronterId)
+        .toList()
+      ..sort((a, b) {
+        final countA = frontingCounts[a.id] ?? 0;
+        final countB = frontingCounts[b.id] ?? 0;
+        return countB.compareTo(countA);
+      });
+
+    final orderedMembers = [
+      ?fronterMember,
+      ...others,
+    ];
+
+    return SizedBox(
+      height: 48,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: orderedMembers.length + 1, // +1 for the Select chip
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          // First item: [Select] chip
+          if (index == 0) {
+            return _SelectChip(
+              members: members,
+              termPlural: termPlural,
+              onSelectMember: onSelectMember,
+            );
+          }
+          final member = orderedMembers[index - 1];
+          final isSelected = votingAs == member.id;
+          final voted = _hasVoted(member.id);
+          return PrismChip(
+            label: member.name,
+            selected: isSelected,
+            onTap: () => onSelectMember(member.id),
+            avatar: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                MemberAvatar(
+                  avatarImageData: member.avatarImageData,
+                  memberName: member.name,
+                  emoji: member.emoji,
+                  customColorEnabled: member.customColorEnabled,
+                  customColorHex: member.customColorHex,
+                  size: 24,
+                ),
+                if (voted)
+                  Positioned(
+                    right: -4,
+                    bottom: -4,
+                    child: Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.surface,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Icon(
+                        AppIcons.check,
+                        size: 8,
+                        color: Theme.of(context).colorScheme.onPrimary,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            selectedColor:
+                member.customColorEnabled && member.customColorHex != null
+                    ? AppColors.fromHex(member.customColorHex!)
+                    : null,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// The leading [Select] chip that opens a search modal to pick any member.
+class _SelectChip extends ConsumerWidget {
+  const _SelectChip({
+    required this.members,
+    required this.termPlural,
+    required this.onSelectMember,
+  });
+
+  final List<Member> members;
+  final String termPlural;
+  final ValueChanged<String> onSelectMember;
+
+  Future<void> _openSearch(BuildContext context) async {
+    final delegate = MemberSearchDelegate(
+      members: members,
+      termPlural: termPlural,
+    );
+    final selected = await showSearch<String?>(
+      context: context,
+      delegate: delegate,
+    );
+    if (selected != null) {
+      onSelectMember(selected);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PrismChip(
+      label: context.l10n.search,
+      selected: false,
+      onTap: () => _openSearch(context),
+      avatar: Icon(
+        AppIcons.search,
+        size: 18,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
   }
@@ -730,7 +885,7 @@ class _OptionTile extends ConsumerWidget {
           if (showResults) ...[
             const SizedBox(height: 8),
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(4)),
               child: LinearProgressIndicator(
                 value: percentage,
                 minHeight: 8,
