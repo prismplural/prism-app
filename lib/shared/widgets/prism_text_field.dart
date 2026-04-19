@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 enum PrismTextFieldStyle { standard, borderless }
@@ -92,7 +93,9 @@ class PrismTextField extends StatelessWidget {
       if (!_isMultiLine || fieldStyle != PrismTextFieldStyle.standard) {
         return null;
       }
-      const radius = BorderRadius.all(Radius.circular(PrismTokens.radiusMedium));
+      final radius = BorderRadius.all(
+        Radius.circular(PrismShapes.of(context).radius(PrismTokens.radiusMedium)),
+      );
       if (themeBorder is OutlineInputBorder) {
         return themeBorder.copyWith(borderRadius: radius);
       }
@@ -137,8 +140,14 @@ class PrismTextField extends StatelessWidget {
     OutlineInputBorder? errorBorder() {
       if (isBorderless || !hasError) return null;
       final radius = _isMultiLine
-          ? const BorderRadius.all(Radius.circular(PrismTokens.radiusMedium))
-          : BorderRadius.circular(PrismTokens.radiusLarge);
+          ? BorderRadius.all(
+              Radius.circular(
+                PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+              ),
+            )
+          : BorderRadius.circular(
+              PrismShapes.of(context).radius(PrismTokens.radiusLarge),
+            );
       return OutlineInputBorder(
         borderRadius: radius,
         borderSide: BorderSide(color: errorColor.withValues(alpha: 0.25)),
