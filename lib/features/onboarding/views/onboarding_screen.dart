@@ -202,20 +202,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                             ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Text(
-                        step.localizedSubtitle(context),
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: isDark
-                              ? AppColors.mutedTextDark
-                              : AppColors.mutedTextLight,
+                    if (step.localizedSubtitle(context) case final subtitle?) ...[
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          subtitle,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: isDark
+                                ? AppColors.mutedTextDark
+                                : AppColors.mutedTextLight,
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 20),
                   ],
 

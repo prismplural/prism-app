@@ -27,10 +27,10 @@ extension OnboardingStepL10n on OnboardingStep {
     OnboardingStep.complete => context.l10n.onboardingCompleteTitle,
   };
 
-  String localizedSubtitle(BuildContext context) => switch (this) {
+  String? localizedSubtitle(BuildContext context) => switch (this) {
     OnboardingStep.welcome => context.l10n.onboardingWelcomeSubtitle,
     OnboardingStep.pinSetup => context.l10n.onboardingPinSetupSubtitle,
-    OnboardingStep.recoveryPhrase => context.l10n.onboardingRecoveryPhraseSubtitle,
+    OnboardingStep.recoveryPhrase => null,
     OnboardingStep.biometricSetup => context.l10n.onboardingBiometricSetupSubtitle,
     OnboardingStep.syncDevice => context.l10n.onboardingSyncDeviceSubtitle,
     OnboardingStep.importedDataReady =>
