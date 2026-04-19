@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -90,11 +91,13 @@ class ConversationTile extends ConsumerWidget {
 
   Widget _fallbackAvatar(BuildContext context, IconData icon) {
     final theme = Theme.of(context);
+    final shapes = PrismShapes.of(context);
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
+        shape: shapes.avatarShape(),
+        borderRadius: shapes.avatarBorderRadius(),
         color: theme.colorScheme.surfaceContainerHighest,
       ),
       child: Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),

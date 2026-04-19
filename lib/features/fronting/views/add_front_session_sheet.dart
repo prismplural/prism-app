@@ -561,7 +561,8 @@ class _MemberGridState extends State<_MemberGrid> {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                shape: PrismShapes.of(context).avatarShape(),
+                borderRadius: PrismShapes.of(context).avatarBorderRadius(),
                 color: theme.colorScheme.surfaceContainerHighest,
               ),
               child: Icon(
@@ -618,7 +619,8 @@ class _MemberGridState extends State<_MemberGrid> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                shape: PrismShapes.of(context).avatarShape(),
+                borderRadius: PrismShapes.of(context).avatarBorderRadius(),
                 color: theme.colorScheme.surfaceContainerHighest,
               ),
               child: Icon(

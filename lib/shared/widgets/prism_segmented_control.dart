@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// A segment within a [PrismSegmentedControl].
@@ -134,7 +135,9 @@ class _PrismSegmentedControlState<T>
         height: 44,
         decoration: BoxDecoration(
           color: trackColor,
-          borderRadius: BorderRadius.zero,
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(8),
+          ),
           border: Border.all(color: trackBorderColor, width: 0.5),
         ),
         child: LayoutBuilder(
@@ -156,7 +159,9 @@ class _PrismSegmentedControlState<T>
                       child: Container(
                         decoration: BoxDecoration(
                           color: pillColor,
-                          borderRadius: BorderRadius.zero,
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(6),
+                          ),
                           border: Border.all(
                             color: pillBorderColor,
                             width: 0.5,

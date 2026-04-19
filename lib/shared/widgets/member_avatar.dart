@@ -27,7 +27,7 @@ class MemberAvatar extends StatelessWidget {
     this.showBorder = false,
     this.tintOverride,
     this.opacity = 1.0,
-    this.shape = MemberAvatarShape.circle,
+    this.shape,
   });
 
   final Uint8List? avatarImageData;
@@ -48,7 +48,8 @@ class MemberAvatar extends StatelessWidget {
   /// compositing layer, so it is safe to use in scrolling surfaces.
   final double opacity;
 
-  final MemberAvatarShape shape;
+  /// Shape override. When null, derives from the theme's [PrismShapes] corner style.
+  final MemberAvatarShape? shape;
 
   Color _circleColor(BuildContext context) {
     if (tintOverride != null) return tintOverride!;
@@ -60,6 +61,10 @@ class MemberAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveShape = shape ??
+        (PrismShapes.of(context).cornerStyle == CornerStyle.angular
+            ? MemberAvatarShape.square
+            : MemberAvatarShape.circle);
     final color = _circleColor(context);
     final dimmed = opacity < 1.0;
     final tint = dimmed ? color.withValues(alpha: color.a * opacity) : color;
@@ -83,7 +88,7 @@ class MemberAvatar extends StatelessWidget {
         colorBlendMode: dimmed ? BlendMode.modulate : null,
         errorBuilder: (_, _, _) => _centeredEmoji(size),
       );
-      if (shape == MemberAvatarShape.square) {
+      if (effectiveShape == MemberAvatarShape.square) {
         child = TintedGlassSurface(
           width: size,
           height: size,
@@ -99,7 +104,7 @@ class MemberAvatar extends StatelessWidget {
         );
       }
     } else {
-      child = _emojiCircle(tint);
+      child = _emojiCircle(tint, effectiveShape);
       // Emoji glyphs are platform-rendered and cannot be tinted via paint-level
       // alpha, so we fall back to Opacity for the small circle widget.
       if (dimmed) {
@@ -109,7 +114,7 @@ class MemberAvatar extends StatelessWidget {
 
     if (showBorder) {
       final shapes = PrismShapes.of(context);
-      final isSquare = shape == MemberAvatarShape.square;
+      final isSquare = effectiveShape == MemberAvatarShape.square;
       return Container(
         decoration: BoxDecoration(
           shape: isSquare ? BoxShape.rectangle : shapes.avatarShape(),
@@ -129,8 +134,8 @@ class MemberAvatar extends StatelessWidget {
     return child;
   }
 
-  Widget _emojiCircle(Color color) {
-    if (shape == MemberAvatarShape.square) {
+  Widget _emojiCircle(Color color, MemberAvatarShape effectiveShape) {
+    if (effectiveShape == MemberAvatarShape.square) {
       return TintedGlassSurface(
         width: size,
         height: size,

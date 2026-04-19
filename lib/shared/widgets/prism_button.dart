@@ -119,7 +119,9 @@ class _PrismButtonState extends State<PrismButton> {
                 setState(() => _pressed = value);
               }
             },
-            borderRadius: BorderRadius.zero,
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(999),
+            ),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               padding: EdgeInsets.symmetric(
@@ -127,7 +129,9 @@ class _PrismButtonState extends State<PrismButton> {
                 vertical: verticalPadding,
               ),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.zero,
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(999),
+                ),
                 color: backgroundColor,
                 border: Border.all(color: borderColor),
               ),
