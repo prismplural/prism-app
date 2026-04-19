@@ -193,7 +193,10 @@ class _GroupTile extends StatelessWidget {
     final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
     final leftPadding = 16.0 + depth * 24.0;
 
-    return Padding(
+    return Semantics(
+      label: '${group.name}${depth > 0 ? ', sub-group' : ''}, $memberCount members',
+      button: true,
+      child: Padding(
       padding: EdgeInsets.only(left: depth > 0 ? leftPadding - 16.0 : 0.0),
       child: Dismissible(
         key: ValueKey('dismiss_${group.id}'),
@@ -301,10 +304,13 @@ class _GroupTile extends StatelessWidget {
                         const SizedBox(width: 4),
                         ReorderableDragStartListener(
                           index: reorderIndex,
-                          child: Icon(
-                            AppIcons.dragHandle,
-                            color: theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.4),
+                          child: Tooltip(
+                            message: 'Drag to reorder',
+                            child: Icon(
+                              AppIcons.dragHandle,
+                              color: theme.colorScheme.onSurfaceVariant
+                                  .withValues(alpha: 0.4),
+                            ),
                           ),
                         ),
                       ],
@@ -316,6 +322,7 @@ class _GroupTile extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

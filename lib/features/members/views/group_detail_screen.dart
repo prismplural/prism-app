@@ -503,6 +503,7 @@ class _SubGroupTile extends ConsumerWidget {
 
     return Semantics(
       label: '${group.name}, sub-group, $count members, navigate',
+      excludeSemantics: true,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: InkWell(
