@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
-import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
 /// About info widget for the settings screen.
 ///
@@ -24,11 +27,17 @@ class AboutSection extends StatelessWidget {
           width: 72,
           height: 72,
           decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
-            shape: BoxShape.circle,
+            color: AppColors.prismPurple,
+            borderRadius: PrismShapes.of(context).cornerStyle == CornerStyle.angular
+                ? BorderRadius.zero
+                : BorderRadius.circular(18),
           ),
           alignment: Alignment.center,
-          child: const Text('\u{1F52E}', style: TextStyle(fontSize: 36)),
+          child: Image.asset(
+              'assets/icon_layers/Prism-Logo-Foreground.png',
+              width: 44,
+              height: 44,
+            ),
         ),
         const SizedBox(height: 12),
         Text(
@@ -79,7 +88,21 @@ class AboutSection extends StatelessWidget {
               label: context.l10n.settingsAboutPrivacy,
               selected: false,
               onTap: () {
-                PrismToast.show(context, message: context.l10n.settingsAboutPrivacyComingSoon);
+                launchUrl(
+                  Uri.parse('https://prismplural.com/privacy'),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+            ),
+            PrismChip(
+              avatar: Icon(AppIcons.enhancedEncryptionOutlined, size: 18),
+              label: context.l10n.settingsAboutSecurity,
+              selected: false,
+              onTap: () {
+                launchUrl(
+                  Uri.parse('https://prismplural.com/encryption'),
+                  mode: LaunchMode.externalApplication,
+                );
               },
             ),
             PrismChip(

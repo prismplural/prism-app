@@ -377,7 +377,6 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
   late final Ticker _ticker;
   late final _WaveformModel _model;
 
-  double _targetPhase = 0.0;
   Duration _lastTick = Duration.zero;
 
   static const _animDuration = 150.0;
@@ -385,12 +384,9 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
   @override
   void initState() {
     super.initState();
-    final n = widget.samples.length.toDouble();
-    _targetPhase = n;
     _model = _WaveformModel(
       samples: List.of(widget.samples),
       barProgress: List.filled(widget.samples.length, 1.0, growable: true),
-      slidePhase: n,
       color: widget.color,
     );
     _ticker = createTicker(_onTick)..start();
@@ -399,10 +395,6 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
   @override
   void didUpdateWidget(_AnimatedWaveform old) {
     super.didUpdateWidget(old);
-    final added = widget.samples.length - old.samples.length;
-    if (added > 0) {
-      _targetPhase += added.toDouble();
-    }
     _model.color = widget.color;
   }
 
@@ -414,8 +406,11 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
   }
 
   void _onTick(Duration elapsed) {
-    final dt = (elapsed - _lastTick).inMicroseconds / 1000.0;
+    var dt = (elapsed - _lastTick).inMicroseconds / 1000.0;
     _lastTick = elapsed;
+    // Cap per-frame delta so a GC pause or dropped frame doesn't cause bars
+    // to jump instead of animating through the skipped time smoothly.
+    if (dt > 50.0) dt = 50.0;
 
     final newSamples = widget.samples;
     while (_model.barProgress.length < newSamples.length) {
@@ -423,12 +418,6 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
     }
 
     var dirty = false;
-
-    if (_model.slidePhase < _targetPhase) {
-      _model.slidePhase =
-          (_model.slidePhase + dt / _animDuration).clamp(0.0, _targetPhase);
-      dirty = true;
-    }
 
     for (var i = 0; i < _model.barProgress.length; i++) {
       if (_model.barProgress[i] < 1.0) {
@@ -459,16 +448,13 @@ class _WaveformModel extends ChangeNotifier {
   _WaveformModel({
     required List<double> samples,
     required List<double> barProgress,
-    required double slidePhase,
     required Color color,
   })  : _samples = samples,
         barProgress = barProgress,
-        slidePhase = slidePhase,
         color = color;
 
   List<double> _samples;
   List<double> barProgress;
-  double slidePhase;
   Color color;
 
   List<double> get samples => _samples;
@@ -503,7 +489,7 @@ class _WaveformPainter extends CustomPainter {
     }
 
     final startIndex =
-        samples.length > maxBars ? samples.length - maxBars - 1 : 0;
+        samples.length > maxBars ? samples.length - maxBars : 0;
     final visibleCount = samples.length - startIndex;
 
     var minVal = double.infinity;
@@ -521,10 +507,9 @@ class _WaveformPainter extends CustomPainter {
     final maxHeight = size.height * 0.85;
     const barStep = _barWidth + _barGap;
 
-    final frac = Curves.easeOut.transform(
-      (_model.slidePhase - _model.slidePhase.floorToDouble()).clamp(0.0, 1.0),
-    );
-    final baseSlot = (maxBars - visibleCount + 1).toDouble() - frac;
+    // Bars are right-aligned: the newest sample always occupies the rightmost
+    // slot. No horizontal animation — only bar height is animated.
+    final firstSlot = maxBars - visibleCount;
 
     for (var i = 0; i < visibleCount; i++) {
       final sampleIndex = startIndex + i;
@@ -537,7 +522,7 @@ class _WaveformPainter extends CustomPainter {
           : 1.0;
       final barHeight = _minHeight + (targetHeight - _minHeight) * growProgress;
 
-      final x = (baseSlot + i) * barStep;
+      final x = (firstSlot + i) * barStep;
       final y = (size.height - barHeight) / 2;
 
       canvas.drawRRect(

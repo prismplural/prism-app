@@ -85,6 +85,12 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
   VoiceRecorderBackend? _backend;
   VoidCallback? _backendListener;
 
+  // Exponential moving average state for amplitude smoothing.
+  // α=0.3 keeps bars visually stable while still tracking real loudness changes.
+  static const _emaAlpha = 0.3;
+  static const _floorDb = -60.0;
+  double _emaValue = _floorDb;
+
   @override
   VoiceRecordingState build() {
     final backend = ref.watch(voiceRecorderBackendProvider);
@@ -101,8 +107,11 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
         _syncFromBackend(backend.state.value);
       };
       backend.state.addListener(_backendListener!);
-      _meterSubscription = backend.meterStream.listen((sample) {
-        _samples.add(sample);
+      _meterSubscription = backend.meterStream.listen((raw) {
+        final clamped =
+            raw.isFinite && raw > _floorDb ? raw : _floorDb;
+        _emaValue = _emaAlpha * clamped + (1.0 - _emaAlpha) * _emaValue;
+        _samples.add(_emaValue);
         state = state.copyWith(
           elapsedMs: backend.state.value.elapsed.inMilliseconds,
           amplitudeSamples: List<double>.unmodifiable(_samples),
@@ -134,6 +143,7 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
     }
 
     _samples.clear();
+    _emaValue = _floorDb;
     state = state.copyWith(
       elapsedMs: 0,
       amplitudeSamples: const <double>[],
@@ -195,12 +205,14 @@ class VoiceRecordingNotifier extends Notifier<VoiceRecordingState> {
     }
 
     _samples.clear();
+    _emaValue = _floorDb;
     state = const VoiceRecordingState();
     await HapticFeedback.lightImpact();
   }
 
   void reset() {
     _samples.clear();
+    _emaValue = _floorDb;
     state = const VoiceRecordingState();
     final backend = _backend;
     if (backend != null) {

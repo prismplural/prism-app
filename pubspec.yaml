@@ -131,6 +131,7 @@ flutter:
   assets:
     - assets/audio/
     - assets/textures/
+    - assets/icon_layers/
   fonts:
     - family: Unbounded
       fonts:
