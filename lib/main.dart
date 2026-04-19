@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'package:path_provider/path_provider.dart';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:collection/collection.dart';
@@ -25,6 +26,11 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   BootTimings.mark('binding');
+
+  // Pre-warm path_provider so the platform channel is ready before SoLoud's
+  // loader tries to resolve the temp directory — avoids a startup race that
+  // can leave the loader uninitialized while isInitialized returns true.
+  if (!kIsWeb) await getTemporaryDirectory();
 
   // F1: Global error boundaries — install immediately so startup failures are reported.
   FlutterError.onError = (details) {
