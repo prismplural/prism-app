@@ -7,6 +7,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
@@ -232,7 +233,7 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                                     alpha: 0.4,
                                   ),
                           ),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -465,7 +466,7 @@ class _MemberGridState extends State<_MemberGrid> {
         duration: const Duration(milliseconds: 200),
         decoration: isSelected
             ? BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
                 border: Border.all(color: theme.colorScheme.primary, width: 2),
                 color: theme.colorScheme.primaryContainer.withValues(
                   alpha: 0.3,
@@ -508,7 +509,7 @@ class _MemberGridState extends State<_MemberGrid> {
                   color: AppColors.fronting(
                     theme.brightness,
                   ).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -545,7 +546,7 @@ class _MemberGridState extends State<_MemberGrid> {
         duration: const Duration(milliseconds: 200),
         decoration: isSelected
             ? BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
                 border: Border.all(color: theme.colorScheme.primary, width: 2),
                 color: theme.colorScheme.primaryContainer.withValues(
                   alpha: 0.3,
@@ -720,7 +721,7 @@ class _MemberGridState extends State<_MemberGrid> {
                     color: AppColors.fronting(
                       theme.brightness,
                     ).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

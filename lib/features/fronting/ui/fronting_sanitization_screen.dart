@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -203,7 +204,7 @@ class _FrontingSanitizationScreenState
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
       ),
       child: Row(
         children: [
@@ -229,7 +230,7 @@ class _FrontingSanitizationScreenState
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.green.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
         border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
       ),
       child: Row(
@@ -495,7 +496,7 @@ class _PlanCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerHighest
                     .withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/features/fronting/editing/fronting_edit_resolution_models.dart';
@@ -58,7 +59,7 @@ Future<FrontingDeleteStrategy?> showDeleteStrategyDialog(
                       ),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                       ),
                       child: Text(
                         ctx.l10n.frontingDeleteStrategyRecommended,

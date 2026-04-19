@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:intl/intl.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -129,7 +130,7 @@ class _TypeChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(

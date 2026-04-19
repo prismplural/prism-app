@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -313,7 +314,7 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
                       InkWell(
                         onTap: () =>
                             _showOthersPicker(context, members, topMembers),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Row(

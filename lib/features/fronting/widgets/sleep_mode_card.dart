@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -91,7 +92,7 @@ class _ActiveSleepCardState extends ConsumerState<_ActiveSleepCard> {
         Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
             border: Border.all(color: sleepColor.withValues(alpha: 0.3)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
