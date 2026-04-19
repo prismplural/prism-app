@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
+import 'package:prism_plurality/features/members/widgets/group_parent_picker.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -71,6 +72,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
 
   String? _emoji;
   Color? _selectedColor;
+  String? _parentGroupId;
   bool _saving = false;
 
   @override
@@ -84,6 +86,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
       _selectedColor = AppColors.fromHex(g!.colorHex!);
     }
     _emoji = g?.emoji;
+    _parentGroupId = g?.parentGroupId;
   }
 
   @override
@@ -91,6 +94,17 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  void _openParentPicker() {
+    PrismSheet.show<void>(
+      context: context,
+      builder: (sheetContext) => GroupParentPicker(
+        excludeGroupId: widget.group?.id,
+        currentParentId: _parentGroupId,
+        onSelected: (id) => setState(() => _parentGroupId = id),
+      ),
+    );
   }
 
   Future<void> _openColorPicker() async {
@@ -158,11 +172,22 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
       final notifier = ref.read(groupNotifierProvider.notifier);
 
       if (widget.isEditing) {
-        final updated = widget.group!.copyWith(
+        // Use a rebuild via constructor to properly clear parentGroupId to null
+        // when the user has removed the parent (copyWith cannot unset nullable
+        // fields to null with freezed without a Value wrapper approach, so we
+        // explicitly reconstruct instead).
+        final existing = widget.group!;
+        final updated = MemberGroup(
+          id: existing.id,
           name: name,
           description: description.isNotEmpty ? description : null,
           emoji: _emoji,
           colorHex: colorHex,
+          displayOrder: existing.displayOrder,
+          parentGroupId: _parentGroupId,
+          groupType: existing.groupType,
+          filterRules: existing.filterRules,
+          createdAt: existing.createdAt,
         );
         await notifier.updateGroup(updated);
       } else {
@@ -172,6 +197,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
           description: description.isNotEmpty ? description : null,
           emoji: _emoji,
           colorHex: colorHex,
+          parentGroupId: _parentGroupId,
           createdAt: DateTime.now(),
         );
         await notifier.createGroup(group);
@@ -195,6 +221,13 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final canSave = _nameController.text.trim().isNotEmpty;
+
+    // Look up the display name for the currently selected parent group.
+    final allGroups = ref.watch(allGroupsProvider).value ?? [];
+    final parentGroup = _parentGroupId == null
+        ? null
+        : allGroups.where((g) => g.id == _parentGroupId).firstOrNull;
+    final parentDisplayName = parentGroup?.name;
 
     return SafeArea(
       child: Column(
@@ -258,6 +291,40 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                     maxLines: 4,
                   ),
                   const SizedBox(height: 16),
+
+                  // Parent group selector
+                  InkWell(
+                    onTap: _openParentPicker,
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        children: [
+                          Icon(AppIcons.folderOutlined, color: theme.colorScheme.onSurfaceVariant),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.memberGroupParentLabel,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                                Text(
+                                  parentDisplayName ?? l10n.memberGroupParentNone,
+                                  style: theme.textTheme.bodyLarge,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(AppIcons.chevronRight, color: theme.colorScheme.onSurfaceVariant, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
 
                   // Color picker row
                   InkWell(

@@ -4394,6 +4394,12 @@ abstract class AppLocalizations {
   /// **'Group not found'**
   String get memberGroupNotFound;
 
+  /// Section label for sub-groups in group detail
+  ///
+  /// In en, this message translates to:
+  /// **'Sub-groups'**
+  String get memberGroupSubGroupsLabel;
+
   /// Section header for members inside a group detail screen
   ///
   /// In en, this message translates to:
@@ -4537,6 +4543,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Error saving group: {error}'**
   String memberGroupErrorSaving(Object error);
+
+  /// Label for parent group selector in create/edit sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Parent group'**
+  String get memberGroupParentLabel;
+
+  /// Placeholder when no parent group is selected
+  ///
+  /// In en, this message translates to:
+  /// **'None (top level)'**
+  String get memberGroupParentNone;
+
+  /// Label for groups that are at max depth in parent picker
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t nest deeper'**
+  String get memberGroupParentDepthLimit;
 
   /// Filter chip label to show all members (no group filter)
   ///

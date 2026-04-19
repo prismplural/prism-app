@@ -2483,6 +2483,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get memberGroupNotFound => 'Group not found';
 
   @override
+  String get memberGroupSubGroupsLabel => 'Sub-groups';
+
+  @override
   String get memberGroupSectionMembers => 'Members';
 
   @override
@@ -2564,6 +2567,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String memberGroupErrorSaving(Object error) {
     return 'Error saving group: $error';
   }
+
+  @override
+  String get memberGroupParentLabel => 'Parent group';
+
+  @override
+  String get memberGroupParentNone => 'None (top level)';
+
+  @override
+  String get memberGroupParentDepthLimit => 'Can\'t nest deeper';
 
   @override
   String get memberGroupFilterAll => 'All';
