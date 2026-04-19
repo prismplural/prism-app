@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:path_provider/path_provider.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -45,6 +47,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Pre-warm path_provider so the platform channel is ready if SoLoud needs
+    // to initialize its temp directory for voice note playback.
+    unawaited(getTemporaryDirectory());
   }
 
   void _onScroll() {
