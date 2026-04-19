@@ -150,6 +150,31 @@ void main() {
       expect(memberIds, isNot(contains('m-a')));
     });
 
+    test('collapsing mid-level group hides its sub-group header and members',
+        () {
+      // 3-level: root → mid → leaf (with a member in leaf)
+      final c = makeContainer(
+        groups: [
+          _group(id: 'root'),
+          _group(id: 'mid', parentGroupId: 'root'),
+          _group(id: 'leaf', parentGroupId: 'mid'),
+        ],
+        entries: [_entry(groupId: 'leaf', memberId: 'm-leaf')],
+        members: [_member(id: 'm-leaf')],
+      );
+      addTearDown(c.dispose);
+
+      c.read(collapsedGroupsProvider.notifier).toggle('mid');
+
+      final list = c.read(groupedMemberListProvider);
+      final groupIds = list.whereType<GroupSectionItem>().map((e) => e.group.id);
+      final memberIds = list.whereType<MemberRowItem>().map((e) => e.member.id);
+      // root and mid headers remain; leaf header and its member row hidden
+      expect(groupIds, containsAll(['root', 'mid']));
+      expect(groupIds, isNot(contains('leaf')));
+      expect(memberIds, isNot(contains('m-leaf')));
+    });
+
     test('ungrouped section appears for active members with no entry', () {
       final c = makeContainer(
         groups: [_group(id: 'root')],
@@ -314,6 +339,34 @@ void main() {
       addTearDown(c.dispose);
 
       expect(c.read(transitiveGroupMemberIdsProvider('empty')), isEmpty);
+    });
+
+    test('3-level hierarchy: root includes grandchild members', () {
+      final c = makeContainer(
+        groups: [
+          _group(id: 'root'),
+          _group(id: 'child', parentGroupId: 'root'),
+          _group(id: 'grandchild', parentGroupId: 'child'),
+        ],
+        entries: [
+          _entry(groupId: 'root', memberId: 'm-root'),
+          _entry(groupId: 'child', memberId: 'm-child'),
+          _entry(groupId: 'grandchild', memberId: 'm-grandchild'),
+        ],
+        members: [
+          _member(id: 'm-root'),
+          _member(id: 'm-child'),
+          _member(id: 'm-grandchild'),
+        ],
+      );
+      addTearDown(c.dispose);
+
+      expect(c.read(transitiveGroupMemberIdsProvider('root')),
+          {'m-root', 'm-child', 'm-grandchild'});
+      expect(c.read(transitiveGroupMemberIdsProvider('child')),
+          {'m-child', 'm-grandchild'});
+      expect(c.read(transitiveGroupMemberIdsProvider('grandchild')),
+          {'m-grandchild'});
     });
   });
 }

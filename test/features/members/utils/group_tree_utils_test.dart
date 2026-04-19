@@ -237,5 +237,29 @@ void main() {
       final bResult = result.firstWhere((g) => g.id == 'b');
       expect(bResult.parentGroupId, isNull);
     });
+
+    test('equal createdAt: id tiebreaker ensures one group is promoted', () {
+      final same = DateTime(2024, 1, 1);
+      final a = _group(id: 'aaa', parentGroupId: 'zzz', createdAt: same);
+      final z = _group(id: 'zzz', parentGroupId: 'aaa', createdAt: same);
+      // Both have same timestamp; 'zzz' has lexicographically greater id → wins
+      final result = GroupTreeUtils.resolveSyncCycles([a, z]);
+      // After resolution the tree must have at least one root (not a silent orphan).
+      final tree = GroupTreeUtils.buildGroupTree(result);
+      expect(tree[null], isNotEmpty);
+    });
+
+    test('3-way cycle resolves to an acyclic tree', () {
+      // A→B, B→C, C→A  (A oldest, B middle, C newest)
+      final a = _group(id: 'a', parentGroupId: 'b', createdAt: DateTime(2024, 1, 1));
+      final b = _group(id: 'b', parentGroupId: 'c', createdAt: DateTime(2024, 4, 1));
+      final c = _group(id: 'c', parentGroupId: 'a', createdAt: DateTime(2024, 7, 1));
+      final result = GroupTreeUtils.resolveSyncCycles([a, b, c]);
+      final tree = GroupTreeUtils.buildGroupTree(result);
+      // Tree must have a root and no groups should be invisible.
+      expect(tree[null], isNotEmpty);
+      final allIds = tree.values.expand((l) => l).map((g) => g.id).toSet();
+      expect(allIds, containsAll(['a', 'b', 'c']));
+    });
   });
 }
