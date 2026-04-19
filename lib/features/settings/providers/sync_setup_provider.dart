@@ -3,15 +3,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/crypto/bip39_english_wordlist.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/first_device_admission_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
-import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
 
-enum SyncSetupStep { intro, secretKey }
+enum SyncSetupStep { intro, enterPhrase }
 
 enum SyncSetupProgress {
   creatingGroup,
@@ -27,7 +28,6 @@ class SyncSetupState {
   final SyncSetupStep step;
   final String relayUrl;
   final String? registrationToken;
-  final String? mnemonic;
   final bool isProcessing;
   final SyncSetupProgress? currentProgress;
   final String? error;
@@ -36,7 +36,6 @@ class SyncSetupState {
     this.step = SyncSetupStep.intro,
     this.relayUrl = AppConstants.defaultRelayUrl,
     this.registrationToken,
-    this.mnemonic,
     this.isProcessing = false,
     this.currentProgress,
     this.error,
@@ -46,7 +45,6 @@ class SyncSetupState {
     SyncSetupStep? step,
     String? relayUrl,
     Object? registrationToken = _sentinel,
-    Object? mnemonic = _sentinel,
     bool? isProcessing,
     Object? currentProgress = _sentinel,
     Object? error = _sentinel,
@@ -56,7 +54,6 @@ class SyncSetupState {
     registrationToken: registrationToken == _sentinel
         ? this.registrationToken
         : registrationToken as String?,
-    mnemonic: mnemonic == _sentinel ? this.mnemonic : mnemonic as String?,
     isProcessing: isProcessing ?? this.isProcessing,
     currentProgress: currentProgress == _sentinel
         ? this.currentProgress
@@ -66,6 +63,9 @@ class SyncSetupState {
 }
 
 class SyncSetupNotifier extends Notifier<SyncSetupState> {
+  /// Handle created during [proceedToEnterPhrase] and reused in [_complete].
+  ffi.PrismSyncHandle? _handle;
+
   @override
   SyncSetupState build() {
     const bakedToken = BuildInfo.betaRegistrationToken;
@@ -82,10 +82,9 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     state = state.copyWith(registrationToken: token);
   }
 
-  /// Validate the relay URL and proceed to the secret key step.
-  ///
-  /// Generates a new BIP39 mnemonic for display to the user.
-  Future<void> proceedToSecretKey() async {
+  /// Validate the relay URL, create the sync handle, and proceed to the
+  /// enter-phrase step.
+  Future<void> proceedToEnterPhrase() async {
     // Validate relay URL before proceeding
     final uri = Uri.tryParse(state.relayUrl);
     if (uri == null ||
@@ -97,11 +96,13 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       return;
     }
 
-    // Generate mnemonic via FFI
-    final mnemonic = await ffi.generateSecretKey();
+    // Create the handle now so the phrase-verification step can use it.
+    final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
+    final handle = await handleNotifier.createHandle(relayUrl: state.relayUrl);
+    _handle = handle;
+
     state = state.copyWith(
-      step: SyncSetupStep.secretKey,
-      mnemonic: mnemonic,
+      step: SyncSetupStep.enterPhrase,
       error: null,
     );
   }
@@ -110,36 +111,87 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     switch (state.step) {
       case SyncSetupStep.intro:
         break;
-      case SyncSetupStep.secretKey:
+      case SyncSetupStep.enterPhrase:
+        _handle = null;
         state = state.copyWith(
           step: SyncSetupStep.intro,
-          mnemonic: null,
           error: null,
         );
     }
   }
 
-  /// Complete sync group creation using the provided [pin] as the
-  /// sync password. The PIN should be the app-lock PIN set during onboarding.
-  Future<bool> complete(String pin) async {
-    if (pin.trim().isEmpty) {
-      state = state.copyWith(error: 'PIN cannot be empty.');
-      return false;
-    }
-    if (pin.length != 6) {
-      state = state.copyWith(error: 'PIN must be exactly 6 digits.');
+  /// Validate and submit the recovery phrase together with the user's PIN.
+  ///
+  /// Normalizes the mnemonic, checks that all 12 words are valid BIP39 words,
+  /// then calls [ffi.unlock] to verify the phrase matches this account's key
+  /// hierarchy. On success, proceeds to complete sync group creation.
+  Future<bool> submitPhrase(String mnemonic, String pin) async {
+    final normalized = PrismMnemonicField.normalize(mnemonic);
+    final words = normalized.split(' ');
+
+    // Validate 12 words, all in BIP39 wordlist.
+    if (words.length != 12 || !words.every(bip39EnglishWordlistSet.contains)) {
+      state = state.copyWith(
+        error: 'Check that all 12 words are correct.',
+      );
       return false;
     }
 
-    final mnemonic = state.mnemonic;
-    if (mnemonic == null) return false;
-
-    final uri = Uri.tryParse(state.relayUrl);
-    if (uri == null ||
-        (uri.scheme != 'http' && uri.scheme != 'https') ||
-        uri.host.isEmpty) {
-      state = state.copyWith(error: 'Invalid relay URL.');
+    final handle = _handle;
+    if (handle == null) {
+      state = state.copyWith(error: 'Setup handle not ready. Please go back and try again.');
       return false;
+    }
+
+    state = state.copyWith(isProcessing: true, error: null);
+
+    // Derive secret key bytes from mnemonic and verify against this account.
+    final Uint8List secretKeyBytes;
+    try {
+      secretKeyBytes = await ffi.mnemonicToBytes(mnemonic: normalized);
+    } catch (e) {
+      state = state.copyWith(
+        isProcessing: false,
+        error: 'Check that all 12 words are correct.',
+      );
+      return false;
+    }
+
+    try {
+      await ffi.unlock(
+        handle: handle,
+        password: pin,
+        secretKey: secretKeyBytes,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isProcessing: false,
+        error: 'That phrase doesn\'t match this account. Check each word and try again.',
+      );
+      return false;
+    }
+
+    return _complete(pin, normalized);
+  }
+
+  /// Complete sync group creation. Called from [submitPhrase] after the phrase
+  /// has been verified.
+  Future<bool> _complete(String pin, String mnemonic) async {
+    final handle = _handle;
+    if (handle == null) return false;
+
+    // Snapshot keychain keys that may be written during setup so we can
+    // restore them if setup fails partway through.
+    const keychainKeys = [
+      'prism_sync.wrapped_dek',
+      'prism_sync.dek_salt',
+      'prism_sync.device_secret',
+      'prism_sync.device_id',
+      'prism_sync.runtime_dek',
+    ];
+    final snapshot = <String, String?>{};
+    for (final key in keychainKeys) {
+      snapshot[key] = await secureStorage.read(key: key);
     }
 
     state = state.copyWith(
@@ -149,10 +201,6 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     );
 
     try {
-      final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
-      final handle = await handleNotifier.createHandle(
-        relayUrl: state.relayUrl,
-      );
       final admissionService = FirstDeviceAdmissionService();
       await admissionService.preparePendingRegistration(
         handle: handle,
@@ -161,8 +209,8 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       );
 
       // createSyncGroup handles key hierarchy creation internally.
-      // Pass the mnemonic so it uses the one shown to the user (which
-      // they saved for recovery) rather than generating a different one.
+      // Pass the mnemonic so it uses the one the user entered (which they
+      // already verified they have) rather than generating a new one.
       final inviteJson = await ffi.createSyncGroup(
         handle: handle,
         password: pin,
@@ -214,13 +262,11 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       );
       await _bootstrapExistingData(handle);
 
-      ref.read(pendingMnemonicProvider.notifier).set(mnemonic);
-
       state = state.copyWith(isProcessing: false, currentProgress: null);
       return true;
     } catch (e) {
       final structuredError = PrismSyncStructuredError.tryParse(e);
-      await _cleanupKeychainOnFailure();
+      await _restoreKeychainSnapshot(snapshot);
       state = state.copyWith(
         isProcessing: false,
         currentProgress: null,
@@ -230,34 +276,20 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
     }
   }
 
-  /// Remove any keychain keys that may have been written during a failed
-  /// setup attempt so that partial credentials don't linger and confuse
-  /// future startup logic.
-  Future<void> _cleanupKeychainOnFailure() async {
-    const prefix = 'prism_sync.';
-    // NOTE: database_key is intentionally NOT cleaned up here. It is a
-    // local encryption key (Signal model) that must survive failed sync
-    // attempts — deleting it would make the encrypted local DB unreadable.
-    const keysToClean = [
-      '${prefix}wrapped_dek',
-      '${prefix}dek_salt',
-      '${prefix}device_secret',
-      '${prefix}device_id',
-      '${prefix}sync_id',
-      '${prefix}session_token',
-      '${prefix}epoch',
-      '${prefix}relay_url',
-      '${prefix}mnemonic',
-      '${prefix}sharing_prekey_store',
-      '${prefix}sharing_id_cache',
-      '${prefix}min_signature_version_floor',
-      '${prefix}runtime_dek',
-    ];
-    for (final key in keysToClean) {
+  /// Restore keychain keys from a previously taken snapshot.
+  ///
+  /// Used to roll back any partial writes from a failed setup attempt while
+  /// preserving keys that existed before setup started.
+  Future<void> _restoreKeychainSnapshot(Map<String, String?> snapshot) async {
+    for (final entry in snapshot.entries) {
       try {
-        await secureStorage.delete(key: key);
+        if (entry.value != null) {
+          await secureStorage.write(key: entry.key, value: entry.value!);
+        } else {
+          await secureStorage.delete(key: entry.key);
+        }
       } catch (_) {
-        // Best-effort cleanup — don't propagate errors
+        // Best-effort restore — don't propagate errors
       }
     }
   }
