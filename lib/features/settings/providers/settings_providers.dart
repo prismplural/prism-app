@@ -553,9 +553,12 @@ NavLayout _watchNavLayout(Ref ref) {
   final overflowIds = ref.watch(navBarOverflowItemsProvider);
   final flags = ref.watch(featureFlagsProvider);
   final primaryIds = configured.isEmpty ? defaultNavBarTabIds : configured;
+  final resolvedOverflowIds = overflowIds.isEmpty && configured.isEmpty
+      ? defaultNavBarOverflowTabIds
+      : overflowIds;
   return normalizeNavLayout(
     primaryIds: primaryIds,
-    overflowIds: overflowIds,
+    overflowIds: resolvedOverflowIds,
     flags: flags,
   );
 }

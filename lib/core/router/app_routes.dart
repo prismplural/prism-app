@@ -267,6 +267,12 @@ final appShellTabs = [
 /// The default nav bar tab IDs when no custom configuration exists.
 const defaultNavBarTabIds = ['home', 'chat', 'habits', 'polls', 'settings'];
 
+/// The default overflow (More menu) tab IDs when no custom configuration
+/// exists. Tabs whose feature flag is off are filtered out by
+/// [AppShellTab.isEnabled], so disabling Notes or Reminders in onboarding
+/// removes them automatically.
+const defaultNavBarOverflowTabIds = ['notes', 'reminders'];
+
 /// Maximum number of tabs that can appear in the primary nav bar. Excess
 /// tabs spill into the overflow menu. This constraint is enforced by
 /// [normalizeNavLayout] and is the single source of truth for both the
