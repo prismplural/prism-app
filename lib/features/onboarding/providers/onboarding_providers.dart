@@ -3,24 +3,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/core/services/auth_policy_provider.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
-import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
+import 'package:uuid/uuid.dart';
 
 /// Intercepts the bottom "Continue" button on the importData step so an
 /// inline import sub-flow (PK token, SP file, Prism export) can run its
 /// own action instead of silently skipping past it. When set, the Continue
 /// button invokes this callback instead of advancing the step. The callback
 /// is responsible for progressing onboarding on success.
-class OnboardingPendingImportAction
-    extends Notifier<Future<void> Function()?> {
+class OnboardingPendingImportAction extends Notifier<Future<void> Function()?> {
   @override
   Future<void> Function()? build() => null;
 
@@ -28,14 +28,15 @@ class OnboardingPendingImportAction
 }
 
 final onboardingPendingImportActionProvider =
-    NotifierProvider<OnboardingPendingImportAction,
-        Future<void> Function()?>(OnboardingPendingImportAction.new);
+    NotifierProvider<OnboardingPendingImportAction, Future<void> Function()?>(
+      OnboardingPendingImportAction.new,
+    );
 
 enum OnboardingStep {
   welcome,
-  pinSetup,        // 6-digit PIN creation
-  recoveryPhrase,  // Show 12-word backup + save confirmation
-  biometricSetup,  // Face ID / Touch ID opt-in
+  pinSetup, // 6-digit PIN creation
+  recoveryPhrase, // Show 12-word backup + save confirmation
+  biometricSetup, // Face ID / Touch ID opt-in
   syncDevice,
   importedDataReady,
   importData,
@@ -101,7 +102,6 @@ enum OnboardingStep {
     whosFronting => AppIcons.duotoneFronting,
     complete => AppIcons.duotoneSuccess,
   };
-
 }
 
 class OnboardingState {
@@ -124,12 +124,15 @@ class OnboardingState {
   final String? customTermPlural;
   final bool terminologyUseEnglish;
   final bool isSyncPath;
+
   /// The channel key that cannot be removed (locale-aware "All Members" name).
   /// Null until ChatSetupStep seeds the localized defaults on first render.
   final String? allMembersChannelKey;
+
   /// The 12-word mnemonic words generated during PIN setup. Ephemeral —
   /// kept in memory only until the biometric step completes or is skipped.
   final List<String> mnemonicWords;
+
   /// The raw DEK bytes exported after initialize(). Used for biometric
   /// enrollment in BiometricSetupStep. Cleared after biometric step.
   final Uint8List? dekBytes;
@@ -225,6 +228,8 @@ class OnboardingState {
 }
 
 class OnboardingNotifier extends Notifier<OnboardingState> {
+  static const _uuid = Uuid();
+
   @override
   OnboardingState build() => const OnboardingState();
 
@@ -460,14 +465,18 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   }) async {
     try {
       await ref
-          .read(membersNotifierProvider.notifier)
+          .read(memberRepositoryProvider)
           .createMember(
-            name: name,
-            pronouns: pronouns,
-            emoji: emoji,
-            age: age,
-            bio: bio,
-            avatarImageData: avatarImageData,
+            Member(
+              id: _uuid.v4(),
+              name: name,
+              pronouns: pronouns,
+              emoji: emoji,
+              age: age,
+              bio: bio,
+              avatarImageData: avatarImageData,
+              createdAt: DateTime.now(),
+            ),
           );
     } catch (e, st) {
       ErrorReportingService.instance.report(
@@ -481,7 +490,7 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
 
   Future<void> deleteMember(String memberId) async {
     try {
-      await ref.read(membersNotifierProvider.notifier).deleteMember(memberId);
+      await ref.read(memberRepositoryProvider).deleteMember(memberId);
     } catch (e, st) {
       ErrorReportingService.instance.report(
         'Failed to delete member "$memberId" during onboarding: $e',
@@ -531,7 +540,10 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
     state = state.copyWith(customChannelName: name);
   }
 
-  void setTerminology(SystemTerminology terminology, {bool useEnglish = false}) {
+  void setTerminology(
+    SystemTerminology terminology, {
+    bool useEnglish = false,
+  }) {
     state = state.copyWith(
       selectedTerminology: terminology,
       terminologyUseEnglish: useEnglish,

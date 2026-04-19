@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,6 +20,11 @@ class _FakePinLockService extends PinLockService {
   }
 
   @override
+  Future<void> clearPin() async {
+    storedPin = null;
+  }
+
+  @override
   Future<bool> isPinSet() async => storedPin != null;
 
   @override
@@ -26,7 +33,7 @@ class _FakePinLockService extends PinLockService {
 
 Widget _buildWidget({
   required _FakePinLockService service,
-  required void Function(String) onPinConfirmed,
+  required FutureOr<void> Function(String) onPinConfirmed,
 }) {
   return ProviderScope(
     overrides: [
@@ -36,9 +43,7 @@ Widget _buildWidget({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
-      home: Scaffold(
-        body: PinSetupStep(onPinConfirmed: onPinConfirmed),
-      ),
+      home: Scaffold(body: PinSetupStep(onPinConfirmed: onPinConfirmed)),
     ),
   );
 }
@@ -112,5 +117,29 @@ void main() {
 
     expect(confirmedPin, '654321');
     expect(service.storedPin, '654321');
+  });
+
+  testWidgets('clears stored pin if onboarding key setup fails', (
+    tester,
+  ) async {
+    final service = _FakePinLockService();
+
+    await tester.pumpWidget(
+      _buildWidget(
+        service: service,
+        onPinConfirmed: (_) async {
+          throw StateError('key setup failed');
+        },
+      ),
+    );
+    await tester.pump();
+
+    await _enterPin(tester, '123456');
+    await tester.pumpAndSettle();
+    await _enterPin(tester, '123456');
+    await tester.pumpAndSettle();
+
+    expect(service.storedPin, isNull);
+    expect(_currentMode(tester), PinInputMode.confirm);
   });
 }
