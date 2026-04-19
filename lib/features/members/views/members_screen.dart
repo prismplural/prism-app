@@ -460,7 +460,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 if (item is GroupSectionItem) {
                   final key = _sectionKeys.putIfAbsent(
                       item.group.id, GlobalKey.new);
-                  return GroupSectionHeader(
+                  final header = GroupSectionHeader(
                     key: key,
                     group: item.group,
                     depth: item.depth.clamp(0, 2),
@@ -471,6 +471,17 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                         .read(collapsedGroupsProvider.notifier)
                         .toggle(item.group.id),
                   );
+                  if (item.depth == 0 && index > 0) {
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                        const SizedBox(height: 4),
+                        header,
+                      ],
+                    );
+                  }
+                  return header;
                 }
                 if (item is UngroupedSectionItem) {
                   final ungroupedCount = items

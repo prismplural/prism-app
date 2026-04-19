@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/chat/views/create_conversation_sheet.da
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/group_tree_utils.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -78,6 +79,9 @@ class _GroupDetailBody extends ConsumerWidget {
     final l10n = context.l10n;
     final terms = watchTerminology(context, ref);
     final entriesAsync = ref.watch(groupEntriesProvider(group.id));
+    final tree = ref.watch(groupTreeProvider);
+    final groupDepth = GroupTreeUtils.getGroupDepth(group.id, tree);
+    final canAddSubGroup = groupDepth < 3;
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -189,14 +193,39 @@ class _GroupDetailBody extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
-            Center(
-              child: PrismButton(
-                label: l10n.memberGroupAddMember,
-                onPressed: () => _addMember(context, ref),
-                icon: AppIcons.personAddOutlined,
-                tone: PrismButtonTone.subtle,
+            if (canAddSubGroup)
+              Row(
+                children: [
+                  Expanded(
+                    child: PrismButton(
+                      label: l10n.memberGroupAddMember,
+                      onPressed: () => _addMember(context, ref),
+                      icon: AppIcons.personAddOutlined,
+                      tone: PrismButtonTone.subtle,
+                      expanded: true,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: PrismButton(
+                      label: l10n.memberGroupAddSubGroup,
+                      onPressed: () => _addSubGroup(context),
+                      icon: AppIcons.folderOutlined,
+                      tone: PrismButtonTone.subtle,
+                      expanded: true,
+                    ),
+                  ),
+                ],
+              )
+            else
+              Center(
+                child: PrismButton(
+                  label: l10n.memberGroupAddMember,
+                  onPressed: () => _addMember(context, ref),
+                  icon: AppIcons.personAddOutlined,
+                  tone: PrismButtonTone.subtle,
+                ),
               ),
-            ),
 
             const SizedBox(height: 32),
           ],
@@ -270,6 +299,16 @@ class _GroupDetailBody extends ConsumerWidget {
     );
   }
 
+  void _addSubGroup(BuildContext context) {
+    PrismSheet.showFullScreen(
+      context: context,
+      builder: (context, scrollController) => CreateEditGroupSheet(
+        scrollController: scrollController,
+        initialParentGroupId: group.id,
+      ),
+    );
+  }
+
   Future<void> _onFrontGroup(
     BuildContext context,
     WidgetRef ref,
@@ -330,11 +369,18 @@ class _GroupDetailBody extends ConsumerWidget {
     final allInactive =
         groupMembers.isNotEmpty && groupMembers.every((m) => !m.isActive);
 
+    if (!context.mounted) return;
     if (allInactive) {
-      if (!context.mounted) return;
       final confirmed = await PrismDialog.confirm(
         context: context,
         title: l10n.memberGroupFrontAllInactive(group.name),
+      );
+      if (!confirmed || !context.mounted) return;
+    } else {
+      final confirmed = await PrismDialog.confirm(
+        context: context,
+        title: l10n.memberGroupFrontGroupConfirmTitle(group.name),
+        message: l10n.memberGroupFrontGroupConfirmMessage,
       );
       if (!confirmed || !context.mounted) return;
     }

@@ -2554,6 +2554,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupAddMember => 'Agregar integrante';
 
   @override
+  String get memberGroupAddSubGroup => 'Agregar subgrupo';
+
+  @override
   String get memberGroupAddToGroup => 'Añadir a grupo';
 
   @override
@@ -2655,7 +2658,16 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get memberGroupFrontGroup => 'Frente grupal';
+  String get memberGroupFrontGroup => 'Frente como grupo';
+
+  @override
+  String memberGroupFrontGroupConfirmTitle(String name) {
+    return '¿Frente como $name?';
+  }
+
+  @override
+  String get memberGroupFrontGroupConfirmMessage =>
+      'Todos los integrantes de este grupo empezarán a estar al frente juntos.';
 
   @override
   String memberGroupFrontGroupSemantics(String name) {
