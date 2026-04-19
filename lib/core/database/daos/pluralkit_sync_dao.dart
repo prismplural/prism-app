@@ -12,26 +12,20 @@ class PluralKitSyncDao extends DatabaseAccessor<AppDatabase>
   static const _configId = 'pk_config';
 
   Future<PluralKitSyncStateData> getSyncState() async {
-    final result = await (select(pluralKitSyncState)
-          ..where((s) => s.id.equals(_configId)))
-        .getSingleOrNull();
-    if (result != null) return result;
-
-    // Create default row on first access
+    // INSERT OR IGNORE is atomic — safe when called concurrently on first launch.
     await into(pluralKitSyncState).insert(
-      const PluralKitSyncStateCompanion(
-        id: Value(_configId),
-      ),
+      const PluralKitSyncStateCompanion(id: Value(_configId)),
+      mode: InsertMode.insertOrIgnore,
     );
     return (select(pluralKitSyncState)
           ..where((s) => s.id.equals(_configId)))
         .getSingle();
   }
 
-  Stream<PluralKitSyncStateData> watchSyncState() {
-    // Ensure the row exists before watching
-    getSyncState();
-    return (select(pluralKitSyncState)
+  Stream<PluralKitSyncStateData> watchSyncState() async* {
+    // Ensure the row exists before the watch query runs.
+    await getSyncState();
+    yield* (select(pluralKitSyncState)
           ..where((s) => s.id.equals(_configId)))
         .watchSingle();
   }
