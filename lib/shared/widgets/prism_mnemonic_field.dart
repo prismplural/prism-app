@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:prism_plurality/core/crypto/bip39_english_wordlist.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
@@ -371,7 +372,9 @@ class _MnemonicTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final errorColor = theme.colorScheme.error;
-    final radius = BorderRadius.circular(PrismTokens.radiusMedium);
+    final radius = BorderRadius.circular(
+      PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+    );
     final border = OutlineInputBorder(
       borderRadius: radius,
       borderSide: BorderSide(
@@ -470,7 +473,9 @@ class _EmptySlotChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(PrismTokens.radiusPill),
+          ),
           border: Border.all(
             color: borderColor,
             width: 1,
@@ -514,7 +519,9 @@ class _FilledChip extends StatelessWidget {
               .mnemonicFieldWordChipInvalid(slotNumber.toString(), word),
       child: GlassSurface(
         tint: tint,
-        borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(PrismTokens.radiusPill),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -555,10 +562,14 @@ class _SuggestionChip extends StatelessWidget {
     final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+      borderRadius: BorderRadius.circular(
+        PrismShapes.of(context).radius(PrismTokens.radiusPill),
+      ),
       child: GlassSurface(
         tint: theme.colorScheme.primary,
-        borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(PrismTokens.radiusPill),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         child: Text(
           word,
