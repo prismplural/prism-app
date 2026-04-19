@@ -282,7 +282,7 @@ class DriftSystemSettingsRepository
       'terminology': terminology.index,
       'custom_terminology': customTerminology,
       'custom_plural_terminology': customPluralTerminology,
-      'terminology_use_english': useEnglish ? 1 : 0,
+      'terminology_use_english': useEnglish,
     });
   }
 
