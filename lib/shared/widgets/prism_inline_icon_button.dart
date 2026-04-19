@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 
@@ -48,7 +49,9 @@ class _PrismInlineIconButtonState extends State<PrismInlineIconButton> {
     final fillColor = canPress
         ? baseColor.withValues(alpha: _pressed ? 0.14 : 0)
         : Colors.transparent;
-    final borderRadius = BorderRadius.circular(PrismTokens.radiusSmall);
+    final borderRadius = BorderRadius.circular(
+      PrismShapes.of(context).radius(PrismTokens.radiusSmall),
+    );
 
     Widget button = Semantics(
       button: true,
