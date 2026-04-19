@@ -52,5 +52,10 @@ app.*.map.json
 # Secrets
 .env
 *.key
+*.p8
+fastlane/.env
+fastlane/.env.*
+fastlane/*.json
+fastlane/report.xml
 .worktrees/
 .skystack/

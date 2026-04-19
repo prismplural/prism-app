@@ -1,0 +1,7 @@
+app_identifier "com.prismplural.prism"
+
+# App Store Connect API key (set via environment or api_key_path lane)
+# Set ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_FILEPATH env vars
+
+# Google Play service account
+# Set PLAY_STORE_JSON_KEY env var or pass json_key to upload lane
