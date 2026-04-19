@@ -24,11 +24,20 @@ class ChatSearchScreen extends ConsumerStatefulWidget {
 class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
   final _controller = TextEditingController();
   Timer? _debounce;
+  ChatSearchQueryNotifier? _searchQueryNotifier;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onControllerChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Cache notifier so we can safely reset the query in dispose()
+    // without touching ref after the widget is unmounted.
+    _searchQueryNotifier ??= ref.read(chatSearchQueryProvider.notifier);
   }
 
   void _onControllerChanged() {
@@ -42,7 +51,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
     _debounce?.cancel();
     _controller.dispose();
     // Reset query so returning to search starts fresh.
-    ref.read(chatSearchQueryProvider.notifier).set('');
+    _searchQueryNotifier?.set('');
     super.dispose();
   }
 
