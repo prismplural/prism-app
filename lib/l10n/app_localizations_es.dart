@@ -1469,6 +1469,22 @@ class AppLocalizationsEs extends AppLocalizations {
       'Oculto después de rechazarlo en este dispositivo';
 
   @override
+  String get featureChatGifSearchSyncRequiredSubtitle =>
+      'Debes activar la sincronización para usar GIFs';
+
+  @override
+  String get featureChatGifSearchSyncRequiredDialogTitle =>
+      'Se requiere sincronización para los GIFs';
+
+  @override
+  String get featureChatGifSearchSyncRequiredDialogBody =>
+      'La búsqueda de GIFs se realiza a través de tu relé de sincronización para mantener el servicio privado. Activa la sincronización para usar GIFs en este dispositivo.';
+
+  @override
+  String get featureChatGifSearchSyncRequiredDialogAction =>
+      'Activar sincronización';
+
+  @override
   String get featureChatVoiceNotes => 'Notas de voz';
 
   @override
