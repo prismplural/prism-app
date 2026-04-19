@@ -262,4 +262,70 @@ void main() {
       expect(allIds, containsAll(['a', 'b', 'c']));
     });
   });
+
+  // ── flattenTree ─────────────────────────────────────────────────────────────
+
+  group('flattenTree', () {
+    test('empty tree returns empty list', () {
+      expect(GroupTreeUtils.flattenTree({}), isEmpty);
+    });
+
+    test('single root group at depth 0', () {
+      final root = _group(id: 'root');
+      final tree = GroupTreeUtils.buildGroupTree([root]);
+      final flat = GroupTreeUtils.flattenTree(tree);
+      expect(flat.length, 1);
+      expect(flat.first.group.id, 'root');
+      expect(flat.first.depth, 0);
+    });
+
+    test('root + child returned in DFS order with correct depths', () {
+      final root = _group(id: 'root');
+      final child = _group(id: 'child', parentGroupId: 'root');
+      final tree = GroupTreeUtils.buildGroupTree([root, child]);
+      final flat = GroupTreeUtils.flattenTree(tree);
+      expect(flat.map((e) => e.group.id), ['root', 'child']);
+      expect(flat.map((e) => e.depth), [0, 1]);
+    });
+
+    test('root + child + grandchild → DFS at depths 0, 1, 2', () {
+      final root = _group(id: 'root');
+      final sub = _group(id: 'sub', parentGroupId: 'root');
+      final subsub = _group(id: 'subsub', parentGroupId: 'sub');
+      final tree = GroupTreeUtils.buildGroupTree([root, sub, subsub]);
+      final flat = GroupTreeUtils.flattenTree(tree);
+      expect(flat.map((e) => e.group.id), ['root', 'sub', 'subsub']);
+      expect(flat.map((e) => e.depth), [0, 1, 2]);
+    });
+
+    test('multiple roots with subtrees in DFS order', () {
+      final r1 = _group(id: 'r1');
+      final r1c = _group(id: 'r1c', parentGroupId: 'r1');
+      final r2 = _group(id: 'r2');
+      final r2c = _group(id: 'r2c', parentGroupId: 'r2');
+      final tree = GroupTreeUtils.buildGroupTree([r1, r1c, r2, r2c]);
+      final flat = GroupTreeUtils.flattenTree(tree);
+      expect(flat.map((e) => e.group.id), ['r1', 'r1c', 'r2', 'r2c']);
+      expect(flat.map((e) => e.depth), [0, 1, 0, 1]);
+    });
+
+    test('cycle guard: malformed tree map with a cycle does not infinite loop',
+        () {
+      // Hand-craft a malformed tree map that bypasses buildGroupTree's
+      // resolveSyncCycles step — direct cycle A's children include B, B's
+      // children include A, and both are roots.
+      final a = _group(id: 'a');
+      final b = _group(id: 'b');
+      final tree = <String?, List<MemberGroup>>{
+        null: [a],
+        'a': [b],
+        'b': [a], // cycle
+      };
+      final flat = GroupTreeUtils.flattenTree(tree);
+      // Each group appears at most once.
+      final ids = flat.map((e) => e.group.id).toList();
+      expect(ids.toSet().length, ids.length);
+      expect(ids, containsAll(['a', 'b']));
+    });
+  });
 }

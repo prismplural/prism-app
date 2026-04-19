@@ -53,6 +53,14 @@ final groupTreeProvider = Provider<Map<String?, List<MemberGroup>>>((ref) {
   );
 });
 
+/// Memoized DFS flattening of [groupTreeProvider] into a depth-annotated list.
+/// Recomputes only when the group tree changes — not on every widget rebuild.
+final flatGroupListProvider =
+    Provider<List<({MemberGroup group, int depth})>>((ref) {
+  final tree = ref.watch(groupTreeProvider);
+  return GroupTreeUtils.flattenTree(tree);
+});
+
 /// Direct children of a group (or root groups when [parentId] is null).
 /// Derived from [groupTreeProvider] — no extra DB watch.
 final childGroupsProvider =

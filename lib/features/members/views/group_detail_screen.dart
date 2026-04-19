@@ -494,10 +494,12 @@ class _SubGroupTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final memberCounts = ref.watch(groupMemberCountsProvider);
-    final count = memberCounts[group.id] ?? 0;
+    final count = ref.watch(
+        groupMemberCountsProvider.select((m) => m[group.id] ?? 0));
     final hasColor = group.colorHex != null && group.colorHex!.isNotEmpty;
     final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
+    final tileRadius =
+        BorderRadius.circular(PrismShapes.of(context).radius(14));
 
     return Semantics(
       label: '${group.name}, sub-group, $count members, navigate',
@@ -505,13 +507,11 @@ class _SubGroupTile extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: InkWell(
           onTap: () => context.push(AppRoutePaths.settingsGroup(group.id)),
-          borderRadius:
-              BorderRadius.circular(PrismShapes.of(context).radius(14)),
+          borderRadius: tileRadius,
           child: Container(
             decoration: BoxDecoration(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-              borderRadius:
-                  BorderRadius.circular(PrismShapes.of(context).radius(14)),
+              borderRadius: tileRadius,
             ),
             clipBehavior: Clip.antiAlias,
             child: Row(

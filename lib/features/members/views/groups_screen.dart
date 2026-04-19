@@ -14,7 +14,6 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
-import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -71,28 +70,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     }
   }
 
-  List<({MemberGroup group, int depth})> _flattenTree(
-      Map<String?, List<MemberGroup>> tree) {
-    final result = <({MemberGroup group, int depth})>[];
-    void visit(MemberGroup g, int d) {
-      result.add((group: g, depth: d));
-      for (final child in tree[g.id] ?? []) {
-        visit(child, d + 1);
-      }
-    }
-    for (final root in tree[null] ?? []) {
-      visit(root, 0);
-    }
-    return result;
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final tree = ref.watch(groupTreeProvider);
     final counts = ref.watch(groupMemberCountsProvider);
-
-    final flatItems = _flattenTree(tree);
+    final flatItems = ref.watch(flatGroupListProvider);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -142,7 +124,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                 // Compute newSiblingIndex relative to the siblings list.
                 final targetSiblingIndex = siblings.indexOf(targetEntry.group);
                 final newSiblingIndex = (newIndex > oldIndex)
-                    ? targetSiblingIndex
+                    ? targetSiblingIndex - 1
                     : targetSiblingIndex;
 
                 if (oldSiblingIndex == newSiblingIndex) return;
@@ -206,6 +188,7 @@ class _GroupTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final shapes = PrismShapes.of(context);
     final hasColor = group.colorHex != null && group.colorHex!.isNotEmpty;
     final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
     final leftPadding = 16.0 + depth * 24.0;
@@ -227,7 +210,7 @@ class _GroupTile extends StatelessWidget {
         },
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(14)),
+          borderRadius: BorderRadius.circular(shapes.radius(14)),
           child: Container(
             margin: EdgeInsets.only(
               left: 16,
@@ -237,8 +220,7 @@ class _GroupTile extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-              borderRadius:
-                  BorderRadius.circular(PrismShapes.of(context).radius(14)),
+              borderRadius: BorderRadius.circular(shapes.radius(14)),
             ),
             clipBehavior: Clip.antiAlias,
             child: Row(
@@ -305,8 +287,8 @@ class _GroupTile extends StatelessWidget {
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(
-                                  PrismShapes.of(context).radius(12)),
+                              borderRadius:
+                                  BorderRadius.circular(shapes.radius(12)),
                             ),
                             child: Text(
                               '$memberCount',

@@ -119,6 +119,26 @@ class GroupTreeUtils {
     return result;
   }
 
+  /// DFS flattening of the group tree into a depth-annotated list.
+  /// Includes a visited-set guard to prevent infinite recursion from malformed
+  /// trees (e.g. cycles slipping past `resolveSyncCycles`).
+  static List<({MemberGroup group, int depth})> flattenTree(
+      Map<String?, List<MemberGroup>> tree) {
+    final result = <({MemberGroup group, int depth})>[];
+    final visited = <String>{};
+    void visit(MemberGroup g, int d) {
+      if (!visited.add(g.id)) return; // cycle guard
+      result.add((group: g, depth: d));
+      for (final child in tree[g.id] ?? []) {
+        visit(child, d + 1);
+      }
+    }
+    for (final root in tree[null] ?? []) {
+      visit(root, 0);
+    }
+    return result;
+  }
+
   // ── Internal helpers ────────────────────────────────────────────────────────
 
   static Map<String, MemberGroup> _buildIdMap(
