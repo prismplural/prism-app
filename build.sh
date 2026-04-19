@@ -203,12 +203,15 @@ cmd_clean() {
         step "Cleaning Pods + Xcode DerivedData"
         # DerivedData caches the Rust FFI framework; stale copies here are the
         # #1 cause of EXC_BAD_ACCESS in DartWorker after branch switches.
+        # Podfile.lock is intentionally preserved — it's committed to pin pod
+        # versions, and wiping it would re-introduce the drift we're avoiding.
+        # Use --deep to force a lockfile regeneration.
         rm -rf ~/Library/Developer/Xcode/DerivedData/Runner-*
         if $do_ios; then
-            rm -rf ios/Pods ios/Podfile.lock ios/.symlinks ios/Flutter/ephemeral
+            rm -rf ios/Pods ios/.symlinks ios/Flutter/ephemeral
         fi
         if $do_mac; then
-            rm -rf macos/Pods macos/Podfile.lock macos/Flutter/ephemeral
+            rm -rf macos/Pods macos/Flutter/ephemeral
         fi
     fi
 
@@ -219,6 +222,8 @@ cmd_clean() {
     fi
 
     if $do_deep; then
+        if $do_ios; then rm -f ios/Podfile.lock; fi
+        if $do_mac; then rm -f macos/Podfile.lock; fi
         step "Deep clean: Rust target"
         (cd ../sync && cargo clean) || fail "cargo clean failed"
         step "Regenerating flutter_rust_bridge bindings"
