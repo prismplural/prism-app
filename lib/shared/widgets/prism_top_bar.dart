@@ -72,6 +72,13 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
       titleStyle: titleStyle,
     );
 
+    // Center the content in the full visual bar (toolbar + status-bar inset).
+    // SafeArea consumes the top inset, so the SizedBox starts below it. To
+    // visually center the content across the entire bar we shift it upward by
+    // half the status-bar height.  Clamped to [-1, 0] so it never overflows.
+    final topInset = MediaQuery.of(context).viewPadding.top;
+    final contentAlignY = (topInset / height - 1.0).clamp(-1.0, 0.0);
+
     return SafeArea(
       bottom: false,
       child: SizedBox(
@@ -79,7 +86,7 @@ class PrismTopBar extends StatelessWidget implements PreferredSizeWidget {
         child: Padding(
           padding: horizontalPadding,
           child: Align(
-            alignment: Alignment.center,
+            alignment: Alignment(0, contentAlignY),
             child: centerTitle
               ? Stack(
                   alignment: Alignment.center,
