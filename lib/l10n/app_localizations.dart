@@ -959,7 +959,7 @@ abstract class AppLocalizations {
   /// Sync setup intro body text
   ///
   /// In en, this message translates to:
-  /// **'Everything is end-to-end encrypted — the server never sees your data. You\'ll create a password and receive a recovery key to keep safe.'**
+  /// **'Everything is end-to-end encrypted — the server never sees your data. You\'ll create a password and receive a recovery key to keep safe. You\'ll need your 12-word recovery phrase to continue. Have it ready.'**
   String get syncSetupIntroBody;
 
   /// Toggle label for showing self-hosted relay fields
@@ -10559,7 +10559,7 @@ abstract class AppLocalizations {
   /// Subtitle for onboarding recovery phrase backup step
   ///
   /// In en, this message translates to:
-  /// **'Write these 12 words somewhere safe. They\'re the only way to recover your data if you lose your PIN.'**
+  /// **'Write these 12 words somewhere safe. You\'ll need them to set up sync, add new devices, or change your PIN.'**
   String get onboardingRecoveryPhraseSubtitle;
 
   /// Title for onboarding recovery phrase confirmation step
