@@ -75,9 +75,9 @@ class GroupTreeUtils {
   /// Break any cycles present in a synced flat list.
   ///
   /// For each group involved in a cycle, the *newer* group (later `createdAt`)
-  /// is promoted to root; the older group keeps its position. This is
-  /// deterministic: both devices running this algorithm converge to the same
-  /// result because `createdAt` is immutable and unique enough in practice.
+  /// is promoted to root; the older group keeps its position. When timestamps
+  /// are equal, the group with the lexicographically greater `id` wins —
+  /// ensuring both devices converge to the same result.
   static List<MemberGroup> resolveSyncCycles(List<MemberGroup> groups) {
     final idMap = {for (final g in groups) g.id: g};
     final result = List<MemberGroup>.from(groups);
@@ -102,8 +102,12 @@ class GroupTreeUtils {
 
       if (hasCycle) {
         final parent = idMap[g.parentGroupId!];
-        if (parent != null && g.createdAt.isAfter(parent.createdAt)) {
-          // This group is newer → break cycle by making it a root.
+        final winsOnTime = parent != null && g.createdAt.isAfter(parent.createdAt);
+        final winsOnId = parent != null &&
+            !g.createdAt.isBefore(parent.createdAt) &&
+            g.id.compareTo(parent.id) > 0;
+        if (winsOnTime || winsOnId) {
+          // This group is newer (or same age with higher id) → break cycle.
           result[i] = g.copyWith(parentGroupId: null);
           idMap[g.id] = result[i];
         }

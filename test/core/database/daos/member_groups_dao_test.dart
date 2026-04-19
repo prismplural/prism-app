@@ -82,6 +82,17 @@ void main() {
   // ── watchChildGroups ────────────────────────────────────────────────────────
 
   group('watchChildGroups', () {
+    test('returns empty list on completely empty database', () async {
+      final roots = await db.memberGroupsDao.watchChildGroups(null).first;
+      expect(roots, isEmpty);
+    });
+
+    test('returns empty list for non-existent parent id', () async {
+      final children =
+          await db.memberGroupsDao.watchChildGroups('ghost').first;
+      expect(children, isEmpty);
+    });
+
     test('root watch returns only null-parent groups', () async {
       await db
           .into(db.memberGroups)
