@@ -215,20 +215,11 @@ class _AppShellState extends ConsumerState<AppShell>
     final isDesktop = shouldBeDesktop(width, currentlyDesktop: _wasDesktop);
     _wasDesktop = isDesktop;
 
-    // Build visible tabs from configurable providers.
-    var primaryTabs = ref.watch(activeNavBarTabsProvider);
-    var overflowTabs = ref.watch(navBarOverflowTabsProvider);
-
-    // Auto-split: if the user has >5 primary tabs but hasn't explicitly
-    // configured overflow items, split the excess into overflow automatically.
-    // activeNavBarTabsProvider always places Settings last, so a naive sublist(5)
-    // would push Settings into overflow where it's locked and can't be moved back.
-    // Instead, keep Settings pinned at position 4 and move slots [4..n-2] to overflow.
-    if (primaryTabs.length > 5 && overflowTabs.isEmpty) {
-      final settingsTab = primaryTabs.last;
-      overflowTabs = primaryTabs.sublist(4, primaryTabs.length - 1);
-      primaryTabs = [...primaryTabs.sublist(0, 4), settingsTab];
-    }
+    // Build visible tabs from configurable providers. Both providers delegate
+    // to normalizeNavLayout, which enforces the 5-tab primary cap and spills
+    // excess into overflow — so here we just consume the result.
+    final primaryTabs = ref.watch(activeNavBarTabsProvider);
+    final overflowTabs = ref.watch(navBarOverflowTabsProvider);
 
     // All tabs combined for index mapping.
     final allTabs = [...primaryTabs, ...overflowTabs];

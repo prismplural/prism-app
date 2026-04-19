@@ -122,6 +122,8 @@ class NavigationSettingsScreen extends ConsumerWidget {
 
                   final tab = entry.tab!;
                   final isInPrimary = _isInPrimarySection(entries, index);
+                  final primaryFull =
+                      primaryTabs.length >= kMaxPrimaryNavTabs;
 
                   return _NavItem(
                     key: ValueKey(tab.id),
@@ -135,7 +137,7 @@ class NavigationSettingsScreen extends ConsumerWidget {
                     onMoveToOverflow: tab.isLocked || !isInPrimary
                         ? null
                         : () => _moveToOtherSection(ref, entries, index, false),
-                    onMoveToPrimary: tab.isLocked || isInPrimary
+                    onMoveToPrimary: tab.isLocked || isInPrimary || primaryFull
                         ? null
                         : () => _moveToOtherSection(ref, entries, index, true),
                   );
@@ -155,10 +157,20 @@ class NavigationSettingsScreen extends ConsumerWidget {
                       _AvailableItem(
                         tab: availableTabs[i],
                         terminologyPlural: terms.plural,
-                        onAddToBar: () =>
-                            _addToPrimary(ref, primaryTabs, availableTabs[i]),
-                        onAddToOverflow: () =>
-                            _addToOverflow(ref, overflowTabs, availableTabs[i]),
+                        canAddToBar:
+                            primaryTabs.length < kMaxPrimaryNavTabs,
+                        onAddToBar: () => _addToPrimary(
+                          ref,
+                          primaryTabs,
+                          overflowTabs,
+                          availableTabs[i],
+                        ),
+                        onAddToOverflow: () => _addToOverflow(
+                          ref,
+                          primaryTabs,
+                          overflowTabs,
+                          availableTabs[i],
+                        ),
                       ),
                       if (i < availableTabs.length - 1)
                         const Divider(height: 1, indent: 56),
@@ -210,8 +222,8 @@ class NavigationSettingsScreen extends ConsumerWidget {
     return index < _overflowHeaderIndex(entries);
   }
 
-  /// Handle reorder within the unified list. Headers cannot move, and locked
-  /// items (Home at index 1, Settings at the end) stay put.
+  /// Handle reorder within the unified list. Headers cannot move, and Home
+  /// (the only locked item) stays pinned at the top of the primary section.
   void _onReorder(
     WidgetRef ref,
     List<_UnifiedEntry> entries,
@@ -268,6 +280,8 @@ class NavigationSettingsScreen extends ConsumerWidget {
   }
 
   /// Derive primary and overflow tab lists from the unified entries and persist.
+  /// Reject reorders that would move Home out of position 0; everything else
+  /// flows through [normalizeNavLayout] which enforces the 5-tab cap.
   void _saveFromEntries(WidgetRef ref, List<_UnifiedEntry> entries) {
     final overflowIdx = _overflowHeaderIndex(entries);
 
@@ -284,51 +298,56 @@ class NavigationSettingsScreen extends ConsumerWidget {
       }
     }
 
-    // Validate locked positions: Home must be first in primary, Settings last
+    // Home is locked — reject any reorder that would displace it.
     final homeIdx = primaryItems.indexWhere((t) => t.id == AppShellTabId.home);
-    final settingsIdx = primaryItems.indexWhere(
-      (t) => t.id == AppShellTabId.settings,
-    );
-
-    // If Home is not at position 0 in primary, or Settings is somewhere wrong,
-    // reject the reorder silently (same behavior as the old code).
     if (homeIdx >= 0 && homeIdx != 0) return;
-    if (settingsIdx >= 0 && settingsIdx != primaryItems.length - 1) return;
-
-    // Also check if Settings ended up in overflow -- not allowed
-    if (overflowItems.any((t) => t.id == AppShellTabId.settings)) return;
-    // And Home in overflow -- not allowed
     if (overflowItems.any((t) => t.id == AppShellTabId.home)) return;
 
-    _savePrimary(ref, primaryItems);
-    _saveOverflow(ref, overflowItems);
+    _persistNormalized(ref, primaryItems, overflowItems);
   }
 
   // --- Add operations (from Available section) ---
 
   void _addToPrimary(
     WidgetRef ref,
-    List<AppShellTab> current,
+    List<AppShellTab> currentPrimary,
+    List<AppShellTab> currentOverflow,
     AppShellTab tab,
   ) {
-    final updated = List<AppShellTab>.from(current);
-    final settingsIdx = updated.indexWhere(
-      (t) => t.id == AppShellTabId.settings,
-    );
-    if (settingsIdx >= 0) {
-      updated.insert(settingsIdx, tab);
-    } else {
-      updated.add(tab);
+    // If primary is already at cap, route the new tab to overflow so the user
+    // never ends up with >5 primary items through this button.
+    if (currentPrimary.length >= kMaxPrimaryNavTabs) {
+      _persistNormalized(ref, currentPrimary, [...currentOverflow, tab]);
+      return;
     }
-    _savePrimary(ref, updated);
+    _persistNormalized(ref, [...currentPrimary, tab], currentOverflow);
   }
 
   void _addToOverflow(
     WidgetRef ref,
-    List<AppShellTab> current,
+    List<AppShellTab> currentPrimary,
+    List<AppShellTab> currentOverflow,
     AppShellTab tab,
   ) {
-    _saveOverflow(ref, [...current, tab]);
+    _persistNormalized(ref, currentPrimary, [...currentOverflow, tab]);
+  }
+
+  /// Push [primary] and [overflow] through [normalizeNavLayout] before saving
+  /// so the persisted config always satisfies the 5-cap + Home-first
+  /// invariants that the rendered nav bar relies on.
+  void _persistNormalized(
+    WidgetRef ref,
+    List<AppShellTab> primary,
+    List<AppShellTab> overflow,
+  ) {
+    final flags = ref.read(featureFlagsProvider);
+    final normalized = normalizeNavLayout(
+      primaryIds: primary.map((t) => t.id.name).toList(),
+      overflowIds: overflow.map((t) => t.id.name).toList(),
+      flags: flags,
+    );
+    _savePrimary(ref, normalized.primary);
+    _saveOverflow(ref, normalized.overflow);
   }
 
   // --- Persistence ---
@@ -458,12 +477,14 @@ class _AvailableItem extends StatelessWidget {
   const _AvailableItem({
     required this.tab,
     required this.terminologyPlural,
+    required this.canAddToBar,
     required this.onAddToBar,
     required this.onAddToOverflow,
   });
 
   final AppShellTab tab;
   final String terminologyPlural;
+  final bool canAddToBar;
   final VoidCallback onAddToBar;
   final VoidCallback onAddToOverflow;
 
@@ -479,9 +500,11 @@ class _AvailableItem extends StatelessWidget {
         children: [
           PrismInlineIconButton(
             icon: AppIcons.addCircleOutline,
-            color: theme.colorScheme.primary,
+            color: canAddToBar
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
             tooltip: context.l10n.navigationAddToNavBar,
-            onPressed: onAddToBar,
+            onPressed: canAddToBar ? onAddToBar : null,
           ),
           PrismInlineIconButton(
             icon: AppIcons.moreVert,

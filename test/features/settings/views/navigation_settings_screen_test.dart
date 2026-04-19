@@ -52,21 +52,20 @@ void main() {
       expect(find.text('Settings'), findsOneWidget);
     });
 
-    testWidgets('locked tabs (Home, Settings) show lock icon', (tester) async {
+    testWidgets('only Home shows a lock icon', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.pumpAndSettle();
 
-      // Home and Settings are locked — they should show lock icons.
-      // There are exactly 2 locked tabs in the default set.
-      expect(find.byIcon(AppIcons.lockOutline), findsNWidgets(2));
+      // Only Home is locked.
+      expect(find.byIcon(AppIcons.lockOutline), findsOneWidget);
     });
 
     testWidgets('non-locked tabs show remove button', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.pumpAndSettle();
 
-      // Chat, Habits, Polls are not locked — each gets a remove button.
-      expect(find.byIcon(AppIcons.removeCircleOutline), findsNWidgets(3));
+      // Chat, Habits, Polls, Settings are not locked — each gets a remove button.
+      expect(find.byIcon(AppIcons.removeCircleOutline), findsNWidgets(4));
     });
 
     testWidgets('available tabs section shows tabs not in current nav',
