@@ -123,9 +123,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                 final oldSiblingIndex = siblings.indexOf(entry.group);
                 // Compute newSiblingIndex relative to the siblings list.
                 final targetSiblingIndex = siblings.indexOf(targetEntry.group);
-                final newSiblingIndex = (newIndex > oldIndex)
-                    ? targetSiblingIndex - 1
-                    : targetSiblingIndex;
+                final newSiblingIndex = targetSiblingIndex;
 
                 if (oldSiblingIndex == newSiblingIndex) return;
 

@@ -139,6 +139,20 @@ class GroupTreeUtils {
     return result;
   }
 
+  /// Returns the height of the subtree rooted at [groupId]:
+  /// 1 if the group has no children, 2 if it has children, 3 if it has grandchildren.
+  static int getSubtreeHeight(
+      String groupId, Map<String?, List<MemberGroup>> tree) {
+    final children = tree[groupId] ?? [];
+    if (children.isEmpty) return 1;
+    int maxChildHeight = 0;
+    for (final child in children) {
+      final h = getSubtreeHeight(child.id, tree);
+      if (h > maxChildHeight) maxChildHeight = h;
+    }
+    return 1 + maxChildHeight;
+  }
+
   // ── Internal helpers ────────────────────────────────────────────────────────
 
   static Map<String, MemberGroup> _buildIdMap(

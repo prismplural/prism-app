@@ -55,6 +55,11 @@ class GroupParentPicker extends ConsumerWidget {
         child: Text(l10n.error),
       ),
       data: (allGroups) {
+        // How tall is the group being edited (1 = leaf, 2 = has children, 3 = has grandchildren)?
+        final editedSubtreeHeight = excludeGroupId != null
+            ? GroupTreeUtils.getSubtreeHeight(excludeGroupId!, tree)
+            : 1;
+
         // Build the candidate list, filtering out illegal choices.
         final candidates = <_GroupPickerItem>[];
 
@@ -121,8 +126,8 @@ class GroupParentPicker extends ConsumerWidget {
                       );
                     }
                     if (index == 1) return const Divider(height: 1);
-                    return _buildGroupTile(
-                        context, candidates[index - 2], theme, l10n);
+                    return _buildGroupTile(context, candidates[index - 2],
+                        theme, l10n, editedSubtreeHeight);
                   },
                 ),
               ),
@@ -138,9 +143,10 @@ class GroupParentPicker extends ConsumerWidget {
     _GroupPickerItem item,
     ThemeData theme,
     AppLocalizations l10n,
+    int editedSubtreeHeight,
   ) {
     final group = item.group;
-    final isAtDepthLimit = item.depth >= 3;
+    final isAtDepthLimit = item.depth + editedSubtreeHeight > 3;
     final isSelected = group.id == currentParentId;
 
     Color? groupColor;
