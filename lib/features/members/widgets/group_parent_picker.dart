@@ -176,10 +176,25 @@ class GroupParentPicker extends ConsumerWidget {
     );
 
     if (isAtDepthLimit) {
-      tile = Opacity(opacity: 0.4, child: tile);
+      return Semantics(
+        enabled: false,
+        label: '${group.name}, cannot nest further',
+        excludeSemantics: true,
+        child: Opacity(opacity: 0.4, child: tile),
+      );
     }
 
-    return tile;
+    final depthLabel = item.depth == 1
+        ? 'top level group'
+        : item.depth == 2
+            ? 'sub-group'
+            : 'sub-sub-group';
+    return Semantics(
+      button: true,
+      label: '${group.name}, $depthLabel${isSelected ? ', selected' : ''}',
+      excludeSemantics: true,
+      child: tile,
+    );
   }
 }
 
