@@ -62,8 +62,12 @@ class ConversationTile extends ConsumerWidget {
 
   Widget _buildLeading(BuildContext context, ConversationTileData tileData) {
     if (tileData.conversation.emoji != null) {
-      return TintedGlassSurface.circle(
-        size: 40,
+      return TintedGlassSurface(
+        width: 40,
+        height: 40,
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(20),
+        ),
         child: MemberAvatar.centeredEmoji(
           tileData.conversation.emoji!,
           fontSize: 20,
