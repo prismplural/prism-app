@@ -348,57 +348,74 @@ class _EnterPhraseStepState extends State<_EnterPhraseStep> {
 
     return SafeArea(
       top: false,
-      child: ListView(
-        padding: const EdgeInsets.all(24),
+      child: Column(
         children: [
-          const SizedBox(height: 16),
-          Text(
-            'Enter your recovery phrase',
-            style: theme.textTheme.headlineSmall,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Enter the 12 words you wrote down when you first set up Prism.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 24),
-          PrismMnemonicField(
-            controller: widget.mnemonicController,
-            errorText: widget.error,
-            enabled: !widget.isProcessing,
-            autofocus: true,
-            onSubmitted: _canSubmit && !widget.isProcessing
-                ? (_) => widget.onSubmit()
-                : null,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Lost your recovery phrase? Export your data from Settings, then reset the app to start over.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 24),
-          PrismButton(
-            label: context.l10n.syncSetupCompleteButton,
-            icon: AppIcons.check,
-            tone: PrismButtonTone.filled,
-            enabled: _canSubmit,
-            isLoading: widget.isProcessing,
-            onPressed: widget.onSubmit,
-          ),
-          if (widget.isProcessing && _progressLabel(context) != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              _progressLabel(context)!,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Enter your recovery phrase',
+                    style: theme.textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Enter the 12 words you wrote down when you first set up Prism.',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  PrismMnemonicField(
+                    controller: widget.mnemonicController,
+                    errorText: widget.error,
+                    enabled: !widget.isProcessing,
+                    autofocus: true,
+                    onSubmitted: _canSubmit && !widget.isProcessing
+                        ? (_) => widget.onSubmit()
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Lost your recovery phrase? Export your data from Settings, then reset the app to start over.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
-          ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PrismButton(
+                  label: context.l10n.syncSetupCompleteButton,
+                  icon: AppIcons.check,
+                  tone: PrismButtonTone.filled,
+                  enabled: _canSubmit,
+                  isLoading: widget.isProcessing,
+                  onPressed: widget.onSubmit,
+                ),
+                if (widget.isProcessing && _progressLabel(context) != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _progressLabel(context)!,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
         ],
       ),
     );
