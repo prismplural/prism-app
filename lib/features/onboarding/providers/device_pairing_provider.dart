@@ -368,7 +368,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // Without this, the bootstrap emits entities to Rust's broadcast
     // channel but nothing on the Dart side processes them into Drift.
     if (kDebugMode) {
-      print('[PAIRING] Activating syncEventStreamProvider...');
+      debugPrint('[PAIRING] Activating syncEventStreamProvider...');
     }
     final syncAdapter = ref.read(driftSyncAdapterProvider);
     syncAdapter.beginSyncBatch();
@@ -399,11 +399,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // Pull any changes that arrived after the snapshot was created
     try {
       if (kDebugMode) {
-        print('[PAIRING] Calling syncNow...');
+        debugPrint('[PAIRING] Calling syncNow...');
       }
       final syncResult = await ffi.syncNow(handle: handle);
       if (kDebugMode) {
-        print('[PAIRING] syncNow result: $syncResult');
+        debugPrint('[PAIRING] syncNow result: $syncResult');
       }
     } catch (e, st) {
       ErrorReportingService.instance.report(
@@ -422,7 +422,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
       onTimeout: () {
         syncTimedOut = true;
         if (kDebugMode) {
-          print(
+          debugPrint(
             '[PAIRING] syncBatchComplete timed out — continuing with incomplete data',
           );
         }
@@ -468,7 +468,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     final counts = await _countLocalData();
     if (kDebugMode) {
-      print(
+      debugPrint(
         '[PAIRING] Local data counts: members=${counts.members}, sessions=${counts.frontingSessions}, convos=${counts.conversations}, messages=${counts.messages}, habits=${counts.habits}',
       );
     }
