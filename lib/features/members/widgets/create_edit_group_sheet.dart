@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -261,7 +262,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
                   // Color picker row
                   InkWell(
                     onTap: _openColorPicker,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(

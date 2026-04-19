@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -402,7 +403,7 @@ class _SessionTile extends StatelessWidget {
 
     return InkWell(
       onTap: () => context.go(AppRoutePaths.session(session.id)),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -523,7 +524,7 @@ class _ConversationTile extends ConsumerWidget {
 
     return InkWell(
       onTap: () => context.go(AppRoutePaths.chatConversation(conversation.id)),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -682,7 +683,7 @@ class _Chip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

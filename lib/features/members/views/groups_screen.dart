@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -117,7 +118,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
                 animation: animation,
                 builder: (context, child) => Material(
                   elevation: 4,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                   child: child,
                 ),
                 child: child,
@@ -183,7 +184,7 @@ class _GroupTile extends StatelessWidget {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           decoration: BoxDecoration(
             color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(14)),
           ),
           clipBehavior: Clip.antiAlias,
           child: Row(
@@ -250,7 +251,7 @@ class _GroupTile extends StatelessWidget {
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                           ),
                           child: Text(
                             '$memberCount',
