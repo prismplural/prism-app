@@ -64,8 +64,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final groupsAsync = ref.watch(allGroupsProvider);
-    final countsAsync = ref.watch(groupMemberCountsProvider);
-    final counts = countsAsync.whenOrNull(data: (c) => c) ?? {};
+    final counts = ref.watch(groupMemberCountsProvider);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(

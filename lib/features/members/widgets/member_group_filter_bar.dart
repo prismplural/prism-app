@@ -12,7 +12,7 @@ class MemberGroupFilterBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final groups = ref.watch(allGroupsProvider).value ?? [];
-    final counts = ref.watch(groupMemberCountsProvider).value ?? {};
+    final counts = ref.watch(groupMemberCountsProvider);
     final activeFilter = ref.watch(activeGroupFilterProvider);
     final ungroupedExists = ref.watch(ungroupedMembersExistProvider);
     final l10n = context.l10n;
