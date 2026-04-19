@@ -234,8 +234,9 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
             async.value?.where((g) => g.id == _parentGroupId).firstOrNull?.name));
 
     return SafeArea(
-      child: Column(
-        children: [
+      child: ClipRect(
+        child: Column(
+          children: [
           PrismSheetTopBar(
             title: widget.isEditing ? l10n.memberGroupEditTitle : l10n.memberGroupNewTitle,
             trailing: PrismGlassIconButton(
@@ -375,6 +376,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
