@@ -86,7 +86,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     if (!hasText && hasImage) return ref.read(speakingAsProvider) != null;
     // Text (with or without image): either speakingAs or a live proxy match
     // covers authorship.
-    return ref.read(speakingAsProvider) != null || _effectiveMatch != null;
+    final match = _effectiveMatch;
+    return ref.read(speakingAsProvider) != null ||
+        (match != null && match.strippedText.isNotEmpty);
   }
 
   bool get _showMicButton =>
@@ -298,7 +300,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       // Image-only: proxy tags do not apply to attachments.
       authorId = speakingAs;
       content = '';
-    } else if (match != null && text.isNotEmpty) {
+    } else if (match != null &&
+        text.isNotEmpty &&
+        match.strippedText.isNotEmpty) {
       // Re-verify the match target is still authorable — active membership
       // can change between build and the send path.
       final freshMembers =

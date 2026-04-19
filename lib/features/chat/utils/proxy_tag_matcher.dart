@@ -47,8 +47,10 @@ class _Candidate {
 /// against `text.trimRight()` so accidental trailing whitespace does not
 /// disqualify a match. Returns the highest-scoring match (by total tag
 /// length), with deterministic tie-breaking on `displayOrder`, `id`, then
-/// original tag index. Returns null when no tag yields a non-empty stripped
-/// message.
+/// original tag index. The stripped content may be empty — e.g. when the
+/// user has typed just the prefix — so the "Posting as …" banner can appear
+/// as soon as the tag is typed; the send path is responsible for blocking
+/// empty sends.
 ProxyTagMatch? matchProxyTag(String rawText, List<Member> members) {
   if (rawText.isEmpty) return null;
   final trimmedRight = rawText.trimRight();
@@ -90,15 +92,12 @@ ProxyTagMatch? matchProxyTag(String rawText, List<Member> members) {
         );
       }
 
-      final trimmed = stripped.trim();
-      if (trimmed.isEmpty) continue;
-
       candidates.add(_Candidate(
         member: member,
         tagIndex: i,
         prefix: prefix,
         suffix: suffix,
-        strippedText: trimmed,
+        strippedText: stripped.trim(),
       ));
     }
   }
