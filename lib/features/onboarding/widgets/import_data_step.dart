@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -53,9 +52,7 @@ class _ImportDataStepState extends ConsumerState<ImportDataStep> {
     // Defer to next frame so we don't mutate providers during dispose.
     final container = ProviderScope.containerOf(context, listen: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      container
-          .read(onboardingPendingImportActionProvider.notifier)
-          .set(null);
+      container.read(onboardingPendingImportActionProvider.notifier).set(null);
     });
     super.dispose();
   }
@@ -93,10 +90,7 @@ class _ImportDataStepState extends ConsumerState<ImportDataStep> {
 // ---------------------------------------------------------------------------
 
 class _SourcePicker extends StatelessWidget {
-  const _SourcePicker({
-    super.key,
-    required this.onSelect,
-  });
+  const _SourcePicker({super.key, required this.onSelect});
 
   final void Function(_ImportSource) onSelect;
 
@@ -206,7 +200,9 @@ class _SourceCardState extends State<_SourceCard> {
                 : (isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.12)
                       : AppColors.parchmentElevated),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(16),
+            ),
             border: Border.all(
               color: _pressed
                   ? primary.withValues(alpha: 0.5)
@@ -323,7 +319,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
     if (_mode == null) {
       pending = null;
     } else if (_mode == _PkMode.token) {
-      pending = _handleImport;
+      pending = _isImporting ? () async {} : _handleImport;
     } else {
       final fileState = ref.read(pkFileImportProvider);
       switch (fileState.step) {
@@ -336,7 +332,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           pending = _runFileImport;
           break;
         case PkFileImportStep.complete:
-          pending = _handlePostFileToken;
+          pending = _isAttachingToken ? () async {} : _handlePostFileToken;
           break;
         case PkFileImportStep.error:
           pending = () async {
@@ -345,7 +341,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           break;
         case PkFileImportStep.parsing:
         case PkFileImportStep.importing:
-          pending = null;
+          pending = () async {};
           break;
       }
     }
@@ -373,7 +369,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   @override
   Widget build(BuildContext context) {
     // Rebuild pending action when file state changes.
-    ref.listen<PkFileImportState>(pkFileImportProvider, (_, __) {
+    ref.listen<PkFileImportState>(pkFileImportProvider, (previous, next) {
       _refreshPendingAction();
     });
 
@@ -409,9 +405,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         Text(
           'How do you want to bring PluralKit data into Prism?',
           style: theme.textTheme.bodyMedium?.copyWith(
-            color: isDark
-                ? AppColors.mutedTextDark
-                : AppColors.mutedTextLight,
+            color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
           ),
           textAlign: TextAlign.center,
         ),
@@ -456,7 +450,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,7 +488,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: PrismTextField(
             controller: _tokenController,
@@ -531,7 +529,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.green.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(12),
+              ),
             ),
             child: Row(
               children: [
@@ -539,11 +539,11 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    context.l10n
-                        .onboardingPluralKitImportSuccess(_importedCount),
+                    context.l10n.onboardingPluralKitImportSuccess(
+                      _importedCount,
+                    ),
                     style: TextStyle(
-                      color:
-                          isDark ? AppColors.warmWhite : AppColors.warmBlack,
+                      color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -562,8 +562,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           const SizedBox(height: 12),
           Text(
             _errorMessage!,
-            style: theme.textTheme.bodyMedium
-                ?.copyWith(color: theme.colorScheme.error),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.error,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -611,7 +612,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -628,7 +631,8 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
               const SizedBox(height: 8),
               const _InstructionRow(
                 number: '1',
-                text: 'In Discord, run pk;export and PluralKit will DM you a '
+                text:
+                    'In Discord, run pk;export and PluralKit will DM you a '
                     'JSON file.',
               ),
               const _InstructionRow(
@@ -695,7 +699,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,9 +772,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         if (name != null && name.isNotEmpty) {
           ref.read(onboardingProvider.notifier).setSystemName(name);
         }
-        ref
-            .read(onboardingProvider.notifier)
-            .setWasImportedFromPluralKit(true);
+        ref.read(onboardingProvider.notifier).setWasImportedFromPluralKit(true);
       });
     }
 
@@ -780,7 +784,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.green.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Row(
             children: [
@@ -806,7 +812,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -835,7 +843,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.06)
                       : AppColors.parchment,
-                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(10),
+                  ),
                 ),
                 child: PrismTextField(
                   controller: _postFileTokenController,
@@ -872,8 +882,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                 const SizedBox(height: 8),
                 Text(
                   _postFileTokenError!,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.error),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
                 ),
               ],
               const SizedBox(height: 12),
@@ -917,13 +928,17 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.red.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Row(
             children: [
               Icon(AppIcons.errorOutline, color: Colors.red),
               const SizedBox(width: 12),
-              Expanded(child: Text(message, style: TextStyle(color: textColor))),
+              Expanded(
+                child: Text(message, style: TextStyle(color: textColor)),
+              ),
             ],
           ),
         ),
@@ -944,6 +959,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   }
 
   Future<void> _handlePostFileToken() async {
+    if (_isAttachingToken) return;
     final token = _postFileTokenController.text.trim();
     if (token.isEmpty) {
       _skipPostFileToken();
@@ -992,10 +1008,13 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   }
 
   Future<void> _handleImport() async {
+    if (_isImporting) return;
     final token = _tokenController.text.trim();
     debugPrint('[PK_ONBOARDING] _handleImport: token length=${token.length}');
     if (token.isEmpty) {
-      setState(() => _errorMessage = context.l10n.onboardingPluralKitErrorEnterToken);
+      setState(
+        () => _errorMessage = context.l10n.onboardingPluralKitErrorEnterToken,
+      );
       return;
     }
 
@@ -1188,7 +1207,9 @@ class _PrismExportImportFlowState
   Future<void> _unlockFile() async {
     final password = _passwordController.text;
     if (password.isEmpty) {
-      setState(() => _passwordError = context.l10n.onboardingImportPasswordEmpty);
+      setState(
+        () => _passwordError = context.l10n.onboardingImportPasswordEmpty,
+      );
       return;
     }
     setState(() {
@@ -1219,14 +1240,16 @@ class _PrismExportImportFlowState
         _passwordError = msg == 'unencrypted-prism-backup'
             ? context.l10n.onboardingImportUnencryptedBackup
             : msg.contains('mac check') || msg.contains('wrong')
-                ? context.l10n.onboardingImportIncorrectPassword
-                : context.l10n.onboardingImportDecryptionFailed(msg);
+            ? context.l10n.onboardingImportIncorrectPassword
+            : context.l10n.onboardingImportDecryptionFailed(msg);
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _step = _PrismExportStep.password;
-        _passwordError = context.l10n.onboardingImportDecryptionFailed(e.toString());
+        _passwordError = context.l10n.onboardingImportDecryptionFailed(
+          e.toString(),
+        );
       });
     }
   }
@@ -1308,7 +1331,7 @@ class _PrismExportImportFlowState
         break;
       case _PrismExportStep.decrypting:
       case _PrismExportStep.importing:
-        pendingAction = null;
+        pendingAction = () async {};
         break;
     }
     final capturedAction = pendingAction;
@@ -1323,7 +1346,8 @@ class _PrismExportImportFlowState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_step != _PrismExportStep.importing && _step != _PrismExportStep.decrypting)
+          if (_step != _PrismExportStep.importing &&
+              _step != _PrismExportStep.decrypting)
             Align(
               alignment: Alignment.centerLeft,
               child: _BackLink(onTap: widget.onBack),
@@ -1355,7 +1379,9 @@ class _PrismExportImportFlowState
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1428,7 +1454,9 @@ class _PrismExportImportFlowState
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: PrismTextField(
             controller: _passwordController,
@@ -1457,7 +1485,9 @@ class _PrismExportImportFlowState
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.75)
                   : AppColors.warmBlack.withValues(alpha: 0.75),
-              tooltip: _obscurePassword ? context.l10n.showPassword : context.l10n.hidePassword,
+              tooltip: _obscurePassword
+                  ? context.l10n.showPassword
+                  : context.l10n.hidePassword,
               onPressed: () =>
                   setState(() => _obscurePassword = !_obscurePassword),
             ),
@@ -1487,7 +1517,9 @@ class _PrismExportImportFlowState
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1511,7 +1543,10 @@ class _PrismExportImportFlowState
                 ),
               ),
               const SizedBox(height: 12),
-              _PreviewRow(label: context.l10n.onboardingImportPreviewMembers, count: preview.headmates),
+              _PreviewRow(
+                label: context.l10n.onboardingImportPreviewMembers,
+                count: preview.headmates,
+              ),
               _PreviewRow(
                 label: context.l10n.onboardingImportPreviewFrontingSessions,
                 count: preview.frontSessions,
@@ -1526,15 +1561,27 @@ class _PrismExportImportFlowState
                   label: context.l10n.onboardingImportPreviewGroups,
                   count: preview.memberGroups,
                 ),
-              _PreviewRow(label: context.l10n.onboardingImportPreviewConversations, count: preview.conversations),
-              _PreviewRow(label: context.l10n.onboardingImportPreviewMessages, count: preview.messages),
+              _PreviewRow(
+                label: context.l10n.onboardingImportPreviewConversations,
+                count: preview.conversations,
+              ),
+              _PreviewRow(
+                label: context.l10n.onboardingImportPreviewMessages,
+                count: preview.messages,
+              ),
               if (preview.polls > 0)
                 _PreviewRow(
                   label: context.l10n.onboardingImportPreviewPolls,
                   count: preview.polls,
                 ),
-              _PreviewRow(label: context.l10n.onboardingImportPreviewHabits, count: preview.habits),
-              _PreviewRow(label: context.l10n.onboardingImportPreviewNotes, count: preview.notes),
+              _PreviewRow(
+                label: context.l10n.onboardingImportPreviewHabits,
+                count: preview.habits,
+              ),
+              _PreviewRow(
+                label: context.l10n.onboardingImportPreviewNotes,
+                count: preview.notes,
+              ),
               if (preview.frontSessionComments > 0)
                 _PreviewRow(
                   label: context.l10n.onboardingImportPreviewComments,
@@ -1566,7 +1613,10 @@ class _PrismExportImportFlowState
                     : const Color(0x22000000),
                 height: 24,
               ),
-              _PreviewRow(label: context.l10n.onboardingImportPreviewTotalRecords, count: preview.totalRecords),
+              _PreviewRow(
+                label: context.l10n.onboardingImportPreviewTotalRecords,
+                count: preview.totalRecords,
+              ),
             ],
           ),
         ),
@@ -1615,7 +1665,9 @@ class _PrismExportImportFlowState
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.red.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Row(
             children: [
@@ -1681,6 +1733,11 @@ class _SimplyPluralImportFlowState
           ref.read(importerProvider.notifier).proceedFromPreview();
         };
         break;
+      case sp_importer.ImportState.chooseDispositions:
+        pendingAction = () async {
+          await ref.read(importerProvider.notifier).continueFromDispositions();
+        };
+        break;
       case sp_importer.ImportState.error:
         pendingAction = () async {
           ref.read(importerProvider.notifier).reset();
@@ -1689,11 +1746,17 @@ class _SimplyPluralImportFlowState
       case sp_importer.ImportState.parsing:
       case sp_importer.ImportState.verifying:
       case sp_importer.ImportState.fetching:
-      case sp_importer.ImportState.chooseDispositions:
       case sp_importer.ImportState.importing:
       case sp_importer.ImportState.downloadingAvatars:
+        // Keep the outer onboarding Continue button from advancing past the
+        // import step while the SP sub-flow is doing work.
+        pendingAction = () async {};
+        break;
       case sp_importer.ImportState.complete:
-        pendingAction = null;
+        pendingAction = () async {
+          ref.read(onboardingPendingImportActionProvider.notifier).set(null);
+          ref.read(onboardingProvider.notifier).next();
+        };
         break;
     }
     final capturedAction = pendingAction;
@@ -1708,7 +1771,8 @@ class _SimplyPluralImportFlowState
     // seed the onboarding system-name field so the user doesn't have to
     // retype something they already set in Simply Plural.
     ref.listen(importerProvider, (prev, next) {
-      final justCompleted = prev?.step != sp_importer.ImportState.complete &&
+      final justCompleted =
+          prev?.step != sp_importer.ImportState.complete &&
           next.step == sp_importer.ImportState.complete;
       if (!justCompleted) return;
       ref
@@ -1746,7 +1810,9 @@ class _SimplyPluralImportFlowState
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.1)
                     : AppColors.parchmentElevated,
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(12),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1800,7 +1866,10 @@ class _SimplyPluralImportFlowState
                       duration: const Duration(milliseconds: 3000),
                     ),
                     const SizedBox(height: 16),
-                    Text(context.l10n.onboardingSimplyPluralReadingFile, style: TextStyle(color: textColor)),
+                    Text(
+                      context.l10n.onboardingSimplyPluralReadingFile,
+                      style: TextStyle(color: textColor),
+                    ),
                   ],
                 ),
               ),
@@ -1815,7 +1884,9 @@ class _SimplyPluralImportFlowState
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.1)
                     : AppColors.parchmentElevated,
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(12),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1882,7 +1953,8 @@ class _SimplyPluralImportFlowState
                       migration.exportData!.repeatedTimers.isNotEmpty)
                     _PreviewRow(
                       label: context.l10n.onboardingImportPreviewReminders,
-                      count: migration.exportData!.automatedTimers.length +
+                      count:
+                          migration.exportData!.automatedTimers.length +
                           migration.exportData!.repeatedTimers.length,
                     ),
                 ],
@@ -1942,7 +2014,9 @@ class _SimplyPluralImportFlowState
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.green.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(12),
+                ),
               ),
               child: Row(
                 children: [
@@ -1968,7 +2042,9 @@ class _SimplyPluralImportFlowState
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.red.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(12),
+                ),
               ),
               child: Row(
                 children: [
@@ -2077,14 +2153,13 @@ class _ActionButtonState extends State<_ActionButton> {
             color: _pressed
                 ? widget.color.withValues(alpha: 0.7)
                 : widget.color.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
           ),
           child: Center(
             child: widget.isLoading
-                ? PrismSpinner(
-                    color: buttonTextColor,
-                    size: 20,
-                  )
+                ? PrismSpinner(color: buttonTextColor, size: 20)
                 : Text(
                     widget.label,
                     style: theme.textTheme.labelLarge?.copyWith(
