@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,12 +30,14 @@ class _DeleteGroupSheetState extends ConsumerState<DeleteGroupSheet> {
   Future<void> _promote() async {
     setState(() => _isLoading = true);
     Haptics.medium();
-    unawaited(
-      ref.read(groupNotifierProvider.notifier).promoteChildrenToRoot(widget.group.id),
-    );
+    await ref.read(groupNotifierProvider.notifier).promoteChildrenToRoot(widget.group.id);
     if (!mounted) return;
+    final hasError = ref.read(groupNotifierProvider).hasError;
     Navigator.of(context).pop();
-    PrismToast.show(context, message: context.l10n.memberGroupPromoted);
+    PrismToast.show(
+      context,
+      message: hasError ? context.l10n.error : context.l10n.memberGroupPromoted,
+    );
   }
 
   Future<void> _deleteAll() async {
@@ -52,15 +52,18 @@ class _DeleteGroupSheetState extends ConsumerState<DeleteGroupSheet> {
     if (!confirmed || !mounted) return;
     setState(() => _isLoading = true);
     Haptics.heavy();
-    unawaited(
-      ref
-          .read(groupNotifierProvider.notifier)
-          .deleteGroupWithDescendants(widget.group.id),
-    );
+    await ref
+        .read(groupNotifierProvider.notifier)
+        .deleteGroupWithDescendants(widget.group.id);
     if (!mounted) return;
+    final hasError = ref.read(groupNotifierProvider).hasError;
     Navigator.of(context).pop();
     PrismToast.show(
-        context, message: context.l10n.memberGroupDeleted(widget.group.name));
+      context,
+      message: hasError
+          ? context.l10n.error
+          : context.l10n.memberGroupDeleted(widget.group.name),
+    );
   }
 
   @override
