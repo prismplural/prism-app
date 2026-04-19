@@ -26,6 +26,7 @@ void main() {
         themeMode: 0,
         themeBrightness: 0,
         themeStyle: 0,
+        themeCornerStyle: 0,
         chatEnabled: true,
         pollsEnabled: true,
         habitsEnabled: true,

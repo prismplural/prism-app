@@ -40,6 +40,8 @@ class SystemSettingsTable extends Table {
       integer().withDefault(const Constant(0))(); // ThemeBrightness enum index
   IntColumn get themeStyle =>
       integer().withDefault(const Constant(0))(); // ThemeStyle enum index
+  IntColumn get themeCornerStyle =>
+      integer().withDefault(const Constant(0))(); // CornerStyle enum index
   // Feature toggles
   BoolColumn get chatEnabled => boolean().withDefault(const Constant(true))();
   BoolColumn get pollsEnabled => boolean().withDefault(const Constant(true))();
