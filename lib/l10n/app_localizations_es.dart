@@ -2570,6 +2570,35 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupDeleteConfirm => 'Eliminar';
 
   @override
+  String get memberGroupDeleteCascadeSubtitle =>
+      'Este grupo tiene subgrupos. ¿Qué debería pasar con ellos?';
+
+  @override
+  String get memberGroupDeletePromote => 'Mover subgrupos al nivel superior';
+
+  @override
+  String get memberGroupDeletePromoteSubtitle =>
+      'Los subgrupos se mantienen, solo sin un padre';
+
+  @override
+  String get memberGroupDeleteAll => 'Eliminar todo';
+
+  @override
+  String get memberGroupDeleteAllSubtitle =>
+      'También se eliminarán todos los subgrupos';
+
+  @override
+  String get memberGroupDeleteAllConfirmTitle => '¿Eliminar subgrupos también?';
+
+  @override
+  String memberGroupDeleteAllConfirmMessage(String name) {
+    return 'Esto eliminará permanentemente \"$name\" y todos sus subgrupos. Los integrantes no serán eliminados.';
+  }
+
+  @override
+  String get memberGroupPromoted => 'Subgrupos movidos al nivel superior';
+
+  @override
   String get memberGroupEditTitle => 'Editar Grupo';
 
   @override

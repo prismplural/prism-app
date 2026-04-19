@@ -9,6 +9,7 @@ import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/member_group.dart';
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
+import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
@@ -43,6 +44,16 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   }
 
   Future<void> _confirmDelete(MemberGroup group) async {
+    final hasChildren = ref.read(childGroupsProvider(group.id)).isNotEmpty;
+
+    if (hasChildren) {
+      PrismSheet.show(
+        context: context,
+        builder: (context) => DeleteGroupSheet(group: group),
+      );
+      return;
+    }
+
     final l10n = context.l10n;
     final confirmed = await PrismDialog.confirm(
       context: context,

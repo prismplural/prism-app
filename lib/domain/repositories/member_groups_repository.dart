@@ -12,6 +12,13 @@ abstract class MemberGroupsRepository {
   Future<void> createGroup(domain.MemberGroup group);
   Future<void> updateGroup(domain.MemberGroup group);
   Future<void> deleteGroup(String groupId);
+
+  /// Promotes all direct children to root level, then deletes [groupId].
+  Future<void> promoteChildrenToRoot(String groupId);
+
+  /// Soft-deletes [groupId] and all descendant groups (and their entries).
+  Future<void> deleteGroupWithDescendants(String groupId);
+
   Future<void> addMemberToGroup(
       String groupId, String memberId, String entryId);
   Future<void> removeMemberFromGroup(String groupId, String memberId);

@@ -13,6 +13,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet.dart';
+import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -212,6 +213,16 @@ class _GroupDetailBody extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final hasChildren = ref.read(childGroupsProvider(group.id)).isNotEmpty;
+
+    if (hasChildren) {
+      PrismSheet.show(
+        context: context,
+        builder: (context) => DeleteGroupSheet(group: group),
+      );
+      return;
+    }
+
     final l10n = context.l10n;
     final confirmed = await PrismDialog.confirm(
       context: context,

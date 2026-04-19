@@ -3381,6 +3381,43 @@
   "@memberGroupDeleteConfirm": {
     "description": "Confirm button for group deletion dialog"
   },
+  "memberGroupDeleteCascadeSubtitle": "This group has sub-groups. What should happen to them?",
+  "@memberGroupDeleteCascadeSubtitle": {
+    "description": "Subtitle in cascade delete sheet explaining sub-groups exist"
+  },
+  "memberGroupDeletePromote": "Move sub-groups to top level",
+  "@memberGroupDeletePromote": {
+    "description": "Option to promote sub-groups to root before deleting parent"
+  },
+  "memberGroupDeletePromoteSubtitle": "Sub-groups stay, just without a parent",
+  "@memberGroupDeletePromoteSubtitle": {
+    "description": "Description for the promote option in cascade delete sheet"
+  },
+  "memberGroupDeleteAll": "Delete everything",
+  "@memberGroupDeleteAll": {
+    "description": "Option to recursively delete group and all sub-groups"
+  },
+  "memberGroupDeleteAllSubtitle": "All sub-groups will also be deleted",
+  "@memberGroupDeleteAllSubtitle": {
+    "description": "Description for the delete-all option in cascade delete sheet"
+  },
+  "memberGroupDeleteAllConfirmTitle": "Delete sub-groups too?",
+  "@memberGroupDeleteAllConfirmTitle": {
+    "description": "Confirmation dialog title for recursive group delete"
+  },
+  "memberGroupDeleteAllConfirmMessage": "This will permanently delete \"{name}\" and all its sub-groups. Members will not be deleted.",
+  "@memberGroupDeleteAllConfirmMessage": {
+    "description": "Confirmation dialog message for recursive group delete",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberGroupPromoted": "Sub-groups moved to top level",
+  "@memberGroupPromoted": {
+    "description": "Toast shown after sub-groups are promoted to root"
+  },
   "memberGroupEditTitle": "Edit Group",
   "@memberGroupEditTitle": {
     "description": "Sheet title when editing an existing group"
