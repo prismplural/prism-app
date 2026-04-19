@@ -2630,6 +2630,30 @@ abstract class AppLocalizations {
   /// **'Changing who\'s speaking in chat also logs a front'**
   String get featureChatLogFrontSubtitle;
 
+  /// Toggle title: use PluralKit proxy tags to author single messages
+  ///
+  /// In en, this message translates to:
+  /// **'Use proxy tags to author messages'**
+  String get featureChatProxyTagAuthoring;
+
+  /// Toggle subtitle: explains proxy-tag authoring, mentions PluralKit and case sensitivity
+  ///
+  /// In en, this message translates to:
+  /// **'Type a PluralKit proxy tag (e.g. A:) to author as that alter for one message. Case-sensitive.'**
+  String get featureChatProxyTagAuthoringSubtitle;
+
+  /// Chip label shown above the chat composer when a proxy tag matches the draft
+  ///
+  /// In en, this message translates to:
+  /// **'Posting as {name}'**
+  String chatPostingAsProxy(String name);
+
+  /// Accessibility label for the dismiss button on the proxy-tag authoring chip
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t post as proxy'**
+  String get chatPostingAsProxyDismiss;
+
   /// Toggle title: GIF search
   ///
   /// In en, this message translates to:

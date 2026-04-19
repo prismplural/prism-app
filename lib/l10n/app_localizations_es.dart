@@ -1451,6 +1451,22 @@ class AppLocalizationsEs extends AppLocalizations {
       'Cambiar quién habla en el chat también registra un frente';
 
   @override
+  String get featureChatProxyTagAuthoring =>
+      'Usar etiquetas de proxy para firmar mensajes';
+
+  @override
+  String get featureChatProxyTagAuthoringSubtitle =>
+      'Escribe una etiqueta de proxy de PluralKit (p. ej. A:) para firmar un solo mensaje como ese integrante. Distingue mayúsculas y minúsculas.';
+
+  @override
+  String chatPostingAsProxy(String name) {
+    return 'Publicando como $name';
+  }
+
+  @override
+  String get chatPostingAsProxyDismiss => 'No publicar como proxy';
+
+  @override
   String get featureChatGifSearch => 'Búsqueda de GIF';
 
   @override
