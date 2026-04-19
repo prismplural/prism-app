@@ -5,6 +5,8 @@ import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_plurality/core/database/daos/system_settings_dao.dart';
 import 'package:prism_plurality/data/mappers/system_settings_mapper.dart';
 import 'package:prism_plurality/data/repositories/sync_record_mixin.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    show SleepQuality;
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
 import 'package:prism_plurality/domain/repositories/system_settings_repository.dart';
 
@@ -430,6 +432,13 @@ class DriftSystemSettingsRepository
     final encoded = SystemSettingsMapper.encodeBadgePrefs(prefs);
     await _dao.updateChatBadgePreferences(encoded);
     await _syncField('chat_badge_preferences', encoded);
+  }
+
+  // Device-local sleep quality default (no sync)
+
+  @override
+  Future<void> updateDefaultSleepQuality(SleepQuality? value) async {
+    await _dao.updateDefaultSleepQuality(value?.name);
   }
 
   // --- Helpers ---

@@ -92,6 +92,10 @@ _SystemSettings _$SystemSettingsFromJson(
         (k, e) => MapEntry(k, e as String),
       ) ??
       const <String, String>{},
+  defaultSleepQuality: $enumDecodeNullable(
+    _$SleepQualityEnumMap,
+    json['defaultSleepQuality'],
+  ),
 );
 
 Map<String, dynamic> _$SystemSettingsToJson(
@@ -149,6 +153,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'navBarOverflowItems': instance.navBarOverflowItems,
   'syncNavigationEnabled': instance.syncNavigationEnabled,
   'chatBadgePreferences': instance.chatBadgePreferences,
+  'defaultSleepQuality': _$SleepQualityEnumMap[instance.defaultSleepQuality],
 };
 
 const _$SystemTerminologyEnumMap = {
@@ -199,4 +204,13 @@ const _$GifConsentStateEnumMap = {
 const _$FontFamilyEnumMap = {
   FontFamily.system: 'system',
   FontFamily.openDyslexic: 'openDyslexic',
+};
+
+const _$SleepQualityEnumMap = {
+  SleepQuality.unknown: 'unknown',
+  SleepQuality.veryPoor: 'veryPoor',
+  SleepQuality.poor: 'poor',
+  SleepQuality.fair: 'fair',
+  SleepQuality.good: 'good',
+  SleepQuality.excellent: 'excellent',
 };

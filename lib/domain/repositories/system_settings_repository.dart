@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    show SleepQuality;
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
 
 abstract class SystemSettingsRepository {
@@ -92,4 +94,7 @@ abstract class SystemSettingsRepository {
   Future<void> updateNavBarOverflowItems(List<String> items);
   Future<void> updateSyncNavigationEnabled(bool value);
   Future<void> updateChatBadgePreferences(Map<String, String> prefs);
+
+  // Device-local sleep quality default
+  Future<void> updateDefaultSleepQuality(SleepQuality? value);
 }

@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 56;
+  int get schemaVersion => 57;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -494,6 +494,20 @@ class AppDatabase extends _$AppDatabase {
         if (systemSettingsExists.isNotEmpty) {
           await customStatement(
             'ALTER TABLE system_settings ADD COLUMN theme_corner_style INTEGER NOT NULL DEFAULT 0',
+          );
+        }
+      }
+
+      if (from < 57) {
+        // Default sleep quality for new sleep sessions (device-local).
+        // Nullable TEXT: null means no default (user is prompted each time).
+        final systemSettingsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='system_settings'",
+        ).get();
+        if (systemSettingsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN default_sleep_quality TEXT',
           );
         }
       }
