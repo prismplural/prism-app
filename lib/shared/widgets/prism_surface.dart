@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 
@@ -74,7 +75,9 @@ class _PrismSurfaceState extends State<PrismSurface> {
           ),
         };
 
-    final borderRadius = BorderRadius.circular(widget.borderRadius);
+    final borderRadius = BorderRadius.circular(
+      PrismShapes.of(context).radius(widget.borderRadius),
+    );
     final content = ClipRRect(
       borderRadius: borderRadius,
       clipBehavior: Clip.antiAlias,

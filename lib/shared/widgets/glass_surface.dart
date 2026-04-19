@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -91,7 +92,10 @@ class GlassSurface extends ConsumerWidget {
 
     final effectiveBorderRadius = shape == BoxShape.circle
         ? BorderRadius.circular((width ?? 40) / 2)
-        : (borderRadius ?? BorderRadius.circular(PrismTokens.radiusMedium));
+        : (borderRadius ??
+            BorderRadius.circular(
+              PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+            ));
 
     final darkBase = AppColors.warmWhite.withValues(alpha: 0.08);
     final fillColor = tint != null

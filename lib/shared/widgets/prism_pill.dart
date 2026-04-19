@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 enum PrismPillTone { neutral, accent, destructive }
@@ -35,7 +36,9 @@ class PrismPill extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: baseColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(PrismTokens.radiusPill),
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(PrismTokens.radiusPill),
+        ),
         border: Border.all(color: baseColor.withValues(alpha: 0.16)),
       ),
       child: Row(

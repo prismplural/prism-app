@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
@@ -240,7 +241,9 @@ class _GlassDialogShell extends StatelessWidget {
     final maxWidth = min(size.width - 48.0, PrismTokens.dialogMaxWidth);
     final maxHeight = min(size.height * 0.8, 560.0);
 
-    final borderRadius = BorderRadius.circular(PrismTokens.radiusLarge);
+    final borderRadius = BorderRadius.circular(
+      PrismShapes.of(context).radius(PrismTokens.radiusLarge),
+    );
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fillColor = isDark
         ? AppColors.warmWhite.withValues(alpha: 0.08)
