@@ -17,7 +17,6 @@ import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart' as http_io;
 
 import 'package:prism_plurality/core/database/app_database.dart';
