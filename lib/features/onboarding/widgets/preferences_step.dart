@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -70,7 +71,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
               : isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.1)
                   : AppColors.parchmentElevated,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
         ),
         child: Center(
           child: Text(
@@ -291,7 +292,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
               color: isDark
                   ? AppColors.warmWhite.withValues(alpha: 0.1)
                   : AppColors.parchmentElevated,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
             ),
             child: Row(
               children: [
@@ -344,7 +345,7 @@ class _PreferencesStepState extends ConsumerState<PreferencesStep> {
         color: isDark
             ? AppColors.warmWhite.withValues(alpha: 0.1)
             : AppColors.parchmentElevated,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
       ),
       child: PrismTextField(
         controller: controller,

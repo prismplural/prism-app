@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:prism_plurality/core/services/local_notification_service.dart';
@@ -149,7 +150,7 @@ class _PermissionRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest
               .withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
         ),
         child: Row(
           children: [

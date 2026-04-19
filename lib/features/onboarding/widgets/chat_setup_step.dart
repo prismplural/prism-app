@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -87,7 +88,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                     color: isSelected
                         ? (isDark ? AppColors.warmWhite.withValues(alpha: 0.15) : AppColors.parchmentElevated)
                         : (isDark ? AppColors.warmWhite.withValues(alpha: 0.07) : AppColors.warmBlack.withValues(alpha: 0.04)),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                   ),
                   child: Row(
                     children: [
@@ -142,7 +143,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isDark ? AppColors.warmWhite.withValues(alpha: 0.1) : AppColors.parchmentElevated,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
                   ),
                   child: PrismTextField(
                     controller: _customChannelController,
@@ -173,7 +174,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                   height: 44,
                   decoration: BoxDecoration(
                     color: primary.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
                   ),
                   child: Icon(AppIcons.add, color: isDark ? AppColors.warmWhite : AppColors.warmBlack, size: 22),
                 ),
@@ -195,7 +196,7 @@ class _ChatSetupStepState extends ConsumerState<ChatSetupStep> {
                             horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           color: isDark ? AppColors.warmWhite.withValues(alpha: 0.12) : AppColors.parchmentElevated,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
                         ),
                         child: Row(
                           children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 class PrismShimmerBar extends StatefulWidget {
@@ -43,7 +44,7 @@ class _PrismShimmerBarState extends State<PrismShimmerBar>
     final disableAnimations = MediaQuery.of(context).disableAnimations;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(6)),
       child: disableAnimations
           ? _buildStatic()
           : AnimatedBuilder(
@@ -59,7 +60,7 @@ class _PrismShimmerBarState extends State<PrismShimmerBar>
       height: 12.0,
       decoration: BoxDecoration(
         color: AppColors.warmWhite.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(6)),
       ),
     );
   }
@@ -72,7 +73,7 @@ class _PrismShimmerBarState extends State<PrismShimmerBar>
       constraints: const BoxConstraints(maxHeight: 12.0),
       height: 12.0,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(6)),
         color: AppColors.warmWhite.withValues(alpha: 0.15),
         gradient: LinearGradient(
           begin: Alignment(beginX, 0),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -116,7 +117,7 @@ class _LiveCountCardState extends State<LiveCountCard> {
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.1)
                       : AppColors.parchmentElevated,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

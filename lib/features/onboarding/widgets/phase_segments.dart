@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 class PhaseSegments extends StatefulWidget {
   final int currentIndex;
@@ -83,7 +84,7 @@ class _PhaseSegmentsState extends State<PhaseSegments>
               }
 
               final segmentIndex = i ~/ 2;
-              return Expanded(child: _buildSegment(segmentIndex, disableAnimations));
+              return Expanded(child: _buildSegment(context, segmentIndex, disableAnimations));
             }),
           );
         },
@@ -91,13 +92,13 @@ class _PhaseSegmentsState extends State<PhaseSegments>
     );
   }
 
-  Widget _buildSegment(int index, bool disableAnimations) {
-    const radius = BorderRadius.all(Radius.circular(2));
+  Widget _buildSegment(BuildContext context, int index, bool disableAnimations) {
+    final radius = BorderRadius.all(Radius.circular(PrismShapes.of(context).radius(2)));
 
     if (index < widget.currentIndex) {
       return Container(
         height: 4,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: _filledGradient,
           borderRadius: radius,
         ),
@@ -110,7 +111,7 @@ class _PhaseSegmentsState extends State<PhaseSegments>
         opacity: effectiveOpacity,
         child: Container(
           height: 4,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: _filledGradient,
             borderRadius: radius,
           ),

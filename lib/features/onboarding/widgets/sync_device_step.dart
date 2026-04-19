@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -92,7 +93,7 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.amber.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
                     border: Border.all(
                       color: Colors.amber.withValues(alpha: 0.4),
                     ),
@@ -253,7 +254,7 @@ class _ShowingRequestView extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.warmWhite,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
               ),
               child: QrImageView(
                 data: qrData,
@@ -377,7 +378,7 @@ class _SasVerificationView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             decoration: BoxDecoration(
               color: AppColors.warmWhite.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
               border: Border.all(
                 color: AppColors.warmWhite.withValues(alpha: 0.2),
               ),

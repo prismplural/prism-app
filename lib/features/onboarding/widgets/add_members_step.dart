@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,7 +54,7 @@ class AddMembersStep extends ConsumerWidget {
                             color: isDark
                                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                                 : AppColors.parchmentElevated,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                           ),
                           child: Row(
                             children: [
@@ -150,7 +151,7 @@ class AddMembersStep extends ConsumerWidget {
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.15)
                     : AppColors.warmBlack.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                 border: Border.all(
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.2)
@@ -286,7 +287,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
                       color: primary.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                     ),
                     child: Center(
                       child: Text(
@@ -323,7 +324,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
         color: isDark
             ? AppColors.warmWhite.withValues(alpha: 0.1)
             : AppColors.parchmentElevated,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
       ),
       child: PrismTextField(
         controller: controller,

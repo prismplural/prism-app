@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
@@ -67,7 +68,7 @@ class OnboardingDataReadyView extends StatelessWidget {
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.1)
                       : AppColors.parchmentElevated,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
