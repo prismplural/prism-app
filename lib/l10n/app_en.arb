@@ -1930,6 +1930,22 @@
   "@featureChatGifSearchDeclinedSubtitle": {
     "description": "Subtitle for GIF search after the user has declined it"
   },
+  "featureChatGifSearchSyncRequiredSubtitle": "Sync must be enabled to use GIFs",
+  "@featureChatGifSearchSyncRequiredSubtitle": {
+    "description": "Subtitle for GIF search when sync is not configured"
+  },
+  "featureChatGifSearchSyncRequiredDialogTitle": "Sync required for GIFs",
+  "@featureChatGifSearchSyncRequiredDialogTitle": {
+    "description": "Title for the dialog explaining GIFs need sync"
+  },
+  "featureChatGifSearchSyncRequiredDialogBody": "GIF search runs through your sync relay so the service stays private. Set up sync to enable GIFs on this device.",
+  "@featureChatGifSearchSyncRequiredDialogBody": {
+    "description": "Body text for the dialog explaining GIFs need sync"
+  },
+  "featureChatGifSearchSyncRequiredDialogAction": "Set up sync",
+  "@featureChatGifSearchSyncRequiredDialogAction": {
+    "description": "Primary action label for the GIFs-need-sync dialog"
+  },
   "featureChatVoiceNotes": "Voice Notes",
   "@featureChatVoiceNotes": {
     "description": "Title for voice notes feature toggle in chat settings"

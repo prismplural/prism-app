@@ -1430,6 +1430,21 @@ class AppLocalizationsEn extends AppLocalizations {
       'Hidden after you declined it on this device';
 
   @override
+  String get featureChatGifSearchSyncRequiredSubtitle =>
+      'Sync must be enabled to use GIFs';
+
+  @override
+  String get featureChatGifSearchSyncRequiredDialogTitle =>
+      'Sync required for GIFs';
+
+  @override
+  String get featureChatGifSearchSyncRequiredDialogBody =>
+      'GIF search runs through your sync relay so the service stays private. Set up sync to enable GIFs on this device.';
+
+  @override
+  String get featureChatGifSearchSyncRequiredDialogAction => 'Set up sync';
+
+  @override
   String get featureChatVoiceNotes => 'Voice Notes';
 
   @override

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import 'package:prism_plurality/core/router/app_routes.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
@@ -38,11 +40,14 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
     final memberName = speakingAs == null
         ? null
         : ref.watch(memberByIdProvider(speakingAs)).whenOrNull(data: (m) => m?.name);
-    final gifConsentSubtitle = switch (gifConsentState) {
-      GifConsentState.unknown => context.l10n.featureChatGifSearchUndecidedSubtitle,
-      GifConsentState.enabled => context.l10n.featureChatGifSearchEnabledSubtitle,
-      GifConsentState.declined => context.l10n.featureChatGifSearchDeclinedSubtitle,
-    };
+    final gifAvailable = gifConfig?.enabled == true;
+    final gifConsentSubtitle = !gifAvailable
+        ? context.l10n.featureChatGifSearchSyncRequiredSubtitle
+        : switch (gifConsentState) {
+            GifConsentState.unknown => context.l10n.featureChatGifSearchUndecidedSubtitle,
+            GifConsentState.enabled => context.l10n.featureChatGifSearchEnabledSubtitle,
+            GifConsentState.declined => context.l10n.featureChatGifSearchDeclinedSubtitle,
+          };
 
     return PrismPageScaffold(
       topBar: PrismTopBar(title: context.l10n.featureChatTitle, showBackButton: true),
@@ -90,27 +95,30 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
                           .read(settingsNotifierProvider.notifier)
                           .updateChatLogsFront(value),
                     ),
-                    if (gifConfig?.enabled == true)
-                      PrismListRow(
-                        leading: Icon(
-                          AppIcons.gif,
-                          color: Colors.deepPurple,
-                        ),
-                        title: Text(context.l10n.featureChatGifSearch),
-                        subtitle: Text(gifConsentSubtitle),
-                        showChevron: true,
-                        onTap: () async {
-                          final accepted = await GifConsentDialog.show(context);
-                          if (!context.mounted) return;
-                          await ref
-                              .read(settingsNotifierProvider.notifier)
-                              .updateGifConsentState(
-                                accepted
-                                    ? GifConsentState.enabled
-                                    : GifConsentState.declined,
-                              );
-                        },
+                    PrismListRow(
+                      leading: Icon(
+                        AppIcons.gif,
+                        color: Colors.deepPurple,
                       ),
+                      title: Text(context.l10n.featureChatGifSearch),
+                      subtitle: Text(gifConsentSubtitle),
+                      showChevron: true,
+                      onTap: () async {
+                        if (!gifAvailable) {
+                          await _showSyncRequiredDialog(context);
+                          return;
+                        }
+                        final accepted = await GifConsentDialog.show(context);
+                        if (!context.mounted) return;
+                        await ref
+                            .read(settingsNotifierProvider.notifier)
+                            .updateGifConsentState(
+                              accepted
+                                  ? GifConsentState.enabled
+                                  : GifConsentState.declined,
+                            );
+                      },
+                    ),
                     PrismSwitchRow(
                       icon: AppIcons.microphone,
                       iconColor: Theme.of(context).colorScheme.primary,
@@ -158,5 +166,29 @@ class ChatFeatureSettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+Future<void> _showSyncRequiredDialog(BuildContext context) async {
+  final l10n = context.l10n;
+  final goToSetup = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(l10n.featureChatGifSearchSyncRequiredDialogTitle),
+      content: Text(l10n.featureChatGifSearchSyncRequiredDialogBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: Text(l10n.cancel),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(l10n.featureChatGifSearchSyncRequiredDialogAction),
+        ),
+      ],
+    ),
+  );
+  if (goToSetup == true && context.mounted) {
+    await context.push(AppRoutePaths.syncSetup);
   }
 }

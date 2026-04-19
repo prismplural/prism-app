@@ -2660,6 +2660,30 @@ abstract class AppLocalizations {
   /// **'Hidden after you declined it on this device'**
   String get featureChatGifSearchDeclinedSubtitle;
 
+  /// Subtitle for GIF search when sync is not configured
+  ///
+  /// In en, this message translates to:
+  /// **'Sync must be enabled to use GIFs'**
+  String get featureChatGifSearchSyncRequiredSubtitle;
+
+  /// Title for the dialog explaining GIFs need sync
+  ///
+  /// In en, this message translates to:
+  /// **'Sync required for GIFs'**
+  String get featureChatGifSearchSyncRequiredDialogTitle;
+
+  /// Body text for the dialog explaining GIFs need sync
+  ///
+  /// In en, this message translates to:
+  /// **'GIF search runs through your sync relay so the service stays private. Set up sync to enable GIFs on this device.'**
+  String get featureChatGifSearchSyncRequiredDialogBody;
+
+  /// Primary action label for the GIFs-need-sync dialog
+  ///
+  /// In en, this message translates to:
+  /// **'Set up sync'**
+  String get featureChatGifSearchSyncRequiredDialogAction;
+
   /// Title for voice notes feature toggle in chat settings
   ///
   /// In en, this message translates to:
