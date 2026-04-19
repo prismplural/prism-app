@@ -3502,9 +3502,12 @@
       "name": { "type": "String" }
     }
   },
-  "memberGroupFrontGroupConfirmMessage": "All members in this group will start fronting together.",
+  "memberGroupFrontGroupConfirmMessage": "This will start a co-front session with all {count} members.",
   "@memberGroupFrontGroupConfirmMessage": {
-    "description": "Confirmation dialog body when fronting all members in a group"
+    "description": "Confirmation dialog body when fronting multiple members in a group",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
   },
   "memberGroupFrontGroupSemantics": "Front all members in {name}",
   "@memberGroupFrontGroupSemantics": {

@@ -752,7 +752,7 @@
   "memberGroupFrontAllInactive": "Todos los integrantes de {name} están inactivos. ¿Frente de todos modos?",
   "memberGroupFrontGroup": "Frente como grupo",
   "memberGroupFrontGroupConfirmTitle": "¿Frente como {name}?",
-  "memberGroupFrontGroupConfirmMessage": "Todos los integrantes de este grupo empezarán a estar al frente juntos.",
+  "memberGroupFrontGroupConfirmMessage": "Se iniciará una sesión de co-frente con los {count} integrantes.",
   "memberGroupFrontGroupSemantics": "Frente a todos los integrantes de {name}",
   "memberGroupFrontSomeAlreadyFronting": "{count} integrantes ya al frente. ¿Añadir les {remaining} restantes?",
   "memberGroupManageNoGroups": "Aún no hay grupos",
