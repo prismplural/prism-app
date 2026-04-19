@@ -207,8 +207,12 @@ class VoiceRecorderCancelButton extends ConsumerWidget {
         message: context.l10n.chatVoiceRecorderCancel,
         child: GestureDetector(
           onTap: enabled ? () => _handleTap(ref) : null,
-          child: TintedGlassSurface.circle(
-            size: size,
+          child: TintedGlassSurface(
+            width: size,
+            height: size,
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(size / 2),
+            ),
             child: Icon(
               AppIcons.close,
               size: 18,
@@ -310,8 +314,12 @@ class _VoiceRecorderSendButtonState
                   ],
                 );
               },
-              firstChild: TintedGlassSurface.circle(
-                size: widget.size,
+              firstChild: TintedGlassSurface(
+                width: widget.size,
+                height: widget.size,
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(widget.size / 2),
+                ),
                 child: Icon(
                   AppIcons.arrowUpwardRounded,
                   size: 19,
@@ -319,13 +327,21 @@ class _VoiceRecorderSendButtonState
                 ),
               ),
               secondChild: isPreparing
-                  ? TintedGlassSurface.circle(
-                      size: widget.size,
+                  ? TintedGlassSurface(
+                      width: widget.size,
+                      height: widget.size,
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(widget.size / 2),
+                      ),
                       tint: primary,
                       child: PrismSpinner(color: primary, size: 18),
                     )
-                  : TintedGlassSurface.circle(
-                      size: widget.size,
+                  : TintedGlassSurface(
+                      width: widget.size,
+                      height: widget.size,
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(widget.size / 2),
+                      ),
                       tint: primary,
                       child: Icon(
                         AppIcons.arrowUpwardRounded,

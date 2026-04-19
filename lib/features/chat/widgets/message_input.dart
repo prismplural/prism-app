@@ -675,8 +675,12 @@ class AttachmentMenuButton extends StatelessWidget {
           },
         );
       },
-      child: TintedGlassSurface.circle(
-        size: size,
+      child: TintedGlassSurface(
+        width: size,
+        height: size,
+        borderRadius: BorderRadius.circular(
+          PrismShapes.of(context).radius(size / 2),
+        ),
         child: Icon(
           AppIcons.add,
           size: 19,
@@ -913,8 +917,12 @@ class _SendButtonState extends State<_SendButton> {
               );
             },
             // Idle: plain glass, no tint
-            firstChild: TintedGlassSurface.circle(
-              size: widget.size,
+            firstChild: TintedGlassSurface(
+              width: widget.size,
+              height: widget.size,
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(widget.size / 2),
+              ),
               child: Icon(
                 AppIcons.arrowUpwardRounded,
                 size: 19,
@@ -923,13 +931,21 @@ class _SendButtonState extends State<_SendButton> {
             ),
             // Ready: primary-tinted glass with accent icon
             secondChild: widget.isSending
-                ? TintedGlassSurface.circle(
-                    size: widget.size,
+                ? TintedGlassSurface(
+                    width: widget.size,
+                    height: widget.size,
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(widget.size / 2),
+                    ),
                     tint: primary,
                     child: PrismSpinner(color: primary, size: 18),
                   )
-                : TintedGlassSurface.circle(
-                    size: widget.size,
+                : TintedGlassSurface(
+                    width: widget.size,
+                    height: widget.size,
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(widget.size / 2),
+                    ),
                     tint: primary,
                     child: Icon(
                       AppIcons.arrowUpwardRounded,
@@ -958,8 +974,12 @@ class _MicButton extends StatelessWidget {
       button: true,
       child: GestureDetector(
         onTap: onPressed,
-        child: TintedGlassSurface.circle(
-          size: size,
+        child: TintedGlassSurface(
+          width: size,
+          height: size,
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(size / 2),
+          ),
           child: Icon(
             AppIcons.microphone,
             size: 19,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/providers/visual_effects_provider.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// A glass numpad key with two-phase spring press feedback.
@@ -49,8 +50,12 @@ class _PinNumpadButtonState extends ConsumerState<PinNumpadButton> {
     final mode = VisualEffectsModeX.of(context, ref);
     final useAnim = mode.useAnimations;
 
-    final Widget surface = TintedGlassSurface.circle(
-      size: widget.size,
+    final Widget surface = TintedGlassSurface(
+      width: widget.size,
+      height: widget.size,
+      borderRadius: BorderRadius.circular(
+        PrismShapes.of(context).radius(widget.size / 2),
+      ),
       tint: _pressed ? Colors.white.withValues(alpha: 0.08) : null,
       child: widget.label != null
           ? Text(
