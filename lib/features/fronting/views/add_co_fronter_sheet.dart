@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
@@ -79,7 +80,7 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                 color: theme.colorScheme.onSurfaceVariant.withValues(
                   alpha: 0.4,
                 ),
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
               ),
             ),
           ),

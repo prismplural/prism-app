@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/fronting/providers/timeline_providers.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 /// A tappable region on the timeline canvas corresponding to one session bar.
 typedef TimelineHitZone = ({Rect rect, FrontingSession session, int columnIndex});
@@ -26,6 +27,7 @@ class TimelinePainter extends CustomPainter {
     required this.surfaceContainerColor,
     required this.brightness,
     required this.viewportHeight,
+    required this.shapes,
     this.scrollOffsetNotifier,
     Listenable? repaintListenable,
   }) : super(repaint: repaintListenable);
@@ -43,6 +45,7 @@ class TimelinePainter extends CustomPainter {
   final Color surfaceContainerColor;
   final Brightness brightness;
   final double viewportHeight;
+  final PrismShapes shapes;
   final ValueNotifier<double>? scrollOffsetNotifier;
 
   /// Visible Y range with a small bleed margin to avoid clipping at edges.
@@ -126,7 +129,7 @@ class TimelinePainter extends CustomPainter {
 
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(0, y1, size.width, y2 - y1),
-        const Radius.circular(10),
+        Radius.circular(shapes.radius(10)),
       );
 
       canvas.drawRRect(rect, sleepFillPaint);
@@ -209,7 +212,7 @@ class TimelinePainter extends CustomPainter {
 
         final barRect = RRect.fromRectAndRadius(
           Rect.fromLTWH(x, y1, columnWidth, y2 - y1),
-          const Radius.circular(6),
+          Radius.circular(shapes.radius(6)),
         );
 
         // Fill

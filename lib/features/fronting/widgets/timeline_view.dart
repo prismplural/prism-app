@@ -16,6 +16,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
@@ -254,6 +255,7 @@ class _TimelineViewState extends ConsumerState<TimelineView> {
         brightness: theme.brightness,
         scrollOffsetNotifier: _scrollOffsetNotifier,
         viewportHeight: scrollableViewportHeight,
+        shapes: PrismShapes.of(context),
         repaintListenable: mergedListenable,
       );
       final canvasSize = Size(columnsWidth, totalHeight);
