@@ -28,7 +28,7 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
-import 'package:prism_plurality/features/members/widgets/member_group_chips.dart';
+import 'package:prism_plurality/features/members/widgets/member_groups_section.dart';
 import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/widgets/proxy_tags_section.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
@@ -237,8 +237,6 @@ class _MemberDetailBody extends ConsumerWidget {
 
             const SizedBox(height: 24),
 
-            MemberGroupChips(memberId: member.id, memberName: member.name),
-
             // Bio
             if (member.bio != null && member.bio!.isNotEmpty)
               _DetailSection(
@@ -252,6 +250,8 @@ class _MemberDetailBody extends ConsumerWidget {
               ),
 
             ProxyTagsSection(member: member),
+
+            MemberGroupsSection(memberId: member.id, memberName: member.name),
 
             CustomFieldsDisplay(memberId: member.id),
             NotesSection(memberId: member.id),
