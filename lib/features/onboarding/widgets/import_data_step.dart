@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -1263,8 +1262,9 @@ class _PrismExportImportFlowState
     final bytes = _fileBytes!;
     final pass = password;
     try {
-      final resolved = await Isolate.run(
-        () => DataImportService.resolveBytes(bytes, password: pass),
+      final resolved = await compute(
+        DataImportService.resolveForCompute,
+        (bytes: bytes, password: pass),
       );
       final service = ref.read(dataImportServiceProvider);
       final preview = service.parsePreview(resolved.json);
@@ -1516,8 +1516,10 @@ class _PrismExportImportFlowState
                   ? AppColors.warmWhite.withValues(alpha: 0.35)
                   : AppColors.warmBlack.withValues(alpha: 0.35),
             ),
-            errorText: _passwordError,
             fieldStyle: PrismTextFieldStyle.borderless,
+            onChanged: (_) {
+              if (_passwordError != null) setState(() => _passwordError = null);
+            },
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
@@ -1537,6 +1539,16 @@ class _PrismExportImportFlowState
             ),
           ),
         ),
+        if (_passwordError != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            _passwordError!,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.error,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
         const SizedBox(height: 24),
         _ActionButton(
           label: context.l10n.onboardingPrismExportUnlockButton,

@@ -216,6 +216,16 @@ class DataImportService {
   /// PRISM3 encrypted files return both the JSON and any embedded media blobs.
   /// Third-party JSON files (e.g. Simply Plural exports) return empty mediaBlobs.
   /// Unencrypted Prism backups are rejected — all Prism backups must be encrypted.
+  /// Wrapper for use with Flutter's [compute()] function.
+  ///
+  /// [compute()] requires a top-level or static function so the callback has
+  /// no implicit [this] capture. Passing [resolveBytes] directly would work
+  /// but its optional named parameter doesn't fit the [M Function(M)] shape,
+  /// so this wrapper packs the args into a sendable record.
+  static ({String json, List<({String mediaId, Uint8List blob})> mediaBlobs})
+  resolveForCompute(({Uint8List bytes, String password}) args) =>
+      resolveBytes(args.bytes, password: args.password);
+
   static ({String json, List<({String mediaId, Uint8List blob})> mediaBlobs})
   resolveBytes(Uint8List bytes, {String? password}) {
     if (ExportCrypto.isEncrypted(bytes)) {

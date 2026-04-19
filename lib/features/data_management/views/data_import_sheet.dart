@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -104,8 +104,9 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
     final bytes = _fileBytes!;
     final pass = password;
     try {
-      final resolved = await Isolate.run(
-        () => DataImportService.resolveBytes(bytes, password: pass),
+      final resolved = await compute(
+        DataImportService.resolveForCompute,
+        (bytes: bytes, password: pass),
       );
       final service = ref.read(dataImportServiceProvider);
       final preview = service.parsePreview(resolved.json);
