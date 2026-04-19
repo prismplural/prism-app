@@ -309,7 +309,7 @@ Drift Tables → DAOs → Repositories (abstract) → Mappers → Freezed Models
 - Android records Ogg Opus directly; iOS records CAF Opus, shows a brief preparing state, then remuxes to Ogg before send
 - Playback uses decrypted bytes in memory through the SoLoud backend; do not reintroduce the old `.m4a` temp-file playback path
 - Current voice-note support is mobile-first: iOS and Android are supported, while unsupported platforms surface a disabled/unsupported recorder state
-- `ogg_caf_converter` uses a local path override (`../../ogg_caf_converter`); `flutter_soloud` uses the published package
+- The app uses local path overrides for `flutter_soloud` and `ogg_caf_converter` in `pubspec.yaml` (both at `../../<package>`). The flutter_soloud override contains fixes from PRs #444 and #445 (merged into upstream April 17 2026, not yet in a published release — switch to pub.dev once 4.0.3+ is out)
 
 ## Testing
 - Crypto tests in `test/` (key hierarchy, encryption, secure storage)
