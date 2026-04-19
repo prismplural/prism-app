@@ -153,6 +153,9 @@ class _FakeClient implements PluralKitClient {
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
 
   @override
+  Future<PKSwitch?> getCurrentFronters() => throw UnimplementedError();
+
+  @override
   void dispose() {}
 }
 

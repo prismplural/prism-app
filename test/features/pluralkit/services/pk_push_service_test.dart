@@ -83,6 +83,8 @@ class FakePluralKitClient implements PluralKitClient {
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
   @override
+  Future<PKSwitch?> getCurrentFronters() => throw UnimplementedError();
+  @override
   void dispose() {}
 }
 
@@ -333,6 +335,8 @@ class _ScriptedDeletionClient implements PluralKitClient {
   @override
   Future<List<String>> getGroupMembers(String groupRef) async => const [];
   @override
+  Future<PKSwitch?> getCurrentFronters() => throw UnimplementedError();
+  @override
   void dispose() {}
 }
 
@@ -340,21 +344,21 @@ void _registerDeletionTests() {
   group('pushMemberDeletion', () {
     test('204 success completes normally', () async {
       final client = _ScriptedDeletionClient(memberScript: [null]);
-      final svc = PkPushService(queue: PkRequestQueue());
+      final svc = PkPushService();
       await svc.pushMemberDeletion('local-1', 'pk123', client);
       expect(client.memberCalls, 1);
     });
 
     test('404 swallowed as success (R4 gated by caller)', () async {
       final client = _ScriptedDeletionClient(memberScript: [404]);
-      final svc = PkPushService(queue: PkRequestQueue());
+      final svc = PkPushService();
       await svc.pushMemberDeletion('local-1', 'pk123', client);
       expect(client.memberCalls, 1);
     });
 
     test('403 throws PkDeletionForbiddenException', () async {
       final client = _ScriptedDeletionClient(memberScript: [403]);
-      final svc = PkPushService(queue: PkRequestQueue());
+      final svc = PkPushService();
       await expectLater(
         svc.pushMemberDeletion('local-1', 'pk123', client),
         throwsA(isA<PkDeletionForbiddenException>()
@@ -364,25 +368,27 @@ void _registerDeletionTests() {
       );
     });
 
-    test('429 retried then succeeds', () async {
-      final client = _ScriptedDeletionClient(memberScript: [429, null]);
-      final svc = PkPushService(queue: PkRequestQueue());
-      await svc.pushMemberDeletion('local-1', 'pk123', client);
-      expect(client.memberCalls, 2);
+    test('429 propagates — retry is handled inside PluralKitClient', () async {
+      final client = _ScriptedDeletionClient(memberScript: [429]);
+      final svc = PkPushService();
+      await expectLater(
+        svc.pushMemberDeletion('local-1', 'pk123', client),
+        throwsA(isA<PluralKitRateLimitError>()),
+      );
     });
   });
 
   group('pushSwitchDeletion', () {
     test('204 success completes normally', () async {
       final client = _ScriptedDeletionClient(switchScript: [null]);
-      final svc = PkPushService(queue: PkRequestQueue());
+      final svc = PkPushService();
       await svc.pushSwitchDeletion('sess-1', 'uuid-1', client);
       expect(client.switchCalls, 1);
     });
 
     test('404 swallowed as success', () async {
       final client = _ScriptedDeletionClient(switchScript: [404]);
-      final svc = PkPushService(queue: PkRequestQueue());
+      final svc = PkPushService();
       await svc.pushSwitchDeletion('sess-1', 'uuid-1', client);
       expect(client.switchCalls, 1);
     });
@@ -390,7 +396,7 @@ void _registerDeletionTests() {
     test('403 throws PkDeletionForbiddenException with switchRecord kind',
         () async {
       final client = _ScriptedDeletionClient(switchScript: [403]);
-      final svc = PkPushService(queue: PkRequestQueue());
+      final svc = PkPushService();
       await expectLater(
         svc.pushSwitchDeletion('sess-1', 'uuid-1', client),
         throwsA(isA<PkDeletionForbiddenException>()
@@ -400,11 +406,13 @@ void _registerDeletionTests() {
       );
     });
 
-    test('429 retried then succeeds', () async {
-      final client = _ScriptedDeletionClient(switchScript: [429, null]);
-      final svc = PkPushService(queue: PkRequestQueue());
-      await svc.pushSwitchDeletion('sess-1', 'uuid-1', client);
-      expect(client.switchCalls, 2);
+    test('429 propagates — retry is handled inside PluralKitClient', () async {
+      final client = _ScriptedDeletionClient(switchScript: [429]);
+      final svc = PkPushService();
+      await expectLater(
+        svc.pushSwitchDeletion('sess-1', 'uuid-1', client),
+        throwsA(isA<PluralKitRateLimitError>()),
+      );
     });
   });
 }
