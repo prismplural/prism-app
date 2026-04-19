@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    show SleepQuality;
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
 
 class SystemSettingsMapper {
@@ -63,6 +65,9 @@ class SystemSettingsMapper {
       navBarOverflowItems: _decodeNavBarItems(row.navBarOverflowItems),
       syncNavigationEnabled: row.syncNavigationEnabled,
       chatBadgePreferences: decodeBadgePrefs(row.chatBadgePreferences),
+      defaultSleepQuality: row.defaultSleepQuality != null
+          ? SleepQuality.values.byName(row.defaultSleepQuality!)
+          : null,
     );
   }
 
@@ -123,6 +128,7 @@ class SystemSettingsMapper {
       navBarOverflowItems: Value(encodeNavBarItems(model.navBarOverflowItems)),
       syncNavigationEnabled: Value(model.syncNavigationEnabled),
       chatBadgePreferences: Value(encodeBadgePrefs(model.chatBadgePreferences)),
+      defaultSleepQuality: Value(model.defaultSleepQuality?.name),
     );
   }
 

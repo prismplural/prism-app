@@ -303,6 +303,9 @@ class FakeSystemSettingsRepository implements SystemSettingsRepository {
   @override
   Future<void> updateWakeSuggestionAfterHours(double hours) async =>
       updateSettings(settings.copyWith(wakeSuggestionAfterHours: hours));
+  @override
+  Future<void> updateDefaultSleepQuality(SleepQuality? value) async =>
+      updateSettings(settings.copyWith(defaultSleepQuality: value));
 }
 
 // =============================================================================

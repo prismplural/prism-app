@@ -4606,6 +4606,17 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         requiredDuringInsert: false,
         defaultValue: const Constant('{}'),
       );
+  static const VerificationMeta _defaultSleepQualityMeta =
+      const VerificationMeta('defaultSleepQuality');
+  @override
+  late final GeneratedColumn<String> defaultSleepQuality =
+      GeneratedColumn<String>(
+        'default_sleep_quality',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -4662,6 +4673,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     navBarOverflowItems,
     syncNavigationEnabled,
     chatBadgePreferences,
+    defaultSleepQuality,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5128,6 +5140,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         ),
       );
     }
+    if (data.containsKey('default_sleep_quality')) {
+      context.handle(
+        _defaultSleepQualityMeta,
+        defaultSleepQuality.isAcceptableOrUnknown(
+          data['default_sleep_quality']!,
+          _defaultSleepQualityMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5353,6 +5374,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.string,
         data['${effectivePrefix}chat_badge_preferences'],
       )!,
+      defaultSleepQuality: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}default_sleep_quality'],
+      ),
     );
   }
 
@@ -5418,6 +5443,7 @@ class SystemSettingsData extends DataClass
   final String navBarOverflowItems;
   final bool syncNavigationEnabled;
   final String chatBadgePreferences;
+  final String? defaultSleepQuality;
   const SystemSettingsData({
     required this.id,
     this.systemName,
@@ -5473,6 +5499,7 @@ class SystemSettingsData extends DataClass
     required this.navBarOverflowItems,
     required this.syncNavigationEnabled,
     required this.chatBadgePreferences,
+    this.defaultSleepQuality,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5559,6 +5586,9 @@ class SystemSettingsData extends DataClass
     map['nav_bar_overflow_items'] = Variable<String>(navBarOverflowItems);
     map['sync_navigation_enabled'] = Variable<bool>(syncNavigationEnabled);
     map['chat_badge_preferences'] = Variable<String>(chatBadgePreferences);
+    if (!nullToAbsent || defaultSleepQuality != null) {
+      map['default_sleep_quality'] = Variable<String>(defaultSleepQuality);
+    }
     return map;
   }
 
@@ -5636,6 +5666,9 @@ class SystemSettingsData extends DataClass
       navBarOverflowItems: Value(navBarOverflowItems),
       syncNavigationEnabled: Value(syncNavigationEnabled),
       chatBadgePreferences: Value(chatBadgePreferences),
+      defaultSleepQuality: defaultSleepQuality == null && nullToAbsent
+          ? const Value.absent()
+          : Value(defaultSleepQuality),
     );
   }
 
@@ -5745,6 +5778,9 @@ class SystemSettingsData extends DataClass
       chatBadgePreferences: serializer.fromJson<String>(
         json['chatBadgePreferences'],
       ),
+      defaultSleepQuality: serializer.fromJson<String?>(
+        json['defaultSleepQuality'],
+      ),
     );
   }
   @override
@@ -5817,6 +5853,7 @@ class SystemSettingsData extends DataClass
       'navBarOverflowItems': serializer.toJson<String>(navBarOverflowItems),
       'syncNavigationEnabled': serializer.toJson<bool>(syncNavigationEnabled),
       'chatBadgePreferences': serializer.toJson<String>(chatBadgePreferences),
+      'defaultSleepQuality': serializer.toJson<String?>(defaultSleepQuality),
     };
   }
 
@@ -5875,6 +5912,7 @@ class SystemSettingsData extends DataClass
     String? navBarOverflowItems,
     bool? syncNavigationEnabled,
     String? chatBadgePreferences,
+    Value<String?> defaultSleepQuality = const Value.absent(),
   }) => SystemSettingsData(
     id: id ?? this.id,
     systemName: systemName.present ? systemName.value : this.systemName,
@@ -5947,6 +5985,9 @@ class SystemSettingsData extends DataClass
     navBarOverflowItems: navBarOverflowItems ?? this.navBarOverflowItems,
     syncNavigationEnabled: syncNavigationEnabled ?? this.syncNavigationEnabled,
     chatBadgePreferences: chatBadgePreferences ?? this.chatBadgePreferences,
+    defaultSleepQuality: defaultSleepQuality.present
+        ? defaultSleepQuality.value
+        : this.defaultSleepQuality,
   );
   SystemSettingsData copyWithCompanion(SystemSettingsTableCompanion data) {
     return SystemSettingsData(
@@ -6101,6 +6142,9 @@ class SystemSettingsData extends DataClass
       chatBadgePreferences: data.chatBadgePreferences.present
           ? data.chatBadgePreferences.value
           : this.chatBadgePreferences,
+      defaultSleepQuality: data.defaultSleepQuality.present
+          ? data.defaultSleepQuality.value
+          : this.defaultSleepQuality,
     );
   }
 
@@ -6162,7 +6206,8 @@ class SystemSettingsData extends DataClass
           ..write('navBarItems: $navBarItems, ')
           ..write('navBarOverflowItems: $navBarOverflowItems, ')
           ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
-          ..write('chatBadgePreferences: $chatBadgePreferences')
+          ..write('chatBadgePreferences: $chatBadgePreferences, ')
+          ..write('defaultSleepQuality: $defaultSleepQuality')
           ..write(')'))
         .toString();
   }
@@ -6223,6 +6268,7 @@ class SystemSettingsData extends DataClass
     navBarOverflowItems,
     syncNavigationEnabled,
     chatBadgePreferences,
+    defaultSleepQuality,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -6286,7 +6332,8 @@ class SystemSettingsData extends DataClass
           other.navBarItems == this.navBarItems &&
           other.navBarOverflowItems == this.navBarOverflowItems &&
           other.syncNavigationEnabled == this.syncNavigationEnabled &&
-          other.chatBadgePreferences == this.chatBadgePreferences);
+          other.chatBadgePreferences == this.chatBadgePreferences &&
+          other.defaultSleepQuality == this.defaultSleepQuality);
 }
 
 class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
@@ -6344,6 +6391,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<String> navBarOverflowItems;
   final Value<bool> syncNavigationEnabled;
   final Value<String> chatBadgePreferences;
+  final Value<String?> defaultSleepQuality;
   final Value<int> rowid;
   const SystemSettingsTableCompanion({
     this.id = const Value.absent(),
@@ -6400,6 +6448,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.navBarOverflowItems = const Value.absent(),
     this.syncNavigationEnabled = const Value.absent(),
     this.chatBadgePreferences = const Value.absent(),
+    this.defaultSleepQuality = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SystemSettingsTableCompanion.insert({
@@ -6457,6 +6506,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.navBarOverflowItems = const Value.absent(),
     this.syncNavigationEnabled = const Value.absent(),
     this.chatBadgePreferences = const Value.absent(),
+    this.defaultSleepQuality = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   static Insertable<SystemSettingsData> custom({
@@ -6514,6 +6564,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<String>? navBarOverflowItems,
     Expression<bool>? syncNavigationEnabled,
     Expression<String>? chatBadgePreferences,
+    Expression<String>? defaultSleepQuality,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -6592,6 +6643,8 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         'sync_navigation_enabled': syncNavigationEnabled,
       if (chatBadgePreferences != null)
         'chat_badge_preferences': chatBadgePreferences,
+      if (defaultSleepQuality != null)
+        'default_sleep_quality': defaultSleepQuality,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -6651,6 +6704,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<String>? navBarOverflowItems,
     Value<bool>? syncNavigationEnabled,
     Value<String>? chatBadgePreferences,
+    Value<String?>? defaultSleepQuality,
     Value<int>? rowid,
   }) {
     return SystemSettingsTableCompanion(
@@ -6722,6 +6776,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       syncNavigationEnabled:
           syncNavigationEnabled ?? this.syncNavigationEnabled,
       chatBadgePreferences: chatBadgePreferences ?? this.chatBadgePreferences,
+      defaultSleepQuality: defaultSleepQuality ?? this.defaultSleepQuality,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -6929,6 +6984,11 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
         chatBadgePreferences.value,
       );
     }
+    if (defaultSleepQuality.present) {
+      map['default_sleep_quality'] = Variable<String>(
+        defaultSleepQuality.value,
+      );
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -6994,6 +7054,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('navBarOverflowItems: $navBarOverflowItems, ')
           ..write('syncNavigationEnabled: $syncNavigationEnabled, ')
           ..write('chatBadgePreferences: $chatBadgePreferences, ')
+          ..write('defaultSleepQuality: $defaultSleepQuality, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -22116,6 +22177,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<String> navBarOverflowItems,
       Value<bool> syncNavigationEnabled,
       Value<String> chatBadgePreferences,
+      Value<String?> defaultSleepQuality,
       Value<int> rowid,
     });
 typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
@@ -22174,6 +22236,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<String> navBarOverflowItems,
       Value<bool> syncNavigationEnabled,
       Value<String> chatBadgePreferences,
+      Value<String?> defaultSleepQuality,
       Value<int> rowid,
     });
 
@@ -22453,6 +22516,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<String> get chatBadgePreferences => $composableBuilder(
     column: $table.chatBadgePreferences,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get defaultSleepQuality => $composableBuilder(
+    column: $table.defaultSleepQuality,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -22736,6 +22804,11 @@ class $$SystemSettingsTableTableOrderingComposer
     column: $table.chatBadgePreferences,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get defaultSleepQuality => $composableBuilder(
+    column: $table.defaultSleepQuality,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SystemSettingsTableTableAnnotationComposer
@@ -23005,6 +23078,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     column: $table.chatBadgePreferences,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get defaultSleepQuality => $composableBuilder(
+    column: $table.defaultSleepQuality,
+    builder: (column) => column,
+  );
 }
 
 class $$SystemSettingsTableTableTableManager
@@ -23105,6 +23183,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<String> navBarOverflowItems = const Value.absent(),
                 Value<bool> syncNavigationEnabled = const Value.absent(),
                 Value<String> chatBadgePreferences = const Value.absent(),
+                Value<String?> defaultSleepQuality = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion(
                 id: id,
@@ -23162,6 +23241,7 @@ class $$SystemSettingsTableTableTableManager
                 navBarOverflowItems: navBarOverflowItems,
                 syncNavigationEnabled: syncNavigationEnabled,
                 chatBadgePreferences: chatBadgePreferences,
+                defaultSleepQuality: defaultSleepQuality,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -23221,6 +23301,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<String> navBarOverflowItems = const Value.absent(),
                 Value<bool> syncNavigationEnabled = const Value.absent(),
                 Value<String> chatBadgePreferences = const Value.absent(),
+                Value<String?> defaultSleepQuality = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SystemSettingsTableCompanion.insert(
                 id: id,
@@ -23278,6 +23359,7 @@ class $$SystemSettingsTableTableTableManager
                 navBarOverflowItems: navBarOverflowItems,
                 syncNavigationEnabled: syncNavigationEnabled,
                 chatBadgePreferences: chatBadgePreferences,
+                defaultSleepQuality: defaultSleepQuality,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

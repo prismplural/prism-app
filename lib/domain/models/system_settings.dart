@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    show SleepQuality;
+
 part 'system_settings.freezed.dart';
 part 'system_settings.g.dart';
 
@@ -185,6 +188,9 @@ abstract class SystemSettings with _$SystemSettings {
     @Default(true) bool syncNavigationEnabled,
     // Chat badge preferences — memberId → 'all' | 'mentions_only'
     @Default(<String, String>{}) Map<String, String> chatBadgePreferences,
+    // Default sleep quality for new sleep sessions (device-local).
+    // Null means no default (user is prompted each time).
+    SleepQuality? defaultSleepQuality,
   }) = _SystemSettings;
 
   factory SystemSettings.fromJson(Map<String, dynamic> json) =>

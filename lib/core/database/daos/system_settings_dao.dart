@@ -205,6 +205,10 @@ class SystemSettingsDao extends DatabaseAccessor<AppDatabase>
     SystemSettingsTableCompanion(chatBadgePreferences: Value(value)),
   );
 
+  Future<void> updateDefaultSleepQuality(String? value) => _updateField(
+    SystemSettingsTableCompanion(defaultSleepQuality: Value(value)),
+  );
+
   // --- Int (enum index) fields ---
 
   Future<void> updateTerminology(int value) =>

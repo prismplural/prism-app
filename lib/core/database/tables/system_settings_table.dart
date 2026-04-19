@@ -123,6 +123,8 @@ class SystemSettingsTable extends Table {
   // Chat badge preferences — JSON map of memberId → 'all' | 'mentions_only'
   TextColumn get chatBadgePreferences =>
       text().withDefault(const Constant('{}'))();
+  // Default sleep quality for new sleep sessions (device-local)
+  TextColumn get defaultSleepQuality => text().nullable()();
 
   @override
   String get tableName => 'system_settings';
