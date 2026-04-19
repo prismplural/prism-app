@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'prism_shapes.dart';
 import 'prism_tokens.dart';
 
 /// Holds all variant-specific colors so [AppTheme._buildTheme] can apply
@@ -133,6 +134,7 @@ class AppTheme {
     ColorScheme colorScheme,
     Color accent,
     _ThemeColors colors,
+    PrismShapes shapes,
   ) {
     final isApple = defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
@@ -149,10 +151,11 @@ class AppTheme {
       highlightColor: isApple ? Colors.transparent : null,
       textTheme: _adjustTextTheme(base.textTheme),
       scaffoldBackgroundColor: colors.scaffold,
+      extensions: <ThemeExtension<dynamic>>[shapes],
       cardTheme: CardThemeData(
         color: colors.cardColor,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusMedium),
+          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusMedium)),
         ),
         elevation: 0,
       ),
@@ -167,15 +170,15 @@ class AppTheme {
         filled: true,
         fillColor: colors.fillColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
+          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusLarge)),
           borderSide: BorderSide(color: colors.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
+          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusLarge)),
           borderSide: BorderSide(color: colors.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
+          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusLarge)),
           borderSide: BorderSide(color: colors.focusBorderColor),
         ),
       ),
@@ -192,9 +195,9 @@ class AppTheme {
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: colors.sheetBg,
         surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
-            top: Radius.circular(PrismTokens.radiusXLarge),
+            top: Radius.circular(shapes.radius(PrismTokens.radiusXLarge)),
           ),
         ),
         dragHandleColor: colors.dragHandleColor,
@@ -204,28 +207,28 @@ class AppTheme {
         backgroundColor: colors.dialogBg,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusLarge),
+          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusLarge)),
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: colors.popupBg,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusMedium),
+          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusMedium)),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: accent,
         foregroundColor: AppColors.warmWhite,
         elevation: 0,
-        shape: const CircleBorder(),
+        shape: shapes.circleOrSquareBorder(),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: colors.filledButtonBg,
           foregroundColor: colors.filledButtonFg,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
+            borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusSmall)),
           ),
           elevation: 0,
         ),
@@ -245,7 +248,7 @@ class AppTheme {
         backgroundColor: colors.snackBarBg,
         contentTextStyle: const TextStyle(color: AppColors.warmWhite),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
+          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusSmall)),
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -255,7 +258,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         side: BorderSide(color: colors.borderColor, width: 0.5),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(PrismTokens.radiusSmall),
+          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusSmall)),
         ),
         labelStyle: TextStyle(
           color: colors.isDark ? AppColors.warmWhite : AppColors.warmBlack,
@@ -267,7 +270,7 @@ class AppTheme {
           color: colors.isDark
               ? AppColors.warmWhite.withValues(alpha: 0.9)
               : AppColors.charcoal,
-          borderRadius: BorderRadius.circular(PrismTokens.radiusSmall / 2),
+          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusSmall / 2)),
         ),
         textStyle: TextStyle(
           color: colors.isDark ? AppColors.warmBlack : AppColors.warmWhite,
@@ -277,7 +280,10 @@ class AppTheme {
     );
   }
 
-  static ThemeData light({Color? accentColor}) {
+  static ThemeData light({
+    Color? accentColor,
+    CornerStyle cornerStyle = CornerStyle.rounded,
+  }) {
     final accent = accentColor ?? AppColors.prismPurpleLight;
     final colorScheme =
         ColorScheme.fromSeed(
@@ -314,10 +320,13 @@ class AppTheme {
       isDark: false,
     );
 
-    return _buildTheme(colorScheme, accent, colors);
+    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
   }
 
-  static ThemeData dark({Color? accentColor}) {
+  static ThemeData dark({
+    Color? accentColor,
+    CornerStyle cornerStyle = CornerStyle.rounded,
+  }) {
     final accent = accentColor ?? AppColors.prismPurple;
     final colorScheme =
         ColorScheme.fromSeed(
@@ -354,11 +363,14 @@ class AppTheme {
       isDark: true,
     );
 
-    return _buildTheme(colorScheme, accent, colors);
+    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
   }
 
   /// Pure black OLED theme — saves battery on OLED screens.
-  static ThemeData oled({Color? accentColor}) {
+  static ThemeData oled({
+    Color? accentColor,
+    CornerStyle cornerStyle = CornerStyle.rounded,
+  }) {
     final accent = accentColor ?? AppColors.prismPurple;
     final colorScheme =
         ColorScheme.fromSeed(
@@ -395,7 +407,7 @@ class AppTheme {
       isDark: true,
     );
 
-    return _buildTheme(colorScheme, accent, colors);
+    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
   }
 
   /// Material You theme — uses the system's dynamic color palette.
@@ -403,7 +415,10 @@ class AppTheme {
   ///
   /// Routes through [_buildTheme] so Material You gets the same 15+
   /// component-theme customizations as Standard / OLED variants.
-  static ThemeData materialYouLight(ColorScheme? dynamicScheme) {
+  static ThemeData materialYouLight(
+    ColorScheme? dynamicScheme, {
+    CornerStyle cornerStyle = CornerStyle.rounded,
+  }) {
     final colorScheme =
         dynamicScheme ??
         ColorScheme.fromSeed(
@@ -433,10 +448,13 @@ class AppTheme {
       isDark: false,
     );
 
-    return _buildTheme(colorScheme, accent, colors);
+    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
   }
 
-  static ThemeData materialYouDark(ColorScheme? dynamicScheme) {
+  static ThemeData materialYouDark(
+    ColorScheme? dynamicScheme, {
+    CornerStyle cornerStyle = CornerStyle.rounded,
+  }) {
     final colorScheme =
         dynamicScheme ??
         ColorScheme.fromSeed(
@@ -466,6 +484,6 @@ class AppTheme {
       isDark: true,
     );
 
-    return _buildTheme(colorScheme, accent, colors);
+    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
   }
 }
