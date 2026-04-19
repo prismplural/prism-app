@@ -71,11 +71,28 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     }
   }
 
+  List<({MemberGroup group, int depth})> _flattenTree(
+      Map<String?, List<MemberGroup>> tree) {
+    final result = <({MemberGroup group, int depth})>[];
+    void visit(MemberGroup g, int d) {
+      result.add((group: g, depth: d));
+      for (final child in tree[g.id] ?? []) {
+        visit(child, d + 1);
+      }
+    }
+    for (final root in tree[null] ?? []) {
+      visit(root, 0);
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final groupsAsync = ref.watch(allGroupsProvider);
+    final tree = ref.watch(groupTreeProvider);
     final counts = ref.watch(groupMemberCountsProvider);
+
+    final flatItems = _flattenTree(tree);
 
     return PrismPageScaffold(
       topBar: PrismTopBar(
@@ -90,65 +107,80 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         ],
       ),
       bodyPadding: EdgeInsets.zero,
-      body: groupsAsync.when(
-        loading: () => const PrismLoadingState(),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              l10n.memberGroupErrorLoading(e),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-        data: (groups) {
-          if (groups.isEmpty) {
-            return EmptyState(
+      body: flatItems.isEmpty
+          ? EmptyState(
               icon: Icon(AppIcons.folderOutlined),
               title: l10n.memberGroupEmptyList,
-              subtitle: l10n.memberGroupEmptySubtitle(watchTerminology(context, ref).pluralLower),
+              subtitle: l10n.memberGroupEmptySubtitle(
+                  watchTerminology(context, ref).pluralLower),
               actionLabel: l10n.memberNewGroupTooltip,
               onAction: _openCreateSheet,
-            );
-          }
+            )
+          : ReorderableListView.builder(
+              padding:
+                  EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
+              itemCount: flatItems.length,
+              onReorder: (oldIndex, newIndex) {
+                if (newIndex > oldIndex) newIndex--;
+                final entry = flatItems[oldIndex];
+                final targetEntry = flatItems[newIndex];
 
-          return ReorderableListView.builder(
-            padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
-            itemCount: groups.length,
-            onReorder: (oldIndex, newIndex) {
-              if (newIndex > oldIndex) newIndex--;
-              final reordered = List<MemberGroup>.from(groups);
-              final item = reordered.removeAt(oldIndex);
-              reordered.insert(newIndex, item);
-              ref.read(groupNotifierProvider.notifier).reorderGroups(reordered);
-              Haptics.selection();
-            },
-            proxyDecorator: (child, index, animation) {
-              return AnimatedBuilder(
-                animation: animation,
-                builder: (context, child) => Material(
-                  elevation: 4,
-                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                // Only reorder within same parent (same-level siblings).
+                if (entry.group.parentGroupId !=
+                    targetEntry.group.parentGroupId) {
+                  return;
+                }
+
+                final parentGroupId = entry.group.parentGroupId;
+                final siblings = flatItems
+                    .where((e) =>
+                        e.group.parentGroupId == parentGroupId)
+                    .map((e) => e.group)
+                    .toList();
+
+                final oldSiblingIndex = siblings.indexOf(entry.group);
+                // Compute newSiblingIndex relative to the siblings list.
+                final targetSiblingIndex = siblings.indexOf(targetEntry.group);
+                final newSiblingIndex = (newIndex > oldIndex)
+                    ? targetSiblingIndex
+                    : targetSiblingIndex;
+
+                if (oldSiblingIndex == newSiblingIndex) return;
+
+                final reordered = List<MemberGroup>.from(siblings);
+                final item = reordered.removeAt(oldSiblingIndex);
+                reordered.insert(newSiblingIndex, item);
+                ref
+                    .read(groupNotifierProvider.notifier)
+                    .reorderGroups(reordered);
+                Haptics.selection();
+              },
+              proxyDecorator: (child, index, animation) {
+                return AnimatedBuilder(
+                  animation: animation,
+                  builder: (context, child) => Material(
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(12)),
+                    child: child,
+                  ),
                   child: child,
-                ),
-                child: child,
-              );
-            },
-            itemBuilder: (context, index) {
-              final group = groups[index];
-              return _GroupTile(
-                key: ValueKey(group.id),
-                group: group,
-                reorderIndex: index,
-                memberCount: counts[group.id] ?? 0,
-                onTap: () =>
-                    context.push(AppRoutePaths.settingsGroup(group.id)),
-                onDelete: () => _confirmDelete(group),
-              );
-            },
-          );
-        },
-      ),
+                );
+              },
+              itemBuilder: (context, index) {
+                final entry = flatItems[index];
+                return _GroupTile(
+                  key: ValueKey(entry.group.id),
+                  group: entry.group,
+                  depth: entry.depth.clamp(0, 2),
+                  reorderIndex: index,
+                  memberCount: counts[entry.group.id] ?? 0,
+                  onTap: () => context
+                      .push(AppRoutePaths.settingsGroup(entry.group.id)),
+                  onDelete: () => _confirmDelete(entry.group),
+                );
+              },
+            ),
     );
   }
 }
@@ -157,6 +189,7 @@ class _GroupTile extends StatelessWidget {
   const _GroupTile({
     super.key,
     required this.group,
+    required this.depth,
     required this.reorderIndex,
     required this.memberCount,
     required this.onTap,
@@ -164,6 +197,7 @@ class _GroupTile extends StatelessWidget {
   });
 
   final MemberGroup group;
+  final int depth;
   final int reorderIndex;
   final int memberCount;
   final VoidCallback onTap;
@@ -174,117 +208,129 @@ class _GroupTile extends StatelessWidget {
     final theme = Theme.of(context);
     final hasColor = group.colorHex != null && group.colorHex!.isNotEmpty;
     final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
+    final leftPadding = 16.0 + depth * 24.0;
 
-    return Dismissible(
-      key: ValueKey('dismiss_${group.id}'),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 24),
-        color: theme.colorScheme.error,
-        child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
-      ),
-      confirmDismiss: (_) async {
-        onDelete();
-        return false;
-      },
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(14)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Row(
-            children: [
-              if (hasColor)
-                Container(
-                  width: 4,
-                  height: 56,
-                  color: accentColor,
-                ),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: hasColor ? 12 : 16,
-                    right: 16,
-                    top: 12,
-                    bottom: 12,
+    return Padding(
+      padding: EdgeInsets.only(left: depth > 0 ? leftPadding - 16.0 : 0.0),
+      child: Dismissible(
+        key: ValueKey('dismiss_${group.id}'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          color: theme.colorScheme.error,
+          child: Icon(AppIcons.delete, color: theme.colorScheme.onError),
+        ),
+        confirmDismiss: (_) async {
+          onDelete();
+          return false;
+        },
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(14)),
+          child: Container(
+            margin: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 4,
+              bottom: 4,
+            ),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+              borderRadius:
+                  BorderRadius.circular(PrismShapes.of(context).radius(14)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Row(
+              children: [
+                if (hasColor)
+                  Container(
+                    width: 4,
+                    height: 56,
+                    color: accentColor,
                   ),
-                  child: Row(
-                    children: [
-                      if (group.emoji != null && group.emoji!.isNotEmpty)
-                        SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: Center(
-                            child: Text(
-                              group.emoji!,
-                              style: const TextStyle(fontSize: 20),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: hasColor ? 12 : 16,
+                      right: 16,
+                      top: 12,
+                      bottom: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        if (group.emoji != null && group.emoji!.isNotEmpty)
+                          SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: Center(
+                              child: Text(
+                                group.emoji!,
+                                style: const TextStyle(fontSize: 20),
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: accentColor ??
+                                  theme.colorScheme.primaryContainer,
+                            ),
+                            child: Icon(
+                              AppIcons.folderOutlined,
+                              size: 16,
+                              color: accentColor != null
+                                  ? AppColors.warmWhite
+                                  : theme.colorScheme.onPrimaryContainer,
                             ),
                           ),
-                        )
-                      else
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: accentColor ??
-                                theme.colorScheme.primaryContainer,
-                          ),
-                          child: Icon(
-                            AppIcons.folderOutlined,
-                            size: 16,
-                            color: accentColor != null
-                                ? AppColors.warmWhite
-                                : theme.colorScheme.onPrimaryContainer,
-                          ),
-                        ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          group.name,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (memberCount > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
-                          ),
+                        const SizedBox(width: 12),
+                        Expanded(
                           child: Text(
-                            '$memberCount',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.w600,
+                            group.name,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w500,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      const SizedBox(width: 4),
-                      ReorderableDragStartListener(
-                        index: reorderIndex,
-                        child: Icon(
-                          AppIcons.dragHandle,
-                          color: theme.colorScheme.onSurfaceVariant
-                              .withValues(alpha: 0.4),
+                        const SizedBox(width: 8),
+                        if (memberCount > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(
+                                  PrismShapes.of(context).radius(12)),
+                            ),
+                            child: Text(
+                              '$memberCount',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(width: 4),
+                        ReorderableDragStartListener(
+                          index: reorderIndex,
+                          child: Icon(
+                            AppIcons.dragHandle,
+                            color: theme.colorScheme.onSurfaceVariant
+                                .withValues(alpha: 0.4),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
