@@ -92,7 +92,7 @@ void main() {
     });
 
     test(
-      'pre-v30 databases are rejected with a clear unsupported upgrade',
+      'non-fresh databases are rejected with the v1-baseline error',
       () async {
         final tempDir = Directory.systemTemp.createTempSync('prism_migration_');
         addTearDown(() {
@@ -104,7 +104,8 @@ void main() {
         final dbFile = File('${tempDir.path}/legacy.db');
         final rawDb = raw.sqlite3.open(dbFile.path);
         try {
-          rawDb.execute('PRAGMA user_version = 29;');
+          // Any pre-beta schema version (v30..v58) hits the same rejection.
+          rawDb.execute('PRAGMA user_version = 58;');
         } finally {
           rawDb.close();
         }
@@ -118,7 +119,7 @@ void main() {
             isA<UnsupportedError>().having(
               (error) => error.message,
               'message',
-              contains('Upgrade paths before schema v30 have been squashed'),
+              contains('Schema baseline was reset to v1'),
             ),
           ),
         );
