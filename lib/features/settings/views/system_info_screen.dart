@@ -166,12 +166,12 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
       },
       actions: [
         PrismButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
           label: l10n.cancel,
         ),
         PrismButton(
           onPressed: () {
-            Navigator.of(context).pop();
+            Navigator.of(context, rootNavigator: true).pop();
             final hex = (pickerColor.toARGB32() & 0xFFFFFF)
                 .toRadixString(16)
                 .padLeft(6, '0')
