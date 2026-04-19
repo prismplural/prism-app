@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/pluralkit/providers/pk_file_import_provider.dart';
@@ -136,7 +137,7 @@ class _BusyView extends StatelessWidget {
               const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: progress,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(4)),
               ),
             ],
           ],

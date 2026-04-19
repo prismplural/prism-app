@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -339,7 +340,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,7 +443,7 @@ class _DataImportSheetState extends ConsumerState<DataImportSheet> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
