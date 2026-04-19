@@ -80,8 +80,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     final hasText = _controller.text.trim().isNotEmpty;
     final hasImage = _stagedImageBytes != null;
     if (!hasText && !hasImage) return false;
-    // Image-only / GIF / voice paths only author via speakingAs; proxy tags
-    // apply to text content only.
+    // build() watches speakingAsProvider, so ref.read here is safe — rebuild
+    // happens when it changes. Image-only / GIF / voice paths only author via
+    // speakingAs; proxy tags apply to text content only.
     if (!hasText && hasImage) return ref.read(speakingAsProvider) != null;
     // Text (with or without image): either speakingAs or a live proxy match
     // covers authorship.
@@ -200,9 +201,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
 
     _dismissMentionOverlay();
     _focusNode.requestFocus();
-    // The listener is re-attached above; bring _lastText back in sync
-    // explicitly so the next build's proxy-tag match sees the new text.
-    setState(() => _lastText = _controller.text); // Update _canSend.
+    // Listener was detached across the programmatic edit above so it didn't
+    // fire _onTextChanged; sync _lastText manually so the next build's
+    // proxy-tag match and _canSend see the inserted mention.
+    setState(() => _lastText = _controller.text);
   }
 
   Future<void> _pickImage(ImageSource source) async {
