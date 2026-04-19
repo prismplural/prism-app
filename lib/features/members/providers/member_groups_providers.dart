@@ -83,18 +83,20 @@ final groupMemberCountsProvider = Provider<Map<String, int>>((ref) {
   final allGroups = ref.watch(allGroupsProvider).value ?? [];
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
 
-  final counts = <String, int>{};
-  for (final group in allGroups) {
-    final descendantGroupIds =
-        GroupTreeUtils.getDescendantGroupIds(group.id, tree);
-    counts[group.id] = allEntries
-        .where((e) =>
-            e.groupId == group.id || descendantGroupIds.contains(e.groupId))
-        .map((e) => e.memberId)
-        .toSet()
-        .length;
+  // Pre-bucket entries in one O(E) pass to avoid O(N×E) per-group scans.
+  final membersByGroup = <String, Set<String>>{};
+  for (final entry in allEntries) {
+    membersByGroup.putIfAbsent(entry.groupId, () => {}).add(entry.memberId);
   }
-  return counts;
+
+  return {
+    for (final group in allGroups)
+      group.id: {
+        ...?membersByGroup[group.id],
+        for (final did in GroupTreeUtils.getDescendantGroupIds(group.id, tree))
+          ...?membersByGroup[did],
+      }.length,
+  };
 });
 
 // ── Collapsed state ───────────────────────────────────────────────────────────
@@ -152,22 +154,21 @@ class UngroupedSectionItem extends GroupedMemberListItem {
   const UngroupedSectionItem();
 }
 
-/// Flat ordered list driving the members tab grouped list.
-///
-/// Order: DFS group traversal (header → sub-group sections → direct members),
-/// followed by an ungrouped section when ungrouped active members exist.
-final groupedMemberListProvider =
+/// Fully-expanded structural list (no collapse applied).
+/// Rebuilds only when tree, entries, or members change — not on every toggle.
+final _groupedMemberListStructureProvider =
     Provider<List<GroupedMemberListItem>>((ref) {
   final tree = ref.watch(groupTreeProvider);
   final allEntries = ref.watch(allGroupEntriesProvider).value ?? [];
   final allMembers = ref.watch(allMembersProvider).value ?? [];
-  final collapsed = ref.watch(collapsedGroupsProvider);
 
   final memberById = {for (final m in allMembers) m.id: m};
 
-  // Map each group to its direct active members.
+  // Single pass: build direct-member map and grouped-id set simultaneously.
   final directMembersByGroup = <String, List<Member>>{};
+  final groupedMemberIds = <String>{};
   for (final entry in allEntries) {
+    groupedMemberIds.add(entry.memberId);
     final member = memberById[entry.memberId];
     if (member != null && member.isActive) {
       directMembersByGroup.putIfAbsent(entry.groupId, () => []).add(member);
@@ -177,12 +178,7 @@ final groupedMemberListProvider =
   final result = <GroupedMemberListItem>[];
 
   void visitGroup(MemberGroup group, int depth) {
-    final isCollapsed = collapsed.contains(group.id);
-    result.add(GroupSectionItem(
-        group: group, depth: depth, isCollapsed: isCollapsed));
-    if (isCollapsed) return;
-
-    // Sub-group sections before direct members.
+    result.add(GroupSectionItem(group: group, depth: depth, isCollapsed: false));
     for (final child in tree[group.id] ?? []) {
       visitGroup(child, depth + 1);
     }
@@ -195,8 +191,6 @@ final groupedMemberListProvider =
     visitGroup(root, 0);
   }
 
-  // Ungrouped section — members with no group entry at all.
-  final groupedMemberIds = allEntries.map((e) => e.memberId).toSet();
   final ungrouped = allMembers
       .where((m) => m.isActive && !groupedMemberIds.contains(m.id))
       .toList();
@@ -204,6 +198,46 @@ final groupedMemberListProvider =
     result.add(const UngroupedSectionItem());
     for (final m in ungrouped) {
       result.add(MemberRowItem(member: m, depth: 0));
+    }
+  }
+
+  return result;
+});
+
+/// Flat ordered list driving the members tab grouped list.
+///
+/// Order: DFS group traversal (header → sub-group sections → direct members),
+/// followed by an ungrouped section when ungrouped active members exist.
+///
+/// Derived from [_groupedMemberListStructureProvider] by applying collapse
+/// state in a single linear pass — avoids a full DFS rebuild on every toggle.
+final groupedMemberListProvider =
+    Provider<List<GroupedMemberListItem>>((ref) {
+  final structure = ref.watch(_groupedMemberListStructureProvider);
+  final collapsed = ref.watch(collapsedGroupsProvider);
+
+  // Fast path: nothing collapsed, return the structural list directly.
+  if (collapsed.isEmpty) return structure;
+
+  final result = <GroupedMemberListItem>[];
+  int? hiddenAtDepth; // depth of the outermost collapsed section, or null
+
+  for (final item in structure) {
+    if (item is GroupSectionItem) {
+      if (hiddenAtDepth != null) {
+        if (item.depth > hiddenAtDepth) continue; // nested inside collapsed
+        hiddenAtDepth = null; // resurfaced to same or shallower depth
+      }
+      final isCollapsed = collapsed.contains(item.group.id);
+      result.add(GroupSectionItem(
+          group: item.group, depth: item.depth, isCollapsed: isCollapsed));
+      if (isCollapsed) hiddenAtDepth = item.depth;
+    } else if (item is MemberRowItem) {
+      if (hiddenAtDepth != null) continue;
+      result.add(item);
+    } else if (item is UngroupedSectionItem) {
+      hiddenAtDepth = null;
+      result.add(item);
     }
   }
 

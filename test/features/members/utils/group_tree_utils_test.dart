@@ -226,5 +226,16 @@ void main() {
       expect(result.map((g) => g.id), ['root', 'sub', 'subsub']);
       expect(result.map((g) => g.parentGroupId), [null, 'root', 'sub']);
     });
+
+    test('newer group promoted regardless of input order', () {
+      // Same cycle as A→B→A but with newer group appearing first in the list.
+      final newer = _group(
+          id: 'b', parentGroupId: 'a', createdAt: DateTime(2024, 6, 1));
+      final older = _group(
+          id: 'a', parentGroupId: 'b', createdAt: DateTime(2024, 1, 1));
+      final result = GroupTreeUtils.resolveSyncCycles([newer, older]);
+      final bResult = result.firstWhere((g) => g.id == 'b');
+      expect(bResult.parentGroupId, isNull);
+    });
   });
 }
