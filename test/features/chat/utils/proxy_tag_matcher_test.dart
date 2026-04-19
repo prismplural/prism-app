@@ -115,13 +115,16 @@ void main() {
       expect(match!.memberId, 'aaa');
     });
 
-    test('stripped-empty returns null', () {
+    test('stripped-empty still matches (banner preview)', () {
       final alex = _member(
         id: 'alex',
         proxyTagsJson: '[{"prefix":"A:"}]',
       );
-      expect(matchProxyTag('A:', [alex]), isNull);
-      expect(matchProxyTag('A:   ', [alex]), isNull);
+      // The matcher fires as soon as the tag is typed so the "Posting as"
+      // banner can appear without waiting for content. Send-path guards
+      // block the actual empty send.
+      expect(matchProxyTag('A:', [alex])?.strippedText, '');
+      expect(matchProxyTag('A:   ', [alex])?.strippedText, '');
     });
 
     test('overlapping prefix+suffix rejected by length guard', () {
