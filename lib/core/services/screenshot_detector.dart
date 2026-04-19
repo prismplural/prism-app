@@ -66,7 +66,7 @@ class ScreenshotDetector {
       ),
       actions: [
         PrismButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
           label: 'I understand',
         ),
       ],

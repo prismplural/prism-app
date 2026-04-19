@@ -338,14 +338,14 @@ class _VerifyCard extends ConsumerWidget {
       ),
       actions: [
         PrismButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
           label: context.l10n.cancel,
           tone: PrismButtonTone.subtle,
         ),
         PrismButton(
           onPressed: () {
             onVerified();
-            Navigator.of(context).pop();
+            Navigator.of(context, rootNavigator: true).pop();
           },
           label: context.l10n.sharingMarkVerified,
           tone: PrismButtonTone.filled,

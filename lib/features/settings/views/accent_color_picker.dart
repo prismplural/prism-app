@@ -94,12 +94,12 @@ class AccentColorPicker extends StatelessWidget {
       },
       actions: [
         PrismButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
           label: context.l10n.cancel,
         ),
         PrismButton(
           onPressed: () {
-            Navigator.of(context).pop();
+            Navigator.of(context, rootNavigator: true).pop();
             onChanged(_toHex(pickerColor));
           },
           label: context.l10n.settingsAccentColorSelect,

@@ -321,16 +321,16 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
       actions: [
         PrismButton(
           label: context.l10n.cancel,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
         ),
         PrismButton(
           label: context.l10n.syncTroubleshootingRepairNow,
-          onPressed: () => Navigator.of(context).pop('repair'),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop('repair'),
           tone: PrismButtonTone.destructive,
         ),
         PrismButton(
           label: context.l10n.syncTroubleshootingExportFirst,
-          onPressed: () => Navigator.of(context).pop('export'),
+          onPressed: () => Navigator.of(context, rootNavigator: true).pop('export'),
           tone: PrismButtonTone.filled,
         ),
       ],

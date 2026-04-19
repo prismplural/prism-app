@@ -152,7 +152,7 @@ class DatabaseDiagnosticsScreen extends ConsumerWidget {
                   builder: (_) => const _HealthReportDialogContent(),
                   actions: [
                     PrismButton(
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
                       label: 'Close',
                     ),
                   ],
