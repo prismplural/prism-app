@@ -54,25 +54,24 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: theme.colorScheme.errorContainer,
+              color: theme.colorScheme.secondaryContainer,
               borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
             ),
             child: Row(
               children: [
                 Icon(
-                  AppIcons.warningRounded,
-                  color: theme.colorScheme.onErrorContainer,
+                  AppIcons.infoOutlineRounded,
+                  color: theme.colorScheme.onSecondaryContainer,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Save this now. This is the ONLY way to add new devices or '
-                    'change your PIN. It is not stored on this phone and it '
-                    'cannot be recovered if lost.\n\n'
-                    'Save it to a password manager AND on paper — do not keep '
-                    'the only copy on this phone.',
+                    'Write these words down somewhere safe — a password manager, '
+                    'or paper kept offline. You\'ll need them to add new devices, '
+                    'change your PIN, or set up sync. There\'s no way to recover '
+                    'them if lost.',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onErrorContainer,
+                      color: theme.colorScheme.onSecondaryContainer,
                     ),
                   ),
                 ),

@@ -6,8 +6,8 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/settings/providers/sync_setup_provider.dart';
 import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
-import 'package:prism_plurality/features/settings/widgets/secret_key_reveal_content.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -25,9 +25,9 @@ class SyncSetupScreen extends ConsumerStatefulWidget {
 class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
   final _relayUrlController = TextEditingController();
   final _registrationTokenController = TextEditingController();
+  final _mnemonicController = TextEditingController();
   String? _pin;
   bool _showRelayField = false;
-  bool _hasSavedKey = false;
   String? _relayUrlError;
 
   @override
@@ -46,6 +46,7 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
   void dispose() {
     _relayUrlController.dispose();
     _registrationTokenController.dispose();
+    _mnemonicController.dispose();
     super.dispose();
   }
 
@@ -55,10 +56,10 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
 
     final title = switch (setupState.step) {
       SyncSetupStep.intro => context.l10n.syncSetupIntroTitle,
-      SyncSetupStep.secretKey =>
+      SyncSetupStep.enterPhrase =>
         _pin == null
             ? context.l10n.syncPinSheetTitle
-            : context.l10n.syncSetupSecretKeyTitle,
+            : 'Recovery Phrase',
     };
 
     return PopScope(
@@ -102,20 +103,18 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
                       .read(syncSetupProvider.notifier)
                       .setRegistrationToken(token.isNotEmpty ? token : null);
                 }
-                ref.read(syncSetupProvider.notifier).proceedToSecretKey();
+                ref.read(syncSetupProvider.notifier).proceedToEnterPhrase();
               },
             ),
-            SyncSetupStep.secretKey => _SecretKeyStep(
-              key: const ValueKey('secretKey'),
-              mnemonic: setupState.mnemonic!,
+            SyncSetupStep.enterPhrase => _EnterPhraseStep(
+              key: const ValueKey('enterPhrase'),
+              mnemonicController: _mnemonicController,
               pin: _pin,
-              hasSaved: _hasSavedKey,
               isProcessing: setupState.isProcessing,
               currentProgress: setupState.currentProgress,
               error: setupState.error,
               onPinEntered: (pin) => setState(() => _pin = pin),
-              onHasSavedChanged: (v) => setState(() => _hasSavedKey = v),
-              onComplete: _completeSetup,
+              onSubmit: _submitPhrase,
             ),
           },
         ),
@@ -124,18 +123,23 @@ class _SyncSetupScreenState extends ConsumerState<SyncSetupScreen> {
   }
 
   void _goBack(SyncSetupState setupState) {
-    if (setupState.step == SyncSetupStep.secretKey && _pin != null) {
+    if (setupState.step == SyncSetupStep.enterPhrase && _pin != null) {
       setState(() => _pin = null);
       return;
+    }
+    if (setupState.step == SyncSetupStep.enterPhrase) {
+      _mnemonicController.clear();
     }
     ref.read(syncSetupProvider.notifier).goBack();
   }
 
-  Future<void> _completeSetup() async {
+  Future<void> _submitPhrase() async {
     final pin = _pin;
     if (pin == null) return;
 
-    final success = await ref.read(syncSetupProvider.notifier).complete(pin);
+    final success = await ref
+        .read(syncSetupProvider.notifier)
+        .submitPhrase(_mnemonicController.text, pin);
     if (success && mounted) {
       context.pop();
     }
@@ -259,31 +263,59 @@ class _IntroStep extends StatelessWidget {
   }
 }
 
-class _SecretKeyStep extends StatelessWidget {
-  const _SecretKeyStep({
+class _EnterPhraseStep extends StatefulWidget {
+  const _EnterPhraseStep({
     super.key,
-    required this.mnemonic,
+    required this.mnemonicController,
     required this.pin,
-    required this.hasSaved,
     required this.isProcessing,
     required this.currentProgress,
     required this.error,
     required this.onPinEntered,
-    required this.onHasSavedChanged,
-    required this.onComplete,
+    required this.onSubmit,
   });
 
-  final String mnemonic;
+  final TextEditingController mnemonicController;
   final String? pin;
-  final bool hasSaved;
   final bool isProcessing;
   final SyncSetupProgress? currentProgress;
   final String? error;
   final ValueChanged<String> onPinEntered;
-  final ValueChanged<bool> onHasSavedChanged;
-  final VoidCallback onComplete;
+  final VoidCallback onSubmit;
 
-  String? _progressLabel(BuildContext context) => switch (currentProgress) {
+  @override
+  State<_EnterPhraseStep> createState() => _EnterPhraseStepState();
+}
+
+class _EnterPhraseStepState extends State<_EnterPhraseStep> {
+  bool _canSubmit = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.mnemonicController.addListener(_onMnemonicChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.mnemonicController.removeListener(_onMnemonicChanged);
+    super.dispose();
+  }
+
+  void _onMnemonicChanged() {
+    final normalized = PrismMnemonicField.normalize(
+      widget.mnemonicController.text,
+    );
+    final words = normalized.split(' ');
+    final valid =
+        words.length == 12 &&
+        words.every((w) => w.isNotEmpty);
+    if (valid != _canSubmit) {
+      setState(() => _canSubmit = valid);
+    }
+  }
+
+  String? _progressLabel(BuildContext context) => switch (widget.currentProgress) {
     SyncSetupProgress.creatingGroup =>
       context.l10n.syncSetupProgressCreatingGroup,
     SyncSetupProgress.configuringEngine =>
@@ -298,7 +330,7 @@ class _SecretKeyStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final pin = this.pin;
+    final pin = widget.pin;
 
     if (pin == null) {
       return SafeArea(
@@ -308,7 +340,7 @@ class _SecretKeyStep extends StatelessWidget {
           mode: PinInputMode.unlock,
           embedded: true,
           allowBiometric: false,
-          onPinEntered: onPinEntered,
+          onPinEntered: widget.onPinEntered,
           onSuccess: () {},
         ),
       );
@@ -319,30 +351,45 @@ class _SecretKeyStep extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          SecretKeyRevealContent(
-            mnemonic: mnemonic,
-            hasSaved: hasSaved,
-            onHasSavedChanged: onHasSavedChanged,
-          ),
-          if (error != null) ...[
-            const SizedBox(height: 24),
-            Text(
-              error!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.error,
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
+          Text(
+            'Enter your recovery phrase',
+            style: theme.textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Enter the 12 words you wrote down when you first set up Prism.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
+          PrismMnemonicField(
+            controller: widget.mnemonicController,
+            errorText: widget.error,
+            enabled: !widget.isProcessing,
+            autofocus: true,
+            onSubmitted: _canSubmit && !widget.isProcessing
+                ? (_) => widget.onSubmit()
+                : null,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Lost your recovery phrase? Export your data from Settings, then reset the app to start over.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 24),
           PrismButton(
             label: context.l10n.syncSetupCompleteButton,
             icon: AppIcons.check,
             tone: PrismButtonTone.filled,
-            enabled: hasSaved,
-            isLoading: isProcessing,
-            onPressed: onComplete,
+            enabled: _canSubmit,
+            isLoading: widget.isProcessing,
+            onPressed: widget.onSubmit,
           ),
-          if (isProcessing && _progressLabel(context) != null) ...[
+          if (widget.isProcessing && _progressLabel(context) != null) ...[
             const SizedBox(height: 16),
             Text(
               _progressLabel(context)!,
