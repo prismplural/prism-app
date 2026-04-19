@@ -2542,6 +2542,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberGroupNotFound => 'Grupo no encontrado';
 
   @override
+  String get memberGroupSubGroupsLabel => 'Sub-grupos';
+
+  @override
   String get memberGroupSectionMembers => 'Integrantes';
 
   @override
@@ -2623,6 +2626,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String memberGroupErrorSaving(Object error) {
     return 'Error al guardar el grupo: $error';
   }
+
+  @override
+  String get memberGroupParentLabel => 'Grupo padre';
+
+  @override
+  String get memberGroupParentNone => 'Ninguno (nivel superior)';
+
+  @override
+  String get memberGroupParentDepthLimit => 'No se puede anidar más';
 
   @override
   String get memberGroupFilterAll => 'Todos';
