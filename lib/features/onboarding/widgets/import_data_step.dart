@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -205,7 +206,7 @@ class _SourceCardState extends State<_SourceCard> {
                 : (isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.12)
                       : AppColors.parchmentElevated),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
             border: Border.all(
               color: _pressed
                   ? primary.withValues(alpha: 0.5)
@@ -455,7 +456,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,7 +492,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: PrismTextField(
             controller: _tokenController,
@@ -530,7 +531,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.green.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
             ),
             child: Row(
               children: [
@@ -610,7 +611,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -694,7 +695,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -779,7 +780,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.green.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Row(
             children: [
@@ -805,7 +806,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -834,7 +835,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.06)
                       : AppColors.parchment,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
                 ),
                 child: PrismTextField(
                   controller: _postFileTokenController,
@@ -916,7 +917,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.red.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Row(
             children: [
@@ -1354,7 +1355,7 @@ class _PrismExportImportFlowState
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1427,7 +1428,7 @@ class _PrismExportImportFlowState
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: PrismTextField(
             controller: _passwordController,
@@ -1486,7 +1487,7 @@ class _PrismExportImportFlowState
             color: isDark
                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                 : AppColors.parchmentElevated,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1614,7 +1615,7 @@ class _PrismExportImportFlowState
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.red.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Row(
             children: [
@@ -1745,7 +1746,7 @@ class _SimplyPluralImportFlowState
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.1)
                     : AppColors.parchmentElevated,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1814,7 +1815,7 @@ class _SimplyPluralImportFlowState
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.1)
                     : AppColors.parchmentElevated,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1941,7 +1942,7 @@ class _SimplyPluralImportFlowState
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.green.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
               ),
               child: Row(
                 children: [
@@ -1967,7 +1968,7 @@ class _SimplyPluralImportFlowState
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.red.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
               ),
               child: Row(
                 children: [
@@ -2076,7 +2077,7 @@ class _ActionButtonState extends State<_ActionButton> {
             color: _pressed
                 ? widget.color.withValues(alpha: 0.7)
                 : widget.color.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           ),
           child: Center(
             child: widget.isLoading

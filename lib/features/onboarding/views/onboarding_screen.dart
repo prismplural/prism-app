@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
@@ -282,9 +283,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 child: SafeArea(
                   child: Material(
                     color: Colors.orange.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
                       onTap: _isCompleting ? null : _devSkipToApp,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -475,7 +476,7 @@ class _ProgressIndicator extends StatelessWidget {
             height: 4,
             width: isCurrent ? 24 : 12,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
               color: isCurrent
                   ? primary
                   : isPast
@@ -588,7 +589,7 @@ class _PillButtonState extends State<_PillButton> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(28)),
             color: _pressed
                 ? widget.primary.withValues(alpha: 0.8)
                 : canPress

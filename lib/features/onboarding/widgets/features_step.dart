@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -94,7 +95,7 @@ class _FeatureToggle extends StatelessWidget {
         color: isDark
             ? AppColors.warmWhite.withValues(alpha: 0.1)
             : AppColors.parchmentElevated,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
       ),
       child: Row(
         children: [

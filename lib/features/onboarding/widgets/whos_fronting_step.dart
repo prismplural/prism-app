@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
@@ -81,7 +82,7 @@ class WhosFrontingStep extends ConsumerWidget {
                               : isDark
                                   ? AppColors.warmWhite.withValues(alpha: 0.1)
                                   : AppColors.parchmentElevated,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
