@@ -235,7 +235,7 @@ Drift Tables → DAOs → Repositories (abstract) → Mappers → Freezed Models
                                    ├── notifications, analytics, debug, errors
                                    ├── migration, pluralkit, features
                                    ├── import-export, sharing, data-browser
-                                   └── encryption-info, sync-troubleshooting
+                                   └── sync-troubleshooting
 /onboarding (full-screen)
 /secret-key-setup (full-screen)
 /sync-setup (full-screen)

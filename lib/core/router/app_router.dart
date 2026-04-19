@@ -33,7 +33,6 @@ import '../../features/migration/views/migration_screen.dart';
 import '../../features/settings/views/sync_troubleshooting_screen.dart';
 import '../../features/settings/views/device_management_screen.dart';
 import '../../features/settings/views/data_browser_screen.dart';
-import '../../features/settings/views/adp_info_screen.dart';
 import '../../features/members/views/groups_screen.dart';
 import '../../features/members/views/group_detail_screen.dart';
 import '../../features/members/views/system_management_screen.dart';
@@ -411,10 +410,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'data-browser',
                     builder: (context, state) => const DataBrowserScreen(),
-                  ),
-                  GoRoute(
-                    path: 'encryption-info',
-                    builder: (context, state) => const AdpInfoScreen(),
                   ),
                   GoRoute(
                     path: 'import-export',
