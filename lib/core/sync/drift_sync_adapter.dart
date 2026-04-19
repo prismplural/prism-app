@@ -717,6 +717,7 @@ DriftSyncEntity _systemSettingsEntity(
         'timing_mode': r.timingMode,
         'notes_enabled': r.notesEnabled,
         'system_description': r.systemDescription,
+        'system_color': r.systemColor,
         'system_tag': r.systemTag,
         'system_avatar_data': r.systemAvatarData != null
             ? base64Encode(r.systemAvatarData!)
@@ -780,6 +781,7 @@ DriftSyncEntity _systemSettingsEntity(
         timingMode: f.intField('timing_mode'),
         notesEnabled: f.boolField('notes_enabled'),
         systemDescription: f.stringFieldNullable('system_description'),
+        systemColor: f.stringFieldNullable('system_color'),
         systemTag: f.stringFieldNullable('system_tag'),
         systemAvatarData: f.blobFieldNullable('system_avatar_data'),
         remindersEnabled: f.boolField('reminders_enabled'),
@@ -838,6 +840,7 @@ DriftSyncEntity _systemSettingsEntity(
         'timing_mode': row.timingMode,
         'notes_enabled': row.notesEnabled,
         'system_description': row.systemDescription,
+        'system_color': row.systemColor,
         'system_tag': row.systemTag,
         'system_avatar_data': row.systemAvatarData != null
             ? base64Encode(row.systemAvatarData!)

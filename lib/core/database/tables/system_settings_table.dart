@@ -87,6 +87,7 @@ class SystemSettingsTable extends Table {
   BoolColumn get notesEnabled => boolean().withDefault(const Constant(true))();
   // Phase 3: Synced settings
   TextColumn get systemDescription => text().nullable()();
+  TextColumn get systemColor => text().nullable()();
   // PluralKit system profile tag — synced (plan 04).
   TextColumn get systemTag => text().nullable()();
   BlobColumn get systemAvatarData => blob().nullable()();

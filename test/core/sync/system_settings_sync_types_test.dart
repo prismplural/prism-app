@@ -32,6 +32,7 @@ Map<String, dynamic> _buildSyncFieldsMap(SystemSettings s) => {
   'chat_logs_front': s.chatLogsFront,
   'sync_theme_enabled': s.syncThemeEnabled,
   'timing_mode': s.timingMode.index,
+  'system_color': 'ff0000',
   'is_deleted': false,
 };
 

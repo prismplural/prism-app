@@ -2060,6 +2060,48 @@ abstract class AppLocalizations {
   /// **'Save description'**
   String get systemInfoSaveDescription;
 
+  /// Label for the system tag field
+  ///
+  /// In en, this message translates to:
+  /// **'System tag'**
+  String get systemInfoTagLabel;
+
+  /// Placeholder for the system tag field
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. | Skylars'**
+  String get systemInfoTagHint;
+
+  /// Helper text below the system tag field
+  ///
+  /// In en, this message translates to:
+  /// **'Appended to proxied messages'**
+  String get systemInfoTagHelper;
+
+  /// Label for the system color row
+  ///
+  /// In en, this message translates to:
+  /// **'System color'**
+  String get systemInfoColorLabel;
+
+  /// Button label / dialog title for picking a system color
+  ///
+  /// In en, this message translates to:
+  /// **'Pick color'**
+  String get systemInfoColorPickAction;
+
+  /// Button label for clearing the system color
+  ///
+  /// In en, this message translates to:
+  /// **'Clear color'**
+  String get systemInfoColorClearAction;
+
+  /// Shown when no system color has been chosen
+  ///
+  /// In en, this message translates to:
+  /// **'No color set'**
+  String get systemInfoColorNoneSet;
+
   /// Device management screen title
   ///
   /// In en, this message translates to:

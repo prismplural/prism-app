@@ -1113,6 +1113,27 @@ class AppLocalizationsEs extends AppLocalizations {
   String get systemInfoSaveDescription => 'Guardar descripción';
 
   @override
+  String get systemInfoTagLabel => 'Etiqueta del sistema';
+
+  @override
+  String get systemInfoTagHint => 'p. ej. | Skylars';
+
+  @override
+  String get systemInfoTagHelper => 'Se añade a los mensajes proxificados';
+
+  @override
+  String get systemInfoColorLabel => 'Color del sistema';
+
+  @override
+  String get systemInfoColorPickAction => 'Elegir color';
+
+  @override
+  String get systemInfoColorClearAction => 'Borrar color';
+
+  @override
+  String get systemInfoColorNoneSet => 'Sin color';
+
+  @override
   String get devicesTitle => 'Administrar dispositivos';
 
   @override
