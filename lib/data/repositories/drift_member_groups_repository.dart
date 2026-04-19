@@ -68,9 +68,11 @@ class DriftMemberGroupsRepository
 
   @override
   Future<void> createGroup(domain.MemberGroup group) async {
-    final companion = MemberGroupMapper.toCompanion(group);
+    final displayOrder = await _dao.nextDisplayOrder(group.parentGroupId);
+    final withOrder = group.copyWith(displayOrder: displayOrder);
+    final companion = MemberGroupMapper.toCompanion(withOrder);
     await _dao.createGroup(companion);
-    await syncRecordCreate(_groupTable, group.id, _groupFields(group));
+    await syncRecordCreate(_groupTable, withOrder.id, _groupFields(withOrder));
   }
 
   @override

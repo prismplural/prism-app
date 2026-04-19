@@ -136,7 +136,7 @@ class PkGroupsImporter {
         // Insert new row. Always writes metadata — there is nothing local to
         // preserve. Local emoji stays null (R8): PK's `icon` is a URL, not an
         // emoji.
-        final displayOrder = await _dao.nextDisplayOrder();
+        final displayOrder = await _dao.nextDisplayOrder(null);
         await _dao.upsertGroup(
           MemberGroupsCompanion.insert(
             id: groupLocalId,
