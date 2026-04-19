@@ -76,13 +76,37 @@ class MemberCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                member.name,
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      member.name,
+                                      style:
+                                          theme.textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (member.displayName != null &&
+                                      member.displayName!.trim().isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: Text(
+                                        member.displayName!.trim(),
+                                        style:
+                                            theme.textTheme.bodySmall?.copyWith(
+                                          color:
+                                              theme.colorScheme.onSurfaceVariant,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                               if (member.pronouns != null &&
                                   member.pronouns!.isNotEmpty)

@@ -59,6 +59,8 @@ class MembersNotifier extends AsyncNotifier<void> {
     Uint8List? avatarImageData,
     bool isAdmin = false,
     String? customColorHex,
+    String? displayName,
+    String? birthday,
   }) async {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(memberRepositoryProvider);
@@ -73,6 +75,8 @@ class MembersNotifier extends AsyncNotifier<void> {
         isAdmin: isAdmin,
         customColorEnabled: customColorHex != null,
         customColorHex: customColorHex,
+        displayName: displayName,
+        birthday: birthday,
         createdAt: DateTime.now(),
       );
       await repo.createMember(member);
