@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/migration/providers/migration_providers.dart';
@@ -241,7 +242,7 @@ class _OptionRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         child: Row(
@@ -294,7 +295,7 @@ class _OptionsLegend extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

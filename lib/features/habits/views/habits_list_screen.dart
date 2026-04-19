@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -220,7 +221,7 @@ class _HabitSection extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
             child: UnconstrainedBox(
               child: TintedGlassSurface(
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(999)),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 5,

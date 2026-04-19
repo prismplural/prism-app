@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -860,7 +861,7 @@ class _ImportingView extends StatelessWidget {
               const SizedBox(height: 16),
               LinearProgressIndicator(
                 value: state.progress,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(4)),
               ),
               const SizedBox(height: 8),
               Text(
