@@ -38,7 +38,9 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
   late TextEditingController _systemNameController;
   late TextEditingController _systemTagController;
   late TextEditingController _descriptionController;
-  Timer? _saveDebounce;
+  Timer? _nameSaveDebounce;
+  Timer? _tagSaveDebounce;
+  Timer? _descriptionSaveDebounce;
 
   @override
   void initState() {
@@ -50,7 +52,19 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
 
   @override
   void dispose() {
-    _saveDebounce?.cancel();
+    // Flush any pending saves so a navigate-away doesn't lose a recent edit.
+    if (_nameSaveDebounce?.isActive ?? false) {
+      _nameSaveDebounce!.cancel();
+      _saveNameNow();
+    }
+    if (_tagSaveDebounce?.isActive ?? false) {
+      _tagSaveDebounce!.cancel();
+      _saveTagNow();
+    }
+    if (_descriptionSaveDebounce?.isActive ?? false) {
+      _descriptionSaveDebounce!.cancel();
+      _saveDescriptionNow();
+    }
     _systemNameController.dispose();
     _systemTagController.dispose();
     _descriptionController.dispose();
@@ -68,13 +82,24 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
     _controllersInitialized = true;
   }
 
-  void _scheduleSave(VoidCallback save) {
-    _saveDebounce?.cancel();
-    _saveDebounce = Timer(const Duration(milliseconds: 300), save);
+  void _scheduleNameSave() {
+    _nameSaveDebounce?.cancel();
+    _nameSaveDebounce = Timer(const Duration(milliseconds: 300), _saveNameNow);
+  }
+
+  void _scheduleTagSave() {
+    _tagSaveDebounce?.cancel();
+    _tagSaveDebounce = Timer(const Duration(milliseconds: 300), _saveTagNow);
+  }
+
+  void _scheduleDescriptionSave() {
+    _descriptionSaveDebounce?.cancel();
+    _descriptionSaveDebounce =
+        Timer(const Duration(milliseconds: 300), _saveDescriptionNow);
   }
 
   void _saveNameNow() {
-    _saveDebounce?.cancel();
+    _nameSaveDebounce?.cancel();
     final name = _systemNameController.text.trim();
     ref
         .read(settingsNotifierProvider.notifier)
@@ -82,7 +107,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
   }
 
   void _saveTagNow() {
-    _saveDebounce?.cancel();
+    _tagSaveDebounce?.cancel();
     final tag = _systemTagController.text.trim();
     ref
         .read(settingsNotifierProvider.notifier)
@@ -90,7 +115,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
   }
 
   void _saveDescriptionNow() {
-    _saveDebounce?.cancel();
+    _descriptionSaveDebounce?.cancel();
     final desc = _descriptionController.text.trim();
     ref
         .read(settingsNotifierProvider.notifier)
@@ -188,6 +213,8 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
           final members = membersAsync.whenOrNull(data: (m) => m) ?? [];
           final Uint8List? avatarData = settings.systemAvatarData;
           final String? colorHex = settings.systemColor;
+          final Color? systemColor =
+              colorHex != null ? AppColors.fromHex(colorHex) : null;
           final theme = Theme.of(context);
           final l10n = context.l10n;
 
@@ -270,7 +297,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                 controller: _systemNameController,
                 labelText: l10n.systemInfoNameLabel,
                 hintText: l10n.systemInfoSystemNameHint,
-                onChanged: (_) => _scheduleSave(_saveNameNow),
+                onChanged: (_) => _scheduleNameSave(),
                 onSubmitted: (_) => _saveNameNow(),
               ),
 
@@ -283,7 +310,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                 hintText: l10n.systemInfoTagHint,
                 helperText: l10n.systemInfoTagHelper,
                 maxLength: 79,
-                onChanged: (_) => _scheduleSave(_saveTagNow),
+                onChanged: (_) => _scheduleTagSave(),
                 onSubmitted: (_) => _saveTagNow(),
               ),
 
@@ -297,7 +324,7 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                 maxLines: 4,
                 minLines: 2,
                 textCapitalization: TextCapitalization.sentences,
-                onChanged: (_) => _scheduleSave(_saveDescriptionNow),
+                onChanged: (_) => _scheduleDescriptionSave(),
                 onSubmitted: (_) => _saveDescriptionNow(),
               ),
 
@@ -330,9 +357,8 @@ class _SystemInfoScreenState extends ConsumerState<SystemInfoScreen> {
                             height: 32,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: colorHex != null
-                                  ? AppColors.fromHex(colorHex)
-                                  : theme.colorScheme.surfaceContainerHighest,
+                              color: systemColor ??
+                                  theme.colorScheme.surfaceContainerHighest,
                               border: Border.all(
                                 color: theme.colorScheme.outline
                                     .withValues(alpha: 0.3),

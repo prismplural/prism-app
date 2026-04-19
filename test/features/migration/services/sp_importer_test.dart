@@ -13,6 +13,7 @@ import 'package:prism_plurality/domain/models/conversation.dart' as domain;
 import 'package:prism_plurality/domain/models/fronting_session.dart' as domain;
 import 'package:prism_plurality/domain/models/member.dart' as domain;
 import 'package:prism_plurality/domain/models/poll.dart' as domain;
+import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/domain/models/poll_option.dart' as domain;
 import 'package:prism_plurality/domain/models/poll_vote.dart' as domain;
 import 'package:prism_plurality/domain/repositories/chat_message_repository.dart';
@@ -22,6 +23,8 @@ import 'package:prism_plurality/domain/repositories/member_repository.dart';
 import 'package:prism_plurality/domain/repositories/poll_repository.dart';
 import 'package:prism_plurality/features/migration/services/sp_importer.dart';
 import 'package:prism_plurality/features/migration/services/sp_parser.dart';
+
+import '../../../helpers/fake_repositories.dart';
 
 // =============================================================================
 // Fake HTTP client
@@ -970,5 +973,57 @@ void main() {
       );
       expect(afterImport.first.id, 'existing-1');
     });
+  });
+
+  // ---------------------------------------------------------------------------
+  // System color routing (regression)
+  // ---------------------------------------------------------------------------
+  //
+  // Regression: SP's `color` field on the user/system record must route to
+  // `updateSystemColor(...)` — it must NOT overwrite `accentColorHex`, which
+  // is Prism's separately-configured app accent color.
+  group('system color routing', () {
+    test(
+      'SP color field routes to updateSystemColor without touching accentColorHex',
+      () async {
+        const seededAccent = '#123456';
+        final settingsRepo = FakeSystemSettingsRepository()
+          ..settings = const SystemSettings(accentColorHex: seededAccent);
+
+        const data = SpExportData(
+          members: [],
+          customFronts: [],
+          frontHistory: [],
+          groups: [],
+          channels: [],
+          messages: [],
+          polls: [],
+          systemColor: 'ff0000',
+          systemName: 'Test System',
+        );
+
+        final repos = _makeFakeRepos();
+        final importer = SpImporter(httpClient: _FakeHttpClient());
+
+        await importer.executeImport(
+          db: _makeDb(),
+          data: data,
+          memberRepo: repos.memberRepo,
+          sessionRepo: repos.sessionRepo,
+          conversationRepo: repos.conversationRepo,
+          messageRepo: repos.messageRepo,
+          pollRepo: repos.pollRepo,
+          settingsRepo: settingsRepo,
+          downloadAvatars: false,
+        );
+
+        expect(settingsRepo.settings.systemColor, 'ff0000');
+        expect(
+          settingsRepo.settings.accentColorHex,
+          seededAccent,
+          reason: 'SP system color must not overwrite the app accent color',
+        );
+      },
+    );
   });
 }
