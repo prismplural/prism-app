@@ -92,16 +92,24 @@ class _PinNumpadButtonState extends ConsumerState<PinNumpadButton> {
       );
     }
 
+    // Listener fires for every pointer independently, bypassing the gesture
+    // arena. GestureDetector's TapGestureRecognizer only tracks one pointer
+    // at a time, so rapid taps where the next finger touches before the
+    // previous one lifts are silently dropped. Semantics.onTap handles
+    // screen-reader activation separately.
     return Semantics(
       label: widget.semanticLabel ?? widget.label,
       button: true,
+      onTap: widget.onTap,
       excludeSemantics: true,
-      child: GestureDetector(
+      child: Listener(
         behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
+        onPointerDown: (_) {
+          setState(() => _pressed = true);
+          widget.onTap();
+        },
+        onPointerUp: (_) => setState(() => _pressed = false),
+        onPointerCancel: (_) => setState(() => _pressed = false),
         child: SizedBox(
           width: widget.size,
           height: widget.size,
