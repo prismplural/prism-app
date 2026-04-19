@@ -134,7 +134,7 @@ class _PrismSegmentedControlState<T>
         height: 44,
         decoration: BoxDecoration(
           color: trackColor,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.zero,
           border: Border.all(color: trackBorderColor, width: 0.5),
         ),
         child: LayoutBuilder(
@@ -156,7 +156,7 @@ class _PrismSegmentedControlState<T>
                       child: Container(
                         decoration: BoxDecoration(
                           color: pillColor,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.zero,
                           border: Border.all(
                             color: pillBorderColor,
                             width: 0.5,
