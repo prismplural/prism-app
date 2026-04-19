@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 
 /// Direction the popup opens relative to the anchor.
@@ -352,7 +353,7 @@ class _BlurPopupContent extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxHeight),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(borderRadius),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(borderRadius)),
               child: BackdropFilter(
                 filter: ImageFilter.blur(
                   sigmaX: PrismTokens.glassBlurStrong,
@@ -366,7 +367,7 @@ class _BlurPopupContent extends StatelessWidget {
                                 .withValues(alpha: 0.85)
                             : AppColors.warmWhite.withValues(alpha: 0.1))
                         : AppColors.warmWhite.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(borderRadius),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(borderRadius)),
                     border: Border.all(
                       color: isDark
                           ? AppColors.warmWhite.withValues(alpha: 0.1)

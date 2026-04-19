@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
 /// A Material 3 card for displaying a member in a list.
@@ -28,7 +29,7 @@ class MemberCard extends StatelessWidget {
     final accentColor =
         hasCustomColor ? AppColors.fromHex(member.customColorHex!) : null;
 
-    const radius = BorderRadius.all(Radius.circular(14));
+    final radius = BorderRadius.all(Radius.circular(PrismShapes.of(context).radius(14)));
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Material(

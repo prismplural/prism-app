@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// A rounded glass container for composer, search, and inline input rows.
@@ -32,7 +33,7 @@ class PrismGlassInputBar extends StatelessWidget {
     }
 
     return TintedGlassSurface(
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(borderRadius)),
       tint: tint,
       padding: padding,
       child: content,

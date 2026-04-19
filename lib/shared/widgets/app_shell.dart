@@ -22,6 +22,7 @@ import 'package:prism_plurality/features/settings/widgets/sync_pin_sheet.dart';
 import 'package:prism_plurality/features/settings/widgets/sync_toast_listener.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
@@ -667,11 +668,12 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         final radius =
             _collapsedRadius + (_expandedRadius - _collapsedRadius) * t;
 
+        final shapes = PrismShapes.of(context);
         return Semantics(
           container: true,
           label: context.l10n.navigationBar,
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(radius),
+            borderRadius: BorderRadius.circular(shapes.radius(radius)),
             child: BackdropFilter.grouped(
               filter: ImageFilter.blur(
                 sigmaX: PrismTokens.glassBlurStrong,
@@ -679,7 +681,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
               ),
               child: Container(
                 height: currentHeight,
-                decoration: _barDecoration(isDark, isOled, radius),
+                decoration: _barDecoration(isDark, isOled, radius, shapes),
                 child: Column(
                   children: [
                     // Overflow row (top, revealed by expansion)
@@ -802,7 +804,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                         decoration: BoxDecoration(
                                           color: pillColor,
                                           borderRadius: BorderRadius.circular(
-                                            16,
+                                            PrismShapes.of(context).radius(16),
                                           ),
                                         ),
                                         child: SizedBox(
@@ -872,7 +874,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     return widget.currentIndex - offset;
   }
 
-  BoxDecoration _barDecoration(bool isDark, bool isOled, double radius) {
+  BoxDecoration _barDecoration(bool isDark, bool isOled, double radius, PrismShapes shapes) {
     return BoxDecoration(
       color: Color.alphaBlend(
         widget.accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
@@ -882,7 +884,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                   : AppColors.warmWhite.withValues(alpha: 0.08))
             : AppColors.warmWhite.withValues(alpha: 0.7),
       ),
-      borderRadius: BorderRadius.circular(radius),
+      borderRadius: BorderRadius.circular(shapes.radius(radius)),
       border: Border.all(
         color: isDark
             ? AppColors.warmWhite.withValues(alpha: 0.1)
@@ -908,6 +910,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
   }) {
     final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
     final tabCount = widget.primaryTabs.length;
+    final shapes = PrismShapes.of(context);
 
     // Pill colors
     final pillColor = isDark
@@ -918,7 +921,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
       container: true,
       label: context.l10n.navigationBar,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(_collapsedRadius),
+        borderRadius: BorderRadius.circular(shapes.radius(_collapsedRadius)),
         child: BackdropFilter.grouped(
           filter: ImageFilter.blur(
             sigmaX: PrismTokens.glassBlurStrong,
@@ -926,7 +929,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
           ),
           child: Container(
             height: kFloatingNavBarHeight,
-            decoration: _barDecoration(isDark, isOled, _collapsedRadius),
+            decoration: _barDecoration(isDark, isOled, _collapsedRadius, shapes),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: LayoutBuilder(
@@ -958,7 +961,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: pillColor,
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(shapes.radius(16)),
                             ),
                             child: SizedBox(width: pillWidth, height: 32),
                           ),
@@ -1131,7 +1134,7 @@ class _NavBarItem extends StatelessWidget {
                                   ? AppColors.warmWhite.withValues(alpha: 0.15)
                                   : AppColors.warmBlack.withValues(alpha: 0.08))
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
                       )
                     : null,
                 child: iconWidget,
@@ -1205,7 +1208,7 @@ class _FloatingSidebar extends ConsumerWidget {
                             : AppColors.warmWhite.withValues(alpha: 0.06))
                       : AppColors.warmWhite.withValues(alpha: 0.55),
                 ),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
                 border: Border.all(
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.1)
@@ -1328,7 +1331,7 @@ class _SidebarItemState extends State<_SidebarItem> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: fillColor,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
             ),
             child: Row(
               children: [

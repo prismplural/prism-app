@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -20,7 +21,7 @@ class DateChip extends StatelessWidget {
       header: true,
       child: UnconstrainedBox(
         child: TintedGlassSurface(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(999)),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           child: Text(
             date.toDayHeaderLabel(context.dateLocale),
