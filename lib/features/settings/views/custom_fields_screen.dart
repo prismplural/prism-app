@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/custom_field.dart';
@@ -142,7 +143,7 @@ class _FieldsList extends ConsumerWidget {
           animation: animation,
           builder: (context, child) => Material(
             elevation: 4,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
             child: child,
           ),
           child: child,

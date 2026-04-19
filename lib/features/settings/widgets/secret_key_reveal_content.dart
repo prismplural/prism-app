@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -54,7 +55,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: theme.colorScheme.errorContainer,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
             ),
             child: Row(
               children: [
@@ -83,7 +84,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
               border: Border.all(
                 color: theme.colorScheme.outline.withValues(alpha: 0.3),
               ),
@@ -147,7 +148,7 @@ class _SecretKeyRevealContentState extends State<SecretKeyRevealContent> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppColors.warmWhite,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                 ),
                 child: QrImageView(
                   data: widget.mnemonic,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
@@ -334,7 +335,7 @@ class _ExpandableMemberDetailState
                       const SizedBox(height: 6),
                       // Share-of-total bar
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
+                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(3)),
                         child: LinearProgressIndicator(
                           value:
                               (widget.stat.percentageOfTotal / 100)

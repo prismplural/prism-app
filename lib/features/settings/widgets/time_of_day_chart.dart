@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 
@@ -51,7 +52,7 @@ class TimeOfDayChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(6)),
             child: SizedBox(
               height: 14,
               child: Row(
