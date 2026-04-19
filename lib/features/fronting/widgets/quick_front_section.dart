@@ -240,6 +240,7 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                             progress: _controller.value,
                             color: accentColor,
                             strokeWidth: _kRingWidth,
+                            cornerRadius: PrismShapes.of(context).radius(_kRingSize / 2),
                           ),
                         );
                       },
@@ -281,11 +282,13 @@ class _ProgressRingPainter extends CustomPainter {
     required this.progress,
     required this.color,
     required this.strokeWidth,
+    this.cornerRadius = 0,
   });
 
   final double progress;
   final Color color;
   final double strokeWidth;
+  final double cornerRadius;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -293,12 +296,16 @@ class _ProgressRingPainter extends CustomPainter {
 
     final inset = strokeWidth / 2;
     final rect = Rect.fromLTWH(inset, inset, size.width - strokeWidth, size.height - strokeWidth);
-    final fullPath = Path()..addRect(rect);
+    final innerRadius = (cornerRadius - inset).clamp(0.0, double.infinity);
+    final fullPath = innerRadius > 0
+        ? (Path()..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(innerRadius))))
+        : (Path()..addRect(rect));
     final metrics = fullPath.computeMetrics().first;
     final totalLength = metrics.length;
-    final halfTopEdge = (size.width - strokeWidth) / 2;
+    // Rect path starts at top-left; RRect path starts at top-center of the arc.
+    // Offset from path start to top-center of the ring:
+    final startOffset = ((size.width - strokeWidth) / 2 - innerRadius).clamp(0.0, double.infinity);
     final sweepLength = totalLength * progress;
-    final startOffset = halfTopEdge;
     final endOffset = startOffset + sweepLength;
 
     final paint = Paint()
@@ -317,5 +324,5 @@ class _ProgressRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ProgressRingPainter old) =>
-      progress != old.progress || color != old.color || strokeWidth != old.strokeWidth;
+      progress != old.progress || color != old.color || strokeWidth != old.strokeWidth || cornerRadius != old.cornerRadius;
 }

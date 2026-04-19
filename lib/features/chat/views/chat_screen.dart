@@ -12,6 +12,7 @@ import 'package:prism_plurality/features/chat/views/create_conversation_sheet.da
 import 'package:prism_plurality/features/chat/widgets/category_management_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/conversation_tile.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -157,7 +158,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final baseColor = theme.colorScheme.onSurface.withValues(alpha: 1);
     final backgroundColor = baseColor.withValues(alpha: 0.08);
     final borderColor = baseColor.withValues(alpha: 0.1);
-    final borderRadius = BorderRadius.circular(PrismTokens.radiusMedium);
+    final borderRadius = BorderRadius.circular(PrismShapes.of(context).radius(PrismTokens.radiusMedium));
 
     return [
       if (label != null)
