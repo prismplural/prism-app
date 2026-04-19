@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// A full-screen bottom sheet for browsing and selecting GIFs via the Klipy API.
@@ -75,7 +76,7 @@ class _GifPickerSheetState extends ConsumerState<GifPickerSheet> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TintedGlassSurface(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: TextField(
                 controller: _searchController,
@@ -213,7 +214,7 @@ class _GifCell extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           child: AspectRatio(
             aspectRatio: aspectRatio,
             child: ConstrainedBox(

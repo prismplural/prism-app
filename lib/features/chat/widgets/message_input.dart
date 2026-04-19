@@ -31,6 +31,7 @@ import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -763,7 +764,7 @@ class _GlassTextField extends StatelessWidget {
         : AppColors.warmBlack.withValues(alpha: 0.06);
 
     final roundedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(minHeight / 2),
+      borderRadius: BorderRadius.circular(PrismShapes.of(context).pill(minHeight)),
       borderSide: BorderSide(
         color: borderColor,
         width: PrismTokens.hairlineBorderWidth,

@@ -8,6 +8,7 @@ import 'package:prism_plurality/core/constants/app_constants.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
@@ -71,7 +72,7 @@ class ReactionBar extends ConsumerWidget {
                 vertical: 2,
               ),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                 color: hasReacted
                     ? theme.colorScheme.primaryContainer
                     : theme.colorScheme.surfaceContainerHighest,
@@ -219,7 +220,7 @@ class QuickReactionPicker extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(24)),
         boxShadow: [
           BoxShadow(
             color: AppColors.warmBlack.withValues(alpha: 0.1),
@@ -232,7 +233,7 @@ class QuickReactionPicker extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: AppConstants.quickReactions.map((emoji) {
           return InkWell(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
             onTap: () => onReactionSelected(emoji),
             child: Padding(
               padding: const EdgeInsets.all(8),
