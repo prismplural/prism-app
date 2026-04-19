@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
+import 'package:prism_plurality/features/chat/utils/proxy_tag_matcher.dart';
 import 'package:prism_plurality/features/chat/widgets/attachment_preview.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_picker_sheet.dart';
 import 'package:prism_plurality/features/chat/widgets/mention_overlay.dart';
@@ -59,9 +60,33 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   Uint8List? _stagedImageBytes;
   bool _isRecording = false;
 
-  bool get _canSend =>
-      (_controller.text.trim().isNotEmpty || _stagedImageBytes != null) &&
-      ref.read(speakingAsProvider) != null;
+  /// Mirror of `_controller.text` used by the proxy-tag matcher. Riverpod
+  /// providers can only be read in `build`, so the controller listener
+  /// stores the latest text here and `build` recomputes the match against
+  /// watched providers.
+  String _lastText = '';
+
+  /// Proxy-tag match dismissed by the user for the current draft. Keyed by
+  /// `(prefix, suffix, memberId)` so retyping a different tag re-opens the
+  /// chip. Cleared when the draft is sent or cleared.
+  (String, String, String)? _suppressedTag;
+
+  /// Effective proxy-tag match for the current draft, recomputed in `build`.
+  /// Snapshotted on send so the post-async path uses the intent the user
+  /// actually saw when they tapped send.
+  ProxyTagMatch? _effectiveMatch;
+
+  bool get _canSend {
+    final hasText = _controller.text.trim().isNotEmpty;
+    final hasImage = _stagedImageBytes != null;
+    if (!hasText && !hasImage) return false;
+    // Image-only / GIF / voice paths only author via speakingAs; proxy tags
+    // apply to text content only.
+    if (!hasText && hasImage) return ref.read(speakingAsProvider) != null;
+    // Text (with or without image): either speakingAs or a live proxy match
+    // covers authorship.
+    return ref.read(speakingAsProvider) != null || _effectiveMatch != null;
+  }
 
   bool get _showMicButton =>
       _controller.text.trim().isEmpty &&
@@ -92,6 +117,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   /// Detect `@` trigger and manage the mention overlay.
   void _onTextChanged() {
     if (!mounted) return;
+    if (_lastText != _controller.text) {
+      setState(() => _lastText = _controller.text);
+    }
     final selection = _controller.selection;
     if (!selection.isValid || !selection.isCollapsed) {
       _dismissMentionOverlay();
@@ -172,7 +200,9 @@ class _MessageInputState extends ConsumerState<MessageInput> {
 
     _dismissMentionOverlay();
     _focusNode.requestFocus();
-    setState(() {}); // Update _canSend.
+    // The listener is re-attached above; bring _lastText back in sync
+    // explicitly so the next build's proxy-tag match sees the new text.
+    setState(() => _lastText = _controller.text); // Update _canSend.
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -257,7 +287,33 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     if (text.isEmpty && !hasImage) return;
 
     final speakingAs = ref.read(speakingAsProvider);
-    if (speakingAs == null) return;
+    final match = _effectiveMatch;
+
+    String? authorId;
+    String? content;
+
+    if (hasImage && text.isEmpty) {
+      // Image-only: proxy tags do not apply to attachments.
+      authorId = speakingAs;
+      content = '';
+    } else if (match != null && text.isNotEmpty) {
+      // Re-verify the match target is still authorable — active membership
+      // can change between build and the send path.
+      final freshMembers =
+          ref.read(activeMembersProvider).value ?? const <Member>[];
+      final stillValid = freshMembers.any(
+        (m) => m.id == match.memberId && !m.isDeleted && m.isActive,
+      );
+      if (stillValid) {
+        authorId = match.memberId;
+        content = match.strippedText;
+      }
+    }
+
+    authorId ??= speakingAs;
+    content ??= text;
+
+    if (authorId == null) return;
 
     setState(() => _isSending = true);
 
@@ -271,8 +327,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
           .read(chatNotifierProvider.notifier)
           .sendMessage(
             conversationId: widget.conversationId,
-            content: text.isNotEmpty ? text : '',
-            authorId: speakingAs,
+            content: content,
+            authorId: authorId,
             replyToId: replyingTo?.id,
             replyToAuthorId: replyingTo?.authorId,
             replyToContent: replyingTo?.content,
@@ -324,7 +380,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       _focusNode.requestFocus();
       ref.read(replyingToProvider(widget.conversationId).notifier).clear();
       if (mounted) {
-        setState(() => _stagedImageBytes = null);
+        setState(() {
+          _stagedImageBytes = null;
+          _lastText = '';
+          _suppressedTag = null;
+          _effectiveMatch = null;
+        });
       }
     } finally {
       if (mounted) {
@@ -415,11 +476,30 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     final speakingAs = ref.watch(speakingAsProvider);
     final membersAsync = ref.watch(activeMembersProvider);
     final replyingTo = ref.watch(replyingToProvider(widget.conversationId));
+    final useProxyTags = ref
+            .watch(useProxyTagsForAuthoringProvider)
+            .whenOrNull(data: (v) => v) ??
+        false;
 
     final members = membersAsync.value ?? [];
     final memberMap = {for (final m in members) m.id: m};
     final currentMember = speakingAs != null
         ? members.where((m) => m.id == speakingAs).firstOrNull
+        : null;
+
+    final rawMatch =
+        useProxyTags ? matchProxyTag(_lastText, members) : null;
+    final suppressed = _suppressedTag;
+    final effectiveMatch = (rawMatch != null &&
+            suppressed != null &&
+            suppressed.$1 == rawMatch.matchedPrefix &&
+            suppressed.$2 == rawMatch.matchedSuffix &&
+            suppressed.$3 == rawMatch.memberId)
+        ? null
+        : rawMatch;
+    _effectiveMatch = effectiveMatch;
+    final matchedMember = effectiveMatch != null
+        ? memberMap[effectiveMatch.memberId]
         : null;
 
     const double inputHeight = 38.0;
@@ -458,6 +538,26 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                   )
                 : const SizedBox.shrink(),
           ),
+        ),
+        // Proxy-tag authoring chip: sits below the reply banner so the
+        // broader reply-context row stays above the per-message author hint.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          child: effectiveMatch != null && matchedMember != null
+              ? _ProxyTagAuthorChip(
+                  member: matchedMember,
+                  onDismiss: () {
+                    setState(() {
+                      _suppressedTag = (
+                        effectiveMatch.matchedPrefix,
+                        effectiveMatch.matchedSuffix,
+                        effectiveMatch.memberId,
+                      );
+                    });
+                  },
+                )
+              : const SizedBox.shrink(),
         ),
         SafeArea(
           child: Padding(
@@ -1065,6 +1165,66 @@ class _ReplyBanner extends StatelessWidget {
             icon: AppIcons.close,
             iconSize: 18,
             tooltip: context.l10n.chatCancelReply,
+            onPressed: onDismiss,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProxyTagAuthorChip extends StatelessWidget {
+  const _ProxyTagAuthorChip({
+    required this.member,
+    required this.onDismiss,
+  });
+
+  final Member member;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final authorColor =
+        (member.customColorEnabled && member.customColorHex != null)
+            ? AppColors.fromHex(member.customColorHex!)
+            : theme.colorScheme.primary;
+
+    final fillColor = isDark
+        ? AppColors.warmWhite.withValues(alpha: 0.08)
+        : AppColors.warmWhite.withValues(alpha: 0.65);
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 40),
+      color: fillColor,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: Row(
+        children: [
+          MemberAvatar(
+            avatarImageData: member.avatarImageData,
+            memberName: member.name,
+            emoji: member.emoji,
+            customColorEnabled: member.customColorEnabled,
+            customColorHex: member.customColorHex,
+            size: 24,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.l10n.chatPostingAsProxy(member.name),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: authorColor,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          PrismIconButton(
+            icon: AppIcons.close,
+            iconSize: 18,
+            tooltip: context.l10n.chatPostingAsProxyDismiss,
             onPressed: onDismiss,
           ),
         ],

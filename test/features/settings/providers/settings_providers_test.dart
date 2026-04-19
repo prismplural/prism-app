@@ -299,4 +299,80 @@ void main() {
       expect(container.read(themeStyleProvider), domain.ThemeStyle.oled);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // useProxyTagsForAuthoringProvider (self-hydrating AsyncNotifier, local-only)
+  // ---------------------------------------------------------------------------
+
+  group('useProxyTagsForAuthoringProvider', () {
+    test('defaults to false when no prefs entry exists', () async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(useProxyTagsForAuthoringProvider.future);
+      expect(
+        container.read(useProxyTagsForAuthoringProvider).value,
+        isFalse,
+      );
+    });
+
+    test('reads true from SharedPreferences when pre-seeded', () async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.use_proxy_tags_for_authoring': true,
+      });
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(useProxyTagsForAuthoringProvider.future);
+      expect(
+        container.read(useProxyTagsForAuthoringProvider).value,
+        isTrue,
+      );
+    });
+
+    test('set(true) updates state and persists to SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(useProxyTagsForAuthoringProvider.future);
+      await container
+          .read(useProxyTagsForAuthoringProvider.notifier)
+          .set(true);
+
+      expect(
+        container.read(useProxyTagsForAuthoringProvider).value,
+        isTrue,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getBool('prism.pref.use_proxy_tags_for_authoring'),
+        isTrue,
+      );
+    });
+
+    test('set(false) flips a previously-true value back', () async {
+      SharedPreferences.setMockInitialValues({
+        'prism.pref.use_proxy_tags_for_authoring': true,
+      });
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await container.read(useProxyTagsForAuthoringProvider.future);
+      await container
+          .read(useProxyTagsForAuthoringProvider.notifier)
+          .set(false);
+
+      expect(
+        container.read(useProxyTagsForAuthoringProvider).value,
+        isFalse,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getBool('prism.pref.use_proxy_tags_for_authoring'),
+        isFalse,
+      );
+    });
+  });
 }
