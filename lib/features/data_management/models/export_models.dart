@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 /// V3 export format envelope.
-class V3Export {
-  V3Export({
+class V1Export {
+  V1Export({
     required this.formatVersion,
     required this.version,
     required this.appName,
@@ -37,27 +37,27 @@ class V3Export {
   final String appName;
   final String exportDate;
   final int totalRecords;
-  final List<V3Headmate> headmates;
-  final List<V3FrontSession> frontSessions;
-  final List<V3SleepSession> sleepSessions;
-  final List<V3Conversation> conversations;
-  final List<V3Message> messages;
-  final List<V3Poll> polls;
-  final List<V3PollOption> pollOptions;
-  final List<V3SystemSettings> systemSettings;
-  final List<V3Habit> habits;
-  final List<V3HabitCompletion> habitCompletions;
-  final V3PluralKitSyncState? pluralKitSyncState;
-  final List<V3MemberGroup> memberGroups;
-  final List<V3MemberGroupEntry> memberGroupEntries;
-  final List<V3CustomField> customFields;
-  final List<V3CustomFieldValue> customFieldValues;
-  final List<V3Note> notes;
-  final List<V3FrontSessionComment> frontSessionComments;
-  final List<V3ConversationCategory> conversationCategories;
-  final List<V3Reminder> reminders;
-  final List<V3Friend> friends;
-  final List<V3MediaAttachment> mediaAttachments;
+  final List<V1Headmate> headmates;
+  final List<V1FrontSession> frontSessions;
+  final List<V1SleepSession> sleepSessions;
+  final List<V1Conversation> conversations;
+  final List<V1Message> messages;
+  final List<V1Poll> polls;
+  final List<V1PollOption> pollOptions;
+  final List<V1SystemSettings> systemSettings;
+  final List<V1Habit> habits;
+  final List<V1HabitCompletion> habitCompletions;
+  final V1PluralKitSyncState? pluralKitSyncState;
+  final List<V1MemberGroup> memberGroups;
+  final List<V1MemberGroupEntry> memberGroupEntries;
+  final List<V1CustomField> customFields;
+  final List<V1CustomFieldValue> customFieldValues;
+  final List<V1Note> notes;
+  final List<V1FrontSessionComment> frontSessionComments;
+  final List<V1ConversationCategory> conversationCategories;
+  final List<V1Reminder> reminders;
+  final List<V1Friend> friends;
+  final List<V1MediaAttachment> mediaAttachments;
 
   Map<String, dynamic> toJson() => {
     'formatVersion': formatVersion,
@@ -101,120 +101,120 @@ class V3Export {
       'mediaAttachments': mediaAttachments.map((e) => e.toJson()).toList(),
   };
 
-  factory V3Export.fromJson(Map<String, dynamic> json) => V3Export(
-    formatVersion: json['formatVersion'] as String? ?? '2025.1',
-    version: json['version'] as String? ?? '3.0',
+  factory V1Export.fromJson(Map<String, dynamic> json) => V1Export(
+    formatVersion: json['formatVersion'] as String? ?? '1.0',
+    version: json['version'] as String? ?? '1.0',
     appName: json['appName'] as String? ?? 'Prism Plurality',
     exportDate: json['exportDate'] as String? ?? '',
     totalRecords: json['totalRecords'] as int? ?? 0,
     headmates:
         (json['headmates'] as List<dynamic>?)
-            ?.map((e) => V3Headmate.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1Headmate.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     frontSessions:
         (json['frontSessions'] as List<dynamic>?)
-            ?.map((e) => V3FrontSession.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1FrontSession.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     sleepSessions:
         (json['sleepSessions'] as List<dynamic>?)
-            ?.map((e) => V3SleepSession.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1SleepSession.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     conversations:
         (json['conversations'] as List<dynamic>?)
-            ?.map((e) => V3Conversation.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1Conversation.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     messages:
         (json['messages'] as List<dynamic>?)
-            ?.map((e) => V3Message.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1Message.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     polls:
         (json['polls'] as List<dynamic>?)
-            ?.map((e) => V3Poll.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1Poll.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     pollOptions:
         (json['pollOptions'] as List<dynamic>?)
-            ?.map((e) => V3PollOption.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1PollOption.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     systemSettings:
         (json['systemSettings'] as List<dynamic>?)
-            ?.map((e) => V3SystemSettings.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1SystemSettings.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     habits:
         (json['habits'] as List<dynamic>?)
-            ?.map((e) => V3Habit.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1Habit.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     habitCompletions:
         (json['habitCompletions'] as List<dynamic>?)
-            ?.map((e) => V3HabitCompletion.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1HabitCompletion.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     pluralKitSyncState: json['pluralKitSyncState'] != null
-        ? V3PluralKitSyncState.fromJson(
+        ? V1PluralKitSyncState.fromJson(
             json['pluralKitSyncState'] as Map<String, dynamic>,
           )
         : null,
     memberGroups:
         (json['memberGroups'] as List<dynamic>?)
-            ?.map((e) => V3MemberGroup.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1MemberGroup.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     memberGroupEntries:
         (json['memberGroupEntries'] as List<dynamic>?)
-            ?.map((e) => V3MemberGroupEntry.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1MemberGroupEntry.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     customFields:
         (json['customFields'] as List<dynamic>?)
-            ?.map((e) => V3CustomField.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1CustomField.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     customFieldValues:
         (json['customFieldValues'] as List<dynamic>?)
-            ?.map((e) => V3CustomFieldValue.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1CustomFieldValue.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     notes:
         (json['notes'] as List<dynamic>?)
-            ?.map((e) => V3Note.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1Note.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     frontSessionComments:
         (json['frontSessionComments'] as List<dynamic>?)
             ?.map(
-              (e) => V3FrontSessionComment.fromJson(e as Map<String, dynamic>),
+              (e) => V1FrontSessionComment.fromJson(e as Map<String, dynamic>),
             )
             .toList() ??
         [],
     conversationCategories:
         (json['conversationCategories'] as List<dynamic>?)
             ?.map(
-              (e) => V3ConversationCategory.fromJson(e as Map<String, dynamic>),
+              (e) => V1ConversationCategory.fromJson(e as Map<String, dynamic>),
             )
             .toList() ??
         [],
     reminders:
         (json['reminders'] as List<dynamic>?)
-            ?.map((e) => V3Reminder.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1Reminder.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     friends:
         (json['friends'] as List<dynamic>?)
-            ?.map((e) => V3Friend.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1Friend.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     mediaAttachments:
         (json['mediaAttachments'] as List<dynamic>?)
             ?.map(
-              (e) => V3MediaAttachment.fromJson(e as Map<String, dynamic>),
+              (e) => V1MediaAttachment.fromJson(e as Map<String, dynamic>),
             )
             .toList() ??
         [],
@@ -222,11 +222,11 @@ class V3Export {
 }
 
 // ---------------------------------------------------------------------------
-// V3Headmate
+// V1Headmate
 // ---------------------------------------------------------------------------
 
-class V3Headmate {
-  V3Headmate({
+class V1Headmate {
+  V1Headmate({
     required this.id,
     required this.name,
     this.pronouns,
@@ -297,7 +297,7 @@ class V3Headmate {
     'pluralkitSyncIgnored': pluralkitSyncIgnored,
   };
 
-  factory V3Headmate.fromJson(Map<String, dynamic> json) => V3Headmate(
+  factory V1Headmate.fromJson(Map<String, dynamic> json) => V1Headmate(
     id: json['id'] as String,
     name: json['name'] as String,
     pronouns: json['pronouns'] as String?,
@@ -327,11 +327,11 @@ class V3Headmate {
 }
 
 // ---------------------------------------------------------------------------
-// V3FrontSession
+// V1FrontSession
 // ---------------------------------------------------------------------------
 
-class V3FrontSession {
-  V3FrontSession({
+class V1FrontSession {
+  V1FrontSession({
     required this.id,
     required this.startTime,
     this.endTime,
@@ -367,7 +367,7 @@ class V3FrontSession {
     if (pkMemberIdsJson != null) 'pkMemberIdsJson': pkMemberIdsJson,
   };
 
-  factory V3FrontSession.fromJson(Map<String, dynamic> json) => V3FrontSession(
+  factory V1FrontSession.fromJson(Map<String, dynamic> json) => V1FrontSession(
     id: json['id'] as String,
     startTime: json['startTime'] as String,
     endTime: json['endTime'] as String?,
@@ -382,11 +382,11 @@ class V3FrontSession {
 }
 
 // ---------------------------------------------------------------------------
-// V3SleepSession
+// V1SleepSession
 // ---------------------------------------------------------------------------
 
-class V3SleepSession {
-  V3SleepSession({
+class V1SleepSession {
+  V1SleepSession({
     required this.id,
     required this.startTime,
     this.endTime,
@@ -411,7 +411,7 @@ class V3SleepSession {
     'isHealthKitImport': isHealthKitImport,
   };
 
-  factory V3SleepSession.fromJson(Map<String, dynamic> json) => V3SleepSession(
+  factory V1SleepSession.fromJson(Map<String, dynamic> json) => V1SleepSession(
     id: json['id'] as String,
     startTime: json['startTime'] as String,
     endTime: json['endTime'] as String?,
@@ -422,11 +422,11 @@ class V3SleepSession {
 }
 
 // ---------------------------------------------------------------------------
-// V3Conversation
+// V1Conversation
 // ---------------------------------------------------------------------------
 
-class V3Conversation {
-  V3Conversation({
+class V1Conversation {
+  V1Conversation({
     required this.id,
     required this.createdAt,
     required this.lastActivityAt,
@@ -475,7 +475,7 @@ class V3Conversation {
     'displayOrder': displayOrder,
   };
 
-  factory V3Conversation.fromJson(Map<String, dynamic> json) => V3Conversation(
+  factory V1Conversation.fromJson(Map<String, dynamic> json) => V1Conversation(
     id: json['id'] as String,
     createdAt: json['createdAt'] as String,
     lastActivityAt: json['lastActivityAt'] as String,
@@ -499,11 +499,11 @@ class V3Conversation {
 }
 
 // ---------------------------------------------------------------------------
-// V3Message
+// V1Message
 // ---------------------------------------------------------------------------
 
-class V3Message {
-  V3Message({
+class V1Message {
+  V1Message({
     required this.id,
     required this.content,
     required this.timestamp,
@@ -524,7 +524,7 @@ class V3Message {
   final String? editedAt;
   final String? authorId;
   final String conversationId;
-  final List<V3MessageReaction> reactions;
+  final List<V1MessageReaction> reactions;
   final String? replyToId;
   final String? replyToAuthorId;
   final String? replyToContent;
@@ -544,7 +544,7 @@ class V3Message {
     if (replyToContent != null) 'replyToContent': replyToContent,
   };
 
-  factory V3Message.fromJson(Map<String, dynamic> json) => V3Message(
+  factory V1Message.fromJson(Map<String, dynamic> json) => V1Message(
     id: json['id'] as String,
     content: json['content'] as String,
     timestamp: json['timestamp'] as String,
@@ -554,7 +554,7 @@ class V3Message {
     conversationId: json['conversationId'] as String,
     reactions:
         (json['reactions'] as List<dynamic>?)
-            ?.map((e) => V3MessageReaction.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1MessageReaction.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
     replyToId: json['replyToId'] as String?,
@@ -563,8 +563,8 @@ class V3Message {
   );
 }
 
-class V3MessageReaction {
-  V3MessageReaction({
+class V1MessageReaction {
+  V1MessageReaction({
     required this.id,
     required this.emoji,
     required this.memberId,
@@ -583,8 +583,8 @@ class V3MessageReaction {
     'timestamp': timestamp,
   };
 
-  factory V3MessageReaction.fromJson(Map<String, dynamic> json) =>
-      V3MessageReaction(
+  factory V1MessageReaction.fromJson(Map<String, dynamic> json) =>
+      V1MessageReaction(
         id: json['id'] as String,
         emoji: json['emoji'] as String,
         memberId: json['memberId'] as String,
@@ -593,11 +593,11 @@ class V3MessageReaction {
 }
 
 // ---------------------------------------------------------------------------
-// V3Poll
+// V1Poll
 // ---------------------------------------------------------------------------
 
-class V3Poll {
-  V3Poll({
+class V1Poll {
+  V1Poll({
     required this.id,
     required this.question,
     this.isAnonymous = false,
@@ -628,7 +628,7 @@ class V3Poll {
     'createdAt': createdAt,
   };
 
-  factory V3Poll.fromJson(Map<String, dynamic> json) => V3Poll(
+  factory V1Poll.fromJson(Map<String, dynamic> json) => V1Poll(
     id: json['id'] as String,
     question: json['question'] as String,
     description: json['description'] as String?,
@@ -641,11 +641,11 @@ class V3Poll {
 }
 
 // ---------------------------------------------------------------------------
-// V3PollOption
+// V1PollOption
 // ---------------------------------------------------------------------------
 
-class V3PollOption {
-  V3PollOption({
+class V1PollOption {
+  V1PollOption({
     required this.id,
     required this.pollId,
     required this.text,
@@ -661,7 +661,7 @@ class V3PollOption {
   final int sortOrder;
   final bool isOtherOption;
   final String? colorHex;
-  final List<V3PollVote> votes;
+  final List<V1PollVote> votes;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -673,7 +673,7 @@ class V3PollOption {
     if (votes.isNotEmpty) 'votes': votes.map((v) => v.toJson()).toList(),
   };
 
-  factory V3PollOption.fromJson(Map<String, dynamic> json) => V3PollOption(
+  factory V1PollOption.fromJson(Map<String, dynamic> json) => V1PollOption(
     id: json['id'] as String,
     pollId: json['pollId'] as String,
     text: json['text'] as String,
@@ -682,14 +682,14 @@ class V3PollOption {
     colorHex: json['colorHex'] as String?,
     votes:
         (json['votes'] as List<dynamic>?)
-            ?.map((e) => V3PollVote.fromJson(e as Map<String, dynamic>))
+            ?.map((e) => V1PollVote.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
   );
 }
 
-class V3PollVote {
-  V3PollVote({
+class V1PollVote {
+  V1PollVote({
     required this.id,
     required this.memberId,
     required this.votedAt,
@@ -708,7 +708,7 @@ class V3PollVote {
     if (responseText != null) 'responseText': responseText,
   };
 
-  factory V3PollVote.fromJson(Map<String, dynamic> json) => V3PollVote(
+  factory V1PollVote.fromJson(Map<String, dynamic> json) => V1PollVote(
     id: json['id'] as String,
     memberId: json['memberId'] as String,
     votedAt: json['votedAt'] as String,
@@ -717,11 +717,11 @@ class V3PollVote {
 }
 
 // ---------------------------------------------------------------------------
-// V3SystemSettings
+// V1SystemSettings
 // ---------------------------------------------------------------------------
 
-class V3SystemSettings {
-  V3SystemSettings({
+class V1SystemSettings {
+  V1SystemSettings({
     this.systemName,
     this.sharingId,
     this.showQuickFront = true,
@@ -848,9 +848,9 @@ class V3SystemSettings {
       'chatBadgePreferences': chatBadgePreferences,
   };
 
-  factory V3SystemSettings.fromJson(
+  factory V1SystemSettings.fromJson(
     Map<String, dynamic> json,
-  ) => V3SystemSettings(
+  ) => V1SystemSettings(
     systemName: json['systemName'] as String?,
     sharingId: json['sharingId'] as String?,
     showQuickFront: json['showQuickFront'] as bool? ?? true,
@@ -902,11 +902,11 @@ class V3SystemSettings {
 }
 
 // ---------------------------------------------------------------------------
-// V3Habit
+// V1Habit
 // ---------------------------------------------------------------------------
 
-class V3Habit {
-  V3Habit({
+class V1Habit {
+  V1Habit({
     required this.id,
     required this.name,
     this.description,
@@ -973,7 +973,7 @@ class V3Habit {
     'totalCompletions': totalCompletions,
   };
 
-  factory V3Habit.fromJson(Map<String, dynamic> json) => V3Habit(
+  factory V1Habit.fromJson(Map<String, dynamic> json) => V1Habit(
     id: json['id'] as String,
     name: json['name'] as String,
     description: json['description'] as String?,
@@ -998,11 +998,11 @@ class V3Habit {
 }
 
 // ---------------------------------------------------------------------------
-// V3HabitCompletion
+// V1HabitCompletion
 // ---------------------------------------------------------------------------
 
-class V3HabitCompletion {
-  V3HabitCompletion({
+class V1HabitCompletion {
+  V1HabitCompletion({
     required this.id,
     required this.habitId,
     required this.completedAt,
@@ -1036,8 +1036,8 @@ class V3HabitCompletion {
     'modifiedAt': modifiedAt,
   };
 
-  factory V3HabitCompletion.fromJson(Map<String, dynamic> json) =>
-      V3HabitCompletion(
+  factory V1HabitCompletion.fromJson(Map<String, dynamic> json) =>
+      V1HabitCompletion(
         id: json['id'] as String,
         habitId: json['habitId'] as String,
         completedAt: json['completedAt'] as String,
@@ -1051,11 +1051,11 @@ class V3HabitCompletion {
 }
 
 // ---------------------------------------------------------------------------
-// V3PluralKitSyncState
+// V1PluralKitSyncState
 // ---------------------------------------------------------------------------
 
-class V3PluralKitSyncState {
-  V3PluralKitSyncState({
+class V1PluralKitSyncState {
+  V1PluralKitSyncState({
     this.systemId,
     this.isConnected = false,
     this.lastSyncDate,
@@ -1074,8 +1074,8 @@ class V3PluralKitSyncState {
     if (lastManualSyncDate != null) 'lastManualSyncDate': lastManualSyncDate,
   };
 
-  factory V3PluralKitSyncState.fromJson(Map<String, dynamic> json) =>
-      V3PluralKitSyncState(
+  factory V1PluralKitSyncState.fromJson(Map<String, dynamic> json) =>
+      V1PluralKitSyncState(
         systemId: json['systemId'] as String?,
         isConnected: json['isConnected'] as bool? ?? false,
         lastSyncDate: json['lastSyncDate'] as String?,
@@ -1084,11 +1084,11 @@ class V3PluralKitSyncState {
 }
 
 // ---------------------------------------------------------------------------
-// V3MemberGroup
+// V1MemberGroup
 // ---------------------------------------------------------------------------
 
-class V3MemberGroup {
-  V3MemberGroup({
+class V1MemberGroup {
+  V1MemberGroup({
     required this.id,
     required this.name,
     this.description,
@@ -1119,7 +1119,7 @@ class V3MemberGroup {
     'createdAt': createdAt,
   };
 
-  factory V3MemberGroup.fromJson(Map<String, dynamic> json) => V3MemberGroup(
+  factory V1MemberGroup.fromJson(Map<String, dynamic> json) => V1MemberGroup(
     id: json['id'] as String,
     name: json['name'] as String,
     description: json['description'] as String?,
@@ -1132,11 +1132,11 @@ class V3MemberGroup {
 }
 
 // ---------------------------------------------------------------------------
-// V3MemberGroupEntry
+// V1MemberGroupEntry
 // ---------------------------------------------------------------------------
 
-class V3MemberGroupEntry {
-  V3MemberGroupEntry({
+class V1MemberGroupEntry {
+  V1MemberGroupEntry({
     required this.id,
     required this.groupId,
     required this.memberId,
@@ -1152,8 +1152,8 @@ class V3MemberGroupEntry {
     'memberId': memberId,
   };
 
-  factory V3MemberGroupEntry.fromJson(Map<String, dynamic> json) =>
-      V3MemberGroupEntry(
+  factory V1MemberGroupEntry.fromJson(Map<String, dynamic> json) =>
+      V1MemberGroupEntry(
         id: json['id'] as String,
         groupId: json['groupId'] as String,
         memberId: json['memberId'] as String,
@@ -1161,11 +1161,11 @@ class V3MemberGroupEntry {
 }
 
 // ---------------------------------------------------------------------------
-// V3CustomField
+// V1CustomField
 // ---------------------------------------------------------------------------
 
-class V3CustomField {
-  V3CustomField({
+class V1CustomField {
+  V1CustomField({
     required this.id,
     required this.name,
     required this.fieldType,
@@ -1190,7 +1190,7 @@ class V3CustomField {
     'createdAt': createdAt,
   };
 
-  factory V3CustomField.fromJson(Map<String, dynamic> json) => V3CustomField(
+  factory V1CustomField.fromJson(Map<String, dynamic> json) => V1CustomField(
     id: json['id'] as String,
     name: json['name'] as String,
     fieldType: json['fieldType'] as int,
@@ -1201,11 +1201,11 @@ class V3CustomField {
 }
 
 // ---------------------------------------------------------------------------
-// V3CustomFieldValue
+// V1CustomFieldValue
 // ---------------------------------------------------------------------------
 
-class V3CustomFieldValue {
-  V3CustomFieldValue({
+class V1CustomFieldValue {
+  V1CustomFieldValue({
     required this.id,
     required this.customFieldId,
     required this.memberId,
@@ -1224,8 +1224,8 @@ class V3CustomFieldValue {
     'value': value,
   };
 
-  factory V3CustomFieldValue.fromJson(Map<String, dynamic> json) =>
-      V3CustomFieldValue(
+  factory V1CustomFieldValue.fromJson(Map<String, dynamic> json) =>
+      V1CustomFieldValue(
         id: json['id'] as String,
         customFieldId: json['customFieldId'] as String,
         memberId: json['memberId'] as String,
@@ -1234,11 +1234,11 @@ class V3CustomFieldValue {
 }
 
 // ---------------------------------------------------------------------------
-// V3Note
+// V1Note
 // ---------------------------------------------------------------------------
 
-class V3Note {
-  V3Note({
+class V1Note {
+  V1Note({
     required this.id,
     required this.title,
     required this.body,
@@ -1269,7 +1269,7 @@ class V3Note {
     'modifiedAt': modifiedAt,
   };
 
-  factory V3Note.fromJson(Map<String, dynamic> json) => V3Note(
+  factory V1Note.fromJson(Map<String, dynamic> json) => V1Note(
     id: json['id'] as String,
     title: json['title'] as String,
     body: json['body'] as String,
@@ -1282,11 +1282,11 @@ class V3Note {
 }
 
 // ---------------------------------------------------------------------------
-// V3FrontSessionComment
+// V1FrontSessionComment
 // ---------------------------------------------------------------------------
 
-class V3FrontSessionComment {
-  V3FrontSessionComment({
+class V1FrontSessionComment {
+  V1FrontSessionComment({
     required this.id,
     required this.sessionId,
     required this.body,
@@ -1308,8 +1308,8 @@ class V3FrontSessionComment {
     'createdAt': createdAt,
   };
 
-  factory V3FrontSessionComment.fromJson(Map<String, dynamic> json) =>
-      V3FrontSessionComment(
+  factory V1FrontSessionComment.fromJson(Map<String, dynamic> json) =>
+      V1FrontSessionComment(
         id: json['id'] as String,
         sessionId: json['sessionId'] as String,
         body: json['body'] as String,
@@ -1319,11 +1319,11 @@ class V3FrontSessionComment {
 }
 
 // ---------------------------------------------------------------------------
-// V3ConversationCategory
+// V1ConversationCategory
 // ---------------------------------------------------------------------------
 
-class V3ConversationCategory {
-  V3ConversationCategory({
+class V1ConversationCategory {
+  V1ConversationCategory({
     required this.id,
     required this.name,
     this.displayOrder = 0,
@@ -1345,8 +1345,8 @@ class V3ConversationCategory {
     'modifiedAt': modifiedAt,
   };
 
-  factory V3ConversationCategory.fromJson(Map<String, dynamic> json) =>
-      V3ConversationCategory(
+  factory V1ConversationCategory.fromJson(Map<String, dynamic> json) =>
+      V1ConversationCategory(
         id: json['id'] as String,
         name: json['name'] as String,
         displayOrder: json['displayOrder'] as int? ?? 0,
@@ -1356,11 +1356,11 @@ class V3ConversationCategory {
 }
 
 // ---------------------------------------------------------------------------
-// V3Reminder
+// V1Reminder
 // ---------------------------------------------------------------------------
 
-class V3Reminder {
-  V3Reminder({
+class V1Reminder {
+  V1Reminder({
     required this.id,
     required this.name,
     required this.message,
@@ -1397,7 +1397,7 @@ class V3Reminder {
     'modifiedAt': modifiedAt,
   };
 
-  factory V3Reminder.fromJson(Map<String, dynamic> json) => V3Reminder(
+  factory V1Reminder.fromJson(Map<String, dynamic> json) => V1Reminder(
     id: json['id'] as String,
     name: json['name'] as String,
     message: json['message'] as String,
@@ -1412,11 +1412,11 @@ class V3Reminder {
 }
 
 // ---------------------------------------------------------------------------
-// V3Friend
+// V1Friend
 // ---------------------------------------------------------------------------
 
-class V3Friend {
-  V3Friend({
+class V1Friend {
+  V1Friend({
     required this.id,
     required this.displayName,
     required this.publicKeyHex,
@@ -1459,7 +1459,7 @@ class V3Friend {
     if (lastSyncAt != null) 'lastSyncAt': lastSyncAt,
   };
 
-  factory V3Friend.fromJson(Map<String, dynamic> json) => V3Friend(
+  factory V1Friend.fromJson(Map<String, dynamic> json) => V1Friend(
     id: json['id'] as String,
     displayName: json['displayName'] as String,
     publicKeyHex: json['publicKeyHex'] as String,
@@ -1478,11 +1478,11 @@ class V3Friend {
 }
 
 // ---------------------------------------------------------------------------
-// V3MediaAttachment
+// V1MediaAttachment
 // ---------------------------------------------------------------------------
 
-class V3MediaAttachment {
-  V3MediaAttachment({
+class V1MediaAttachment {
+  V1MediaAttachment({
     required this.id,
     required this.messageId,
     required this.mediaId,
@@ -1537,8 +1537,8 @@ class V3MediaAttachment {
     'isDeleted': isDeleted,
   };
 
-  factory V3MediaAttachment.fromJson(Map<String, dynamic> json) =>
-      V3MediaAttachment(
+  factory V1MediaAttachment.fromJson(Map<String, dynamic> json) =>
+      V1MediaAttachment(
         id: json['id'] as String,
         messageId: json['messageId'] as String,
         mediaId: json['mediaId'] as String,

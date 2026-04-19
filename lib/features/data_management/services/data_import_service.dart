@@ -22,7 +22,7 @@ import 'package:prism_plurality/domain/repositories/front_session_comments_repos
 import 'package:prism_plurality/domain/repositories/conversation_categories_repository.dart';
 import 'package:prism_plurality/domain/repositories/reminders_repository.dart';
 import 'package:prism_plurality/domain/repositories/friends_repository.dart';
-import 'package:prism_plurality/features/data_management/models/v3_export_models.dart';
+import 'package:prism_plurality/features/data_management/models/export_models.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 
 /// Preview of what an import file contains, without actually importing.
@@ -268,14 +268,18 @@ class DataImportService {
   }
 
   /// Recognized format versions that this service can import.
-  static const supportedVersions = ['2025.1'];
+  ///
+  /// `'2025.1'` is the pre-beta envelope version kept for back-compat with
+  /// PRISM3-era export files (now convertible via `tools/prism3-to-prism1`);
+  /// the envelope itself is encrypted, so the converter cannot rewrite it.
+  static const supportedVersions = ['1.0', '2025.1'];
 
   /// Parse a JSON string and return a preview without importing.
   ///
   /// Throws [FormatException] if the format version is unrecognized.
   ImportPreview parsePreview(String json) {
     final map = jsonDecode(json) as Map<String, dynamic>;
-    final export = V3Export.fromJson(map);
+    final export = V1Export.fromJson(map);
 
     if (!supportedVersions.contains(export.formatVersion)) {
       throw FormatException(
@@ -321,7 +325,7 @@ class DataImportService {
     bool preserveImportedOnboardingState = true,
   }) async {
     final map = jsonDecode(json) as Map<String, dynamic>;
-    final export = V3Export.fromJson(map);
+    final export = V1Export.fromJson(map);
 
     if (!supportedVersions.contains(export.formatVersion)) {
       throw FormatException(
