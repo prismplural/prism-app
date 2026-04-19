@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/members/widgets/create_edit_group_sheet
 import 'package:prism_plurality/features/members/widgets/delete_group_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/headmate_picker.dart';
@@ -140,6 +141,8 @@ class _GroupDetailBody extends ConsumerWidget {
                 );
               },
             ) ?? const SizedBox.shrink(),
+
+            _SubGroupsSection(groupId: group.id),
 
             Row(
               children: [
@@ -435,6 +438,166 @@ class _GroupInfoHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _SubGroupsSection extends ConsumerWidget {
+  const _SubGroupsSection({required this.groupId});
+
+  final String groupId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final children = ref.watch(childGroupsProvider(groupId));
+
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(AppIcons.folderOutlined,
+                size: 18, color: theme.colorScheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              l10n.memberGroupSubGroupsLabel,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: children.length,
+          itemBuilder: (context, index) =>
+              _SubGroupTile(group: children[index]),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+}
+
+class _SubGroupTile extends ConsumerWidget {
+  const _SubGroupTile({required this.group});
+
+  final MemberGroup group;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final memberCounts = ref.watch(groupMemberCountsProvider);
+    final count = memberCounts[group.id] ?? 0;
+    final hasColor = group.colorHex != null && group.colorHex!.isNotEmpty;
+    final accentColor = hasColor ? AppColors.fromHex(group.colorHex!) : null;
+
+    return Semantics(
+      label: '${group.name}, sub-group, $count members, navigate',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: InkWell(
+          onTap: () => context.push(AppRoutePaths.settingsGroup(group.id)),
+          borderRadius:
+              BorderRadius.circular(PrismShapes.of(context).radius(14)),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+              borderRadius:
+                  BorderRadius.circular(PrismShapes.of(context).radius(14)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Row(
+              children: [
+                if (hasColor)
+                  Container(
+                    width: 4,
+                    height: 56,
+                    color: accentColor,
+                  ),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: hasColor ? 12 : 16,
+                      right: 16,
+                      top: 12,
+                      bottom: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        if (group.emoji != null && group.emoji!.isNotEmpty)
+                          SizedBox(
+                            width: 32,
+                            height: 32,
+                            child: Center(
+                              child: Text(
+                                group.emoji!,
+                                style: const TextStyle(fontSize: 20),
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: accentColor ??
+                                  theme.colorScheme.primaryContainer,
+                            ),
+                            child: Icon(
+                              AppIcons.folderOutlined,
+                              size: 16,
+                              color: accentColor != null
+                                  ? AppColors.warmWhite
+                                  : theme.colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            group.name,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (count > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(
+                                  PrismShapes.of(context).radius(12)),
+                            ),
+                            child: Text(
+                              '$count',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onPrimaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

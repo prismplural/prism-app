@@ -3342,6 +3342,10 @@
   "@memberGroupNotFound": {
     "description": "Message shown when a group cannot be found"
   },
+  "memberGroupSubGroupsLabel": "Sub-groups",
+  "@memberGroupSubGroupsLabel": {
+    "description": "Section label for sub-groups in group detail"
+  },
   "memberGroupSectionMembers": "Members",
   "@memberGroupSectionMembers": {
     "description": "Section header for members inside a group detail screen"
@@ -3455,6 +3459,12 @@
       }
     }
   },
+  "memberGroupParentLabel": "Parent group",
+  "@memberGroupParentLabel": {"description": "Label for parent group selector in create/edit sheet"},
+  "memberGroupParentNone": "None (top level)",
+  "@memberGroupParentNone": {"description": "Placeholder when no parent group is selected"},
+  "memberGroupParentDepthLimit": "Can't nest deeper",
+  "@memberGroupParentDepthLimit": {"description": "Label for groups that are at max depth in parent picker"},
   "memberGroupFilterAll": "All",
   "@memberGroupFilterAll": {
     "description": "Filter chip label to show all members (no group filter)"
