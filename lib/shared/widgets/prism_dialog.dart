@@ -61,7 +61,7 @@ class PrismDialog extends StatelessWidget {
       barrierDismissible: barrierDismissible,
       barrierLabel: context.l10n.dismiss,
       barrierColor: AppColors.warmBlack
-          .withValues(alpha: isDark ? 0.25 : 0.35),
+          .withValues(alpha: isDark ? 0.55 : 0.45),
       transitionDuration: const Duration(milliseconds: 200),
       transitionBuilder: (transitionContext, animation, secondaryAnimation, child) {
         if (MediaQuery.of(transitionContext).disableAnimations) {
@@ -121,7 +121,7 @@ class PrismDialog extends StatelessWidget {
       barrierDismissible: barrierDismissible,
       barrierLabel: context.l10n.dismiss,
       barrierColor: AppColors.warmBlack
-          .withValues(alpha: isDark ? 0.25 : 0.35),
+          .withValues(alpha: isDark ? 0.55 : 0.45),
       transitionDuration: const Duration(milliseconds: 200),
       transitionBuilder: (transitionContext, animation, secondaryAnimation, child) {
         if (MediaQuery.of(transitionContext).disableAnimations) {
@@ -246,8 +246,8 @@ class _GlassDialogShell extends StatelessWidget {
     );
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final fillColor = isDark
-        ? AppColors.warmWhite.withValues(alpha: 0.08)
-        : AppColors.warmWhite.withValues(alpha: 0.65);
+        ? AppColors.warmWhite.withValues(alpha: 0.18)
+        : AppColors.warmWhite.withValues(alpha: 0.82);
     final borderColor = isDark
         ? AppColors.warmWhite.withValues(alpha: 0.1)
         : AppColors.warmBlack.withValues(alpha: 0.06);
