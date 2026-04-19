@@ -1,4 +1,5 @@
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -115,7 +116,16 @@ class _PrismAppState extends ConsumerState<PrismApp> {
         ThemeData lightTheme;
         ThemeData darkTheme;
 
-        switch (style) {
+        // Material You dynamic colors only exist on Android. Synced settings
+        // can arrive on iOS/macOS with materialYou set; treat it as standard
+        // there so the user's accent color is preserved.
+        final effectiveStyle =
+            style == ThemeStyle.materialYou &&
+                defaultTargetPlatform != TargetPlatform.android
+            ? ThemeStyle.standard
+            : style;
+
+        switch (effectiveStyle) {
           case ThemeStyle.materialYou:
             lightTheme = AppTheme.materialYouLight(lightDynamic, cornerStyle: cornerStyle);
             darkTheme = AppTheme.materialYouDark(darkDynamic, cornerStyle: cornerStyle);
