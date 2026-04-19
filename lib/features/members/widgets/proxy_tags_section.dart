@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/features/members/utils/proxy_tag.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -33,7 +32,7 @@ class ProxyTagsSection extends StatelessWidget {
 
     final theme = Theme.of(context);
     final l10n = context.l10n;
-    final tags = _parseProxyTags(member.proxyTagsJson);
+    final tags = parseProxyTags(member.proxyTagsJson);
     final deeplinkId = member.pluralkitId;
 
     return Padding(
@@ -113,30 +112,6 @@ class ProxyTagsSection extends StatelessWidget {
         (Uri u) => launchUrl(u, mode: LaunchMode.externalApplication);
     await launcher(uri);
   }
-
-  static List<ProxyTag> _parseProxyTags(String? json) {
-    if (json == null || json.isEmpty) return const [];
-    try {
-      final decoded = jsonDecode(json);
-      if (decoded is! List) return const [];
-      return decoded
-          .whereType<Map>()
-          .map((e) => ProxyTag(
-                prefix: e['prefix'] as String?,
-                suffix: e['suffix'] as String?,
-              ))
-          .where((t) => t.prefix != null || t.suffix != null)
-          .toList();
-    } catch (_) {
-      return const [];
-    }
-  }
-}
-
-class ProxyTag {
-  const ProxyTag({this.prefix, this.suffix});
-  final String? prefix;
-  final String? suffix;
 }
 
 class _ProxyTagChip extends StatelessWidget {
