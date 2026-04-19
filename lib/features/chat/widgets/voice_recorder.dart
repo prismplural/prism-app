@@ -8,6 +8,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -125,7 +126,7 @@ class _VoiceRecorderState extends ConsumerState<VoiceRecorder> {
       child: Container(
         decoration: BoxDecoration(
           color: fillColor,
-          borderRadius: BorderRadius.circular(widget.height / 2),
+          borderRadius: BorderRadius.circular(PrismShapes.of(context).pill(widget.height)),
           border: Border.all(
             color: borderColor,
             width: PrismTokens.hairlineBorderWidth,

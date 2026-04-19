@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// Placeholder shown when a media attachment has expired or is no longer
@@ -28,7 +29,7 @@ class ExpiredMedia extends StatelessWidget {
     return Semantics(
       label: context.l10n.chatMediaNoLongerAvailable,
       child: TintedGlassSurface(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
         width: effectiveWidth,
         height: effectiveHeight,
         child: Row(

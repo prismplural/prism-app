@@ -35,6 +35,7 @@ import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -937,7 +938,7 @@ class _ReplyQuote extends StatelessWidget {
                     : EdgeInsets.zero,
                 child: TintedGlassSurface(
                   tint: isDeleted ? null : authorColor,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 4,

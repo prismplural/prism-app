@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
@@ -137,7 +138,7 @@ class MentionOverlayState extends State<MentionOverlay>
           child: Material(
             type: MaterialType.transparency,
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
               child: BackdropFilter(
                 filter: ImageFilter.blur(
                   sigmaX: PrismTokens.glassBlurStrong,
@@ -149,7 +150,7 @@ class MentionOverlayState extends State<MentionOverlay>
                     color: isDark
                         ? AppColors.warmBlack.withValues(alpha: 0.65)
                         : AppColors.warmWhite.withValues(alpha: 0.8),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
                     border: Border.all(
                       color: isDark
                           ? AppColors.warmWhite.withValues(alpha: 0.12)

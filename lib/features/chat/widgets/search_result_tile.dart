@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/chat/models/search_result.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 class SearchResultTile extends StatelessWidget {
@@ -67,7 +68,7 @@ class SearchResultTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     // Conversation pill
                     TintedGlassSurface(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
                         vertical: 2,

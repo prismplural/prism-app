@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
 /// Displays a GIF attachment inside a chat message bubble as a looping
@@ -214,7 +215,7 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
       child: Semantics(
         label: 'GIF: ${widget.contentDescription ?? 'GIF'}',
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
           child: SizedBox(
             width: effectiveWidth,
             height: effectiveHeight,
@@ -263,7 +264,7 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
         width: w,
         height: h,
         tint: theme.colorScheme.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
         padding: const EdgeInsets.all(16),
         child: Center(
           child: Column(
@@ -281,7 +282,7 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(PrismShapes.of(context).pill(36)),
                     onTap: () => unawaited(widget.onEnableTap!()),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
@@ -289,7 +290,7 @@ class _GifBubbleState extends State<GifBubble> with WidgetsBindingObserver {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(PrismShapes.of(context).pill(36)),
                         color: theme.colorScheme.surface.withValues(alpha: 0.5),
                         border: Border.all(
                           color: theme.colorScheme.outlineVariant.withValues(
@@ -424,7 +425,7 @@ class _GifLabel extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(4)),
       ),
       child: Text(
         'GIF',

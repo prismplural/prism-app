@@ -10,6 +10,7 @@ import 'package:prism_plurality/features/chat/providers/chat_search_providers.da
 import 'package:prism_plurality/features/chat/widgets/search_result_tile.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -89,7 +90,7 @@ class _ChatSearchScreenState extends ConsumerState<ChatSearchScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: TintedGlassSurface(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Row(
                           children: [

@@ -17,6 +17,7 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -386,7 +387,7 @@ class _CreateConversationSheetState
                                     decoration: BoxDecoration(
                                       color: theme.colorScheme.primary
                                           .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(999),
+                                      borderRadius: BorderRadius.circular(PrismShapes.of(context).pill(22)),
                                     ),
                                     child: Text(
                                       context.l10n.chatCreateFronting,
@@ -434,7 +435,7 @@ class _CreateConversationSheetState
                       color: theme.colorScheme.errorContainer.withValues(
                         alpha: 0.4,
                       ),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                     ),
                     child: Row(
                       children: [

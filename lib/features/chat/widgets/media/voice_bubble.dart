@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
 
@@ -159,7 +160,7 @@ class _VoiceBubbleState extends State<VoiceBubble>
     return Semantics(
       label: context.l10n.chatVoiceNoteSemantics(durationText),
       child: TintedGlassSurface(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -246,7 +247,7 @@ class _VoiceBubbleState extends State<VoiceBubble>
                         ),
                       )
                     : ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
                         child: LayoutBuilder(
                           builder: (context, constraints) {
                             final barWidth = constraints.maxWidth;
@@ -258,7 +259,7 @@ class _VoiceBubbleState extends State<VoiceBubble>
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.onSurface
                                         .withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(2),
+                                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
                                   ),
                                 ),
                                 Container(
@@ -266,7 +267,7 @@ class _VoiceBubbleState extends State<VoiceBubble>
                                   height: 4,
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.primary,
-                                    borderRadius: BorderRadius.circular(2),
+                                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
                                   ),
                                 ),
                               ],
@@ -314,7 +315,7 @@ class _VoiceBubbleState extends State<VoiceBubble>
                                         ? 0.10
                                         : 0.05,
                                   ),
-                                  borderRadius: BorderRadius.circular(999),
+                                  borderRadius: BorderRadius.circular(PrismShapes.of(context).pill(28)),
                                 ),
                                 child: Text(
                                   '${speedStr}x',
