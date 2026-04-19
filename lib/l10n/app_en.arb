@@ -4890,9 +4890,21 @@
   "@onboardingPluralKitTokenHint": {
     "description": "Hint text for the PluralKit token field"
   },
-  "onboardingPluralKitImportButton": "Import Members",
+  "onboardingPluralKitImportButton": "Import PluralKit Data",
   "@onboardingPluralKitImportButton": {
     "description": "Button label to start PluralKit import"
+  },
+  "onboardingPluralKitConnecting": "Connecting to PluralKit…",
+  "@onboardingPluralKitConnecting": {
+    "description": "Loading label shown while validating the PluralKit token"
+  },
+  "onboardingPluralKitImportingMembers": "Importing members…",
+  "@onboardingPluralKitImportingMembers": {
+    "description": "Loading label shown while importing PluralKit members"
+  },
+  "onboardingPluralKitImportingHistory": "Importing switch history…",
+  "@onboardingPluralKitImportingHistory": {
+    "description": "Loading label shown while importing PluralKit switch history"
   },
   "onboardingPluralKitImportSuccess": "{count, plural, =1{Imported 1 member from PluralKit!} other{Imported {count} members from PluralKit!}}",
   "@onboardingPluralKitImportSuccess": {

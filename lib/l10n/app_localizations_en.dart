@@ -3623,7 +3623,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingPluralKitTokenHint => 'Paste your PluralKit token';
 
   @override
-  String get onboardingPluralKitImportButton => 'Import Members';
+  String get onboardingPluralKitImportButton => 'Import PluralKit Data';
+
+  @override
+  String get onboardingPluralKitConnecting => 'Connecting to PluralKit…';
+
+  @override
+  String get onboardingPluralKitImportingMembers => 'Importing members…';
+
+  @override
+  String get onboardingPluralKitImportingHistory => 'Importing switch history…';
 
   @override
   String onboardingPluralKitImportSuccess(int count) {

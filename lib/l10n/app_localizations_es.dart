@@ -3695,7 +3695,17 @@ class AppLocalizationsEs extends AppLocalizations {
   String get onboardingPluralKitTokenHint => 'Pega tu token de PluralKit';
 
   @override
-  String get onboardingPluralKitImportButton => 'Importar integrantes';
+  String get onboardingPluralKitImportButton => 'Importar datos de PluralKit';
+
+  @override
+  String get onboardingPluralKitConnecting => 'Conectando a PluralKit…';
+
+  @override
+  String get onboardingPluralKitImportingMembers => 'Importando integrantes…';
+
+  @override
+  String get onboardingPluralKitImportingHistory =>
+      'Importando historial de cambios…';
 
   @override
   String onboardingPluralKitImportSuccess(int count) {

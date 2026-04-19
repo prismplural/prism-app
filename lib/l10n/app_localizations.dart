@@ -6347,8 +6347,26 @@ abstract class AppLocalizations {
   /// Button label to start PluralKit import
   ///
   /// In en, this message translates to:
-  /// **'Import Members'**
+  /// **'Import PluralKit Data'**
   String get onboardingPluralKitImportButton;
+
+  /// Loading label shown while validating the PluralKit token
+  ///
+  /// In en, this message translates to:
+  /// **'Connecting to PluralKit…'**
+  String get onboardingPluralKitConnecting;
+
+  /// Loading label shown while importing PluralKit members
+  ///
+  /// In en, this message translates to:
+  /// **'Importing members…'**
+  String get onboardingPluralKitImportingMembers;
+
+  /// Loading label shown while importing PluralKit switch history
+  ///
+  /// In en, this message translates to:
+  /// **'Importing switch history…'**
+  String get onboardingPluralKitImportingHistory;
 
   /// Success message after PluralKit import
   ///

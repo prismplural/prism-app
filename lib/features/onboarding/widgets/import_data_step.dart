@@ -278,6 +278,8 @@ class _PluralKitImportFlow extends ConsumerStatefulWidget {
 
 enum _PkMode { token, file }
 
+enum _PkTokenPhase { connecting, importingMembers, importingHistory }
+
 class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   _PkMode? _mode;
 
@@ -285,6 +287,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
   final _tokenController = TextEditingController();
   bool _obscureToken = true;
   bool _isImporting = false;
+  _PkTokenPhase _importPhase = _PkTokenPhase.connecting;
   bool _importSuccess = false;
   String? _errorMessage;
   int _importedCount = 0;
@@ -441,6 +444,35 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
+    final textColor = isDark ? AppColors.warmWhite : AppColors.warmBlack;
+
+    if (_isImporting) {
+      final label = switch (_importPhase) {
+        _PkTokenPhase.connecting => context.l10n.onboardingPluralKitConnecting,
+        _PkTokenPhase.importingMembers =>
+          context.l10n.onboardingPluralKitImportingMembers,
+        _PkTokenPhase.importingHistory =>
+          context.l10n.onboardingPluralKitImportingHistory,
+      };
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            children: [
+              PrismSpinner(
+                color: textColor,
+                size: 52,
+                dotCount: 8,
+                duration: const Duration(milliseconds: 3000),
+              ),
+              const SizedBox(height: 16),
+              Text(label, style: TextStyle(color: textColor)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -495,6 +527,8 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
           child: PrismTextField(
             controller: _tokenController,
             obscureText: _obscureToken,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _handleImport(),
             style: TextStyle(
               color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
             ),
@@ -1023,6 +1057,7 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
 
     setState(() {
       _isImporting = true;
+      _importPhase = _PkTokenPhase.connecting;
       _errorMessage = null;
     });
 
@@ -1053,6 +1088,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
         return;
       }
 
+      if (mounted) {
+        setState(() => _importPhase = _PkTokenPhase.importingMembers);
+      }
       debugPrint('[PK_ONBOARDING] calling importMembersOnly...');
       // importMembersOnly() already creates/updates members in the DB via the
       // sync service's _importMembers helper (which deduplicates by PK UUID).
@@ -1088,6 +1126,9 @@ class _PluralKitImportFlowState extends ConsumerState<_PluralKitImportFlow> {
       // acknowledge the mapping and run a full import so switches (front
       // history) and groups come along too — not just members.
       try {
+        if (mounted) {
+          setState(() => _importPhase = _PkTokenPhase.importingHistory);
+        }
         debugPrint('[PK_ONBOARDING] acknowledgeMapping + performFullImport...');
         await pkNotifier.acknowledgeMapping();
         await pkNotifier.performFullImport();
