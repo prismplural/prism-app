@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -17,6 +18,7 @@ import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_editor.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -51,6 +53,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   late final TextEditingController _emojiController;
   late final TextEditingController _ageController;
   late final TextEditingController _colorHexController;
+  late final TextEditingController _displayNameController;
 
   bool _isAdmin = false;
   bool _markdownEnabled = false;
@@ -58,6 +61,12 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
   Uint8List? _avatarImageData;
   bool _saving = false;
   bool _saved = false;
+
+  /// Parsed birthday (null when unset). When [_birthdayHideYear] is true the
+  /// year is irrelevant for display; the wire format will substitute the PK
+  /// `0004` sentinel on save.
+  DateTime? _birthday;
+  bool _birthdayHideYear = false;
 
   @override
   void initState() {
@@ -72,6 +81,12 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
         TextEditingController(text: m?.age != null ? '${m!.age}' : '');
     _colorHexController =
         TextEditingController(text: m?.customColorHex ?? '');
+    _displayNameController =
+        TextEditingController(text: m?.displayName ?? '');
+    final parsedBirthday = parseBirthday(m?.birthday);
+    _birthday = parsedBirthday;
+    _birthdayHideYear =
+        parsedBirthday != null && isBirthdayYearHidden(parsedBirthday);
     _isAdmin = m?.isAdmin ?? false;
     _markdownEnabled = m?.markdownEnabled ?? false;
     _customColorEnabled = m?.customColorEnabled ?? false;
@@ -91,6 +106,7 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _emojiController.dispose();
     _ageController.dispose();
     _colorHexController.dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -118,6 +134,28 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     }
   }
 
+  Future<void> _pickBirthday(BuildContext anchorContext) async {
+    // When hiding the year we still need an anchor year for the picker; pin
+    // to year 2000 so month/day wrap normally. When the user has a real year
+    // already, seed from that; otherwise default to 20 years ago as a
+    // reasonable scroll starting point.
+    final initial = _birthday != null && !isBirthdayYearHidden(_birthday!)
+        ? _birthday!
+        : _birthday != null
+            ? DateTime(2000, _birthday!.month, _birthday!.day)
+            : DateTime(DateTime.now().year - 20, 1, 1);
+    final picked = await showPrismDatePicker(
+      context: context,
+      anchorContext: anchorContext,
+      initialDate: initial,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null && mounted) {
+      setState(() => _birthday = picked);
+    }
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -134,6 +172,12 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
             ? _colorHexController.text.trim()
             : null
         : null;
+    final displayName = _displayNameController.text.trim();
+    // Preserve PK's `YYYY-MM-DD` wire format so round-trips stay byte-identical;
+    // `0004-MM-DD` is the "no year" sentinel that PK uses when the year is hidden.
+    final birthdayWire = _birthday == null
+        ? null
+        : formatBirthdayWire(_birthday!, hideYear: _birthdayHideYear);
 
     try {
       final notifier = ref.read(membersNotifierProvider.notifier);
@@ -150,6 +194,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           markdownEnabled: _markdownEnabled,
           customColorEnabled: _customColorEnabled,
           customColorHex: colorHex,
+          displayName: displayName.isNotEmpty ? displayName : null,
+          birthday: birthdayWire,
         );
         await notifier.updateMember(updated);
       } else {
@@ -163,6 +209,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
           avatarImageData: _avatarImageData,
           isAdmin: _isAdmin,
           customColorHex: colorHex,
+          displayName: displayName.isNotEmpty ? displayName : null,
+          birthday: birthdayWire,
         );
       }
 
@@ -293,6 +341,14 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                         const SizedBox(height: 16),
 
                         PrismTextField(
+                          controller: _displayNameController,
+                          labelText: l10n.memberDisplayNameLabel,
+                          hintText: l10n.memberDisplayNameHint,
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                        const SizedBox(height: 16),
+
+                        PrismTextField(
                           controller: _pronounsController,
                           labelText: l10n.memberPronounsLabel,
                           hintText: l10n.memberPronounsHint,
@@ -307,6 +363,16 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                           inputFormatters: [
                             FilteringTextInputFormatter.digitsOnly,
                           ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        _BirthdayField(
+                          date: _birthday,
+                          hideYear: _birthdayHideYear,
+                          onPick: _pickBirthday,
+                          onClear: () => setState(() => _birthday = null),
+                          onToggleHideYear: (v) =>
+                              setState(() => _birthdayHideYear = v),
                         ),
                         const SizedBox(height: 16),
 
@@ -389,5 +455,112 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
               ],
             ),
           );
+  }
+}
+
+/// Read-only-looking row that reveals the cupertino date picker when tapped.
+/// Shows the formatted birthday or a hint, a "hide year" toggle once a date
+/// is set, and a clear button.
+class _BirthdayField extends StatelessWidget {
+  const _BirthdayField({
+    required this.date,
+    required this.hideYear,
+    required this.onPick,
+    required this.onClear,
+    required this.onToggleHideYear,
+  });
+
+  final DateTime? date;
+  final bool hideYear;
+  final Future<void> Function(BuildContext anchorContext) onPick;
+  final VoidCallback onClear;
+  final ValueChanged<bool> onToggleHideYear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final locale = Localizations.localeOf(context).toString();
+
+    final effective = date;
+    final displayText = effective == null
+        ? l10n.memberBirthdayHint
+        : (hideYear
+            ? formatBirthdayDisplay(
+                DateTime(birthdayNoYearSentinel, effective.month, effective.day),
+                locale,
+              )
+            : formatBirthdayDisplay(effective, locale));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            l10n.memberBirthdayLabel,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Builder(
+          builder: (anchorContext) => InkWell(
+            onTap: () => onPick(anchorContext),
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    AppIcons.calendarTodayOutlined,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      displayText,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: effective == null
+                            ? theme.colorScheme.onSurfaceVariant
+                            : theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                  if (effective != null)
+                    IconButton(
+                      tooltip: l10n.memberBirthdayClear,
+                      icon: Icon(
+                        AppIcons.close,
+                        size: 18,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      onPressed: onClear,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (effective != null) ...[
+          const SizedBox(height: 8),
+          PrismSwitchRow(
+            title: l10n.memberBirthdayHideYear,
+            subtitle: l10n.memberBirthdayHideYearSubtitle,
+            value: hideYear,
+            onChanged: onToggleHideYear,
+          ),
+        ],
+      ],
+    );
   }
 }

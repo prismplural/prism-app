@@ -2743,6 +2743,30 @@ class AppLocalizationsEs extends AppLocalizations {
   String get memberBioHint => 'Una breve descripción...';
 
   @override
+  String get memberDisplayNameLabel => 'Nombre mostrado';
+
+  @override
+  String get memberDisplayNameHint => 'Alias opcional junto al nombre';
+
+  @override
+  String get memberBirthdayLabel => 'Cumpleaños';
+
+  @override
+  String get memberBirthdayHint => 'Toca para elegir una fecha';
+
+  @override
+  String get memberBirthdayHideYear => 'Ocultar año';
+
+  @override
+  String get memberBirthdayHideYearSubtitle => 'Mostrar solo mes y día';
+
+  @override
+  String get memberBirthdayClear => 'Borrar cumpleaños';
+
+  @override
+  String get memberSectionBirthday => 'Cumpleaños';
+
+  @override
   String get memberMarkdownTitle => 'Formatear bio en markdown';
 
   @override

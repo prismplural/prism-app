@@ -29,6 +29,7 @@ import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/features/members/widgets/member_group_chips.dart';
+import 'package:prism_plurality/features/members/utils/birthday.dart';
 import 'package:prism_plurality/features/members/widgets/proxy_tags_section.dart';
 import 'package:prism_plurality/features/members/widgets/custom_fields_display.dart';
 import 'package:prism_plurality/features/members/widgets/notes_section.dart';
@@ -70,6 +71,12 @@ class MemberDetailScreen extends ConsumerWidget {
       },
     );
   }
+}
+
+String? _birthdayDisplay(BuildContext context, Member member) {
+  final parsed = parseBirthday(member.birthday);
+  if (parsed == null) return null;
+  return formatBirthdayDisplay(parsed, Localizations.localeOf(context).toString());
 }
 
 class _MemberDetailBody extends ConsumerWidget {
@@ -137,6 +144,17 @@ class _MemberDetailBody extends ConsumerWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (member.displayName != null &&
+                          member.displayName!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          member.displayName!.trim(),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                       if (member.pronouns != null &&
                           member.pronouns!.isNotEmpty) ...[
                         const SizedBox(height: 2),
@@ -154,6 +172,28 @@ class _MemberDetailBody extends ConsumerWidget {
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
+                        ),
+                      ],
+                      if (_birthdayDisplay(context, member) != null) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              AppIcons.calendarTodayOutlined,
+                              size: 16,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                _birthdayDisplay(context, member)!,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                       const SizedBox(height: 8),

@@ -3599,6 +3599,38 @@
   "@memberBioHint": {
     "description": "Hint text for the member bio field"
   },
+  "memberDisplayNameLabel": "Display name",
+  "@memberDisplayNameLabel": {
+    "description": "Label for the member display-name (alias) text field"
+  },
+  "memberDisplayNameHint": "Optional alias shown alongside the name",
+  "@memberDisplayNameHint": {
+    "description": "Hint text for the member display-name field"
+  },
+  "memberBirthdayLabel": "Birthday",
+  "@memberBirthdayLabel": {
+    "description": "Label for the member birthday field"
+  },
+  "memberBirthdayHint": "Tap to set a date",
+  "@memberBirthdayHint": {
+    "description": "Placeholder text when no birthday is set"
+  },
+  "memberBirthdayHideYear": "Hide year",
+  "@memberBirthdayHideYear": {
+    "description": "Toggle label to hide the birth year"
+  },
+  "memberBirthdayHideYearSubtitle": "Show only the month and day",
+  "@memberBirthdayHideYearSubtitle": {
+    "description": "Subtitle for the hide-year toggle"
+  },
+  "memberBirthdayClear": "Clear birthday",
+  "@memberBirthdayClear": {
+    "description": "Action to clear the birthday value"
+  },
+  "memberSectionBirthday": "Birthday",
+  "@memberSectionBirthday": {
+    "description": "Section header for birthday on the member detail screen"
+  },
   "memberMarkdownTitle": "Format bio as markdown",
   "@memberMarkdownTitle": {
     "description": "Switch label: format bio as markdown"

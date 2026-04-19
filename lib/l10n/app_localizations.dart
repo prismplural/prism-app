@@ -4736,6 +4736,54 @@ abstract class AppLocalizations {
   /// **'A short description...'**
   String get memberBioHint;
 
+  /// Label for the member display-name (alias) text field
+  ///
+  /// In en, this message translates to:
+  /// **'Display name'**
+  String get memberDisplayNameLabel;
+
+  /// Hint text for the member display-name field
+  ///
+  /// In en, this message translates to:
+  /// **'Optional alias shown alongside the name'**
+  String get memberDisplayNameHint;
+
+  /// Label for the member birthday field
+  ///
+  /// In en, this message translates to:
+  /// **'Birthday'**
+  String get memberBirthdayLabel;
+
+  /// Placeholder text when no birthday is set
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to set a date'**
+  String get memberBirthdayHint;
+
+  /// Toggle label to hide the birth year
+  ///
+  /// In en, this message translates to:
+  /// **'Hide year'**
+  String get memberBirthdayHideYear;
+
+  /// Subtitle for the hide-year toggle
+  ///
+  /// In en, this message translates to:
+  /// **'Show only the month and day'**
+  String get memberBirthdayHideYearSubtitle;
+
+  /// Action to clear the birthday value
+  ///
+  /// In en, this message translates to:
+  /// **'Clear birthday'**
+  String get memberBirthdayClear;
+
+  /// Section header for birthday on the member detail screen
+  ///
+  /// In en, this message translates to:
+  /// **'Birthday'**
+  String get memberSectionBirthday;
+
   /// Switch label: format bio as markdown
   ///
   /// In en, this message translates to:
