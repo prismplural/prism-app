@@ -478,6 +478,7 @@ class DriftSystemSettingsRepository
       'theme_mode': s.themeMode.index,
       'theme_brightness': s.themeBrightness.index,
       'theme_style': s.themeStyle.index,
+      'theme_corner_style': s.cornerStyle.index,
       'chat_enabled': s.chatEnabled,
       'polls_enabled': s.pollsEnabled,
       'habits_enabled': s.habitsEnabled,
