@@ -500,7 +500,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get syncSetupIntroBody =>
-      'Todo está cifrado de extremo a extremo — el servidor nunca ve tus datos. Crearás una contraseña y recibirás una clave de recuperación para guardar.';
+      'Todo está cifrado de extremo a extremo — el servidor nunca ve tus datos. Crearás una contraseña y recibirás una clave de recuperación para guardar. Necesitarás tu frase de recuperación de 12 palabras para continuar. Tenla a mano.';
 
   @override
   String get syncSetupSelfHosted => '¿Relay propio?';
@@ -6222,7 +6222,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get onboardingRecoveryPhraseSubtitle =>
-      'Anota estas 12 palabras en un lugar seguro. Son la única forma de recuperar tus datos si pierdes tu PIN.';
+      'Anota estas 12 palabras en un lugar seguro. Las necesitarás para configurar la sincronización, agregar nuevos dispositivos o cambiar tu PIN.';
 
   @override
   String get onboardingConfirmPhraseTitle => 'Verifica tu frase';

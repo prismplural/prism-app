@@ -483,7 +483,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get syncSetupIntroBody =>
-      'Everything is end-to-end encrypted — the server never sees your data. You\'ll create a password and receive a recovery key to keep safe.';
+      'Everything is end-to-end encrypted — the server never sees your data. You\'ll create a password and receive a recovery key to keep safe. You\'ll need your 12-word recovery phrase to continue. Have it ready.';
 
   @override
   String get syncSetupSelfHosted => 'Self-hosted relay?';
@@ -6111,7 +6111,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get onboardingRecoveryPhraseSubtitle =>
-      'Write these 12 words somewhere safe. They\'re the only way to recover your data if you lose your PIN.';
+      'Write these 12 words somewhere safe. You\'ll need them to set up sync, add new devices, or change your PIN.';
 
   @override
   String get onboardingConfirmPhraseTitle => 'Verify your phrase';
