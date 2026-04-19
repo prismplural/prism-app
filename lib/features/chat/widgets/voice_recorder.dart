@@ -375,31 +375,24 @@ class _AnimatedWaveform extends StatefulWidget {
 class _AnimatedWaveformState extends State<_AnimatedWaveform>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
+  late final _WaveformModel _model;
 
-  /// Per-bar grow-in progress [0..1].
-  final List<double> _barProgress = [];
-
-  /// Continuous slide position — grows by 1.0 per new sample. The fractional
-  /// part drives the smooth slide animation; integers mark settled states.
-  double _slidePhase = 0.0;
-
-  /// Target slide position — incremented by 1 for each arriving sample.
   double _targetPhase = 0.0;
-
   Duration _lastTick = Duration.zero;
 
-  static const _animDuration = 150.0; // ms per bar
+  static const _animDuration = 150.0;
 
   @override
   void initState() {
     super.initState();
-    // Treat existing samples as already settled.
     final n = widget.samples.length.toDouble();
-    _slidePhase = n;
     _targetPhase = n;
-    for (var i = 0; i < widget.samples.length; i++) {
-      _barProgress.add(1.0);
-    }
+    _model = _WaveformModel(
+      samples: List.of(widget.samples),
+      barProgress: List.filled(widget.samples.length, 1.0),
+      slidePhase: n,
+      color: widget.color,
+    );
     _ticker = createTicker(_onTick)..start();
   }
 
@@ -410,75 +403,86 @@ class _AnimatedWaveformState extends State<_AnimatedWaveform>
     if (added > 0) {
       _targetPhase += added.toDouble();
     }
+    _model.color = widget.color;
   }
 
   @override
   void dispose() {
     _ticker.dispose();
+    _model.dispose();
     super.dispose();
   }
 
   void _onTick(Duration elapsed) {
-    final dt = (elapsed - _lastTick).inMicroseconds / 1000.0; // ms
+    final dt = (elapsed - _lastTick).inMicroseconds / 1000.0;
     _lastTick = elapsed;
 
-    // Grow progress list to match sample count.
-    while (_barProgress.length < widget.samples.length) {
-      _barProgress.add(0.0);
+    final newSamples = widget.samples;
+    while (_model.barProgress.length < newSamples.length) {
+      _model.barProgress.add(0.0);
     }
 
-    var needsRepaint = false;
+    var dirty = false;
 
-    // Advance slide phase toward target — this drives the horizontal scroll.
-    if (_slidePhase < _targetPhase) {
-      _slidePhase = (_slidePhase + dt / _animDuration)
-          .clamp(0.0, _targetPhase);
-      needsRepaint = true;
+    if (_model.slidePhase < _targetPhase) {
+      _model.slidePhase =
+          (_model.slidePhase + dt / _animDuration).clamp(0.0, _targetPhase);
+      dirty = true;
     }
 
-    // Advance per-bar grow-in animations.
-    for (var i = 0; i < _barProgress.length; i++) {
-      if (_barProgress[i] < 1.0) {
-        _barProgress[i] =
-            (_barProgress[i] + dt / _animDuration).clamp(0.0, 1.0);
-        needsRepaint = true;
+    for (var i = 0; i < _model.barProgress.length; i++) {
+      if (_model.barProgress[i] < 1.0) {
+        _model.barProgress[i] =
+            (_model.barProgress[i] + dt / _animDuration).clamp(0.0, 1.0);
+        dirty = true;
       }
     }
 
-    if (needsRepaint) {
-      setState(() {});
+    if (dirty) {
+      _model.update(newSamples);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    _model.color = widget.color;
     return CustomPaint(
-      painter: _WaveformPainter(
-        samples: widget.samples,
-        barProgress: _barProgress,
-        color: widget.color,
-        slidePhase: _slidePhase,
-      ),
+      painter: _WaveformPainter(_model),
       size: Size(double.infinity, widget.height),
     );
   }
 }
 
+/// Holds mutable waveform state and notifies the painter to repaint
+/// without triggering a widget rebuild.
+class _WaveformModel extends ChangeNotifier {
+  _WaveformModel({
+    required List<double> samples,
+    required List<double> barProgress,
+    required double slidePhase,
+    required Color color,
+  })  : _samples = samples,
+        barProgress = barProgress,
+        slidePhase = slidePhase,
+        color = color;
+
+  List<double> _samples;
+  List<double> barProgress;
+  double slidePhase;
+  Color color;
+
+  List<double> get samples => _samples;
+
+  void update(List<double> newSamples) {
+    _samples = newSamples;
+    notifyListeners();
+  }
+}
+
 class _WaveformPainter extends CustomPainter {
-  _WaveformPainter({
-    required this.samples,
-    required this.barProgress,
-    required this.color,
-    required this.slidePhase,
-  });
+  _WaveformPainter(this._model) : super(repaint: _model);
 
-  final List<double> samples;
-  final List<double> barProgress;
-  final Color color;
-
-  /// Continuous slide position — grows by 1.0 per sample. The fractional
-  /// part (0→1) is the progress of the current bar's entry animation.
-  final double slidePhase;
+  final _WaveformModel _model;
 
   static const _barWidth = 3.0;
   static const _barGap = 2.0;
@@ -486,6 +490,7 @@ class _WaveformPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final samples = _model.samples;
     if (samples.isEmpty) return;
 
     canvas.save();
@@ -497,14 +502,10 @@ class _WaveformPainter extends CustomPainter {
       return;
     }
 
-    // Include one extra bar on the left during scroll so it slides out
-    // smoothly instead of disappearing abruptly.
-    final startIndex = samples.length > maxBars
-        ? samples.length - maxBars - 1
-        : 0;
+    final startIndex =
+        samples.length > maxBars ? samples.length - maxBars - 1 : 0;
     final visibleCount = samples.length - startIndex;
 
-    // Compute normalization over the visible window.
     var minVal = double.infinity;
     var maxVal = -double.infinity;
     for (var i = startIndex; i < samples.length; i++) {
@@ -515,22 +516,14 @@ class _WaveformPainter extends CustomPainter {
     final range = (maxVal - minVal).abs();
 
     final paint = Paint()
-      ..color = color
+      ..color = _model.color
       ..style = PaintingStyle.fill;
     final maxHeight = size.height * 0.85;
-
     const barStep = _barWidth + _barGap;
 
-    // The fractional part of slidePhase (0→1) is the progress within the
-    // current bar's entry animation. Using this for baseSlot ensures the
-    // slide is continuous: it never resets when a new sample arrives.
     final frac = Curves.easeOut.transform(
-      (slidePhase - slidePhase.floorToDouble()).clamp(0.0, 1.0),
+      (_model.slidePhase - _model.slidePhase.floorToDouble()).clamp(0.0, 1.0),
     );
-
-    // Unified formula: newest bar enters from 1 slot past the right edge
-    // (frac=0) and settles at the rightmost slot (frac=1). All other bars
-    // shift left by the same amount. Works for both filling and scrolling.
     final baseSlot = (maxBars - visibleCount + 1).toDouble() - frac;
 
     for (var i = 0; i < visibleCount; i++) {
@@ -539,9 +532,8 @@ class _WaveformPainter extends CustomPainter {
       final normalized = range < 0.01 ? 0.5 : (sample - minVal) / range;
       final targetHeight = _minHeight + normalized * (maxHeight - _minHeight);
 
-      // Per-bar grow-in animation.
-      final growProgress = sampleIndex < barProgress.length
-          ? Curves.easeOut.transform(barProgress[sampleIndex])
+      final growProgress = sampleIndex < _model.barProgress.length
+          ? Curves.easeOut.transform(_model.barProgress[sampleIndex])
           : 1.0;
       final barHeight = _minHeight + (targetHeight - _minHeight) * growProgress;
 
@@ -561,5 +553,5 @@ class _WaveformPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_WaveformPainter old) => true;
+  bool shouldRepaint(_WaveformPainter old) => false;
 }
