@@ -82,14 +82,18 @@ class AppearanceSettingsScreen extends ConsumerWidget {
                           ),
                         )
                         .toList(),
-                    selected: settings.themeStyle,
+                    selected: settings.themeStyle == ThemeStyle.materialYou &&
+                            defaultTargetPlatform != TargetPlatform.android
+                        ? ThemeStyle.standard
+                        : settings.themeStyle,
                     onChanged: (value) {
                       ref
                           .read(settingsNotifierProvider.notifier)
                           .handleThemeStyleChange(value);
                     },
                   ),
-                  if (settings.themeStyle == ThemeStyle.materialYou) ...[
+                  if (settings.themeStyle == ThemeStyle.materialYou &&
+                      defaultTargetPlatform == TargetPlatform.android) ...[
                     const SizedBox(height: 12),
                     Text(
                       context.l10n.appearanceUsesSystemPalette,
