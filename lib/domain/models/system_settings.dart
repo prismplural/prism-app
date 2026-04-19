@@ -40,6 +40,23 @@ enum ThemeBrightness {
   }
 }
 
+/// Corner style preference for the UI (rounded vs angular).
+///
+/// Kept in the domain layer (Flutter-free) as the canonical DB/sync enum.
+/// The shared UI enum [PrismShapes.cornerStyle] in prism_shapes.dart holds
+/// the same values; Task 8 (UI) bridges between the two via index mapping.
+enum CornerStyle {
+  rounded,
+  angular;
+
+  String get displayName {
+    return switch (this) {
+      CornerStyle.rounded => 'Rounded',
+      CornerStyle.angular => 'Angular',
+    };
+  }
+}
+
 /// Visual style of the theme (orthogonal to brightness).
 enum ThemeStyle {
   standard,
@@ -121,6 +138,7 @@ abstract class SystemSettings with _$SystemSettings {
     // New two-axis theme controls.
     @Default(ThemeBrightness.system) ThemeBrightness themeBrightness,
     @Default(ThemeStyle.standard) ThemeStyle themeStyle,
+    @Default(CornerStyle.rounded) CornerStyle cornerStyle,
     @Default(true) bool chatEnabled,
     @Default(true) bool pollsEnabled,
     @Default(true) bool habitsEnabled,

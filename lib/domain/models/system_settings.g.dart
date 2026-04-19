@@ -31,6 +31,9 @@ _SystemSettings _$SystemSettingsFromJson(
   themeStyle:
       $enumDecodeNullable(_$ThemeStyleEnumMap, json['themeStyle']) ??
       ThemeStyle.standard,
+  cornerStyle:
+      $enumDecodeNullable(_$CornerStyleEnumMap, json['cornerStyle']) ??
+      CornerStyle.rounded,
   chatEnabled: json['chatEnabled'] as bool? ?? true,
   pollsEnabled: json['pollsEnabled'] as bool? ?? true,
   habitsEnabled: json['habitsEnabled'] as bool? ?? true,
@@ -107,6 +110,7 @@ Map<String, dynamic> _$SystemSettingsToJson(
   'themeMode': _$AppThemeModeEnumMap[instance.themeMode]!,
   'themeBrightness': _$ThemeBrightnessEnumMap[instance.themeBrightness]!,
   'themeStyle': _$ThemeStyleEnumMap[instance.themeStyle]!,
+  'cornerStyle': _$CornerStyleEnumMap[instance.cornerStyle]!,
   'chatEnabled': instance.chatEnabled,
   'pollsEnabled': instance.pollsEnabled,
   'habitsEnabled': instance.habitsEnabled,
@@ -174,6 +178,11 @@ const _$ThemeStyleEnumMap = {
   ThemeStyle.standard: 'standard',
   ThemeStyle.oled: 'oled',
   ThemeStyle.materialYou: 'materialYou',
+};
+
+const _$CornerStyleEnumMap = {
+  CornerStyle.rounded: 'rounded',
+  CornerStyle.angular: 'angular',
 };
 
 const _$FrontingTimingModeEnumMap = {

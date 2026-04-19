@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 55;
+  int get schemaVersion => 56;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -480,6 +480,20 @@ class AppDatabase extends _$AppDatabase {
         if (systemSettingsExists.isNotEmpty) {
           await customStatement(
             'ALTER TABLE system_settings ADD COLUMN system_color TEXT',
+          );
+        }
+      }
+
+      if (from < 56) {
+        // Corner style preference: rounded (0) or angular (1).
+        // Allows users to opt into a sharper UI aesthetic.
+        final systemSettingsExists = await customSelect(
+          "SELECT 1 FROM sqlite_master WHERE type='table' "
+          "AND name='system_settings'",
+        ).get();
+        if (systemSettingsExists.isNotEmpty) {
+          await customStatement(
+            'ALTER TABLE system_settings ADD COLUMN theme_corner_style INTEGER NOT NULL DEFAULT 0',
           );
         }
       }

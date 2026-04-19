@@ -95,6 +95,7 @@ const String prismSyncSchema = '''
         "theme_mode": "Int",
         "theme_brightness": "Int",
         "theme_style": "Int",
+        "theme_corner_style": "Int",
         "chat_enabled": "Bool",
         "gif_search_enabled": "Bool",
         "voice_notes_enabled": "Bool",

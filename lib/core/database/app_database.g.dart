@@ -4103,6 +4103,18 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _themeCornerStyleMeta = const VerificationMeta(
+    'themeCornerStyle',
+  );
+  @override
+  late final GeneratedColumn<int> themeCornerStyle = GeneratedColumn<int>(
+    'theme_corner_style',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _chatEnabledMeta = const VerificationMeta(
     'chatEnabled',
   );
@@ -4612,6 +4624,7 @@ class $SystemSettingsTableTable extends SystemSettingsTable
     themeMode,
     themeBrightness,
     themeStyle,
+    themeCornerStyle,
     chatEnabled,
     pollsEnabled,
     habitsEnabled,
@@ -4786,6 +4799,15 @@ class $SystemSettingsTableTable extends SystemSettingsTable
       context.handle(
         _themeStyleMeta,
         themeStyle.isAcceptableOrUnknown(data['theme_style']!, _themeStyleMeta),
+      );
+    }
+    if (data.containsKey('theme_corner_style')) {
+      context.handle(
+        _themeCornerStyleMeta,
+        themeCornerStyle.isAcceptableOrUnknown(
+          data['theme_corner_style']!,
+          _themeCornerStyleMeta,
+        ),
       );
     }
     if (data.containsKey('chat_enabled')) {
@@ -5179,6 +5201,10 @@ class $SystemSettingsTableTable extends SystemSettingsTable
         DriftSqlType.int,
         data['${effectivePrefix}theme_style'],
       )!,
+      themeCornerStyle: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}theme_corner_style'],
+      )!,
       chatEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}chat_enabled'],
@@ -5354,6 +5380,7 @@ class SystemSettingsData extends DataClass
   final int themeMode;
   final int themeBrightness;
   final int themeStyle;
+  final int themeCornerStyle;
   final bool chatEnabled;
   final bool pollsEnabled;
   final bool habitsEnabled;
@@ -5408,6 +5435,7 @@ class SystemSettingsData extends DataClass
     required this.themeMode,
     required this.themeBrightness,
     required this.themeStyle,
+    required this.themeCornerStyle,
     required this.chatEnabled,
     required this.pollsEnabled,
     required this.habitsEnabled,
@@ -5481,6 +5509,7 @@ class SystemSettingsData extends DataClass
     map['theme_mode'] = Variable<int>(themeMode);
     map['theme_brightness'] = Variable<int>(themeBrightness);
     map['theme_style'] = Variable<int>(themeStyle);
+    map['theme_corner_style'] = Variable<int>(themeCornerStyle);
     map['chat_enabled'] = Variable<bool>(chatEnabled);
     map['polls_enabled'] = Variable<bool>(pollsEnabled);
     map['habits_enabled'] = Variable<bool>(habitsEnabled);
@@ -5561,6 +5590,7 @@ class SystemSettingsData extends DataClass
       themeMode: Value(themeMode),
       themeBrightness: Value(themeBrightness),
       themeStyle: Value(themeStyle),
+      themeCornerStyle: Value(themeCornerStyle),
       chatEnabled: Value(chatEnabled),
       pollsEnabled: Value(pollsEnabled),
       habitsEnabled: Value(habitsEnabled),
@@ -5643,6 +5673,7 @@ class SystemSettingsData extends DataClass
       themeMode: serializer.fromJson<int>(json['themeMode']),
       themeBrightness: serializer.fromJson<int>(json['themeBrightness']),
       themeStyle: serializer.fromJson<int>(json['themeStyle']),
+      themeCornerStyle: serializer.fromJson<int>(json['themeCornerStyle']),
       chatEnabled: serializer.fromJson<bool>(json['chatEnabled']),
       pollsEnabled: serializer.fromJson<bool>(json['pollsEnabled']),
       habitsEnabled: serializer.fromJson<bool>(json['habitsEnabled']),
@@ -5742,6 +5773,7 @@ class SystemSettingsData extends DataClass
       'themeMode': serializer.toJson<int>(themeMode),
       'themeBrightness': serializer.toJson<int>(themeBrightness),
       'themeStyle': serializer.toJson<int>(themeStyle),
+      'themeCornerStyle': serializer.toJson<int>(themeCornerStyle),
       'chatEnabled': serializer.toJson<bool>(chatEnabled),
       'pollsEnabled': serializer.toJson<bool>(pollsEnabled),
       'habitsEnabled': serializer.toJson<bool>(habitsEnabled),
@@ -5805,6 +5837,7 @@ class SystemSettingsData extends DataClass
     int? themeMode,
     int? themeBrightness,
     int? themeStyle,
+    int? themeCornerStyle,
     bool? chatEnabled,
     bool? pollsEnabled,
     bool? habitsEnabled,
@@ -5867,6 +5900,7 @@ class SystemSettingsData extends DataClass
     themeMode: themeMode ?? this.themeMode,
     themeBrightness: themeBrightness ?? this.themeBrightness,
     themeStyle: themeStyle ?? this.themeStyle,
+    themeCornerStyle: themeCornerStyle ?? this.themeCornerStyle,
     chatEnabled: chatEnabled ?? this.chatEnabled,
     pollsEnabled: pollsEnabled ?? this.pollsEnabled,
     habitsEnabled: habitsEnabled ?? this.habitsEnabled,
@@ -5959,6 +5993,9 @@ class SystemSettingsData extends DataClass
       themeStyle: data.themeStyle.present
           ? data.themeStyle.value
           : this.themeStyle,
+      themeCornerStyle: data.themeCornerStyle.present
+          ? data.themeCornerStyle.value
+          : this.themeCornerStyle,
       chatEnabled: data.chatEnabled.present
           ? data.chatEnabled.value
           : this.chatEnabled,
@@ -6088,6 +6125,7 @@ class SystemSettingsData extends DataClass
           ..write('themeMode: $themeMode, ')
           ..write('themeBrightness: $themeBrightness, ')
           ..write('themeStyle: $themeStyle, ')
+          ..write('themeCornerStyle: $themeCornerStyle, ')
           ..write('chatEnabled: $chatEnabled, ')
           ..write('pollsEnabled: $pollsEnabled, ')
           ..write('habitsEnabled: $habitsEnabled, ')
@@ -6147,6 +6185,7 @@ class SystemSettingsData extends DataClass
     themeMode,
     themeBrightness,
     themeStyle,
+    themeCornerStyle,
     chatEnabled,
     pollsEnabled,
     habitsEnabled,
@@ -6206,6 +6245,7 @@ class SystemSettingsData extends DataClass
           other.themeMode == this.themeMode &&
           other.themeBrightness == this.themeBrightness &&
           other.themeStyle == this.themeStyle &&
+          other.themeCornerStyle == this.themeCornerStyle &&
           other.chatEnabled == this.chatEnabled &&
           other.pollsEnabled == this.pollsEnabled &&
           other.habitsEnabled == this.habitsEnabled &&
@@ -6266,6 +6306,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
   final Value<int> themeMode;
   final Value<int> themeBrightness;
   final Value<int> themeStyle;
+  final Value<int> themeCornerStyle;
   final Value<bool> chatEnabled;
   final Value<bool> pollsEnabled;
   final Value<bool> habitsEnabled;
@@ -6321,6 +6362,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.themeMode = const Value.absent(),
     this.themeBrightness = const Value.absent(),
     this.themeStyle = const Value.absent(),
+    this.themeCornerStyle = const Value.absent(),
     this.chatEnabled = const Value.absent(),
     this.pollsEnabled = const Value.absent(),
     this.habitsEnabled = const Value.absent(),
@@ -6377,6 +6419,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     this.themeMode = const Value.absent(),
     this.themeBrightness = const Value.absent(),
     this.themeStyle = const Value.absent(),
+    this.themeCornerStyle = const Value.absent(),
     this.chatEnabled = const Value.absent(),
     this.pollsEnabled = const Value.absent(),
     this.habitsEnabled = const Value.absent(),
@@ -6433,6 +6476,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Expression<int>? themeMode,
     Expression<int>? themeBrightness,
     Expression<int>? themeStyle,
+    Expression<int>? themeCornerStyle,
     Expression<bool>? chatEnabled,
     Expression<bool>? pollsEnabled,
     Expression<bool>? habitsEnabled,
@@ -6494,6 +6538,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       if (themeMode != null) 'theme_mode': themeMode,
       if (themeBrightness != null) 'theme_brightness': themeBrightness,
       if (themeStyle != null) 'theme_style': themeStyle,
+      if (themeCornerStyle != null) 'theme_corner_style': themeCornerStyle,
       if (chatEnabled != null) 'chat_enabled': chatEnabled,
       if (pollsEnabled != null) 'polls_enabled': pollsEnabled,
       if (habitsEnabled != null) 'habits_enabled': habitsEnabled,
@@ -6568,6 +6613,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     Value<int>? themeMode,
     Value<int>? themeBrightness,
     Value<int>? themeStyle,
+    Value<int>? themeCornerStyle,
     Value<bool>? chatEnabled,
     Value<bool>? pollsEnabled,
     Value<bool>? habitsEnabled,
@@ -6630,6 +6676,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
       themeMode: themeMode ?? this.themeMode,
       themeBrightness: themeBrightness ?? this.themeBrightness,
       themeStyle: themeStyle ?? this.themeStyle,
+      themeCornerStyle: themeCornerStyle ?? this.themeCornerStyle,
       chatEnabled: chatEnabled ?? this.chatEnabled,
       pollsEnabled: pollsEnabled ?? this.pollsEnabled,
       habitsEnabled: habitsEnabled ?? this.habitsEnabled,
@@ -6739,6 +6786,9 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
     }
     if (themeStyle.present) {
       map['theme_style'] = Variable<int>(themeStyle.value);
+    }
+    if (themeCornerStyle.present) {
+      map['theme_corner_style'] = Variable<int>(themeCornerStyle.value);
     }
     if (chatEnabled.present) {
       map['chat_enabled'] = Variable<bool>(chatEnabled.value);
@@ -6906,6 +6956,7 @@ class SystemSettingsTableCompanion extends UpdateCompanion<SystemSettingsData> {
           ..write('themeMode: $themeMode, ')
           ..write('themeBrightness: $themeBrightness, ')
           ..write('themeStyle: $themeStyle, ')
+          ..write('themeCornerStyle: $themeCornerStyle, ')
           ..write('chatEnabled: $chatEnabled, ')
           ..write('pollsEnabled: $pollsEnabled, ')
           ..write('habitsEnabled: $habitsEnabled, ')
@@ -22027,6 +22078,7 @@ typedef $$SystemSettingsTableTableCreateCompanionBuilder =
       Value<int> themeMode,
       Value<int> themeBrightness,
       Value<int> themeStyle,
+      Value<int> themeCornerStyle,
       Value<bool> chatEnabled,
       Value<bool> pollsEnabled,
       Value<bool> habitsEnabled,
@@ -22084,6 +22136,7 @@ typedef $$SystemSettingsTableTableUpdateCompanionBuilder =
       Value<int> themeMode,
       Value<int> themeBrightness,
       Value<int> themeStyle,
+      Value<int> themeCornerStyle,
       Value<bool> chatEnabled,
       Value<bool> pollsEnabled,
       Value<bool> habitsEnabled,
@@ -22210,6 +22263,11 @@ class $$SystemSettingsTableTableFilterComposer
 
   ColumnFilters<int> get themeStyle => $composableBuilder(
     column: $table.themeStyle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get themeCornerStyle => $composableBuilder(
+    column: $table.themeCornerStyle,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -22489,6 +22547,11 @@ class $$SystemSettingsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get themeCornerStyle => $composableBuilder(
+    column: $table.themeCornerStyle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get chatEnabled => $composableBuilder(
     column: $table.chatEnabled,
     builder: (column) => ColumnOrderings(column),
@@ -22759,6 +22822,11 @@ class $$SystemSettingsTableTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get themeCornerStyle => $composableBuilder(
+    column: $table.themeCornerStyle,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<bool> get chatEnabled => $composableBuilder(
     column: $table.chatEnabled,
     builder: (column) => column,
@@ -22999,6 +23067,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> themeMode = const Value.absent(),
                 Value<int> themeBrightness = const Value.absent(),
                 Value<int> themeStyle = const Value.absent(),
+                Value<int> themeCornerStyle = const Value.absent(),
                 Value<bool> chatEnabled = const Value.absent(),
                 Value<bool> pollsEnabled = const Value.absent(),
                 Value<bool> habitsEnabled = const Value.absent(),
@@ -23055,6 +23124,7 @@ class $$SystemSettingsTableTableTableManager
                 themeMode: themeMode,
                 themeBrightness: themeBrightness,
                 themeStyle: themeStyle,
+                themeCornerStyle: themeCornerStyle,
                 chatEnabled: chatEnabled,
                 pollsEnabled: pollsEnabled,
                 habitsEnabled: habitsEnabled,
@@ -23113,6 +23183,7 @@ class $$SystemSettingsTableTableTableManager
                 Value<int> themeMode = const Value.absent(),
                 Value<int> themeBrightness = const Value.absent(),
                 Value<int> themeStyle = const Value.absent(),
+                Value<int> themeCornerStyle = const Value.absent(),
                 Value<bool> chatEnabled = const Value.absent(),
                 Value<bool> pollsEnabled = const Value.absent(),
                 Value<bool> habitsEnabled = const Value.absent(),
@@ -23169,6 +23240,7 @@ class $$SystemSettingsTableTableTableManager
                 themeMode: themeMode,
                 themeBrightness: themeBrightness,
                 themeStyle: themeStyle,
+                themeCornerStyle: themeCornerStyle,
                 chatEnabled: chatEnabled,
                 pollsEnabled: pollsEnabled,
                 habitsEnabled: habitsEnabled,
