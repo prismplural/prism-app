@@ -13,12 +13,8 @@ import 'package:prism_plurality/shared/widgets/glass_surface.dart';
 /// word slots. Focuses automatically advance slot-to-slot on space or suggestion
 /// tap; backspace on an empty slot returns to the previous one.
 ///
-/// The public API (controller, errorText, enabled, autofocus, onSubmitted,
-/// hintText) is unchanged — callers treat this as an opaque input widget.
-///
-/// Suggestion chips sit at the bottom of the column so that when the parent
-/// bottom sheet slides up to accommodate the keyboard, the strip naturally
-/// lands just above the keyboard without any special positioning.
+/// Suggestion chips float above the keyboard via [OverlayPortal], positioned
+/// using [MediaQuery.viewInsetsOf] so they're always visible while typing.
 class PrismMnemonicField extends StatefulWidget {
   const PrismMnemonicField({
     super.key,
@@ -57,6 +53,7 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
       List.generate(12, (_) => TextEditingController());
   final List<FocusNode> _slotFocusNodes =
       List.generate(12, (_) => FocusNode());
+  final _overlayController = OverlayPortalController();
 
   int _focusedSlot = -1;
   bool _obscure = false;
@@ -143,15 +140,20 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
         _focusedSlot = -1;
       }
     });
+    _syncOverlay();
     if (hasFocus) _refreshClipboard();
   }
 
   void _moveFocusToSlot(int index) {
     if (index < 0 || index >= 12) return;
-    _slotFocusNodes[index].requestFocus();
-    final text = _slotControllers[index].text;
-    _slotControllers[index].selection =
-        TextSelection.collapsed(offset: text.length);
+    // Defer to next frame so the keyboard stays visible during the transition.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _slotFocusNodes[index].requestFocus();
+      final text = _slotControllers[index].text;
+      _slotControllers[index].selection =
+          TextSelection.collapsed(offset: text.length);
+    });
   }
 
   KeyEventResult _handleKeyEvent(int index, KeyEvent event) {
@@ -191,12 +193,14 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
         if (parts.isNotEmpty) _moveFocusToSlot(index + 1);
       }
       setState(() {});
+      _syncOverlay();
       return;
     }
 
     // Normal typing — formatter already lowercased and length-capped the value.
     _syncToExternalController();
     setState(() {});
+    _syncOverlay();
   }
 
   void _insertSuggestion(int slotIndex, String word) {
@@ -209,6 +213,19 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
       widget.onSubmitted?.call(widget.controller.text);
     }
     setState(() {});
+    _syncOverlay();
+  }
+
+  // ── Overlay management ────────────────────────────────────────────────────
+
+  void _syncOverlay() {
+    final hasSuggestions =
+        _focusedSlot >= 0 && _suggestionsFor(_focusedSlot).isNotEmpty;
+    if (hasSuggestions) {
+      _overlayController.show();
+    } else {
+      if (_overlayController.isShowing) _overlayController.hide();
+    }
   }
 
   // ── Suggestions ───────────────────────────────────────────────────────────
@@ -264,6 +281,7 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
       }
       _syncToExternalController();
       setState(() {});
+      _syncOverlay();
       widget.onSubmitted?.call(widget.controller.text);
     } catch (_) {}
   }
@@ -282,131 +300,139 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
     final validCount = _slotControllers
         .where((c) => _wordSet.contains(c.text.trim()))
         .length;
-    final suggestions =
-        _focusedSlot >= 0 ? _suggestionsFor(_focusedSlot) : const <String>[];
     final hasError =
         widget.errorText != null && widget.errorText!.isNotEmpty;
     final counterColor = validCount == 12
         ? Colors.green
         : theme.colorScheme.onSurface.withValues(alpha: 0.6);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ── Header ──────────────────────────────────────────────────────────
-        Row(
-          children: [
-            Expanded(
-              child: Semantics(
-                liveRegion: true,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (validCount == 12)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Icon(
-                          AppIcons.checkCircle,
-                          size: 18,
-                          color: Colors.green,
-                        ),
-                      ),
-                    Flexible(
-                      child: Text(
-                        l10n.mnemonicFieldWordCounter(validCount.toString()),
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: counterColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+    return OverlayPortal(
+      controller: _overlayController,
+      overlayChildBuilder: (context) {
+        final slot = _focusedSlot;
+        final suggestions = slot >= 0 ? _suggestionsFor(slot) : const <String>[];
+        final bottom = MediaQuery.viewInsetsOf(context).bottom;
+        return Positioned(
+          bottom: bottom,
+          left: 0,
+          right: 0,
+          child: Material(
+            color: Colors.transparent,
+            child: SizedBox(
+              height: 48,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                itemCount: suggestions.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (_, i) => _SuggestionChip(
+                  word: suggestions[i],
+                  onTap: () => _insertSuggestion(slot, suggestions[i]),
                 ),
               ),
             ),
-            if (_hasValidClipboard && widget.enabled)
-              Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: IconButton(
-                  icon: Icon(AppIcons.paste, size: 20),
-                  tooltip: l10n.mnemonicFieldPaste,
-                  onPressed: _handlePaste,
-                  visualDensity: VisualDensity.compact,
+          ),
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Header ────────────────────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  liveRegion: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (validCount == 12)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: Icon(
+                            AppIcons.checkCircle,
+                            size: 18,
+                            color: Colors.green,
+                          ),
+                        ),
+                      Flexible(
+                        child: Text(
+                          l10n.mnemonicFieldWordCounter(validCount.toString()),
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: counterColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            IconButton(
-              icon: Icon(
-                _obscure
-                    ? AppIcons.visibilityOffOutlined
-                    : AppIcons.visibilityOutlined,
-                size: 20,
+              if (_hasValidClipboard && widget.enabled)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: IconButton(
+                    icon: Icon(AppIcons.paste, size: 20),
+                    tooltip: l10n.mnemonicFieldPaste,
+                    onPressed: _handlePaste,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              IconButton(
+                icon: Icon(
+                  _obscure
+                      ? AppIcons.visibilityOffOutlined
+                      : AppIcons.visibilityOutlined,
+                  size: 20,
+                ),
+                tooltip: _obscure
+                    ? l10n.mnemonicFieldShowWords
+                    : l10n.mnemonicFieldHideWords,
+                onPressed: widget.enabled ? _toggleObscure : null,
+                visualDensity: VisualDensity.compact,
               ),
-              tooltip: _obscure
-                  ? l10n.mnemonicFieldShowWords
-                  : l10n.mnemonicFieldHideWords,
-              onPressed: widget.enabled ? _toggleObscure : null,
-              visualDensity: VisualDensity.compact,
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // ── 2×6 word input grid ────────────────────────────────────────────
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 40,
+              crossAxisSpacing: 6,
+              mainAxisSpacing: 6,
+            ),
+            itemCount: 12,
+            itemBuilder: (_, i) => _WordSlotInput(
+              slotNumber: i + 1,
+              controller: _slotControllers[i],
+              focusNode: _slotFocusNodes[i],
+              obscureText: _obscure,
+              wordSet: _wordSet,
+              enabled: widget.enabled,
+              autofocus: widget.autofocus && i == 0,
+              isLast: i == 11,
+              onChanged: (v) => _onSlotChanged(i, v),
+              onSubmitted: i < 11
+                  ? (_) => _moveFocusToSlot(i + 1)
+                  : (_) => widget.onSubmitted?.call(widget.controller.text),
+            ),
+          ),
+
+          if (hasError) ...[
+            const SizedBox(height: 6),
+            Text(
+              widget.errorText!,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(color: theme.colorScheme.error),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-
-        // ── 2×6 word input grid ──────────────────────────────────────────────
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisExtent: 48,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: 12,
-          itemBuilder: (_, i) => _WordSlotInput(
-            slotNumber: i + 1,
-            controller: _slotControllers[i],
-            focusNode: _slotFocusNodes[i],
-            obscureText: _obscure,
-            wordSet: _wordSet,
-            enabled: widget.enabled,
-            autofocus: widget.autofocus && i == 0,
-            isLast: i == 11,
-            onChanged: (v) => _onSlotChanged(i, v),
-            onSubmitted: i < 11
-                ? (_) => _moveFocusToSlot(i + 1)
-                : (_) => widget.onSubmitted?.call(widget.controller.text),
-          ),
-        ),
-
-        if (hasError) ...[
-          const SizedBox(height: 6),
-          Text(
-            widget.errorText!,
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.error),
-          ),
         ],
-
-        // ── Suggestion strip ─────────────────────────────────────────────────
-        // Placed at the column bottom so it naturally sits above the keyboard
-        // when the parent sheet slides up on focus.
-        if (suggestions.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 40,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: suggestions.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, i) => _SuggestionChip(
-                word: suggestions[i],
-                onTap: () => _insertSuggestion(_focusedSlot, suggestions[i]),
-              ),
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
@@ -508,7 +534,7 @@ class _WordSlotInput extends StatelessWidget {
             decoration: InputDecoration(
               isDense: true,
               contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               filled: true,
               fillColor: fillColor,
               border: baseBorder,
