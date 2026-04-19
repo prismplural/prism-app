@@ -283,7 +283,9 @@ Drift Tables → DAOs → Repositories (abstract) → Mappers → Freezed Models
 ## Database (Drift)
 - 19 tables: app data tables (members, fronting_sessions, conversations, chat_messages, system_settings, polls, poll_options, poll_votes, sleep_sessions, habits, habit_completions, member_groups, member_group_entries, custom_fields, custom_field_values, notes, front_session_comments, pluralkit_sync_state, sync_quarantine)
 - 16 DAOs with generated code
-- Every entity table has: `id`, `createdAt`, `modifiedAt`, `hlc`, `isDirty`, `isDeleted`
+- Synced tables have `id`, `isDeleted` (soft-delete tombstone), and domain columns. They do **not** have `hlc`/`isDirty`/`modifiedAt`/`pending_ops` columns — CRDT metadata is owned by the Rust sync engine in separate Rust-managed tables (`pending_ops`, `applied_ops`, `field_versions`, `sync_metadata`). This split keeps merge semantics portable across Flutter/CLI/future-WASM hosts.
+- **Never write to a synced table without going through its repository.** Repositories call `syncRecordCreate`/`syncRecordUpdate`/`syncRecordDelete` which emit the op to `pending_ops`; bypassing them produces a row that never reaches other devices.
+- **Adding a synced entity:** add it to `prismSyncSchema` in `lib/core/sync/sync_schema.dart` and register a `_fooEntity(...)` builder in `lib/core/sync/drift_sync_adapter.dart`. `test/core/sync/sync_schema_parity_test.dart` fails CI if the two drift apart.
 - Stream-based watch methods for reactive UI
 - Migrations via `onUpgrade` with version-specific `addColumn`/schema changes
 
