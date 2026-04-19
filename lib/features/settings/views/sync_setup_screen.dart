@@ -359,6 +359,7 @@ class _EnterPhraseStepState extends State<_EnterPhraseStep> {
                   Text(
                     'Enter your recovery phrase',
                     style: theme.textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -366,6 +367,7 @@ class _EnterPhraseStepState extends State<_EnterPhraseStep> {
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   PrismMnemonicField(
