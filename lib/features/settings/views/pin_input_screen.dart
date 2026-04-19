@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +45,7 @@ class PinInputScreen extends ConsumerStatefulWidget {
   /// Called with the entered PIN when the PIN is accepted (before [onSuccess]).
   /// Useful for callers that need to capture the PIN value, e.g. to pass as
   /// [pinToConfirm] in a follow-up confirm phase.
-  final void Function(String pin)? onPinEntered;
+  final FutureOr<void> Function(String pin)? onPinEntered;
 
   /// When [true], renders without the [Material]/[SafeArea] wrapper, title, and
   /// subtitle — suitable for embedding inside a larger scaffold (e.g. onboarding).
@@ -62,6 +64,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
     with TickerProviderStateMixin {
   String _pin = '';
   static const _pinLength = 6;
+  bool _isCompleting = false;
 
   // Brute-force throttling
   int _failedAttempts = 0;
@@ -132,7 +135,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
   }
 
   void _onDigit(String digit) {
-    if (_pin.length >= _pinLength || _isLockedOut) return;
+    if (_isCompleting || _pin.length >= _pinLength || _isLockedOut) return;
     Haptics.light();
     setState(() => _pin += digit);
     final mode = VisualEffectsModeX.of(context, ref);
@@ -146,7 +149,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
   }
 
   void _onBackspace() {
-    if (_pin.isEmpty) return;
+    if (_isCompleting || _pin.isEmpty) return;
     Haptics.selection();
     setState(() => _pin = _pin.substring(0, _pin.length - 1));
   }
@@ -173,12 +176,10 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
 
     switch (widget.mode) {
       case PinInputMode.set:
-        widget.onPinEntered?.call(_pin);
-        widget.onSuccess();
+        await _acceptPin();
       case PinInputMode.confirm:
         if (_pin == widget.pinToConfirm) {
-          widget.onPinEntered?.call(_pin);
-          widget.onSuccess();
+          await _acceptPin();
         } else {
           _showError();
         }
@@ -188,8 +189,7 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
         if (valid) {
           _failedAttempts = 0;
           await ref.read(authPolicyServiceProvider).recordPinVerified();
-          widget.onPinEntered?.call(_pin);
-          widget.onSuccess();
+          await _acceptPin();
         } else {
           _failedAttempts++;
           if (_failedAttempts >= _maxAttemptsBeforeLockout) {
@@ -201,6 +201,20 @@ class _PinInputScreenState extends ConsumerState<PinInputScreen>
           }
           _showError();
         }
+    }
+  }
+
+  Future<void> _acceptPin() async {
+    if (_isCompleting) return;
+    setState(() => _isCompleting = true);
+    try {
+      await widget.onPinEntered?.call(_pin);
+      if (!mounted) return;
+      widget.onSuccess();
+    } catch (_) {
+      if (mounted) _showError();
+    } finally {
+      if (mounted) setState(() => _isCompleting = false);
     }
   }
 

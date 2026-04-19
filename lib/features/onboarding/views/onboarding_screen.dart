@@ -85,7 +85,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
     return PopScope(
       canPop: hasExistingData,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !isFirstStep && !isFullScreenStep && !isSelfManagedStep) {
+        if (!didPop &&
+            !isFirstStep &&
+            !isFullScreenStep &&
+            !isSelfManagedStep) {
           notifier.back();
         }
       },
@@ -134,7 +137,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
               child: Column(
                 children: [
                   // Top bar with close button and progress
-                  if (!isFullScreenStep)
+                  if (!isFullScreenStep && !isCompleteStep)
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
@@ -190,9 +193,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                       child: Text(
                         step.localizedTitle(context),
                         textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineLarge
+                        style: Theme.of(context).textTheme.headlineLarge
                             ?.copyWith(
                               fontSize: 28,
                               color: isDark
@@ -283,9 +284,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                 child: SafeArea(
                   child: Material(
                     color: Colors.orange.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(20),
+                    ),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(20),
+                      ),
                       onTap: _isCompleting ? null : _devSkipToApp,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -294,9 +299,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
                         ),
                         child: Text(
                           'DEV: Skip to app',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelSmall
+                          style: Theme.of(context).textTheme.labelSmall
                               ?.copyWith(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
@@ -360,7 +363,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
             context.go(AppRoutePaths.home);
           } catch (e) {
             if (!mounted) return;
-            PrismToast.error(context, message: context.l10n.onboardingErrorCompletingSetup(e));
+            PrismToast.error(
+              context,
+              message: context.l10n.onboardingErrorCompletingSetup(e),
+            );
           }
         },
       ),
@@ -399,7 +405,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
       }
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.onboardingErrorCompletingSetup(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.onboardingErrorCompletingSetup(e),
+        );
       }
     } finally {
       if (mounted) {
@@ -463,7 +472,10 @@ class _ProgressIndicator extends StatelessWidget {
     final currentIndex = steps.indexOf(currentStep);
 
     return Semantics(
-      label: context.l10n.onboardingProgressStep(currentIndex + 1, steps.length),
+      label: context.l10n.onboardingProgressStep(
+        currentIndex + 1,
+        steps.length,
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(steps.length, (index) {
@@ -476,7 +488,9 @@ class _ProgressIndicator extends StatelessWidget {
             height: 4,
             width: isCurrent ? 24 : 12,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(2)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(2),
+              ),
               color: isCurrent
                   ? primary
                   : isPast
@@ -589,7 +603,9 @@ class _PillButtonState extends State<_PillButton> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(28)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(28),
+            ),
             color: _pressed
                 ? widget.primary.withValues(alpha: 0.8)
                 : canPress
@@ -600,10 +616,7 @@ class _PillButtonState extends State<_PillButton> {
             ),
           ),
           child: widget.isLoading
-              ? const PrismSpinner(
-                  color: AppColors.warmBlack,
-                  size: 20,
-                )
+              ? const PrismSpinner(color: AppColors.warmBlack, size: 20)
               : Text(
                   widget.label,
                   style: TextStyle(

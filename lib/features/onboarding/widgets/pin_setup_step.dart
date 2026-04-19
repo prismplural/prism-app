@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/features/settings/providers/pin_lock_providers.dart';
@@ -10,13 +12,10 @@ import 'package:prism_plurality/features/settings/views/pin_input_screen.dart';
 /// Phase 2: [PinInputMode.confirm] — verifies the PIN matches, then calls both
 /// [PinLockService.storePin] and [onPinConfirmed].
 class PinSetupStep extends ConsumerStatefulWidget {
-  const PinSetupStep({
-    super.key,
-    required this.onPinConfirmed,
-  });
+  const PinSetupStep({super.key, required this.onPinConfirmed});
 
   /// Called with the confirmed PIN after it has been stored for app lock.
-  final void Function(String pin) onPinConfirmed;
+  final FutureOr<void> Function(String pin) onPinConfirmed;
 
   @override
   ConsumerState<PinSetupStep> createState() => _PinSetupStepState();
@@ -53,10 +52,17 @@ class _PinSetupStepState extends ConsumerState<PinSetupStep> {
       embedded: true,
       pinToConfirm: phase1Pin,
       onPinEntered: (pin) async {
-        // Store the PIN for app lock, then notify the caller.
+        // Store the PIN for app lock, then notify the caller. If key setup
+        // fails after the PIN is written, remove the partially-installed app
+        // lock so a retry starts from a consistent state.
         final service = ref.read(pinLockServiceProvider);
-        await service.storePin(pin);
-        widget.onPinConfirmed(pin);
+        try {
+          await service.storePin(pin);
+          await widget.onPinConfirmed(pin);
+        } catch (_) {
+          await service.clearPin();
+          rethrow;
+        }
       },
       onSuccess: () {
         // onPinEntered handles persistence; nothing else needed here.

@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class AddMembersStep extends ConsumerWidget {
@@ -54,7 +55,9 @@ class AddMembersStep extends ConsumerWidget {
                             color: isDark
                                 ? AppColors.warmWhite.withValues(alpha: 0.1)
                                 : AppColors.parchmentElevated,
-                            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                            borderRadius: BorderRadius.circular(
+                              PrismShapes.of(context).radius(12),
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -79,7 +82,8 @@ class AddMembersStep extends ConsumerWidget {
                                           fit: BoxFit.cover,
                                           width: 40,
                                           height: 40,
-                                          semanticLabel: '${member.name} avatar',
+                                          semanticLabel:
+                                              '${member.name} avatar',
                                         ),
                                       )
                                     : Center(
@@ -97,22 +101,24 @@ class AddMembersStep extends ConsumerWidget {
                                   children: [
                                     Text(
                                       member.name,
-                                      style: theme.textTheme.titleSmall?.copyWith(
-                                        color: isDark
-                                            ? AppColors.warmWhite
-                                            : AppColors.warmBlack,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: theme.textTheme.titleSmall
+                                          ?.copyWith(
+                                            color: isDark
+                                                ? AppColors.warmWhite
+                                                : AppColors.warmBlack,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                     ),
                                     if (member.pronouns != null &&
                                         member.pronouns!.isNotEmpty)
                                       Text(
                                         member.pronouns!,
-                                        style: theme.textTheme.bodySmall?.copyWith(
-                                          color: isDark
-                                              ? AppColors.mutedTextDark
-                                              : AppColors.mutedTextLight,
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color: isDark
+                                                  ? AppColors.mutedTextDark
+                                                  : AppColors.mutedTextLight,
+                                            ),
                                       ),
                                   ],
                                 ),
@@ -126,11 +132,21 @@ class AddMembersStep extends ConsumerWidget {
                                         alpha: 0.7,
                                       ),
                                 iconSize: 20,
-                                tooltip: context.l10n.onboardingAddMembersRemoveMember,
-                                onPressed: () {
-                                  ref
-                                      .read(onboardingProvider.notifier)
-                                      .deleteMember(member.id);
+                                tooltip: context
+                                    .l10n
+                                    .onboardingAddMembersRemoveMember,
+                                onPressed: () async {
+                                  try {
+                                    await ref
+                                        .read(onboardingProvider.notifier)
+                                        .deleteMember(member.id);
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    PrismToast.error(
+                                      context,
+                                      message: 'Could not remove member: $e',
+                                    );
+                                  }
                                 },
                               ),
                             ],
@@ -151,7 +167,9 @@ class AddMembersStep extends ConsumerWidget {
                 color: isDark
                     ? AppColors.warmWhite.withValues(alpha: 0.15)
                     : AppColors.warmBlack.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(12),
+                ),
                 border: Border.all(
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.2)
@@ -207,6 +225,8 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
   final _emojiController = TextEditingController(text: '\u{1F464}');
   final _ageController = TextEditingController();
   final _bioController = TextEditingController();
+  bool _isSaving = false;
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -243,16 +263,26 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                 const SizedBox(height: 12),
 
                 // Name (required)
-                _buildField(context.l10n.onboardingAddMemberFieldName, _nameController, autofocus: true),
+                _buildField(
+                  context.l10n.onboardingAddMemberFieldName,
+                  _nameController,
+                  autofocus: true,
+                ),
                 const SizedBox(height: 12),
 
                 // Pronouns quick-select
                 Row(
                   children: [
                     for (final (label, value) in [
-                      (context.l10n.onboardingAddMemberPronounSheHer, 'she/her'),
+                      (
+                        context.l10n.onboardingAddMemberPronounSheHer,
+                        'she/her',
+                      ),
                       (context.l10n.onboardingAddMemberPronounHeHim, 'he/him'),
-                      (context.l10n.onboardingAddMemberPronounTheyThem, 'they/them'),
+                      (
+                        context.l10n.onboardingAddMemberPronounTheyThem,
+                        'they/them',
+                      ),
                     ]) ...[
                       PrismChip(
                         label: label,
@@ -265,7 +295,10 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _buildField(context.l10n.onboardingAddMemberFieldPronounsCustom, _pronounsController),
+                _buildField(
+                  context.l10n.onboardingAddMemberFieldPronounsCustom,
+                  _pronounsController,
+                ),
                 const SizedBox(height: 12),
 
                 // Age (optional)
@@ -277,21 +310,39 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                 const SizedBox(height: 12),
 
                 // Bio (optional)
-                _buildField(context.l10n.onboardingAddMemberFieldBio, _bioController, maxLines: 3),
+                _buildField(
+                  context.l10n.onboardingAddMemberFieldBio,
+                  _bioController,
+                  maxLines: 3,
+                ),
                 const SizedBox(height: 20),
+                if (_errorMessage != null) ...[
+                  Text(
+                    _errorMessage!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 // Save button
                 GestureDetector(
-                  onTap: _save,
+                  onTap: _isSaving ? null : _save,
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      color: primary.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                      color: primary.withValues(alpha: _isSaving ? 0.25 : 0.5),
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(12),
+                      ),
                     ),
                     child: Center(
                       child: Text(
-                        context.l10n.onboardingAddMemberSaveButton,
+                        _isSaving
+                            ? context.l10n.loading
+                            : context.l10n.onboardingAddMemberSaveButton,
                         style: theme.textTheme.titleSmall?.copyWith(
                           color: isDark
                               ? AppColors.warmWhite
@@ -352,26 +403,40 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
   }
 
   Future<void> _save() async {
+    if (_isSaving) return;
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
 
-    await ref
-        .read(onboardingProvider.notifier)
-        .createMember(
-          name: name,
-          pronouns: _pronounsController.text.trim().isNotEmpty
-              ? _pronounsController.text.trim()
-              : null,
-          emoji: _emojiController.text.trim().isNotEmpty
-              ? _emojiController.text.trim()
-              : '\u{1F464}',
-          age: int.tryParse(_ageController.text.trim()),
-          bio: _bioController.text.trim().isNotEmpty
-              ? _bioController.text.trim()
-              : null,
-        );
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
 
-    if (!mounted) return;
-    Navigator.of(context).pop();
+    try {
+      await ref
+          .read(onboardingProvider.notifier)
+          .createMember(
+            name: name,
+            pronouns: _pronounsController.text.trim().isNotEmpty
+                ? _pronounsController.text.trim()
+                : null,
+            emoji: _emojiController.text.trim().isNotEmpty
+                ? _emojiController.text.trim()
+                : '\u{1F464}',
+            age: int.tryParse(_ageController.text.trim()),
+            bio: _bioController.text.trim().isNotEmpty
+                ? _bioController.text.trim()
+                : null,
+          );
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _errorMessage = 'Could not save member: $e';
+      });
+    }
   }
 }
