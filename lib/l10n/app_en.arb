@@ -3358,6 +3358,10 @@
   "@memberGroupAddMember": {
     "description": "Button label to add a member to a group"
   },
+  "memberGroupAddSubGroup": "Add sub-group",
+  "@memberGroupAddSubGroup": {
+    "description": "Button label to create a new sub-group inside an existing group"
+  },
   "memberGroupAddToGroup": "Add to group",
   "@memberGroupAddToGroup": {
     "description": "Button label to add a member to a group"
@@ -3487,9 +3491,20 @@
       "name": { "type": "String" }
     }
   },
-  "memberGroupFrontGroup": "Front group",
+  "memberGroupFrontGroup": "Front as Group",
   "@memberGroupFrontGroup": {
     "description": "Button label to front all members in a group"
+  },
+  "memberGroupFrontGroupConfirmTitle": "Front as {name}?",
+  "@memberGroupFrontGroupConfirmTitle": {
+    "description": "Confirmation dialog title when fronting all members in a group",
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "memberGroupFrontGroupConfirmMessage": "All members in this group will start fronting together.",
+  "@memberGroupFrontGroupConfirmMessage": {
+    "description": "Confirmation dialog body when fronting all members in a group"
   },
   "memberGroupFrontGroupSemantics": "Front all members in {name}",
   "@memberGroupFrontGroupSemantics": {

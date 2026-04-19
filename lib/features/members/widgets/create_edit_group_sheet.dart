@@ -51,10 +51,13 @@ class CreateEditGroupSheet extends ConsumerStatefulWidget {
   const CreateEditGroupSheet({
     super.key,
     this.group,
+    this.initialParentGroupId,
     required this.scrollController,
   });
 
   final MemberGroup? group;
+  /// Pre-select a parent when creating a new group (ignored in edit mode).
+  final String? initialParentGroupId;
   final ScrollController scrollController;
 
   bool get isEditing => group != null;
@@ -86,7 +89,7 @@ class _CreateEditGroupSheetState extends ConsumerState<CreateEditGroupSheet> {
       _selectedColor = AppColors.fromHex(g!.colorHex!);
     }
     _emoji = g?.emoji;
-    _parentGroupId = g?.parentGroupId;
+    _parentGroupId = g?.parentGroupId ?? widget.initialParentGroupId;
   }
 
   @override

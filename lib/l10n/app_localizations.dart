@@ -4418,6 +4418,12 @@ abstract class AppLocalizations {
   /// **'Add member'**
   String get memberGroupAddMember;
 
+  /// Button label to create a new sub-group inside an existing group
+  ///
+  /// In en, this message translates to:
+  /// **'Add sub-group'**
+  String get memberGroupAddSubGroup;
+
   /// Button label to add a member to a group
   ///
   /// In en, this message translates to:
@@ -4595,8 +4601,20 @@ abstract class AppLocalizations {
   /// Button label to front all members in a group
   ///
   /// In en, this message translates to:
-  /// **'Front group'**
+  /// **'Front as Group'**
   String get memberGroupFrontGroup;
+
+  /// Confirmation dialog title when fronting all members in a group
+  ///
+  /// In en, this message translates to:
+  /// **'Front as {name}?'**
+  String memberGroupFrontGroupConfirmTitle(String name);
+
+  /// Confirmation dialog body when fronting all members in a group
+  ///
+  /// In en, this message translates to:
+  /// **'All members in this group will start fronting together.'**
+  String get memberGroupFrontGroupConfirmMessage;
 
   /// No description provided for @memberGroupFrontGroupSemantics.
   ///
