@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pointycastle/export.dart';
+import 'package:prism_plurality/features/data_management/services/data_import_service.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 
 void main() {
@@ -104,6 +106,18 @@ void main() {
     test('isEncrypted returns false for plain JSON', () {
       final plain = Uint8List.fromList(utf8.encode(plaintext));
       expect(ExportCrypto.isEncrypted(plain), isFalse);
+    });
+
+    test('resolveBytes works from the isolate-based UI path', () async {
+      const json = '{"formatVersion":"1.0","headmates":[]}';
+      final encrypted = ExportCrypto.encrypt(json, const [], password);
+
+      final result = await Isolate.run(
+        () => DataImportService.resolveBytes(encrypted, password: password),
+      );
+
+      expect(result.json, equals(json));
+      expect(result.mediaBlobs, isEmpty);
     });
   });
 
