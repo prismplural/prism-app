@@ -96,13 +96,25 @@ class DriftMemberGroupsRepository
   @override
   Future<void> promoteChildrenToRoot(String groupId) async {
     final children = await _dao.getDirectChildrenOf(groupId);
-    for (final child in children) {
-      final domain = MemberGroupMapper.toDomain(child);
-      final promoted = domain.copyWith(parentGroupId: null);
-      await _dao.updateGroup(child.id, MemberGroupMapper.toCompanion(promoted));
-      await syncRecordUpdate(_groupTable, child.id, _groupFields(promoted));
+    final promotedModels = children.map((child) {
+      return MemberGroupMapper.toDomain(child).copyWith(parentGroupId: null);
+    }).toList();
+    final entries = await _dao.watchGroupEntries(groupId).first;
+
+    await _dao.transaction(() async {
+      for (final promoted in promotedModels) {
+        await _dao.updateGroup(promoted.id, MemberGroupMapper.toCompanion(promoted));
+      }
+      await _dao.deleteGroup(groupId);
+    });
+
+    for (final promoted in promotedModels) {
+      await syncRecordUpdate(_groupTable, promoted.id, _groupFields(promoted));
     }
-    await deleteGroup(groupId);
+    for (final entry in entries) {
+      await syncRecordDelete(_entryTable, entry.id);
+    }
+    await syncRecordDelete(_groupTable, groupId);
   }
 
   @override
@@ -122,8 +134,24 @@ class DriftMemberGroupsRepository
       toDelete.add(current);
       queue.addAll(byParent[current] ?? []);
     }
+
+    // Pre-fetch entries for sync ops before the transaction deletes them.
+    final entriesByGroup = <String, List<dynamic>>{};
     for (final id in toDelete) {
-      await deleteGroup(id);
+      entriesByGroup[id] = await _dao.watchGroupEntries(id).first;
+    }
+
+    await _dao.transaction(() async {
+      for (final id in toDelete) {
+        await _dao.deleteGroup(id);
+      }
+    });
+
+    for (final id in toDelete) {
+      for (final entry in entriesByGroup[id] ?? []) {
+        await syncRecordDelete(_entryTable, entry.id);
+      }
+      await syncRecordDelete(_groupTable, id);
     }
   }
 

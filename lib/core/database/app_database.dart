@@ -84,7 +84,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 57;
+  int get schemaVersion => 58;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -511,6 +511,15 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       }
+
+      if (from < 58) {
+        // Index parent_group_id for watchChildGroups and getDirectChildrenOf
+        // queries used by nested group tree rendering and cascade delete.
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_member_groups_parent_id '
+          'ON member_groups (parent_group_id) WHERE parent_group_id IS NOT NULL',
+        );
+      }
     },
     onCreate: (migrator) async {
       await migrator.createAll();
@@ -668,6 +677,10 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_sp_id_map_entity_type '
       'ON sp_id_map (entity_type)',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_member_groups_parent_id '
+      'ON member_groups (parent_group_id) WHERE parent_group_id IS NOT NULL',
     );
   }
 

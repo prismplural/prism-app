@@ -3,6 +3,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/core/database/app_database.dart';
+import 'package:prism_plurality/data/repositories/drift_member_groups_repository.dart';
 
 MemberGroupsCompanion _group({
   required String id,
@@ -142,6 +143,162 @@ void main() {
 
       final roots = await db.memberGroupsDao.watchChildGroups(null).first;
       expect(roots.map((r) => r.id), ['a', 'b', 'c']);
+    });
+  });
+
+  // ── getDirectChildrenOf ─────────────────────────────────────────────────────
+
+  group('getDirectChildrenOf', () {
+    test('returns empty list when group has no children', () async {
+      await db
+          .into(db.memberGroups)
+          .insert(_group(id: 'root', displayOrder: 0));
+      final children = await db.memberGroupsDao.getDirectChildrenOf('root');
+      expect(children, isEmpty);
+    });
+
+    test('returns only direct children, not grandchildren', () async {
+      await db
+          .into(db.memberGroups)
+          .insert(_group(id: 'root', displayOrder: 0));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'child', displayOrder: 0, parentGroupId: 'root'));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'grandchild', displayOrder: 0, parentGroupId: 'child'));
+
+      final children = await db.memberGroupsDao.getDirectChildrenOf('root');
+      expect(children.map((r) => r.id), ['child']);
+    });
+
+    test('excludes soft-deleted children', () async {
+      await db
+          .into(db.memberGroups)
+          .insert(_group(id: 'root', displayOrder: 0));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'alive', displayOrder: 0, parentGroupId: 'root'));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'dead', displayOrder: 1, parentGroupId: 'root', isDeleted: true));
+
+      final children = await db.memberGroupsDao.getDirectChildrenOf('root');
+      expect(children.map((r) => r.id), ['alive']);
+    });
+
+    test('returns multiple children for the correct parent only', () async {
+      await db
+          .into(db.memberGroups)
+          .insert(_group(id: 'root-a', displayOrder: 0));
+      await db
+          .into(db.memberGroups)
+          .insert(_group(id: 'root-b', displayOrder: 1));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'child-a1', displayOrder: 0, parentGroupId: 'root-a'));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'child-b1', displayOrder: 0, parentGroupId: 'root-b'));
+
+      final childrenA = await db.memberGroupsDao.getDirectChildrenOf('root-a');
+      expect(childrenA.map((r) => r.id), ['child-a1']);
+
+      final childrenB = await db.memberGroupsDao.getDirectChildrenOf('root-b');
+      expect(childrenB.map((r) => r.id), ['child-b1']);
+    });
+  });
+
+  // ── Repository: deleteGroupWithDescendants ──────────────────────────────────
+
+  group('deleteGroupWithDescendants', () {
+    late DriftMemberGroupsRepository repo;
+
+    setUp(() {
+      repo = DriftMemberGroupsRepository(db.memberGroupsDao, null);
+    });
+
+    test('sibling groups are NOT deleted', () async {
+      await db.into(db.memberGroups).insert(_group(id: 'root-a', displayOrder: 0));
+      await db.into(db.memberGroups).insert(_group(id: 'root-b', displayOrder: 1));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'child-a', displayOrder: 0, parentGroupId: 'root-a'));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'child-b', displayOrder: 0, parentGroupId: 'root-b'));
+
+      await repo.deleteGroupWithDescendants('root-a');
+
+      final remaining = await db.memberGroupsDao.getAllActiveGroups();
+      final ids = remaining.map((g) => g.id).toSet();
+      expect(ids, contains('root-b'));
+      expect(ids, contains('child-b'));
+      expect(ids, isNot(contains('root-a')));
+      expect(ids, isNot(contains('child-a')));
+    });
+
+    test('deletes root, child, and grandchild all at once', () async {
+      await db.into(db.memberGroups).insert(_group(id: 'root', displayOrder: 0));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'child', displayOrder: 0, parentGroupId: 'root'));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'grandchild', displayOrder: 0, parentGroupId: 'child'));
+
+      await repo.deleteGroupWithDescendants('root');
+
+      final remaining = await db.memberGroupsDao.getAllActiveGroups();
+      expect(remaining, isEmpty);
+    });
+
+    test('group with no children: only the target is deleted', () async {
+      await db.into(db.memberGroups).insert(_group(id: 'leaf', displayOrder: 0));
+      await db.into(db.memberGroups).insert(_group(id: 'other', displayOrder: 1));
+
+      await repo.deleteGroupWithDescendants('leaf');
+
+      final remaining = await db.memberGroupsDao.getAllActiveGroups();
+      expect(remaining.map((g) => g.id), ['other']);
+    });
+  });
+
+  // ── Repository: promoteChildrenToRoot ───────────────────────────────────────
+
+  group('promoteChildrenToRoot', () {
+    late DriftMemberGroupsRepository repo;
+
+    setUp(() {
+      repo = DriftMemberGroupsRepository(db.memberGroupsDao, null);
+    });
+
+    test('direct children get parentGroupId cleared', () async {
+      await db.into(db.memberGroups).insert(_group(id: 'root', displayOrder: 0));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'child', displayOrder: 0, parentGroupId: 'root'));
+
+      await repo.promoteChildrenToRoot('root');
+
+      final active = await db.memberGroupsDao.getAllActiveGroups();
+      final child = active.firstWhere((g) => g.id == 'child');
+      expect(child.parentGroupId, isNull);
+    });
+
+    test('grandchildren are NOT promoted — only direct children', () async {
+      await db.into(db.memberGroups).insert(_group(id: 'root', displayOrder: 0));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'child', displayOrder: 0, parentGroupId: 'root'));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'grandchild', displayOrder: 0, parentGroupId: 'child'));
+
+      await repo.promoteChildrenToRoot('root');
+
+      final active = await db.memberGroupsDao.getAllActiveGroups();
+      final grandchild = active.firstWhere((g) => g.id == 'grandchild');
+      // Grandchild still points to child, not null.
+      expect(grandchild.parentGroupId, 'child');
+    });
+
+    test('the parent group is soft-deleted after promotion', () async {
+      await db.into(db.memberGroups).insert(_group(id: 'root', displayOrder: 0));
+      await db.into(db.memberGroups).insert(
+          _group(id: 'child', displayOrder: 0, parentGroupId: 'root'));
+
+      await repo.promoteChildrenToRoot('root');
+
+      final active = await db.memberGroupsDao.getAllActiveGroups();
+      expect(active.map((g) => g.id), isNot(contains('root')));
     });
   });
 }
