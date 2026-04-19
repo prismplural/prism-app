@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -143,7 +144,7 @@ class _SuggestionsBox extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,7 +175,7 @@ class _SuggestionRow extends StatelessWidget {
     if (suggestion.onTap != null) {
       return InkWell(
         onTap: suggestion.onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(

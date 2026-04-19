@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -34,7 +35,7 @@ class MarkdownText extends StatelessWidget {
     }
 
     final theme = Theme.of(context);
-    final sheet = _buildStyleSheet(theme);
+    final sheet = _buildStyleSheet(context, theme);
 
     return MarkdownBody(
       data: data,
@@ -45,7 +46,7 @@ class MarkdownText extends StatelessWidget {
     );
   }
 
-  MarkdownStyleSheet _buildStyleSheet(ThemeData theme) {
+  MarkdownStyleSheet _buildStyleSheet(BuildContext context, ThemeData theme) {
     final base = MarkdownStyleSheet.fromTheme(theme);
 
     // Strip letter spacing from all text styles and apply reasonable heading caps.
@@ -73,7 +74,7 @@ class MarkdownText extends StatelessWidget {
       ),
       codeblockDecoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
       ),
     );
   }

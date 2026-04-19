@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 
@@ -76,7 +77,7 @@ class _InlineExpandableMemberPickerState
             label: selected?.name ?? context.l10n.selectMember(terms.singular),
             child: InkWell(
               onTap: () => setState(() => _expanded = !_expanded),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
               child: Padding(
                 padding:
                     const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -249,7 +250,7 @@ class _InlineExpandableMultiMemberPickerState
           // Collapsed header
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
               child: Row(
