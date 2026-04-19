@@ -28,20 +28,20 @@ class SleepFeatureSettingsScreen extends ConsumerStatefulWidget {
 
 class _SleepFeatureSettingsScreenState
     extends ConsumerState<SleepFeatureSettingsScreen> {
-  // TODO(migration): persist defaultSleepQuality to system_settings (requires DB migration)
-  SleepQuality _defaultQuality = SleepQuality.unknown;
-
-  void _showDefaultQualityPicker(BuildContext context) {
+  void _showDefaultQualityPicker(
+      BuildContext context, SleepQuality currentQuality) {
     PrismDialog.show<void>(
       context: context,
       title: context.l10n.featureSleepDefaultQualityTitle,
       message: context.l10n.featureSleepDefaultQualityMessage,
       builder: (ctx) {
         return RadioGroup<SleepQuality>(
-          groupValue: _defaultQuality,
+          groupValue: currentQuality,
           onChanged: (value) {
             if (value == null) return;
-            setState(() => _defaultQuality = value);
+            ref
+                .read(settingsNotifierProvider.notifier)
+                .updateDefaultSleepQuality(value);
             Navigator.of(ctx).pop();
           },
           child: Column(
@@ -141,6 +141,8 @@ class _SleepFeatureSettingsScreenState
   @override
   Widget build(BuildContext context) {
     final sleepEnabled = ref.watch(sleepTrackingEnabledProvider);
+    final defaultQuality =
+        ref.watch(defaultSleepQualityProvider) ?? SleepQuality.unknown;
     final theme = Theme.of(context);
 
     return PrismPageScaffold(
@@ -183,8 +185,9 @@ class _SleepFeatureSettingsScreenState
                   icon: AppIcons.starOutline,
                   iconColor: AppColors.sleep(theme.brightness),
                   title: context.l10n.featureSleepDefaultQuality,
-                  subtitle: _defaultQuality.localizedLabel(context.l10n),
-                  onTap: () => _showDefaultQualityPicker(context),
+                  subtitle: defaultQuality.localizedLabel(context.l10n),
+                  onTap: () =>
+                      _showDefaultQualityPicker(context, defaultQuality),
                 ),
               ),
             ),

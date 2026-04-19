@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/system_settings.dart';
@@ -103,7 +104,7 @@ class FontSettingsSection extends ConsumerWidget {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
                 ),
                 child: MediaQuery(
                   data: MediaQuery.of(context).copyWith(

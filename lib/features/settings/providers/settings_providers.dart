@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/domain/models/fronting_session.dart'
+    show SleepQuality;
 import 'package:prism_plurality/domain/models/models.dart' hide CornerStyle;
 import 'package:prism_plurality/core/database/database_providers.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart' as domain;
@@ -256,6 +258,13 @@ class SettingsNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(systemSettingsRepositoryProvider);
       await repo.updateLocaleOverride(value);
+    });
+  }
+
+  Future<void> updateDefaultSleepQuality(SleepQuality? value) async {
+    state = await AsyncValue.guard(() async {
+      final repo = ref.read(systemSettingsRepositoryProvider);
+      await repo.updateDefaultSleepQuality(value);
     });
   }
 
@@ -841,6 +850,14 @@ final wakeSuggestionAfterHoursProvider = Provider<double>((ref) {
         data: (s) => s.wakeSuggestionAfterHours,
       ) ??
       8.0;
+});
+
+/// Narrow provider for `defaultSleepQuality` (device-local).
+/// Returns null when no default is set (user picks each time).
+final defaultSleepQualityProvider = Provider<SleepQuality?>((ref) {
+  return ref.watch(systemSettingsProvider).whenOrNull(
+        data: (s) => s.defaultSleepQuality,
+      );
 });
 
 const _kShowFrontingViewToggle = 'prism.local.show_fronting_view_toggle';

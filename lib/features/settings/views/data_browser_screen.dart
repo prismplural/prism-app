@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
@@ -581,7 +582,7 @@ class _ExpandableRecord extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Column(

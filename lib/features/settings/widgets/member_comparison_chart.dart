@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
@@ -90,7 +91,7 @@ class _MemberBar extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(4)),
             child: LinearProgressIndicator(
               value: fraction.clamp(0.0, 1.0),
               backgroundColor: theme.colorScheme.surfaceContainerHighest,

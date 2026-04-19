@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
@@ -269,7 +270,7 @@ class _TerminologyPickerState extends ConsumerState<TerminologyPicker> {
             color: theme.colorScheme.surfaceContainerHighest.withValues(
               alpha: 0.5,
             ),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
