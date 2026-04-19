@@ -78,7 +78,7 @@ class EmptyState extends StatelessWidget {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.zero,
                 color: color.withValues(alpha: 0.15),
               ),
               alignment: Alignment.center,
