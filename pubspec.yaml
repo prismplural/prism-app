@@ -100,6 +100,10 @@ dependencies:
   flutter_soloud: ^4.0.2
   ogg_caf_converter: ^0.1.4
 
+dependency_overrides:
+  ogg_caf_converter:
+    path: ../../ogg_caf_converter
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
