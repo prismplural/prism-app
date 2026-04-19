@@ -57,8 +57,12 @@ class _PrismGlassIconButtonState extends State<PrismGlassIconButton> {
       child: AnimatedScale(
         scale: _pressed ? 0.95 : 1.0,
         duration: const Duration(milliseconds: 100),
-        child: TintedGlassSurface.circle(
-          size: widget.size,
+        child: TintedGlassSurface(
+          width: widget.size,
+          height: widget.size,
+          borderRadius: BorderRadius.circular(
+            PrismShapes.of(context).radius(widget.size / 2),
+          ),
           tint: widget.tint,
           child: Material(
             color: Colors.transparent,

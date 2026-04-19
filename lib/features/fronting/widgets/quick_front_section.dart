@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_providers.d
 import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -215,7 +216,9 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                       width: _kRingSize,
                       height: _kRingSize,
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.zero,
+                        borderRadius: BorderRadius.circular(
+                          PrismShapes.of(context).radius(_kRingSize / 2),
+                        ),
                         border: Border.all(
                           color: accentColor,
                           width: _kRingWidth,
@@ -250,7 +253,6 @@ class _QuickFrontButtonState extends ConsumerState<_QuickFrontButton>
                     customColorEnabled: member.customColorEnabled,
                     customColorHex: member.customColorHex,
                     size: _kAvatarSize,
-                    shape: MemberAvatarShape.square,
                   ),
                 ],
               ),

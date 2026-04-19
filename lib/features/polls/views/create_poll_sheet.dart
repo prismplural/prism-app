@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/features/polls/providers/poll_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -396,7 +397,8 @@ class _OptionColorDot extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                    shape: PrismShapes.of(context).avatarShape(),
+                    borderRadius: PrismShapes.of(context).avatarBorderRadius(),
                     color: hex != null
                         ? _parseColor(hex)
                         : theme.colorScheme.surfaceContainerHighest,
@@ -420,17 +422,18 @@ class _OptionColorDot extends StatelessWidget {
         ),
       ),
       child: Container(
-        width: 28,
-        height: 28,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
+          shape: PrismShapes.of(context).avatarShape(),
+          borderRadius: PrismShapes.of(context).avatarBorderRadius(),
           color: colorHex != null ? _parseColor(colorHex!) : null,
           border: Border.all(color: dotColor, width: 2),
         ),
         child: colorHex == null
             ? Icon(
                 AppIcons.paletteOutlined,
-                size: 14,
+                size: 18,
                 color: theme.colorScheme.onSurfaceVariant,
               )
             : null,

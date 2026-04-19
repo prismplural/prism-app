@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:prism_plurality/domain/models/habit.dart';
 import 'package:prism_plurality/features/habits/providers/habit_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
@@ -452,7 +453,8 @@ class _ColorPicker extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: Color(0xFF000000 | int.parse(hex, radix: 16)),
-                shape: BoxShape.circle,
+                shape: PrismShapes.of(context).avatarShape(),
+                borderRadius: PrismShapes.of(context).avatarBorderRadius(),
                 border: isSelected
                     ? Border.all(
                         color: Theme.of(context).colorScheme.primary,
