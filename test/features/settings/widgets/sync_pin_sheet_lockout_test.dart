@@ -117,10 +117,14 @@ void _useTallViewport(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-/// Drives the sheet past the mnemonic step: types a valid phrase,
+/// Drives the sheet past the mnemonic step: types a valid phrase word-by-word,
 /// taps Continue, and settles.
 Future<void> _advancePastMnemonicStep(WidgetTester tester) async {
-  await tester.enterText(find.byType(TextField), _validMnemonic);
+  final words = _validMnemonic.split(' ');
+  for (var i = 0; i < 12; i++) {
+    await tester.enterText(find.byType(TextField).at(i), words[i]);
+    await tester.pump();
+  }
   await tester.pumpAndSettle();
   // The "Continue" button enables once 12 valid words are entered.
   // The sheet content can overflow a standard 800x600 test viewport,

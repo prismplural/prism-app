@@ -37,11 +37,12 @@ void main() {
         _wrap(PrismMnemonicField(controller: controller)),
       );
 
-      // Type 5 valid words.
-      await tester.enterText(
-        find.byType(TextField),
-        'abandon ability able about above',
-      );
+      // Type 5 valid words, one per slot.
+      const words = ['abandon', 'ability', 'able', 'about', 'above'];
+      for (var i = 0; i < words.length; i++) {
+        await tester.enterText(find.byType(TextField).at(i), words[i]);
+        await tester.pump();
+      }
       await tester.pumpAndSettle();
 
       // Counter should report 5/12.
@@ -59,15 +60,16 @@ void main() {
       );
 
       // Two valid words + one bogus word => 2 valid total.
-      await tester.enterText(
-        find.byType(TextField),
-        'abandon ability xyznotaword',
-      );
+      await tester.enterText(find.byType(TextField).at(0), 'abandon');
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(1), 'ability');
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(2), 'zzz');
       await tester.pumpAndSettle();
 
       expect(find.text('2 of 12 words'), findsOneWidget);
-      // The invalid word renders as a chip with the word text.
-      expect(find.text('xyznotaword'), findsOneWidget);
+      // The invalid word is still tracked in the controller (not excluded).
+      expect(controller.text, contains('zzz'));
     });
 
     testWidgets('visibility toggle flips obscureText on the textarea', (
@@ -80,22 +82,22 @@ void main() {
         _wrap(PrismMnemonicField(controller: controller)),
       );
 
-      // Default is visible (obscureText: false).
-      TextField field = tester.widget(find.byType(TextField));
+      // Default is visible (obscureText: false). Check the first slot.
+      TextField field = tester.widget(find.byType(TextField).first);
       expect(field.obscureText, isFalse);
 
       // Tap the visibility toggle. Use its tooltip to locate it.
       await tester.tap(find.byTooltip('Hide words'));
       await tester.pumpAndSettle();
 
-      field = tester.widget(find.byType(TextField));
+      field = tester.widget(find.byType(TextField).first);
       expect(field.obscureText, isTrue);
 
       // Tap again to flip back.
       await tester.tap(find.byTooltip('Show words'));
       await tester.pumpAndSettle();
 
-      field = tester.widget(find.byType(TextField));
+      field = tester.widget(find.byType(TextField).first);
       expect(field.obscureText, isFalse);
     });
 
@@ -156,7 +158,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.enterText(find.byType(TextField), 'abou');
+        await tester.enterText(find.byType(TextField).first, 'abou');
         await tester.pumpAndSettle();
 
         // The autocomplete strip should show "about" as a suggestion.
@@ -166,8 +168,9 @@ void main() {
         await tester.tap(aboutChip.first);
         await tester.pumpAndSettle();
 
-        // Field now contains the full word + a trailing space.
-        expect(controller.text, 'about ');
+        // Selecting a suggestion fills the slot; the external controller holds
+        // all non-empty slots joined by spaces (no trailing space in grid mode).
+        expect(controller.text, 'about');
       },
     );
   });

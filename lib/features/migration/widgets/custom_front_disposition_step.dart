@@ -43,18 +43,12 @@ class CustomFrontDispositionStep extends ConsumerWidget {
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    minimumSize: const Size(0, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                child: PrismButton(
+                  icon: AppIcons.refresh,
+                  label: context.l10n.migrationCfResetDefaults,
                   onPressed: () => controller.resetToDefaults(data),
-                  icon: Icon(AppIcons.refresh, size: 16),
-                  label: Text(
-                    context.l10n.migrationCfResetDefaults,
-                    style: theme.textTheme.bodySmall,
-                  ),
+                  tone: PrismButtonTone.subtle,
+                  density: PrismControlDensity.compact,
                 ),
               ),
               const SizedBox(height: 4),
