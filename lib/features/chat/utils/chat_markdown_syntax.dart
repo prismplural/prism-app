@@ -151,6 +151,106 @@ class SafeLinkBuilder extends MarkdownElementBuilder {
   }
 }
 
+/// Renders `||text||` spoiler elements as a tappable pill.
+///
+/// Reveal state is held by the caller (message bubble) keyed on the match
+/// offset, so each spoiler in a message has independent, stable state across
+/// rebuilds and survives text selection / scroll.
+class SpoilerBuilder extends MarkdownElementBuilder {
+  SpoilerBuilder({
+    required this.reveals,
+    required this.onToggle,
+    required this.theme,
+  });
+
+  final Map<int, bool> reveals;
+  final void Function(int start) onToggle;
+  final ThemeData theme;
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final start = int.tryParse(element.attributes['start'] ?? '') ?? 0;
+    final text = element.textContent;
+    final revealed = reveals[start] ?? false;
+    final base = parentStyle ?? const TextStyle();
+    return _SpoilerSpan(
+      start: start,
+      text: text,
+      revealed: revealed,
+      onTap: () => onToggle(start),
+      textStyle: base,
+      theme: theme,
+    );
+  }
+}
+
+class _SpoilerSpan extends StatelessWidget {
+  const _SpoilerSpan({
+    required this.start,
+    required this.text,
+    required this.revealed,
+    required this.onTap,
+    required this.textStyle,
+    required this.theme,
+  });
+
+  final int start;
+  final String text;
+  final bool revealed;
+  final VoidCallback onTap;
+  final TextStyle textStyle;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = theme.brightness == Brightness.dark;
+    // pillAlpha is unused; occlusion color uses fixed alpha values below.
+    final occlusion =
+        theme.colorScheme.onSurface.withAlpha(isDark ? 200 : 230);
+
+    return Semantics(
+      button: true,
+      label: revealed
+          ? 'Spoiler, revealed: $text'
+          : 'Hidden spoiler, double tap to reveal',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(text, style: textStyle),
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 150),
+              opacity: revealed ? 0.0 : 1.0,
+              child: IgnorePointer(
+                ignoring: revealed,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: occlusion,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Text(
+                    text,
+                    style: textStyle.copyWith(color: occlusion),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Memoized chat stylesheet
 // ---------------------------------------------------------------------------
