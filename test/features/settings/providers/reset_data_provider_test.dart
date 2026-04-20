@@ -881,6 +881,9 @@ class _FakeResetSecureStore implements ResetSecureStore {
   Future<Map<String, String>> readAll() async =>
       Map<String, String>.from(_values);
 
+  @override
+  Future<void> deleteAll() async => _values.clear();
+
   void seedSyncValue(String key, String value) {
     _values[key] = value;
   }
