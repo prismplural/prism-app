@@ -69,7 +69,9 @@ platform :mac do
 
     # flutter build writes dart-defines into macos/Flutter/ephemeral/Flutter-Generated.xcconfig
     # so the subsequent xcodebuild archive picks them up without re-specifying them.
-    sh("cd .. && flutter build macos --release #{defines}")
+    # Unset bundler env vars fastlane injects — they break CocoaPods when
+    # flutter invokes pod install with the wrong Ruby gem environment.
+    sh("cd .. && env -u BUNDLE_GEMFILE -u BUNDLE_PATH -u BUNDLE_BIN_PATH -u RUBYOPT -u GEM_HOME -u GEM_PATH PATH=\"/opt/homebrew/bin:$PATH\" flutter build macos --release #{defines}")
 
     build_mac_app(
       workspace: "macos/Runner.xcworkspace",
@@ -79,6 +81,7 @@ platform :mac do
       export_options: File.expand_path("macos_export_options.plist", __dir__),
       output_directory: File.expand_path("../build/macos/export", __dir__),
       skip_package_pkg: false,
+      xcargs: "-allowProvisioningUpdates",
     )
 
     pkg_path = Dir[File.expand_path("../build/macos/export/*.pkg", __dir__)].first
