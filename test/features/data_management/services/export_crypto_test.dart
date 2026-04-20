@@ -8,7 +8,7 @@ import 'package:prism_plurality/features/data_management/services/data_import_se
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
 
 void main() {
-  group('ExportCrypto — PRISM3 format', () {
+  group('ExportCrypto — PRISM1 format', () {
     const plaintext = '{"hello":"world","unicode":"日本語"}';
     const password = 'correct-horse-battery-staple-2026';
 
@@ -36,9 +36,9 @@ void main() {
       expect(result.mediaBlobs[1].blob, equals(blob2));
     });
 
-    test('encrypted output starts with PRISM3 magic', () {
+    test('encrypted output starts with PRISM1 magic', () {
       final encrypted = ExportCrypto.encrypt(plaintext, const [], password);
-      expect(utf8.decode(encrypted.sublist(0, 6)), equals('PRISM3'));
+      expect(utf8.decode(encrypted.sublist(0, 6)), equals('PRISM1'));
     });
 
     test('encrypted output embeds scrypt parameters', () {
@@ -80,7 +80,7 @@ void main() {
     test('tampered ciphertext throws InvalidCipherTextException', () {
       final encrypted = ExportCrypto.encrypt(plaintext, const [], password);
       final tampered = Uint8List.fromList(encrypted);
-      // PRISM3 layout (no media): header(66) + json_ct + media_count(4).
+      // PRISM1 layout (no media): header(66) + json_ct + media_count(4).
       // Flip a byte in the GCM tag (last 16 bytes of json_ct = bytes [-20..-5]).
       tampered[tampered.length - 5] ^= 0xff;
       expect(
@@ -98,7 +98,7 @@ void main() {
       );
     });
 
-    test('isEncrypted returns true for PRISM3 output', () {
+    test('isEncrypted returns true for PRISM1 output', () {
       final encrypted = ExportCrypto.encrypt(plaintext, const [], password);
       expect(ExportCrypto.isEncrypted(encrypted), isTrue);
     });
@@ -140,13 +140,12 @@ void main() {
       );
     });
 
-    test('PRISM1 (legacy PBKDF2) magic throws FormatException', () {
-      // Old format is no longer supported — no migration path needed since
-      // there are no production installs.
-      final legacyMagic =
-          Uint8List.fromList(utf8.encode('PRISM1') + List.filled(60, 0));
+    test('PRISM3 (pre-beta) magic throws FormatException — use converter tool', () {
+      // PRISM3 files must be converted to PRISM1 via tools/prism3-to-prism1 before import.
+      final prism3Magic =
+          Uint8List.fromList(utf8.encode('PRISM3') + List.filled(60, 0));
       expect(
-        () => ExportCrypto.decrypt(legacyMagic, 'any'),
+        () => ExportCrypto.decrypt(prism3Magic, 'any'),
         throwsA(isA<FormatException>()),
       );
     });
