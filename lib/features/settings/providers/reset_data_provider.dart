@@ -18,6 +18,7 @@ import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class ResetSecureStore {
   Future<String?> read(String key);
@@ -27,6 +28,10 @@ abstract class ResetSecureStore {
   /// scan for dynamic `prism_sync.epoch_key_*` / `prism_sync.runtime_keys_*`
   /// entries on reset/revoke cleanup.
   Future<Map<String, String>> readAll();
+
+  /// Wipe every key in the store. Used by full reset only — never by sync-only
+  /// reset, which must preserve `database_key` so the app DB stays openable.
+  Future<void> deleteAll();
 }
 
 class _PlatformResetSecureStore implements ResetSecureStore {
@@ -40,6 +45,9 @@ class _PlatformResetSecureStore implements ResetSecureStore {
 
   @override
   Future<Map<String, String>> readAll() => secureStorage.readAll();
+
+  @override
+  Future<void> deleteAll() => secureStorage.deleteAll();
 }
 
 final resetSecureStoreProvider = Provider<ResetSecureStore>((ref) {
@@ -425,9 +433,6 @@ class ResetDataNotifier extends AsyncNotifier<void> {
       await db.customStatement('DELETE FROM sync_quarantine');
     });
 
-    // Clear third-party credentials that are stored outside the main DB.
-    await ref.read(resetSecureStoreProvider).delete('prism_pluralkit_token');
-
     // Delete the encrypted media cache from disk. DB rows are already gone
     // above; the cache files are encrypted ciphertexts stored separately under
     // getApplicationSupportDirectory()/prism_media/. Without this they'd
@@ -464,6 +469,23 @@ class ResetDataNotifier extends AsyncNotifier<void> {
     // Now safe to clear the key — the DB files are gone (or still openable
     // with the key if deletion failed above).
     await clearDatabaseEncryptionState();
+
+    // Wipe the entire keychain namespace. Called after all DB files and
+    // encryption keys are deleted so there's nothing left to protect.
+    // This catches orphaned bare-named items from older app versions (e.g.
+    // keys written before the `prism_sync.` prefix was adopted) that the
+    // selective deletion above would otherwise miss. Also covers
+    // prism_pluralkit_token and any future keys without an explicit listing.
+    await ref.read(resetSecureStoreProvider).deleteAll();
+
+    // Reset one-time migration flags so they re-run after fresh onboarding.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('sync.enum_fields_reemit_v1');
+    } catch (e) {
+      _log('SharedPreferences reset failed (non-fatal): $e');
+    }
+
     _notifyTableChanges([
       'habit_completions',
       'habits',
