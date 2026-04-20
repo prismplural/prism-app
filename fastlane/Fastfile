@@ -49,7 +49,7 @@ platform :ios do
     defines = build_info_defines
     sh("cd .. && flutter build ipa --release #{defines}")
 
-    ipa_path = Dir["../build/ios/ipa/*.ipa"].first
+    ipa_path = Dir[File.expand_path("../build/ios/ipa/*.ipa", __dir__)].first
     UI.user_error!("No IPA found in build/ios/ipa/") unless ipa_path
 
     upload_to_testflight(
@@ -70,7 +70,7 @@ platform :android do
 
     upload_to_play_store(
       track: "internal",
-      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      aab: File.expand_path("../build/app/outputs/bundle/release/app-release.aab", __dir__),
       json_key: ENV["PLAY_STORE_JSON_KEY"],
       package_name: "com.prismplural.prism",
       release_status: "draft",
