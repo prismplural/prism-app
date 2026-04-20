@@ -206,12 +206,17 @@ class _SpoilerSpan extends StatelessWidget {
   final TextStyle textStyle;
   final ThemeData theme;
 
+  // Strong-alpha occlusion; bg and foreground paint the same color so the text
+  // is completely hidden under the pill. Spec's literal 40/60 would leave text
+  // readable through the tint, so we tune up for real occlusion.
+  static const int _occlusionAlphaDark = 200;
+  static const int _occlusionAlphaLight = 230;
+
   @override
   Widget build(BuildContext context) {
     final isDark = theme.brightness == Brightness.dark;
-    // pillAlpha is unused; occlusion color uses fixed alpha values below.
-    final occlusion =
-        theme.colorScheme.onSurface.withAlpha(isDark ? 200 : 230);
+    final occlusion = theme.colorScheme.onSurface
+        .withAlpha(isDark ? _occlusionAlphaDark : _occlusionAlphaLight);
 
     return Semantics(
       button: true,
