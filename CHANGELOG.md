@@ -4,6 +4,18 @@ All notable changes to Prism will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-04-20
+
+### Added
+- Fastlane macOS internal TestFlight lane for distributing macOS builds alongside iOS/Android
+
+### Fixed
+- Full device reset now purges all keychain items, including orphaned bare-named keys left over from older app versions that prevented re-onboarding from syncing correctly after an in-app reset
+- Sync: fix pairing failure when epoch rotates during initial sync setup and re-setup after reset
+- Export: backup file format magic corrected from `PRISM3` to `PRISM1`
+- macOS: `LSApplicationCategoryType` (Healthcare & Fitness) now present in all build configurations for correct App Store category display
+- Fastlane: resolve build artifact path issues for iOS and macOS lanes; auto-detect App Store Connect API key path; fix Ruby gem environment conflicts with CocoaPods in macOS lane
+
 ## [0.3.12] - 2026-04-18
 
 ### Added
