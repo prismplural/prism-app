@@ -32,6 +32,23 @@ class MentionSyntax extends md.InlineSyntax {
   }
 }
 
+/// Matches `||spoiler text||` inline spans.
+///
+/// The matched offset is stamped on the element as `start` — downstream
+/// reveal state (held by the message bubble) keys off this offset so each
+/// spoiler in a message has a stable, parse-reset-free identity.
+class SpoilerSyntax extends md.InlineSyntax {
+  SpoilerSyntax() : super(r'\|\|(.+?)\|\|');
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    final element = md.Element.text('spoiler', match.group(1)!);
+    element.attributes['start'] = match.start.toString();
+    parser.addNode(element);
+    return true;
+  }
+}
+
 /// Escape leading `#` markers so they render as literal text.
 /// Chat does not support headings; the block parser is otherwise CommonMark.
 String escapeLeadingHeadings(String input) {
@@ -203,8 +220,13 @@ void debugResetChatStylesheetCache() {
 // Extension set
 // ---------------------------------------------------------------------------
 
-/// CommonMark block syntaxes + [MentionSyntax] inline, for chat rendering.
+/// CommonMark block syntaxes + [SpoilerSyntax] and [MentionSyntax] inline,
+/// for chat rendering.
 final md.ExtensionSet chatExtensionSet = md.ExtensionSet(
   md.ExtensionSet.commonMark.blockSyntaxes,
-  [MentionSyntax(), ...md.ExtensionSet.commonMark.inlineSyntaxes],
+  [
+    SpoilerSyntax(),
+    MentionSyntax(),
+    ...md.ExtensionSet.commonMark.inlineSyntaxes,
+  ],
 );
