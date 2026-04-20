@@ -62,7 +62,7 @@ platform :ios do
   end
 end
 
-platform :macos do
+platform :mac do
   desc "Build and upload to TestFlight internal testing"
   lane :internal do
     defines = build_info_defines
