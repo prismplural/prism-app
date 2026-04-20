@@ -6,9 +6,9 @@ import 'package:pointycastle/export.dart';
 
 /// Password-based encryption for Prism data exports.
 ///
-/// ## File format (PRISM3)
+/// ## File format (PRISM1; PRISM3 accepted on read for back-compat)
 /// ```
-/// PRISM3        (6 bytes magic)
+/// PRISM1        (6 bytes magic)
 /// N             (4 bytes, big-endian uint32 — scrypt cost factor, e.g. 32768)
 /// r             (4 bytes, big-endian uint32 — scrypt block size, e.g. 8)
 /// p             (4 bytes, big-endian uint32 — scrypt parallelization, e.g. 1)
@@ -31,7 +31,7 @@ import 'package:pointycastle/export.dart';
 /// KDF parameters are embedded in the header so future upgrades can read
 /// older exports without hardcoding version-specific constants.
 class ExportCrypto {
-  static const _magic = 'PRISM3';
+  static const _magic = 'PRISM1';
   static const _saltLength = 32;
   static const _nonceLength = 12; // GCM standard
   static const _keyLength = 32; // AES-256
@@ -46,7 +46,7 @@ class ExportCrypto {
   /// [mediaBlobs] entries are (mediaId, blob) pairs where blob is a raw
   /// XChaCha20-Poly1305 ciphertext carried as-is (not re-encrypted).
   ///
-  /// Returns the encrypted bytes in the PRISM3 export format.
+  /// Returns the encrypted bytes in the PRISM1 export format.
   static Uint8List encrypt(
     String json,
     List<({String mediaId, Uint8List blob})> mediaBlobs,
@@ -109,7 +109,7 @@ class ExportCrypto {
   /// Returns the decrypted JSON string and the list of media blobs (carried
   /// verbatim as XChaCha20-Poly1305 ciphertexts).
   ///
-  /// Throws [FormatException] if the magic header is not `PRISM3` or the
+  /// Throws [FormatException] if the magic header is not `PRISM1` or the
   /// data is truncated.
   /// Throws [InvalidCipherTextException] if the password is wrong or the JSON
   /// section is tampered with (GCM authentication failure).
@@ -221,7 +221,7 @@ class ExportCrypto {
     return (json: json, mediaBlobs: mediaBlobs);
   }
 
-  /// Returns `true` when [data] starts with the PRISM3 encrypted export header.
+  /// Returns `true` when [data] starts with the PRISM1 encrypted export header.
   static bool isEncrypted(Uint8List data) {
     if (data.length < _magic.length) return false;
     try {
