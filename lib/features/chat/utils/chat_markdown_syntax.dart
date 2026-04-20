@@ -4,6 +4,18 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 
+/// Matches `||spoiler text||` spans — non-greedy, no nesting, inner ≥ 1 char.
+final spoilerRegex = RegExp(r'\|\|(.+?)\|\|');
+
+/// Replace each `||text||` span with ▮ block characters (clamped 1–8)
+/// so spoilers don't leak through previews, reply quotes, or search snippets.
+String redactSpoilers(String input) {
+  return input.replaceAllMapped(
+    spoilerRegex,
+    (m) => '▮' * m.group(1)!.length.clamp(1, 8),
+  );
+}
+
 /// Matches @[uuid] mention tokens (strict 36-char UUID).
 class MentionSyntax extends md.InlineSyntax {
   MentionSyntax()
@@ -39,6 +51,7 @@ bool hasMarkdownChars(String input) {
       case '`':
       case '[':
       case '@':
+      case '|':
         return true;
     }
   }
