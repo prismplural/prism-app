@@ -157,18 +157,26 @@ class SyncSetupNotifier extends Notifier<SyncSetupState> {
       return false;
     }
 
-    try {
-      await ffi.unlock(
-        handle: handle,
-        password: pin,
-        secretKey: secretKeyBytes,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isProcessing: false,
-        error: 'That phrase doesn\'t match this account. Check each word and try again.',
-      );
-      return false;
+    // If wrapped_dek exists, verify the phrase unlocks the existing key
+    // hierarchy before creating a new sync group. After a sync reset,
+    // wrapped_dek is gone — skip verification and go straight to createSyncGroup.
+    final wrappedDek = await secureStorage.read(
+      key: 'prism_sync.wrapped_dek',
+    );
+    if (wrappedDek != null) {
+      try {
+        await ffi.unlock(
+          handle: handle,
+          password: pin,
+          secretKey: secretKeyBytes,
+        );
+      } catch (e) {
+        state = state.copyWith(
+          isProcessing: false,
+          error: 'Incorrect PIN or recovery phrase. Check each word and try again.',
+        );
+        return false;
+      }
     }
 
     return _complete(pin, normalized);
