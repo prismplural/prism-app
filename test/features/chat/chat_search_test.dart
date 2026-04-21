@@ -190,5 +190,35 @@ void main() {
       // No spoiler spans in these fixtures.
       expect(hit.snippet.contains('▮'), isFalse);
     });
+
+    test('highlights a diacritic word with a diacritic query', () async {
+      await dao.insertMessage(ChatMessagesCompanion.insert(
+        id: 'msg-dia',
+        content: 'we went to the café yesterday',
+        timestamp: DateTime(2025, 3, 1, 9, 30),
+        conversationId: 'conv-1',
+        authorId: const Value('author-1'),
+      ));
+
+      final results = await dao.searchMessages('café');
+      expect(results, hasLength(1));
+      expect(results.first.snippet.contains('[café]'), isTrue,
+          reason: 'unicode-aware regex must match and bracket the full word');
+    });
+
+    test('highlights a Cyrillic word with a Cyrillic query', () async {
+      await dao.insertMessage(ChatMessagesCompanion.insert(
+        id: 'msg-cyr',
+        content: 'привет мир, это тест',
+        timestamp: DateTime(2025, 3, 2, 9, 30),
+        conversationId: 'conv-1',
+        authorId: const Value('author-1'),
+      ));
+
+      final results = await dao.searchMessages('мир');
+      expect(results, hasLength(1));
+      expect(results.first.snippet.contains('[мир]'), isTrue,
+          reason: '\\b must be Unicode-aware to bracket non-Latin scripts');
+    });
   });
 }
