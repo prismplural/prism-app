@@ -9,6 +9,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 /// - No heading (`# `, `## `) or horizontal rule (`---`) highlighting.
 /// - Marker dim alpha is 180 (softer than notes' 102).
 class ChatMarkdownEditingController extends TextEditingController {
+  static final _spoiler = RegExp(r'\|\|(.+?)\|\|');
   static final _boldStar = RegExp(r'\*\*(.+?)\*\*');
   static final _boldUnderscore = RegExp(r'__(.+?)__');
   static final _italicStar =
@@ -85,8 +86,31 @@ class ChatMarkdownEditingController extends TextEditingController {
     final segments = <_Segment>[];
     final matched = List.filled(line.length, false);
 
-    // 1. Bold stars — highest precedence.
+    // 1. Spoilers — highest precedence. The `||` delimiter is unambiguous
+    // (two chars), so spoilers run first and everything inside them is
+    // locked out of later passes. Consequence: `**||hidden||**` renders as
+    // two dimmed `**` markers wrapping a spoiler-tinted interior, not as
+    // bold. This matches Discord's behavior.
+    for (final match in _spoiler.allMatches(line)) {
+      if (_overlaps(matched, match.start, match.end)) continue;
+      for (var i = match.start; i < match.end; i++) {
+        matched[i] = true;
+      }
+      segments.add(_Segment(
+        start: match.start,
+        end: match.end,
+        markerBefore: '||',
+        markerAfter: '||',
+        content: match.group(1)!,
+        contentStyle: baseStyle.copyWith(
+          backgroundColor: _onSurface.withAlpha(40),
+        ),
+      ));
+    }
+
+    // 2. Bold stars — skip if overlapping spoiler.
     for (final match in _boldStar.allMatches(line)) {
+      if (_overlaps(matched, match.start, match.end)) continue;
       for (var i = match.start; i < match.end; i++) {
         matched[i] = true;
       }
@@ -100,7 +124,7 @@ class ChatMarkdownEditingController extends TextEditingController {
       ));
     }
 
-    // 2. Bold underscores — only non-overlapping with #1.
+    // 3. Bold underscores — only non-overlapping.
     for (final match in _boldUnderscore.allMatches(line)) {
       if (_overlaps(matched, match.start, match.end)) continue;
       for (var i = match.start; i < match.end; i++) {
@@ -116,7 +140,7 @@ class ChatMarkdownEditingController extends TextEditingController {
       ));
     }
 
-    // 3. Italic star — only non-overlapping.
+    // 4. Italic star — only non-overlapping.
     for (final match in _italicStar.allMatches(line)) {
       if (_overlaps(matched, match.start, match.end)) continue;
       for (var i = match.start; i < match.end; i++) {
@@ -132,7 +156,7 @@ class ChatMarkdownEditingController extends TextEditingController {
       ));
     }
 
-    // 4. Italic underscore — only non-overlapping.
+    // 5. Italic underscore — only non-overlapping.
     for (final match in _italicUnderscore.allMatches(line)) {
       if (_overlaps(matched, match.start, match.end)) continue;
       for (var i = match.start; i < match.end; i++) {
