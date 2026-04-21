@@ -18,6 +18,7 @@ import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/markdown_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_message_text.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -212,6 +213,45 @@ void main() {
         stripChatMarkdown(redactSpoilers('nothing to hide'), {}),
         'nothing to hide',
       );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 6. _ReplyQuote Semantics label also redacts spoilers (screen-reader leak
+  //    fix). Mirrors the exact composition used at the _ReplyQuote `Semantics`
+  //    label site: `l10n.chatReplyQuoteSemantics(author, redactSpoilers(body))`.
+  //    If a future edit drops `redactSpoilers(...)` from that call site, this
+  //    test fails and flags the regression.
+  // ---------------------------------------------------------------------------
+
+  group('6. _ReplyQuote Semantics label redacts spoilers', () {
+    testWidgets('spoiler plaintext does not leak to screen readers',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Builder(builder: (context) {
+              const raw = 'plot: ||hidden ending|| whoa';
+              return Semantics(
+                key: const Key('reply-quote-label'),
+                label: AppLocalizations.of(context)!
+                    .chatReplyQuoteSemantics('Alice', redactSpoilers(raw)),
+                child: const SizedBox(width: 10, height: 10),
+              );
+            }),
+          ),
+        ),
+      );
+
+      final sem = tester.getSemantics(find.byKey(const Key('reply-quote-label')));
+      expect(sem.label.contains('ending'), isFalse,
+          reason: 'spoiler plaintext must not reach the accessibility label');
+      expect(sem.label.contains('hidden'), isFalse);
+      expect(sem.label.contains('▮'), isTrue);
+      handle.dispose();
     });
   });
 }

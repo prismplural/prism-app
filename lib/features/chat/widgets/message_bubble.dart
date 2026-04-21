@@ -919,7 +919,10 @@ class _ReplyQuote extends StatelessWidget {
     return Semantics(
       label: isDeleted
           ? context.l10n.chatReplyQuoteDeletedSemantics
-          : context.l10n.chatReplyQuoteSemantics(authorName, content),
+          : context.l10n.chatReplyQuoteSemantics(
+              authorName,
+              redactSpoilers(content),
+            ),
       button: onTap != null && !isDeleted,
       child: GestureDetector(
         onTap: isDeleted ? null : onTap,
