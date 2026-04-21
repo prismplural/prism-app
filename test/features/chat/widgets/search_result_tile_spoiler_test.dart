@@ -87,7 +87,10 @@ void main() {
 
       final semantics = tester.getSemantics(find.byType(SearchResultTile));
       expect(semantics.label, isNot(contains('secret')));
-      expect(semantics.label, contains('\u25AE'));
+      // Screen readers get the word "spoiler" instead of raw ▮ blocks so
+      // the announcement is meaningful, not a string of block glyphs.
+      expect(semantics.label, contains('spoiler'));
+      expect(semantics.label, isNot(contains('\u25AE')));
       handle.dispose();
     },
   );
