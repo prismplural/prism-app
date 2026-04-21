@@ -170,4 +170,48 @@ void main() {
       expect(result, '@Unknown');
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // 5. _ReplyQuote redacts spoilers (Task 7).
+  //
+  // MessageBubble requires a heavy Riverpod provider tree (ProviderScope plus
+  // mocked providers for members, messages, permissions, media, voice, and
+  // more), so mounting the full widget solely to exercise the reply-quote
+  // preview isn't tractable in this suite. The reply quote builds its preview
+  // by calling `stripChatMarkdown(redactSpoilers(content), authorMap)`, so we
+  // exercise that exact composition directly — matching the pattern the
+  // earlier groups in this file use for _ReplyQuote coverage.
+  // ---------------------------------------------------------------------------
+
+  group('5. _ReplyQuote redacts spoilers before stripping markdown', () {
+    test('||hidden ending|| is redacted in the reply-quote preview', () {
+      final preview = stripChatMarkdown(
+        redactSpoilers('plot: ||hidden ending|| whoa'),
+        {},
+      );
+      expect(preview.contains('ending'), isFalse,
+          reason: 'spoiler content must not leak into the reply preview');
+      expect(preview.contains('hidden'), isFalse);
+      expect(preview.contains('▮'), isTrue,
+          reason: 'redacted span should render as ▮ block characters');
+    });
+
+    test('redaction survives markdown stripping when mixed with **bold**', () {
+      final preview = stripChatMarkdown(
+        redactSpoilers('**spoiler:** ||the butler did it||'),
+        {},
+      );
+      expect(preview.contains('butler'), isFalse);
+      expect(preview.contains('▮'), isTrue);
+      // The surrounding bold markers still strip cleanly.
+      expect(preview.contains('spoiler:'), isTrue);
+    });
+
+    test('plain text without spoilers is unchanged', () {
+      expect(
+        stripChatMarkdown(redactSpoilers('nothing to hide'), {}),
+        'nothing to hide',
+      );
+    });
+  });
 }

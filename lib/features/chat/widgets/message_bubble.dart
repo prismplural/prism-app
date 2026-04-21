@@ -14,6 +14,7 @@ import 'package:prism_plurality/features/chat/providers/media_attachment_provide
 import 'package:prism_plurality/features/chat/providers/media_state_providers.dart';
 import 'package:prism_plurality/features/chat/providers/voice_playback_provider.dart';
 import 'package:prism_plurality/features/chat/services/voice/voice_models.dart';
+import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/markdown_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_message_text.dart';
@@ -966,7 +967,10 @@ class _ReplyQuote extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              stripChatMarkdown(content, authorMap),
+                              stripChatMarkdown(
+                                redactSpoilers(content),
+                                authorMap,
+                              ),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
