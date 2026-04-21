@@ -5,7 +5,7 @@ import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_message_text.dart';
 
 void main() {
-  Widget _harness({required Map<int, bool> reveals, required int start}) {
+  Widget _harness({required SpoilerRevealController controller, required int start}) {
     final element = md.Element.text('spoiler', 'secret')
       ..attributes['start'] = start.toString();
     return MaterialApp(
@@ -13,16 +13,17 @@ void main() {
         body: Builder(
           builder: (context) {
             final builder = SpoilerBuilder(
-              reveals: reveals,
-              onToggle: (s) => reveals[s] = !(reveals[s] ?? false),
               theme: Theme.of(context),
             );
-            return builder.visitElementAfterWithContext(
-              context,
-              element,
-              null,
-              const TextStyle(),
-            )!;
+            return SpoilerRevealScope(
+              notifier: controller,
+              child: builder.visitElementAfterWithContext(
+                context,
+                element,
+                null,
+                const TextStyle(),
+              )!,
+            );
           },
         ),
       ),
@@ -30,25 +31,30 @@ void main() {
   }
 
   testWidgets('renders pill when not revealed', (tester) async {
-    await tester.pumpWidget(_harness(reveals: {}, start: 0));
+    final controller = SpoilerRevealController();
+    await tester.pumpWidget(_harness(controller: controller, start: 0));
     // The occluding container should be fully opaque (opacity 1.0).
     final opacity =
         tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity));
     expect(opacity.opacity, 1.0);
+    controller.dispose();
   });
 
   testWidgets('renders revealed state when flag is true', (tester) async {
-    await tester.pumpWidget(_harness(reveals: {0: true}, start: 0));
+    final controller = SpoilerRevealController()..toggle(0);
+    await tester.pumpWidget(_harness(controller: controller, start: 0));
     final opacity =
         tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity));
     expect(opacity.opacity, 0.0);
+    controller.dispose();
   });
 
-  testWidgets('tap toggles reveal via onToggle callback', (tester) async {
-    final reveals = <int, bool>{};
-    await tester.pumpWidget(_harness(reveals: reveals, start: 7));
+  testWidgets('tap toggles reveal via controller', (tester) async {
+    final controller = SpoilerRevealController();
+    await tester.pumpWidget(_harness(controller: controller, start: 7));
     await tester.tap(find.byType(GestureDetector));
-    expect(reveals[7], isTrue);
+    expect(controller.isRevealed(7), isTrue);
+    controller.dispose();
   });
 
   group('ChatMessageText integration', () {
@@ -121,6 +127,42 @@ void main() {
           tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity));
       expect(opacity.opacity, 1.0,
           reason: 'didUpdateWidget should clear reveals on content change');
+    });
+
+    testWidgets('animates opacity over 150ms on reveal', (tester) async {
+      await tester.pumpWidget(MaterialApp(
+          home: Scaffold(
+        body: ChatMessageText(
+          content: 'hi ||secret|| ok',
+          authorMap: null,
+          baseStyle: const TextStyle(),
+          defaultColor: Colors.black,
+        ),
+      )));
+      final gesture = find.byWidgetPredicate((w) =>
+          w is GestureDetector && w.behavior == HitTestBehavior.opaque);
+      await tester.tap(gesture);
+      // Pump once to start the animation tick.
+      await tester.pump();
+      // Mid-animation: AnimatedOpacity.opacity is the target (0.0); the actual
+      // tween runs inside FadeTransition. Scope the search to the one
+      // FadeTransition that lives inside our AnimatedOpacity so we don't hit
+      // the FadeTransitions MarkdownBody uses internally.
+      final animOpacity = find.byType(AnimatedOpacity);
+      final mid = tester.widget<AnimatedOpacity>(animOpacity);
+      expect(mid.opacity, 0.0); // target opacity is already 0.0 after toggle
+      final fadeInside = find.descendant(
+        of: animOpacity,
+        matching: find.byType(FadeTransition),
+      );
+      await tester.pump(const Duration(milliseconds: 75));
+      final fadeMid = tester.widget<FadeTransition>(fadeInside);
+      expect(fadeMid.opacity.value, greaterThan(0.0));
+      expect(fadeMid.opacity.value, lessThan(1.0));
+      // Let the animation settle.
+      await tester.pumpAndSettle();
+      final fadeSettled = tester.widget<FadeTransition>(fadeInside);
+      expect(fadeSettled.opacity.value, 0.0);
     });
   });
 }
