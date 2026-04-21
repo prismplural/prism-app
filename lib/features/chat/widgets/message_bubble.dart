@@ -43,6 +43,20 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
+// Spoiler plaintext must not reach the accessibility label; keeping this as a
+// named helper lets the screen-reader redaction test call the production path
+// directly instead of mirroring the composition.
+@visibleForTesting
+String buildReplyQuoteA11yLabel(
+  AppLocalizations l10n, {
+  required String authorName,
+  required String content,
+  required bool isDeleted,
+}) {
+  if (isDeleted) return l10n.chatReplyQuoteDeletedSemantics;
+  return l10n.chatReplyQuoteSemantics(authorName, redactSpoilers(content));
+}
+
 /// Individual message widget with author info, bubble, reactions.
 class MessageBubble extends ConsumerStatefulWidget {
   const MessageBubble({
@@ -917,12 +931,12 @@ class _ReplyQuote extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Semantics(
-      label: isDeleted
-          ? context.l10n.chatReplyQuoteDeletedSemantics
-          : context.l10n.chatReplyQuoteSemantics(
-              authorName,
-              redactSpoilers(content),
-            ),
+      label: buildReplyQuoteA11yLabel(
+        context.l10n,
+        authorName: authorName,
+        content: content,
+        isDeleted: isDeleted,
+      ),
       button: onTap != null && !isDeleted,
       child: GestureDetector(
         onTap: isDeleted ? null : onTap,

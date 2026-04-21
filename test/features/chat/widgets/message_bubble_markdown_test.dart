@@ -18,6 +18,7 @@ import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/markdown_utils.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_message_text.dart';
+import 'package:prism_plurality/features/chat/widgets/message_bubble.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 
 // ---------------------------------------------------------------------------
@@ -237,8 +238,12 @@ void main() {
               const raw = 'plot: ||hidden ending|| whoa';
               return Semantics(
                 key: const Key('reply-quote-label'),
-                label: AppLocalizations.of(context)!
-                    .chatReplyQuoteSemantics('Alice', redactSpoilers(raw)),
+                label: buildReplyQuoteA11yLabel(
+                  AppLocalizations.of(context),
+                  authorName: 'Alice',
+                  content: raw,
+                  isDeleted: false,
+                ),
                 child: const SizedBox(width: 10, height: 10),
               );
             }),
@@ -251,6 +256,35 @@ void main() {
           reason: 'spoiler plaintext must not reach the accessibility label');
       expect(sem.label.contains('hidden'), isFalse);
       expect(sem.label.contains('▮'), isTrue);
+      handle.dispose();
+    });
+
+    testWidgets('deleted reply uses the deleted a11y string', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(
+            body: Builder(builder: (context) {
+              return Semantics(
+                key: const Key('reply-quote-label'),
+                label: buildReplyQuoteA11yLabel(
+                  AppLocalizations.of(context),
+                  authorName: 'Alice',
+                  content: '||anything||',
+                  isDeleted: true,
+                ),
+                child: const SizedBox(width: 10, height: 10),
+              );
+            }),
+          ),
+        ),
+      );
+
+      final sem = tester.getSemantics(find.byKey(const Key('reply-quote-label')));
+      expect(sem.label.contains('Alice'), isFalse);
+      expect(sem.label.contains('anything'), isFalse);
       handle.dispose();
     });
   });
