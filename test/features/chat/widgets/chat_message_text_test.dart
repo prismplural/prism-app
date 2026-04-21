@@ -115,6 +115,23 @@ void main() {
       expect(find.byType(MarkdownBody), findsNothing);
     });
 
+    testWidgets('8b. fast path redacts spoilers so plaintext cannot leak',
+        (tester) async {
+      // A >2000 char message with an embedded spoiler takes the fast path.
+      // Without redaction the plaintext would render visibly.
+      final long = 'a' * 2490 + ' ||secret|| tail';
+      expect(long.length, greaterThan(2000));
+      await tester.pumpWidget(_widget(content: long));
+      expect(find.byType(MarkdownBody), findsNothing);
+
+      final texts = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => (t.data ?? t.textSpan?.toPlainText() ?? ''))
+          .join(' | ');
+      expect(texts, isNot(contains('secret')));
+      expect(texts, contains('\u25AE'));
+    });
+
     testWidgets(
         '9. leading # without markdown chars takes fast path and renders literally',
         (tester) async {
