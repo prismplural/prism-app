@@ -1,8 +1,17 @@
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/tables/chat_messages_table.dart';
+import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 
 part 'chat_messages_dao.g.dart';
+
+typedef ChatMessageSearchHit = ({
+  String messageId,
+  String conversationId,
+  String snippet,
+  DateTime timestamp,
+  String? authorId,
+});
 
 @DriftAccessor(tables: [ChatMessages])
 class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
@@ -224,17 +233,29 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  Future<List<QueryRow>> searchMessages(String query, {int limit = 50}) {
+  Future<List<ChatMessageSearchHit>> searchMessages(
+    String query, {
+    int limit = 50,
+  }) async {
     // Split into tokens, quote each for safety, append * for prefix matching.
     // "hel" matches "hello", "wor" matches "world", etc.
-    final tokens = query.trim().split(RegExp(r'\s+'));
-    final escaped = tokens
+    final rawTokens = query
+        .trim()
+        .split(RegExp(r'\s+'))
         .where((t) => t.isNotEmpty)
-        .map((t) => '"${t.replaceAll('"', '""')}"*')
-        .join(' ');
-    if (escaped.isEmpty) return Future.value([]);
-    return customSelect(
-      'SELECT snippet(chat_messages_fts, 0, \'[\', \']\', \'...\', 20) AS snippet, '
+        .toList();
+    final escaped =
+        rawTokens.map((t) => '"${t.replaceAll('"', '""')}"*').join(' ');
+    if (escaped.isEmpty) return [];
+
+    // We build the match-highlighted snippet Dart-side from the *redacted*
+    // full content instead of SQLite's `snippet(...)`. FTS5's snippet picks
+    // a window that can start/end mid-way through a `||spoiler||` span,
+    // stripping the `||` delimiters — which would cause the downstream
+    // `redactSpoilers(...)` in SearchResultTile to be a no-op and leak
+    // spoiler plaintext into the result list.
+    final rows = await customSelect(
+      'SELECT m.content AS content, '
       'fts.message_id, fts.conversation_id, '
       'm.timestamp, m.author_id '
       'FROM chat_messages_fts fts '
@@ -244,5 +265,68 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
       'LIMIT ?',
       variables: [Variable.withString(escaped), Variable.withInt(limit)],
     ).get();
+
+    return rows.map((row) {
+      final content = row.read<String>('content');
+      return (
+        messageId: row.read<String>('message_id'),
+        conversationId: row.read<String>('conversation_id'),
+        snippet: _buildSafeSnippet(content, rawTokens),
+        timestamp: DateTime.fromMillisecondsSinceEpoch(
+          row.read<int>('timestamp') * 1000,
+        ),
+        authorId: row.readNullable<String>('author_id'),
+      );
+    }).toList();
   }
+}
+
+/// Build a match-highlighted snippet from [rawContent] that can never leak
+/// spoiler plaintext.
+///
+/// The full message is redacted first (so any `||…||` spans are already
+/// `▮`-blocks), then whole-word matches for any [queryTokens] prefix are
+/// located and wrapped in `[…]`. The surrounding window is ~40 chars before
+/// the first match and ~80 chars after the last match inside that window,
+/// bounded by the content ends. If no token matches inside the redacted
+/// content (i.e. the FTS hit was on a term that lived entirely inside a
+/// spoiler), a plain head-of-message preview is returned with no highlights.
+String _buildSafeSnippet(String rawContent, List<String> queryTokens) {
+  final safe = redactSpoilers(rawContent);
+  const maxPreview = 120;
+  final headPreview = safe.length <= maxPreview
+      ? safe
+      : '${safe.substring(0, maxPreview)}...';
+
+  if (queryTokens.isEmpty) return headPreview;
+
+  final pattern = RegExp(
+    r'\b(?:' +
+        queryTokens.map(RegExp.escape).join('|') +
+        r')\w*',
+    caseSensitive: false,
+  );
+  final matches = pattern.allMatches(safe).toList();
+  if (matches.isEmpty) return headPreview;
+
+  const beforeChars = 40;
+  const afterChars = 80;
+  final first = matches.first;
+  final snipStart = (first.start - beforeChars).clamp(0, safe.length);
+  final snipEnd = (first.end + afterChars).clamp(0, safe.length);
+
+  final buf = StringBuffer();
+  if (snipStart > 0) buf.write('...');
+  var cursor = snipStart;
+  for (final m in matches) {
+    if (m.start < cursor || m.end > snipEnd) continue;
+    buf.write(safe.substring(cursor, m.start));
+    buf.write('[');
+    buf.write(safe.substring(m.start, m.end));
+    buf.write(']');
+    cursor = m.end;
+  }
+  if (cursor < snipEnd) buf.write(safe.substring(cursor, snipEnd));
+  if (snipEnd < safe.length) buf.write('...');
+  return buf.toString();
 }
