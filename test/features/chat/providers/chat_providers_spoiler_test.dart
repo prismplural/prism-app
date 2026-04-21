@@ -1,26 +1,17 @@
 // Targeted integration test for spoiler redaction in the conversation-list
-// preview.
-//
-// The full `conversationTileDataProvider` composition involves Drift streams,
-// member batch providers, and sync infrastructure — mirroring the shape of
-// `conversation_tile_data_test.dart`, we exercise the exact expression used
-// at the provider's last-message-display-content assignment rather than
-// standing up the full reactive graph. If that expression changes, this test
-// fails and signals that the provider wiring needs re-review.
+// preview. Calls the production `buildTilePreviewContent` directly so a
+// refactor of the composition order inside that function breaks this test.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 
 void main() {
   group('conversation-list preview spoiler redaction', () {
     test('last message content with spoiler does not leak plaintext', () {
-      const rawContent = 'spoiler: ||the ending||';
-      const nameMap = <String, String>{};
-
-      // This expression is the literal composition used in
-      // `chat_providers.dart` when building `ConversationTileData`.
-      final displayContent = redactSpoilers(
-        replaceMentionsWithNames(rawContent, nameMap),
+      final displayContent = buildTilePreviewContent(
+        'spoiler: ||the ending||',
+        const {},
       );
 
       expect(displayContent, isNot(contains('ending')));
@@ -28,9 +19,9 @@ void main() {
     });
 
     test('spoiler redaction preserves surrounding text', () {
-      const rawContent = 'hey ||secret|| look';
-      final displayContent = redactSpoilers(
-        replaceMentionsWithNames(rawContent, const {}),
+      final displayContent = buildTilePreviewContent(
+        'hey ||secret|| look',
+        const {},
       );
 
       expect(displayContent, startsWith('hey '));
@@ -40,23 +31,18 @@ void main() {
 
     test('mention + spoiler: mentions resolve BEFORE redaction (order matters)',
         () {
-      // The order `redactSpoilers(replaceMentionsWithNames(...))` is load-
-      // bearing for any content where a mention sits *inside* a spoiler.
       // `redactSpoilers` clamps its block count to 8, so:
-      //
       //   content = '||@[uuid]||'      (inner is 39 chars)
       //   correct: resolve → redact   → 6 blocks (`@Alice` inner = 6)
       //   reverse: redact  → resolve  → 8 blocks (clamp on the raw token)
-      //
-      // Swapping the two calls therefore produces a string of a different
-      // length, so this assertion catches the regression.
+      // Swapping the calls produces a different-length string, so this
+      // assertion catches an ordering regression inside
+      // `buildTilePreviewContent`.
       const memberId = '01234567-89ab-cdef-0123-456789abcdef';
-      final rawContent = '||@[$memberId]||';
+      const rawContent = '||@[$memberId]||';
       final nameMap = <String, String>{memberId: 'Alice'};
 
-      final correct = redactSpoilers(
-        replaceMentionsWithNames(rawContent, nameMap),
-      );
+      final correct = buildTilePreviewContent(rawContent, nameMap);
       expect(
         correct,
         '▮' * 6,
@@ -73,12 +59,10 @@ void main() {
     });
 
     test('message without spoilers is unchanged', () {
-      const rawContent = 'just a normal message';
-      final displayContent = redactSpoilers(
-        replaceMentionsWithNames(rawContent, const {}),
+      expect(
+        buildTilePreviewContent('just a normal message', const {}),
+        'just a normal message',
       );
-
-      expect(displayContent, 'just a normal message');
     });
   });
 }
