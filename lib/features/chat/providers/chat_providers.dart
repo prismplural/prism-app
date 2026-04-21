@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_batch_provider.dart';
@@ -807,8 +808,9 @@ final conversationTileDataProvider = Provider.autoDispose
     if (lastMessage.authorId != null) {
       lastMessageAuthorName = participantMap[lastMessage.authorId]?.name;
     }
-    lastMessageDisplayContent =
-        replaceMentionsWithNames(lastMessage.content, nameMap);
+    lastMessageDisplayContent = redactSpoilers(
+      replaceMentionsWithNames(lastMessage.content, nameMap),
+    );
   }
 
   return ConversationTileData(
