@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
+    show defaultTargetPlatform, TargetPlatform, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +16,7 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/voice_recording_provider.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
+import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/widgets/chat_markdown_editing_controller.dart';
 import 'package:prism_plurality/features/chat/widgets/gif_consent_dialog.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
@@ -533,7 +534,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
             curve: replyingTo != null ? Curves.easeOut : Curves.easeIn,
             opacity: replyingTo != null ? 1.0 : 0.0,
             child: replyingTo != null
-                ? _ReplyBanner(
+                ? ReplyBanner(
                     message: replyingTo,
                     memberMap: memberMap,
                     onDismiss: () => ref
@@ -1103,8 +1104,10 @@ class _MicButton extends StatelessWidget {
   }
 }
 
-class _ReplyBanner extends StatelessWidget {
-  const _ReplyBanner({
+@visibleForTesting
+class ReplyBanner extends StatelessWidget {
+  const ReplyBanner({
+    super.key,
     required this.message,
     required this.memberMap,
     required this.onDismiss,
@@ -1157,7 +1160,7 @@ class _ReplyBanner extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  message.content,
+                  redactSpoilers(message.content),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
