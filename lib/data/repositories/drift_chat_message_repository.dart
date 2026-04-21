@@ -100,16 +100,7 @@ class DriftChatMessageRepository
 
   @override
   Future<List<({String messageId, String conversationId, String snippet, DateTime timestamp, String? authorId})>> searchMessages(String query, {int limit = 50}) async {
-    final rows = await _dao.searchMessages(query, limit: limit);
-    return rows.map((row) {
-      return (
-        messageId: row.read<String>('message_id'),
-        conversationId: row.read<String>('conversation_id'),
-        snippet: row.read<String>('snippet'),
-        timestamp: DateTime.fromMillisecondsSinceEpoch(row.read<int>('timestamp') * 1000),
-        authorId: row.readNullable<String>('author_id'),
-      );
-    }).toList();
+    return _dao.searchMessages(query, limit: limit);
   }
 
   @override
