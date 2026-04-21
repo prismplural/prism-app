@@ -15,7 +15,7 @@ import 'package:url_launcher/url_launcher.dart';
 /// Slow path: content that contains markdown chars and is under 2 000
 /// characters is parsed via [MarkdownBody] using [chatExtensionSet] and
 /// [chatStylesheet].
-class ChatMessageText extends StatelessWidget {
+class ChatMessageText extends StatefulWidget {
   const ChatMessageText({
     super.key,
     required this.content,
@@ -29,40 +29,78 @@ class ChatMessageText extends StatelessWidget {
   final TextStyle baseStyle;
   final Color defaultColor;
 
+  @override
+  State<ChatMessageText> createState() => _ChatMessageTextState();
+}
+
+class _ChatMessageTextState extends State<ChatMessageText> {
   static const int _fastPathThreshold = 2000;
+
+  final Map<int, bool> _reveals = {};
+
+  @override
+  void didUpdateWidget(ChatMessageText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.content != widget.content) {
+      _reveals.clear();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (content.isEmpty) return const SizedBox.shrink();
+    if (widget.content.isEmpty) return const SizedBox.shrink();
 
     final theme = Theme.of(context);
 
-    if (content.length > _fastPathThreshold || !hasMarkdownChars(content)) {
+    // Fast path: skips the markdown parser, so `||spoiler||` in >2000-char
+    // messages renders literally. Same fallback other markdown sees in giant
+    // messages — acceptable for v1.
+    if (widget.content.length > _fastPathThreshold ||
+        !hasMarkdownChars(widget.content)) {
       return Text.rich(
         buildMentionSpan(
-          content: content,
-          authorMap: authorMap,
+          content: widget.content,
+          authorMap: widget.authorMap,
           theme: theme,
-          defaultColor: defaultColor,
-          baseStyle: baseStyle,
+          defaultColor: widget.defaultColor,
+          baseStyle: widget.baseStyle,
         ),
       );
     }
 
-    final preprocessed = escapeLeadingHeadings(content);
+    final preprocessed = escapeLeadingHeadings(widget.content);
+
+    // Encode current reveal state into the key so MarkdownBody recreates its
+    // widget tree (and re-runs element builders) whenever a spoiler is toggled.
+    // MarkdownBody only re-parses when `data` or `styleSheet` changes; keying
+    // off reveal state is the lightest-weight way to keep the pill in sync.
+    final revealsKey = _reveals.isEmpty
+        ? ''
+        : _reveals.entries
+            .where((e) => e.value)
+            .map((e) => e.key)
+            .join(',');
 
     return MergeSemantics(
       child: MarkdownBody(
+        key: ValueKey(revealsKey),
         data: preprocessed,
-        styleSheet: chatStylesheet(context, baseStyle),
+        styleSheet: chatStylesheet(context, widget.baseStyle),
         extensionSet: chatExtensionSet,
         selectable: false,
         softLineBreak: true,
         builders: {
-          'mention': MentionBuilder(authorMap: authorMap, theme: theme),
+          'mention': MentionBuilder(authorMap: widget.authorMap, theme: theme),
           'a': SafeLinkBuilder(
             theme: theme,
             onTap: _openExternal,
+          ),
+          'spoiler': SpoilerBuilder(
+            reveals: _reveals,
+            onToggle: (start) => setState(() {
+              _reveals[start] = !(_reveals[start] ?? false);
+            }),
+            theme: theme,
           ),
         },
       ),
