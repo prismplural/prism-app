@@ -21,9 +21,12 @@ class SearchResultTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
+    final redactedSnippet =
+        redactSpoilers(result.snippet).replaceAll('[', '').replaceAll(']', '');
+
     return Semantics(
       button: true,
-      label: '${result.authorName ?? 'Unknown'}: ${result.snippet.replaceAll('[', '').replaceAll(']', '')} '
+      label: '${result.authorName ?? 'Unknown'}: $redactedSnippet '
           'in ${result.conversationTitle ?? 'conversation'}',
       child: InkWell(
         onTap: onTap,

@@ -38,6 +38,24 @@ void main() {
       expect(displayContent, isNot(contains('secret')));
     });
 
+    test('mention + spoiler: mentions resolve first, then redaction', () {
+      // Locks the ordering `redactSpoilers(replaceMentionsWithNames(...))`
+      // chosen at chat_providers.dart. If someone swaps the order, the
+      // mention token's `||`-free name would get redacted to `▮` blocks,
+      // breaking this assertion.
+      const memberId = '01234567-89ab-cdef-0123-456789abcdef';
+      final rawContent = 'hey @[$memberId] ||secret||';
+      final nameMap = <String, String>{memberId: 'Alice'};
+
+      final displayContent = redactSpoilers(
+        replaceMentionsWithNames(rawContent, nameMap),
+      );
+
+      expect(displayContent, contains('@Alice'));
+      expect(displayContent, isNot(contains('secret')));
+      expect(displayContent, contains('\u25AE'));
+    });
+
     test('message without spoilers is unchanged', () {
       const rawContent = 'just a normal message';
       final displayContent = redactSpoilers(

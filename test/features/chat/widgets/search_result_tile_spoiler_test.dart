@@ -52,4 +52,43 @@ void main() {
       expect(rendered, isNot(contains('secret')));
     },
   );
+
+  testWidgets(
+    'SearchResultTile Semantics label redacts spoilers for screen readers',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+
+      final result = MessageSearchResult(
+        messageId: 'msg-2',
+        conversationId: 'conv-1',
+        snippet: 'hello ||secret|| [match]',
+        timestamp: DateTime(2026, 4, 20, 12),
+        authorName: 'Alice',
+        conversationTitle: 'General',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 360,
+                  child: SearchResultTile(
+                    result: result,
+                    onTap: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final semantics = tester.getSemantics(find.byType(SearchResultTile));
+      expect(semantics.label, isNot(contains('secret')));
+      expect(semantics.label, contains('\u25AE'));
+      handle.dispose();
+    },
+  );
 }
