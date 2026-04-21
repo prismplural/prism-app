@@ -808,9 +808,8 @@ final conversationTileDataProvider = Provider.autoDispose
     if (lastMessage.authorId != null) {
       lastMessageAuthorName = participantMap[lastMessage.authorId]?.name;
     }
-    lastMessageDisplayContent = redactSpoilers(
-      replaceMentionsWithNames(lastMessage.content, nameMap),
-    );
+    lastMessageDisplayContent =
+        buildTilePreviewContent(lastMessage.content, nameMap);
   }
 
   return ConversationTileData(
@@ -824,3 +823,9 @@ final conversationTileDataProvider = Provider.autoDispose
     lastMessageDisplayContent: lastMessageDisplayContent,
   );
 });
+
+// Mentions must resolve BEFORE spoiler redaction so `redactSpoilers` clamps
+// on the display-length of `@Name`, not on the raw `@[uuid]` token.
+String buildTilePreviewContent(String rawContent, Map<String, String> nameMap) {
+  return redactSpoilers(replaceMentionsWithNames(rawContent, nameMap));
+}
