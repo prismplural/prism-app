@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -28,6 +29,7 @@ import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/animations.dart';
 import 'package:prism_plurality/shared/utils/desktop_breakpoint.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/utils/nav_bar_layout.dart';
 import 'package:prism_plurality/shared/utils/pin_lock_decision.dart';
 import 'package:prism_plurality/shared/widgets/floating_nav_bar_backdrop.dart';
 
@@ -36,6 +38,196 @@ const _kNavBarRowGap = 6.0;
 
 /// Width of the compact More/close trigger on the trailing edge.
 const _kMoreButtonWidth = 44.0;
+
+/// Border width used by the floating nav container decoration.
+const _kNavBarBorderWidth = 1.0;
+
+/// Icon container height inside each nav item.
+const _kNavBarIconHeight = 32.0;
+
+/// Extra vertical breathing room around the icon + label stack so scaled text
+/// still fits after decoration insets and font metric differences.
+const _kNavBarItemVerticalPadding = 12.0;
+
+@visibleForTesting
+double floatingNavBarExpandedHeight(
+  int overflowRows, {
+  double rowHeight = kFloatingNavBarHeight,
+  double? overflowRowHeight,
+}) {
+  final resolvedOverflowRowHeight = overflowRowHeight ?? rowHeight;
+  if (overflowRows <= 0) return rowHeight;
+  return rowHeight +
+      (resolvedOverflowRowHeight * overflowRows) +
+      (_kNavBarRowGap * overflowRows);
+}
+
+double _measureNavBarLabelHeight({
+  required List<String> labels,
+  required double slotWidth,
+  required TextStyle labelStyle,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+}) {
+  if (labels.isEmpty) return 0;
+
+  var maxLabelHeight = 0.0;
+  final maxWidth = math.max(0.0, slotWidth);
+
+  for (final label in labels) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: labelStyle),
+      textDirection: textDirection,
+      textScaler: textScaler,
+    )..layout(maxWidth: maxWidth);
+    maxLabelHeight = math.max(maxLabelHeight, painter.height);
+  }
+
+  return maxLabelHeight;
+}
+
+double _measurePrimaryNavBarRowHeight({
+  required List<String> primaryLabels,
+  required double barWidth,
+  required bool usesOverflowMenu,
+  required int primaryCount,
+  required TextStyle labelStyle,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+}) {
+  if (primaryCount <= 0) return kFloatingNavBarHeight;
+
+  final primarySlotWidth = math.max(
+    0.0,
+    (barWidth - (usesOverflowMenu ? 16.0 + _kMoreButtonWidth : 24.0)) /
+        primaryCount,
+  );
+  final maxPrimaryLabelHeight = _measureNavBarLabelHeight(
+    labels: primaryLabels,
+    slotWidth: primarySlotWidth,
+    labelStyle: labelStyle,
+    textScaler: textScaler,
+    textDirection: textDirection,
+  );
+
+  return math.max(
+    kFloatingNavBarHeight,
+    _kNavBarIconHeight +
+        maxPrimaryLabelHeight +
+        _kNavBarItemVerticalPadding +
+        (_kNavBarBorderWidth * 2),
+  );
+}
+
+double _measureOverflowNavBarRowHeight({
+  required List<String> overflowLabels,
+  required double barWidth,
+  required int overflowColumns,
+  required TextStyle labelStyle,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+}) {
+  if (overflowLabels.isEmpty || overflowColumns <= 0) {
+    return kFloatingNavBarHeight;
+  }
+
+  final overflowSlotWidth = math.max(0.0, (barWidth - 24.0) / overflowColumns);
+  final maxOverflowLabelHeight = _measureNavBarLabelHeight(
+    labels: overflowLabels,
+    slotWidth: overflowSlotWidth,
+    labelStyle: labelStyle,
+    textScaler: textScaler,
+    textDirection: textDirection,
+  );
+
+  return math.max(
+    kFloatingNavBarHeight,
+    _kNavBarIconHeight + maxOverflowLabelHeight + _kNavBarItemVerticalPadding,
+  );
+}
+
+class AppShellMobileNavLayout {
+  const AppShellMobileNavLayout({
+    required this.spec,
+    required this.primaryTabs,
+    required this.overflowTabs,
+    required this.rowHeight,
+    required this.overflowRowHeight,
+  });
+
+  final NavBarLayoutSpec spec;
+  final List<AppShellTab> primaryTabs;
+  final List<AppShellTab> overflowTabs;
+  final double rowHeight;
+  final double overflowRowHeight;
+
+  List<AppShellTab> get allTabs => [...primaryTabs, ...overflowTabs];
+  double get expandedHeight => floatingNavBarExpandedHeight(
+    spec.overflowRows,
+    rowHeight: rowHeight,
+    overflowRowHeight: overflowRowHeight,
+  );
+}
+
+AppShellMobileNavLayout computeAdaptiveMobileNavLayout({
+  required double barWidth,
+  required List<AppShellTab> primaryTabs,
+  required List<AppShellTab> overflowTabs,
+  required List<String> primaryLabels,
+  required List<String> overflowLabels,
+  required TextStyle labelStyle,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+}) {
+  assert(primaryTabs.length == primaryLabels.length);
+  assert(overflowTabs.length == overflowLabels.length);
+
+  final spec = computeNavBarLayoutSpec(
+    barWidth: barWidth,
+    primaryLabels: primaryLabels,
+    overflowLabels: overflowLabels,
+    labelStyle: labelStyle,
+    textScaler: textScaler,
+    textDirection: textDirection,
+  );
+  final split = splitNavBarTabsForLayout(
+    primary: primaryTabs,
+    overflow: overflowTabs,
+    spec: spec,
+  );
+  final visualPrimaryLabels = primaryLabels
+      .take(spec.collapsedPrimaryCount)
+      .toList();
+  final visualOverflowLabels = [
+    ...primaryLabels.skip(spec.collapsedPrimaryCount),
+    ...overflowLabels,
+  ];
+  final rowHeight = _measurePrimaryNavBarRowHeight(
+    primaryLabels: visualPrimaryLabels,
+    barWidth: barWidth,
+    usesOverflowMenu: spec.usesOverflowMenu,
+    primaryCount: split.primary.length,
+    labelStyle: labelStyle,
+    textScaler: textScaler,
+    textDirection: textDirection,
+  );
+  final overflowRowHeight = _measureOverflowNavBarRowHeight(
+    overflowLabels: visualOverflowLabels,
+    barWidth: barWidth,
+    overflowColumns: spec.overflowColumns,
+    labelStyle: labelStyle,
+    textScaler: textScaler,
+    textDirection: textDirection,
+  );
+
+  return AppShellMobileNavLayout(
+    spec: spec,
+    primaryTabs: split.primary,
+    overflowTabs: split.overflow,
+    rowHeight: rowHeight,
+    overflowRowHeight: overflowRowHeight,
+  );
+}
 
 /// Incremented each time the user taps the already-selected tab.
 /// Screens can watch this to scroll-to-top or perform other re-engage actions.
@@ -215,21 +407,15 @@ class _AppShellState extends ConsumerState<AppShell>
     final isDesktop = shouldBeDesktop(width, currentlyDesktop: _wasDesktop);
     _wasDesktop = isDesktop;
 
-    // Build visible tabs from configurable providers. Both providers delegate
-    // to normalizeNavLayout, which enforces the 5-tab primary cap and spills
-    // excess into overflow — so here we just consume the result.
-    final primaryTabs = ref.watch(activeNavBarTabsProvider);
-    final overflowTabs = ref.watch(navBarOverflowTabsProvider);
-
-    // All tabs combined for index mapping.
-    final allTabs = [...primaryTabs, ...overflowTabs];
-
-    // Map the current shell branch index to visible tab index.
-    final currentVisibleIndex = allTabs.indexWhere(
-      (t) => t.branchIndex == widget.navigationShell.currentIndex,
-    );
-
-    final safeCurrentIndex = currentVisibleIndex < 0 ? 0 : currentVisibleIndex;
+    // Providers resolve the configured nav layout. On mobile we may render a
+    // smaller primary set at runtime when the current width/text scale cannot
+    // fit all configured labels without clipping.
+    final configuredPrimaryTabs = ref.watch(activeNavBarTabsProvider);
+    final configuredOverflowTabs = ref.watch(navBarOverflowTabsProvider);
+    final configuredTabs = [
+      ...configuredPrimaryTabs,
+      ...configuredOverflowTabs,
+    ];
 
     // Retry the initial PIN check when providers resolve (handles cold start
     // where providers were still loading during _checkInitialLock).
@@ -289,9 +475,8 @@ class _AppShellState extends ConsumerState<AppShell>
       _showPasswordSheetIfNeeded(context, ref);
     }
 
-    void onTabTap(int allTabsIndex) {
-      if (!isDesktop) Haptics.selection();
-      final tab = allTabs[allTabsIndex];
+    void onTabSelected(AppShellTab tab, {required bool useHaptics}) {
+      if (useHaptics) Haptics.selection();
       final isRetap = tab.branchIndex == widget.navigationShell.currentIndex;
       try {
         widget.navigationShell.goBranch(
@@ -317,6 +502,13 @@ class _AppShellState extends ConsumerState<AppShell>
     Widget shell;
 
     if (isDesktop) {
+      final currentVisibleIndex = configuredTabs.indexWhere(
+        (t) => t.branchIndex == widget.navigationShell.currentIndex,
+      );
+      final safeCurrentIndex = currentVisibleIndex < 0
+          ? 0
+          : currentVisibleIndex;
+
       // Desktop layout: sidebar + content side by side.
       shell = NavBarInset(
         bottomInset: 0,
@@ -326,10 +518,11 @@ class _AppShellState extends ConsumerState<AppShell>
             body: Row(
               children: [
                 _FloatingSidebar(
-                  tabs: allTabs,
+                  tabs: configuredTabs,
                   currentIndex: safeCurrentIndex,
                   accentColor: accentColor,
-                  onTap: onTabTap,
+                  onTap: (index) =>
+                      onTabSelected(configuredTabs[index], useHaptics: false),
                 ),
                 Expanded(child: widget.navigationShell),
               ],
@@ -338,6 +531,40 @@ class _AppShellState extends ConsumerState<AppShell>
         ),
       );
     } else {
+      final terms = watchTerminology(context, ref);
+      final primaryLabels = configuredPrimaryTabs
+          .map(
+            (tab) =>
+                tab.localizedLabel(context, terminologyPlural: terms.plural),
+          )
+          .toList();
+      final overflowLabels = configuredOverflowTabs
+          .map(
+            (tab) =>
+                tab.localizedLabel(context, terminologyPlural: terms.plural),
+          )
+          .toList();
+      final navBarWidth = math.max(
+        0.0,
+        width - (kFloatingNavBarSideMargin * 2),
+      );
+      final mobileLayout = computeAdaptiveMobileNavLayout(
+        barWidth: navBarWidth,
+        primaryTabs: configuredPrimaryTabs,
+        overflowTabs: configuredOverflowTabs,
+        primaryLabels: primaryLabels,
+        overflowLabels: overflowLabels,
+        labelStyle: navBarLabelTextStyle(context, isSelected: true),
+        textScaler: MediaQuery.textScalerOf(context),
+        textDirection: Directionality.of(context),
+      );
+      final currentVisibleIndex = mobileLayout.allTabs.indexWhere(
+        (t) => t.branchIndex == widget.navigationShell.currentIndex,
+      );
+      final safeCurrentIndex = currentVisibleIndex < 0
+          ? 0
+          : currentVisibleIndex;
+
       // Mobile layout: stack with floating bottom bar.
       // Hide the nav bar on sub-routes (detail screens) — only show on root tabs.
       final location = GoRouterState.of(context).uri.path;
@@ -365,7 +592,7 @@ class _AppShellState extends ConsumerState<AppShell>
       final navBarBottom = isApple && bottomSafeArea > 0
           ? 21.0
           : kFloatingNavBarBottomMargin + bottomSafeArea;
-      final totalInset = kFloatingNavBarHeight + navBarBottom + 8;
+      final totalInset = mobileLayout.rowHeight + navBarBottom + 8;
 
       shell = NavBarInset(
         bottomInset: hideNavBar ? 0 : totalInset,
@@ -416,11 +643,18 @@ class _AppShellState extends ConsumerState<AppShell>
                       bottom: navBarBottom,
                       child: _FloatingNavBar(
                         key: _navBarKey,
-                        primaryTabs: primaryTabs,
-                        overflowTabs: overflowTabs,
+                        primaryTabs: mobileLayout.primaryTabs,
+                        overflowTabs: mobileLayout.overflowTabs,
+                        overflowColumns: mobileLayout.spec.overflowColumns,
+                        overflowRows: mobileLayout.spec.overflowRows,
+                        rowHeight: mobileLayout.rowHeight,
+                        overflowRowHeight: mobileLayout.overflowRowHeight,
                         currentIndex: safeCurrentIndex,
                         accentColor: accentColor,
-                        onTap: onTabTap,
+                        onTap: (index) => onTabSelected(
+                          mobileLayout.allTabs[index],
+                          useHaptics: true,
+                        ),
                         onExpandedChanged: (expanded) {
                           setState(() => _navExpanded = expanded);
                         },
@@ -481,25 +715,37 @@ class _AppShellState extends ConsumerState<AppShell>
 
 /// Floating pill-shaped navigation bar with "More" overflow support.
 ///
-/// When >5 tabs: shows 5 primary tabs + compact vertical-dots trigger on the
-/// trailing edge. Tapping the trigger expands the pill upward to reveal a
-/// second row of overflow tabs. Tapping any icon or outside collapses it.
+/// On mobile this can render fewer than the configured primary tabs when
+/// larger labels or text scaling would otherwise clip. Tapping the More
+/// trigger expands the pill upward to reveal the rendered overflow rows.
 class _FloatingNavBar extends StatefulWidget {
-  const _FloatingNavBar({
+  _FloatingNavBar({
     super.key,
     required this.primaryTabs,
     required this.overflowTabs,
+    required this.overflowColumns,
+    required this.overflowRows,
+    required this.rowHeight,
+    required this.overflowRowHeight,
     required this.currentIndex,
     required this.onTap,
     required this.accentColor,
     this.onExpandedChanged,
-  });
+  }) : assert(
+         overflowTabs.isEmpty
+             ? overflowColumns == 0 && overflowRows == 0
+             : overflowColumns > 0 && overflowRows > 0,
+       );
 
   /// Tabs shown directly in the bar.
   final List<AppShellTab> primaryTabs;
 
   /// Tabs shown in the expanded overflow menu.
   final List<AppShellTab> overflowTabs;
+  final int overflowColumns;
+  final int overflowRows;
+  final double rowHeight;
+  final double overflowRowHeight;
   final int currentIndex;
 
   /// Called with the index into [primaryTabs] ++ [overflowTabs].
@@ -526,10 +772,20 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
   );
 
   bool get _needsOverflow => widget.overflowTabs.isNotEmpty;
+  double get _overflowAreaHeight {
+    if (!_needsOverflow) return 0;
+    return widget.overflowRowHeight * widget.overflowRows +
+        _kNavBarRowGap * (widget.overflowRows - 1);
+  }
+
+  double get _expandedHeight => floatingNavBarExpandedHeight(
+    widget.overflowRows,
+    rowHeight: widget.rowHeight,
+    overflowRowHeight: widget.overflowRowHeight,
+  );
 
   static const _collapsedRadius = 32.0;
   static const _expandedRadius = 28.0;
-  static const _expandedHeight = kFloatingNavBarHeight * 2 + _kNavBarRowGap;
 
   @override
   void initState() {
@@ -650,7 +906,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
       );
     }
 
-    // Overflow mode — single expanding pill
+    // Overflow mode — expanding pill with adaptive overflow rows.
     final overflowSelected = widget.currentIndex >= widget.primaryTabs.length;
 
     return AnimatedBuilder(
@@ -658,8 +914,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
       builder: (context, _) {
         final t = _expandAnimation.value;
         final currentHeight =
-            kFloatingNavBarHeight +
-            (_expandedHeight - kFloatingNavBarHeight) * t;
+            widget.rowHeight + (_expandedHeight - widget.rowHeight) * t;
         final radius =
             _collapsedRadius + (_expandedRadius - _collapsedRadius) * t;
 
@@ -679,61 +934,62 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                 decoration: _barDecoration(isDark, isOled, radius, shapes),
                 child: Column(
                   children: [
-                    // Overflow row (top, revealed by expansion)
+                    // Overflow rows (top, revealed by expansion)
                     ClipRect(
                       child: Align(
                         alignment: Alignment.bottomCenter,
                         heightFactor: t,
                         child: SizedBox(
-                          height: kFloatingNavBarHeight,
+                          height: _overflowAreaHeight,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: List.generate(
-                                widget.overflowTabs.length,
-                                (i) {
-                                  final tab = widget.overflowTabs[i];
-                                  final isSelected = i == _overflowTabIndex;
-                                  // Staggered entrance: each icon delays 40ms
-                                  final staggerStart = (i * 0.08).clamp(
-                                    0.0,
-                                    0.6,
-                                  );
-                                  final staggerEnd = (staggerStart + 0.5).clamp(
-                                    0.0,
-                                    1.0,
-                                  );
-                                  final itemT = Interval(
-                                    staggerStart,
-                                    staggerEnd,
-                                    curve: Curves.easeOut,
-                                  ).transform(t);
+                            child: GridView.builder(
+                              padding: EdgeInsets.zero,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: widget.overflowColumns,
+                                    mainAxisExtent: widget.overflowRowHeight,
+                                    mainAxisSpacing: _kNavBarRowGap,
+                                  ),
+                              itemCount: widget.overflowTabs.length,
+                              itemBuilder: (context, i) {
+                                final tab = widget.overflowTabs[i];
+                                final isSelected = i == _overflowTabIndex;
+                                // Staggered entrance: each icon delays 40ms.
+                                final staggerStart = (i * 0.08).clamp(0.0, 0.6);
+                                final staggerEnd = (staggerStart + 0.5).clamp(
+                                  0.0,
+                                  1.0,
+                                );
+                                final itemT = Interval(
+                                  staggerStart,
+                                  staggerEnd,
+                                  curve: Curves.easeOut,
+                                ).transform(t);
 
-                                  return Expanded(
-                                    child: Opacity(
-                                      opacity: itemT,
-                                      child: Transform.translate(
-                                        offset: Offset(0, (1 - itemT) * 8),
-                                        child: _NavBarItem(
-                                          tab: tab,
-                                          terminologyPlural: terms.plural,
-                                          isSelected: isSelected,
-                                          accentColor: widget.accentColor,
-                                          isDark: isDark,
-                                          showSyncBadge: showSyncBadge,
-                                          habitsDueCount: dueCount,
-                                          chatUnreadCount: chatUnreadCount,
-                                          showItemPill: true,
-                                          onTap: () => _handleTap(
-                                            widget.primaryTabs.length + i,
-                                          ),
-                                        ),
+                                return Opacity(
+                                  opacity: itemT,
+                                  child: Transform.translate(
+                                    offset: Offset(0, (1 - itemT) * 8),
+                                    child: _NavBarItem(
+                                      tab: tab,
+                                      terminologyPlural: terms.plural,
+                                      isSelected: isSelected,
+                                      accentColor: widget.accentColor,
+                                      isDark: isDark,
+                                      showSyncBadge: showSyncBadge,
+                                      habitsDueCount: dueCount,
+                                      chatUnreadCount: chatUnreadCount,
+                                      rowHeight: widget.rowHeight,
+                                      showItemPill: true,
+                                      onTap: () => _handleTap(
+                                        widget.primaryTabs.length + i,
                                       ),
                                     ),
-                                  );
-                                },
-                              ),
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ),
@@ -786,10 +1042,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                                 _pillController.value)
                                           : _pillController.value;
                                       return Transform.translate(
-                                        offset: Offset(
-                                          slot * segWidth + 8,
-                                          0,
-                                        ),
+                                        offset: Offset(slot * segWidth + 8, 0),
                                         child: child,
                                       );
                                     },
@@ -827,6 +1080,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                             showSyncBadge: showSyncBadge,
                                             habitsDueCount: dueCount,
                                             chatUnreadCount: chatUnreadCount,
+                                            rowHeight: widget.rowHeight,
                                             onTap: () => _handleTap(i),
                                           ),
                                         );
@@ -834,10 +1088,13 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                     ),
                                     // Compact More/close trigger on trailing edge
                                     _MoreTrigger(
-                                      expanded: _expanded || overflowSelected,
+                                      isExpanded: _expanded,
+                                      isHighlighted:
+                                          _expanded || overflowSelected,
                                       animationValue: t,
                                       accentColor: widget.accentColor,
                                       isDark: isDark,
+                                      rowHeight: widget.rowHeight,
                                       onTap: _toggleExpand,
                                     ),
                                   ],
@@ -869,7 +1126,12 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
     return widget.currentIndex - offset;
   }
 
-  BoxDecoration _barDecoration(bool isDark, bool isOled, double radius, PrismShapes shapes) {
+  BoxDecoration _barDecoration(
+    bool isDark,
+    bool isOled,
+    double radius,
+    PrismShapes shapes,
+  ) {
     return BoxDecoration(
       color: Color.alphaBlend(
         widget.accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
@@ -881,6 +1143,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
       ),
       borderRadius: BorderRadius.circular(shapes.radius(radius)),
       border: Border.all(
+        width: _kNavBarBorderWidth,
         color: isDark
             ? AppColors.warmWhite.withValues(alpha: 0.1)
             : AppColors.warmBlack.withValues(alpha: 0.08),
@@ -923,8 +1186,13 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
             sigmaY: PrismTokens.glassBlurStrong,
           ),
           child: Container(
-            height: kFloatingNavBarHeight,
-            decoration: _barDecoration(isDark, isOled, _collapsedRadius, shapes),
+            height: widget.rowHeight,
+            decoration: _barDecoration(
+              isDark,
+              isOled,
+              _collapsedRadius,
+              shapes,
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: LayoutBuilder(
@@ -944,10 +1212,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                               ? (tabCount - 1 - _pillController.value)
                               : _pillController.value;
                           return Transform.translate(
-                            offset: Offset(
-                              slot * segmentWidth + 8,
-                              0,
-                            ),
+                            offset: Offset(slot * segmentWidth + 8, 0),
                             child: child,
                           );
                         },
@@ -956,7 +1221,9 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: pillColor,
-                              borderRadius: BorderRadius.circular(shapes.radius(16)),
+                              borderRadius: BorderRadius.circular(
+                                shapes.radius(16),
+                              ),
                             ),
                             child: SizedBox(width: pillWidth, height: 32),
                           ),
@@ -967,7 +1234,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                       // same way it does in overflow mode (where the tall
                       // _MoreTrigger sibling forces the row to full height).
                       SizedBox(
-                        height: kFloatingNavBarHeight,
+                        height: widget.rowHeight,
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: List.generate(tabCount, (index) {
@@ -983,6 +1250,7 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                                 showSyncBadge: showSyncBadge,
                                 habitsDueCount: dueCount,
                                 chatUnreadCount: chatUnreadCount,
+                                rowHeight: widget.rowHeight,
                                 onTap: () => widget.onTap(index),
                               ),
                             );
@@ -1004,22 +1272,26 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
 /// Compact vertical-dots trigger that rotates to an X when expanded.
 class _MoreTrigger extends StatelessWidget {
   const _MoreTrigger({
-    required this.expanded,
+    required this.isExpanded,
+    required this.isHighlighted,
     required this.animationValue,
     required this.accentColor,
     required this.isDark,
+    required this.rowHeight,
     required this.onTap,
   });
 
-  final bool expanded;
+  final bool isExpanded;
+  final bool isHighlighted;
   final double animationValue;
   final Color accentColor;
   final bool isDark;
+  final double rowHeight;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = expanded
+    final iconColor = isHighlighted
         ? accentColor
         : (isDark
               ? AppColors.warmWhite.withValues(alpha: 0.5)
@@ -1027,13 +1299,14 @@ class _MoreTrigger extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: expanded ? context.l10n.closeMenu : context.l10n.moreTabs,
+      expanded: isExpanded,
+      label: isExpanded ? context.l10n.closeMenu : context.l10n.moreTabs,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: SizedBox(
           width: _kMoreButtonWidth,
-          height: kFloatingNavBarHeight,
+          height: rowHeight,
           child: Center(
             child: Transform.rotate(
               angle: animationValue * 0.785, // 45 degrees
@@ -1057,6 +1330,7 @@ class _NavBarItem extends StatelessWidget {
     required this.showSyncBadge,
     required this.habitsDueCount,
     required this.chatUnreadCount,
+    required this.rowHeight,
     required this.onTap,
     this.showItemPill = false,
   });
@@ -1069,6 +1343,7 @@ class _NavBarItem extends StatelessWidget {
   final bool showSyncBadge;
   final int habitsDueCount;
   final int chatUnreadCount;
+  final double rowHeight;
   final VoidCallback onTap;
 
   /// When true, render a per-item pill behind the icon (for overflow row).
@@ -1116,7 +1391,7 @@ class _NavBarItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              height: 32,
+              height: _kNavBarIconHeight,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
@@ -1129,7 +1404,9 @@ class _NavBarItem extends StatelessWidget {
                                   ? AppColors.warmWhite.withValues(alpha: 0.15)
                                   : AppColors.warmBlack.withValues(alpha: 0.08))
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+                        borderRadius: BorderRadius.circular(
+                          PrismShapes.of(context).radius(16),
+                        ),
                       )
                     : null,
                 child: iconWidget,
@@ -1137,9 +1414,9 @@ class _NavBarItem extends StatelessWidget {
             ),
             Text(
               itemLabel,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              style: navBarLabelTextStyle(
+                context,
+                isSelected: isSelected,
                 color: isSelected
                     ? (isDark ? AppColors.warmWhite : AppColors.warmBlack)
                     : (isDark
@@ -1203,7 +1480,9 @@ class _FloatingSidebar extends ConsumerWidget {
                             : AppColors.warmWhite.withValues(alpha: 0.06))
                       : AppColors.warmWhite.withValues(alpha: 0.55),
                 ),
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(16),
+                ),
                 border: Border.all(
                   color: isDark
                       ? AppColors.warmWhite.withValues(alpha: 0.1)
@@ -1326,7 +1605,9 @@ class _SidebarItemState extends State<_SidebarItem> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: fillColor,
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(10),
+              ),
             ),
             child: Row(
               children: [
