@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/chat/models/search_result.dart';
+import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/tinted_glass_surface.dart';
@@ -111,6 +112,10 @@ class SearchResultTile extends StatelessWidget {
 
   Widget _buildSnippet(BuildContext context, String snippet) {
     final theme = Theme.of(context);
+    // Redact spoilers before bracket-tokenization: if a match landed inside
+    // a spoiler, its ``[hit]`` markers get swallowed too — we'd rather lose
+    // the highlight than leak the hidden text.
+    final redacted = redactSpoilers(snippet);
     final baseStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
@@ -123,10 +128,10 @@ class SearchResultTile extends StatelessWidget {
     final regex = RegExp(r'\[([^\]]*)\]');
     var lastEnd = 0;
 
-    for (final match in regex.allMatches(snippet)) {
+    for (final match in regex.allMatches(redacted)) {
       if (match.start > lastEnd) {
         spans.add(TextSpan(
-          text: snippet.substring(lastEnd, match.start),
+          text: redacted.substring(lastEnd, match.start),
           style: baseStyle,
         ));
       }
@@ -136,9 +141,9 @@ class SearchResultTile extends StatelessWidget {
       ));
       lastEnd = match.end;
     }
-    if (lastEnd < snippet.length) {
+    if (lastEnd < redacted.length) {
       spans.add(TextSpan(
-        text: snippet.substring(lastEnd),
+        text: redacted.substring(lastEnd),
         style: baseStyle,
       ));
     }
