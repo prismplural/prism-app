@@ -58,14 +58,15 @@ class _ChatMessageTextState extends State<ChatMessageText> {
 
     final theme = Theme.of(context);
 
-    // Fast path: skips the markdown parser, so `||spoiler||` in >2000-char
-    // messages renders literally. Same fallback other markdown sees in giant
-    // messages — acceptable for v1.
+    // Fast path: skips the markdown parser. `redactSpoilers` runs before
+    // rendering so a >2000-char message with `||secret||` can't leak the
+    // plaintext — we trade tap-to-reveal for a no-plaintext guarantee on
+    // oversize messages.
     if (widget.content.length > _fastPathThreshold ||
         !hasMarkdownChars(widget.content)) {
       return Text.rich(
         buildMentionSpan(
-          content: widget.content,
+          content: redactSpoilers(widget.content),
           authorMap: widget.authorMap,
           theme: theme,
           defaultColor: widget.defaultColor,
