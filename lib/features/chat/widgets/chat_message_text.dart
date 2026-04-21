@@ -36,13 +36,19 @@ class ChatMessageText extends StatefulWidget {
 class _ChatMessageTextState extends State<ChatMessageText> {
   static const int _fastPathThreshold = 2000;
 
-  final Map<int, bool> _reveals = {};
+  final _revealController = SpoilerRevealController();
+
+  @override
+  void dispose() {
+    _revealController.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(ChatMessageText oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.content != widget.content) {
-      _reveals.clear();
+      _revealController.clear();
     }
   }
 
@@ -70,39 +76,25 @@ class _ChatMessageTextState extends State<ChatMessageText> {
 
     final preprocessed = escapeLeadingHeadings(widget.content);
 
-    // Encode current reveal state into the key so MarkdownBody recreates its
-    // widget tree (and re-runs element builders) whenever a spoiler is toggled.
-    // MarkdownBody only re-parses when `data` or `styleSheet` changes; keying
-    // off reveal state is the lightest-weight way to keep the pill in sync.
-    final revealsKey = _reveals.isEmpty
-        ? ''
-        : _reveals.entries
-            .where((e) => e.value)
-            .map((e) => e.key)
-            .join(',');
-
-    return MergeSemantics(
-      child: MarkdownBody(
-        key: ValueKey(revealsKey),
-        data: preprocessed,
-        styleSheet: chatStylesheet(context, widget.baseStyle),
-        extensionSet: chatExtensionSet,
-        selectable: false,
-        softLineBreak: true,
-        builders: {
-          'mention': MentionBuilder(authorMap: widget.authorMap, theme: theme),
-          'a': SafeLinkBuilder(
-            theme: theme,
-            onTap: _openExternal,
-          ),
-          'spoiler': SpoilerBuilder(
-            reveals: _reveals,
-            onToggle: (start) => setState(() {
-              _reveals[start] = !(_reveals[start] ?? false);
-            }),
-            theme: theme,
-          ),
-        },
+    return SpoilerRevealScope(
+      notifier: _revealController,
+      child: MergeSemantics(
+        child: MarkdownBody(
+          data: preprocessed,
+          styleSheet: chatStylesheet(context, widget.baseStyle),
+          extensionSet: chatExtensionSet,
+          selectable: false,
+          softLineBreak: true,
+          builders: {
+            'mention':
+                MentionBuilder(authorMap: widget.authorMap, theme: theme),
+            'a': SafeLinkBuilder(
+              theme: theme,
+              onTap: _openExternal,
+            ),
+            'spoiler': SpoilerBuilder(theme: theme),
+          },
+        ),
       ),
     );
   }

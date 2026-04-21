@@ -151,20 +151,51 @@ class SafeLinkBuilder extends MarkdownElementBuilder {
   }
 }
 
-/// Renders `||text||` spoiler elements as a tappable pill.
-///
-/// Reveal state is held by the caller (message bubble) keyed on the match
-/// offset, so each spoiler in a message has independent, stable state across
-/// rebuilds and survives text selection / scroll.
-class SpoilerBuilder extends MarkdownElementBuilder {
-  SpoilerBuilder({
-    required this.reveals,
-    required this.onToggle,
-    required this.theme,
+/// Publishes spoiler reveal state to every `_SpoilerSpan` beneath a
+/// `ChatMessageText`. Using an `InheritedNotifier` lets only the affected
+/// spoiler leaves rebuild on toggle — the enclosing `MarkdownBody`'s parsed
+/// widget tree stays mounted, so `AnimatedOpacity` animates instead of
+/// snapping.
+class SpoilerRevealController extends ChangeNotifier {
+  final Map<int, bool> _reveals = {};
+
+  bool isRevealed(int start) => _reveals[start] ?? false;
+
+  void toggle(int start) {
+    _reveals[start] = !isRevealed(start);
+    notifyListeners();
+  }
+
+  void clear() {
+    if (_reveals.isEmpty) return;
+    _reveals.clear();
+    notifyListeners();
+  }
+}
+
+class SpoilerRevealScope extends InheritedNotifier<SpoilerRevealController> {
+  const SpoilerRevealScope({
+    super.key,
+    required SpoilerRevealController super.notifier,
+    required super.child,
   });
 
-  final Map<int, bool> reveals;
-  final void Function(int start) onToggle;
+  static SpoilerRevealController of(BuildContext context) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<SpoilerRevealScope>();
+    assert(scope != null, 'No SpoilerRevealScope above SpoilerBuilder');
+    return scope!.notifier!;
+  }
+}
+
+/// Renders `||text||` spoiler elements as a tappable pill.
+///
+/// Reveal state is read from the nearest [SpoilerRevealScope] ancestor, so
+/// toggling a spoiler only rebuilds the affected `_SpoilerSpan` leaf — the
+/// enclosing `MarkdownBody` tree stays mounted and `AnimatedOpacity` animates.
+class SpoilerBuilder extends MarkdownElementBuilder {
+  SpoilerBuilder({required this.theme});
+
   final ThemeData theme;
 
   @override
@@ -176,13 +207,10 @@ class SpoilerBuilder extends MarkdownElementBuilder {
   ) {
     final start = int.tryParse(element.attributes['start'] ?? '') ?? 0;
     final text = element.textContent;
-    final revealed = reveals[start] ?? false;
     final base = parentStyle ?? const TextStyle();
     return _SpoilerSpan(
       start: start,
       text: text,
-      revealed: revealed,
-      onTap: () => onToggle(start),
       textStyle: base,
       theme: theme,
     );
@@ -193,16 +221,12 @@ class _SpoilerSpan extends StatelessWidget {
   const _SpoilerSpan({
     required this.start,
     required this.text,
-    required this.revealed,
-    required this.onTap,
     required this.textStyle,
     required this.theme,
   });
 
   final int start;
   final String text;
-  final bool revealed;
-  final VoidCallback onTap;
   final TextStyle textStyle;
   final ThemeData theme;
 
@@ -214,6 +238,8 @@ class _SpoilerSpan extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = SpoilerRevealScope.of(context);
+    final revealed = controller.isRevealed(start);
     final isDark = theme.brightness == Brightness.dark;
     final occlusion = theme.colorScheme.onSurface
         .withAlpha(isDark ? _occlusionAlphaDark : _occlusionAlphaLight);
@@ -225,7 +251,7 @@ class _SpoilerSpan extends StatelessWidget {
           : 'Hidden spoiler, double tap to reveal',
       excludeSemantics: true,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: () => controller.toggle(start),
         behavior: HitTestBehavior.opaque,
         child: Stack(
           alignment: Alignment.center,
