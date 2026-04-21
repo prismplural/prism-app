@@ -1,20 +1,23 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:prism_plurality/shared/theme/prism_shapes.dart';
-import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import 'package:prism_plurality/core/constants/app_constants.dart';
+import 'package:prism_plurality/core/services/build_info.dart';
 import 'package:prism_plurality/features/onboarding/models/onboarding_data_counts.dart';
 import 'package:prism_plurality/features/onboarding/providers/device_pairing_provider.dart';
 import 'package:prism_plurality/features/onboarding/widgets/onboarding_data_ready_view.dart';
 import 'package:prism_plurality/features/onboarding/widgets/sync_progress_view.dart';
-import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 class SyncDeviceStep extends ConsumerStatefulWidget {
   const SyncDeviceStep({
@@ -31,6 +34,20 @@ class SyncDeviceStep extends ConsumerStatefulWidget {
 }
 
 class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
+  final _relayUrlController = TextEditingController();
+  final _registrationTokenController = TextEditingController(
+    text: BuildInfo.betaRegistrationToken,
+  );
+  bool _showRelayConfiguration = false;
+  String? _relayUrlError;
+
+  @override
+  void dispose() {
+    _relayUrlController.dispose();
+    _registrationTokenController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final pairingState = ref.watch(devicePairingProvider);
@@ -41,8 +58,19 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
         child = _JoinPromptView(
           key: const ValueKey('join-prompt'),
           onBack: widget.onBack,
-          onRequestToJoin: () =>
-              ref.read(devicePairingProvider.notifier).generateRequest(),
+          showRelayConfiguration: _showRelayConfiguration,
+          relayUrlController: _relayUrlController,
+          registrationTokenController: _registrationTokenController,
+          relayUrlError: _relayUrlError,
+          onToggleRelayConfiguration: () {
+            setState(() {
+              _showRelayConfiguration = !_showRelayConfiguration;
+              if (!_showRelayConfiguration) {
+                _relayUrlError = null;
+              }
+            });
+          },
+          onRequestToJoin: _requestToJoin,
         );
       case PairingStep.showingRequest:
         child = _ShowingRequestView(
@@ -65,8 +93,9 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
         child = _PairingPinCapture(
           key: const ValueKey('pin'),
           onBack: () => ref.read(devicePairingProvider.notifier).reset(),
-          onPinEntered: (pin) =>
-              ref.read(devicePairingProvider.notifier).completeJoinerWithPin(pin),
+          onPinEntered: (pin) => ref
+              .read(devicePairingProvider.notifier)
+              .completeJoinerWithPin(pin),
         );
       case PairingStep.connecting:
         child = const SyncProgressView(key: ValueKey('connecting'));
@@ -93,7 +122,9 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.amber.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(10)),
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(10),
+                    ),
                     border: Border.all(
                       color: Colors.amber.withValues(alpha: 0.4),
                     ),
@@ -109,9 +140,10 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
                       Expanded(
                         child: Text(
                           context.l10n.onboardingSyncDataStillSyncing,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.amber.withValues(alpha: 0.9),
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Colors.amber.withValues(alpha: 0.9),
+                              ),
                         ),
                       ),
                     ],
@@ -127,7 +159,9 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
       case PairingStep.error:
         child = _ErrorView(
           key: const ValueKey('error'),
-          message: pairingState.errorMessage ?? context.l10n.onboardingSyncUnknownError,
+          message:
+              pairingState.errorMessage ??
+              context.l10n.onboardingSyncUnknownError,
           onTryAgain: () => ref.read(devicePairingProvider.notifier).reset(),
         );
     }
@@ -139,6 +173,29 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
       ),
     );
   }
+
+  Future<void> _requestToJoin() async {
+    final relayUrl = _relayUrlController.text.trim();
+    if (_showRelayConfiguration && relayUrl.isNotEmpty) {
+      if (!relayUrl.startsWith('https://')) {
+        setState(() => _relayUrlError = context.l10n.syncSetupRelayUrlError);
+        return;
+      }
+    }
+
+    if (_relayUrlError != null) {
+      setState(() => _relayUrlError = null);
+    }
+
+    await ref
+        .read(devicePairingProvider.notifier)
+        .generateRequest(
+          relayUrl: relayUrl.isEmpty ? null : relayUrl,
+          registrationToken: _showRelayConfiguration
+              ? _registrationTokenController.text.trim()
+              : null,
+        );
+  }
 }
 
 /// Simple prompt to request joining a sync group.
@@ -147,13 +204,25 @@ class _JoinPromptView extends StatelessWidget {
     super.key,
     required this.onBack,
     required this.onRequestToJoin,
+    required this.showRelayConfiguration,
+    required this.relayUrlController,
+    required this.registrationTokenController,
+    required this.relayUrlError,
+    required this.onToggleRelayConfiguration,
   });
 
   final VoidCallback onBack;
   final VoidCallback onRequestToJoin;
+  final bool showRelayConfiguration;
+  final TextEditingController relayUrlController;
+  final TextEditingController registrationTokenController;
+  final String? relayUrlError;
+  final VoidCallback onToggleRelayConfiguration;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
@@ -183,6 +252,84 @@ class _JoinPromptView extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
+          Semantics(
+            button: true,
+            label: context.l10n.syncSetupSelfHosted,
+            child: InkWell(
+              onTap: onToggleRelayConfiguration,
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(999),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      showRelayConfiguration
+                          ? AppIcons.expandLess
+                          : AppIcons.expandMore,
+                      size: 18,
+                      color: AppColors.warmWhite.withValues(alpha: 0.72),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      context.l10n.syncSetupSelfHosted,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AppColors.warmWhite.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (showRelayConfiguration) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.warmWhite.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(18),
+                ),
+                border: Border.all(
+                  color: AppColors.warmWhite.withValues(alpha: 0.12),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  PrismTextField(
+                    controller: relayUrlController,
+                    labelText: context.l10n.syncSetupRelayUrlLabel,
+                    hintText: AppConstants.defaultRelayUrl,
+                    keyboardType: TextInputType.url,
+                    errorText: relayUrlError,
+                  ),
+                  const SizedBox(height: 12),
+                  PrismTextField(
+                    controller: registrationTokenController,
+                    labelText: context.l10n.syncSetupRegistrationToken,
+                    hintText: context.l10n.syncSetupRegistrationTokenHint,
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.l10n.syncSetupRegistrationTokenHelp,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.warmWhite.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           _ActionButton(
             label: context.l10n.onboardingSyncRequestToJoin,
             color: Colors.purple,
@@ -254,7 +401,9 @@ class _ShowingRequestView extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.warmWhite,
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(16),
+                ),
               ),
               child: QrImageView(
                 data: qrData,
@@ -267,10 +416,7 @@ class _ShowingRequestView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const PrismSpinner(
-                color: AppColors.warmWhite,
-                size: 16,
-              ),
+              const PrismSpinner(color: AppColors.warmWhite, size: 16),
               const SizedBox(width: 12),
               Text(
                 context.l10n.onboardingSyncWaitingForScan,
@@ -378,7 +524,9 @@ class _SasVerificationView extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             decoration: BoxDecoration(
               color: AppColors.warmWhite.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(16),
+              ),
               border: Border.all(
                 color: AppColors.warmWhite.withValues(alpha: 0.2),
               ),
@@ -465,16 +613,16 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
-    _shakeAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
-      TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
-      TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
-    ]).animate(CurvedAnimation(
-      parent: _shakeController,
-      curve: Curves.easeInOut,
-    ));
+    _shakeAnimation =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 0, end: -12), weight: 1),
+          TweenSequenceItem(tween: Tween(begin: -12, end: 12), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 12, end: -8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: -8, end: 8), weight: 2),
+          TweenSequenceItem(tween: Tween(begin: 8, end: 0), weight: 1),
+        ]).animate(
+          CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
+        );
   }
 
   @override
@@ -507,10 +655,7 @@ class _PairingPinCaptureState extends State<_PairingPinCapture>
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: _BackLink(
-              label: context.l10n.back,
-              onTap: widget.onBack,
-            ),
+            child: _BackLink(label: context.l10n.back, onTap: widget.onBack),
           ),
           const SizedBox(height: 24),
           Icon(AppIcons.lockOutline, color: AppColors.warmWhite, size: 48),

@@ -131,6 +131,11 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   /// once all credentials are in place.
   String? _pendingPin;
 
+  /// Relay URL used for the current pairing attempt. Captured up front so
+  /// fresh-install onboarding can pair against a custom relay before any
+  /// sync settings exist in platform storage.
+  String? _pairingRelayUrl;
+
   @override
   PairingState build() {
     _generation++;
@@ -140,6 +145,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   void reset() {
     _generation++;
     _pendingPin = null;
+    _pairingRelayUrl = null;
     ref.read(syncSetupProgressProvider.notifier).reset();
     state = const PairingState();
   }
@@ -149,6 +155,7 @@ class DevicePairingNotifier extends Notifier<PairingState> {
   void cancel() {
     _generation++;
     _pendingPin = null;
+    _pairingRelayUrl = null;
     if (state.step == PairingStep.connecting) {
       state = const PairingState();
     }
@@ -156,17 +163,30 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
   /// Generate a rendezvous token QR for the joiner-initiated relay ceremony.
   /// The joiner displays this QR for an existing device to scan.
-  Future<void> generateRequest() async {
+  Future<void> generateRequest({
+    String? relayUrl,
+    String? registrationToken,
+  }) async {
     _generation++;
     final myGeneration = _generation;
 
     try {
       final handleNotifier = ref.read(prismSyncHandleProvider.notifier);
       final pairingApi = ref.read(pairingCeremonyApiProvider);
-      final relayUrl =
-          await ref.read(relayUrlProvider.future) ??
-          AppConstants.defaultRelayUrl;
-      final handle = await handleNotifier.createHandle(relayUrl: relayUrl);
+      final effectiveRelayUrl = relayUrl?.trim().isNotEmpty == true
+          ? relayUrl!.trim()
+          : await ref.read(relayUrlProvider.future) ??
+                AppConstants.defaultRelayUrl;
+      _pairingRelayUrl = effectiveRelayUrl;
+
+      final handle = await handleNotifier.createHandle(
+        relayUrl: effectiveRelayUrl,
+      );
+
+      final trimmedToken = registrationToken?.trim();
+      if (trimmedToken != null && trimmedToken.isNotEmpty) {
+        await _seedRegistrationToken(handle, trimmedToken);
+      }
 
       if (_generation != myGeneration) return;
 
@@ -196,6 +216,18 @@ class DevicePairingNotifier extends Notifier<PairingState> {
         errorCode: structuredError?.code,
       );
     }
+  }
+
+  Future<void> _seedRegistrationToken(
+    ffi.PrismSyncHandle handle,
+    String registrationToken,
+  ) {
+    return ffi.seedSecureStore(
+      handle: handle,
+      entriesJson: jsonEncode({
+        'registration_token': base64Encode(utf8.encode(registrationToken)),
+      }),
+    );
   }
 
   /// Poll for SAS words from the relay after the initiator scans the QR.
@@ -338,31 +370,6 @@ class DevicePairingNotifier extends Notifier<PairingState> {
 
     if (_generation != myGeneration) return;
 
-    final relayUrl =
-        await ref.read(relayUrlProvider.future) ?? AppConstants.defaultRelayUrl;
-
-    // Also ensure relay_url and sync_id are written under the keys
-    // that relayUrlProvider / syncIdProvider read from (drainRustStore
-    // already writes them with the matching prefix, but we verify).
-    const storage = secureStorage;
-    final syncId = await storage.read(key: kSyncIdKey);
-    final storedRelay = await storage.read(key: kSyncRelayUrlKey);
-    // If drainRustStore didn't populate them (edge case), write defaults.
-    // Must base64-encode to match what _seedRustStore and relayUrlProvider expect.
-    if (storedRelay == null || storedRelay.isEmpty) {
-      await storage.write(
-        key: kSyncRelayUrlKey,
-        value: base64Encode(utf8.encode(relayUrl)),
-      );
-    }
-    if (syncId == null || syncId.isEmpty) {
-      // sync_id wasn't populated by drainRustStore — this shouldn't
-      // normally happen but is guarded against defensively.
-    }
-
-    ref.invalidate(relayUrlProvider);
-    ref.invalidate(syncIdProvider);
-
     // Activate the sync event stream BEFORE bootstrap so RemoteChanges
     // events from bootstrapFromSnapshot are consumed as they arrive.
     // Without this, the bootstrap emits entities to Rust's broadcast
@@ -444,6 +451,27 @@ class DevicePairingNotifier extends Notifier<PairingState> {
     // Deferred until after all validation and cancellation checks so
     // partial credentials are never persisted on cancel.
     await drainRustStore(handle);
+
+    // Also ensure relay_url and sync_id are written under the keys
+    // that relayUrlProvider / syncIdProvider read from. drainRustStore
+    // should already do this; these writes are a final defensive fallback.
+    const storage = secureStorage;
+    final syncId = await storage.read(key: kSyncIdKey);
+    final storedRelay = await storage.read(key: kSyncRelayUrlKey);
+    final relayUrl = _pairingRelayUrl ?? AppConstants.defaultRelayUrl;
+    if (storedRelay == null || storedRelay.isEmpty) {
+      await storage.write(
+        key: kSyncRelayUrlKey,
+        value: base64Encode(utf8.encode(relayUrl)),
+      );
+    }
+    if (syncId == null || syncId.isEmpty) {
+      // sync_id wasn't populated by drainRustStore — this shouldn't
+      // normally happen but is guarded against defensively.
+    }
+
+    ref.invalidate(relayUrlProvider);
+    ref.invalidate(syncIdProvider);
 
     // Cache raw DEK so subsequent launches bypass Argon2id (Signal-style)
     await cacheRuntimeKeys(handle, ref.read(databaseProvider));

@@ -3,6 +3,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/prism_button.dart';
 
 class WelcomeStep extends StatelessWidget {
   const WelcomeStep({super.key, this.onSyncDevice});
@@ -40,21 +41,14 @@ class WelcomeStep extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           if (onSyncDevice != null)
-            GestureDetector(
-              onTap: onSyncDevice,
-              child: Text(
-                context.l10n.onboardingWelcomeSyncLink,
-                style: TextStyle(
-                  color: isDark
-                      ? AppColors.mutedTextDark
-                      : AppColors.mutedTextLight,
-                  fontSize: 14,
-                  decoration: TextDecoration.underline,
-                  decorationColor: isDark
-                      ? AppColors.mutedTextDark
-                      : AppColors.mutedTextLight,
-                ),
-                textAlign: TextAlign.center,
+            SizedBox(
+              width: double.infinity,
+              child: PrismButton(
+                label: context.l10n.onboardingWelcomeSyncLink,
+                icon: AppIcons.duotoneSync,
+                tone: PrismButtonTone.outlined,
+                expanded: true,
+                onPressed: onSyncDevice!,
               ),
             ),
         ],
@@ -105,9 +99,7 @@ class _FeatureRow extends StatelessWidget {
               Text(
                 title,
                 style: TextStyle(
-                  color: isDark
-                      ? AppColors.warmWhite
-                      : AppColors.warmBlack,
+                  color: isDark ? AppColors.warmWhite : AppColors.warmBlack,
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
                 ),
