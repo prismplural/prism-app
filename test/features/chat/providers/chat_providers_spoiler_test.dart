@@ -38,22 +38,38 @@ void main() {
       expect(displayContent, isNot(contains('secret')));
     });
 
-    test('mention + spoiler: mentions resolve first, then redaction', () {
-      // Locks the ordering `redactSpoilers(replaceMentionsWithNames(...))`
-      // chosen at chat_providers.dart. If someone swaps the order, the
-      // mention token's `||`-free name would get redacted to `▮` blocks,
-      // breaking this assertion.
+    test('mention + spoiler: mentions resolve BEFORE redaction (order matters)',
+        () {
+      // The order `redactSpoilers(replaceMentionsWithNames(...))` is load-
+      // bearing for any content where a mention sits *inside* a spoiler.
+      // `redactSpoilers` clamps its block count to 8, so:
+      //
+      //   content = '||@[uuid]||'      (inner is 39 chars)
+      //   correct: resolve → redact   → 6 blocks (`@Alice` inner = 6)
+      //   reverse: redact  → resolve  → 8 blocks (clamp on the raw token)
+      //
+      // Swapping the two calls therefore produces a string of a different
+      // length, so this assertion catches the regression.
       const memberId = '01234567-89ab-cdef-0123-456789abcdef';
-      final rawContent = 'hey @[$memberId] ||secret||';
+      final rawContent = '||@[$memberId]||';
       final nameMap = <String, String>{memberId: 'Alice'};
 
-      final displayContent = redactSpoilers(
+      final correct = redactSpoilers(
         replaceMentionsWithNames(rawContent, nameMap),
       );
+      expect(
+        correct,
+        '▮' * 6,
+        reason: 'mentions must resolve first so redaction clamps on the '
+            'display-length of `@Alice` (6), not the raw `@[uuid]` token',
+      );
 
-      expect(displayContent, contains('@Alice'));
-      expect(displayContent, isNot(contains('secret')));
-      expect(displayContent, contains('\u25AE'));
+      final reversed = replaceMentionsWithNames(
+        redactSpoilers(rawContent),
+        nameMap,
+      );
+      expect(reversed, '▮' * 8);
+      expect(correct, isNot(equals(reversed)));
     });
 
     test('message without spoilers is unchanged', () {
