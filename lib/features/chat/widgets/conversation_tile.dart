@@ -165,6 +165,13 @@ class ConversationTile extends ConsumerWidget {
     final prefix = authorName != null ? '$authorName: ' : '';
     final displayContent = tileData.lastMessageDisplayContent ?? '';
 
+    // `displayContent` is already `redactSpoilers`-ed upstream, so any
+    // `||…||` spans show as `▮` blocks. Screen readers announce `▮`
+    // literally as a block glyph, which is noise, so swap in the word
+    // "spoiler" in the semantics label while keeping the visual glyphs.
+    final contentA11yLabel =
+        displayContent.replaceAll(RegExp(r'▮+'), 'spoiler');
+
     return Text.rich(
       TextSpan(
         children: [
@@ -175,6 +182,7 @@ class ConversationTile extends ConsumerWidget {
             ),
           TextSpan(
             text: displayContent,
+            semanticsLabel: contentA11yLabel,
             style: tileData.hasUnread
                 ? const TextStyle(fontWeight: FontWeight.w600)
                 : null,

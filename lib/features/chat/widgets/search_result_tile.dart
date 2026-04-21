@@ -21,13 +21,21 @@ class SearchResultTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final redactedSnippet =
-        redactSpoilers(result.snippet).replaceAll('[', '').replaceAll(']', '');
+    // The snippet is already redacted upstream (SearchMessagesDao builds it
+    // from the redacted content), but we belt-and-suspenders it here in case
+    // the snippet arrives unredacted via another path. Then strip the `[…]`
+    // highlight markers and swap runs of `▮` for the word "spoiler" so
+    // screen readers say "spoiler" rather than reading block glyphs.
+    final a11ySnippet = redactSpoilers(result.snippet)
+        .replaceAll('[', '')
+        .replaceAll(']', '')
+        .replaceAll(RegExp(r'▮+'), 'spoiler');
 
     return Semantics(
       button: true,
-      label: '${result.authorName ?? 'Unknown'}: $redactedSnippet '
+      label: '${result.authorName ?? 'Unknown'}: $a11ySnippet '
           'in ${result.conversationTitle ?? 'conversation'}',
+      excludeSemantics: true,
       child: InkWell(
         onTap: onTap,
         child: Padding(
