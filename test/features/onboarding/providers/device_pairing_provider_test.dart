@@ -22,12 +22,14 @@ class _FakePrismSyncHandleNotifier extends PrismSyncHandleNotifier {
   _FakePrismSyncHandleNotifier(this.handle);
 
   final ffi.PrismSyncHandle handle;
+  String? lastRelayUrl;
 
   @override
   Future<ffi.PrismSyncHandle?> build() async => handle;
 
   @override
   Future<ffi.PrismSyncHandle> createHandle({required String relayUrl}) async {
+    lastRelayUrl = relayUrl;
     return handle;
   }
 }
@@ -127,9 +129,7 @@ void main() {
       );
       expect(state1.step, PairingStep.showingRequest);
 
-      final state2 = state1.copyWith(
-        step: PairingStep.enterPin,
-      );
+      final state2 = state1.copyWith(step: PairingStep.enterPin);
       expect(state2.step, PairingStep.enterPin);
       // Request fields should carry forward
       expect(state2.requestQrPayload, [0xDE, 0xAD]);
@@ -238,6 +238,7 @@ void main() {
       'generateRequest drives joiner ceremony into SAS verification',
       () async {
         const fakeHandle = _FakePrismSyncHandle();
+        final fakeHandleNotifier = _FakePrismSyncHandleNotifier(fakeHandle);
         final sasCompleter = Completer<String>();
         final fakeApi = _FakePairingCeremonyApi(
           startJoinerCeremonyHandler: ({required handle}) async {
@@ -260,9 +261,7 @@ void main() {
             relayUrlProvider.overrideWith(
               (ref) async => 'https://relay.example.com',
             ),
-            prismSyncHandleProvider.overrideWith(
-              () => _FakePrismSyncHandleNotifier(fakeHandle),
-            ),
+            prismSyncHandleProvider.overrideWith(() => fakeHandleNotifier),
           ],
         );
         addTearDown(container.dispose);
@@ -276,6 +275,7 @@ void main() {
         expect(state.step, PairingStep.showingRequest);
         expect(state.requestQrPayload, [9, 8, 7]);
         expect(state.requestDeviceId, 'joiner-device');
+        expect(fakeHandleNotifier.lastRelayUrl, 'https://relay.example.com');
 
         sasCompleter.complete(
           jsonEncode({
@@ -297,6 +297,38 @@ void main() {
         );
       },
     );
+
+    test('generateRequest uses an explicit relay URL override', () async {
+      const fakeHandle = _FakePrismSyncHandle();
+      final fakeHandleNotifier = _FakePrismSyncHandleNotifier(fakeHandle);
+      final fakeApi = _FakePairingCeremonyApi(
+        getJoinerSasHandler: ({required handle}) async {
+          expect(handle, same(fakeHandle));
+          return jsonEncode({
+            'sas_words': 'delta echo foxtrot',
+            'sas_decimal': '654321',
+          });
+        },
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          pairingCeremonyApiProvider.overrideWith((ref) => fakeApi),
+          relayUrlProvider.overrideWith(
+            (ref) async => 'https://stored.example.com',
+          ),
+          prismSyncHandleProvider.overrideWith(() => fakeHandleNotifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(devicePairingProvider.notifier)
+          .generateRequest(relayUrl: 'https://custom.example.com');
+      await pumpEventQueue();
+
+      expect(fakeHandleNotifier.lastRelayUrl, 'https://custom.example.com');
+    });
   });
 
   group('SyncCounts', () {
@@ -418,21 +450,23 @@ void main() {
       );
     });
 
-    test('markTimedOut sets timedOut=true; setPhase(finishing) still advances',
-        () async {
-      final container = _makeContainer();
-      addTearDown(container.dispose);
+    test(
+      'markTimedOut sets timedOut=true; setPhase(finishing) still advances',
+      () async {
+        final container = _makeContainer();
+        addTearDown(container.dispose);
 
-      final notifier = container.read(syncSetupProgressProvider.notifier);
-      notifier.setPhase(PairingProgressPhase.downloading);
-      notifier.setPhase(PairingProgressPhase.restoring);
-      notifier.markTimedOut();
-      notifier.setPhase(PairingProgressPhase.finishing);
+        final notifier = container.read(syncSetupProgressProvider.notifier);
+        notifier.setPhase(PairingProgressPhase.downloading);
+        notifier.setPhase(PairingProgressPhase.restoring);
+        notifier.markTimedOut();
+        notifier.setPhase(PairingProgressPhase.finishing);
 
-      final state = container.read(syncSetupProgressProvider);
-      expect(state.phase, PairingProgressPhase.finishing);
-      expect(state.timedOut, isTrue);
-    });
+        final state = container.read(syncSetupProgressProvider);
+        expect(state.phase, PairingProgressPhase.finishing);
+        expect(state.timedOut, isTrue);
+      },
+    );
 
     test('reset() on DevicePairingNotifier clears progress state', () async {
       final container = _makeContainer();
@@ -458,35 +492,37 @@ void main() {
       expect(progressState.liveCounts, isEmpty);
     });
 
-    test('generation mismatch: setPhase called only when _generation matches',
-        () async {
-      // This test verifies the guard logic by calling reset() (which bumps
-      // _generation) then checking that subsequent manual setPhase calls on
-      // the progress notifier are still respected (they're independent of the
-      // pairing generation — the guard lives in device_pairing_provider.dart
-      // and wraps the FFI await boundaries).
-      final container = _makeContainer();
-      addTearDown(container.dispose);
+    test(
+      'generation mismatch: setPhase called only when _generation matches',
+      () async {
+        // This test verifies the guard logic by calling reset() (which bumps
+        // _generation) then checking that subsequent manual setPhase calls on
+        // the progress notifier are still respected (they're independent of the
+        // pairing generation — the guard lives in device_pairing_provider.dart
+        // and wraps the FFI await boundaries).
+        final container = _makeContainer();
+        addTearDown(container.dispose);
 
-      final pairingNotifier = container.read(devicePairingProvider.notifier);
-      final progressNotifier = container.read(
-        syncSetupProgressProvider.notifier,
-      );
+        final pairingNotifier = container.read(devicePairingProvider.notifier);
+        final progressNotifier = container.read(
+          syncSetupProgressProvider.notifier,
+        );
 
-      // Simulate: pairing started, cancel called, then a stale async
-      // continuation tries to advance the phase (but shouldn't, because the
-      // guard would have blocked it). We test here that if the guard WAS
-      // respected the progress state stays at connecting after the reset.
-      progressNotifier.setPhase(PairingProgressPhase.downloading);
-      // Cancel / reset pairing — progress should clear.
-      pairingNotifier.reset();
-      await pumpEventQueue();
+        // Simulate: pairing started, cancel called, then a stale async
+        // continuation tries to advance the phase (but shouldn't, because the
+        // guard would have blocked it). We test here that if the guard WAS
+        // respected the progress state stays at connecting after the reset.
+        progressNotifier.setPhase(PairingProgressPhase.downloading);
+        // Cancel / reset pairing — progress should clear.
+        pairingNotifier.reset();
+        await pumpEventQueue();
 
-      // Post-reset state must be back at connecting.
-      expect(
-        container.read(syncSetupProgressProvider).phase,
-        PairingProgressPhase.connecting,
-      );
-    });
+        // Post-reset state must be back at connecting.
+        expect(
+          container.read(syncSetupProgressProvider).phase,
+          PairingProgressPhase.connecting,
+        );
+      },
+    );
   });
 }
