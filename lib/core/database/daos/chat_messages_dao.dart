@@ -300,11 +300,20 @@ String _buildSafeSnippet(String rawContent, List<String> queryTokens) {
 
   if (queryTokens.isEmpty) return headPreview;
 
+  // Dart's `\b` and `\w` are ASCII-only even with `unicode: true`, so a
+  // Cyrillic or Greek query would never bracket its match. We build an
+  // equivalent boundary using a lookbehind for non-word Unicode chars and
+  // extend with `\p{L}\p{N}_` for the rest of the word. Known limit:
+  // continuous-script languages like CJK have no word separators, so a
+  // query mid-sentence may not highlight — falls back to a plain head
+  // preview, which is still safe.
+  final tokenAlt = queryTokens.map(RegExp.escape).join('|');
   final pattern = RegExp(
-    r'\b(?:' +
-        queryTokens.map(RegExp.escape).join('|') +
-        r')\w*',
+    r'(?:(?<=^)|(?<=[^\p{L}\p{N}_]))(?:' +
+        tokenAlt +
+        r')[\p{L}\p{N}_]*',
     caseSensitive: false,
+    unicode: true,
   );
   final matches = pattern.allMatches(safe).toList();
   if (matches.isEmpty) return headPreview;
