@@ -1,0 +1,415 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+
+import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/member_filter.dart';
+import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Result contract — single-select
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Typed result returned by [MemberSearchSheet.showSingle].
+///
+/// Using a sealed class avoids sentinel-string drift: callers switch
+/// exhaustively and the compiler catches unhandled cases.
+sealed class MemberSearchSingleResult {
+  const MemberSearchSingleResult();
+}
+
+/// The user dismissed the sheet without choosing.
+final class MemberSearchResultDismissed extends MemberSearchSingleResult {
+  const MemberSearchResultDismissed();
+}
+
+/// The user selected a member.
+final class MemberSearchResultSelected extends MemberSearchSingleResult {
+  const MemberSearchResultSelected(this.memberId);
+  final String memberId;
+}
+
+/// The user tapped the caller-provided "clear / none" row.
+final class MemberSearchResultCleared extends MemberSearchSingleResult {
+  const MemberSearchResultCleared();
+}
+
+/// The user tapped the caller-provided "unknown" row.
+final class MemberSearchResultUnknown extends MemberSearchSingleResult {
+  const MemberSearchResultUnknown();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Caller-provided group metadata
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A group chip offered to the user in the filter bar.
+///
+/// The caller supplies which member IDs belong to this group; the sheet
+/// never reads providers directly.
+class MemberSearchGroup {
+  const MemberSearchGroup({
+    required this.id,
+    required this.name,
+    required this.memberIds,
+    this.emoji,
+    this.colorHex,
+  });
+
+  final String id;
+  final String name;
+
+  /// Member IDs belonging to this group. Used to filter the list.
+  final Set<String> memberIds;
+
+  final String? emoji;
+  final String? colorHex;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Special-row escape hatch
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A caller-defined row placed above the member list (e.g. "None", "Unknown").
+///
+/// In single-select mode, set [result] to pop with a typed outcome.
+/// In multi-select mode (or for custom behaviour), set [onTap] instead.
+class MemberSearchSpecialRow {
+  const MemberSearchSpecialRow({
+    required this.rowKey,
+    required this.title,
+    this.leading,
+    this.result,
+    this.onTap,
+  });
+
+  /// Stable key for the underlying list item.
+  final String rowKey;
+  final String title;
+  final Widget? leading;
+
+  /// Popped when tapped in single-select mode.
+  final MemberSearchSingleResult? result;
+
+  /// Custom tap override — takes precedence over [result].
+  final VoidCallback? onTap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+const double _kRowExtent = 64.0;
+const double _kChipBarHeight = 48.0;
+
+/// Caller-driven full-screen member search sheet.
+///
+/// Present via [MemberSearchSheet.showSingle] or [MemberSearchSheet.showMulti].
+/// The caller supplies the member list, groups, and special rows — the sheet
+/// never reads providers internally.
+///
+/// **Single-select** — pops immediately with a [MemberSearchSingleResult].
+/// **Multi-select** — shows a "Done · N" action; pops with `Set<String>`.
+class MemberSearchSheet extends StatefulWidget {
+  const MemberSearchSheet({
+    super.key,
+    required this.members,
+    required this.termPlural,
+    this.groups = const [],
+    this.specialRows = const [],
+    this.multiSelect = false,
+    this.initialSelected = const {},
+  });
+
+  /// All candidate members. Filtering is done internally.
+  final List<Member> members;
+
+  /// Plural display term, e.g. "Members" or "Headmates". Used in the title,
+  /// search hint, and the "All …" chip.
+  final String termPlural;
+
+  final List<MemberSearchGroup> groups;
+
+  /// Optional rows shown above the member list.
+  final List<MemberSearchSpecialRow> specialRows;
+
+  final bool multiSelect;
+
+  /// Pre-selected IDs for multi-select mode.
+  final Set<String> initialSelected;
+
+  // ─── Factory show methods ────────────────────────────────────────────────
+
+  /// Show in single-select mode. Never returns `null` — maps a dismissed sheet
+  /// to [MemberSearchResultDismissed].
+  static Future<MemberSearchSingleResult> showSingle(
+    BuildContext context, {
+    required List<Member> members,
+    required String termPlural,
+    List<MemberSearchGroup> groups = const [],
+    List<MemberSearchSpecialRow> specialRows = const [],
+  }) async {
+    final result = await PrismSheet.show<MemberSearchSingleResult>(
+      context: context,
+      maxHeightFactor: 0.95,
+      builder: (sheetContext) => MemberSearchSheet(
+        members: members,
+        termPlural: termPlural,
+        groups: groups,
+        specialRows: specialRows,
+      ),
+    );
+    return result ?? const MemberSearchResultDismissed();
+  }
+
+  /// Show in multi-select mode. Returns `null` on dismiss, or the confirmed
+  /// set of selected IDs.
+  static Future<Set<String>?> showMulti(
+    BuildContext context, {
+    required List<Member> members,
+    required String termPlural,
+    Set<String> initialSelected = const {},
+    List<MemberSearchGroup> groups = const [],
+    List<MemberSearchSpecialRow> specialRows = const [],
+  }) {
+    return PrismSheet.show<Set<String>>(
+      context: context,
+      maxHeightFactor: 0.95,
+      builder: (sheetContext) => MemberSearchSheet(
+        members: members,
+        termPlural: termPlural,
+        groups: groups,
+        specialRows: specialRows,
+        multiSelect: true,
+        initialSelected: initialSelected,
+      ),
+    );
+  }
+
+  @override
+  State<MemberSearchSheet> createState() => _MemberSearchSheetState();
+}
+
+class _MemberSearchSheetState extends State<MemberSearchSheet> {
+  late final TextEditingController _searchController;
+  late final FocusNode _searchFocus;
+
+  // 0 = "All", 1+ = widget.groups[index - 1]
+  int _selectedChip = 0;
+  String _query = '';
+  late Set<String> _selectedIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _searchFocus = FocusNode();
+    _selectedIds = Set.from(widget.initialSelected);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  // ─── Filtered list helpers ───────────────────────────────────────────────
+
+  List<Member> get _baseMembers {
+    if (_selectedChip == 0) return widget.members;
+    final group = widget.groups[_selectedChip - 1];
+    return widget.members
+        .where((m) => group.memberIds.contains(m.id))
+        .toList();
+  }
+
+  List<Member> get _filteredMembers => filterMembers(_baseMembers, _query);
+
+  // ─── Actions ─────────────────────────────────────────────────────────────
+
+  void _onQueryChanged(String q) => setState(() => _query = q);
+
+  void _selectChip(int index) => setState(() => _selectedChip = index);
+
+  void _toggleMember(String id) => setState(() {
+        if (_selectedIds.contains(id)) {
+          _selectedIds.remove(id);
+        } else {
+          _selectedIds.add(id);
+        }
+      });
+
+  void _confirmMulti() =>
+      Navigator.of(context).pop(Set<String>.from(_selectedIds));
+
+  void _popSingle(MemberSearchSingleResult result) =>
+      Navigator.of(context).pop(result);
+
+  // ─── Build ───────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final filtered = _filteredMembers;
+    final doneLabel = '${l10n.done} · ${_selectedIds.length}';
+
+    return Column(
+      children: [
+        // ── Top bar ────────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+          child: Row(
+            children: [
+              Tooltip(
+                message: l10n.cancel,
+                child: IconButton(
+                  icon: Icon(AppIcons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  l10n.selectMembers(widget.termPlural),
+                  style: theme.textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              if (widget.multiSelect)
+                Semantics(
+                  liveRegion: true,
+                  child: TextButton(
+                    onPressed: _confirmMulti,
+                    child: Text(doneLabel),
+                  ),
+                )
+              else
+                const SizedBox(width: 48),
+            ],
+          ),
+        ),
+
+        // ── Search field ──────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: PrismTextField(
+            controller: _searchController,
+            focusNode: _searchFocus,
+            autofocus: true,
+            hintText: l10n.frontingSearchMembersHint(widget.termPlural),
+            prefixIcon: Icon(AppIcons.search),
+            onChanged: _onQueryChanged,
+            textInputAction: TextInputAction.search,
+          ),
+        ),
+
+        // ── Group chip bar ────────────────────────────────────────────────
+        SizedBox(
+          height: _kChipBarHeight,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            children: [
+              _buildChip(0, 'All ${widget.termPlural}'),
+              ...widget.groups.asMap().entries.map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: _buildChip(e.key + 1, e.value.name),
+                    ),
+                  ),
+            ],
+          ),
+        ),
+
+        // ── Member list ───────────────────────────────────────────────────
+        Expanded(
+          child: filtered.isEmpty && widget.specialRows.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  itemCount: widget.specialRows.length + filtered.length,
+                  itemExtent: _kRowExtent,
+                  itemBuilder: (context, index) {
+                    if (index < widget.specialRows.length) {
+                      return _buildSpecialRow(widget.specialRows[index]);
+                    }
+                    final member =
+                        filtered[index - widget.specialRows.length];
+                    return _buildMemberRow(member);
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChip(int index, String label) {
+    return PrismChip(
+      label: label,
+      selected: _selectedChip == index,
+      onTap: () => _selectChip(index),
+    );
+  }
+
+  Widget _buildSpecialRow(MemberSearchSpecialRow row) {
+    return PrismListRow(
+      key: ValueKey(row.rowKey),
+      title: Text(row.title),
+      leading: row.leading,
+      onTap: () {
+        if (row.onTap != null) {
+          row.onTap!();
+        } else if (row.result != null) {
+          _popSingle(row.result!);
+        }
+      },
+    );
+  }
+
+  Widget _buildMemberRow(Member member) {
+    final isSelected =
+        widget.multiSelect && _selectedIds.contains(member.id);
+    return Semantics(
+      selected: isSelected,
+      child: PrismListRow(
+        key: ValueKey(member.id),
+        selected: isSelected,
+        leading: MemberAvatar(
+          memberName: member.name,
+          emoji: member.emoji,
+          avatarImageData: member.avatarImageData,
+          customColorEnabled: member.customColorEnabled,
+          customColorHex: member.customColorHex,
+          size: 36,
+        ),
+        title: Text(member.name),
+        subtitle: member.pronouns != null && member.pronouns!.isNotEmpty
+            ? Text(member.pronouns!)
+            : null,
+        trailing: isSelected ? Icon(AppIcons.check) : null,
+        onTap: () {
+          if (widget.multiSelect) {
+            _toggleMember(member.id);
+          } else {
+            _popSingle(MemberSearchResultSelected(member.id));
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return EmptyState(
+      // Icon is decorative — screen readers should not announce it.
+      icon: ExcludeSemantics(child: Icon(AppIcons.searchOff)),
+      title: context.l10n.noMembersFound(widget.termPlural),
+      subtitle: '',
+    );
+  }
+}
