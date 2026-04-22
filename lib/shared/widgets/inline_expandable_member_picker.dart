@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,6 +20,8 @@ import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 ///
 /// Collapsed: shows selected member avatar + name (or placeholder).
 /// Expanded: animated list of all active members with selection checkmark.
+const double _kInlinePickerMaxExpandedHeight = 320;
+
 class InlineExpandableMemberPicker extends ConsumerStatefulWidget {
   const InlineExpandableMemberPicker({
     super.key,
@@ -25,12 +29,16 @@ class InlineExpandableMemberPicker extends ConsumerStatefulWidget {
     required this.onChanged,
     this.includeUnknown = true,
     this.showPronouns = true,
+    this.members,
+    this.maxExpandedHeight = _kInlinePickerMaxExpandedHeight,
   });
 
   final String? selectedMemberId;
   final ValueChanged<String?> onChanged;
   final bool includeUnknown;
   final bool showPronouns;
+  final List<Member>? members;
+  final double maxExpandedHeight;
 
   @override
   ConsumerState<InlineExpandableMemberPicker> createState() =>
@@ -45,11 +53,13 @@ class _InlineExpandableMemberPickerState
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(activeMembersProvider);
 
+    final providedMembers = widget.members;
+    if (providedMembers != null) {
+      return _buildPicker(context, providedMembers);
+    }
+
     return membersAsync.when(
-      loading: () => const SizedBox(
-        height: 56,
-        child: PrismLoadingState(),
-      ),
+      loading: () => const SizedBox(height: 56, child: PrismLoadingState()),
       error: (e, _) => Text(context.l10n.errorWithDetail(e)),
       data: (members) => _buildPicker(context, members),
     );
@@ -57,9 +67,7 @@ class _InlineExpandableMemberPickerState
 
   Widget _buildPicker(BuildContext context, List<Member> members) {
     final selected = widget.selectedMemberId != null
-        ? members
-            .where((m) => m.id == widget.selectedMemberId)
-            .firstOrNull
+        ? members.where((m) => m.id == widget.selectedMemberId).firstOrNull
         : null;
     final terms = watchTerminology(context, ref);
 
@@ -77,10 +85,11 @@ class _InlineExpandableMemberPickerState
             label: selected?.name ?? context.l10n.selectMember(terms.singular),
             child: InkWell(
               onTap: () => setState(() => _expanded = !_expanded),
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(12),
+              ),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                 child: Row(
                   children: [
                     if (selected != null) ...[
@@ -105,13 +114,11 @@ class _InlineExpandableMemberPickerState
                                 selected.pronouns != null) ...[
                               Text(
                                 selected.pronouns!,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
+                                style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                               ),
                             ],
@@ -119,20 +126,17 @@ class _InlineExpandableMemberPickerState
                         ),
                       ),
                     ] else ...[
-                      const MemberAvatar(
-                        emoji: '\u2754',
-                        size: 44,
-                      ),
+                      const MemberAvatar(emoji: '\u2754', size: 44),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           context.l10n.selectAMember(terms.singularLower),
-                          style:
-                              Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
                         ),
                       ),
                     ],
@@ -150,39 +154,67 @@ class _InlineExpandableMemberPickerState
           // Expanded list
           if (_expanded) ...[
             const Divider(height: 1),
-            if (widget.includeUnknown)
-              _MemberRow(
-                avatar: const MemberAvatar(emoji: '\u2754', size: 40),
-                name: context.l10n.unknown,
-                pronouns: null,
-                showPronouns: false,
-                isSelected: widget.selectedMemberId == null,
-                onTap: () {
-                  widget.onChanged(null);
-                  setState(() => _expanded = false);
-                },
-              ),
-            for (final member in members)
-              _MemberRow(
-                avatar: MemberAvatar(
-                  avatarImageData: member.avatarImageData,
-                  memberName: member.name,
-                  emoji: member.emoji,
-                  customColorEnabled: member.customColorEnabled,
-                  customColorHex: member.customColorHex,
-                  size: 40,
-                ),
-                name: member.name,
-                pronouns: member.pronouns,
-                showPronouns: widget.showPronouns,
-                isSelected: member.id == widget.selectedMemberId,
-                onTap: () {
-                  widget.onChanged(member.id);
-                  setState(() => _expanded = false);
-                },
-              ),
+            _buildExpandedList(
+              context,
+              itemCount: members.length + (widget.includeUnknown ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (widget.includeUnknown) {
+                  if (index == 0) {
+                    return _MemberRow(
+                      avatar: const MemberAvatar(emoji: '\u2754', size: 40),
+                      name: context.l10n.unknown,
+                      pronouns: null,
+                      showPronouns: false,
+                      isSelected: widget.selectedMemberId == null,
+                      onTap: () {
+                        widget.onChanged(null);
+                        setState(() => _expanded = false);
+                      },
+                    );
+                  }
+                  index -= 1;
+                }
+
+                final member = members[index];
+                return _MemberRow(
+                  avatar: MemberAvatar(
+                    avatarImageData: member.avatarImageData,
+                    memberName: member.name,
+                    emoji: member.emoji,
+                    customColorEnabled: member.customColorEnabled,
+                    customColorHex: member.customColorHex,
+                    size: 40,
+                  ),
+                  name: member.name,
+                  pronouns: member.pronouns,
+                  showPronouns: widget.showPronouns,
+                  isSelected: member.id == widget.selectedMemberId,
+                  onTap: () {
+                    widget.onChanged(member.id);
+                    setState(() => _expanded = false);
+                  },
+                );
+              },
+            ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildExpandedList(
+    BuildContext context, {
+    required int itemCount,
+    required Widget Function(BuildContext, int) itemBuilder,
+  }) {
+    final listHeight = math.min(widget.maxExpandedHeight, itemCount * 64.0);
+    return SizedBox(
+      key: const Key('inlineExpandablePickerList'),
+      height: listHeight,
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: itemCount,
+        itemBuilder: itemBuilder,
       ),
     );
   }
@@ -205,11 +237,15 @@ class InlineExpandableMultiMemberPicker extends ConsumerStatefulWidget {
     required this.selectedMemberIds,
     required this.onChanged,
     this.showPronouns = true,
+    this.members,
+    this.maxExpandedHeight = _kInlinePickerMaxExpandedHeight,
   });
 
   final Set<String> selectedMemberIds;
   final ValueChanged<Set<String>> onChanged;
   final bool showPronouns;
+  final List<Member>? members;
+  final double maxExpandedHeight;
 
   @override
   ConsumerState<InlineExpandableMultiMemberPicker> createState() =>
@@ -224,11 +260,13 @@ class _InlineExpandableMultiMemberPickerState
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(activeMembersProvider);
 
+    final providedMembers = widget.members;
+    if (providedMembers != null) {
+      return _buildPicker(context, providedMembers);
+    }
+
     return membersAsync.when(
-      loading: () => const SizedBox(
-        height: 56,
-        child: PrismLoadingState(),
-      ),
+      loading: () => const SizedBox(height: 56, child: PrismLoadingState()),
       error: (e, _) => Text(context.l10n.errorWithDetail(e)),
       data: (members) => _buildPicker(context, members),
     );
@@ -250,7 +288,9 @@ class _InlineExpandableMultiMemberPickerState
           // Collapsed header
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(12),
+            ),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
               child: Row(
@@ -269,31 +309,43 @@ class _InlineExpandableMultiMemberPickerState
           // Expanded list
           if (_expanded) ...[
             const Divider(height: 1),
-            for (final member in members)
-              _MemberRow(
-                avatar: MemberAvatar(
-                  avatarImageData: member.avatarImageData,
-                  memberName: member.name,
-                  emoji: member.emoji,
-                  customColorEnabled: member.customColorEnabled,
-                  customColorHex: member.customColorHex,
-                  size: 40,
-                ),
-                name: member.name,
-                pronouns: member.pronouns,
-                showPronouns: widget.showPronouns,
-                isSelected: widget.selectedMemberIds.contains(member.id),
-                useCheckbox: true,
-                onTap: () {
-                  final updated = Set<String>.from(widget.selectedMemberIds);
-                  if (updated.contains(member.id)) {
-                    updated.remove(member.id);
-                  } else {
-                    updated.add(member.id);
-                  }
-                  widget.onChanged(updated);
+            SizedBox(
+              key: const Key('inlineExpandablePickerList'),
+              height: math.min(widget.maxExpandedHeight, members.length * 64.0),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: members.length,
+                itemBuilder: (context, index) {
+                  final member = members[index];
+                  return _MemberRow(
+                    avatar: MemberAvatar(
+                      avatarImageData: member.avatarImageData,
+                      memberName: member.name,
+                      emoji: member.emoji,
+                      customColorEnabled: member.customColorEnabled,
+                      customColorHex: member.customColorHex,
+                      size: 40,
+                    ),
+                    name: member.name,
+                    pronouns: member.pronouns,
+                    showPronouns: widget.showPronouns,
+                    isSelected: widget.selectedMemberIds.contains(member.id),
+                    useCheckbox: true,
+                    onTap: () {
+                      final updated = Set<String>.from(
+                        widget.selectedMemberIds,
+                      );
+                      if (updated.contains(member.id)) {
+                        updated.remove(member.id);
+                      } else {
+                        updated.add(member.id);
+                      }
+                      widget.onChanged(updated);
+                    },
+                  );
                 },
               ),
+            ),
           ],
         ],
       ),
@@ -301,7 +353,10 @@ class _InlineExpandableMultiMemberPickerState
   }
 
   List<Widget> _buildCollapsedContent(
-      BuildContext context, List<Member> selected, String termPlural) {
+    BuildContext context,
+    List<Member> selected,
+    String termPlural,
+  ) {
     if (selected.isEmpty) {
       return [
         const MemberAvatar(emoji: '\u2754', size: 44),
@@ -310,8 +365,8 @@ class _InlineExpandableMultiMemberPickerState
           child: Text(
             context.l10n.selectMembers(termPlural),
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ];
@@ -437,10 +492,7 @@ class _MemberRow extends StatelessWidget {
                     : theme.colorScheme.onSurfaceVariant,
               )
             else if (isSelected)
-              Icon(
-                AppIcons.check,
-                color: theme.colorScheme.primary,
-              ),
+              Icon(AppIcons.check, color: theme.colorScheme.primary),
           ],
         ),
       ),

@@ -9,13 +9,11 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
+import 'package:prism_plurality/shared/widgets/inline_expandable_member_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
-import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -455,20 +453,27 @@ class _CreateConversationSheetState
                 ),
                 const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-                // ── Member rows (lazy) ───────────────────────────────────
-                ..._buildMemberSliver(
-                  context,
-                  theme,
-                  membersAsync,
-                  speakingAs,
-                  displayMembers,
+                // ── Member picker ────────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildMemberPicker(
+                      context,
+                      membersAsync,
+                      speakingAs,
+                      displayMembers,
+                    ),
+                  ),
                 ),
+
+                // ── Spacer below member picker ───────────────────────────
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
                 // ── Fronter-deselected warning ───────────────────────────
                 if (fronterDeselected)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -517,106 +522,67 @@ class _CreateConversationSheetState
     );
   }
 
-  List<Widget> _buildMemberSliver(
+  Widget _buildMemberPicker(
     BuildContext context,
-    ThemeData theme,
     AsyncValue<dynamic> membersAsync,
     String? speakingAs,
-    List<dynamic> displayMembers,
+    List<Member> displayMembers,
   ) {
     return membersAsync.when(
       data: (_) {
         if (displayMembers.isEmpty) {
-          return [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  context.l10n.chatCreateNoMembers,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-          ];
-        }
-        return [
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverList.builder(
-              itemCount: displayMembers.length,
-              itemBuilder: (context, index) {
-                final member = displayMembers[index];
-                return PrismCheckboxRow(
-                  padding: EdgeInsets.zero,
-                  leading: MemberAvatar(
-                    avatarImageData: member.avatarImageData,
-                    memberName: member.name,
-                    emoji: member.emoji,
-                    customColorEnabled: member.customColorEnabled,
-                    customColorHex: member.customColorHex,
-                    size: 36,
-                  ),
-                  title: Row(
-                    children: [
-                      Text(member.name),
-                      if (member.id == speakingAs) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withValues(
-                              alpha: 0.12,
-                            ),
-                            borderRadius: BorderRadius.circular(
-                              PrismShapes.of(context).pill(22),
-                            ),
-                          ),
-                          child: Text(
-                            context.l10n.chatCreateFronting,
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  value: _selectedMemberIds.contains(member.id),
-                  onChanged: (selected) {
-                    setState(() {
-                      if (selected) {
-                        if (!_isGroupChat) _selectedMemberIds.clear();
-                        _selectedMemberIds.add(member.id);
-                      } else {
-                        _selectedMemberIds.remove(member.id);
-                      }
-                    });
-                  },
-                );
-              },
-            ),
-          ),
-        ];
-      },
-      loading: () => [const SliverToBoxAdapter(child: PrismLoadingState())],
-      error: (error, _) => [
-        SliverToBoxAdapter(
-          child: Padding(
+          return Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              context.l10n.chatAddMembersFailed(error),
-              style: TextStyle(color: theme.colorScheme.error),
+              context.l10n.chatCreateNoMembers,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
+          );
+        }
+
+        if (_isGroupChat) {
+          return InlineExpandableMultiMemberPicker(
+            key: const Key('createConversationInlineMemberPicker'),
+            members: displayMembers,
+            selectedMemberIds: _selectedMemberIds,
+            onChanged: (selectedIds) {
+              setState(() {
+                _selectedMemberIds
+                  ..clear()
+                  ..addAll(selectedIds);
+              });
+            },
+          );
+        }
+
+        return InlineExpandableMemberPicker(
+          key: const Key('createConversationInlineMemberPicker'),
+          members: displayMembers,
+          selectedMemberId: _selectedMemberIds.isEmpty
+              ? null
+              : _selectedMemberIds.first,
+          includeUnknown: false,
+          onChanged: (selectedMemberId) {
+            setState(() {
+              _selectedMemberIds.clear();
+              if (selectedMemberId != null && selectedMemberId != speakingAs) {
+                _selectedMemberIds.add(selectedMemberId);
+              }
+            });
+          },
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (error, _) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          context.l10n.chatAddMembersFailed(error),
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
         ),
-      ],
+      ),
     );
   }
 }

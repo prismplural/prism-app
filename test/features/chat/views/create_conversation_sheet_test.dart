@@ -12,9 +12,9 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/widgets/inline_expandable_member_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
-import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fake providers
@@ -118,22 +118,37 @@ void main() {
   );
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Lazy member list rendering
+  // Inline member picker
   // ══════════════════════════════════════════════════════════════════════════
 
-  group('lazy member list rendering', () {
-    testWidgets('does not eagerly build all rows with Column', (tester) async {
+  group('inline member picker', () {
+    testWidgets('uses inline expandable picker instead of raw checkbox list', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildSheet(members: manyMembers));
       await tester.pumpAndSettle();
 
-      // With a truly lazy list, fewer than all 30 rows should be built inside
-      // the viewport — an eager Column builds them all.
-      final built = find.byType(PrismCheckboxRow).evaluate().length;
+      expect(find.byType(InlineExpandableMultiMemberPicker), findsOneWidget);
+    });
+
+    testWidgets('expanded inline picker uses capped internal scroller', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildSheet(members: manyMembers));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(InlineExpandableMultiMemberPicker));
+      await tester.pumpAndSettle();
+
       expect(
-        built,
-        lessThan(manyMembers.length),
-        reason:
-            'Expected lazy list; got $built/${manyMembers.length} rows built',
+        find.byKey(const Key('inlineExpandablePickerList')),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getSize(find.byKey(const Key('inlineExpandablePickerList')))
+            .height,
+        lessThanOrEqualTo(320),
       );
     });
   });
@@ -215,15 +230,8 @@ void main() {
       await tester.tap(find.textContaining('Done'));
       await tester.pumpAndSettle();
 
-      final bobRow = tester.widget<PrismCheckboxRow>(
-        find.ancestor(
-          of: find.text('Bob').first,
-          matching: find.byType(PrismCheckboxRow),
-        ),
-      );
-
       expect(find.byType(MemberSearchSheet), findsNothing);
-      expect(bobRow.value, isTrue);
+      expect(find.text('Bob'), findsWidgets);
     });
 
     testWidgets(

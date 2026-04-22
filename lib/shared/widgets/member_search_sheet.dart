@@ -125,6 +125,7 @@ class MemberSearchSheet extends StatefulWidget {
     this.multiSelect = false,
     this.initialSelected = const {},
     this.trailingBuilder,
+    this.scrollController,
   });
 
   /// All candidate members. Filtering is done internally.
@@ -151,6 +152,10 @@ class MemberSearchSheet extends StatefulWidget {
   /// returned widget.
   final Widget? Function(Member member)? trailingBuilder;
 
+  /// Scroll controller supplied by [PrismSheet.showFullScreen] when the sheet
+  /// is presented modally, allowing drag-to-dismiss to follow list scrolling.
+  final ScrollController? scrollController;
+
   // ─── Factory show methods ────────────────────────────────────────────────
 
   /// Show in single-select mode. Never returns `null` — maps a dismissed sheet
@@ -162,14 +167,14 @@ class MemberSearchSheet extends StatefulWidget {
     List<MemberSearchGroup> groups = const [],
     List<MemberSearchSpecialRow> specialRows = const [],
   }) async {
-    final result = await PrismSheet.show<MemberSearchSingleResult>(
+    final result = await PrismSheet.showFullScreen<MemberSearchSingleResult>(
       context: context,
-      maxHeightFactor: 0.95,
-      builder: (sheetContext) => MemberSearchSheet(
+      builder: (sheetContext, scrollController) => MemberSearchSheet(
         members: members,
         termPlural: termPlural,
         groups: groups,
         specialRows: specialRows,
+        scrollController: scrollController,
       ),
     );
     return result ?? const MemberSearchResultDismissed();
@@ -186,10 +191,9 @@ class MemberSearchSheet extends StatefulWidget {
     List<MemberSearchSpecialRow> specialRows = const [],
     Widget? Function(Member member)? trailingBuilder,
   }) {
-    return PrismSheet.show<Set<String>>(
+    return PrismSheet.showFullScreen<Set<String>>(
       context: context,
-      maxHeightFactor: 0.95,
-      builder: (sheetContext) => MemberSearchSheet(
+      builder: (sheetContext, scrollController) => MemberSearchSheet(
         members: members,
         termPlural: termPlural,
         groups: groups,
@@ -197,6 +201,7 @@ class MemberSearchSheet extends StatefulWidget {
         multiSelect: true,
         initialSelected: initialSelected,
         trailingBuilder: trailingBuilder,
+        scrollController: scrollController,
       ),
     );
   }
@@ -263,47 +268,24 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final l10n = context.l10n;
     final filtered = _filteredMembers;
     final doneLabel = '${l10n.done} · ${_selectedIds.length}';
 
     return Column(
       children: [
-        // ── Top bar ────────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-          child: Row(
-            children: [
-              Tooltip(
-                message: l10n.cancel,
-                child: IconButton(
-                  icon: Icon(AppIcons.close),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  l10n.selectMembers(widget.termPlural),
-                  style: theme.textTheme.titleMedium,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              if (widget.multiSelect)
-                Semantics(
+        PrismSheetTopBar(
+          title: l10n.selectMembers(widget.termPlural),
+          trailing: widget.multiSelect
+              ? Semantics(
                   liveRegion: true,
                   child: TextButton(
                     onPressed: _confirmMulti,
                     child: Text(doneLabel),
                   ),
                 )
-              else
-                const SizedBox(width: 48),
-            ],
-          ),
+              : null,
         ),
-
-        // ── Search field ──────────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           child: PrismTextField(
@@ -340,6 +322,8 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
           child: filtered.isEmpty && widget.specialRows.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
+                  controller: widget.scrollController,
+                  primary: widget.scrollController == null,
                   itemCount: widget.specialRows.length + filtered.length,
                   itemExtent: _kRowExtent,
                   itemBuilder: (context, index) {
