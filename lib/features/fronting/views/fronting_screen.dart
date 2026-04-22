@@ -30,7 +30,7 @@ import 'package:prism_plurality/features/fronting/providers/fronting_sanitizatio
 import 'package:prism_plurality/features/fronting/widgets/sleep_mode_card.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/info_banner.dart';
-import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar_action.dart';
@@ -479,48 +479,33 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     }
   }
 
-  void _showWakeUpPicker(BuildContext context, WidgetRef ref) {
+  Future<void> _showWakeUpPicker(BuildContext context, WidgetRef ref) async {
     final members = ref.read(activeMembersProvider).value ?? [];
+    final terms = readTerminology(context, ref);
 
-    PrismDialog.show<void>(
-      context: context,
-      title: context.l10n.frontingWakeUpAsTitle,
-      builder: (ctx) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: members
-              .map(
-                (member) => PrismListRow(
-                  padding: EdgeInsets.zero,
-                  leading: Text(
-                    member.emoji,
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                  title: Text(member.name),
-                  onTap: () async {
-                    Navigator.of(ctx).pop();
-                    try {
-                      await ref
-                          .read(sleepNotifierProvider.notifier)
-                          .endSleep(sleepSession!.id);
-                      await ref
-                          .read(frontingNotifierProvider.notifier)
-                          .startFronting(member.id);
-                    } catch (e) {
-                      if (context.mounted) {
-                        PrismToast.error(
-                          context,
-                          message: context.l10n.frontingErrorWakingUp(e),
-                        );
-                      }
-                    }
-                  },
-                ),
-              )
-              .toList(),
-        );
-      },
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: terms.plural,
     );
+
+    if (result is! MemberSearchResultSelected) return;
+
+    try {
+      await ref
+          .read(sleepNotifierProvider.notifier)
+          .endSleep(sleepSession!.id);
+      await ref
+          .read(frontingNotifierProvider.notifier)
+          .startFronting(result.memberId);
+    } catch (e) {
+      if (context.mounted) {
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorWakingUp(e),
+        );
+      }
+    }
   }
 }
 
