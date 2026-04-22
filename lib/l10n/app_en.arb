@@ -1025,6 +1025,14 @@
   "@navigationSettingsTitle": {
     "description": "Navigation settings screen title"
   },
+  "navigationPreferences": "Preferences",
+  "@navigationPreferences": {
+    "description": "Navigation settings: section title above the sync / view-toggle switches"
+  },
+  "navigationLayoutSection": "Layout",
+  "@navigationLayoutSection": {
+    "description": "Navigation settings: section title above the preview and reorderable items list"
+  },
   "navigationNavBar": "Nav Bar",
   "@navigationNavBar": {
     "description": "Navigation settings: Nav Bar section label"

@@ -1460,6 +1460,18 @@ abstract class AppLocalizations {
   /// **'Navigation'**
   String get navigationSettingsTitle;
 
+  /// Navigation settings: section title above the sync / view-toggle switches
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences'**
+  String get navigationPreferences;
+
+  /// Navigation settings: section title above the preview and reorderable items list
+  ///
+  /// In en, this message translates to:
+  /// **'Layout'**
+  String get navigationLayoutSection;
+
   /// Navigation settings: Nav Bar section label
   ///
   /// In en, this message translates to:

@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +16,13 @@ import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/nav_bar_layout.dart'
-    show navBarLabelTextStyle;
+    show
+        arrangeOverflowRows,
+        kNavBarItemIconHeight,
+        kNavBarItemIconSize,
+        kNavBarItemWidth,
+        kNavBarMoreTriggerIconSize,
+        navBarLabelTextStyle;
 import 'package:prism_plurality/shared/widgets/prism_inline_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
@@ -130,145 +135,149 @@ class NavigationSettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: EdgeInsets.only(top: 8, bottom: NavBarInset.of(context)),
         children: [
-          // Sync toggle
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          // Preferences — grouped switches (sync layout, home view toggle).
+          PrismSection(
+            title: context.l10n.navigationPreferences,
             child: PrismSectionCard(
               padding: EdgeInsets.zero,
-              child: PrismSwitchRow(
-                title: context.l10n.syncNavigationLayoutTitle,
-                subtitle: context.l10n.syncNavigationLayoutSubtitle,
-                value: syncNavigationEnabled,
-                onChanged: (v) => ref
-                    .read(settingsNotifierProvider.notifier)
-                    .updateSyncNavigationEnabled(v),
-              ),
-            ),
-          ),
-
-          // Home view toggle preference
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: PrismSectionCard(
-              padding: EdgeInsets.zero,
-              child: PrismSwitchRow(
-                title: context.l10n.navigationShowViewToggleTitle,
-                subtitle: context.l10n.navigationShowViewToggleSubtitle,
-                value:
-                    ref
-                        .watch(showFrontingViewToggleProvider)
-                        .whenOrNull(data: (v) => v) ??
-                    true,
-                onChanged: (v) => ref
-                    .read(showFrontingViewToggleProvider.notifier)
-                    .setEnabled(v),
-              ),
-            ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            child: PrismSectionCard(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    context.l10n.navigationBar,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  PrismSwitchRow(
+                    title: context.l10n.syncNavigationLayoutTitle,
+                    subtitle: context.l10n.syncNavigationLayoutSubtitle,
+                    value: syncNavigationEnabled,
+                    onChanged: (v) => ref
+                        .read(settingsNotifierProvider.notifier)
+                        .updateSyncNavigationEnabled(v),
                   ),
-                  const SizedBox(height: 12),
-                  _NavigationBarPreview(
-                    primaryTabs: primaryTabs,
-                    overflowTabs: overflowTabs,
-                    terminologyPlural: terms.plural,
+                  Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.08),
+                  ),
+                  PrismSwitchRow(
+                    title: context.l10n.navigationShowViewToggleTitle,
+                    subtitle: context.l10n.navigationShowViewToggleSubtitle,
+                    value:
+                        ref
+                            .watch(showFrontingViewToggleProvider)
+                            .whenOrNull(data: (v) => v) ??
+                        true,
+                    onChanged: (v) => ref
+                        .read(showFrontingViewToggleProvider.notifier)
+                        .setEnabled(v),
                   ),
                 ],
               ),
             ),
           ),
 
-          // Unified reorderable list with section headers
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          // Layout — preview sits at the top of the same card as the
+          // reorderable list, so the preview visibly updates as items move.
+          PrismSection(
+            title: context.l10n.navigationLayoutSection,
             child: PrismSectionCard(
-              child: ReorderableListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: entries.length,
-                onReorder: (oldIndex, newIndex) {
-                  _onReorder(
-                    context,
-                    ref,
-                    entries,
-                    oldIndex,
-                    newIndex,
-                    terminologyPlural: terms.plural,
-                  );
-                },
-                proxyDecorator: (child, index, animation) {
-                  return Material(
-                    elevation: 4,
-                    borderRadius: BorderRadius.circular(
-                      PrismShapes.of(context).radius(12),
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: _NavigationBarPreview(
+                      primaryTabs: primaryTabs,
+                      overflowTabs: overflowTabs,
+                      terminologyPlural: terms.plural,
                     ),
-                    child: child,
-                  );
-                },
-                itemBuilder: (context, index) {
-                  final entry = entries[index];
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 16,
+                    endIndent: 16,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.08),
+                  ),
+                  ReorderableListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: entries.length,
+                    onReorder: (oldIndex, newIndex) {
+                      _onReorder(
+                        context,
+                        ref,
+                        entries,
+                        oldIndex,
+                        newIndex,
+                        terminologyPlural: terms.plural,
+                      );
+                    },
+                    proxyDecorator: (child, index, animation) {
+                      return Material(
+                        elevation: 4,
+                        borderRadius: BorderRadius.circular(
+                          PrismShapes.of(context).radius(12),
+                        ),
+                        child: child,
+                      );
+                    },
+                    itemBuilder: (context, index) {
+                      final entry = entries[index];
 
-                  if (entry.isHeader) {
-                    return _SectionHeader(
-                      key: ValueKey('header_${entry.headerTitle}'),
-                      title: entry.headerTitle!,
-                    );
-                  }
+                      if (entry.isHeader) {
+                        return _SectionHeader(
+                          key: ValueKey('header_${entry.headerTitle}'),
+                          title: entry.headerTitle!,
+                        );
+                      }
 
-                  final tab = entry.tab!;
-                  final isInPrimary = _isInPrimarySection(entries, index);
-                  final moveToPrimaryEnabled =
-                      !tab.isLocked && !isInPrimary && canMoveToPrimary(tab);
+                      final tab = entry.tab!;
+                      final isInPrimary = _isInPrimarySection(entries, index);
+                      final moveToPrimaryEnabled =
+                          !tab.isLocked &&
+                          !isInPrimary &&
+                          canMoveToPrimary(tab);
 
-                  return _NavItem(
-                    key: ValueKey(tab.id),
-                    tab: tab,
-                    terminologyPlural: terms.plural,
-                    isLocked: tab.isLocked,
-                    reorderIndex: index,
-                    onRemove: tab.isLocked
-                        ? null
-                        : () => _removeItem(
-                            context,
-                            ref,
-                            entries,
-                            index,
-                            terminologyPlural: terms.plural,
-                          ),
-                    onMoveToOverflow: tab.isLocked || !isInPrimary
-                        ? null
-                        : () => _moveToOtherSection(
-                            context,
-                            ref,
-                            entries,
-                            index,
-                            false,
-                            terminologyPlural: terms.plural,
-                          ),
-                    onMoveToPrimary: !moveToPrimaryEnabled
-                        ? null
-                        : () => _moveToOtherSection(
-                            context,
-                            ref,
-                            entries,
-                            index,
-                            true,
-                            terminologyPlural: terms.plural,
-                          ),
-                  );
-                },
+                      return _NavItem(
+                        key: ValueKey(tab.id),
+                        tab: tab,
+                        terminologyPlural: terms.plural,
+                        isLocked: tab.isLocked,
+                        reorderIndex: index,
+                        onRemove: tab.isLocked
+                            ? null
+                            : () => _removeItem(
+                                context,
+                                ref,
+                                entries,
+                                index,
+                                terminologyPlural: terms.plural,
+                              ),
+                        onMoveToOverflow: tab.isLocked || !isInPrimary
+                            ? null
+                            : () => _moveToOtherSection(
+                                context,
+                                ref,
+                                entries,
+                                index,
+                                false,
+                                terminologyPlural: terms.plural,
+                              ),
+                        onMoveToPrimary: !moveToPrimaryEnabled
+                            ? null
+                            : () => _moveToOtherSection(
+                                context,
+                                ref,
+                                entries,
+                                index,
+                                true,
+                                terminologyPlural: terms.plural,
+                              ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -711,11 +720,13 @@ class _AvailableItem extends StatelessWidget {
         children: [
           PrismInlineIconButton(
             icon: AppIcons.addCircleOutline,
-            color: canAddToBar
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
-            tooltip: context.l10n.navigationAddToNavBar,
-            onPressed: canAddToBar ? onAddToBar : null,
+            color: theme.colorScheme.primary.withValues(
+              alpha: canAddToBar ? 1 : 0.7,
+            ),
+            tooltip: canAddToBar
+                ? context.l10n.navigationAddToNavBar
+                : context.l10n.add,
+            onPressed: onAddToBar,
           ),
           PrismInlineIconButton(
             icon: AppIcons.moreVert,
@@ -778,6 +789,47 @@ class _NavigationBarPreview extends StatelessWidget {
   final List<AppShellTab> overflowTabs;
   final String terminologyPlural;
 
+  Widget _buildOverflowRow(
+    BuildContext context, {
+    required List<AppShellTab?> row,
+    required int overflowColumns,
+    required bool hasMultipleRows,
+    required Color accentColor,
+    required bool isDark,
+  }) {
+    final tabs = row.whereType<AppShellTab>().toList();
+    if (tabs.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final slotColumns = hasMultipleRows ? overflowColumns : tabs.length;
+        final slotWidth = slotColumns <= 0
+            ? 0.0
+            : constraints.maxWidth / slotColumns;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (final tab in tabs)
+              SizedBox(
+                width: slotWidth,
+                child: _PreviewNavBarItem(
+                  tab: tab,
+                  label: tab.localizedLabel(
+                    context,
+                    terminologyPlural: terminologyPlural,
+                  ),
+                  isSelected: false,
+                  accentColor: accentColor,
+                  isDark: isDark,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -814,10 +866,11 @@ class _NavigationBarPreview extends StatelessWidget {
         final selectedTabId = layout.primaryTabs.isNotEmpty
             ? layout.primaryTabs.first.id
             : null;
-        final overflowRows = _chunkTabs(
+        final overflowRows = arrangeOverflowRows(
           layout.overflowTabs,
           layout.spec.overflowColumns,
         );
+        final hasMultipleOverflowRows = overflowRows.length > 1;
 
         return Center(
           child: IgnorePointer(
@@ -864,28 +917,13 @@ class _NavigationBarPreview extends StatelessWidget {
                           height: layout.overflowRowHeight,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Row(
-                              children: [
-                                for (final tab in overflowRows[i])
-                                  Expanded(
-                                    child: _PreviewNavBarItem(
-                                      tab: tab,
-                                      label: tab.localizedLabel(
-                                        context,
-                                        terminologyPlural: terminologyPlural,
-                                      ),
-                                      isSelected: false,
-                                      accentColor: theme.colorScheme.primary,
-                                      isDark: isDark,
-                                    ),
-                                  ),
-                                for (
-                                  int j = overflowRows[i].length;
-                                  j < layout.spec.overflowColumns;
-                                  j++
-                                )
-                                  const Expanded(child: SizedBox.shrink()),
-                              ],
+                            child: _buildOverflowRow(
+                              context,
+                              row: overflowRows[i],
+                              overflowColumns: layout.spec.overflowColumns,
+                              hasMultipleRows: hasMultipleOverflowRows,
+                              accentColor: theme.colorScheme.primary,
+                              isDark: isDark,
                             ),
                           ),
                         ),
@@ -930,7 +968,7 @@ class _NavigationBarPreview extends StatelessWidget {
                                 child: Center(
                                   child: Icon(
                                     AppIcons.moreVert,
-                                    size: 22,
+                                    size: kNavBarMoreTriggerIconSize,
                                     color: theme.colorScheme.primary,
                                   ),
                                 ),
@@ -947,16 +985,6 @@ class _NavigationBarPreview extends StatelessWidget {
         );
       },
     );
-  }
-
-  List<List<AppShellTab>> _chunkTabs(List<AppShellTab> tabs, int columns) {
-    if (tabs.isEmpty || columns <= 0) return const [];
-
-    final rows = <List<AppShellTab>>[];
-    for (var i = 0; i < tabs.length; i += columns) {
-      rows.add(tabs.sublist(i, math.min(i + columns, tabs.length)));
-    }
-    return rows;
   }
 }
 
@@ -992,9 +1020,9 @@ class _PreviewNavBarItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: 32,
+          height: kNavBarItemIconHeight,
           child: Container(
-            width: 40,
+            width: kNavBarItemWidth,
             alignment: Alignment.center,
             decoration: isSelected
                 ? BoxDecoration(
@@ -1004,7 +1032,7 @@ class _PreviewNavBarItem extends StatelessWidget {
                 : null,
             child: Icon(
               isSelected ? tab.activeIcon : tab.icon,
-              size: 23,
+              size: kNavBarItemIconSize,
               color: iconColor,
             ),
           ),
@@ -1018,8 +1046,10 @@ class _PreviewNavBarItem extends StatelessWidget {
               color: labelColor,
             ),
           ),
+          textScaler: MediaQuery.textScalerOf(context),
           maxLines: 1,
-          overflow: TextOverflow.visible,
+          overflow: TextOverflow.ellipsis,
+          softWrap: false,
         ),
       ],
     );

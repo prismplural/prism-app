@@ -227,6 +227,8 @@
   "resetDataSuccess": "{category} restablecido correctamente",
   "resetDataFailed": "Error al restablecer: {error}",
   "navigationSettingsTitle": "Navegación",
+  "navigationPreferences": "Preferencias",
+  "navigationLayoutSection": "Diseño",
   "navigationNavBar": "Barra de navegación",
   "navigationMoreMenu": "Menú de más",
   "navigationAvailable": "Disponible",
