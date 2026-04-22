@@ -13,17 +13,8 @@ import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-Member _member({
-  required String id,
-  required String name,
-  String? pronouns,
-}) =>
-    Member(
-      id: id,
-      name: name,
-      pronouns: pronouns,
-      createdAt: DateTime(2024),
-    );
+Member _member({required String id, required String name, String? pronouns}) =>
+    Member(id: id, name: name, pronouns: pronouns, createdAt: DateTime(2024));
 
 /// Wraps [MemberSearchSheet] with the minimal l10n scaffold for widget tests.
 Widget _buildSheet({
@@ -143,6 +134,26 @@ void main() {
 
       expect(find.text('All members'), findsOneWidget);
     });
+
+    testWidgets('preserves incoming member order when query is empty', (
+      tester,
+    ) async {
+      final orderedMembers = [
+        _member(id: 'c', name: 'Carol'),
+        _member(id: 'a', name: 'Alice'),
+        _member(id: 'b', name: 'Bob'),
+      ];
+
+      await tester.pumpWidget(_buildSheet(members: orderedMembers));
+      await tester.pumpAndSettle();
+
+      final carolY = tester.getTopLeft(find.byKey(const ValueKey('c'))).dy;
+      final aliceY = tester.getTopLeft(find.byKey(const ValueKey('a'))).dy;
+      final bobY = tester.getTopLeft(find.byKey(const ValueKey('b'))).dy;
+
+      expect(carolY, lessThan(aliceY));
+      expect(aliceY, lessThan(bobY));
+    });
   });
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -151,17 +162,11 @@ void main() {
 
   group('group chip filtering', () {
     final groups = [
-      MemberSearchGroup(
-        id: 'g1',
-        name: 'Front Team',
-        memberIds: {'a', 'b'},
-      ),
+      MemberSearchGroup(id: 'g1', name: 'Front Team', memberIds: {'a', 'b'}),
     ];
 
     testWidgets('group chip narrows visible members', (tester) async {
-      await tester.pumpWidget(
-        _buildSheet(members: members, groups: groups),
-      );
+      await tester.pumpWidget(_buildSheet(members: members, groups: groups));
       await tester.pumpAndSettle();
 
       // Tap the group chip
@@ -175,9 +180,7 @@ void main() {
     });
 
     testWidgets('text search filters within selected group', (tester) async {
-      await tester.pumpWidget(
-        _buildSheet(members: members, groups: groups),
-      );
+      await tester.pumpWidget(_buildSheet(members: members, groups: groups));
       await tester.pumpAndSettle();
 
       // Select the group
@@ -201,15 +204,13 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('single-select result contract', () {
-    testWidgets('selected(memberId) result when member is tapped',
-        (tester) async {
+    testWidgets('selected(memberId) result when member is tapped', (
+      tester,
+    ) async {
       MemberSearchSingleResult? result;
 
       await tester.pumpWidget(
-        _buildSingleShowWidget(
-          members: members,
-          onResult: (r) => result = r,
-        ),
+        _buildSingleShowWidget(members: members, onResult: (r) => result = r),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -221,15 +222,13 @@ void main() {
       expect((result! as MemberSearchResultSelected).memberId, 'a');
     });
 
-    testWidgets('dismissed result when sheet is closed via X button',
-        (tester) async {
+    testWidgets('dismissed result when sheet is closed via X button', (
+      tester,
+    ) async {
       MemberSearchSingleResult? result;
 
       await tester.pumpWidget(
-        _buildSingleShowWidget(
-          members: members,
-          onResult: (r) => result = r,
-        ),
+        _buildSingleShowWidget(members: members, onResult: (r) => result = r),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -241,7 +240,9 @@ void main() {
       expect(result, isA<MemberSearchResultDismissed>());
     });
 
-    testWidgets('cleared result from caller-provided clear row', (tester) async {
+    testWidgets('cleared result from caller-provided clear row', (
+      tester,
+    ) async {
       MemberSearchSingleResult? result;
 
       await tester.pumpWidget(
@@ -266,7 +267,9 @@ void main() {
       expect(result, isA<MemberSearchResultCleared>());
     });
 
-    testWidgets('unknown result from caller-provided unknown row', (tester) async {
+    testWidgets('unknown result from caller-provided unknown row', (
+      tester,
+    ) async {
       MemberSearchSingleResult? result;
 
       await tester.pumpWidget(
@@ -291,15 +294,13 @@ void main() {
       expect(result, isA<MemberSearchResultUnknown>());
     });
 
-    testWidgets('returns immediately on member tap (single-select)',
-        (tester) async {
+    testWidgets('returns immediately on member tap (single-select)', (
+      tester,
+    ) async {
       MemberSearchSingleResult? result;
 
       await tester.pumpWidget(
-        _buildSingleShowWidget(
-          members: members,
-          onResult: (r) => result = r,
-        ),
+        _buildSingleShowWidget(members: members, onResult: (r) => result = r),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -348,10 +349,7 @@ void main() {
       Set<String>? result;
 
       await tester.pumpWidget(
-        _buildMultiShowWidget(
-          members: members,
-          onResult: (r) => result = r,
-        ),
+        _buildMultiShowWidget(members: members, onResult: (r) => result = r),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -371,12 +369,7 @@ void main() {
     });
 
     testWidgets('Done button shows live count', (tester) async {
-      await tester.pumpWidget(
-        _buildSheet(
-          members: members,
-          multiSelect: true,
-        ),
-      );
+      await tester.pumpWidget(_buildSheet(members: members, multiSelect: true));
       await tester.pumpAndSettle();
 
       // Initially 0 selected
@@ -407,7 +400,9 @@ void main() {
       expect(focused, isNotNull);
     });
 
-    testWidgets('"All members" chip exposes selected semantics', (tester) async {
+    testWidgets('"All members" chip exposes selected semantics', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildSheet(members: members));
       await tester.pumpAndSettle();
 
@@ -415,8 +410,9 @@ void main() {
       expect(semantics.hasFlag(SemanticsFlag.isSelected), isTrue);
     });
 
-    testWidgets('unselected group chip does not expose selected semantics',
-        (tester) async {
+    testWidgets('unselected group chip does not expose selected semantics', (
+      tester,
+    ) async {
       final groups = [
         MemberSearchGroup(id: 'g1', name: 'Front Team', memberIds: {'a'}),
       ];
@@ -427,31 +423,35 @@ void main() {
       expect(semantics.hasFlag(SemanticsFlag.isSelected), isFalse);
     });
 
-    testWidgets('selected member row exposes selected semantics in multi-select',
-        (tester) async {
-      await tester.pumpWidget(
-        _buildSheet(members: members, multiSelect: true),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'selected member row exposes selected semantics in multi-select',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildSheet(members: members, multiSelect: true),
+        );
+        await tester.pumpAndSettle();
 
-      // Select Alice
-      await tester.tap(find.text('Alice'));
-      await tester.pumpAndSettle();
+        // Select Alice
+        await tester.tap(find.text('Alice'));
+        await tester.pumpAndSettle();
 
-      final semantics = tester.getSemantics(find.text('Alice'));
-      expect(semantics.hasFlag(SemanticsFlag.isSelected), isTrue);
-    });
+        final semantics = tester.getSemantics(find.text('Alice'));
+        expect(semantics.hasFlag(SemanticsFlag.isSelected), isTrue);
+      },
+    );
 
-    testWidgets('unselected member row has isSelected = false in multi-select',
-        (tester) async {
-      await tester.pumpWidget(
-        _buildSheet(members: members, multiSelect: true),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'unselected member row has isSelected = false in multi-select',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildSheet(members: members, multiSelect: true),
+        );
+        await tester.pumpAndSettle();
 
-      final semantics = tester.getSemantics(find.text('Bob'));
-      expect(semantics.hasFlag(SemanticsFlag.isSelected), isFalse);
-    });
+        final semantics = tester.getSemantics(find.text('Bob'));
+        expect(semantics.hasFlag(SemanticsFlag.isSelected), isFalse);
+      },
+    );
 
     testWidgets('empty-state icon is excluded from semantics', (tester) async {
       await tester.pumpWidget(
