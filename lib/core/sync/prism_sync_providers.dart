@@ -6,7 +6,6 @@ import 'dart:math' show min;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:prism_sync/generated/api.dart' as ffi;
 import 'package:prism_sync_drift/prism_sync_drift.dart';
@@ -16,6 +15,7 @@ import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/diagnostics/boot_timings.dart';
 import 'package:prism_plurality/core/database/database_encryption.dart';
 import 'package:prism_plurality/core/database/database_provider.dart';
+import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/error_reporting_service.dart';
 import 'package:prism_plurality/core/services/secure_storage.dart';
 import 'package:prism_plurality/core/database/daos/sync_quarantine_dao.dart';
@@ -196,7 +196,7 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
   Future<ffi.PrismSyncHandle> createHandle({required String relayUrl}) async {
     BootTimings.mark('createHandle:entry');
     final previousHandle = _handle;
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await getAppDataDir();
     final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
     await excludeFromiCloudBackup(dbPath);
 
@@ -401,7 +401,9 @@ Future<SyncHealthState> _autoConfigureIfReady(
       if (existingDbKey == null) {
         final lskBytes = await ffi.localStorageKey(handle: handle);
         await cacheDatabaseKey(Uint8List.fromList(lskBytes));
-        debugPrint('[SYNC] Backfilled database encryption key from local_storage_key');
+        debugPrint(
+          '[SYNC] Backfilled database encryption key from local_storage_key',
+        );
       }
     } catch (e) {
       debugPrint('[SYNC] Failed to backfill database key (non-fatal): $e');
@@ -640,8 +642,9 @@ Future<void> cacheRuntimeKeys(
     final lskBytes = Uint8List.fromList(
       await ffi.localStorageKey(handle: handle),
     );
-    final newHexKey =
-        lskBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    final newHexKey = lskBytes
+        .map((b) => b.toRadixString(16).padLeft(2, '0'))
+        .join();
 
     // Check Drift slot.
     final currentDriftKey = await readDatabaseKeyHex();
@@ -683,8 +686,9 @@ Future<void> _rotateSyncDatabaseKey({
       '_rotateSyncDatabaseKey: key must be exactly 32 bytes, got ${newKey.length}',
     );
   }
-  final newHexKey =
-      newKey.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  final newHexKey = newKey
+      .map((b) => b.toRadixString(16).padLeft(2, '0'))
+      .join();
   // Write staging slot before rekeyDb — crash before rekeyDb means staging key
   // ≠ DB key, so createHandle discards the staging slot on next startup.
   await _storage.write(
@@ -886,7 +890,9 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
       await _applyRemoteChanges(db, syncAdapter.adapter, event);
       await syncAdapter.completeSyncBatch();
       if (kDebugMode) {
-        debugPrint('[SYNC_STREAM] Applied ${event.changes.length} remote changes');
+        debugPrint(
+          '[SYNC_STREAM] Applied ${event.changes.length} remote changes',
+        );
       }
     }
     return event;
@@ -1245,7 +1251,7 @@ Future<void> Function()? debugDrainRustStoreOverride;
 /// confirm the gate flipped.
 @visibleForTesting
 Future<void> Function(bool Function() shouldAbort)?
-    debugDrainRustStoreOverrideWithAbort;
+debugDrainRustStoreOverrideWithAbort;
 
 /// Test seam: override the debounce interval used by `SyncStatusNotifier`
 /// for event-driven drains. Set to a very small value (e.g. 1ms) in tests
@@ -1395,23 +1401,20 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
     // meantime (via the `prismSyncHandleProvider` listener resetting
     // `_credentialsRevoked`).
     _postRevokeRecleanTimer?.cancel();
-    _postRevokeRecleanTimer = Timer(
-      _effectivePostRevokeRecleanDelay,
-      () async {
-        if (!_credentialsRevoked) return; // New handle appeared, skip.
-        try {
-          final override = debugPostRevokeRecleanOverrideCallback;
-          if (override != null) {
-            await override();
-          } else {
-            await _wipeSyncKeychainEntries();
-          }
-          debugPrint('[SYNC] Post-revoke keychain re-clean completed');
-        } catch (e) {
-          debugPrint('[SYNC] Post-revoke keychain re-clean failed: $e');
+    _postRevokeRecleanTimer = Timer(_effectivePostRevokeRecleanDelay, () async {
+      if (!_credentialsRevoked) return; // New handle appeared, skip.
+      try {
+        final override = debugPostRevokeRecleanOverrideCallback;
+        if (override != null) {
+          await override();
+        } else {
+          await _wipeSyncKeychainEntries();
         }
-      },
-    );
+        debugPrint('[SYNC] Post-revoke keychain re-clean completed');
+      } catch (e) {
+        debugPrint('[SYNC] Post-revoke keychain re-clean failed: $e');
+      }
+    });
   }
 
   /// Reset the revoked flag. Must ONLY be called when a fresh handle is
@@ -1481,8 +1484,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           // (Fix 2 of the 2026-04-11 sync robustness plan.)
           final resultErrorCode = resultMap?['error_code'] as String?;
           final resultRemoteWipe = resultMap?['remote_wipe'] as bool?;
-          final isDeviceRevokedFromResult =
-              resultErrorCode == 'device_revoked';
+          final isDeviceRevokedFromResult = resultErrorCode == 'device_revoked';
           final structuredError = rawResultError == null
               ? null
               : PrismSyncStructuredError.tryParseMessage(rawResultError);
@@ -1511,8 +1513,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
           // inside Rust and never invoked `drainRustStore` before. Skip
           // the drain for credential-state errors so revoke cleanup can
           // wipe the keychain without our writing stale keys back.
-          if (!isRevoked &&
-              shouldDrainForCompletedErrorKind(event.errorKind)) {
+          if (!isRevoked && shouldDrainForCompletedErrorKind(event.errorKind)) {
             _scheduleDrain();
           }
         } else if (event.isEpochRotated) {
@@ -1758,7 +1759,7 @@ class SyncStatusNotifier extends Notifier<SyncStatus> {
   Future<void> _wipeLocalData() async {
     // 1. Delete the Rust sync DB files.
     try {
-      final dir = await getApplicationDocumentsDirectory();
+      final dir = await getAppDataDir();
       final dbPath = p.join(dir.path, AppConstants.syncDatabaseName);
       final file = File(dbPath);
       if (await file.exists()) await file.delete();

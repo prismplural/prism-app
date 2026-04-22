@@ -8,6 +8,7 @@ set -euo pipefail
 MACOS_DEVICE="macos"
 ANDROID_DEVICE="Pixel 6 Pro"
 IPHONE_DEVICE="00008120-0014759E3A33401E"
+LINUX_DEVICE="linux"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -30,13 +31,14 @@ usage() {
     echo -e "  ${GREEN}check${RESET}     Codegen + analyze + test (full pre-flight)"
     echo -e "  ${GREEN}codegen${RESET}   Run build_runner codegen"
     echo -e "  ${GREEN}devices${RESET}   List connected devices"
-    echo -e "  ${GREEN}clean${RESET}     Clean build artifacts (--mac/--android/--iphone/--all; default: all; --deep for Rust + FRB)"
+    echo -e "  ${GREEN}clean${RESET}     Clean build artifacts (--mac/--android/--iphone/--linux/--all; default: all; --deep for Rust + FRB)"
     echo ""
     echo -e "${BOLD}Targets (for run/build):${RESET}"
     echo -e "  ${GREEN}--mac${RESET}       macOS desktop"
     echo -e "  ${GREEN}--android${RESET}   Pixel 6 Pro (debug: arm64 only; use --release for multi-arch APK)"
     echo -e "  ${GREEN}--iphone${RESET}   Skylar's iPhone"
-    echo -e "  ${GREEN}--all${RESET}       All three targets (parallel)"
+    echo -e "  ${GREEN}--linux${RESET}    Linux desktop (run on a Linux host — e.g. the Fedora VM)"
+    echo -e "  ${GREEN}--all${RESET}       macOS + Android + iPhone (Mac host targets)"
     echo ""
     echo -e "${BOLD}Options:${RESET}"
     echo -e "  ${GREEN}--live${RESET}      Live debug mode (hot reload: r, hot restart: R, quit: q)"
@@ -111,12 +113,22 @@ compute_build_info() {
 
     # Optional: bake a beta relay registration token into the binary so
     # TestFlight / beta testers don't have to type it by hand. The token
-    # itself is NEVER committed to this repo; it's passed in via the
-    # PRISM_BETA_REGISTRATION_TOKEN env var from a wrapper script that
-    # sources a gitignored env file outside the app/ tree. If unset, the
-    # token field stays blank and the app builds cleanly for self-hosters.
+    # itself is NEVER committed to this repo; it lives in .env.testflight
+    # at the monorepo root (gitignored) and is auto-loaded below. Matches
+    # the Fastlane pattern in fastlane/Fastfile. If the env file is absent
+    # the token stays unset and the app builds cleanly for self-hosters.
+    local env_file="../.env.testflight"
+    if [ -f "$env_file" ]; then
+        set -a
+        # shellcheck disable=SC1090
+        . "$env_file"
+        set +a
+    fi
     if [ -n "${PRISM_BETA_REGISTRATION_TOKEN:-}" ]; then
         BUILD_INFO_DEFINES="${BUILD_INFO_DEFINES} --dart-define=PRISM_BETA_REGISTRATION_TOKEN=${PRISM_BETA_REGISTRATION_TOKEN}"
+        echo -e "${DIM}  beta token: baked in (${#PRISM_BETA_REGISTRATION_TOKEN} chars)${RESET}"
+    else
+        echo -e "${DIM}  beta token: not set (skipping)${RESET}"
     fi
 
     export BUILD_INFO_DEFINES
@@ -178,7 +190,7 @@ cmd_check() {
 }
 
 cmd_clean() {
-    local do_ios=false do_mac=false do_android=false do_deep=false
+    local do_ios=false do_mac=false do_android=false do_linux=false do_deep=false
     local explicit_target=false
 
     for arg in "$@"; do
@@ -186,14 +198,15 @@ cmd_clean() {
             --iphone)   do_ios=true; explicit_target=true ;;
             --mac)      do_mac=true; explicit_target=true ;;
             --android)  do_android=true; explicit_target=true ;;
-            --all)      do_ios=true; do_mac=true; do_android=true; explicit_target=true ;;
+            --linux)    do_linux=true; explicit_target=true ;;
+            --all)      do_ios=true; do_mac=true; do_android=true; do_linux=true; explicit_target=true ;;
             --deep)     do_deep=true ;;
             *)          echo "Unknown option: $arg"; usage; exit 1 ;;
         esac
     done
 
     if ! $explicit_target; then
-        do_ios=true; do_mac=true; do_android=true
+        do_ios=true; do_mac=true; do_android=true; do_linux=true
     fi
 
     step "Cleaning Flutter"
@@ -219,6 +232,12 @@ cmd_clean() {
         step "Cleaning Gradle"
         (cd android && ./gradlew --stop 2>/dev/null || true)
         rm -rf android/.gradle
+    fi
+
+    if $do_linux; then
+        # flutter clean already removes build/; linux/ ephemeral holds generated
+        # CMake scaffolding that can go stale across Flutter upgrades.
+        rm -rf linux/flutter/ephemeral
     fi
 
     if $do_deep; then
@@ -248,6 +267,48 @@ ensure_pods() {
     fi
 }
 
+ensure_linux_scaffold() {
+    if [ ! -d "linux" ]; then
+        step "Generating Linux platform scaffold"
+        flutter create --platforms=linux --project-name=prism_plurality .
+    fi
+}
+
+# Linux-only build environment.
+#
+# These are safe to export on any Linux host — they're no-ops for most setups
+# and only matter in the corner cases noted below. We set them eagerly so that
+# a clean-room Linux build "just works" without contributors having to diagnose
+# either failure mode.
+#
+# TRY_SYSTEM_LIBS_FIRST=1  — flutter_soloud ships precompiled Opus / Ogg /
+#   Vorbis / FLAC shared libraries under its linux/libs/ dir. Those prebuilts
+#   are x86_64-only, so on aarch64 Linux hosts (Apple-Silicon VMs running
+#   Fedora/Debian, Raspberry Pi, etc.) the linker rejects them as wrong-arch.
+#   This flag tells SoLoud's CMake to pkg-config system codec libs first and
+#   only fall back to the bundled x86_64 ones if nothing is installed.
+#     Fedora deps:  sudo dnf install flac-devel libogg-devel libvorbis-devel opus-devel
+#     Debian deps:  sudo apt install libflac-dev libogg-dev libvorbis-dev libopus-dev
+#
+# OPENSSL_NO_VENDOR=1  — several Rust crates in sync/ pull in openssl-sys and
+#   some transitive features enable its `vendored` build, which compiles
+#   OpenSSL from source using Perl. That fails on hosts missing a full Perl
+#   build environment. Forcing non-vendored makes openssl-sys link the distro
+#   OpenSSL via pkg-config instead (faster too — skips a long source compile).
+#     Fedora deps:  sudo dnf install openssl-devel
+#     Debian deps:  sudo apt install libssl-dev
+#
+# GDK_BACKEND=x11  — Flutter's GTK embedder has no native Wayland path and
+#   crashes with `FL_IS_COMPOSITOR(self)` assertions on NVIDIA, fractional
+#   scaling, and virtualized GPUs (see flutter/flutter#184259, #57932). Every
+#   shipped Flutter Linux app today rides on XWayland, so we force it here for
+#   dev runs too. Revisit when Flutter ships a real Wayland backend.
+export_linux_build_env() {
+    export TRY_SYSTEM_LIBS_FIRST=1
+    export OPENSSL_NO_VENDOR=1
+    export GDK_BACKEND=x11
+}
+
 cmd_run() {
     local targets=()
     local mode="debug"
@@ -258,6 +319,7 @@ cmd_run() {
             --mac)      targets+=("$MACOS_DEVICE") ;;
             --android)  targets+=("$ANDROID_DEVICE") ;;
             --iphone)   targets+=("$IPHONE_DEVICE") ;;
+            --linux)    targets+=("$LINUX_DEVICE") ;;
             --all)      targets+=("$MACOS_DEVICE" "$ANDROID_DEVICE" "$IPHONE_DEVICE") ;;
             --live)     live=true; mode="debug" ;;
             --release)  mode="release" ;;
@@ -267,7 +329,7 @@ cmd_run() {
     done
 
     if [ ${#targets[@]} -eq 0 ]; then
-        echo -e "${RED}No target specified.${RESET} Use --mac, --android, --iphone, or --all"
+        echo -e "${RED}No target specified.${RESET} Use --mac, --android, --iphone, --linux, or --all"
         exit 1
     fi
 
@@ -284,6 +346,7 @@ cmd_run() {
             "$MACOS_DEVICE")    name="macOS";  ensure_pods "macos" ;;
             "$ANDROID_DEVICE")  name="Pixel 6 Pro" ;;
             "$IPHONE_DEVICE")   name="iPhone"; ensure_pods "ios" ;;
+            "$LINUX_DEVICE")    name="Linux";  ensure_linux_scaffold; export_linux_build_env ;;
         esac
         step "Running on $name ($mode)"
         if $live; then
@@ -301,6 +364,7 @@ cmd_run() {
             "$MACOS_DEVICE")    name="macOS";  ensure_pods "macos" ;;
             "$ANDROID_DEVICE")  name="Pixel 6 Pro" ;;
             "$IPHONE_DEVICE")   name="iPhone"; ensure_pods "ios" ;;
+            "$LINUX_DEVICE")    name="Linux";  ensure_linux_scaffold; export_linux_build_env ;;
         esac
         step "Running on $name ($mode)"
         flutter run -d "$device" $mode_flag $BUILD_INFO_DEFINES &
@@ -318,6 +382,7 @@ cmd_build() {
             --mac)      targets+=("macos") ;;
             --android)  targets+=("apk") ;;
             --iphone)   targets+=("ios") ;;
+            --linux)    targets+=("linux") ;;
             --all)      targets+=("macos" "apk" "ios") ;;
             --release)  mode="release" ;;
             --profile)  mode="profile" ;;
@@ -326,7 +391,7 @@ cmd_build() {
     done
 
     if [ ${#targets[@]} -eq 0 ]; then
-        echo -e "${RED}No target specified.${RESET} Use --mac, --android, --iphone, or --all"
+        echo -e "${RED}No target specified.${RESET} Use --mac, --android, --iphone, --linux, or --all"
         exit 1
     fi
 
@@ -339,6 +404,7 @@ cmd_build() {
 
     for platform in "${targets[@]}"; do
         [[ "$platform" == "ios" || "$platform" == "macos" ]] && ensure_pods "$platform"
+        [[ "$platform" == "linux" ]] && { ensure_linux_scaffold; export_linux_build_env; }
         step "Building $platform ($mode)"
         timer_start
         # Debug Android APK: compile only for arm64 to skip the armeabi-v7a pass.

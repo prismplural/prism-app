@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,12 +31,14 @@ class ScreenshotDetector {
 
   /// Start listening for screenshots from the platform.
   void startListening() {
-    _subscription ??= _channel
-        .receiveBroadcastStream()
-        .listen((_) => _controller.add(null), onError: (_) {
-      // Silently ignore errors (e.g., unsupported platform or permission
-      // denied) so that the app continues working without the warning.
-    });
+    if (!Platform.isAndroid && !Platform.isIOS) return;
+    _subscription ??= _channel.receiveBroadcastStream().listen(
+      (_) => _controller.add(null),
+      onError: (_) {
+        // Silently ignore errors (e.g., permission denied) so that the app
+        // continues working without the warning.
+      },
+    );
   }
 
   /// Stop listening for screenshots.
@@ -57,7 +60,8 @@ class ScreenshotDetector {
     return PrismDialog.show(
       context: context,
       title: 'Screenshot Detected',
-      message: 'The screenshot you just took may contain sensitive key material. '
+      message:
+          'The screenshot you just took may contain sensitive key material. '
           'Anyone you share it with could access your system data.',
       builder: (ctx) => Icon(
         AppIcons.warningAmberRounded,

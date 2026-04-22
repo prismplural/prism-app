@@ -52,7 +52,7 @@ dependencies:
   image_picker: ^1.2.1
   file_picker: ^11.0.2
   flutter_local_notifications: ^21.0.0
-  flutter_timezone: ^3.0.0
+  flutter_timezone: ^5.0.0
   timezone: any
 
   # Background processing
@@ -132,6 +132,14 @@ flutter:
     - assets/audio/
     - assets/textures/
     - assets/icon_layers/
+    # Color emoji font — only bundled on Linux. iOS/macOS use Apple Color
+    # Emoji, Android uses system Noto Color Emoji, Windows uses Segoe UI
+    # Emoji. Linux desktops have no guaranteed color emoji font (many
+    # distros ship only monochrome NotoEmoji-Regular.ttf). Registered as a
+    # font family at runtime via FontLoader in main.dart so the ~10MB
+    # asset stays out of mobile/mac/Windows bundles.
+    - path: assets/fonts/NotoColorEmoji.ttf
+      platforms: [linux]
   fonts:
     - family: Unbounded
       fonts:

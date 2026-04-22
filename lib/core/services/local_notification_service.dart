@@ -21,8 +21,9 @@ class LocalNotificationService {
 
   Future<void> initialize() async {
     if (kIsWeb || _initialized) return;
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const darwinSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -40,7 +41,7 @@ class LocalNotificationService {
     // guard against cases where initialize() is called in isolation.
     try {
       if (!kIsWeb) {
-        final localTz = await FlutterTimezone.getLocalTimezone();
+        final localTz = (await FlutterTimezone.getLocalTimezone()).identifier;
         tz.setLocalLocation(tz.getLocation(localTz));
       }
     } catch (_) {}
@@ -123,7 +124,8 @@ class LocalNotificationService {
   }) async {
     if (kIsWeb) return;
     await _ensureInitialized();
-    final n = maxOccurrences ??
+    final n =
+        maxOccurrences ??
         (30 / intervalDays).ceil().clamp(2, maxIntervalOccurrences);
     var next = _nextOccurrence(time);
     for (var i = 0; i < n; i++) {
@@ -205,8 +207,10 @@ class LocalNotificationService {
   Future<bool> requestPermission() async {
     if (kIsWeb) return false;
     await _ensureInitialized();
-    final ios = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
+    final ios = _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
     if (ios != null) {
       return (await ios.requestPermissions(
             alert: true,
@@ -215,8 +219,10 @@ class LocalNotificationService {
           )) ??
           false;
     }
-    final mac = _plugin.resolvePlatformSpecificImplementation<
-        MacOSFlutterLocalNotificationsPlugin>();
+    final mac = _plugin
+        .resolvePlatformSpecificImplementation<
+          MacOSFlutterLocalNotificationsPlugin
+        >();
     if (mac != null) {
       return (await mac.requestPermissions(
             alert: true,
@@ -225,8 +231,10 @@ class LocalNotificationService {
           )) ??
           false;
     }
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (android != null) {
       return (await android.requestNotificationsPermission()) ?? false;
     }
@@ -237,18 +245,24 @@ class LocalNotificationService {
   Future<bool> isPermissionGranted() async {
     if (kIsWeb) return false;
     await _ensureInitialized();
-    final ios = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
+    final ios = _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
     if (ios != null) {
       return (await ios.requestPermissions()) ?? false;
     }
-    final mac = _plugin.resolvePlatformSpecificImplementation<
-        MacOSFlutterLocalNotificationsPlugin>();
+    final mac = _plugin
+        .resolvePlatformSpecificImplementation<
+          MacOSFlutterLocalNotificationsPlugin
+        >();
     if (mac != null) {
       return (await mac.requestPermissions()) ?? false;
     }
-    final android = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (android != null) {
       return (await android.areNotificationsEnabled()) ?? false;
     }
@@ -291,5 +305,6 @@ class LocalNotificationService {
 }
 
 /// Provides the [LocalNotificationService] singleton.
-final localNotificationServiceProvider =
-    Provider<LocalNotificationService>((ref) => LocalNotificationService());
+final localNotificationServiceProvider = Provider<LocalNotificationService>(
+  (ref) => LocalNotificationService(),
+);

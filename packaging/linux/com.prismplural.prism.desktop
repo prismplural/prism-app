@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Prism
+GenericName=Plural System Management
+Comment=Track fronting, chat internally, and sync across devices with zero-knowledge encryption
+Categories=Utility;
+Keywords=plural;system;headmate;fronting;dissociative;did;osdd;
+Exec=prism %U
+Icon=com.prismplural.prism
+Terminal=false
+StartupNotify=true
+StartupWMClass=com.prismplural.prism_plurality
+PrefersNonDefaultGPU=false
+SingleMainWindow=true
