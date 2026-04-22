@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -158,7 +159,8 @@ class _FrontingScreenState extends ConsumerState<FrontingScreen> {
 
   Widget? _buildViewToggle() {
     final showToggle =
-        ref.watch(showFrontingViewToggleProvider).whenOrNull(data: (v) => v) ?? true;
+        ref.watch(showFrontingViewToggleProvider).whenOrNull(data: (v) => v) ??
+        true;
     if (!showToggle) return null;
 
     final isTimelineView = ref.watch(timelineViewActiveProvider);
@@ -333,9 +335,8 @@ class _AddButtonState extends ConsumerState<_AddButton> {
   Widget build(BuildContext context) {
     final terms = watchTerminology(context, ref);
     final pkState = ref.watch(pluralKitSyncProvider);
-    final pkReady = pkState.isConnected &&
-        !pkState.needsMapping &&
-        !pkState.isSyncing;
+    final pkReady =
+        pkState.isConnected && !pkState.needsMapping && !pkState.isSyncing;
 
     // Build menu items for the blur popup.
     final menuItems = <_MenuItem>[];
@@ -458,7 +459,9 @@ class _AddButtonState extends ConsumerState<_AddButton> {
 
   Future<void> _runPluralKitSync(BuildContext context, WidgetRef ref) async {
     try {
-      await ref.read(pluralKitSyncProvider.notifier).syncRecentData(
+      await ref
+          .read(pluralKitSyncProvider.notifier)
+          .syncRecentData(
             isManual: true,
             direction: ref.read(pkSyncDirectionProvider),
           );
@@ -534,7 +537,6 @@ class _MenuItem {
   final void Function(VoidCallback close) onTap;
   final bool enabled;
 }
-
 
 /// Banner reminding the user to start sleep when their configured bedtime
 /// has arrived and no sleep session is currently active.
@@ -628,8 +630,7 @@ class _BedtimeReminderBannerState
     final bedtimeMinutes = time.hour * 60 + time.minute;
     // Modular difference handles cross-midnight bedtimes (e.g., 01:00):
     // bedtime 22:00, now 00:30 → 150 min after bedtime, still in window.
-    final minutesSinceBedtime =
-        (nowMinutes - bedtimeMinutes + 1440) % 1440;
+    final minutesSinceBedtime = (nowMinutes - bedtimeMinutes + 1440) % 1440;
     if (minutesSinceBedtime >= _windowMinutes) {
       return const SizedBox.shrink();
     }
@@ -666,10 +667,11 @@ class FrontingBannerStack extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _TimelineIssueBanner(
-          theme: theme,
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-        ),
+        if (!kReleaseMode)
+          _TimelineIssueBanner(
+            theme: theme,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          ),
         _BedtimeReminderBanner(
           theme: theme,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),

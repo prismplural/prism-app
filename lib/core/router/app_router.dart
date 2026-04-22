@@ -460,11 +460,12 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'reset',
                     builder: (context, state) => const ResetDataScreen(),
                   ),
-                  GoRoute(
-                    path: 'timeline-sanitization',
-                    builder: (context, state) =>
-                        const FrontingSanitizationScreen(),
-                  ),
+                  if (!kReleaseMode)
+                    GoRoute(
+                      path: 'timeline-sanitization',
+                      builder: (context, state) =>
+                          const FrontingSanitizationScreen(),
+                    ),
                   GoRoute(
                     path: 'custom-fields',
                     builder: (context, state) => const CustomFieldsScreen(),

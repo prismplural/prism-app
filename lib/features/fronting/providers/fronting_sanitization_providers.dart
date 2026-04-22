@@ -25,6 +25,10 @@ final frontingIssueCountProvider =
 class FrontingIssueCountNotifier extends Notifier<int> {
   @override
   int build() {
+    if (kReleaseMode) {
+      return 0;
+    }
+
     // Listen for remote fronting_sessions changes and trigger a broad rescan.
     // RemoteChanges events fire after Drift rows are already written, so the
     // repository will return the updated data when the scan runs.
@@ -51,19 +55,23 @@ class FrontingIssueCountNotifier extends Notifier<int> {
     final from = now.subtract(const Duration(days: 30));
     final sanitizer = ref.read(frontingSanitizerServiceProvider);
     unawaited(
-      sanitizer.scan(from: from, to: now).then((issues) {
-        state = issues.length;
-      }).catchError((Object e, StackTrace st) {
-        debugPrint('[FrontingRescan] Post-sync rescan failed: $e\n$st');
-      }),
+      sanitizer
+          .scan(from: from, to: now)
+          .then((issues) {
+            state = issues.length;
+          })
+          .catchError((Object e, StackTrace st) {
+            debugPrint('[FrontingRescan] Post-sync rescan failed: $e\n$st');
+          }),
     );
   }
 }
 
 /// Provides a [FrontingSanitizerService] wired to the repository, validator,
 /// planner, and executor layers.
-final frontingSanitizerServiceProvider =
-    Provider<FrontingSanitizerService>((ref) {
+final frontingSanitizerServiceProvider = Provider<FrontingSanitizerService>((
+  ref,
+) {
   return FrontingSanitizerService(
     repository: ref.watch(frontingSessionRepositoryProvider),
     validator: ref.watch(frontingValidatorProvider),
@@ -82,6 +90,8 @@ void triggerPostEditRescan(
   required DateTime sessionStart,
   DateTime? sessionEnd,
 }) {
+  if (kReleaseMode) return;
+
   const padding = Duration(hours: 1);
   final from = sessionStart.subtract(padding);
   final to = (sessionEnd ?? sessionStart).add(padding);
@@ -89,10 +99,14 @@ void triggerPostEditRescan(
   final sanitizer = ref.read(frontingSanitizerServiceProvider);
 
   // Fire-and-forget: errors are swallowed to avoid disrupting the UI.
-  unawaited(sanitizer.scan(from: from, to: to).then((issues) {
-    ref.read(frontingIssueCountProvider.notifier).setCount(issues.length);
-  }).catchError((Object e, StackTrace st) {
-    debugPrint('[FrontingRescan] Post-edit rescan failed: $e\n$st');
-  }));
+  unawaited(
+    sanitizer
+        .scan(from: from, to: to)
+        .then((issues) {
+          ref.read(frontingIssueCountProvider.notifier).setCount(issues.length);
+        })
+        .catchError((Object e, StackTrace st) {
+          debugPrint('[FrontingRescan] Post-edit rescan failed: $e\n$st');
+        }),
+  );
 }
-
