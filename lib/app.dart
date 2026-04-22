@@ -1,5 +1,6 @@
 import 'package:dynamic_color/dynamic_color.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -22,10 +23,22 @@ ThemeData _stripDisplayFont(ThemeData theme) {
   final tt = theme.textTheme;
   return theme.copyWith(
     textTheme: tt.copyWith(
-      displayLarge: tt.displayLarge?.copyWith(fontFamily: null, letterSpacing: 0),
-      displayMedium: tt.displayMedium?.copyWith(fontFamily: null, letterSpacing: 0),
-      displaySmall: tt.displaySmall?.copyWith(fontFamily: null, letterSpacing: 0),
-      headlineLarge: tt.headlineLarge?.copyWith(fontFamily: null, letterSpacing: 0),
+      displayLarge: tt.displayLarge?.copyWith(
+        fontFamily: null,
+        letterSpacing: 0,
+      ),
+      displayMedium: tt.displayMedium?.copyWith(
+        fontFamily: null,
+        letterSpacing: 0,
+      ),
+      displaySmall: tt.displaySmall?.copyWith(
+        fontFamily: null,
+        letterSpacing: 0,
+      ),
+      headlineLarge: tt.headlineLarge?.copyWith(
+        fontFamily: null,
+        letterSpacing: 0,
+      ),
     ),
   );
 }
@@ -66,7 +79,10 @@ class _PrismAppState extends ConsumerState<PrismApp> {
       final health = ref.read(syncHealthProvider);
       if (health == SyncHealthState.healthy) {
         ffi.onResume(handle: handle).catchError((e) {
-          debugPrint('onResume failed (non-fatal): $e');
+          final structured = PrismSyncStructuredError.tryParse(e);
+          debugPrint(
+            'onResume failed (non-fatal): ${structured?.userMessage ?? e}',
+          );
         });
         // Kick off an explicit sync cycle on resume. `triggerSync` is
         // fire-and-forget and swallows errors so a failed sync doesn't
@@ -107,8 +123,8 @@ class _PrismAppState extends ConsumerState<PrismApp> {
     // Enforce 1.0x minimum when Open Dyslexic is active.
     final fontScale =
         fontFamily == FontFamily.openDyslexic && rawFontScale < 1.0
-            ? 1.0
-            : rawFontScale;
+        ? 1.0
+        : rawFontScale;
     final useOpenDyslexic = fontFamily == FontFamily.openDyslexic;
 
     return DynamicColorBuilder(
@@ -127,14 +143,32 @@ class _PrismAppState extends ConsumerState<PrismApp> {
 
         switch (effectiveStyle) {
           case ThemeStyle.materialYou:
-            lightTheme = AppTheme.materialYouLight(lightDynamic, cornerStyle: cornerStyle);
-            darkTheme = AppTheme.materialYouDark(darkDynamic, cornerStyle: cornerStyle);
+            lightTheme = AppTheme.materialYouLight(
+              lightDynamic,
+              cornerStyle: cornerStyle,
+            );
+            darkTheme = AppTheme.materialYouDark(
+              darkDynamic,
+              cornerStyle: cornerStyle,
+            );
           case ThemeStyle.oled:
-            lightTheme = AppTheme.light(accentColor: accentColor, cornerStyle: cornerStyle);
-            darkTheme = AppTheme.oled(accentColor: accentColor, cornerStyle: cornerStyle);
+            lightTheme = AppTheme.light(
+              accentColor: accentColor,
+              cornerStyle: cornerStyle,
+            );
+            darkTheme = AppTheme.oled(
+              accentColor: accentColor,
+              cornerStyle: cornerStyle,
+            );
           case ThemeStyle.standard:
-            lightTheme = AppTheme.light(accentColor: accentColor, cornerStyle: cornerStyle);
-            darkTheme = AppTheme.dark(accentColor: accentColor, cornerStyle: cornerStyle);
+            lightTheme = AppTheme.light(
+              accentColor: accentColor,
+              cornerStyle: cornerStyle,
+            );
+            darkTheme = AppTheme.dark(
+              accentColor: accentColor,
+              cornerStyle: cornerStyle,
+            );
         }
 
         // Strip Unbounded from display/headline roles when the user opts out.
@@ -162,10 +196,7 @@ class _PrismAppState extends ConsumerState<PrismApp> {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          supportedLocales: const [
-            Locale('en'),
-            Locale('es'),
-          ],
+          supportedLocales: const [Locale('en'), Locale('es')],
           locale: ref.watch(localeOverrideProvider),
           theme: lightTheme,
           darkTheme: darkTheme,
@@ -179,9 +210,9 @@ class _PrismAppState extends ConsumerState<PrismApp> {
             Widget result = child ?? const SizedBox.shrink();
             if (fontScale != 1.0) {
               result = MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: TextScaler.linear(fontScale),
-                ),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(fontScale)),
                 child: result,
               );
             }

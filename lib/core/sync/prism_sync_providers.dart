@@ -296,22 +296,22 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
       // configured (unpaired / needs-password) — onResume would just fail with
       // `sync not configured`.
       if (health == SyncHealthState.healthy) {
-        unawaited(
-          () async {
-            try {
-              await ffi.onResume(handle: handle);
-              // Persist any state the sync cycle mutated (session_token refresh,
-              // epoch advance, etc.) before a subsequent crash could lose it.
-              await drainRustStore(handle);
-            } catch (e, st) {
-              ErrorReportingService.instance.report(
-                'Startup catch-up sync failed (non-fatal): $e',
-                severity: ErrorSeverity.warning,
-                stackTrace: st,
-              );
-            }
-          }(),
-        );
+        unawaited(() async {
+          try {
+            await ffi.onResume(handle: handle);
+            // Persist any state the sync cycle mutated (session_token refresh,
+            // epoch advance, etc.) before a subsequent crash could lose it.
+            await drainRustStore(handle);
+          } catch (e, st) {
+            final structuredError = PrismSyncStructuredError.tryParse(e);
+            ErrorReportingService.instance.report(
+              'Startup catch-up sync failed (non-fatal): '
+              '${structuredError?.userMessage ?? e}',
+              severity: ErrorSeverity.warning,
+              stackTrace: st,
+            );
+          }
+        }());
       }
     }
 
