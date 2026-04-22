@@ -19,9 +19,9 @@ String redactSpoilers(String input) {
 /// Matches @[uuid] mention tokens (strict 36-char UUID).
 class MentionSyntax extends md.InlineSyntax {
   MentionSyntax()
-      : super(
-          r'@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]',
-        );
+    : super(
+        r'@\[([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\]',
+      );
 
   @override
   bool onMatch(md.InlineParser parser, Match match) {
@@ -52,10 +52,13 @@ class SpoilerSyntax extends md.InlineSyntax {
 /// Escape leading `#` markers so they render as literal text.
 /// Chat does not support headings; the block parser is otherwise CommonMark.
 String escapeLeadingHeadings(String input) {
-  return input.split('\n').map((line) {
-    final m = RegExp(r'^(#{1,6})\s').firstMatch(line);
-    return m != null ? '\\${m.group(0)}${line.substring(m.end)}' : line;
-  }).join('\n');
+  return input
+      .split('\n')
+      .map((line) {
+        final m = RegExp(r'^(#{1,6})\s').firstMatch(line);
+        return m != null ? '\\${m.group(0)}${line.substring(m.end)}' : line;
+      })
+      .join('\n');
 }
 
 /// Fast check: does the string contain any char that could trigger markdown
@@ -99,7 +102,8 @@ class MentionBuilder extends MarkdownElementBuilder {
     final id = element.attributes['id'];
     final member = id == null ? null : authorMap?[id];
     final name = member?.name ?? 'Unknown';
-    final mentionColor = (member != null &&
+    final mentionColor =
+        (member != null &&
             member.customColorEnabled &&
             member.customColorHex != null)
         ? AppColors.fromHex(member.customColorHex!)
@@ -181,8 +185,8 @@ class SpoilerRevealScope extends InheritedNotifier<SpoilerRevealController> {
   });
 
   static SpoilerRevealController of(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<SpoilerRevealScope>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<SpoilerRevealScope>();
     assert(scope != null, 'No SpoilerRevealScope above SpoilerBuilder');
     return scope!.notifier!;
   }
@@ -230,19 +234,23 @@ class _SpoilerSpan extends StatelessWidget {
   final TextStyle textStyle;
   final ThemeData theme;
 
-  // Strong-alpha occlusion; bg and foreground paint the same color so the text
-  // is completely hidden under the pill. Spec's literal 40/60 would leave text
-  // readable through the tint, so we tune up for real occlusion.
-  static const int _occlusionAlphaDark = 200;
-  static const int _occlusionAlphaLight = 230;
+  // Hidden spoilers use a dark scrim instead of a bright chip. Because the
+  // plaintext is only painted in the revealed layer, this fill can stay fairly
+  // subtle without leaking content.
+  static const double _hiddenFillAlphaDark = 0.58;
+  static const double _hiddenFillAlphaLight = 0.68;
+  static const double _hiddenOutlineAlpha = 0.12;
+  static const Duration _fadeDuration = Duration(milliseconds: 150);
 
   @override
   Widget build(BuildContext context) {
     final controller = SpoilerRevealScope.of(context);
     final revealed = controller.isRevealed(start);
     final isDark = theme.brightness == Brightness.dark;
-    final occlusion = theme.colorScheme.onSurface
-        .withAlpha(isDark ? _occlusionAlphaDark : _occlusionAlphaLight);
+    final hiddenFill = Colors.black.withValues(
+      alpha: isDark ? _hiddenFillAlphaDark : _hiddenFillAlphaLight,
+    );
+    final hiddenOutline = Colors.white.withValues(alpha: _hiddenOutlineAlpha);
 
     return Semantics(
       button: true,
@@ -256,23 +264,31 @@ class _SpoilerSpan extends StatelessWidget {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            Text(text, style: textStyle),
             AnimatedOpacity(
-              duration: const Duration(milliseconds: 150),
+              duration: _fadeDuration,
               opacity: revealed ? 0.0 : 1.0,
               child: IgnorePointer(
                 ignoring: revealed,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: occlusion,
+                    color: hiddenFill,
                     borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: hiddenOutline),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 2),
                   child: Text(
                     text,
-                    style: textStyle.copyWith(color: occlusion),
+                    style: textStyle.copyWith(color: Colors.transparent),
                   ),
                 ),
+              ),
+            ),
+            AnimatedOpacity(
+              duration: _fadeDuration,
+              opacity: revealed ? 1.0 : 0.0,
+              child: IgnorePointer(
+                ignoring: !revealed,
+                child: Text(text, style: textStyle),
               ),
             ),
           ],
