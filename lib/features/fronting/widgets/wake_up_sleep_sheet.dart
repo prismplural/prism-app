@@ -9,13 +9,13 @@ import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart
 import 'package:prism_plurality/features/fronting/utils/member_frequency_sort.dart';
 import 'package:prism_plurality/features/fronting/utils/sleep_quality_l10n.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/duration_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
-import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 
@@ -93,37 +93,24 @@ class _WakeUpSleepSheetState extends ConsumerState<WakeUpSleepSheet> {
     await _handleSkip();
   }
 
-  void _showOthersPicker(
+  Future<void> _showOthersPicker(
     BuildContext context,
     List<Member> allMembers,
     List<Member> topMembers,
-  ) {
+  ) async {
     final topIds = topMembers.map((m) => m.id).toSet();
     final others = allMembers.where((m) => !topIds.contains(m.id)).toList();
+    final termPlural = readTerminology(context, ref).plural;
 
-    PrismDialog.show<void>(
-      context: context,
-      title: context.l10n.sleepWakeUpOthers,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: others
-            .map(
-              (member) => PrismListRow(
-                padding: EdgeInsets.zero,
-                leading: Text(
-                  member.emoji,
-                  style: const TextStyle(fontSize: 24),
-                ),
-                title: Text(member.name),
-                onTap: () {
-                  setState(() => _selectedMemberId = member.id);
-                  Navigator.of(ctx).pop();
-                },
-              ),
-            )
-            .toList(),
-      ),
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: others,
+      termPlural: termPlural,
     );
+
+    if (result is MemberSearchResultSelected && mounted) {
+      setState(() => _selectedMemberId = result.memberId);
+    }
   }
 
   @override
