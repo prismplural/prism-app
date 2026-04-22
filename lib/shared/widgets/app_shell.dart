@@ -42,9 +42,6 @@ const _kMoreButtonWidth = 44.0;
 /// Border width used by the floating nav container decoration.
 const _kNavBarBorderWidth = 1.0;
 
-/// Icon container height inside each nav item.
-const _kNavBarIconHeight = 32.0;
-
 /// Extra vertical breathing room around the icon + label stack so scaled text
 /// still fits after decoration insets and font metric differences.
 const _kNavBarItemVerticalPadding = 12.0;
@@ -79,6 +76,7 @@ double _measureNavBarLabelHeight({
       text: TextSpan(text: label, style: labelStyle),
       textDirection: textDirection,
       textScaler: textScaler,
+      maxLines: 1,
     )..layout(maxWidth: maxWidth);
     maxLabelHeight = math.max(maxLabelHeight, painter.height);
   }
@@ -112,7 +110,7 @@ double _measurePrimaryNavBarRowHeight({
 
   return math.max(
     kFloatingNavBarHeight,
-    _kNavBarIconHeight +
+    kNavBarItemIconHeight +
         maxPrimaryLabelHeight +
         _kNavBarItemVerticalPadding +
         (_kNavBarBorderWidth * 2),
@@ -142,7 +140,9 @@ double _measureOverflowNavBarRowHeight({
 
   return math.max(
     kFloatingNavBarHeight,
-    _kNavBarIconHeight + maxOverflowLabelHeight + _kNavBarItemVerticalPadding,
+    kNavBarItemIconHeight +
+        maxOverflowLabelHeight +
+        _kNavBarItemVerticalPadding,
   );
 }
 
@@ -778,6 +778,17 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
         _kNavBarRowGap * (widget.overflowRows - 1);
   }
 
+  /// Overflow tabs arranged into visual rows with the partial row on top.
+  /// Each slot carries the tab's original index for tap/selection mapping;
+  /// `null` slots render as empty space.
+  List<List<({int index, AppShellTab tab})?>> get _overflowRowSlots {
+    final indexed = [
+      for (var i = 0; i < widget.overflowTabs.length; i++)
+        (index: i, tab: widget.overflowTabs[i]),
+    ];
+    return arrangeOverflowRows(indexed, widget.overflowColumns);
+  }
+
   double get _expandedHeight => floatingNavBarExpandedHeight(
     widget.overflowRows,
     rowHeight: widget.rowHeight,
@@ -934,7 +945,9 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                 decoration: _barDecoration(isDark, isOled, radius, shapes),
                 child: Column(
                   children: [
-                    // Overflow rows (top, revealed by expansion)
+                    // Overflow rows (top, revealed by expansion). The partial
+                    // row sits on top so the full row is adjacent to the
+                    // primary row — more ergonomic than a gap-on-bottom layout.
                     ClipRect(
                       child: Align(
                         alignment: Alignment.bottomCenter,
@@ -943,53 +956,29 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
                           height: _overflowAreaHeight,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: GridView.builder(
-                              padding: EdgeInsets.zero,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: widget.overflowColumns,
-                                    mainAxisExtent: widget.overflowRowHeight,
-                                    mainAxisSpacing: _kNavBarRowGap,
-                                  ),
-                              itemCount: widget.overflowTabs.length,
-                              itemBuilder: (context, i) {
-                                final tab = widget.overflowTabs[i];
-                                final isSelected = i == _overflowTabIndex;
-                                // Staggered entrance: each icon delays 40ms.
-                                final staggerStart = (i * 0.08).clamp(0.0, 0.6);
-                                final staggerEnd = (staggerStart + 0.5).clamp(
-                                  0.0,
-                                  1.0,
-                                );
-                                final itemT = Interval(
-                                  staggerStart,
-                                  staggerEnd,
-                                  curve: Curves.easeOut,
-                                ).transform(t);
-
-                                return Opacity(
-                                  opacity: itemT,
-                                  child: Transform.translate(
-                                    offset: Offset(0, (1 - itemT) * 8),
-                                    child: _NavBarItem(
-                                      tab: tab,
+                            child: Column(
+                              children: [
+                                for (
+                                  var r = 0;
+                                  r < _overflowRowSlots.length;
+                                  r++
+                                ) ...[
+                                  if (r > 0)
+                                    const SizedBox(height: _kNavBarRowGap),
+                                  SizedBox(
+                                    height: widget.overflowRowHeight,
+                                    child: _buildOverflowRow(
+                                      slots: _overflowRowSlots[r],
+                                      expandProgress: t,
                                       terminologyPlural: terms.plural,
-                                      isSelected: isSelected,
-                                      accentColor: widget.accentColor,
                                       isDark: isDark,
                                       showSyncBadge: showSyncBadge,
-                                      habitsDueCount: dueCount,
+                                      dueCount: dueCount,
                                       chatUnreadCount: chatUnreadCount,
-                                      rowHeight: widget.rowHeight,
-                                      showItemPill: true,
-                                      onTap: () => _handleTap(
-                                        widget.primaryTabs.length + i,
-                                      ),
                                     ),
                                   ),
-                                );
-                              },
+                                ],
+                              ],
                             ),
                           ),
                         ),
@@ -1110,6 +1099,93 @@ class _FloatingNavBarState extends State<_FloatingNavBar>
               ),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOverflowSlot({
+    required ({int index, AppShellTab tab})? slot,
+    required double expandProgress,
+    required String? terminologyPlural,
+    required bool isDark,
+    required bool showSyncBadge,
+    required int dueCount,
+    required int chatUnreadCount,
+  }) {
+    if (slot == null) return const SizedBox.shrink();
+    // Stagger on the original tab index so icons animate in reading order
+    // regardless of how the grid aligns partial rows.
+    final staggerStart = (slot.index * 0.08).clamp(0.0, 0.6);
+    final staggerEnd = (staggerStart + 0.5).clamp(0.0, 1.0);
+    final itemT = Interval(
+      staggerStart,
+      staggerEnd,
+      curve: Curves.easeOut,
+    ).transform(expandProgress);
+    final isSelected = slot.index == _overflowTabIndex;
+
+    return Opacity(
+      opacity: itemT,
+      child: Transform.translate(
+        offset: Offset(0, (1 - itemT) * 8),
+        child: _NavBarItem(
+          tab: slot.tab,
+          terminologyPlural: terminologyPlural,
+          isSelected: isSelected,
+          accentColor: widget.accentColor,
+          isDark: isDark,
+          showSyncBadge: showSyncBadge,
+          habitsDueCount: dueCount,
+          chatUnreadCount: chatUnreadCount,
+          rowHeight: widget.rowHeight,
+          showItemPill: true,
+          onTap: () => _handleTap(widget.primaryTabs.length + slot.index),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverflowRow({
+    required List<({int index, AppShellTab tab})?> slots,
+    required double expandProgress,
+    required String? terminologyPlural,
+    required bool isDark,
+    required bool showSyncBadge,
+    required int dueCount,
+    required int chatUnreadCount,
+  }) {
+    final populatedSlots = slots
+        .whereType<({int index, AppShellTab tab})>()
+        .toList();
+    if (populatedSlots.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final slotColumns = widget.overflowRows > 1
+            ? widget.overflowColumns
+            : populatedSlots.length;
+        final slotWidth = slotColumns <= 0
+            ? 0.0
+            : constraints.maxWidth / slotColumns;
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (final slot in populatedSlots)
+              SizedBox(
+                width: slotWidth,
+                child: _buildOverflowSlot(
+                  slot: slot,
+                  expandProgress: expandProgress,
+                  terminologyPlural: terminologyPlural,
+                  isDark: isDark,
+                  showSyncBadge: showSyncBadge,
+                  dueCount: dueCount,
+                  chatUnreadCount: chatUnreadCount,
+                ),
+              ),
+          ],
         );
       },
     );
@@ -1310,7 +1386,11 @@ class _MoreTrigger extends StatelessWidget {
           child: Center(
             child: Transform.rotate(
               angle: animationValue * 0.785, // 45 degrees
-              child: Icon(AppIcons.moreVert, size: 22, color: iconColor),
+              child: Icon(
+                AppIcons.moreVert,
+                size: kNavBarMoreTriggerIconSize,
+                color: iconColor,
+              ),
             ),
           ),
         ),
@@ -1359,7 +1439,7 @@ class _NavBarItem extends StatelessWidget {
 
     Widget iconWidget = Icon(
       itemIcon,
-      size: 23,
+      size: kNavBarItemIconSize,
       color: isSelected
           ? accentColor
           : (isDark
@@ -1391,11 +1471,13 @@ class _NavBarItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              height: _kNavBarIconHeight,
+              height: kNavBarItemIconHeight,
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
-                width: showItemPill && isSelected ? 56 : 40,
+                width: showItemPill && isSelected
+                    ? kNavBarSelectedItemPillWidth
+                    : kNavBarItemWidth,
                 alignment: Alignment.center,
                 decoration: showItemPill
                     ? BoxDecoration(
@@ -1423,6 +1505,9 @@ class _NavBarItem extends StatelessWidget {
                           ? AppColors.warmWhite.withValues(alpha: 0.5)
                           : AppColors.warmBlack.withValues(alpha: 0.4)),
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
             ),
           ],
         ),

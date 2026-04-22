@@ -786,6 +786,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navigationSettingsTitle => 'Navegación';
 
   @override
+  String get navigationPreferences => 'Preferencias';
+
+  @override
+  String get navigationLayoutSection => 'Diseño';
+
+  @override
   String get navigationNavBar => 'Barra de navegación';
 
   @override

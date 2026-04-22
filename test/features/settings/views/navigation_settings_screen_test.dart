@@ -192,7 +192,7 @@ void main() {
     );
 
     testWidgets(
-      'disables primary affordances on a constrained device when the candidate would spill',
+      'keeps the generic add affordance enabled on a constrained device when the candidate would spill',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(320, 800));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -222,9 +222,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final addFinder = findRowSemantics('Settings', 'Add to nav bar');
+        final addFinder = findRowSemantics('Settings', 'Add');
         expect(addFinder, findsOneWidget);
-        expect(tester.widget<Semantics>(addFinder).properties.enabled, isFalse);
+        expect(tester.widget<Semantics>(addFinder).properties.enabled, isTrue);
       },
     );
 
@@ -270,6 +270,23 @@ void main() {
       expect(
         find.byKey(const ValueKey('navigation_preview_overflow_row_2')),
         findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'preview no longer loses an extra inner gutter width inside the card',
+      (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        buildSubjectWithMedia(mediaSize: const Size(390, 800)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getSize(find.byKey(const Key('navigation_preview'))).width,
+        closeTo(390 - (kFloatingNavBarSideMargin * 2) - 2, 0.01),
       );
     });
 
