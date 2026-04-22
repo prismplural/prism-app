@@ -187,13 +187,16 @@ class _SyncDeviceStepState extends ConsumerState<SyncDeviceStep> {
       setState(() => _relayUrlError = null);
     }
 
+    // Always pass the typed token (not gated on the "self-hosted" toggle).
+    // The field is pre-filled with BuildInfo.betaRegistrationToken for beta
+    // builds, and the joiner can override a stale bundle token from the
+    // initiator (see service.rs::complete_bootstrap_join).
+    final typedToken = _registrationTokenController.text.trim();
     await ref
         .read(devicePairingProvider.notifier)
         .generateRequest(
           relayUrl: relayUrl.isEmpty ? null : relayUrl,
-          registrationToken: _showRelayConfiguration
-              ? _registrationTokenController.text.trim()
-              : null,
+          registrationToken: typedToken.isEmpty ? null : typedToken,
         );
   }
 }
