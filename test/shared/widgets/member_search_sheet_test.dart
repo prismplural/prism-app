@@ -1,5 +1,6 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -8,6 +9,7 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -162,7 +164,11 @@ void main() {
 
   group('group chip filtering', () {
     final groups = [
-      MemberSearchGroup(id: 'g1', name: 'Front Team', memberIds: {'a', 'b'}),
+      const MemberSearchGroup(
+        id: 'g1',
+        name: 'Front Team',
+        memberIds: {'a', 'b'},
+      ),
     ];
 
     testWidgets('group chip narrows visible members', (tester) async {
@@ -240,6 +246,16 @@ void main() {
       expect(result, isA<MemberSearchResultDismissed>());
     });
 
+    testWidgets('modal presentation uses Prism full-screen top bar', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildSingleShowWidget(members: members));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PrismSheetTopBar), findsOneWidget);
+    });
+
     testWidgets('cleared result from caller-provided clear row', (
       tester,
     ) async {
@@ -249,10 +265,10 @@ void main() {
         _buildSingleShowWidget(
           members: members,
           specialRows: [
-            MemberSearchSpecialRow(
+            const MemberSearchSpecialRow(
               rowKey: 'clear',
               title: 'None',
-              result: const MemberSearchResultCleared(),
+              result: MemberSearchResultCleared(),
             ),
           ],
           onResult: (r) => result = r,
@@ -276,10 +292,10 @@ void main() {
         _buildSingleShowWidget(
           members: members,
           specialRows: [
-            MemberSearchSpecialRow(
+            const MemberSearchSpecialRow(
               rowKey: 'unknown',
               title: 'Unknown',
-              result: const MemberSearchResultUnknown(),
+              result: MemberSearchResultUnknown(),
             ),
           ],
           onResult: (r) => result = r,
@@ -407,20 +423,20 @@ void main() {
       await tester.pumpAndSettle();
 
       final semantics = tester.getSemantics(find.text('All members'));
-      expect(semantics.hasFlag(SemanticsFlag.isSelected), isTrue);
+      expect(semantics.flagsCollection.isSelected, ui.Tristate.isTrue);
     });
 
     testWidgets('unselected group chip does not expose selected semantics', (
       tester,
     ) async {
       final groups = [
-        MemberSearchGroup(id: 'g1', name: 'Front Team', memberIds: {'a'}),
+        const MemberSearchGroup(id: 'g1', name: 'Front Team', memberIds: {'a'}),
       ];
       await tester.pumpWidget(_buildSheet(members: members, groups: groups));
       await tester.pumpAndSettle();
 
       final semantics = tester.getSemantics(find.text('Front Team'));
-      expect(semantics.hasFlag(SemanticsFlag.isSelected), isFalse);
+      expect(semantics.flagsCollection.isSelected, ui.Tristate.isFalse);
     });
 
     testWidgets(
@@ -436,7 +452,7 @@ void main() {
         await tester.pumpAndSettle();
 
         final semantics = tester.getSemantics(find.text('Alice'));
-        expect(semantics.hasFlag(SemanticsFlag.isSelected), isTrue);
+        expect(semantics.flagsCollection.isSelected, ui.Tristate.isTrue);
       },
     );
 
@@ -449,7 +465,7 @@ void main() {
         await tester.pumpAndSettle();
 
         final semantics = tester.getSemantics(find.text('Bob'));
-        expect(semantics.hasFlag(SemanticsFlag.isSelected), isFalse);
+        expect(semantics.flagsCollection.isSelected, ui.Tristate.isFalse);
       },
     );
 
