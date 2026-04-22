@@ -150,9 +150,7 @@ class PkPushService {
     PKMember? pkMember,
     required bool isPatch,
   }) {
-    final data = <String, dynamic>{
-      'name': member.name,
-    };
+    final data = <String, dynamic>{'name': member.name};
 
     _setOrClear(
       data,
@@ -183,8 +181,7 @@ class PkPushService {
       isPatch: isPatch,
     );
 
-    // proxy_tags intentionally omitted — pull-only today.
-    // See docs/plans/pk-sp-gaps/01-pk-proxy-tags.md before adding a push path.
+    // proxy_tags intentionally omitted — Prism treats them as pull-only.
 
     // Color — PK expects 6-char hex with no '#'. When local color is
     // disabled, skip color entirely. Toggling local color off must not
