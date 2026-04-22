@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/onboarding/providers/onboarding_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+
+const int _kOnboardingFrontingSearchThreshold = 15;
 
 class WhosFrontingStep extends ConsumerWidget {
   const WhosFrontingStep({super.key});
@@ -31,6 +38,13 @@ class WhosFrontingStep extends ConsumerWidget {
       data: (members) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final primary = Theme.of(context).colorScheme.primary;
+        final terms = resolveTerminology(
+          context.l10n,
+          onboarding.selectedTerminology,
+          customSingular: onboarding.customTermSingular,
+          customPlural: onboarding.customTermPlural,
+          useEnglish: onboarding.terminologyUseEnglish,
+        );
 
         if (members.isEmpty) {
           return Center(
@@ -43,6 +57,44 @@ class WhosFrontingStep extends ConsumerWidget {
                 fontSize: 15,
               ),
               textAlign: TextAlign.center,
+            ),
+          );
+        }
+
+        if (members.length >= _kOnboardingFrontingSearchThreshold) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              children: [
+                Text(
+                  context.l10n.onboardingWhosFrontingSelectHint,
+                  style: TextStyle(
+                    color: isDark
+                        ? AppColors.mutedTextDark
+                        : AppColors.mutedTextLight,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: _LargeSystemSearchTrigger(
+                        members: members,
+                        selectedFronterId: onboarding.selectedFronterId,
+                        termPlural: terms.plural,
+                        onTap: () => _openSearchSheet(
+                          context,
+                          notifier,
+                          members,
+                          terms.plural,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         }
@@ -160,5 +212,100 @@ class WhosFrontingStep extends ConsumerWidget {
         );
       },
     );
+  }
+
+  Future<void> _openSearchSheet(
+    BuildContext context,
+    OnboardingNotifier notifier,
+    List<Member> members,
+    String termPlural,
+  ) async {
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: termPlural,
+    );
+    if (!context.mounted) return;
+    if (result is MemberSearchResultSelected) {
+      notifier.setSelectedFronter(result.memberId);
+    }
+  }
+}
+
+class _LargeSystemSearchTrigger extends StatelessWidget {
+  const _LargeSystemSearchTrigger({
+    required this.members,
+    required this.selectedFronterId,
+    required this.termPlural,
+    required this.onTap,
+  });
+
+  final List<Member> members;
+  final String? selectedFronterId;
+  final String termPlural;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedMember = _selectedMember;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: const Key('onboardingFrontingSearchTrigger'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withValues(
+              alpha: 0.6,
+            ),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            children: [
+              if (selectedMember != null)
+                MemberAvatar(
+                  memberName: selectedMember.name,
+                  emoji: selectedMember.emoji,
+                  avatarImageData: selectedMember.avatarImageData,
+                  customColorEnabled: selectedMember.customColorEnabled,
+                  customColorHex: selectedMember.customColorHex,
+                  size: 28,
+                )
+              else
+                Icon(
+                  AppIcons.search,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  selectedMember?.name ??
+                      context.l10n.frontingSearchMembersHint(termPlural),
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+              Icon(
+                AppIcons.expandMore,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Member? get _selectedMember {
+    if (selectedFronterId == null) return null;
+    for (final member in members) {
+      if (member.id == selectedFronterId) return member;
+    }
+    return null;
   }
 }
