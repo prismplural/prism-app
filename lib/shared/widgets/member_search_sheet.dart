@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/utils/member_filter.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -105,7 +107,7 @@ class MemberSearchSpecialRow {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const double _kRowExtent = 64.0;
-const double _kChipBarHeight = 48.0;
+const double _kChipBarHeight = 56.0;
 
 /// Caller-driven full-screen member search sheet.
 ///
@@ -114,7 +116,8 @@ const double _kChipBarHeight = 48.0;
 /// never reads providers internally.
 ///
 /// **Single-select** — pops immediately with a [MemberSearchSingleResult].
-/// **Multi-select** — shows a "Done · N" action; pops with `Set<String>`.
+/// **Multi-select** — shows a checkmark action and selected-count title; pops
+/// with `Set<String>`.
 class MemberSearchSheet extends StatefulWidget {
   const MemberSearchSheet({
     super.key,
@@ -270,19 +273,18 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final filtered = _filteredMembers;
-    final doneLabel = '${l10n.done} · ${_selectedIds.length}';
+    final title = widget.multiSelect
+        ? l10n.memberSelectedCount(_selectedIds.length)
+        : l10n.selectMembers(widget.termPlural);
 
     return Column(
       children: [
         PrismSheetTopBar(
-          title: l10n.selectMembers(widget.termPlural),
+          title: title,
           trailing: widget.multiSelect
-              ? Semantics(
-                  liveRegion: true,
-                  child: TextButton(
-                    onPressed: _confirmMulti,
-                    child: Text(doneLabel),
-                  ),
+              ? PrismGlassIconButton(
+                  icon: AppIcons.check,
+                  onPressed: _selectedIds.isEmpty ? null : _confirmMulti,
                 )
               : null,
         ),
@@ -304,13 +306,13 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
           height: _kChipBarHeight,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             children: [
               _buildChip(0, 'All ${widget.termPlural}'),
               ...widget.groups.asMap().entries.map(
                 (e) => Padding(
                   padding: const EdgeInsets.only(left: 8),
-                  child: _buildChip(e.key + 1, e.value.name),
+                  child: _buildChip(e.key + 1, e.value.name, group: e.value),
                 ),
               ),
             ],
@@ -339,11 +341,36 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
     );
   }
 
-  Widget _buildChip(int index, String label) {
+  Widget _buildChip(int index, String label, {MemberSearchGroup? group}) {
+    final tintColor = group?.colorHex != null
+        ? AppColors.fromHex(group!.colorHex!)
+        : null;
     return PrismChip(
       label: label,
       selected: _selectedChip == index,
       onTap: () => _selectChip(index),
+      avatar: _buildChipAvatar(group, tintColor),
+      tintColor: tintColor,
+    );
+  }
+
+  Widget? _buildChipAvatar(MemberSearchGroup? group, Color? tintColor) {
+    if (group == null) return null;
+
+    final accent = tintColor ?? Theme.of(context).colorScheme.primary;
+    final emoji = group.emoji;
+
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.16),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: emoji != null && emoji.isNotEmpty
+          ? Text(emoji, style: const TextStyle(fontSize: 11, height: 1))
+          : Icon(AppIcons.group, size: 12, color: accent),
     );
   }
 

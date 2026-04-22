@@ -9,6 +9,8 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_chip.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,6 +117,9 @@ void main() {
     _member(id: 'b', name: 'Bob'),
     _member(id: 'c', name: 'Carol', pronouns: 'they/them'),
   ];
+  Finder checkButton() => find.byWidgetPredicate(
+    (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,
+  );
 
   // ══════════════════════════════════════════════════════════════════════════
   // Default list display
@@ -168,6 +173,8 @@ void main() {
         id: 'g1',
         name: 'Front Team',
         memberIds: {'a', 'b'},
+        emoji: '🫂',
+        colorHex: '#7A6E96',
       ),
     ];
 
@@ -202,6 +209,17 @@ void main() {
       expect(find.text('Bob'), findsNothing);
       // Carol is not in the group at all
       expect(find.text('Carol'), findsNothing);
+    });
+
+    testWidgets('group chip shows avatar and tint color', (tester) async {
+      await tester.pumpWidget(_buildSheet(members: members, groups: groups));
+      await tester.pumpAndSettle();
+
+      final chip = tester.widget<PrismChip>(
+        find.widgetWithText(PrismChip, 'Front Team'),
+      );
+      expect(chip.avatar, isNotNull);
+      expect(chip.tintColor, isNotNull);
     });
   });
 
@@ -376,28 +394,37 @@ void main() {
       await tester.tap(find.text('Carol'));
       await tester.pumpAndSettle();
 
-      // Confirm — the button label is "Done · 2"
-      await tester.tap(find.textContaining('Done'));
+      // Confirm with the top-bar check button.
+      await tester.tap(checkButton());
       await tester.pumpAndSettle();
 
       expect(result, containsAll(['a', 'c']));
       expect(result!.length, 2);
     });
 
-    testWidgets('Done button shows live count', (tester) async {
+    testWidgets('title shows live selected count and check state', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildSheet(members: members, multiSelect: true));
       await tester.pumpAndSettle();
 
-      // Initially 0 selected
-      expect(find.text('Done · 0'), findsOneWidget);
+      expect(find.text('0 selected'), findsOneWidget);
+      expect(
+        tester.widget<PrismGlassIconButton>(checkButton()).onPressed,
+        isNull,
+      );
 
       await tester.tap(find.text('Alice'));
       await tester.pumpAndSettle();
-      expect(find.text('Done · 1'), findsOneWidget);
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(
+        tester.widget<PrismGlassIconButton>(checkButton()).onPressed,
+        isNotNull,
+      );
 
       await tester.tap(find.text('Bob'));
       await tester.pumpAndSettle();
-      expect(find.text('Done · 2'), findsOneWidget);
+      expect(find.text('2 selected'), findsOneWidget);
     });
   });
 
