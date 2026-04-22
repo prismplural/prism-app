@@ -126,13 +126,13 @@ class SpMapper {
   SpMapper({
     Map<String, Map<String, String>>? existingMappings,
     Map<String, CfDisposition>? customFrontDispositions,
-  })  : _memberIdMap = Map.of(existingMappings?['member'] ?? {}),
-        _channelIdMap = Map.of(existingMappings?['channel'] ?? {}),
-        _sessionIdMap = Map.of(existingMappings?['session'] ?? {}),
-        _groupIdMap = Map.of(existingMappings?['group'] ?? {}),
-        _fieldIdMap = Map.of(existingMappings?['field'] ?? {}),
-        _categoryIdMap = Map.of(existingMappings?['category'] ?? {}),
-        _customFrontDispositions = Map.of(customFrontDispositions ?? {});
+  }) : _memberIdMap = Map.of(existingMappings?['member'] ?? {}),
+       _channelIdMap = Map.of(existingMappings?['channel'] ?? {}),
+       _sessionIdMap = Map.of(existingMappings?['session'] ?? {}),
+       _groupIdMap = Map.of(existingMappings?['group'] ?? {}),
+       _fieldIdMap = Map.of(existingMappings?['field'] ?? {}),
+       _categoryIdMap = Map.of(existingMappings?['category'] ?? {}),
+       _customFrontDispositions = Map.of(customFrontDispositions ?? {});
 
   // Expose ID maps as unmodifiable views so the importer can persist them.
   Map<String, String> get memberIdMap => Map.unmodifiable(_memberIdMap);
@@ -149,7 +149,8 @@ class SpMapper {
       List.unmodifiable(_pendingStaleMappingDeletes);
 
   /// Map of SP channel ID to (categoryId, displayOrder) within the category.
-  final Map<String, ({String categoryId, int displayOrder})> _channelCategoryInfo = {};
+  final Map<String, ({String categoryId, int displayOrder})>
+  _channelCategoryInfo = {};
 
   /// Resolve SP member ID to Prism UUID.
   String? resolveMemberId(String spId) => _memberIdMap[spId];
@@ -176,8 +177,9 @@ class SpMapper {
     final sessions = _mapFrontHistory(data.frontHistory, warnings);
 
     // 3. Map channel categories (before channels so category info is available).
-    final conversationCategories =
-        _mapChannelCategories(data.channelCategories);
+    final conversationCategories = _mapChannelCategories(
+      data.channelCategories,
+    );
 
     // 3b. Map channels to conversations.
     final conversations = _mapChannels(data.channels);
@@ -187,15 +189,17 @@ class SpMapper {
     if (hasBoardMessages) {
       final boardId = _uuid.v4();
       _channelIdMap['_board'] = boardId;
-      conversations.add(domain.Conversation(
-        id: boardId,
-        createdAt: DateTime.now(),
-        lastActivityAt: DateTime.now(),
-        title: 'Board Messages',
-        emoji: '\u{1F4CB}',
-        isDirectMessage: true,
-        participantIds: const [],
-      ));
+      conversations.add(
+        domain.Conversation(
+          id: boardId,
+          createdAt: DateTime.now(),
+          lastActivityAt: DateTime.now(),
+          title: 'Board Messages',
+          emoji: '\u{1F4CB}',
+          isDirectMessage: true,
+          participantIds: const [],
+        ),
+      );
     }
 
     // 5. Map messages.
@@ -212,22 +216,23 @@ class SpMapper {
 
     // 9. Map custom fields + values from member info maps.
     final customFields = _mapCustomFieldDefs(data.customFields);
-    final customFieldValues =
-        _mapCustomFieldValues(data.members, warnings);
+    final customFieldValues = _mapCustomFieldValues(data.members, warnings);
 
     // 10. Map groups.
     final groups = _mapGroups(data.groups);
     final groupMemberships = _mapGroupMemberships(data.groups, warnings);
 
     // 11. Map board messages as DM conversations + messages.
-    final boardResult =
-        _mapBoardMessages(data.boardMessages, warnings);
+    final boardResult = _mapBoardMessages(data.boardMessages, warnings);
     conversations.addAll(boardResult.conversations);
     messages.addAll(boardResult.messages);
 
     // 12. Map timers to reminders.
     final reminders = _mapTimers(
-        data.automatedTimers, data.repeatedTimers, warnings);
+      data.automatedTimers,
+      data.repeatedTimers,
+      warnings,
+    );
 
     _appendCfWarnings(warnings);
 
@@ -287,19 +292,21 @@ class SpMapper {
         if (colorHex.isEmpty) colorHex = null;
       }
 
-      members.add(domain.Member(
-        id: prismId,
-        name: sp.name,
-        pronouns: sp.pronouns,
-        emoji: '\u2754', // SP doesn't use emoji identifiers
-        bio: sp.desc,
-        isActive: !sp.archived,
-        createdAt: DateTime.now(),
-        displayOrder: i,
-        customColorEnabled: colorHex != null,
-        customColorHex: colorHex,
-        pluralkitId: sp.pkId,
-      ));
+      members.add(
+        domain.Member(
+          id: prismId,
+          name: sp.name,
+          pronouns: sp.pronouns,
+          emoji: '\u2754', // SP doesn't use emoji identifiers
+          bio: sp.desc,
+          isActive: !sp.archived,
+          createdAt: DateTime.now(),
+          displayOrder: i,
+          customColorEnabled: colorHex != null,
+          customColorHex: colorHex,
+          pluralkitId: sp.pkId,
+        ),
+      );
     }
 
     // Map custom fronts as tagged members — only for CFs whose disposition
@@ -323,17 +330,19 @@ class SpMapper {
         if (colorHex.isEmpty) colorHex = null;
       }
 
-      members.add(domain.Member(
-        id: prismId,
-        name: cf.name,
-        emoji: '\u{1F3F7}\uFE0F', // tag emoji to indicate custom front
-        bio: cf.desc,
-        isActive: true,
-        createdAt: DateTime.now(),
-        displayOrder: spMembers.length + i,
-        customColorEnabled: colorHex != null,
-        customColorHex: colorHex,
-      ));
+      members.add(
+        domain.Member(
+          id: prismId,
+          name: cf.name,
+          emoji: '\u{1F3F7}\uFE0F', // tag emoji to indicate custom front
+          bio: cf.desc,
+          isActive: true,
+          createdAt: DateTime.now(),
+          displayOrder: spMembers.length + i,
+          customColorEnabled: colorHex != null,
+          customColorHex: colorHex,
+        ),
+      );
     }
 
     return members;
@@ -343,9 +352,8 @@ class SpMapper {
   ///
   /// Classifies every referenced id as one of {realMember, cfMember, cfNote,
   /// cfSleep, cfSkip} based on the resolved CF disposition map, then
-  /// executes Steps 1–4 from `docs/plans/sp-custom-fronts-import-handling.md`:
-  /// resolve primary → resolve co-fronters → promote if primary empty →
-  /// emit (normal or sleep-typed session, drop, or note-only).
+  /// resolves primary → resolves co-fronters → promotes if primary is empty →
+  /// emits a normal session, sleep session, note-only result, or drop.
   List<domain.FrontingSession> _mapFrontHistory(
     List<SpFrontHistory> history,
     List<String> warnings,
@@ -428,7 +436,8 @@ class SpMapper {
       final cfNoteCoFronterNames = <String>[];
       final cfSleepCoFronterNames = <String>[];
       // Maintain first-real-then-cf promotion order using parallel lists.
-      final promotionCandidates = <({_IdKind kind, String spId, String prismId})>[];
+      final promotionCandidates =
+          <({_IdKind kind, String spId, String prismId})>[];
 
       for (final cfId in entry.coFronters) {
         final kind = _classifyId(cfId);
@@ -545,16 +554,18 @@ class SpMapper {
         final sessionId = _sessionIdMap[entry.id] ?? _uuid.v4();
         _sessionIdMap[entry.id] = sessionId;
 
-        sessions.add(domain.FrontingSession(
-          id: sessionId,
-          startTime: entry.startTime,
-          endTime: endTime,
-          memberId: null,
-          coFronterIds: const [],
-          notes: notes,
-          sessionType: domain.SessionType.sleep,
-          quality: domain.SleepQuality.unknown,
-        ));
+        sessions.add(
+          domain.FrontingSession(
+            id: sessionId,
+            startTime: entry.startTime,
+            endTime: endTime,
+            memberId: null,
+            coFronterIds: const [],
+            notes: notes,
+            sessionType: domain.SessionType.sleep,
+            quality: domain.SleepQuality.unknown,
+          ),
+        );
         continue;
       }
 
@@ -569,7 +580,8 @@ class SpMapper {
           (mainKind == _IdKind.cfSkip || mainKind == _IdKind.cfNote) &&
           promotionCandidates.isNotEmpty) {
         // Stable sort: real first, then cfMember, each tier by SP id.
-        final sorted = [...promotionCandidates]..sort((a, b) {
+        final sorted = [...promotionCandidates]
+          ..sort((a, b) {
             final aIsReal = a.kind == _IdKind.realMember ? 0 : 1;
             final bIsReal = b.kind == _IdKind.realMember ? 0 : 1;
             final tier = aIsReal.compareTo(bIsReal);
@@ -597,14 +609,16 @@ class SpMapper {
       final sessionId = _sessionIdMap[entry.id] ?? _uuid.v4();
       _sessionIdMap[entry.id] = sessionId;
 
-      sessions.add(domain.FrontingSession(
-        id: sessionId,
-        startTime: entry.startTime,
-        endTime: entry.endTime,
-        memberId: primaryMemberId,
-        coFronterIds: coFronterIds,
-        notes: notes,
-      ));
+      sessions.add(
+        domain.FrontingSession(
+          id: sessionId,
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          memberId: primaryMemberId,
+          coFronterIds: coFronterIds,
+          notes: notes,
+        ),
+      );
     }
 
     _countSleepOverlaps(sessions);
@@ -624,8 +638,10 @@ class SpMapper {
     // so we can still detect overlap without overflowing DateTime. Sleep
     // sessions are always clamped before reaching here (Step 4 adds +24h
     // when endTime is null), so the null path only fires for regular ones.
-    final farFuture =
-        DateTime.fromMillisecondsSinceEpoch(8640000000000000, isUtc: true);
+    final farFuture = DateTime.fromMillisecondsSinceEpoch(
+      8640000000000000,
+      isUtc: true,
+    );
     final overlapping = <int>{};
     for (var i = 0; i < sorted.length; i++) {
       final a = sorted[i];
@@ -827,7 +843,8 @@ class SpMapper {
   /// Also populates [_channelCategoryInfo] so that [_mapChannels] can assign
   /// each conversation its category ID and display order.
   List<domain.ConversationCategory> _mapChannelCategories(
-      List<SpChannelCategory> spCategories) {
+    List<SpChannelCategory> spCategories,
+  ) {
     final categories = <domain.ConversationCategory>[];
     final now = DateTime.now();
 
@@ -836,13 +853,15 @@ class SpMapper {
       final prismId = _categoryIdMap[sp.id] ?? _uuid.v4();
       _categoryIdMap[sp.id] = prismId;
 
-      categories.add(domain.ConversationCategory(
-        id: prismId,
-        name: sp.name,
-        displayOrder: i,
-        createdAt: now,
-        modifiedAt: now,
-      ));
+      categories.add(
+        domain.ConversationCategory(
+          id: prismId,
+          name: sp.name,
+          displayOrder: i,
+          createdAt: now,
+          modifiedAt: now,
+        ),
+      );
 
       // Record which channels belong to this category and their order.
       for (var j = 0; j < sp.channelIds.length; j++) {
@@ -876,17 +895,19 @@ class SpMapper {
       // Look up category info if this channel belongs to a category.
       final catInfo = _channelCategoryInfo[ch.id];
 
-      conversations.add(domain.Conversation(
-        id: prismId,
-        createdAt: ch.createdAt ?? DateTime.now(),
-        lastActivityAt: ch.createdAt ?? DateTime.now(),
-        title: ch.name,
-        description: ch.desc,
-        isDirectMessage: participantIds.length <= 2,
-        participantIds: participantIds,
-        categoryId: catInfo?.categoryId,
-        displayOrder: catInfo?.displayOrder ?? 0,
-      ));
+      conversations.add(
+        domain.Conversation(
+          id: prismId,
+          createdAt: ch.createdAt ?? DateTime.now(),
+          lastActivityAt: ch.createdAt ?? DateTime.now(),
+          title: ch.name,
+          description: ch.desc,
+          isDirectMessage: participantIds.length <= 2,
+          participantIds: participantIds,
+          categoryId: catInfo?.categoryId,
+          displayOrder: catInfo?.displayOrder ?? 0,
+        ),
+      );
     }
 
     return conversations;
@@ -936,14 +957,16 @@ class SpMapper {
       spIdToPrismId[msg.id] = prismId;
       prismIdToSpReplyTo[prismId] = msg.replyTo;
 
-      mapped.add(domain.ChatMessage(
-        id: prismId,
-        content: msg.content,
-        timestamp: msg.timestamp,
-        editedAt: editedAt,
-        authorId: authorId,
-        conversationId: conversationId,
-      ));
+      mapped.add(
+        domain.ChatMessage(
+          id: prismId,
+          content: msg.content,
+          timestamp: msg.timestamp,
+          editedAt: editedAt,
+          authorId: authorId,
+          conversationId: conversationId,
+        ),
+      );
     }
 
     // Pass 2: set replyToId where the referenced SP message was also imported.
@@ -984,16 +1007,18 @@ class SpMapper {
         if (colorHex == '#') colorHex = null;
       }
 
-      notes.add(domain.Note(
-        id: _uuid.v4(),
-        title: sp.title.isEmpty ? 'Untitled' : sp.title,
-        body: sp.body,
-        colorHex: colorHex,
-        memberId: prismMemberId,
-        date: sp.date,
-        createdAt: sp.date,
-        modifiedAt: sp.date,
-      ));
+      notes.add(
+        domain.Note(
+          id: _uuid.v4(),
+          title: sp.title.isEmpty ? 'Untitled' : sp.title,
+          body: sp.body,
+          colorHex: colorHex,
+          memberId: prismMemberId,
+          date: sp.date,
+          createdAt: sp.date,
+          modifiedAt: sp.date,
+        ),
+      );
     }
     return notes;
   }
@@ -1025,20 +1050,23 @@ class SpMapper {
         continue;
       }
 
-      comments.add(domain.FrontSessionComment(
-        id: _uuid.v4(),
-        sessionId: sessionId,
-        body: sp.text,
-        timestamp: sp.time,
-        createdAt: sp.time,
-      ));
+      comments.add(
+        domain.FrontSessionComment(
+          id: _uuid.v4(),
+          sessionId: sessionId,
+          body: sp.text,
+          timestamp: sp.time,
+          createdAt: sp.time,
+        ),
+      );
     }
     return comments;
   }
 
   /// Map SP custom field definitions to Prism custom fields.
   List<domain.CustomField> _mapCustomFieldDefs(
-      List<SpCustomFieldDef> spFields) {
+    List<SpCustomFieldDef> spFields,
+  ) {
     final fields = <domain.CustomField>[];
     for (var i = 0; i < spFields.length; i++) {
       final sp = spFields[i];
@@ -1063,14 +1091,16 @@ class SpMapper {
         _ => null,
       };
 
-      fields.add(domain.CustomField(
-        id: prismId,
-        name: sp.name,
-        fieldType: fieldType,
-        datePrecision: datePrecision,
-        displayOrder: i,
-        createdAt: DateTime.now(),
-      ));
+      fields.add(
+        domain.CustomField(
+          id: prismId,
+          name: sp.name,
+          fieldType: fieldType,
+          datePrecision: datePrecision,
+          displayOrder: i,
+          createdAt: DateTime.now(),
+        ),
+      );
     }
     return fields;
   }
@@ -1096,12 +1126,14 @@ class SpMapper {
         final value = rawValue.toString();
         if (value.isEmpty) continue;
 
-        values.add(domain.CustomFieldValue(
-          id: _uuid.v4(),
-          customFieldId: fieldId,
-          memberId: prismMemberId,
-          value: value,
-        ));
+        values.add(
+          domain.CustomFieldValue(
+            id: _uuid.v4(),
+            customFieldId: fieldId,
+            memberId: prismMemberId,
+            value: value,
+          ),
+        );
       }
     }
     return values;
@@ -1129,23 +1161,27 @@ class SpMapper {
         parentGroupId = _groupIdMap[sp.parent!];
       }
 
-      groups.add(domain.MemberGroup(
-        id: prismId,
-        name: sp.name,
-        description: sp.desc,
-        colorHex: colorHex,
-        emoji: sp.emoji,
-        displayOrder: i,
-        parentGroupId: parentGroupId,
-        createdAt: DateTime.now(),
-      ));
+      groups.add(
+        domain.MemberGroup(
+          id: prismId,
+          name: sp.name,
+          description: sp.desc,
+          colorHex: colorHex,
+          emoji: sp.emoji,
+          displayOrder: i,
+          parentGroupId: parentGroupId,
+          createdAt: DateTime.now(),
+        ),
+      );
     }
 
     // Second pass: fix up any parent references that couldn't resolve in the
     // first pass (child appeared before parent in the list).
     for (var i = 0; i < spGroups.length; i++) {
       final sp = spGroups[i];
-      if (sp.parent != null && sp.parent != 'root' && groups[i].parentGroupId == null) {
+      if (sp.parent != null &&
+          sp.parent != 'root' &&
+          groups[i].parentGroupId == null) {
         final resolvedParent = _groupIdMap[sp.parent!];
         if (resolvedParent != null) {
           groups[i] = groups[i].copyWith(parentGroupId: resolvedParent);
@@ -1183,15 +1219,13 @@ class SpMapper {
   }
 
   /// Map SP board messages to DM conversations + chat messages.
-  ({
-    List<domain.Conversation> conversations,
-    List<domain.ChatMessage> messages,
-  }) _mapBoardMessages(
-    List<SpBoardMessage> boardMsgs,
-    List<String> warnings,
-  ) {
+  ({List<domain.Conversation> conversations, List<domain.ChatMessage> messages})
+  _mapBoardMessages(List<SpBoardMessage> boardMsgs, List<String> warnings) {
     if (boardMsgs.isEmpty) {
-      return (conversations: <domain.Conversation>[], messages: <domain.ChatMessage>[]);
+      return (
+        conversations: <domain.Conversation>[],
+        messages: <domain.ChatMessage>[],
+      );
     }
 
     // Group by (writtenBy, writtenFor) pair → DM conversation.
@@ -1226,15 +1260,17 @@ class SpMapper {
           if (forId != null && forId != byId) forId,
         ];
 
-        conversations.add(domain.Conversation(
-          id: convId,
-          createdAt: bm.writtenAt,
-          lastActivityAt: bm.writtenAt,
-          title: bm.title,
-          emoji: '\u{1F4DD}',
-          isDirectMessage: true,
-          participantIds: participantIds,
-        ));
+        conversations.add(
+          domain.Conversation(
+            id: convId,
+            createdAt: bm.writtenAt,
+            lastActivityAt: bm.writtenAt,
+            title: bm.title,
+            emoji: '\u{1F4DD}',
+            isDirectMessage: true,
+            participantIds: participantIds,
+          ),
+        );
       }
 
       final convId = dmConvMap[pairKey]!;
@@ -1243,13 +1279,15 @@ class SpMapper {
           ? '**${bm.title}**\n${bm.message}'
           : bm.message;
 
-      messages.add(domain.ChatMessage(
-        id: _uuid.v4(),
-        content: content,
-        timestamp: bm.writtenAt,
-        authorId: byId,
-        conversationId: convId,
-      ));
+      messages.add(
+        domain.ChatMessage(
+          id: _uuid.v4(),
+          content: content,
+          timestamp: bm.writtenAt,
+          authorId: byId,
+          conversationId: convId,
+        ),
+      );
     }
 
     return (conversations: conversations, messages: messages);
@@ -1325,17 +1363,19 @@ class SpMapper {
         }
       }
 
-      reminders.add(domain.Reminder(
-        id: _uuid.v4(),
-        name: name,
-        message: message,
-        trigger: domain.ReminderTrigger.onFrontChange,
-        delayHours: timer.delayHours?.toInt(),
-        targetMemberId: targetMemberId,
-        isActive: timer.enabled,
-        createdAt: now,
-        modifiedAt: now,
-      ));
+      reminders.add(
+        domain.Reminder(
+          id: _uuid.v4(),
+          name: name,
+          message: message,
+          trigger: domain.ReminderTrigger.onFrontChange,
+          delayHours: timer.delayHours?.toInt(),
+          targetMemberId: targetMemberId,
+          isActive: timer.enabled,
+          createdAt: now,
+          modifiedAt: now,
+        ),
+      );
     }
 
     // Surface target-resolution stats for the import disclosure screen. The
@@ -1362,17 +1402,19 @@ class SpMapper {
       final name = timer.name.isNotEmpty ? timer.name : 'Imported Timer';
       final message = timer.message ?? name;
 
-      reminders.add(domain.Reminder(
-        id: _uuid.v4(),
-        name: name,
-        message: message,
-        trigger: domain.ReminderTrigger.scheduled,
-        intervalDays: timer.intervalDays,
-        timeOfDay: timer.timeOfDay,
-        isActive: timer.enabled,
-        createdAt: now,
-        modifiedAt: now,
-      ));
+      reminders.add(
+        domain.Reminder(
+          id: _uuid.v4(),
+          name: name,
+          message: message,
+          trigger: domain.ReminderTrigger.scheduled,
+          intervalDays: timer.intervalDays,
+          timeOfDay: timer.timeOfDay,
+          isActive: timer.enabled,
+          createdAt: now,
+          modifiedAt: now,
+        ),
+      );
     }
 
     return reminders;
@@ -1395,12 +1437,14 @@ class SpMapper {
           if (colorHex.isEmpty) colorHex = null;
         }
 
-        options.add(domain.PollOption(
-          id: _uuid.v4(),
-          text: spOption.name,
-          sortOrder: i,
-          colorHex: colorHex,
-        ));
+        options.add(
+          domain.PollOption(
+            id: _uuid.v4(),
+            text: spOption.name,
+            sortOrder: i,
+            colorHex: colorHex,
+          ),
+        );
       }
 
       // Build a lookup from option name to PollOption for vote resolution.
@@ -1420,12 +1464,14 @@ class SpMapper {
 
         votesByOptionId
             .putIfAbsent(matchedOption.id, () => [])
-            .add(domain.PollVote(
-              id: _uuid.v4(),
-              memberId: prismMemberId,
-              votedAt: DateTime.now(),
-              responseText: vote.comment,
-            ));
+            .add(
+              domain.PollVote(
+                id: _uuid.v4(),
+                memberId: prismMemberId,
+                votedAt: DateTime.now(),
+                responseText: vote.comment,
+              ),
+            );
       }
 
       // Attach votes to their options.
@@ -1434,16 +1480,18 @@ class SpMapper {
         return votes != null ? opt.copyWith(votes: votes) : opt;
       }).toList();
 
-      polls.add(domain.Poll(
-        id: _uuid.v4(),
-        question: sp.question,
-        description: sp.description,
-        allowsMultipleVotes: sp.allowMultiple,
-        isClosed: sp.endDate != null && sp.endDate!.isBefore(DateTime.now()),
-        expiresAt: sp.endDate,
-        createdAt: DateTime.now(),
-        options: optionsWithVotes,
-      ));
+      polls.add(
+        domain.Poll(
+          id: _uuid.v4(),
+          question: sp.question,
+          description: sp.description,
+          allowsMultipleVotes: sp.allowMultiple,
+          isClosed: sp.endDate != null && sp.endDate!.isBefore(DateTime.now()),
+          expiresAt: sp.endDate,
+          createdAt: DateTime.now(),
+          options: optionsWithVotes,
+        ),
+      );
     }
 
     return polls;

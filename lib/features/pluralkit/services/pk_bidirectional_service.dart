@@ -14,7 +14,7 @@ class PkBidirectionalService {
   final PkPushService _pushService;
 
   PkBidirectionalService({PkPushService? pushService})
-      : _pushService = pushService ?? const PkPushService();
+    : _pushService = pushService ?? const PkPushService();
 
   /// Sync members bidirectionally.
   ///
@@ -118,9 +118,7 @@ class PkBidirectionalService {
         // New local member — push to PK
         final pkId = await _pushService.pushMember(local, client);
         // Store the PK ID back on the local member
-        await memberRepository.updateMember(
-          local.copyWith(pluralkitId: pkId),
-        );
+        await memberRepository.updateMember(local.copyWith(pluralkitId: pkId));
         pushed++;
       }
     }
@@ -222,7 +220,8 @@ class PkBidirectionalService {
     // member still has that legacy shape — local.displayName is null and
     // local.name equals pk.displayName — promote local.name into displayName
     // before touching name, so we don't silently rename to pk.name.
-    final needsDisplayNameMigration = pk.displayName != null &&
+    final needsDisplayNameMigration =
+        pk.displayName != null &&
         local.displayName == null &&
         local.name == pk.displayName;
     if (needsDisplayNameMigration &&
@@ -277,7 +276,7 @@ class PkBidirectionalService {
     }
 
     // proxy_tags is pull-only — Prism has no editor UI for proxy tags, so
-    // PK is authoritative. See docs/plans/pk-sp-gaps/01-pk-proxy-tags.md.
+    // PK is authoritative.
     if (pk.proxyTagsJson != null && local.proxyTagsJson != pk.proxyTagsJson) {
       updated = updated.copyWith(proxyTagsJson: pk.proxyTagsJson);
       changed = true;
