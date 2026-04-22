@@ -1,5 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
+
+Future<AppLocalizations> _loadL10n(String locale) {
+  return AppLocalizations.delegate.load(Locale(locale));
+}
 
 void main() {
   group('TimeBucket.fromHour', () {
@@ -36,21 +42,21 @@ void main() {
     });
   });
 
-  group('TimeBucket.label', () {
-    test('morning label', () {
-      expect(TimeBucket.morning.label, 'Morning');
+  group('TimeBucket.localizedLabel', () {
+    test('resolves English labels', () async {
+      final l10n = await _loadL10n('en');
+      expect(TimeBucket.morning.localizedLabel(l10n), 'Morning');
+      expect(TimeBucket.afternoon.localizedLabel(l10n), 'Afternoon');
+      expect(TimeBucket.evening.localizedLabel(l10n), 'Evening');
+      expect(TimeBucket.night.localizedLabel(l10n), 'Night');
     });
 
-    test('afternoon label', () {
-      expect(TimeBucket.afternoon.label, 'Afternoon');
-    });
-
-    test('evening label', () {
-      expect(TimeBucket.evening.label, 'Evening');
-    });
-
-    test('night label', () {
-      expect(TimeBucket.night.label, 'Night');
+    test('resolves Spanish labels', () async {
+      final l10n = await _loadL10n('es');
+      expect(TimeBucket.morning.localizedLabel(l10n), 'Mañana');
+      expect(TimeBucket.afternoon.localizedLabel(l10n), 'Tarde');
+      expect(TimeBucket.evening.localizedLabel(l10n), 'Noche');
+      expect(TimeBucket.night.localizedLabel(l10n), 'Madrugada');
     });
   });
 }

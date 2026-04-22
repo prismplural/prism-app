@@ -1718,6 +1718,64 @@ abstract class AppLocalizations {
   /// **'{active} active, {inactive} inactive'**
   String statisticsActiveMembersBreakdown(int active, int inactive);
 
+  /// Time-of-day bucket label for 6am to 12pm
+  ///
+  /// In en, this message translates to:
+  /// **'Morning'**
+  String get timeOfDayMorning;
+
+  /// Time-of-day bucket label for 12pm to 6pm
+  ///
+  /// In en, this message translates to:
+  /// **'Afternoon'**
+  String get timeOfDayAfternoon;
+
+  /// Time-of-day bucket label for 6pm to 12am
+  ///
+  /// In en, this message translates to:
+  /// **'Evening'**
+  String get timeOfDayEvening;
+
+  /// Time-of-day bucket label for 12am to 6am
+  ///
+  /// In en, this message translates to:
+  /// **'Night'**
+  String get timeOfDayNight;
+
+  /// Semantics fallback when the time-of-day chart has no data
+  ///
+  /// In en, this message translates to:
+  /// **'No time-of-day data'**
+  String get timeOfDayChartNoData;
+
+  /// Semantics summary for the time-of-day chart
+  ///
+  /// In en, this message translates to:
+  /// **'Time of day: {parts}'**
+  String timeOfDayChartSemantics(String parts);
+
+  /// Title for the daily fronting activity chart
+  ///
+  /// In en, this message translates to:
+  /// **'Daily activity'**
+  String get frontingActivityChartTitle;
+
+  /// Average label shown in the fronting activity chart
+  ///
+  /// In en, this message translates to:
+  /// **'avg {hours}h/day'**
+  String frontingActivityChartAverageLabel(String hours);
+
+  /// Semantics summary for the daily fronting activity chart
+  ///
+  /// In en, this message translates to:
+  /// **'Daily fronting activity. Peak: {peakHours}h on {peakDate}. Average: {avgHours}h per day.'**
+  String frontingActivityChartSemantics(
+    String peakHours,
+    String peakDate,
+    String avgHours,
+  );
+
   /// Debug screen title
   ///
   /// In en, this message translates to:
@@ -4411,6 +4469,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose Headmate'**
   String get memberNoteChooseHeadmate;
+
+  /// Semantics label for the note date chip
+  ///
+  /// In en, this message translates to:
+  /// **'Note date, {date}. Tap to change'**
+  String memberNoteDateSemantics(String date);
+
+  /// Semantics label for the selected headmate chip in note sheet
+  ///
+  /// In en, this message translates to:
+  /// **'Headmate: {name}. Tap to change'**
+  String memberNoteMemberSemantics(String name);
+
+  /// Semantics label for the note sheet headmate picker when nothing is selected
+  ///
+  /// In en, this message translates to:
+  /// **'No {termLower} selected. Tap to choose'**
+  String memberNoteNoHeadmateSemantics(String termLower);
 
   /// Option to clear headmate selection in note sheet
   ///
@@ -11041,6 +11117,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Restored {members} members and {messages} messages.'**
   String onboardingSyncRestoredSummary(int members, int messages);
+
+  /// Semantics label for the onboarding phase progress indicator
+  ///
+  /// In en, this message translates to:
+  /// **'Step {current} of {total}'**
+  String onboardingPhaseSegmentsSemantics(int current, int total);
 
   /// Title of the first-pull PK system profile disclosure sheet
   ///

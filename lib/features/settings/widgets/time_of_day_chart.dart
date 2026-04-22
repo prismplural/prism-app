@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 
 import 'package:prism_plurality/domain/models/fronting_analytics.dart';
@@ -8,11 +9,7 @@ import 'package:prism_plurality/domain/models/fronting_analytics.dart';
 /// [accentColor] tints the segments relative to the member's custom color.
 /// Falls back to fixed bucket colors when null.
 class TimeOfDayChart extends StatelessWidget {
-  const TimeOfDayChart({
-    super.key,
-    required this.breakdown,
-    this.accentColor,
-  });
+  const TimeOfDayChart({super.key, required this.breakdown, this.accentColor});
 
   final Map<String, int> breakdown;
   final Color? accentColor;
@@ -43,16 +40,20 @@ class TimeOfDayChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = context.l10n;
     final total = breakdown.values.fold<int>(0, (a, b) => a + b);
     if (total == 0) return const SizedBox.shrink();
 
     return Semantics(
-      label: _semanticsDescription(),
+      label: _semanticsDescription(l10n),
+      excludeSemantics: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(6)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(6),
+            ),
             child: SizedBox(
               height: 14,
               child: Row(
@@ -88,7 +89,7 @@ class TimeOfDayChart extends StatelessWidget {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '${bucket.label} ${((breakdown[bucket.name]! / total) * 100).round()}%',
+                        '${bucket.localizedLabel(l10n)} ${((breakdown[bucket.name]! / total) * 100).round()}%',
                         style: theme.textTheme.labelSmall,
                       ),
                     ],
@@ -100,17 +101,18 @@ class TimeOfDayChart extends StatelessWidget {
     );
   }
 
-  String _semanticsDescription() {
+  String _semanticsDescription(AppLocalizations l10n) {
     final total = breakdown.values.fold<int>(0, (a, b) => a + b);
-    if (total == 0) return 'No time-of-day data';
+    if (total == 0) return l10n.timeOfDayChartNoData;
     final parts = <String>[];
     for (final bucket in TimeBucket.values) {
       final mins = breakdown[bucket.name] ?? 0;
       if (mins > 0) {
         parts.add(
-            '${bucket.label}: ${((mins / total) * 100).round()}%');
+          '${bucket.localizedLabel(l10n)}: ${((mins / total) * 100).round()}%',
+        );
       }
     }
-    return 'Time of day: ${parts.join(', ')}';
+    return l10n.timeOfDayChartSemantics(parts.join(', '));
   }
 }

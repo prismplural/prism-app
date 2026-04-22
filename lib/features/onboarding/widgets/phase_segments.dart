@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 class PhaseSegments extends StatefulWidget {
   final int currentIndex;
@@ -32,9 +33,10 @@ class _PhaseSegmentsState extends State<PhaseSegments>
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     );
-    _opacity = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _opacity = Tween<double>(
+      begin: 0.6,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -71,7 +73,10 @@ class _PhaseSegmentsState extends State<PhaseSegments>
     final disableAnimations = MediaQuery.of(context).disableAnimations;
 
     return Semantics(
-      label: 'Step ${widget.currentIndex + 1} of ${widget.totalPhases}',
+      label: context.l10n.onboardingPhaseSegmentsSemantics(
+        widget.currentIndex + 1,
+        widget.totalPhases,
+      ),
       container: true,
       child: AnimatedBuilder(
         animation: _opacity,
@@ -84,7 +89,9 @@ class _PhaseSegmentsState extends State<PhaseSegments>
               }
 
               final segmentIndex = i ~/ 2;
-              return Expanded(child: _buildSegment(context, segmentIndex, disableAnimations));
+              return Expanded(
+                child: _buildSegment(context, segmentIndex, disableAnimations),
+              );
             }),
           );
         },
@@ -92,8 +99,14 @@ class _PhaseSegmentsState extends State<PhaseSegments>
     );
   }
 
-  Widget _buildSegment(BuildContext context, int index, bool disableAnimations) {
-    final radius = BorderRadius.all(Radius.circular(PrismShapes.of(context).radius(2)));
+  Widget _buildSegment(
+    BuildContext context,
+    int index,
+    bool disableAnimations,
+  ) {
+    final radius = BorderRadius.all(
+      Radius.circular(PrismShapes.of(context).radius(2)),
+    );
 
     if (index < widget.currentIndex) {
       return Container(

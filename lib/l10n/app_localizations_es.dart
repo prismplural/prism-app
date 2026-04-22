@@ -930,6 +930,43 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get timeOfDayMorning => 'Mañana';
+
+  @override
+  String get timeOfDayAfternoon => 'Tarde';
+
+  @override
+  String get timeOfDayEvening => 'Noche';
+
+  @override
+  String get timeOfDayNight => 'Madrugada';
+
+  @override
+  String get timeOfDayChartNoData => 'No hay datos de hora del día';
+
+  @override
+  String timeOfDayChartSemantics(String parts) {
+    return 'Hora del día: $parts';
+  }
+
+  @override
+  String get frontingActivityChartTitle => 'Actividad diaria';
+
+  @override
+  String frontingActivityChartAverageLabel(String hours) {
+    return 'Promedio $hours h/día';
+  }
+
+  @override
+  String frontingActivityChartSemantics(
+    String peakHours,
+    String peakDate,
+    String avgHours,
+  ) {
+    return 'Actividad diaria. Pico: $peakHours h el $peakDate. Promedio: $avgHours h por día.';
+  }
+
+  @override
   String get debugTitle => 'Depuración';
 
   @override
@@ -2553,6 +2590,21 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get memberNoteChooseHeadmate => 'Elegir integrante';
+
+  @override
+  String memberNoteDateSemantics(String date) {
+    return 'Fecha de la nota, $date. Toca para cambiar';
+  }
+
+  @override
+  String memberNoteMemberSemantics(String name) {
+    return 'Integrante: $name. Toca para cambiar';
+  }
+
+  @override
+  String memberNoteNoHeadmateSemantics(String termLower) {
+    return 'No hay $termLower seleccionado. Toca para elegir';
+  }
 
   @override
   String get memberSelectNone => 'Ninguno';
@@ -6505,6 +6557,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String onboardingSyncRestoredSummary(int members, int messages) {
     return 'Se restauraron $members miembros y $messages mensajes.';
+  }
+
+  @override
+  String onboardingPhaseSegmentsSemantics(int current, int total) {
+    return 'Paso $current de $total';
   }
 
   @override
