@@ -20,12 +20,7 @@ import 'package:prism_plurality/shared/extensions/app_localizations_extension.da
 
 /// Create or edit a note. Shown as a full-screen PrismSheet.
 class NoteSheet extends ConsumerStatefulWidget {
-  const NoteSheet({
-    super.key,
-    this.note,
-    this.memberId,
-    this.scrollController,
-  });
+  const NoteSheet({super.key, this.note, this.memberId, this.scrollController});
 
   final Note? note;
   final String? memberId;
@@ -195,8 +190,9 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
                       ),
                       hintStyle: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.4),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                       maxLines: null,
                       textCapitalization: TextCapitalization.sentences,
@@ -211,8 +207,9 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
                       fieldStyle: PrismTextFieldStyle.borderless,
                       style: theme.textTheme.bodyLarge,
                       hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.4),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.4,
+                        ),
                       ),
                       minLines: 12,
                       maxLines: null,
@@ -222,12 +219,12 @@ class _NoteSheetState extends ConsumerState<NoteSheet> {
                 ),
               ),
             ),
-          _BottomToolbar(
-            date: _date,
-            memberId: _selectedMemberId,
-            onPickDate: _pickDate,
-            onPickMember: _pickMember,
-          ),
+            _BottomToolbar(
+              date: _date,
+              memberId: _selectedMemberId,
+              onPickDate: _pickDate,
+              onPickMember: _pickMember,
+            ),
           ],
         ),
       ),
@@ -254,6 +251,7 @@ class _BottomToolbar extends ConsumerWidget {
     final theme = Theme.of(context);
     final l10n = context.l10n;
     final dateFormat = DateFormat.MMMd(context.dateLocale);
+    final terminology = watchTerminology(context, ref);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final mutedColor = theme.colorScheme.onSurfaceVariant;
 
@@ -285,8 +283,9 @@ class _BottomToolbar extends ConsumerWidget {
               label: dateFormat.format(date),
               color: mutedColor,
               onTap: () => onPickDate(anchorContext),
-              semanticLabel:
-                  'Note date, ${DateFormat.yMMMd(context.dateLocale).format(date)}. Tap to change',
+              semanticLabel: l10n.memberNoteDateSemantics(
+                DateFormat.yMMMd(context.dateLocale).format(date),
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -305,16 +304,17 @@ class _BottomToolbar extends ConsumerWidget {
                 customColorHex: member.customColorHex,
                 size: 20,
               ),
-              semanticLabel:
-                  'Headmate: ${member.name}. Tap to change',
+              semanticLabel: l10n.memberNoteMemberSemantics(member.name),
             )
           else
             _ToolbarChip(
               icon: AppIcons.personOutline,
-              label: l10n.memberNoteAddHeadmate(watchTerminology(context, ref).singularLower),
+              label: l10n.memberNoteAddHeadmate(terminology.singularLower),
               color: mutedColor.withValues(alpha: 0.6),
               onTap: onPickMember,
-              semanticLabel: 'No headmate selected. Tap to choose',
+              semanticLabel: l10n.memberNoteNoHeadmateSemantics(
+                terminology.singularLower,
+              ),
             ),
         ],
       ),

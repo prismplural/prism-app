@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:prism_plurality/l10n/app_localizations.dart';
 
 part 'fronting_analytics.freezed.dart';
 part 'fronting_analytics.g.dart';
@@ -9,12 +10,12 @@ enum TimeBucket {
   evening, // 6pm - 12am
   night; // 12am - 6am
 
-  String get label => switch (this) {
-        TimeBucket.morning => 'Morning',
-        TimeBucket.afternoon => 'Afternoon',
-        TimeBucket.evening => 'Evening',
-        TimeBucket.night => 'Night',
-      };
+  String localizedLabel(AppLocalizations l10n) => switch (this) {
+    TimeBucket.morning => l10n.timeOfDayMorning,
+    TimeBucket.afternoon => l10n.timeOfDayAfternoon,
+    TimeBucket.evening => l10n.timeOfDayEvening,
+    TimeBucket.night => l10n.timeOfDayNight,
+  };
 
   static TimeBucket fromHour(int hour) {
     if (hour >= 6 && hour < 12) return TimeBucket.morning;

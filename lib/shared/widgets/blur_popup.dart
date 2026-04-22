@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -31,7 +32,8 @@ enum BlurPopupTrigger { tap, longPress, manual }
 /// Accessibility: callers are responsible for ensuring items built by
 /// [itemBuilder] are semantically labelled (via [Semantics.label] or
 /// [Tooltip.message]) so screen readers can announce popup actions.
-/// The dim barrier is excluded from the semantic tree automatically.
+/// The dim barrier is exposed as a localized close action and the overlay
+/// blocks background semantics while open.
 class BlurPopupAnchor extends StatefulWidget {
   const BlurPopupAnchor({
     super.key,
@@ -54,7 +56,7 @@ class BlurPopupAnchor extends StatefulWidget {
 
   /// Builder for each item. Call [close] to dismiss the popup.
   final Widget Function(BuildContext context, int index, VoidCallback close)
-      itemBuilder;
+  itemBuilder;
 
   /// Force a direction, or null to auto-detect.
   final BlurPopupDirection? preferredDirection;
@@ -114,16 +116,17 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
     if (renderBox == null) return;
 
     final overlay = Overlay.of(context);
-    final overlayRenderBox =
-        overlay.context.findRenderObject() as RenderBox?;
+    final overlayRenderBox = overlay.context.findRenderObject() as RenderBox?;
 
     final anchorSize = renderBox.size;
 
     // Transform anchor position into overlay-relative coordinates.
     final Offset anchorOffset;
     if (overlayRenderBox != null) {
-      anchorOffset =
-          renderBox.localToGlobal(Offset.zero, ancestor: overlayRenderBox);
+      anchorOffset = renderBox.localToGlobal(
+        Offset.zero,
+        ancestor: overlayRenderBox,
+      );
     } else {
       anchorOffset = renderBox.localToGlobal(Offset.zero);
     }
@@ -132,10 +135,10 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
 
     // Decide direction: how much space above vs below the anchor.
     final spaceAbove = anchorOffset.dy;
-    final spaceBelow =
-        overlaySize.height - anchorOffset.dy - anchorSize.height;
+    final spaceBelow = overlaySize.height - anchorOffset.dy - anchorSize.height;
 
-    final direction = widget.preferredDirection ??
+    final direction =
+        widget.preferredDirection ??
         (spaceAbove > spaceBelow
             ? BlurPopupDirection.up
             : BlurPopupDirection.down);
@@ -188,8 +191,9 @@ class BlurPopupAnchorState extends State<BlurPopupAnchor>
         child: GestureDetector(
           key: _anchorKey,
           onTap: widget.trigger == BlurPopupTrigger.tap ? _showPopup : null,
-          onLongPress:
-              widget.trigger == BlurPopupTrigger.longPress ? _showPopup : null,
+          onLongPress: widget.trigger == BlurPopupTrigger.longPress
+              ? _showPopup
+              : null,
           behavior: widget.trigger == BlurPopupTrigger.manual
               ? null
               : HitTestBehavior.opaque,
@@ -239,48 +243,57 @@ class _BlurPopupOverlay extends StatelessWidget {
         : Alignment.topCenter;
 
     return TextFieldTapRegion(
-      child: Stack(
-        // Clip.none so the ScaleTransition on the popup content does not clip
-        // the anchor chip during the open/close animation. The popup list itself
-        // is clipped by ClipRRect inside _BlurPopupContent.
-        clipBehavior: Clip.none,
-        children: [
-          // Barrier — dismisses on tap, tinted overlay.
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: onDismiss,
-              behavior: HitTestBehavior.opaque,
-              child: FadeTransition(
-                opacity: animation,
-                child: ExcludeSemantics(
-                  child: ColoredBox(
-                    color: AppColors.warmBlack.withValues(alpha: 0.15),
+      child: BlockSemantics(
+        child: Stack(
+          // Clip.none so the ScaleTransition on the popup content does not clip
+          // the anchor chip during the open/close animation. The popup list itself
+          // is clipped by ClipRRect inside _BlurPopupContent.
+          clipBehavior: Clip.none,
+          children: [
+            // Barrier — dismisses on tap, tinted overlay.
+            Positioned.fill(
+              child: Semantics(
+                button: true,
+                label: context.l10n.close,
+                onTap: onDismiss,
+                child: GestureDetector(
+                  onTap: onDismiss,
+                  behavior: HitTestBehavior.opaque,
+                  child: FadeTransition(
+                    opacity: animation,
+                    child: ColoredBox(
+                      color: AppColors.warmBlack.withValues(alpha: 0.15),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          // Popup content
-          FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
-              alignment: alignment,
-              child: _BlurPopupContent(
-                anchorOffset: anchorOffset,
-                anchorSize: anchorSize,
-                screenSize: screenSize,
-                direction: direction,
-                itemCount: itemCount,
-                itemBuilder: itemBuilder,
-                maxHeight: maxHeight,
-                width: width,
-                borderRadius: borderRadius,
-                close: onDismiss,
+            // Popup content
+            Semantics(
+              scopesRoute: true,
+              explicitChildNodes: true,
+              child: FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(
+                  scale: Tween<double>(begin: 0.9, end: 1.0).animate(animation),
+                  alignment: alignment,
+                  child: _BlurPopupContent(
+                    anchorOffset: anchorOffset,
+                    anchorSize: anchorSize,
+                    screenSize: screenSize,
+                    direction: direction,
+                    itemCount: itemCount,
+                    itemBuilder: itemBuilder,
+                    maxHeight: maxHeight,
+                    width: width,
+                    borderRadius: borderRadius,
+                    close: onDismiss,
+                  ),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -318,8 +331,7 @@ class _BlurPopupContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isOled =
-        Theme.of(context).scaffoldBackgroundColor == Colors.black;
+    final isOled = Theme.of(context).scaffoldBackgroundColor == Colors.black;
 
     const gap = 8.0;
 
@@ -334,8 +346,10 @@ class _BlurPopupContent extends StatelessWidget {
     final double? bottom;
     if (direction == BlurPopupDirection.up) {
       top = null;
-      bottom = (screenSize.height - anchorOffset.dy + gap)
-          .clamp(12.0, screenSize.height - 12.0);
+      bottom = (screenSize.height - anchorOffset.dy + gap).clamp(
+        12.0,
+        screenSize.height - 12.0,
+      );
     } else {
       final rawTop = anchorOffset.dy + anchorSize.height + gap;
       // Clamp so the popup doesn't extend past the screen bottom.
@@ -353,7 +367,9 @@ class _BlurPopupContent extends StatelessWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: maxHeight),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(borderRadius)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(borderRadius),
+              ),
               child: BackdropFilter(
                 filter: ImageFilter.blur(
                   sigmaX: PrismTokens.glassBlurStrong,
@@ -363,11 +379,12 @@ class _BlurPopupContent extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: isDark
                         ? (isOled
-                            ? AppColors.oledSurface1
-                                .withValues(alpha: 0.85)
-                            : AppColors.warmWhite.withValues(alpha: 0.1))
+                              ? AppColors.oledSurface1.withValues(alpha: 0.85)
+                              : AppColors.warmWhite.withValues(alpha: 0.1))
                         : AppColors.warmWhite.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(borderRadius)),
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(borderRadius),
+                    ),
                     border: Border.all(
                       color: isDark
                           ? AppColors.warmWhite.withValues(alpha: 0.1)
@@ -375,8 +392,9 @@ class _BlurPopupContent extends StatelessWidget {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.warmBlack
-                            .withValues(alpha: isDark ? 0.4 : 0.12),
+                        color: AppColors.warmBlack.withValues(
+                          alpha: isDark ? 0.4 : 0.12,
+                        ),
                         blurRadius: 20,
                         offset: const Offset(0, 4),
                       ),

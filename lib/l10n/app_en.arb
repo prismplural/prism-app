@@ -1215,6 +1215,63 @@
       }
     }
   },
+  "timeOfDayMorning": "Morning",
+  "@timeOfDayMorning": {
+    "description": "Time-of-day bucket label for 6am to 12pm"
+  },
+  "timeOfDayAfternoon": "Afternoon",
+  "@timeOfDayAfternoon": {
+    "description": "Time-of-day bucket label for 12pm to 6pm"
+  },
+  "timeOfDayEvening": "Evening",
+  "@timeOfDayEvening": {
+    "description": "Time-of-day bucket label for 6pm to 12am"
+  },
+  "timeOfDayNight": "Night",
+  "@timeOfDayNight": {
+    "description": "Time-of-day bucket label for 12am to 6am"
+  },
+  "timeOfDayChartNoData": "No time-of-day data",
+  "@timeOfDayChartNoData": {
+    "description": "Semantics fallback when the time-of-day chart has no data"
+  },
+  "timeOfDayChartSemantics": "Time of day: {parts}",
+  "@timeOfDayChartSemantics": {
+    "description": "Semantics summary for the time-of-day chart",
+    "placeholders": {
+      "parts": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingActivityChartTitle": "Daily activity",
+  "@frontingActivityChartTitle": {
+    "description": "Title for the daily fronting activity chart"
+  },
+  "frontingActivityChartAverageLabel": "avg {hours}h/day",
+  "@frontingActivityChartAverageLabel": {
+    "description": "Average label shown in the fronting activity chart",
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "frontingActivityChartSemantics": "Daily fronting activity. Peak: {peakHours}h on {peakDate}. Average: {avgHours}h per day.",
+  "@frontingActivityChartSemantics": {
+    "description": "Semantics summary for the daily fronting activity chart",
+    "placeholders": {
+      "peakHours": {
+        "type": "String"
+      },
+      "peakDate": {
+        "type": "String"
+      },
+      "avgHours": {
+        "type": "String"
+      }
+    }
+  },
   "debugTitle": "Debug",
   "@debugTitle": {
     "description": "Debug screen title"
@@ -3348,6 +3405,33 @@
   "memberNoteChooseHeadmate": "Choose Headmate",
   "@memberNoteChooseHeadmate": {
     "description": "Sheet title for headmate selection in note sheet"
+  },
+  "memberNoteDateSemantics": "Note date, {date}. Tap to change",
+  "@memberNoteDateSemantics": {
+    "description": "Semantics label for the note date chip",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "memberNoteMemberSemantics": "Headmate: {name}. Tap to change",
+  "@memberNoteMemberSemantics": {
+    "description": "Semantics label for the selected headmate chip in note sheet",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "memberNoteNoHeadmateSemantics": "No {termLower} selected. Tap to choose",
+  "@memberNoteNoHeadmateSemantics": {
+    "description": "Semantics label for the note sheet headmate picker when nothing is selected",
+    "placeholders": {
+      "termLower": {
+        "type": "String"
+      }
+    }
   },
   "memberSelectNone": "None",
   "@memberSelectNone": {
@@ -7477,6 +7561,18 @@
     }
   },
   "onboardingSyncRestoredSummary": "Restored {members} members and {messages} messages.",
+  "onboardingPhaseSegmentsSemantics": "Step {current} of {total}",
+  "@onboardingPhaseSegmentsSemantics": {
+    "description": "Semantics label for the onboarding phase progress indicator",
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
 
   "pkProfileDisclosureTitle": "Import your system profile from PluralKit?",
   "@pkProfileDisclosureTitle": { "description": "Title of the first-pull PK system profile disclosure sheet" },

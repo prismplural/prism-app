@@ -37,7 +37,9 @@ class WhosFrontingStep extends ConsumerWidget {
             child: Text(
               context.l10n.onboardingWhosFrontingNoMembers,
               style: TextStyle(
-                color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+                color: isDark
+                    ? AppColors.mutedTextDark
+                    : AppColors.mutedTextLight,
                 fontSize: 15,
               ),
               textAlign: TextAlign.center,
@@ -52,15 +54,16 @@ class WhosFrontingStep extends ConsumerWidget {
               Text(
                 context.l10n.onboardingWhosFrontingSelectHint,
                 style: TextStyle(
-                  color: isDark ? AppColors.mutedTextDark : AppColors.mutedTextLight,
+                  color: isDark
+                      ? AppColors.mutedTextDark
+                      : AppColors.mutedTextLight,
                   fontSize: 14,
                 ),
               ),
               const SizedBox(height: 16),
               Expanded(
                 child: GridView.builder(
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
@@ -80,9 +83,11 @@ class WhosFrontingStep extends ConsumerWidget {
                           color: isSelected
                               ? primary.withValues(alpha: 0.2)
                               : isDark
-                                  ? AppColors.warmWhite.withValues(alpha: 0.1)
-                                  : AppColors.parchmentElevated,
-                          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+                              ? AppColors.warmWhite.withValues(alpha: 0.1)
+                              : AppColors.parchmentElevated,
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(16),
+                          ),
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -94,8 +99,12 @@ class WhosFrontingStep extends ConsumerWidget {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: isDark
-                                    ? AppColors.warmWhite.withValues(alpha: 0.15)
-                                    : AppColors.warmBlack.withValues(alpha: 0.08),
+                                    ? AppColors.warmWhite.withValues(
+                                        alpha: 0.15,
+                                      )
+                                    : AppColors.warmBlack.withValues(
+                                        alpha: 0.08,
+                                      ),
                               ),
                               child: member.avatarImageData != null
                                   ? ClipOval(
@@ -104,30 +113,31 @@ class WhosFrontingStep extends ConsumerWidget {
                                         fit: BoxFit.cover,
                                         width: 52,
                                         height: 52,
-                                        semanticLabel: '${member.name} avatar',
+                                        semanticLabel: context.l10n
+                                            .memberAvatarSemantics(member.name),
                                       ),
                                     )
                                   : Center(
                                       child: Text(
                                         member.emoji,
-                                        style:
-                                            const TextStyle(fontSize: 24),
+                                        style: const TextStyle(fontSize: 24),
                                       ),
                                     ),
                             ),
                             const SizedBox(height: 8),
                             // Name
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
                               child: Text(
                                 member.name,
                                 style: TextStyle(
                                   color: isSelected
                                       ? primary
                                       : isDark
-                                          ? AppColors.warmWhite
-                                          : AppColors.warmBlack,
+                                      ? AppColors.warmWhite
+                                      : AppColors.warmBlack,
                                   fontWeight: isSelected
                                       ? FontWeight.w600
                                       : FontWeight.w500,

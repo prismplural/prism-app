@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
 /// A styled bottom sheet wrapper with consistent Prism design language.
@@ -109,7 +110,11 @@ class PrismSheet extends StatelessWidget {
   /// close button, centered title, and optional trailing action.
   static Future<T?> showFullScreen<T>({
     required BuildContext context,
-    required Widget Function(BuildContext context, ScrollController scrollController) builder,
+    required Widget Function(
+      BuildContext context,
+      ScrollController scrollController,
+    )
+    builder,
     bool useRootNavigator = true,
     bool isDismissible = true,
   }) {
@@ -289,11 +294,7 @@ class _SheetChrome extends StatelessWidget {
 ///
 /// Matches [PrismTopBar] sizing: 44pt action slots, titleLarge at 22/w700.
 class PrismSheetTopBar extends StatelessWidget {
-  const PrismSheetTopBar({
-    super.key,
-    required this.title,
-    this.trailing,
-  });
+  const PrismSheetTopBar({super.key, required this.title, this.trailing});
 
   final String title;
 
@@ -324,13 +325,12 @@ class PrismSheetTopBar extends StatelessWidget {
                 icon: AppIcons.close,
                 size: PrismTokens.topBarActionSize,
                 onPressed: () => Navigator.of(context).pop(),
+                tooltip: context.l10n.close,
+                semanticLabel: context.l10n.close,
               ),
             ),
             if (trailing != null)
-              Align(
-                alignment: Alignment.centerRight,
-                child: trailing!,
-              ),
+              Align(alignment: Alignment.centerRight, child: trailing!),
           ],
         ),
       ),
