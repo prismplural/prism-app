@@ -9,7 +9,6 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
-import 'package:prism_plurality/shared/widgets/inline_expandable_member_picker.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
@@ -19,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
+import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 
 /// Modal for creating a new fronting session with full details.
 ///
@@ -344,27 +344,14 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (available.length > _MemberGrid._compactThreshold)
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: IconButton(
-                            icon: Icon(AppIcons.search),
-                            tooltip: context.l10n.search,
-                            onPressed: () =>
-                                _openCoFronterSearch(available, terms.plural),
-                          ),
+                      SelectedMultiMemberPicker(
+                        key: const Key(
+                          'addFrontSessionCoFrontersSelectedPicker',
                         ),
-                      InlineExpandableMultiMemberPicker(
-                        key: const Key('addFrontSessionCoFrontersInlinePicker'),
                         members: available,
                         selectedMemberIds: _coFronterIds,
-                        onChanged: (selectedIds) {
-                          setState(() {
-                            _coFronterIds
-                              ..clear()
-                              ..addAll(selectedIds);
-                          });
-                        },
+                        onPressed: () =>
+                            _openCoFronterSearch(available, terms.plural),
                       ),
                     ],
                   );
@@ -623,7 +610,7 @@ class _MemberGridState extends State<_MemberGrid> {
   }
 
   // ---------------------------------------------------------------------------
-  // Inline picker (>12 members): search icon opens shared sheet
+  // Selected-summary picker (>12 members): add button opens shared sheet
   // ---------------------------------------------------------------------------
 
   Widget _buildCompactList(BuildContext context) {
@@ -636,30 +623,15 @@ class _MemberGridState extends State<_MemberGrid> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: IconButton(
-            icon: Icon(AppIcons.search),
-            tooltip: context.l10n.search,
-            onPressed: () => _openSearch(context),
-          ),
-        ),
-        InlineExpandableMemberPicker(
-          key: const Key('addFrontSessionInlineMemberPicker'),
+        SelectedMemberPicker(
+          key: const Key('addFrontSessionSelectedMemberPicker'),
           members: availableMembers,
           selectedMemberId: widget.selectedId == widget.unknownId
               ? null
               : widget.selectedId,
           includeUnknown: !widget.coFrontMode,
           unknownSelected: widget.selectedId == widget.unknownId,
-          onUnknownSelected: widget.coFrontMode
-              ? null
-              : () => widget.onSelect(widget.unknownId),
-          onChanged: (selectedMemberId) {
-            if (selectedMemberId != null) {
-              widget.onSelect(selectedMemberId);
-            }
-          },
+          onPressed: () => _openSearch(context),
         ),
       ],
     );

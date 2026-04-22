@@ -9,7 +9,6 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
-import 'package:prism_plurality/shared/widgets/inline_expandable_member_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
@@ -21,6 +20,7 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Bottom sheet for creating a new conversation (DM or group).
@@ -37,7 +37,7 @@ class CreateConversationSheet extends ConsumerStatefulWidget {
   final ScrollController scrollController;
 
   /// Optional list of member IDs to pre-select when the sheet opens.
-  /// Takes precedence over the speaking-as auto-selection when provided.
+  /// When omitted, the picker starts empty.
   final List<String>? initialMemberIds;
 
   @override
@@ -147,46 +147,53 @@ class _CreateConversationSheetState
       fontWeight: FontWeight.w600,
     );
 
-    // DM mode: exclude the speaking-as member (they are the sender).
-    final searchMembers = _isGroupChat
-        ? members
-        : members.where((m) => m.id != speakingAs).toList();
-    final initialSelected =
-        _isGroupChat
-              ? Set<String>.from(_selectedMemberIds)
-              : Set<String>.from(_selectedMemberIds)
-          ..remove(speakingAs);
+    if (_isGroupChat) {
+      final result = await MemberSearchSheet.showMulti(
+        context,
+        members: members,
+        termPlural: termPlural,
+        initialSelected: Set<String>.from(_selectedMemberIds),
+        trailingBuilder: (member) {
+          if (member.id != speakingAs) return null;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Text(frontingLabel, style: labelStyle),
+          );
+        },
+      );
 
-    final result = await MemberSearchSheet.showMulti(
+      if (result == null || !mounted) return;
+      setState(() {
+        _selectedMemberIds
+          ..clear()
+          ..addAll(result);
+      });
+      return;
+    }
+
+    final result = await MemberSearchSheet.showSingle(
       context,
-      members: searchMembers,
+      members: members.where((m) => m.id != speakingAs).toList(),
       termPlural: termPlural,
-      initialSelected: initialSelected,
-      trailingBuilder: _isGroupChat
-          ? (member) {
-              if (member.id != speakingAs) return null;
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: primaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: Text(frontingLabel, style: labelStyle),
-              );
-            }
-          : null,
     );
 
-    if (result == null || !mounted) return;
-
-    setState(() {
-      _selectedMemberIds.clear();
-      if (_isGroupChat) {
-        _selectedMemberIds.addAll(result);
-      } else {
-        _selectedMemberIds.addAll(result.where((id) => id != speakingAs));
-      }
-    });
+    if (!mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        setState(() {
+          _selectedMemberIds
+            ..clear()
+            ..add(memberId);
+        });
+      case MemberSearchResultDismissed():
+      case MemberSearchResultCleared():
+      case MemberSearchResultUnknown():
+        break;
+    }
   }
 
   @override
@@ -195,8 +202,8 @@ class _CreateConversationSheetState
     final membersAsync = ref.watch(activeMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
 
-    // Pre-select members once loaded: initialMemberIds takes precedence,
-    // otherwise fall back to the current speaking-as fronter.
+    // Pre-select members once loaded only when the caller explicitly provided
+    // initial IDs.
     if (!_didPreselect && membersAsync.hasValue) {
       _didPreselect = true;
       if (widget.initialMemberIds != null &&
@@ -207,14 +214,13 @@ class _CreateConversationSheetState
         _selectedMemberIds.addAll(
           widget.initialMemberIds!.where(activeIds.contains),
         );
-      } else if (speakingAs != null) {
-        _selectedMemberIds.add(speakingAs);
       }
     }
 
-    // Show warning if fronter was deselected in group mode
+    // Show warning only after the user has started choosing participants.
     final fronterDeselected =
         _isGroupChat &&
+        _selectedMemberIds.isNotEmpty &&
         speakingAs != null &&
         !_selectedMemberIds.contains(speakingAs);
 
@@ -410,16 +416,6 @@ class _CreateConversationSheetState
                           style: theme.textTheme.titleSmall,
                         ),
                         const Spacer(),
-                        // Search button — opens shared multi-select sheet.
-                        IconButton(
-                          icon: Icon(AppIcons.search),
-                          iconSize: 20,
-                          visualDensity: VisualDensity.compact,
-                          tooltip: context.l10n.search,
-                          onPressed: members.isEmpty
-                              ? null
-                              : () => _openSearchSheet(context, theme, members),
-                        ),
                         if (_isGroupChat)
                           membersAsync.whenOrNull(
                                 data: (members) {
@@ -460,7 +456,6 @@ class _CreateConversationSheetState
                     child: _buildMemberPicker(
                       context,
                       membersAsync,
-                      speakingAs,
                       displayMembers,
                     ),
                   ),
@@ -525,7 +520,6 @@ class _CreateConversationSheetState
   Widget _buildMemberPicker(
     BuildContext context,
     AsyncValue<dynamic> membersAsync,
-    String? speakingAs,
     List<Member> displayMembers,
   ) {
     return membersAsync.when(
@@ -544,35 +538,24 @@ class _CreateConversationSheetState
         }
 
         if (_isGroupChat) {
-          return InlineExpandableMultiMemberPicker(
-            key: const Key('createConversationInlineMemberPicker'),
+          return SelectedMultiMemberPicker(
+            key: const Key('createConversationSelectedMemberPicker'),
             members: displayMembers,
             selectedMemberIds: _selectedMemberIds,
-            onChanged: (selectedIds) {
-              setState(() {
-                _selectedMemberIds
-                  ..clear()
-                  ..addAll(selectedIds);
-              });
-            },
+            onPressed: () =>
+                _openSearchSheet(context, Theme.of(context), displayMembers),
           );
         }
 
-        return InlineExpandableMemberPicker(
-          key: const Key('createConversationInlineMemberPicker'),
+        return SelectedMemberPicker(
+          key: const Key('createConversationSelectedMemberPicker'),
           members: displayMembers,
           selectedMemberId: _selectedMemberIds.isEmpty
               ? null
               : _selectedMemberIds.first,
           includeUnknown: false,
-          onChanged: (selectedMemberId) {
-            setState(() {
-              _selectedMemberIds.clear();
-              if (selectedMemberId != null && selectedMemberId != speakingAs) {
-                _selectedMemberIds.add(selectedMemberId);
-              }
-            });
-          },
+          onPressed: () =>
+              _openSearchSheet(context, Theme.of(context), displayMembers),
         );
       },
       loading: () => const SizedBox.shrink(),

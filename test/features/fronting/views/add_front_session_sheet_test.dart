@@ -11,10 +11,9 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/inline_expandable_member_picker.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
-import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
+import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -88,20 +87,20 @@ Finder _saveButton() => find.byWidgetPredicate(
 
 void main() {
   // ══════════════════════════════════════════════════════════════════════════
-  // Compact list search icon
+  // Selected member picker
   // ══════════════════════════════════════════════════════════════════════════
 
-  group('compact list search icon', () {
+  group('selected member picker', () {
     testWidgets(
-      'large systems use the shared inline picker instead of raw rows',
+      'large systems use the shared selected-member picker instead of raw rows',
       (tester) async {
         await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
 
-        expect(find.byType(InlineExpandableMemberPicker), findsOneWidget);
+        expect(find.byType(SelectedMemberPicker), findsOneWidget);
         expect(
-          find.byKey(const Key('addFrontSessionInlineMemberPicker')),
+          find.byKey(const Key('addFrontSessionSelectedMemberPicker')),
           findsOneWidget,
         );
         expect(find.text('Member 12'), findsNothing);
@@ -109,78 +108,42 @@ void main() {
     );
 
     testWidgets(
-      'search icon appears when member count exceeds compact threshold',
+      'large systems start with a Select button instead of a pre-rendered list',
       (tester) async {
         await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
 
-        expect(find.byIcon(AppIcons.search), findsOneWidget);
+        expect(
+          find.byKey(const Key('selectedMemberPickerSelectButton')),
+          findsOneWidget,
+        );
       },
     );
-
-    testWidgets('expanded inline picker uses capped internal scroller', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(InlineExpandableMemberPicker));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.byKey(const Key('inlineExpandablePickerList')),
-        findsOneWidget,
-      );
-      expect(
-        tester
-            .getSize(find.byKey(const Key('inlineExpandablePickerList')))
-            .height,
-        lessThanOrEqualTo(320),
-      );
-    });
-
-    testWidgets('no search icon in large grid mode (≤12 members)', (
-      tester,
-    ) async {
-      final members = List.generate(5, (i) => _member(id: 'id$i', name: 'M$i'));
-      await tester.pumpWidget(_buildSheetTrigger(members: members));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      expect(find.byIcon(AppIcons.search), findsNothing);
-    });
 
     testWidgets(
-      'search icon is a standalone IconButton, not inside a PrismTextField',
+      'large grid mode (≤12 members) still skips the selected picker',
       (tester) async {
-        // Guard: the old inline search embedded AppIcons.search inside PrismTextField.
-        // After the refactor, the icon lives in an IconButton.
-        await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
+        final members = List.generate(
+          5,
+          (i) => _member(id: 'id$i', name: 'M$i'),
+        );
+        await tester.pumpWidget(_buildSheetTrigger(members: members));
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
 
-        final searchIconParentIsTextField = find.ancestor(
-          of: find.byIcon(AppIcons.search),
-          matching: find.byType(PrismTextField),
-        );
-        expect(
-          searchIconParentIsTextField,
-          findsNothing,
-          reason:
-              'Search icon must be a standalone IconButton, '
-              'not embedded inside a PrismTextField (old inline search)',
-        );
+        expect(find.byType(SelectedMemberPicker), findsNothing);
       },
     );
 
-    testWidgets('tapping search icon opens MemberSearchSheet', (tester) async {
+    testWidgets('tapping Select opens MemberSearchSheet', (tester) async {
       await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.search));
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);
@@ -210,7 +173,9 @@ void main() {
         );
 
         // Open search, pick a member.
-        await tester.tap(find.byIcon(AppIcons.search));
+        await tester.tap(
+          find.byKey(const Key('selectedMemberPickerSelectButton')),
+        );
         await tester.pumpAndSettle();
 
         await tester.tap(find.text('Member 0').last);
@@ -232,7 +197,9 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.search));
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
       await tester.pumpAndSettle();
 
       // Tap the "Unknown" special row in the search sheet (use .last because
@@ -254,7 +221,9 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.search));
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
       await tester.pumpAndSettle();
 
       // The search sheet should expose the full candidate set, including items
@@ -299,7 +268,9 @@ void main() {
         await tester.pumpAndSettle();
 
         // Open search sheet.
-        await tester.tap(find.byIcon(AppIcons.search));
+        await tester.tap(
+          find.byKey(const Key('selectedMemberPickerSelectButton')),
+        );
         await tester.pumpAndSettle();
 
         // Member 0 is fronting → must not appear *inside* the search sheet.
@@ -343,7 +314,9 @@ void main() {
       await tester.tap(find.text('Co-front'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.search));
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Unknown'), findsNothing);
@@ -382,61 +355,24 @@ void main() {
     });
   });
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // Unknown selection in compact mode
-  // ══════════════════════════════════════════════════════════════════════════
-
-  group('Unknown selection in compact list mode', () {
-    testWidgets('Unknown row is present in the expanded inline picker', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(InlineExpandableMemberPicker));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Unknown'), findsOneWidget);
-    });
-
-    testWidgets(
-      'tapping Unknown in the inline picker enables the save button',
-      (tester) async {
-        await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
-        await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.byType(InlineExpandableMemberPicker));
-        await tester.pumpAndSettle();
-
-        await tester.tap(find.text('Unknown'));
-        await tester.pumpAndSettle();
-
-        expect(
-          tester.widget<PrismGlassIconButton>(_saveButton()).onPressed,
-          isNotNull,
-        );
-      },
-    );
-  });
-
   group('co-fronter picker', () {
-    testWidgets('selected fronter uses inline multi picker for co-fronters', (
+    testWidgets('selected fronter uses selected multi picker for co-fronters', (
       tester,
     ) async {
       await tester.pumpWidget(_buildSheetTrigger(members: _bigMemberList()));
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.search));
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Member 0').last);
       await tester.pumpAndSettle();
 
-      expect(find.byType(InlineExpandableMultiMemberPicker), findsOneWidget);
+      expect(find.byType(SelectedMultiMemberPicker), findsOneWidget);
       expect(
-        find.byKey(const Key('addFrontSessionCoFrontersInlinePicker')),
+        find.byKey(const Key('addFrontSessionCoFrontersSelectedPicker')),
         findsOneWidget,
       );
     });

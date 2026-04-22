@@ -12,9 +12,9 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/widgets/inline_expandable_member_picker.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/selected_member_picker.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fake providers
@@ -118,60 +118,46 @@ void main() {
   );
 
   // ══════════════════════════════════════════════════════════════════════════
-  // Inline member picker
+  // Selected member picker
   // ══════════════════════════════════════════════════════════════════════════
 
-  group('inline member picker', () {
-    testWidgets('uses inline expandable picker instead of raw checkbox list', (
+  group('selected member picker', () {
+    testWidgets(
+      'uses shared selected-member picker instead of expandable list',
+      (tester) async {
+        await tester.pumpWidget(_buildSheet(members: manyMembers));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(SelectedMultiMemberPicker), findsOneWidget);
+        expect(
+          find.byKey(const Key('createConversationSelectedMemberPicker')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('starts empty instead of preselecting the current fronter', (
       tester,
     ) async {
-      await tester.pumpWidget(_buildSheet(members: manyMembers));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(InlineExpandableMultiMemberPicker), findsOneWidget);
-    });
-
-    testWidgets('expanded inline picker uses capped internal scroller', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_buildSheet(members: manyMembers));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(InlineExpandableMultiMemberPicker));
+      await tester.pumpWidget(
+        _buildSheet(members: [alice, bob], speakingAs: 'alice'),
+      );
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(const Key('inlineExpandablePickerList')),
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
         findsOneWidget,
       );
-      expect(
-        tester
-            .getSize(find.byKey(const Key('inlineExpandablePickerList')))
-            .height,
-        lessThanOrEqualTo(320),
+      expect(find.text('Alice'), findsNothing);
+    });
+
+    testWidgets('select button opens MemberSearchSheet', (tester) async {
+      await tester.pumpWidget(_buildSheet(members: [alice, bob]));
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
       );
-    });
-  });
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // Search action
-  // ══════════════════════════════════════════════════════════════════════════
-
-  group('search action', () {
-    testWidgets('search icon button is present in member header', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_buildSheet(members: [alice, bob]));
-      await tester.pumpAndSettle();
-
-      expect(find.byIcon(AppIcons.search), findsOneWidget);
-    });
-
-    testWidgets('tapping search opens MemberSearchSheet', (tester) async {
-      await tester.pumpWidget(_buildSheet(members: [alice, bob]));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byIcon(AppIcons.search));
       await tester.pumpAndSettle();
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);
@@ -191,7 +177,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byIcon(AppIcons.search));
+        await tester.tap(
+          find.byKey(const Key('selectedMemberPickerSelectButton')),
+        );
         await tester.pumpAndSettle();
 
         // The "Fronting" badge label should be visible next to Alice.
@@ -219,7 +207,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.search));
+      await tester.tap(
+        find.byKey(const Key('selectedMemberPickerSelectButton')),
+      );
       await tester.pumpAndSettle();
 
       // Select Bob in the shared search sheet.
@@ -232,6 +222,10 @@ void main() {
 
       expect(find.byType(MemberSearchSheet), findsNothing);
       expect(find.text('Bob'), findsWidgets);
+      expect(
+        find.byKey(const Key('selectedMemberPickerAddButton')),
+        findsOneWidget,
+      );
     });
 
     testWidgets(
@@ -251,14 +245,13 @@ void main() {
         await tester.tap(find.text('Direct Message'));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.byIcon(AppIcons.search));
+        await tester.tap(
+          find.byKey(const Key('selectedMemberPickerSelectButton')),
+        );
         await tester.pumpAndSettle();
 
         // Select Bob.
         await tester.tap(find.byKey(const ValueKey('bob')));
-        await tester.pump();
-
-        await tester.tap(find.textContaining('Done'));
         await tester.pumpAndSettle();
 
         expect(find.byType(MemberSearchSheet), findsNothing);
