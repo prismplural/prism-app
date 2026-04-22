@@ -1,194 +1,112 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
-import 'package:prism_plurality/shared/theme/app_icons.dart';
-import 'package:prism_plurality/shared/theme/prism_tokens.dart';
-import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
-import 'package:prism_plurality/shared/widgets/member_avatar.dart';
-import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
-import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
-import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
-/// Modal bottom sheet for adding members to an existing conversation.
+/// Entry point for adding members to an existing conversation.
 ///
-/// Use via [AddMembersSheet.show] — pass the [scrollController] from the
-/// builder callback.
-class AddMembersSheet extends ConsumerStatefulWidget {
-  const AddMembersSheet({
-    super.key,
-    required this.conversation,
-    required this.scrollController,
-  });
+/// Call [AddMembersSheet.show] — it presents [MemberSearchSheet] in
+/// multi-select mode (excluding existing participants), then commits the
+/// selection via [ChatNotifier.addParticipants].
+class AddMembersSheet {
+  const AddMembersSheet._();
 
-  final Conversation conversation;
-  final ScrollController scrollController;
+  /// Show the Add Members flow.
+  ///
+  /// Returns `true` when members were successfully added, or `null` when the
+  /// user cancelled or an error prevented the operation.
+  static Future<bool?> show(
+    BuildContext context,
+    Conversation conversation,
+  ) async {
+    final container = ProviderScope.containerOf(context);
 
-  /// Show the Add Members sheet using [PrismSheet.showFullScreen].
-  static Future<bool?> show(BuildContext context, Conversation conversation) {
-    return PrismSheet.showFullScreen<bool>(
+    // _AddMembersContent watches activeMembersProvider reactively, so the
+    // sheet appears immediately and populates once the stream emits.
+    // MemberSearchSheet's "Done" button pops with Set<String>.
+    final selectedIds = await PrismSheet.show<Set<String>>(
       context: context,
-      builder: (context, scrollController) => AddMembersSheet(
-        conversation: conversation,
-        scrollController: scrollController,
-      ),
+      maxHeightFactor: 0.95,
+      builder: (ctx) => _AddMembersContent(conversation: conversation),
     );
-  }
 
-  @override
-  ConsumerState<AddMembersSheet> createState() => _AddMembersSheetState();
-}
+    if (selectedIds == null || selectedIds.isEmpty || !context.mounted) {
+      return null;
+    }
 
-class _AddMembersSheetState extends ConsumerState<AddMembersSheet> {
-  final Set<String> _selectedIds = {};
-  bool _isAdding = false;
-
-  bool get _canAdd => _selectedIds.isNotEmpty && !_isAdding;
-
-  Future<void> _addMembers() async {
-    if (!_canAdd) return;
-    setState(() => _isAdding = true);
+    final allMembers = container.read(activeMembersProvider).value ?? [];
+    final speakingAs = container.read(speakingAsProvider);
+    String? speakingAsName;
+    if (speakingAs != null) {
+      speakingAsName = allMembers
+          .where((m) => m.id == speakingAs)
+          .map((m) => m.name)
+          .firstOrNull;
+    }
 
     try {
-      // Resolve the speaking-as member name for system messages.
-      final speakingAs = ref.read(speakingAsProvider);
-      String? speakingAsName;
-      if (speakingAs != null) {
-        final members = ref.read(activeMembersProvider).value;
-        speakingAsName = members
-            ?.where((m) => m.id == speakingAs)
-            .map((m) => m.name)
-            .firstOrNull;
-      }
-
-      await ref
-          .read(chatNotifierProvider.notifier)
-          .addParticipants(
-            widget.conversation.id,
-            _selectedIds.toList(),
+      await container.read(chatNotifierProvider.notifier).addParticipants(
+            conversation.id,
+            selectedIds.toList(),
             addedByName: speakingAsName,
           );
-      if (mounted) Navigator.of(context).pop(true);
+      return true;
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         PrismToast.error(context, message: context.l10n.chatAddMembersFailed(e));
-        setState(() => _isAdding = false);
       }
+      return null;
     }
   }
+}
+
+// Internal widget — shown inside PrismSheet.show, watches providers reactively.
+class _AddMembersContent extends ConsumerWidget {
+  const _AddMembersContent({required this.conversation});
+
+  final Conversation conversation;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(activeMembersProvider);
-    final existingIds = widget.conversation.participantIds.toSet();
+    final s = ref.watch(terminologySettingProvider);
+    final termPlural = resolveTerminology(
+      context.l10n,
+      s.term,
+      customSingular: s.customSingular,
+      customPlural: s.customPlural,
+      useEnglish: s.useEnglish,
+    ).plural;
 
-    return SafeArea(
-      child: Column(
-        children: [
-          PrismSheetTopBar(
-            title: context.l10n.chatAddMembersTitle,
-            trailing: _isAdding
-                ? SizedBox(
-                    width: PrismTokens.topBarActionSize,
-                    height: PrismTokens.topBarActionSize,
-                    child: Center(
-                      child: PrismSpinner(
-                        color: theme.colorScheme.primary,
-                        size: 20,
-                      ),
-                    ),
-                  )
-                : PrismGlassIconButton(
-                    icon: AppIcons.check,
-                    size: PrismTokens.topBarActionSize,
-                    tint: _canAdd ? theme.colorScheme.primary : null,
-                    accentIcon: _canAdd,
-                    onPressed: _canAdd ? _addMembers : null,
-                  ),
+    final existingIds = conversation.participantIds.toSet();
+
+    return membersAsync.when(
+      data: (members) {
+        final available =
+            members.where((m) => !existingIds.contains(m.id)).toList();
+        return MemberSearchSheet(
+          members: available,
+          termPlural: termPlural,
+          multiSelect: true,
+        );
+      },
+      loading: () => const Center(child: PrismLoadingState()),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            context.l10n.chatAddMembersFailed(e),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
           ),
-          const SizedBox(height: 8),
-
-          // Scrollable member list
-          Expanded(
-            child: membersAsync.when(
-              data: (members) {
-                final available = members
-                    .where((m) => !existingIds.contains(m.id))
-                    .toList();
-
-                if (available.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      context.l10n.chatAddMembersAllAdded,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  controller: widget.scrollController,
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                  ),
-                  itemCount: available.length,
-                  itemBuilder: (context, index) {
-                    final member = available[index];
-                    final isSelected = _selectedIds.contains(member.id);
-
-                    return PrismCheckboxRow(
-                      padding: EdgeInsets.zero,
-                      leading: MemberAvatar(
-                        avatarImageData: member.avatarImageData,
-                        memberName: member.name,
-                        emoji: member.emoji,
-                        customColorEnabled: member.customColorEnabled,
-                        customColorHex: member.customColorHex,
-                        size: 36,
-                      ),
-                      title: Text(member.name),
-                      subtitle: member.pronouns != null
-                          ? Text(member.pronouns!)
-                          : null,
-                      value: isSelected,
-                      onChanged: (selected) {
-                        setState(() {
-                          if (selected) {
-                            _selectedIds.add(member.id);
-                          } else {
-                            _selectedIds.remove(member.id);
-                          }
-                        });
-                      },
-                    );
-                  },
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.all(32),
-                child: PrismLoadingState(),
-              ),
-              error: (error, _) => Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  context.l10n.chatAddMembersFailed(error),
-                  style: TextStyle(color: theme.colorScheme.error),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
