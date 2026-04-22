@@ -3,10 +3,13 @@ import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -36,6 +39,21 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
     ...widget.existingCoFronterIds,
   };
 
+  Future<void> _openSearch(List<Member> available, String termPlural) async {
+    final result = await MemberSearchSheet.showMulti(
+      context,
+      members: available,
+      termPlural: termPlural,
+      initialSelected: Set.from(_selectedIds),
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _selectedIds
+        ..clear()
+        ..addAll(result);
+    });
+  }
+
   Future<void> _add() async {
     if (_selectedIds.isEmpty) return;
 
@@ -61,6 +79,12 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
     final theme = Theme.of(context);
     final terms = watchTerminology(context, ref);
     final membersAsync = ref.watch(activeMembersProvider);
+
+    // Pre-compute available members so the header search action can use them.
+    final availableForSearch = membersAsync.value
+            ?.where((m) => !_excludedIds.contains(m.id))
+            .toList() ??
+        [];
 
     return Container(
       decoration: BoxDecoration(
@@ -102,12 +126,25 @@ class _AddCoFronterSheetState extends ConsumerState<AddCoFronterSheet> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                PrismButton(
-                  onPressed: _add,
-                  enabled: !_saving && _selectedIds.isNotEmpty,
-                  isLoading: _saving,
-                  label: context.l10n.add,
-                  tone: PrismButtonTone.filled,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (availableForSearch.isNotEmpty)
+                      IconButton(
+                        icon: Icon(AppIcons.search),
+                        tooltip: context.l10n.search,
+                        onPressed: _saving
+                            ? null
+                            : () => _openSearch(availableForSearch, terms.plural),
+                      ),
+                    PrismButton(
+                      onPressed: _add,
+                      enabled: !_saving && _selectedIds.isNotEmpty,
+                      isLoading: _saving,
+                      label: context.l10n.add,
+                      tone: PrismButtonTone.filled,
+                    ),
+                  ],
                 ),
               ],
             ),
