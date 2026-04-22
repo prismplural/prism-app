@@ -10,6 +10,7 @@ import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
@@ -417,8 +418,6 @@ class _MemberGrid extends StatefulWidget {
 }
 
 class _MemberGridState extends State<_MemberGrid> {
-  String _search = '';
-
   @override
   Widget build(BuildContext context) {
     if (widget.members.length > _MemberGrid._compactThreshold) {
@@ -588,47 +587,29 @@ class _MemberGridState extends State<_MemberGrid> {
   }
 
   // ---------------------------------------------------------------------------
-  // Compact list (>12 members): search bar + scrollable list rows
+  // Compact list (>12 members): search icon opens shared sheet; rows show all
   // ---------------------------------------------------------------------------
 
   Widget _buildCompactList(BuildContext context) {
     final theme = Theme.of(context);
-    final filtered = _search.isEmpty
-        ? widget.members
-        : widget.members
-              .where(
-                (m) => m.name.toLowerCase().contains(_search.toLowerCase()),
-              )
-              .toList();
-
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Search field
-        PrismTextField(
-          hintText: context.l10n.frontingSearchMembersHint(widget.pluralTerm),
-          prefixIcon: Icon(AppIcons.search, size: 20),
-          onChanged: (v) => setState(() => _search = v),
+        // Search icon — opens the shared member search sheet.
+        Align(
+          alignment: Alignment.centerRight,
+          child: IconButton(
+            icon: Icon(AppIcons.search),
+            tooltip: context.l10n.search,
+            onPressed: () => _openSearch(context),
+          ),
         ),
-        const SizedBox(height: 12),
 
         // "Unknown" row (hidden in co-front mode)
-        if (_search.isEmpty && !widget.coFrontMode) ...[
+        if (!widget.coFrontMode) ...[
           _listRow(
             theme: theme,
-            leading: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                shape: PrismShapes.of(context).avatarShape(),
-                borderRadius: PrismShapes.of(context).avatarBorderRadius(),
-                color: theme.colorScheme.surfaceContainerHighest,
-              ),
-              child: Icon(
-                AppIcons.questionMarkRounded,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
+            leading: _unknownLeading(context),
             name: 'Unknown',
             isSelected: widget.selectedId == widget.unknownId,
             onTap: () => widget.onSelect(widget.unknownId),
@@ -640,8 +621,8 @@ class _MemberGridState extends State<_MemberGrid> {
           ),
         ],
 
-        // Member rows
-        ...filtered.map((member) {
+        // Member rows — all members; filtering is done via the shared search sheet.
+        ...widget.members.map((member) {
           final isSelected = member.id == widget.selectedId;
           final isFronting = widget.frontingMemberIds.contains(member.id);
           final isDisabled = widget.coFrontMode && isFronting;
@@ -665,19 +646,70 @@ class _MemberGridState extends State<_MemberGrid> {
             onTap: isDisabled ? null : () => widget.onSelect(member.id),
           );
         }),
-
-        if (filtered.isEmpty && _search.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              context.l10n.frontingNoMembersMatching(widget.pluralTerm, _search),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
       ],
     );
+  }
+
+  // A small avatar-like widget for the "Unknown" row in the compact list and
+  // as the leading widget passed into the shared search sheet's special row.
+  Widget _unknownLeading(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        shape: PrismShapes.of(context).avatarShape(),
+        borderRadius: PrismShapes.of(context).avatarBorderRadius(),
+        color: theme.colorScheme.surfaceContainerHighest,
+      ),
+      child: Icon(
+        AppIcons.questionMarkRounded,
+        size: 20,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+
+  /// Opens [MemberSearchSheet] in single-select mode.
+  ///
+  /// In co-front mode, already-fronting members are excluded (they are
+  /// disabled in the inline list for the same reason).  The "Unknown" special
+  /// row is only shown in normal session-creation mode.
+  Future<void> _openSearch(BuildContext context) async {
+    final candidates = widget.coFrontMode
+        ? widget.members
+            .where((m) => !widget.frontingMemberIds.contains(m.id))
+            .toList()
+        : List<Member>.from(widget.members);
+
+    final specialRows = widget.coFrontMode
+        ? <MemberSearchSpecialRow>[]
+        : [
+            MemberSearchSpecialRow(
+              rowKey: '__unknown__',
+              title: 'Unknown',
+              leading: _unknownLeading(context),
+              result: const MemberSearchResultUnknown(),
+            ),
+          ];
+
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: candidates,
+      termPlural: widget.pluralTerm,
+      specialRows: specialRows,
+    );
+
+    if (!mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        widget.onSelect(memberId);
+      case MemberSearchResultUnknown():
+        widget.onSelect(widget.unknownId);
+      case MemberSearchResultDismissed():
+      case MemberSearchResultCleared():
+        break;
+    }
   }
 
   Widget _listRow({
