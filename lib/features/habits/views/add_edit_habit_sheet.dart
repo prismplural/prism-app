@@ -18,6 +18,7 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
@@ -108,7 +109,9 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
       child: Column(
         children: [
           PrismSheetTopBar(
-            title: _isEditing ? context.l10n.habitsEditHabit : context.l10n.habitsNewHabit,
+            title: _isEditing
+                ? context.l10n.habitsEditHabit
+                : context.l10n.habitsNewHabit,
             trailing: PrismGlassIconButton(
               icon: AppIcons.check,
               size: PrismTokens.topBarActionSize,
@@ -133,29 +136,25 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
                   padding: const EdgeInsets.only(top: 8, bottom: 8),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    PrismEmojiPicker(
-                      emoji: _iconController.text.trim().isNotEmpty
-                          ? _iconController.text.trim()
-                          : null,
-                      onSelected: (emoji) {
-                        setState(() {
-                          _iconController.text = emoji;
-                        });
-                      },
-                      size: 48,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: PrismTextField(
-                        controller: _nameController,
-                        labelText: context.l10n.habitsFieldName,
-                        hintText: context.l10n.habitsFieldNameHint,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                    ),
-                  ],
+                PrismPickerTextFieldRow(
+                  pickerLabel: context.l10n.onboardingAddMemberFieldEmoji,
+                  picker: PrismEmojiPicker(
+                    emoji: _iconController.text.trim().isNotEmpty
+                        ? _iconController.text.trim()
+                        : null,
+                    onSelected: (emoji) {
+                      setState(() {
+                        _iconController.text = emoji;
+                      });
+                    },
+                    size: 48,
+                  ),
+                  field: PrismTextField(
+                    controller: _nameController,
+                    labelText: context.l10n.habitsFieldName,
+                    hintText: context.l10n.habitsFieldNameHint,
+                    onChanged: (_) => setState(() {}),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 PrismTextField(
@@ -412,8 +411,14 @@ class _AddEditHabitSheetState extends ConsumerState<AddEditHabitSheet> {
     if (mounted) {
       // Show toast when reminders are first enabled or the time changes.
       if (_notificationsEnabled &&
-          (!_wasNotificationsEnabled || _reminderTime != _initialReminderTime)) {
-        PrismToast.success(context, message: context.l10n.habitsReminderSetFor(_formatReminderTime(context)));
+          (!_wasNotificationsEnabled ||
+              _reminderTime != _initialReminderTime)) {
+        PrismToast.success(
+          context,
+          message: context.l10n.habitsReminderSetFor(
+            _formatReminderTime(context),
+          ),
+        );
       }
       context.pop();
     }
@@ -444,7 +449,10 @@ class _ColorPicker extends StatelessWidget {
       children: _colors.map((hex) {
         final isSelected = selectedHex == hex;
         return Semantics(
-          label: context.l10n.habitsColorSemantics(hex, isSelected ? context.l10n.habitsColorSelected : ''),
+          label: context.l10n.habitsColorSemantics(
+            hex,
+            isSelected ? context.l10n.habitsColorSelected : '',
+          ),
           button: true,
           child: GestureDetector(
             onTap: () => onChanged(isSelected ? null : hex),

@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
@@ -254,7 +255,6 @@ class _CreateConversationSheetState
                     onPressed: _canCreate ? _createConversation : null,
                   ),
           ),
-          const SizedBox(height: 8),
 
           // Scrollable body using CustomScrollView so the member list is a
           // truly lazy SliverList.builder (no eager Column).
@@ -262,6 +262,7 @@ class _CreateConversationSheetState
             child: CustomScrollView(
               controller: widget.scrollController,
               slivers: [
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
                 // ── DM / Group toggle ────────────────────────────────────
                 SliverToBoxAdapter(
                   child: Padding(
@@ -293,29 +294,25 @@ class _CreateConversationSheetState
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          PrismEmojiPicker(
-                            emoji: _emojiController.text.trim().isNotEmpty
-                                ? _emojiController.text.trim()
-                                : null,
-                            onSelected: (emoji) {
-                              setState(() {
-                                _emojiController.text = emoji;
-                              });
-                            },
-                            size: 48,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: PrismTextField(
-                              controller: _titleController,
-                              labelText: context.l10n.chatCreateGroupName,
-                              hintText: context.l10n.chatCreateGroupNameHint,
-                              onChanged: (_) => setState(() {}),
-                            ),
-                          ),
-                        ],
+                      child: PrismPickerTextFieldRow(
+                        pickerLabel: context.l10n.onboardingAddMemberFieldEmoji,
+                        picker: PrismEmojiPicker(
+                          emoji: _emojiController.text.trim().isNotEmpty
+                              ? _emojiController.text.trim()
+                              : null,
+                          onSelected: (emoji) {
+                            setState(() {
+                              _emojiController.text = emoji;
+                            });
+                          },
+                          size: 48,
+                        ),
+                        field: PrismTextField(
+                          controller: _titleController,
+                          labelText: context.l10n.chatCreateGroupName,
+                          hintText: context.l10n.chatCreateGroupNameHint,
+                          onChanged: (_) => setState(() {}),
+                        ),
                       ),
                     ),
                   ),

@@ -14,6 +14,7 @@ import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_pill.dart';
+import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_section.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_grouped_section_card.dart';
@@ -390,21 +391,18 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               PrismChip(
                 label: 'Selected',
                 selected: _chip1Selected,
-                onTap: () =>
-                    setState(() => _chip1Selected = !_chip1Selected),
+                onTap: () => setState(() => _chip1Selected = !_chip1Selected),
               ),
               PrismChip(
                 label: 'Unselected',
                 selected: _chip2Selected,
-                onTap: () =>
-                    setState(() => _chip2Selected = !_chip2Selected),
+                onTap: () => setState(() => _chip2Selected = !_chip2Selected),
               ),
               PrismChip(
                 label: 'With avatar',
                 selected: _chip3Selected,
                 avatar: const Text('🌸'),
-                onTap: () =>
-                    setState(() => _chip3Selected = !_chip3Selected),
+                onTap: () => setState(() => _chip3Selected = !_chip3Selected),
               ),
               PrismChip(
                 label: 'Custom color',
@@ -431,10 +429,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 tone: PrismPillTone.destructive,
                 icon: AppIcons.warningAmber,
               ),
-              const PrismPill(
-                label: 'Custom',
-                color: Colors.teal,
-              ),
+              const PrismPill(label: 'Custom', color: Colors.teal),
             ],
           ),
 
@@ -484,9 +479,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           const PrismSection(
             title: 'PrismSection',
             description: 'With a description underneath the title',
-            child: PrismSurface(
-              child: Text('Section content goes here'),
-            ),
+            child: PrismSurface(child: Text('Section content goes here')),
           ),
 
           const SizedBox(height: 16),
@@ -569,7 +562,10 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 PrismSettingsRow(
                   icon: AppIcons.lock,
                   title: 'With trailing',
-                  trailing: const PrismPill(label: 'Pro', tone: PrismPillTone.accent),
+                  trailing: const PrismPill(
+                    label: 'Pro',
+                    tone: PrismPillTone.accent,
+                  ),
                   onTap: () {},
                 ),
               ],
@@ -584,15 +580,16 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
           const _SectionHeader('Pickers'),
           const SizedBox(height: 8),
 
-          Row(
-            children: [
-              Text('Emoji:', style: theme.textTheme.bodyMedium),
-              const SizedBox(width: 12),
-              PrismEmojiPicker(
-                emoji: _emoji.isEmpty ? null : _emoji,
-                onSelected: (e) => setState(() => _emoji = e),
-              ),
-            ],
+          PrismPickerTextFieldRow(
+            pickerLabel: 'Emoji',
+            picker: PrismEmojiPicker(
+              emoji: _emoji.isEmpty ? null : _emoji,
+              onSelected: (e) => setState(() => _emoji = e),
+            ),
+            field: const PrismTextField(
+              initialValue: 'Group chat',
+              labelText: 'Name',
+            ),
           ),
           const SizedBox(height: 12),
 
@@ -649,19 +646,24 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 onPressed: () => PrismDialog.show(
                   context: context,
                   title: 'Dialog Title',
-                  message: 'This is the dialog message body. '
+                  message:
+                      'This is the dialog message body. '
                       'It can be multiple lines.',
                   actions: [
-                    Builder(builder: (dialogCtx) => PrismButton(
-                      label: 'Cancel',
-                      tone: PrismButtonTone.subtle,
-                      onPressed: () => Navigator.pop(dialogCtx),
-                    )),
-                    Builder(builder: (dialogCtx) => PrismButton(
-                      label: 'Confirm',
-                      tone: PrismButtonTone.filled,
-                      onPressed: () => Navigator.pop(dialogCtx),
-                    )),
+                    Builder(
+                      builder: (dialogCtx) => PrismButton(
+                        label: 'Cancel',
+                        tone: PrismButtonTone.subtle,
+                        onPressed: () => Navigator.pop(dialogCtx),
+                      ),
+                    ),
+                    Builder(
+                      builder: (dialogCtx) => PrismButton(
+                        label: 'Confirm',
+                        tone: PrismButtonTone.filled,
+                        onPressed: () => Navigator.pop(dialogCtx),
+                      ),
+                    ),
                   ],
                   builder: (_) => const SizedBox.shrink(),
                 ),
@@ -699,7 +701,8 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
             icon: AppIcons.infoOutline,
             iconColor: theme.colorScheme.primary,
             title: 'Info Banner',
-            message: 'This is an informational banner with an optional '
+            message:
+                'This is an informational banner with an optional '
                 'action button.',
             buttonText: 'Action',
             onButtonPressed: () {},
