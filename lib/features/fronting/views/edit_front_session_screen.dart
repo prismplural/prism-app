@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -17,10 +18,11 @@ import 'package:prism_plurality/features/fronting/ui/overlap_resolution_dialog.d
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
-import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
@@ -75,6 +77,58 @@ class _EditFrontSessionScreenState
   }
 
   // Date/time editing is handled inline by PrismDateTimePills.
+
+  /// Opens [MemberSearchSheet] in single-select mode for the fronter.
+  ///
+  /// Includes an "Unknown" special row so the user can clear the fronter.
+  Future<void> _openFronterPicker(
+    List<Member> members,
+    String termPlural,
+  ) async {
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: termPlural,
+      specialRows: [
+        MemberSearchSpecialRow(
+          rowKey: '__unknown__',
+          title: context.l10n.unknown,
+          leading: Icon(AppIcons.helpOutline),
+          result: const MemberSearchResultUnknown(),
+        ),
+      ],
+    );
+    if (!mounted) return;
+    switch (result) {
+      case MemberSearchResultSelected(:final memberId):
+        setState(() => _memberId = memberId);
+      case MemberSearchResultUnknown():
+        setState(() => _memberId = null);
+      case MemberSearchResultDismissed():
+      case MemberSearchResultCleared():
+        break;
+    }
+  }
+
+  /// Opens [MemberSearchSheet] in multi-select mode for co-fronters.
+  ///
+  /// Pre-seeds the selection with the current [_coFronterIds] so existing
+  /// values are preserved when the user opens the sheet.
+  Future<void> _openCoFronterPicker(
+    List<Member> members,
+    String termPlural,
+  ) async {
+    final available =
+        members.where((m) => m.id != _memberId).toList();
+    final result = await MemberSearchSheet.showMulti(
+      context,
+      members: available,
+      termPlural: termPlural,
+      initialSelected: Set.from(_coFronterIds),
+    );
+    if (!mounted || result == null) return;
+    setState(() => _coFronterIds = List.from(result));
+  }
 
   Future<void> _save() async {
     final editGuard = ref.read(frontingEditGuardProvider);
@@ -255,6 +309,7 @@ class _EditFrontSessionScreenState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final termPlural = watchTerminology(context, ref).plural;
     final sessionAsync = ref.watch(sessionByIdProvider(widget.sessionId));
     final membersAsync = ref.watch(activeMembersProvider);
 
@@ -345,11 +400,15 @@ class _EditFrontSessionScreenState
               membersAsync.when(
                 loading: () => const PrismLoadingState(),
                 error: (_, _) => Text(context.l10n.error),
-                data: (members) => _MemberSelector(
-                  members: members,
-                  selectedId: _memberId,
-                  onSelect: (id) => setState(() => _memberId = id),
-                ),
+                data: (members) {
+                  final selected =
+                      members.firstWhereOrNull((m) => m.id == _memberId);
+                  return _FronterPickerRow(
+                    selectedMember: selected,
+                    onPickerOpen: () =>
+                        _openFronterPicker(members, termPlural),
+                  );
+                },
               ),
               const SizedBox(height: 24),
 
@@ -365,35 +424,16 @@ class _EditFrontSessionScreenState
                 loading: () => const SizedBox.shrink(),
                 error: (_, _) => const SizedBox.shrink(),
                 data: (members) {
-                  final available = members
-                      .where((m) => m.id != _memberId)
+                  final available =
+                      members.where((m) => m.id != _memberId).toList();
+                  final selectedCoFronters = members
+                      .where((m) => _coFronterIds.contains(m.id))
                       .toList();
-                  return Column(
-                    children: available.map((m) {
-                      return PrismCheckboxRow(
-                        leading: MemberAvatar(
-                          avatarImageData: m.avatarImageData,
-                          memberName: m.name,
-                          emoji: m.emoji,
-                          customColorEnabled: m.customColorEnabled,
-                          customColorHex: m.customColorHex,
-                          size: 36,
-                        ),
-                        title: Text(m.name),
-                        value: _coFronterIds.contains(m.id),
-                        onChanged: (selected) {
-                          setState(() {
-                            if (selected) {
-                              _coFronterIds.add(m.id);
-                            } else {
-                              _coFronterIds.remove(m.id);
-                            }
-                          });
-                        },
-                        padding: EdgeInsets.zero,
-                        dense: true,
-                      );
-                    }).toList(),
+                  return _CoFronterPickerSection(
+                    hasAvailable: available.isNotEmpty,
+                    selectedCoFronters: selectedCoFronters,
+                    onPickerOpen: () =>
+                        _openCoFronterPicker(members, termPlural),
                   );
                 },
               ),
@@ -431,37 +471,116 @@ class _EditFrontSessionScreenState
   }
 }
 
-class _MemberSelector extends StatelessWidget {
-  const _MemberSelector({
-    required this.members,
-    required this.selectedId,
-    required this.onSelect,
+/// Displays the currently selected fronter (or "Unknown") and provides a
+/// search icon to open the [MemberSearchSheet] for single-select.
+class _FronterPickerRow extends StatelessWidget {
+  const _FronterPickerRow({
+    required this.selectedMember,
+    required this.onPickerOpen,
   });
 
-  final List<Member> members;
-  final String? selectedId;
-  final ValueChanged<String?> onSelect;
+  final Member? selectedMember;
+  final VoidCallback onPickerOpen;
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    final theme = Theme.of(context);
+    final member = selectedMember;
+    return InkWell(
+      onTap: onPickerOpen,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            if (member != null) ...[
+              MemberAvatar(
+                memberName: member.name,
+                emoji: member.emoji,
+                avatarImageData: member.avatarImageData,
+                customColorEnabled: member.customColorEnabled,
+                customColorHex: member.customColorHex,
+                size: 36,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(member.name, style: theme.textTheme.bodyLarge),
+              ),
+            ] else ...[
+              Icon(
+                AppIcons.helpOutline,
+                size: 36,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  context.l10n.unknown,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+            IconButton(
+              icon: Icon(AppIcons.search),
+              tooltip: context.l10n.search,
+              onPressed: onPickerOpen,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Displays the selected co-fronter chips and provides a search icon to open
+/// the [MemberSearchSheet] for multi-select.
+class _CoFronterPickerSection extends StatelessWidget {
+  const _CoFronterPickerSection({
+    required this.hasAvailable,
+    required this.selectedCoFronters,
+    required this.onPickerOpen,
+  });
+
+  final bool hasAvailable;
+  final List<Member> selectedCoFronters;
+  final VoidCallback onPickerOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        PrismChip(
-          label: context.l10n.unknown,
-          selected: selectedId == null,
-          onTap: () => onSelect(null),
-          avatar: Icon(AppIcons.helpOutline, size: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (hasAvailable)
+              IconButton(
+                icon: Icon(AppIcons.search),
+                tooltip: context.l10n.search,
+                onPressed: onPickerOpen,
+              ),
+          ],
         ),
-        ...members.map(
-          (m) => PrismChip(
-            label: m.name,
-            selected: m.id == selectedId,
-            onTap: () => onSelect(m.id),
-            avatar: Text(m.emoji, style: const TextStyle(fontSize: 15)),
+        if (selectedCoFronters.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: selectedCoFronters
+                .map(
+                  (m) => PrismChip(
+                    label: m.name,
+                    selected: true,
+                    onTap: onPickerOpen,
+                    avatar:
+                        Text(m.emoji, style: const TextStyle(fontSize: 15)),
+                  ),
+                )
+                .toList(),
           ),
-        ),
+        ],
       ],
     );
   }
