@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
+import 'package:prism_plurality/shared/utils/member_filter.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 
 /// Search delegate for finding system members by name or pronouns.
@@ -48,16 +49,7 @@ class MemberSearchDelegate extends SearchDelegate<String?> {
     );
   }
 
-  List<Member> _filteredMembers() {
-    if (query.isEmpty) return members;
-    final lowerQuery = query.toLowerCase();
-    return members.where((m) {
-      final nameMatch = m.name.toLowerCase().contains(lowerQuery);
-      final pronounsMatch =
-          m.pronouns?.toLowerCase().contains(lowerQuery) ?? false;
-      return nameMatch || pronounsMatch;
-    }).toList();
-  }
+  List<Member> _filteredMembers() => filterMembers(members, query);
 
   @override
   Widget buildResults(BuildContext context) => _buildList(context);
