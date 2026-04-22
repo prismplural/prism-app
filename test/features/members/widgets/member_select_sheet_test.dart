@@ -10,7 +10,9 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/widgets/member_select_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
@@ -375,6 +377,118 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('None'));
+      await tester.pumpAndSettle();
+
+      expect(result, '');
+    });
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Search action
+  // ══════════════════════════════════════════════════════════════════════════
+
+  group('search action', () {
+    final members = [
+      _member(id: 'a', name: 'Alice', pronouns: 'she/her'),
+      _member(id: 'b', name: 'Bob'),
+    ];
+
+    // Scaffold that opens MemberSelectSheet via show() so the navigator stack
+    // is set up for a second sheet to open on top.
+    Widget buildSheetScaffold(
+      List<Member> sheetMembers, {
+      void Function(String?)? onResult,
+    }) {
+      return ProviderScope(
+        overrides: [
+          activeMembersProvider.overrideWith((ref) => Stream.value(sheetMembers)),
+          systemSettingsProvider.overrideWithValue(
+            const AsyncValue.data(SystemSettings()),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: const [Locale('en')],
+          home: Builder(
+            builder: (ctx) => ElevatedButton(
+              onPressed: () async {
+                final result = await MemberSelectSheet.show(ctx);
+                onResult?.call(result);
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('search action appears when members are available',
+        (tester) async {
+      await tester.pumpWidget(
+        _buildTestWidget(membersValue: AsyncData(members)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(AppIcons.search), findsOneWidget);
+    });
+
+    testWidgets('search action is not shown when member list is empty',
+        (tester) async {
+      await tester.pumpWidget(
+        _buildTestWidget(membersValue: const AsyncData([])),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(AppIcons.search), findsNothing);
+    });
+
+    testWidgets('tapping search action opens MemberSearchSheet', (tester) async {
+      await tester.pumpWidget(buildSheetScaffold(members));
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.search));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MemberSearchSheet), findsOneWidget);
+    });
+
+    testWidgets(
+        'selecting a member via search returns member id through show() contract',
+        (tester) async {
+      String? result;
+      await tester.pumpWidget(
+        buildSheetScaffold(members, onResult: (r) => result = r),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.search));
+      await tester.pumpAndSettle();
+
+      // Use .last to prefer the row inside MemberSearchSheet over the one in
+      // the underlying MemberSelectSheet.
+      await tester.tap(find.widgetWithText(PrismListRow, 'Alice').last);
+      await tester.pumpAndSettle();
+
+      expect(result, 'a');
+    });
+
+    testWidgets(
+        'selecting None via search returns empty string through show() contract',
+        (tester) async {
+      String? result;
+      await tester.pumpWidget(
+        buildSheetScaffold(members, onResult: (r) => result = r),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AppIcons.search));
+      await tester.pumpAndSettle();
+
+      // Tap the None special row inside MemberSearchSheet.
+      await tester.tap(find.text('None').last);
       await tester.pumpAndSettle();
 
       expect(result, '');

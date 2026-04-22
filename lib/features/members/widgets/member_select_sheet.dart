@@ -5,6 +5,7 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/empty_state.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -72,50 +73,92 @@ class MemberSelectSheet extends ConsumerWidget {
           );
         }
 
-        // "None" row + one row per member — no shrinkWrap; height is bounded
-        // by the explicit body height in show().
-        return PrismSectionCard(
-          padding: EdgeInsets.zero,
-          child: ListView.builder(
-            itemCount: members.length + 1,
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                final noneSelected =
-                    currentMemberId == null || currentMemberId!.isEmpty;
-                return PrismListRow(
-                  selected: noneSelected,
-                  leading: SizedBox(
-                    width: 36,
-                    height: 36,
-                    child: Icon(AppIcons.removeCircleOutline),
-                  ),
-                  title: Text(l10n.memberSelectNone),
-                  trailing: noneSelected ? Icon(AppIcons.check) : null,
-                  onTap: () => Navigator.of(context).pop(''),
-                );
-              }
+        return Column(
+          children: [
+            // Search action in top-right corner — opens the shared search sheet.
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                icon: Icon(AppIcons.search),
+                tooltip: l10n.search,
+                onPressed: () async {
+                  final result = await MemberSearchSheet.showSingle(
+                    context,
+                    members: members,
+                    termPlural: terminology.plural,
+                    specialRows: [
+                      MemberSearchSpecialRow(
+                        rowKey: 'none',
+                        title: l10n.memberSelectNone,
+                        leading: Icon(AppIcons.removeCircleOutline),
+                        result: const MemberSearchResultCleared(),
+                      ),
+                    ],
+                  );
 
-              final member = members[index - 1];
-              final isSelected = member.id == currentMemberId;
+                  if (!context.mounted) return;
+                  switch (result) {
+                    case MemberSearchResultSelected(:final memberId):
+                      Navigator.of(context).pop(memberId);
+                    case MemberSearchResultCleared():
+                      Navigator.of(context).pop('');
+                    case MemberSearchResultDismissed():
+                    case MemberSearchResultUnknown():
+                      // User cancelled — remain in MemberSelectSheet.
+                      break;
+                  }
+                },
+              ),
+            ),
 
-              return PrismListRow(
-                selected: isSelected,
-                leading: MemberAvatar(
-                  avatarImageData: member.avatarImageData,
-                  memberName: member.name,
-                  emoji: member.emoji,
-                  customColorEnabled: member.customColorEnabled,
-                  customColorHex: member.customColorHex,
-                  size: 36,
+            // "None" row + one row per member — no shrinkWrap; height is bounded
+            // by the explicit body height in show().
+            Expanded(
+              child: PrismSectionCard(
+                padding: EdgeInsets.zero,
+                child: ListView.builder(
+                  itemCount: members.length + 1,
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      final noneSelected =
+                          currentMemberId == null || currentMemberId!.isEmpty;
+                      return PrismListRow(
+                        selected: noneSelected,
+                        leading: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: Icon(AppIcons.removeCircleOutline),
+                        ),
+                        title: Text(l10n.memberSelectNone),
+                        trailing: noneSelected ? Icon(AppIcons.check) : null,
+                        onTap: () => Navigator.of(context).pop(''),
+                      );
+                    }
+
+                    final member = members[index - 1];
+                    final isSelected = member.id == currentMemberId;
+
+                    return PrismListRow(
+                      selected: isSelected,
+                      leading: MemberAvatar(
+                        avatarImageData: member.avatarImageData,
+                        memberName: member.name,
+                        emoji: member.emoji,
+                        customColorEnabled: member.customColorEnabled,
+                        customColorHex: member.customColorHex,
+                        size: 36,
+                      ),
+                      title: Text(member.name),
+                      subtitle:
+                          member.pronouns != null ? Text(member.pronouns!) : null,
+                      trailing: isSelected ? Icon(AppIcons.check) : null,
+                      onTap: () => Navigator.of(context).pop(member.id),
+                    );
+                  },
                 ),
-                title: Text(member.name),
-                subtitle:
-                    member.pronouns != null ? Text(member.pronouns!) : null,
-                trailing: isSelected ? Icon(AppIcons.check) : null,
-                onTap: () => Navigator.of(context).pop(member.id),
-              );
-            },
-          ),
+              ),
+            ),
+          ],
         );
       },
     );
