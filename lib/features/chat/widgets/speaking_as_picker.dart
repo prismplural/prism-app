@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
+import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 
+/// Systems with more members than this threshold use the search sheet instead
+/// of the chip row, keeping the picker fast for large systems.
+const int _kSpeakingAsPickerSearchThreshold = 15;
+
 /// Horizontal scrollable row of member avatars for selecting who is "speaking."
+///
+/// For systems with fewer than [_kSpeakingAsPickerSearchThreshold] members the
+/// existing chip row is shown. For larger systems a compact trigger row launches
+/// the shared [MemberSearchSheet] so the user can search by name.
 class SpeakingAsPicker extends ConsumerWidget {
   const SpeakingAsPicker({super.key});
 
@@ -18,6 +30,7 @@ class SpeakingAsPicker extends ConsumerWidget {
     final theme = Theme.of(context);
     final membersAsync = ref.watch(activeMembersProvider);
     final speakingAs = ref.watch(speakingAsProvider);
+    final termPlural = watchTerminology(context, ref).plural;
 
     return membersAsync.when(
       data: (members) {
@@ -36,13 +49,24 @@ class SpeakingAsPicker extends ConsumerWidget {
           );
         }
 
-        // Auto-select first member if none selected
+        // Auto-select first member if none selected (both paths).
         if (speakingAs == null && members.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             ref
                 .read(speakingAsProvider.notifier)
                 .setMember(members.first.id);
           });
+        }
+
+        if (members.length >= _kSpeakingAsPickerSearchThreshold) {
+          return _buildSearchTrigger(
+            context,
+            ref,
+            theme,
+            members,
+            speakingAs,
+            termPlural,
+          );
         }
 
         return SizedBox(
@@ -95,6 +119,77 @@ class SpeakingAsPicker extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildSearchTrigger(
+    BuildContext context,
+    WidgetRef ref,
+    ThemeData theme,
+    List<Member> members,
+    String? speakingAs,
+    String termPlural,
+  ) {
+    final displayMember = speakingAs != null
+        ? members.firstWhere(
+            (m) => m.id == speakingAs,
+            orElse: () => members.first,
+          )
+        : members.first;
+
+    return SizedBox(
+      height: 48,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: InkWell(
+          key: const Key('speakingAsSearchTrigger'),
+          borderRadius: BorderRadius.circular(24),
+          onTap: () => _openSearchSheet(context, ref, members, termPlural),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                MemberAvatar(
+                  memberName: displayMember.name,
+                  emoji: displayMember.emoji,
+                  avatarImageData: displayMember.avatarImageData,
+                  customColorEnabled: displayMember.customColorEnabled,
+                  customColorHex: displayMember.customColorHex,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  displayMember.name,
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const Spacer(),
+                Icon(
+                  AppIcons.expandMore,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSearchSheet(
+    BuildContext context,
+    WidgetRef ref,
+    List<Member> members,
+    String termPlural,
+  ) async {
+    final result = await MemberSearchSheet.showSingle(
+      context,
+      members: members,
+      termPlural: termPlural,
+    );
+    if (!context.mounted) return;
+    if (result is MemberSearchResultSelected) {
+      ref.read(speakingAsProvider.notifier).setMember(result.memberId);
+    }
   }
 }
 
