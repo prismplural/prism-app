@@ -41,6 +41,9 @@ dependencies:
   # QR code scanning
   mobile_scanner: ^7.0.0
 
+  # Unicode normalization (NFKC) for search key building
+  unorm_dart: ^0.3.2
+
   # Utils
   uuid: ^4.5.3
   intl: ^0.20.2
