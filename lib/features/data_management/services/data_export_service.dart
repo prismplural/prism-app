@@ -160,24 +160,28 @@ class DataExportService {
 
     // Fetch media attachments
     final allMediaAttachments = await mediaAttachmentsDao.getAll();
-    final v1MediaAttachments = allMediaAttachments.map((a) => V1MediaAttachment(
-      id: a.id,
-      messageId: a.messageId,
-      mediaId: a.mediaId,
-      mediaType: a.mediaType,
-      encryptionKeyB64: a.encryptionKeyB64,
-      contentHash: a.contentHash,
-      plaintextHash: a.plaintextHash,
-      mimeType: a.mimeType,
-      sizeBytes: a.sizeBytes,
-      width: a.width,
-      height: a.height,
-      durationMs: a.durationMs,
-      blurhash: a.blurhash,
-      waveformB64: a.waveformB64,
-      thumbnailMediaId: a.thumbnailMediaId,
-      isDeleted: a.isDeleted,
-    )).toList();
+    final v1MediaAttachments = allMediaAttachments
+        .map(
+          (a) => V1MediaAttachment(
+            id: a.id,
+            messageId: a.messageId,
+            mediaId: a.mediaId,
+            mediaType: a.mediaType,
+            encryptionKeyB64: a.encryptionKeyB64,
+            contentHash: a.contentHash,
+            plaintextHash: a.plaintextHash,
+            mimeType: a.mimeType,
+            sizeBytes: a.sizeBytes,
+            width: a.width,
+            height: a.height,
+            durationMs: a.durationMs,
+            blurhash: a.blurhash,
+            waveformB64: a.waveformB64,
+            thumbnailMediaId: a.thumbnailMediaId,
+            isDeleted: a.isDeleted,
+          ),
+        )
+        .toList();
 
     // Fetch PluralKit sync state
     final pkState = await pluralKitSyncDao.getSyncState();
@@ -338,7 +342,13 @@ class DataExportService {
     lastActivityAt: c.lastActivityAt.toUtc().toIso8601String(),
     title: c.title,
     emoji: c.emoji,
-    isDirectMessage: c.isDirectMessage,
+    isDirectMessage: isV1ConversationDirectMessage(
+      isDirectMessage: c.isDirectMessage,
+      title: c.title,
+      emoji: c.emoji,
+      categoryId: c.categoryId,
+      participantIds: c.participantIds,
+    ),
     creatorId: c.creatorId,
     participantIds: c.participantIds,
     lastReadTimestamps: c.lastReadTimestamps.map(

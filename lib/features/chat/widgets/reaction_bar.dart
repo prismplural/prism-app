@@ -20,10 +20,12 @@ class ReactionBar extends ConsumerWidget {
     super.key,
     required this.messageId,
     required this.reactions,
+    this.canToggle = true,
   });
 
   final String messageId;
   final List<MessageReaction> reactions;
+  final bool canToggle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -45,65 +47,63 @@ class ReactionBar extends ConsumerWidget {
         final emoji = entry.key;
         final reactionList = entry.value;
         final count = reactionList.length;
-        final hasReacted = speakingAs != null &&
+        final hasReacted =
+            speakingAs != null &&
             reactionList.any((r) => r.memberId == speakingAs);
 
         return Semantics(
           button: true,
           label: context.l10n.chatReactionAdd(emoji),
           child: GestureDetector(
-          onTap: () {
-            if (speakingAs == null) return;
-            Haptics.light();
-            ref.read(chatNotifierProvider.notifier).toggleReaction(
-                  messageId: messageId,
-                  emoji: emoji,
-                  memberId: speakingAs,
-                );
-          },
-          onLongPress: () =>
-              _showReactors(context, ref, emoji, reactionList),
-          child: _ScalePulse(
-            // Re-trigger animation when reaction count changes
-            key: ValueKey('$emoji-$count'),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 2,
-              ),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
-                color: hasReacted
-                    ? theme.colorScheme.primaryContainer
-                    : theme.colorScheme.surfaceContainerHighest,
-                border: hasReacted
-                    ? Border.all(
-                        color: theme.colorScheme.primary,
-                        width: 1.5,
-                      )
-                    : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  MemberAvatar.centeredEmoji(emoji, fontSize: 14),
-                  if (count > 1) ...[
-                    const SizedBox(width: 3),
-                    Text(
-                      '$count',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: hasReacted
-                            ? theme.colorScheme.onPrimaryContainer
-                            : theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+            onTap: () {
+              if (!canToggle || speakingAs == null) return;
+              Haptics.light();
+              ref
+                  .read(chatNotifierProvider.notifier)
+                  .toggleReaction(
+                    messageId: messageId,
+                    emoji: emoji,
+                    memberId: speakingAs,
+                  );
+            },
+            onLongPress: () => _showReactors(context, ref, emoji, reactionList),
+            child: _ScalePulse(
+              // Re-trigger animation when reaction count changes
+              key: ValueKey('$emoji-$count'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(12),
+                  ),
+                  color: hasReacted
+                      ? theme.colorScheme.primaryContainer
+                      : theme.colorScheme.surfaceContainerHighest,
+                  border: hasReacted
+                      ? Border.all(color: theme.colorScheme.primary, width: 1.5)
+                      : null,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    MemberAvatar.centeredEmoji(emoji, fontSize: 14),
+                    if (count > 1) ...[
+                      const SizedBox(width: 3),
+                      Text(
+                        '$count',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: hasReacted
+                              ? theme.colorScheme.onPrimaryContainer
+                              : theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
-        ),
         );
       }).toList(),
     );
@@ -129,20 +129,18 @@ class ReactionBar extends ConsumerWidget {
             return membersAsync.when(
               data: (memberMap) => Column(
                 mainAxisSize: MainAxisSize.min,
-                children: reactionList
-                    .map((reaction) {
-                      final member = memberMap[reaction.memberId];
-                      return PrismListRow(
-                        dense: true,
-                        padding: EdgeInsets.zero,
-                        leading: MemberAvatar.centeredEmoji(
-                          member?.emoji ?? '?',
-                          fontSize: 24,
-                        ),
-                        title: Text(member?.name ?? context.l10n.unknown),
-                      );
-                    })
-                    .toList(),
+                children: reactionList.map((reaction) {
+                  final member = memberMap[reaction.memberId];
+                  return PrismListRow(
+                    dense: true,
+                    padding: EdgeInsets.zero,
+                    leading: MemberAvatar.centeredEmoji(
+                      member?.emoji ?? '?',
+                      fontSize: 24,
+                    ),
+                    title: Text(member?.name ?? context.l10n.unknown),
+                  );
+                }).toList(),
               ),
               loading: () => Center(
                 child: Padding(
@@ -184,9 +182,10 @@ class _ScalePulseState extends State<_ScalePulse>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _scale = Tween<double>(begin: 1.0, end: 1.15).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 1.15,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
     _controller.forward().then((_) {
       if (mounted) _controller.reverse();
     });
@@ -206,10 +205,7 @@ class _ScalePulseState extends State<_ScalePulse>
 
 /// Quick-reaction picker shown when long-pressing a message.
 class QuickReactionPicker extends StatelessWidget {
-  const QuickReactionPicker({
-    super.key,
-    required this.onReactionSelected,
-  });
+  const QuickReactionPicker({super.key, required this.onReactionSelected});
 
   final ValueChanged<String> onReactionSelected;
 
@@ -233,7 +229,9 @@ class QuickReactionPicker extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: AppConstants.quickReactions.map((emoji) {
           return InkWell(
-            borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
+            borderRadius: BorderRadius.circular(
+              PrismShapes.of(context).radius(20),
+            ),
             onTap: () => onReactionSelected(emoji),
             child: Padding(
               padding: const EdgeInsets.all(8),

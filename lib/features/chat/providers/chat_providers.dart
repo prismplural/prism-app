@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 import 'package:prism_plurality/features/chat/utils/mention_utils.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
@@ -15,10 +16,47 @@ import 'package:prism_plurality/features/members/providers/members_providers.dar
 import 'package:prism_plurality/features/members/providers/member_stats_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 
-/// All conversations ordered by last activity.
+Member? findCurrentChatViewer(List<Member>? members, String? speakingAs) {
+  if (members == null || speakingAs == null) return null;
+  for (final member in members) {
+    if (member.id == speakingAs) return member;
+  }
+  return null;
+}
+
+ConversationPermissions conversationPermissionsForViewer(
+  Conversation conversation, {
+  required String? speakingAsMemberId,
+  required Member? speakingAsMember,
+}) {
+  return ConversationPermissions(
+    conversation: conversation,
+    speakingAsMemberId: speakingAsMemberId,
+    speakingAsMember: speakingAsMember,
+  );
+}
+
+final currentChatViewerProvider = Provider<Member?>((ref) {
+  final speakingAs = ref.watch(speakingAsProvider);
+  final members = ref.watch(activeMembersProvider).value;
+  return findCurrentChatViewer(members, speakingAs);
+});
+
+/// All conversations visible to the current viewer, ordered by last activity.
 final conversationsProvider = StreamProvider<List<Conversation>>((ref) {
   final repo = ref.watch(conversationRepositoryProvider);
-  return repo.watchAllConversations();
+  final speakingAs = ref.watch(speakingAsProvider);
+  final speakingAsMember = ref.watch(currentChatViewerProvider);
+  return repo.watchAllConversations().map(
+    (conversations) => conversations.where((conversation) {
+      final permissions = conversationPermissionsForViewer(
+        conversation,
+        speakingAsMemberId: speakingAs,
+        speakingAsMember: speakingAsMember,
+      );
+      return permissions.canView;
+    }).toList(),
+  );
 });
 
 /// Whether to show archived conversations in the chat list.
@@ -28,8 +66,9 @@ class ShowArchivedNotifier extends Notifier<bool> {
   void toggle() => state = !state;
 }
 
-final showArchivedProvider =
-    NotifierProvider<ShowArchivedNotifier, bool>(ShowArchivedNotifier.new);
+final showArchivedProvider = NotifierProvider<ShowArchivedNotifier, bool>(
+  ShowArchivedNotifier.new,
+);
 
 /// Whether the current speaking-as member has any archived conversations.
 final hasArchivedConversationsProvider = Provider<bool>((ref) {
@@ -38,15 +77,18 @@ final hasArchivedConversationsProvider = Provider<bool>((ref) {
   return conversationsAsync.whenOrNull(
         data: (conversations) =>
             speakingAs != null &&
-            conversations.any((c) => c.archivedByMemberIds.contains(speakingAs)),
+            conversations.any(
+              (c) => c.archivedByMemberIds.contains(speakingAs),
+            ),
       ) ??
       false;
 });
 
 /// Conversations filtered by archive state for the current speaking-as member,
 /// sorted by last activity (newest first).
-final filteredConversationsProvider =
-    Provider<AsyncValue<List<Conversation>>>((ref) {
+final filteredConversationsProvider = Provider<AsyncValue<List<Conversation>>>((
+  ref,
+) {
   final conversationsAsync = ref.watch(conversationsProvider);
   final speakingAs = ref.watch(speakingAsProvider);
   final showArchived = ref.watch(showArchivedProvider);
@@ -55,10 +97,12 @@ final filteredConversationsProvider =
     final filtered = showArchived
         ? conversations
         : conversations
-            .where((c) =>
-                speakingAs == null ||
-                !c.archivedByMemberIds.contains(speakingAs))
-            .toList();
+              .where(
+                (c) =>
+                    speakingAs == null ||
+                    !c.archivedByMemberIds.contains(speakingAs),
+              )
+              .toList();
     // Sort by last activity descending (newest first).
     return filtered.toList()
       ..sort((a, b) => b.lastActivityAt.compareTo(a.lastActivityAt));
@@ -80,36 +124,46 @@ class MessageLimitNotifier extends Notifier<int> {
   void loadMore() => state = state + messagePageSize;
 }
 
-final messageLimitProvider =
-    NotifierProvider.autoDispose.family<MessageLimitNotifier, int, String>(
-  MessageLimitNotifier.new,
-);
+final messageLimitProvider = NotifierProvider.autoDispose
+    .family<MessageLimitNotifier, int, String>(MessageLimitNotifier.new);
 
 /// Messages for a conversation — paginated by [messageLimitProvider].
-final messagesProvider =
-    StreamProvider.autoDispose.family<List<ChatMessage>, String>((ref, conversationId) {
-  final limit = ref.watch(messageLimitProvider(conversationId));
-  final repo = ref.watch(chatMessageRepositoryProvider);
-  return repo.watchRecentMessages(conversationId, limit: limit);
-});
+final messagesProvider = StreamProvider.autoDispose
+    .family<List<ChatMessage>, String>((ref, conversationId) {
+      final limit = ref.watch(messageLimitProvider(conversationId));
+      final repo = ref.watch(chatMessageRepositoryProvider);
+      return repo.watchRecentMessages(conversationId, limit: limit);
+    });
 
 /// Latest message for a conversation (for tile preview).
-final lastMessageProvider =
-    StreamProvider.autoDispose.family<ChatMessage?, String>((ref, conversationId) {
-  final repo = ref.watch(chatMessageRepositoryProvider);
-  return repo.watchLatestMessage(conversationId);
-});
+final lastMessageProvider = StreamProvider.autoDispose
+    .family<ChatMessage?, String>((ref, conversationId) {
+      final repo = ref.watch(chatMessageRepositoryProvider);
+      return repo.watchLatestMessage(conversationId);
+    });
 
 /// Single conversation by ID.
-final conversationByIdProvider =
-    StreamProvider.autoDispose.family<Conversation?, String>((ref, id) {
-  final repo = ref.watch(conversationRepositoryProvider);
-  return repo.watchConversationById(id);
-});
+final conversationByIdProvider = StreamProvider.autoDispose
+    .family<Conversation?, String>((ref, id) {
+      final repo = ref.watch(conversationRepositoryProvider);
+      final speakingAs = ref.watch(speakingAsProvider);
+      final speakingAsMember = ref.watch(currentChatViewerProvider);
+      return repo.watchConversationById(id).map((conversation) {
+        if (conversation == null) return null;
+        final permissions = conversationPermissionsForViewer(
+          conversation,
+          speakingAsMemberId: speakingAs,
+          speakingAsMember: speakingAsMember,
+        );
+        return permissions.canView ? conversation : null;
+      });
+    });
 
 /// Currently selected "speaking as" member for chat.
 /// Defaults to the current fronter if not explicitly set.
-final speakingAsProvider = NotifierProvider<SpeakingAsNotifier, String?>(SpeakingAsNotifier.new);
+final speakingAsProvider = NotifierProvider<SpeakingAsNotifier, String?>(
+  SpeakingAsNotifier.new,
+);
 
 class SpeakingAsNotifier extends Notifier<String?> {
   String? _explicitSelection;
@@ -153,12 +207,51 @@ class ChatNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
+  Future<ConversationPermissions?> _conversationPermissions(
+    String conversationId, {
+    String? speakingAsMemberId,
+  }) async {
+    final conversation = await ref
+        .read(conversationRepositoryProvider)
+        .getConversationById(conversationId);
+    if (conversation == null) return null;
+
+    final effectiveMemberId =
+        speakingAsMemberId ?? ref.read(speakingAsProvider);
+    final speakingAsMember = effectiveMemberId == null
+        ? null
+        : await ref
+              .read(memberRepositoryProvider)
+              .getMemberById(effectiveMemberId);
+
+    return conversationPermissionsForViewer(
+      conversation,
+      speakingAsMemberId: effectiveMemberId,
+      speakingAsMember: speakingAsMember,
+    );
+  }
+
+  Future<void> _requireConversationAction(
+    String conversationId,
+    bool Function(ConversationPermissions permissions) allowed, {
+    String? speakingAsMemberId,
+  }) async {
+    final permissions = await _conversationPermissions(
+      conversationId,
+      speakingAsMemberId: speakingAsMemberId,
+    );
+    if (permissions == null || !allowed(permissions)) {
+      throw StateError('Read-only DM access cannot modify this conversation.');
+    }
+  }
+
   Future<Conversation> createGroupConversation({
     required String title,
     String? emoji,
     required String creatorId,
     required List<String> participantIds,
     String? categoryId,
+    bool isDirectMessage = false,
   }) async {
     final repo = ref.read(conversationRepositoryProvider);
     final conversation = Conversation(
@@ -167,6 +260,7 @@ class ChatNotifier extends AsyncNotifier<void> {
       lastActivityAt: DateTime.now(),
       title: title,
       emoji: emoji,
+      isDirectMessage: isDirectMessage,
       creatorId: creatorId,
       participantIds: participantIds,
       categoryId: categoryId,
@@ -189,6 +283,11 @@ class ChatNotifier extends AsyncNotifier<void> {
   }) async {
     final msgRepo = ref.read(chatMessageRepositoryProvider);
     final convRepo = ref.read(conversationRepositoryProvider);
+    await _requireConversationAction(
+      conversationId,
+      (permissions) => permissions.canSendMessages,
+      speakingAsMemberId: authorId,
+    );
 
     final id = messageId ?? _uuid.v4();
     final message = ChatMessage(
@@ -215,7 +314,9 @@ class ChatNotifier extends AsyncNotifier<void> {
       // Mark as read for the author. Without this, lastActivityAt > lastRead
       // until dispose() fires its async markConversationAsRead, causing the
       // conversation tile to flash as unread on swipe-back.
-      final updatedTimestamps = Map<String, DateTime>.from(conv.lastReadTimestamps);
+      final updatedTimestamps = Map<String, DateTime>.from(
+        conv.lastReadTimestamps,
+      );
       updatedTimestamps[authorId] = DateTime.now();
       await convRepo.setLastReadTimestamps(conversationId, updatedTimestamps);
     }
@@ -223,10 +324,7 @@ class ChatNotifier extends AsyncNotifier<void> {
     return id;
   }
 
-  Future<void> _sendSystemMessage(
-    String conversationId,
-    String content,
-  ) async {
+  Future<void> _sendSystemMessage(String conversationId, String content) async {
     final msgRepo = ref.read(chatMessageRepositoryProvider);
     final convRepo = ref.read(conversationRepositoryProvider);
     final message = ChatMessage(
@@ -309,6 +407,11 @@ class ChatNotifier extends AsyncNotifier<void> {
         final convRepo = ref.read(conversationRepositoryProvider);
         final conv = await convRepo.getConversationById(conversationId);
         if (conv == null) return;
+        await _requireConversationAction(
+          conversationId,
+          (permissions) => permissions.canArchive,
+          speakingAsMemberId: memberId,
+        );
 
         if (conv.archivedByMemberIds.contains(memberId)) return;
 
@@ -327,18 +430,21 @@ class ChatNotifier extends AsyncNotifier<void> {
         final convRepo = ref.read(conversationRepositoryProvider);
         final conv = await convRepo.getConversationById(conversationId);
         if (conv == null) return;
+        await _requireConversationAction(
+          conversationId,
+          (permissions) => permissions.canArchive,
+          speakingAsMemberId: memberId,
+        );
 
-        final updatedArchived =
-            conv.archivedByMemberIds.where((id) => id != memberId).toList();
+        final updatedArchived = conv.archivedByMemberIds
+            .where((id) => id != memberId)
+            .toList();
         await convRepo.setArchivedByMemberIds(conversationId, updatedArchived);
       });
     });
   }
 
-  Future<void> leaveConversation(
-    String conversationId,
-    String memberId,
-  ) async {
+  Future<void> leaveConversation(String conversationId, String memberId) async {
     state = await AsyncValue.guard(() async {
       final memberRepo = ref.read(memberRepositoryProvider);
       final member = await memberRepo.getMemberById(memberId);
@@ -358,6 +464,11 @@ class ChatNotifier extends AsyncNotifier<void> {
         final repo = ref.read(chatMessageRepositoryProvider);
         final message = await repo.getMessageById(messageId);
         if (message != null) {
+          await _requireConversationAction(
+            message.conversationId,
+            (permissions) => permissions.canEditMessage(message.authorId),
+            speakingAsMemberId: ref.read(speakingAsProvider),
+          );
           final updated = message.copyWith(
             content: newContent,
             editedAt: DateTime.now(),
@@ -376,6 +487,13 @@ class ChatNotifier extends AsyncNotifier<void> {
 
         // Look up the message before deleting so we know which conversation to fix.
         final message = await msgRepo.getMessageById(messageId);
+        if (message != null) {
+          await _requireConversationAction(
+            message.conversationId,
+            (permissions) => permissions.canDeleteMessage(message.authorId),
+            speakingAsMemberId: ref.read(speakingAsProvider),
+          );
+        }
         await msgRepo.deleteMessage(messageId);
 
         // After deletion, update the conversation's lastActivityAt to reflect the
@@ -383,10 +501,13 @@ class ChatNotifier extends AsyncNotifier<void> {
         // because the original sendMessage set lastActivityAt but deleting the
         // message never reverted it.
         if (message != null) {
-          final conv = await convRepo.getConversationById(message.conversationId);
+          final conv = await convRepo.getConversationById(
+            message.conversationId,
+          );
           if (conv != null) {
-            final latestMessage =
-                await msgRepo.getLatestMessage(message.conversationId);
+            final latestMessage = await msgRepo.getLatestMessage(
+              message.conversationId,
+            );
             final newActivityAt = latestMessage?.timestamp ?? conv.createdAt;
             if (newActivityAt != conv.lastActivityAt) {
               await convRepo.updateConversation(
@@ -410,6 +531,16 @@ class ChatNotifier extends AsyncNotifier<void> {
       final repo = ref.read(conversationRepositoryProvider);
       final conv = await repo.getConversationById(id);
       if (conv != null) {
+        final speakingAsMemberId = ref.read(speakingAsProvider);
+        final allowUpdate = clearCategory
+            ? (ConversationPermissions permissions) => permissions.canManage
+            : (ConversationPermissions permissions) =>
+                  permissions.canEditTitleEmoji || permissions.canManage;
+        await _requireConversationAction(
+          id,
+          allowUpdate,
+          speakingAsMemberId: speakingAsMemberId,
+        );
         final updated = conv.copyWith(
           title: title ?? conv.title,
           emoji: emoji,
@@ -430,7 +561,9 @@ class ChatNotifier extends AsyncNotifier<void> {
       final conv = await repo.getConversationById(conversationId);
       if (conv != null) {
         final existingIds = conv.participantIds.toSet();
-        final newIds = memberIds.where((id) => !existingIds.contains(id)).toList();
+        final newIds = memberIds
+            .where((id) => !existingIds.contains(id))
+            .toList();
         await repo.addParticipantIds(conversationId, newIds);
         for (final id in memberIds) {
           ref.invalidate(memberConversationsProvider(id));
@@ -453,6 +586,11 @@ class ChatNotifier extends AsyncNotifier<void> {
     state = await AsyncValue.guard(() async {
       final repo = ref.read(conversationRepositoryProvider);
       final conv = await repo.getConversationById(id);
+      await _requireConversationAction(
+        id,
+        (permissions) => permissions.canDeleteConversation,
+        speakingAsMemberId: ref.read(speakingAsProvider),
+      );
       await repo.deleteConversation(id);
       if (conv != null) {
         for (final pid in conv.participantIds) {
@@ -462,14 +600,24 @@ class ChatNotifier extends AsyncNotifier<void> {
     });
   }
 
-  Future<void> markConversationAsRead(String conversationId, String memberId) async {
+  Future<void> markConversationAsRead(
+    String conversationId,
+    String memberId,
+  ) async {
     state = await AsyncValue.guard(() async {
       await _mutationPool.withResource(() async {
         final repo = ref.read(conversationRepositoryProvider);
         final conv = await repo.getConversationById(conversationId);
         if (conv == null) return;
+        await _requireConversationAction(
+          conversationId,
+          (permissions) => permissions.canMarkRead,
+          speakingAsMemberId: memberId,
+        );
 
-        final updatedTimestamps = Map<String, DateTime>.from(conv.lastReadTimestamps);
+        final updatedTimestamps = Map<String, DateTime>.from(
+          conv.lastReadTimestamps,
+        );
         updatedTimestamps[memberId] = DateTime.now();
         await repo.setLastReadTimestamps(conversationId, updatedTimestamps);
       });
@@ -500,6 +648,11 @@ class ChatNotifier extends AsyncNotifier<void> {
         final repo = ref.read(conversationRepositoryProvider);
         final conv = await repo.getConversationById(conversationId);
         if (conv == null) return;
+        await _requireConversationAction(
+          conversationId,
+          (permissions) => permissions.canMute,
+          speakingAsMemberId: memberId,
+        );
 
         final muted = conv.mutedByMemberIds.contains(memberId);
         final updatedMuted = muted
@@ -520,6 +673,11 @@ class ChatNotifier extends AsyncNotifier<void> {
         final repo = ref.read(chatMessageRepositoryProvider);
         final message = await repo.getMessageById(messageId);
         if (message == null) return;
+        await _requireConversationAction(
+          message.conversationId,
+          (permissions) => permissions.canReact,
+          speakingAsMemberId: memberId,
+        );
 
         final existingIndex = message.reactions.indexWhere(
           (r) => r.emoji == emoji && r.memberId == memberId,
@@ -545,8 +703,9 @@ class ChatNotifier extends AsyncNotifier<void> {
   }
 }
 
-final chatNotifierProvider =
-    AsyncNotifierProvider<ChatNotifier, void>(ChatNotifier.new);
+final chatNotifierProvider = AsyncNotifierProvider<ChatNotifier, void>(
+  ChatNotifier.new,
+);
 
 class ReplyingToNotifier extends Notifier<ChatMessage?> {
   final String conversationId;
@@ -560,18 +719,15 @@ class ReplyingToNotifier extends Notifier<ChatMessage?> {
   void clear() => state = null;
 }
 
-final replyingToProvider =
-    NotifierProvider.autoDispose.family<ReplyingToNotifier, ChatMessage?, String>(
-  ReplyingToNotifier.new,
-);
+final replyingToProvider = NotifierProvider.autoDispose
+    .family<ReplyingToNotifier, ChatMessage?, String>(ReplyingToNotifier.new);
 
 /// Batch unread message counts for all conversations — single SQL stream.
 ///
 /// Returns a map of conversationId → unread count. Watched by all
 /// ConversationTiles via [unreadMessageCountProvider], so there's only
 /// one Drift stream subscription instead of one per visible tile.
-final allUnreadCountsProvider =
-    StreamProvider<Map<String, int>>((ref) {
+final allUnreadCountsProvider = StreamProvider<Map<String, int>>((ref) {
   final speakingAs = ref.watch(speakingAsProvider);
   if (speakingAs == null) return Stream.value({});
 
@@ -592,8 +748,10 @@ final allUnreadCountsProvider =
 });
 
 /// Unread message count for a single conversation (derived from batch).
-final unreadMessageCountProvider =
-    Provider.autoDispose.family<int, String>((ref, conversationId) {
+final unreadMessageCountProvider = Provider.autoDispose.family<int, String>((
+  ref,
+  conversationId,
+) {
   final allCounts = ref.watch(allUnreadCountsProvider).value;
   return allCounts?[conversationId] ?? 0;
 });
@@ -640,10 +798,12 @@ final unreadConversationCountProvider = Provider<int>((ref) {
   if (conversationSince.isEmpty) return 0;
 
   final mentionConvIds = ref
-      .watch(conversationsWithMentionsProvider((
-        conversationSince: conversationSince,
-        memberId: speakingAs,
-      )))
+      .watch(
+        conversationsWithMentionsProvider((
+          conversationSince: conversationSince,
+          memberId: speakingAs,
+        )),
+      )
       .value;
 
   return mentionConvIds?.length ?? 0;
@@ -651,37 +811,39 @@ final unreadConversationCountProvider = Provider<int>((ref) {
 
 /// Single batch stream that returns which conversations have mentions for a member.
 final conversationsWithMentionsProvider = StreamProvider.autoDispose
-    .family<Set<String>, ({Map<String, DateTime> conversationSince, String memberId})>(
-        (ref, params) {
-  final repo = ref.watch(chatMessageRepositoryProvider);
-  return repo.watchConversationsWithMentions(
-    params.conversationSince,
-    params.memberId,
-  );
-});
+    .family<
+      Set<String>,
+      ({Map<String, DateTime> conversationSince, String memberId})
+    >((ref, params) {
+      final repo = ref.watch(chatMessageRepositoryProvider);
+      return repo.watchConversationsWithMentions(
+        params.conversationSince,
+        params.memberId,
+      );
+    });
 
 /// Unread mention count for a specific conversation and member.
 final unreadMentionCountProvider = StreamProvider.autoDispose
     .family<int, ({String conversationId, String memberId})>((ref, params) {
-  final conversationsAsync = ref.watch(conversationsProvider);
-  final conversations = conversationsAsync.value;
-  if (conversations == null) return Stream.value(0);
+      final conversationsAsync = ref.watch(conversationsProvider);
+      final conversations = conversationsAsync.value;
+      if (conversations == null) return Stream.value(0);
 
-  final conv = conversations
-      .where((c) => c.id == params.conversationId)
-      .firstOrNull;
-  if (conv == null) return Stream.value(0);
+      final conv = conversations
+          .where((c) => c.id == params.conversationId)
+          .firstOrNull;
+      if (conv == null) return Stream.value(0);
 
-  final lastRead = conv.lastReadTimestamps[params.memberId];
-  final since = lastRead ?? conv.createdAt;
+      final lastRead = conv.lastReadTimestamps[params.memberId];
+      final since = lastRead ?? conv.createdAt;
 
-  final repo = ref.watch(chatMessageRepositoryProvider);
-  return repo.watchUnreadMentionCount(
-    params.conversationId,
-    since,
-    params.memberId,
-  );
-});
+      final repo = ref.watch(chatMessageRepositoryProvider);
+      return repo.watchUnreadMentionCount(
+        params.conversationId,
+        since,
+        params.memberId,
+      );
+    });
 
 class HighlightedMessageIdNotifier extends Notifier<String?> {
   final String conversationId;
@@ -695,10 +857,10 @@ class HighlightedMessageIdNotifier extends Notifier<String?> {
   void clear() => state = null;
 }
 
-final highlightedMessageIdProvider =
-    NotifierProvider.autoDispose.family<HighlightedMessageIdNotifier, String?, String>(
-  HighlightedMessageIdNotifier.new,
-);
+final highlightedMessageIdProvider = NotifierProvider.autoDispose
+    .family<HighlightedMessageIdNotifier, String?, String>(
+      HighlightedMessageIdNotifier.new,
+    );
 
 /// Pre-fetched data for a single [ConversationTile].
 ///
@@ -753,76 +915,80 @@ class ConversationTileData {
 
 /// O(1) conversation lookup by ID. Built once from the conversation list, shared
 /// across all tile providers. Avoids O(N) linear scan per tile.
-final conversationMapProvider =
-    Provider.autoDispose<Map<String, Conversation>>((ref) {
-  final list = ref.watch(conversationsProvider).value;
-  if (list == null) return const {};
-  return {for (final c in list) c.id: c};
-});
+final conversationMapProvider = Provider.autoDispose<Map<String, Conversation>>(
+  (ref) {
+    final list = ref.watch(conversationsProvider).value;
+    if (list == null) return const {};
+    return {for (final c in list) c.id: c};
+  },
+);
 
 /// Batched per-tile data provider. Each [ConversationTile] watches this single
 /// provider instead of 5+ individual providers, reducing listener fan-out.
 final conversationTileDataProvider = Provider.autoDispose
     .family<ConversationTileData?, String>((ref, conversationId) {
-  final speakingAs = ref.watch(speakingAsProvider);
+      final speakingAs = ref.watch(speakingAsProvider);
 
-  // O(1) lookup via the shared map provider.
-  final conversationMap = ref.watch(conversationMapProvider);
-  final conversation = conversationMap[conversationId];
-  if (conversation == null) return null;
+      // O(1) lookup via the shared map provider.
+      final conversationMap = ref.watch(conversationMapProvider);
+      final conversation = conversationMap[conversationId];
+      if (conversation == null) return null;
 
-  // Participant map (batch loaded).
-  final participantMapAsync = ref.watch(
-    membersByIdsProvider(memberIdsKey(conversation.participantIds)),
-  );
-  final participantMap = participantMapAsync.value ?? const {};
+      // Participant map (batch loaded).
+      final participantMapAsync = ref.watch(
+        membersByIdsProvider(memberIdsKey(conversation.participantIds)),
+      );
+      final participantMap = participantMapAsync.value ?? const {};
 
-  // Last message.
-  final lastMessageAsync = ref.watch(lastMessageProvider(conversationId));
-  final lastMessage = lastMessageAsync.value;
+      // Last message.
+      final lastMessageAsync = ref.watch(lastMessageProvider(conversationId));
+      final lastMessage = lastMessageAsync.value;
 
-  // Unread count (derived from batch provider).
-  final unreadCount = ref.watch(unreadMessageCountProvider(conversationId));
+      // Unread count (derived from batch provider).
+      final unreadCount = ref.watch(unreadMessageCountProvider(conversationId));
 
-  // Mention name map — always watch to keep the dependency graph stable.
-  final nameMap = ref.watch(memberNameMapProvider);
+      // Mention name map — always watch to keep the dependency graph stable.
+      final nameMap = ref.watch(memberNameMapProvider);
 
-  // DM partner: derive from participantMap (already batch-loaded) rather than
-  // a conditional ref.watch() that would destabilize the dependency graph.
-  Member? dmPartner;
-  if (conversation.emoji == null && conversation.isDirectMessage) {
-    final otherId = conversation.participantIds
-        .where((id) => id != speakingAs)
-        .firstOrNull;
-    if (otherId != null) {
-      dmPartner = participantMap[otherId];
-    }
-  }
+      // DM partner: derive from participantMap (already batch-loaded) rather than
+      // a conditional ref.watch() that would destabilize the dependency graph.
+      Member? dmPartner;
+      if (conversation.emoji == null &&
+          isDirectMessageConversation(conversation)) {
+        final otherId = conversation.participantIds
+            .where((id) => id != speakingAs)
+            .firstOrNull;
+        if (otherId != null) {
+          dmPartner = participantMap[otherId];
+        }
+      }
 
-  // Last message author name + display content (resolves mentions).
-  // Derive author name from the already-watched participantMap to avoid
-  // conditional ref.watch() calls that change the dependency graph.
-  String? lastMessageAuthorName;
-  String? lastMessageDisplayContent;
-  if (lastMessage != null) {
-    if (lastMessage.authorId != null) {
-      lastMessageAuthorName = participantMap[lastMessage.authorId]?.name;
-    }
-    lastMessageDisplayContent =
-        buildTilePreviewContent(lastMessage.content, nameMap);
-  }
+      // Last message author name + display content (resolves mentions).
+      // Derive author name from the already-watched participantMap to avoid
+      // conditional ref.watch() calls that change the dependency graph.
+      String? lastMessageAuthorName;
+      String? lastMessageDisplayContent;
+      if (lastMessage != null) {
+        if (lastMessage.authorId != null) {
+          lastMessageAuthorName = participantMap[lastMessage.authorId]?.name;
+        }
+        lastMessageDisplayContent = buildTilePreviewContent(
+          lastMessage.content,
+          nameMap,
+        );
+      }
 
-  return ConversationTileData(
-    conversation: conversation,
-    lastMessage: lastMessage,
-    participantMap: participantMap,
-    unreadCount: unreadCount,
-    speakingAs: speakingAs,
-    dmPartner: dmPartner,
-    lastMessageAuthorName: lastMessageAuthorName,
-    lastMessageDisplayContent: lastMessageDisplayContent,
-  );
-});
+      return ConversationTileData(
+        conversation: conversation,
+        lastMessage: lastMessage,
+        participantMap: participantMap,
+        unreadCount: unreadCount,
+        speakingAs: speakingAs,
+        dmPartner: dmPartner,
+        lastMessageAuthorName: lastMessageAuthorName,
+        lastMessageDisplayContent: lastMessageDisplayContent,
+      );
+    });
 
 // Mentions must resolve BEFORE spoiler redaction so `redactSpoilers` clamps
 // on the display-length of `@Name`, not on the raw `@[uuid]` token.

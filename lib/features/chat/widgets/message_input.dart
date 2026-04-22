@@ -77,7 +77,25 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   /// actually saw when they tapped send.
   ProxyTagMatch? _effectiveMatch;
 
+  bool get _canWriteToConversation {
+    final conversation = ref
+        .read(conversationByIdProvider(widget.conversationId))
+        .value;
+    if (conversation == null) return false;
+
+    final speakingAs = ref.read(speakingAsProvider);
+    final members = ref.read(activeMembersProvider).value;
+    final speakingAsMember = findCurrentChatViewer(members, speakingAs);
+    final permissions = conversationPermissionsForViewer(
+      conversation,
+      speakingAsMemberId: speakingAs,
+      speakingAsMember: speakingAsMember,
+    );
+    return permissions.canSendMessages;
+  }
+
   bool get _canSend {
+    if (!_canWriteToConversation) return false;
     final hasText = _controller.text.trim().isNotEmpty;
     final hasImage = _stagedImageBytes != null;
     if (!hasText && !hasImage) return false;
@@ -245,6 +263,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   Future<void> _sendGif(KlipyGif gif) async {
+    if (!_canWriteToConversation) return;
     final speakingAs = ref.read(speakingAsProvider);
     if (speakingAs == null) return;
 
@@ -287,6 +306,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   Future<void> _sendMessage() async {
+    if (!_canWriteToConversation) return;
     final text = _controller.text.trim();
     final hasImage = _stagedImageBytes != null;
     if (text.isEmpty && !hasImage) return;
@@ -406,6 +426,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     int durationMs,
     String waveformB64,
   ) async {
+    if (!_canWriteToConversation) {
+      setState(() => _isRecording = false);
+      return;
+    }
     final recorderState = ref.read(voiceRecordingProvider);
     final artifact = recorderState.artifact;
     final effectiveAudioBytes = artifact?.bytes ?? audioBytes;
@@ -481,9 +505,11 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final speakingAs = ref.watch(speakingAsProvider);
+    ref.watch(conversationByIdProvider(widget.conversationId));
     final membersAsync = ref.watch(activeMembersProvider);
     final replyingTo = ref.watch(replyingToProvider(widget.conversationId));
-    final useProxyTags = ref
+    final useProxyTags =
+        ref
             .watch(useProxyTagsForAuthoringProvider)
             .whenOrNull(data: (v) => v) ??
         false;
@@ -494,10 +520,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         ? members.where((m) => m.id == speakingAs).firstOrNull
         : null;
 
-    final rawMatch =
-        useProxyTags ? matchProxyTag(_lastText, members) : null;
+    final rawMatch = useProxyTags ? matchProxyTag(_lastText, members) : null;
     final suppressed = _suppressedTag;
-    final effectiveMatch = (rawMatch != null &&
+    final effectiveMatch =
+        (rawMatch != null &&
             suppressed != null &&
             suppressed.$1 == rawMatch.matchedPrefix &&
             suppressed.$2 == rawMatch.matchedSuffix &&
@@ -881,7 +907,9 @@ class _GlassTextField extends StatelessWidget {
         : AppColors.warmBlack.withValues(alpha: 0.06);
 
     final roundedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(PrismShapes.of(context).pill(minHeight)),
+      borderRadius: BorderRadius.circular(
+        PrismShapes.of(context).pill(minHeight),
+      ),
       borderSide: BorderSide(
         color: borderColor,
         width: PrismTokens.hairlineBorderWidth,
@@ -914,7 +942,10 @@ class _GlassTextField extends StatelessWidget {
         border: roundedBorder,
         enabledBorder: roundedBorder,
         focusedBorder: roundedBorder,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
         isDense: true,
       ),
       onChanged: onChanged,
@@ -1183,10 +1214,7 @@ class ReplyBanner extends StatelessWidget {
 }
 
 class _ProxyTagAuthorChip extends StatelessWidget {
-  const _ProxyTagAuthorChip({
-    required this.member,
-    required this.onDismiss,
-  });
+  const _ProxyTagAuthorChip({required this.member, required this.onDismiss});
 
   final Member member;
   final VoidCallback onDismiss;
@@ -1197,8 +1225,8 @@ class _ProxyTagAuthorChip extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final authorColor =
         (member.customColorEnabled && member.customColorHex != null)
-            ? AppColors.fromHex(member.customColorHex!)
-            : theme.colorScheme.primary;
+        ? AppColors.fromHex(member.customColorHex!)
+        : theme.colorScheme.primary;
 
     final fillColor = isDark
         ? AppColors.warmWhite.withValues(alpha: 0.08)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/features/chat/models/conversation_permissions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
@@ -50,11 +51,7 @@ class ConversationTile extends ConsumerWidget {
     // Dim archived conversations. Opacity is acceptable here — each tile is a
     // shallow subtree and the engine folds constant opacity into the paint.
     if (tileData.isArchived) {
-      tile = Opacity(
-        opacity: 0.6,
-        alwaysIncludeSemantics: true,
-        child: tile,
-      );
+      tile = Opacity(opacity: 0.6, alwaysIncludeSemantics: true, child: tile);
     }
 
     return tile;
@@ -65,9 +62,7 @@ class ConversationTile extends ConsumerWidget {
       return TintedGlassSurface(
         width: 40,
         height: 40,
-        borderRadius: BorderRadius.circular(
-          PrismShapes.of(context).radius(20),
-        ),
+        borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
         child: MemberAvatar.centeredEmoji(
           tileData.conversation.emoji!,
           fontSize: 20,
@@ -75,7 +70,8 @@ class ConversationTile extends ConsumerWidget {
       );
     }
 
-    if (tileData.conversation.isDirectMessage && tileData.dmPartner != null) {
+    if (isDirectMessageConversation(tileData.conversation) &&
+        tileData.dmPartner != null) {
       final member = tileData.dmPartner!;
       return MemberAvatar(
         avatarImageData: member.avatarImageData,
@@ -87,7 +83,7 @@ class ConversationTile extends ConsumerWidget {
       );
     }
 
-    final icon = tileData.conversation.isDirectMessage
+    final icon = isDirectMessageConversation(tileData.conversation)
         ? AppIcons.person
         : AppIcons.group;
     return _fallbackAvatar(context, icon);
@@ -129,9 +125,7 @@ class ConversationTile extends ConsumerWidget {
               const SizedBox(height: 4),
               Badge(
                 label: Text(
-                  tileData.unreadCount > 99
-                      ? '99+'
-                      : '${tileData.unreadCount}',
+                  tileData.unreadCount > 99 ? '99+' : '${tileData.unreadCount}',
                 ),
                 child: const SizedBox.shrink(),
               ),
@@ -142,8 +136,7 @@ class ConversationTile extends ConsumerWidget {
         Icon(
           AppIcons.chevronRightRounded,
           size: 20,
-          color:
-              theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
         ),
       ],
     );
@@ -169,8 +162,10 @@ class ConversationTile extends ConsumerWidget {
     // `||…||` spans show as `▮` blocks. Screen readers announce `▮`
     // literally as a block glyph, which is noise, so swap in the word
     // "spoiler" in the semantics label while keeping the visual glyphs.
-    final contentA11yLabel =
-        displayContent.replaceAll(RegExp(r'▮+'), 'spoiler');
+    final contentA11yLabel = displayContent.replaceAll(
+      RegExp(r'▮+'),
+      'spoiler',
+    );
 
     return Text.rich(
       TextSpan(

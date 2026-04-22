@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prism_plurality/core/database/app_database.dart'
-    hide FrontingSession, Habit, HabitCompletion;
+    hide Conversation, FrontingSession, Habit, HabitCompletion;
 import 'package:prism_plurality/data/repositories/drift_chat_message_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_conversation_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_fronting_session_repository.dart';
@@ -19,6 +19,7 @@ import 'package:prism_plurality/data/repositories/drift_front_session_comments_r
 import 'package:prism_plurality/data/repositories/drift_conversation_categories_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_reminders_repository.dart';
 import 'package:prism_plurality/data/repositories/drift_friends_repository.dart';
+import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/features/data_management/services/data_export_service.dart';
 import 'package:prism_plurality/features/data_management/services/export_crypto.dart';
@@ -133,5 +134,25 @@ void main() {
         expect(export.sleepSessions.single.id, 'sleep-1');
       },
     );
+
+    test('buildExport normalizes legacy dm-shaped conversations', () async {
+      await exportService.conversationRepository.createConversation(
+        Conversation(
+          id: 'legacy-dm',
+          createdAt: DateTime(2026, 3, 18, 10),
+          lastActivityAt: DateTime(2026, 3, 18, 11),
+          title: '',
+          participantIds: const ['alice', 'bob'],
+        ),
+      );
+
+      final export = await exportService.buildExport();
+      final conversation = export.conversations.single;
+      final json = conversation.toJson();
+
+      expect(conversation.isDirectMessage, isTrue);
+      expect(json['type'], 'directmessage');
+      expect(json['isDirectMessage'], isTrue);
+    });
   });
 }

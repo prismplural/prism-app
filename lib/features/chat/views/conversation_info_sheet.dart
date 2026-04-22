@@ -85,7 +85,10 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           );
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.chatInfoFailedSaveTitle(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.chatInfoFailedSaveTitle(e),
+        );
       }
     } finally {
       if (mounted) {
@@ -112,7 +115,10 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           );
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.chatInfoFailedSaveEmoji(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.chatInfoFailedSaveEmoji(e),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -128,7 +134,10 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         .read(chatNotifierProvider.notifier)
         .archiveConversation(conversationId, speakingAsMemberId);
     if (mounted) {
-      PrismToast.success(context, message: context.l10n.chatInfoConversationArchived);
+      PrismToast.success(
+        context,
+        message: context.l10n.chatInfoConversationArchived,
+      );
       Navigator.of(context).pop();
     }
   }
@@ -209,16 +218,19 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
 
     return conversationAsync.when(
       loading: () => const SafeArea(child: PrismLoadingState()),
-      error: (e, _) => SafeArea(
-        child: Center(child: Text(context.l10n.errorWithDetail(e))),
-      ),
+      error: (e, _) =>
+          SafeArea(child: Center(child: Text(context.l10n.errorWithDetail(e)))),
       data: (conversation) {
         if (conversation == null) {
           return SafeArea(
             child: Column(
               children: [
                 PrismSheetTopBar(title: context.l10n.chatInfoTitle),
-                Expanded(child: Center(child: Text(context.l10n.chatConversationNotFound))),
+                Expanded(
+                  child: Center(
+                    child: Text(context.l10n.chatConversationNotFound),
+                  ),
+                ),
               ],
             ),
           );
@@ -230,114 +242,120 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
           speakingAsMemberId: speakingAsMemberId,
           speakingAsMember: speakingAsMember,
         );
+        final isDirectMessage = permissions.isDirectMessage;
 
         return SafeArea(
           child: ClipRect(
             child: Column(
-            children: [
-              PrismSheetTopBar(
-                title: conversation.title ?? context.l10n.chatConversationInfo,
-                trailing: _saving
-                    ? PrismSpinner(
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 20,
-                      )
-                    : permissions.canEditTitleEmoji
-                        ? PrismButton(
-                            label: _isEditing
-                                ? context.l10n.done
-                                : context.l10n.edit,
-                            density: PrismControlDensity.compact,
-                            tone: PrismButtonTone.subtle,
-                            onPressed: () {
-                              if (_isEditing) {
-                                _saveTitle(
-                                  conversation.id,
-                                  conversation.emoji,
-                                );
-                              } else {
-                                _titleController.text =
-                                    conversation.title ?? '';
-                                setState(() => _isEditing = true);
-                              }
-                            },
-                          )
-                        : null,
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView(
-                  controller: widget.scrollController,
-                  padding: const EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    bottom: 32,
-                  ),
-                  children: [
-                    // HEADER SECTION
-                    _buildHeader(context, conversation, permissions, theme),
-                    const Divider(height: 32),
+              children: [
+                PrismSheetTopBar(
+                  title:
+                      conversation.title ?? context.l10n.chatConversationInfo,
+                  trailing: _saving
+                      ? PrismSpinner(
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        )
+                      : permissions.canEditTitleEmoji
+                      ? PrismButton(
+                          label: _isEditing
+                              ? context.l10n.done
+                              : context.l10n.edit,
+                          density: PrismControlDensity.compact,
+                          tone: PrismButtonTone.subtle,
+                          onPressed: () {
+                            if (_isEditing) {
+                              _saveTitle(conversation.id, conversation.emoji);
+                            } else {
+                              _titleController.text = conversation.title ?? '';
+                              setState(() => _isEditing = true);
+                            }
+                          },
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView(
+                    controller: widget.scrollController,
+                    padding: const EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      bottom: 32,
+                    ),
+                    children: [
+                      // HEADER SECTION
+                      _buildHeader(context, conversation, permissions, theme),
+                      const Divider(height: 32),
 
-                    // PARTICIPANTS or DM SECTION
-                    if (!conversation.isDirectMessage)
-                      _buildParticipantsSection(
+                      // PARTICIPANTS or DM SECTION
+                      if (!isDirectMessage)
+                        _buildParticipantsSection(
+                          context,
+                          conversation,
+                          permissions,
+                          speakingAsMemberId,
+                          speakingAsMember,
+                          theme,
+                        )
+                      else
+                        _buildDmSection(
+                          conversation,
+                          speakingAsMemberId,
+                          theme,
+                        ),
+
+                      const Divider(height: 32),
+
+                      // PERMISSION BANNER
+                      if (!permissions.canManage && !isDirectMessage) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surfaceContainerHighest
+                                .withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(
+                              PrismShapes.of(context).radius(12),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                AppIcons.infoOutline,
+                                size: 18,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  context.l10n.chatInfoCannotManage(
+                                    speakingAsMember?.name ??
+                                        context.l10n.unknown,
+                                  ),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      // ACTIONS SECTION
+                      _buildActionsSection(
                         context,
                         conversation,
                         permissions,
                         speakingAsMemberId,
-                        speakingAsMember,
                         theme,
-                      )
-                    else
-                      _buildDmSection(conversation, speakingAsMemberId, theme),
-
-                    const Divider(height: 32),
-
-                    // PERMISSION BANNER
-                    if (!permissions.canManage &&
-                        !conversation.isDirectMessage) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerHighest
-                              .withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              AppIcons.infoOutline,
-                              size: 18,
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                context.l10n.chatInfoCannotManage(speakingAsMember?.name ?? context.l10n.unknown),
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
-                      const SizedBox(height: 16),
                     ],
-
-                    // ACTIONS SECTION
-                    _buildActionsSection(
-                      context,
-                      conversation,
-                      permissions,
-                      speakingAsMemberId,
-                      theme,
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
         );
       },
@@ -350,6 +368,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     ConversationPermissions permissions,
     ThemeData theme,
   ) {
+    final isDirectMessage = permissions.isDirectMessage;
     return Column(
       children: [
         const SizedBox(height: 8),
@@ -363,7 +382,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                 ? () => _pickEmoji(conversation.id, conversation.title)
                 : null,
             child: Text(
-              conversation.emoji ?? (conversation.isDirectMessage ? '' : ''),
+              conversation.emoji ?? (isDirectMessage ? '' : ''),
               style: const TextStyle(fontSize: 64),
             ),
           ),
@@ -386,7 +405,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         else
           Text(
             conversation.title ??
-                (conversation.isDirectMessage
+                (isDirectMessage
                     ? context.l10n.chatInfoDirectMessage
                     : context.l10n.chatInfoGroupChat),
             style: theme.textTheme.titleLarge?.copyWith(
@@ -397,14 +416,16 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
 
         const SizedBox(height: 4),
         Text(
-          context.l10n.chatInfoCreatedAt(conversation.createdAt.toDateString(context.dateLocale)),
+          context.l10n.chatInfoCreatedAt(
+            conversation.createdAt.toDateString(context.dateLocale),
+          ),
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
 
         // Category picker
-        if (!conversation.isDirectMessage && permissions.canManage)
+        if (!isDirectMessage && permissions.canManage)
           _CategoryPicker(
             conversationId: conversation.id,
             currentCategoryId: conversation.categoryId,
@@ -428,7 +449,9 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         Row(
           children: [
             Text(
-              context.l10n.chatInfoParticipants(conversation.participantIds.length),
+              context.l10n.chatInfoParticipants(
+                conversation.participantIds.length,
+              ),
               style: theme.textTheme.titleSmall,
             ),
             const Spacer(),
@@ -548,12 +571,12 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
   ) {
     return Column(
       children: [
-        // Archive
-        PrismListRow(
-          leading: Icon(AppIcons.archiveOutlined),
-          title: Text(context.l10n.chatInfoArchiveConversation),
-          onTap: () => _archive(conversation.id, speakingAsMemberId),
-        ),
+        if (permissions.canArchive)
+          PrismListRow(
+            leading: Icon(AppIcons.archiveOutlined),
+            title: Text(context.l10n.chatInfoArchiveConversation),
+            onTap: () => _archive(conversation.id, speakingAsMemberId),
+          ),
 
         // Leave
         if (permissions.canLeave)
@@ -683,12 +706,9 @@ class _ParticipantTile extends ConsumerWidget {
           child: tile,
         );
       },
-      loading: () => PrismListRow(
-        title: Text(context.l10n.loading),
-      ),
-      error: (_, _) => PrismListRow(
-        title: Text(context.l10n.chatInfoErrorLoadingMember),
-      ),
+      loading: () => PrismListRow(title: Text(context.l10n.loading)),
+      error: (_, _) =>
+          PrismListRow(title: Text(context.l10n.chatInfoErrorLoadingMember)),
     );
   }
 }
