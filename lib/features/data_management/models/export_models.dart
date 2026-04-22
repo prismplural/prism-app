@@ -1,6 +1,48 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+const String v1ConversationTypeGroup = 'group';
+const String v1ConversationTypeDirectMessage = 'directmessage';
+
+bool isV1ConversationDirectMessage({
+  String? type,
+  bool isDirectMessage = false,
+  String? title,
+  String? emoji,
+  String? categoryId,
+  required List<String> participantIds,
+}) {
+  final normalizedType = type?.trim().toLowerCase();
+  if (normalizedType == v1ConversationTypeDirectMessage) return true;
+  if (normalizedType == v1ConversationTypeGroup) return false;
+  if (isDirectMessage) return true;
+
+  final hasBlankTitle = title == null || title.trim().isEmpty;
+  return hasBlankTitle &&
+      emoji == null &&
+      categoryId == null &&
+      participantIds.length == 2;
+}
+
+String v1ConversationTypeForData({
+  String? type,
+  bool isDirectMessage = false,
+  String? title,
+  String? emoji,
+  String? categoryId,
+  required List<String> participantIds,
+}) =>
+    isV1ConversationDirectMessage(
+      type: type,
+      isDirectMessage: isDirectMessage,
+      title: title,
+      emoji: emoji,
+      categoryId: categoryId,
+      participantIds: participantIds,
+    )
+    ? v1ConversationTypeDirectMessage
+    : v1ConversationTypeGroup;
+
 /// V3 export format envelope.
 class V1Export {
   V1Export({
@@ -213,9 +255,7 @@ class V1Export {
         [],
     mediaAttachments:
         (json['mediaAttachments'] as List<dynamic>?)
-            ?.map(
-              (e) => V1MediaAttachment.fromJson(e as Map<String, dynamic>),
-            )
+            ?.map((e) => V1MediaAttachment.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [],
   );
@@ -457,6 +497,13 @@ class V1Conversation {
   final String? description;
   final String? categoryId;
   final int displayOrder;
+  String get type => v1ConversationTypeForData(
+    isDirectMessage: isDirectMessage,
+    title: title,
+    emoji: emoji,
+    categoryId: categoryId,
+    participantIds: participantIds,
+  );
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -464,7 +511,14 @@ class V1Conversation {
     'lastActivityAt': lastActivityAt,
     if (title != null) 'title': title,
     if (emoji != null) 'emoji': emoji,
-    'isDirectMessage': isDirectMessage,
+    'type': type,
+    'isDirectMessage': isV1ConversationDirectMessage(
+      isDirectMessage: isDirectMessage,
+      title: title,
+      emoji: emoji,
+      categoryId: categoryId,
+      participantIds: participantIds,
+    ),
     if (creatorId != null) 'creatorId': creatorId,
     'participantIds': participantIds,
     'lastReadTimestamps': lastReadTimestamps,
@@ -475,27 +529,41 @@ class V1Conversation {
     'displayOrder': displayOrder,
   };
 
-  factory V1Conversation.fromJson(Map<String, dynamic> json) => V1Conversation(
-    id: json['id'] as String,
-    createdAt: json['createdAt'] as String,
-    lastActivityAt: json['lastActivityAt'] as String,
-    title: json['title'] as String?,
-    emoji: json['emoji'] as String?,
-    isDirectMessage: json['isDirectMessage'] as bool? ?? false,
-    creatorId: json['creatorId'] as String?,
-    participantIds:
-        (json['participantIds'] as List<dynamic>?)?.cast<String>() ?? [],
-    lastReadTimestamps:
-        (json['lastReadTimestamps'] as Map<String, dynamic>?)?.map(
-          (k, v) => MapEntry(k, v.toString()),
-        ) ??
-        {},
-    archivedByMemberIds: json['archivedByMemberIds'] as String?,
-    mutedByMemberIds: json['mutedByMemberIds'] as String?,
-    description: json['description'] as String?,
-    categoryId: json['categoryId'] as String?,
-    displayOrder: json['displayOrder'] as int? ?? 0,
-  );
+  factory V1Conversation.fromJson(Map<String, dynamic> json) {
+    final title = json['title'] as String?;
+    final emoji = json['emoji'] as String?;
+    final categoryId = json['categoryId'] as String?;
+    final participantIds =
+        (json['participantIds'] as List<dynamic>?)?.cast<String>() ?? [];
+
+    return V1Conversation(
+      id: json['id'] as String,
+      createdAt: json['createdAt'] as String,
+      lastActivityAt: json['lastActivityAt'] as String,
+      title: title,
+      emoji: emoji,
+      isDirectMessage: isV1ConversationDirectMessage(
+        type: json['type'] as String?,
+        isDirectMessage: json['isDirectMessage'] as bool? ?? false,
+        title: title,
+        emoji: emoji,
+        categoryId: categoryId,
+        participantIds: participantIds,
+      ),
+      creatorId: json['creatorId'] as String?,
+      participantIds: participantIds,
+      lastReadTimestamps:
+          (json['lastReadTimestamps'] as Map<String, dynamic>?)?.map(
+            (k, v) => MapEntry(k, v.toString()),
+          ) ??
+          {},
+      archivedByMemberIds: json['archivedByMemberIds'] as String?,
+      mutedByMemberIds: json['mutedByMemberIds'] as String?,
+      description: json['description'] as String?,
+      categoryId: categoryId,
+      displayOrder: json['displayOrder'] as int? ?? 0,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -19,6 +19,15 @@ class _NullSpeakingAsNotifier extends SpeakingAsNotifier {
   String? build() => null;
 }
 
+class _FixedSpeakingAsNotifier extends SpeakingAsNotifier {
+  _FixedSpeakingAsNotifier(this.memberId);
+
+  final String? memberId;
+
+  @override
+  String? build() => memberId;
+}
+
 void main() {
   final alice = Member(
     id: 'alice-id',
@@ -42,6 +51,20 @@ void main() {
     lastActivityAt: DateTime(2025, 1, 1),
     isDirectMessage: false,
   );
+  final dmConversation = Conversation(
+    id: 'dm-1',
+    participantIds: const ['alice-id', 'bob-id'],
+    createdAt: DateTime(2025, 1, 1),
+    lastActivityAt: DateTime(2025, 1, 1),
+    isDirectMessage: true,
+  );
+  final admin = Member(
+    id: 'admin-id',
+    name: 'Admin',
+    createdAt: DateTime(2025, 1, 1),
+    isActive: true,
+    isAdmin: true,
+  );
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -57,12 +80,10 @@ void main() {
           (ref) async => const GifServiceConfig.disabled(),
         ),
         speakingAsProvider.overrideWith(_NullSpeakingAsNotifier.new),
-        activeMembersProvider.overrideWith(
-          (ref) => Stream.value([alice, bob]),
-        ),
-        conversationByIdProvider('conv-1').overrideWith(
-          (ref) => Stream.value(conversation),
-        ),
+        activeMembersProvider.overrideWith((ref) => Stream.value([alice, bob])),
+        conversationByIdProvider(
+          'conv-1',
+        ).overrideWith((ref) => Stream.value(conversation)),
         useProxyTagsForAuthoringProvider.overrideWith(
           () => _FixedProxyTagNotifier(proxyTagsEnabled),
         ),
@@ -70,16 +91,15 @@ void main() {
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: const [Locale('en')],
-        home: const Scaffold(
-          body: MessageInput(conversationId: 'conv-1'),
-        ),
+        home: const Scaffold(body: MessageInput(conversationId: 'conv-1')),
       ),
     );
   }
 
   group('MessageInput proxy-tag authoring', () {
-    testWidgets('no chip when toggle is off, even with matching text',
-        (tester) async {
+    testWidgets('no chip when toggle is off, even with matching text', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildSubject(proxyTagsEnabled: false));
       await tester.pumpAndSettle();
 
@@ -89,8 +109,9 @@ void main() {
       expect(find.textContaining('Posting as Alice'), findsNothing);
     });
 
-    testWidgets('chip appears and send enables when tag matches',
-        (tester) async {
+    testWidgets('chip appears and send enables when tag matches', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildSubject(proxyTagsEnabled: true));
       await tester.pumpAndSettle();
 
@@ -104,8 +125,9 @@ void main() {
       expect(find.bySemanticsLabel('Send message'), findsOneWidget);
     });
 
-    testWidgets('dismissing chip suppresses for same tag+member',
-        (tester) async {
+    testWidgets('dismissing chip suppresses for same tag+member', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildSubject(proxyTagsEnabled: true));
       await tester.pumpAndSettle();
 
@@ -122,6 +144,46 @@ void main() {
       await tester.enterText(find.byType(TextField), 'B: hi');
       await tester.pumpAndSettle();
       expect(find.textContaining('Posting as Bob'), findsOneWidget);
+    });
+
+    testWidgets('admin read-only DM access keeps send disabled', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            gifServiceConfigProvider.overrideWith(
+              (ref) async => const GifServiceConfig.disabled(),
+            ),
+            speakingAsProvider.overrideWith(
+              () => _FixedSpeakingAsNotifier('admin-id'),
+            ),
+            activeMembersProvider.overrideWith(
+              (ref) => Stream.value([alice, bob, admin]),
+            ),
+            conversationByIdProvider(
+              'dm-1',
+            ).overrideWith((ref) => Stream.value(dmConversation)),
+            useProxyTagsForAuthoringProvider.overrideWith(
+              () => _FixedProxyTagNotifier(false),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: const Scaffold(body: MessageInput(conversationId: 'dm-1')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pumpAndSettle();
+
+      expect(find.bySemanticsLabel('Send message, disabled'), findsOneWidget);
     });
   });
 }

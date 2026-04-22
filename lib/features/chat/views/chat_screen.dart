@@ -67,77 +67,103 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ThemeData theme,
     Conversation conversation,
     String? speakingAs,
+    Member? speakingAsMember,
   ) {
+    final permissions = conversationPermissionsForViewer(
+      conversation,
+      speakingAsMemberId: speakingAs,
+      speakingAsMember: speakingAsMember,
+    );
+    final actions = <Widget Function(BuildContext, VoidCallback)>[
+      (ctx, close) {
+        final popupTheme = Theme.of(ctx);
+        return PrismListRow(
+          dense: true,
+          leading: Icon(
+            permissions.canMarkRead
+                ? AppIcons.markEmailReadOutlined
+                : AppIcons.visibilityOutlined,
+            size: 20,
+          ),
+          title: Text(
+            permissions.canMarkRead
+                ? ctx.l10n.chatMarkAsRead
+                : ctx.l10n.chatConversationInfo,
+            style: popupTheme.textTheme.bodyMedium,
+          ),
+          onTap: () {
+            close();
+            if (permissions.canMarkRead && speakingAs != null) {
+              ref
+                  .read(chatNotifierProvider.notifier)
+                  .markConversationAsRead(conversation.id, speakingAs);
+            }
+            context.go(AppRoutePaths.chatConversation(conversation.id));
+          },
+        );
+      },
+    ];
+
+    if (permissions.canMute) {
+      actions.add((ctx, close) {
+        final isMuted =
+            speakingAs != null &&
+            conversation.mutedByMemberIds.contains(speakingAs);
+        final popupTheme = Theme.of(ctx);
+        return PrismListRow(
+          dense: true,
+          leading: Icon(
+            isMuted
+                ? AppIcons.notificationsOutlined
+                : AppIcons.notificationsOffOutlined,
+            size: 20,
+          ),
+          title: Text(
+            isMuted ? ctx.l10n.chatUnmute : ctx.l10n.chatMute,
+            style: popupTheme.textTheme.bodyMedium,
+          ),
+          onTap: () {
+            close();
+            if (speakingAs != null) {
+              ref
+                  .read(chatNotifierProvider.notifier)
+                  .toggleMute(conversation.id, speakingAs);
+            }
+          },
+        );
+      });
+    }
+
+    if (permissions.canDeleteConversation) {
+      actions.add((ctx, close) {
+        final popupTheme = Theme.of(ctx);
+        return PrismListRow(
+          dense: true,
+          leading: Icon(
+            AppIcons.deleteOutline,
+            size: 20,
+            color: popupTheme.colorScheme.error,
+          ),
+          title: Text(
+            ctx.l10n.delete,
+            style: popupTheme.textTheme.bodyMedium?.copyWith(
+              color: popupTheme.colorScheme.error,
+            ),
+          ),
+          onTap: () {
+            close();
+            _confirmDeleteConversation(context, ref, conversation);
+          },
+        );
+      });
+    }
+
     return BlurPopupAnchor(
       trigger: BlurPopupTrigger.longPress,
       width: 240,
       maxHeight: 180,
-      itemCount: 3,
-      itemBuilder: (ctx, index, close) {
-        final isMuted = speakingAs != null &&
-            conversation.mutedByMemberIds.contains(speakingAs);
-        final popupTheme = Theme.of(ctx);
-        return switch (index) {
-          0 => PrismListRow(
-              dense: true,
-              leading: Icon(
-                AppIcons.markEmailReadOutlined,
-                size: 20,
-              ),
-              title: Text(
-                ctx.l10n.chatMarkAsRead,
-                style: popupTheme.textTheme.bodyMedium,
-              ),
-              onTap: () {
-                close();
-                if (speakingAs != null) {
-                  ref
-                      .read(chatNotifierProvider.notifier)
-                      .markConversationAsRead(conversation.id, speakingAs);
-                }
-              },
-            ),
-          1 => PrismListRow(
-              dense: true,
-              leading: Icon(
-                isMuted
-                    ? AppIcons.notificationsOutlined
-                    : AppIcons.notificationsOffOutlined,
-                size: 20,
-              ),
-              title: Text(
-                isMuted ? ctx.l10n.chatUnmute : ctx.l10n.chatMute,
-                style: popupTheme.textTheme.bodyMedium,
-              ),
-              onTap: () {
-                close();
-                if (speakingAs != null) {
-                  ref
-                      .read(chatNotifierProvider.notifier)
-                      .toggleMute(conversation.id, speakingAs);
-                }
-              },
-            ),
-          _ => PrismListRow(
-              dense: true,
-              leading: Icon(
-                AppIcons.deleteOutline,
-                size: 20,
-                color: popupTheme.colorScheme.error,
-              ),
-              title: Text(
-                ctx.l10n.delete,
-                style: popupTheme.textTheme.bodyMedium?.copyWith(
-                  color: popupTheme.colorScheme.error,
-                ),
-              ),
-              onTap: () {
-                close();
-                _confirmDeleteConversation(context, ref, conversation);
-              },
-            ),
-        };
-      },
+      itemCount: actions.length,
+      itemBuilder: (ctx, index, close) => actions[index](ctx, close),
       child: ConversationTile(
         conversation: conversation,
         onTap: () {
@@ -154,11 +180,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     required String? label,
     required List<Conversation> conversations,
     required String? speakingAs,
+    required Member? speakingAsMember,
   }) {
     final baseColor = theme.colorScheme.onSurface.withValues(alpha: 1);
     final backgroundColor = baseColor.withValues(alpha: 0.08);
     final borderColor = baseColor.withValues(alpha: 0.1);
-    final borderRadius = BorderRadius.circular(PrismShapes.of(context).radius(PrismTokens.radiusMedium));
+    final borderRadius = BorderRadius.circular(
+      PrismShapes.of(context).radius(PrismTokens.radiusMedium),
+    );
 
     return [
       if (label != null)
@@ -191,9 +220,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
             ),
             itemBuilder: (context, index) {
+              final conversation = conversations[index];
+              final permissions = conversationPermissionsForViewer(
+                conversation,
+                speakingAsMemberId: speakingAs,
+                speakingAsMember: speakingAsMember,
+              );
               return Dismissible(
-                key: ValueKey(conversations[index].id),
-                direction: DismissDirection.endToStart,
+                key: ValueKey(conversation.id),
+                direction: permissions.canDeleteConversation
+                    ? DismissDirection.endToStart
+                    : DismissDirection.none,
                 background: Container(
                   alignment: Alignment.centerRight,
                   padding: const EdgeInsets.only(right: 24),
@@ -203,16 +240,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     color: theme.colorScheme.onError,
                   ),
                 ),
-                confirmDismiss: (_) => _confirmDeleteConversation(
-                  context,
-                  ref,
-                  conversations[index],
-                ),
+                confirmDismiss: (_) =>
+                    _confirmDeleteConversation(context, ref, conversation),
                 child: _buildConversationTile(
                   context,
                   theme,
-                  conversations[index],
+                  conversation,
                   speakingAs,
+                  speakingAsMember,
                 ),
               );
             },
@@ -229,6 +264,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final showArchived = ref.watch(showArchivedProvider);
     final hasArchived = ref.watch(hasArchivedConversationsProvider);
     final speakingAs = ref.watch(speakingAsProvider);
+    final speakingAsMember = ref.watch(currentChatViewerProvider);
     final categoriesAsync = ref.watch(conversationCategoriesProvider);
     ref.watch(activeMembersProvider);
 
@@ -250,7 +286,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     PrismTopBarAction(
                       icon: AppIcons.search,
                       tooltip: context.l10n.chatSearchMessages,
-                      onPressed: () => context.go('${AppRoutePaths.chat}/search'),
+                      onPressed: () =>
+                          context.go('${AppRoutePaths.chat}/search'),
                     ),
                   ],
                 ),
@@ -260,7 +297,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       icon: showArchived
                           ? AppIcons.inventoryRounded
                           : AppIcons.inventoryOutlined,
-                      tooltip: showArchived ? context.l10n.chatHideArchived : context.l10n.chatShowArchived,
+                      tooltip: showArchived
+                          ? context.l10n.chatHideArchived
+                          : context.l10n.chatShowArchived,
                       onPressed: () =>
                           ref.read(showArchivedProvider.notifier).toggle(),
                     ),
@@ -306,6 +345,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     label: null,
                     conversations: conversations,
                     speakingAs: speakingAs,
+                    speakingAsMember: speakingAsMember,
                   );
                 }
 
@@ -333,26 +373,32 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 // Category groups in display order
                 for (final cat in categories) {
                   if (grouped[cat.id]!.isNotEmpty) {
-                    slivers.addAll(_buildCategorySlivers(
-                      context: context,
-                      theme: theme,
-                      label: categoryMap[cat.id],
-                      conversations: grouped[cat.id]!,
-                      speakingAs: speakingAs,
-                    ));
+                    slivers.addAll(
+                      _buildCategorySlivers(
+                        context: context,
+                        theme: theme,
+                        label: categoryMap[cat.id],
+                        conversations: grouped[cat.id]!,
+                        speakingAs: speakingAs,
+                        speakingAsMember: speakingAsMember,
+                      ),
+                    );
                   }
                 }
                 // Uncategorized at the bottom
                 if (grouped[null]!.isNotEmpty) {
-                  slivers.addAll(_buildCategorySlivers(
-                    context: context,
-                    theme: theme,
-                    label: categories.isNotEmpty
-                        ? context.l10n.chatUncategorized
-                        : null,
-                    conversations: grouped[null]!,
-                    speakingAs: speakingAs,
-                  ));
+                  slivers.addAll(
+                    _buildCategorySlivers(
+                      context: context,
+                      theme: theme,
+                      label: categories.isNotEmpty
+                          ? context.l10n.chatUncategorized
+                          : null,
+                      conversations: grouped[null]!,
+                      speakingAs: speakingAs,
+                      speakingAsMember: speakingAsMember,
+                    ),
+                  );
                 }
                 return slivers;
               },
@@ -408,19 +454,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     );
     if (!confirmed) return false;
     Haptics.heavy();
-    unawaited(ref
-        .read(chatNotifierProvider.notifier)
-        .deleteConversation(conversation.id));
+    unawaited(
+      ref
+          .read(chatNotifierProvider.notifier)
+          .deleteConversation(conversation.id),
+    );
     return true;
   }
-
 
   void _showCreateSheet(BuildContext context) async {
     final conversationId = await PrismSheet.showFullScreen<String>(
       context: context,
-      builder: (context, scrollController) => CreateConversationSheet(
-        scrollController: scrollController,
-      ),
+      builder: (context, scrollController) =>
+          CreateConversationSheet(scrollController: scrollController),
     );
 
     if (conversationId != null && context.mounted) {
@@ -456,39 +502,33 @@ class _OverflowMenuButtonState extends ConsumerState<_OverflowMenuButton> {
         final popupTheme = Theme.of(ctx);
         return switch (index) {
           0 => PrismListRow(
-              dense: true,
-              leading: Icon(
-                AppIcons.markEmailReadOutlined,
-                size: 20,
-              ),
-              title: Text(
-                ctx.l10n.chatMarkAllAsRead,
-                style: popupTheme.textTheme.bodyMedium,
-              ),
-              onTap: () {
-                close();
-                if (speakingAs != null) {
-                  ref
-                      .read(chatNotifierProvider.notifier)
-                      .markAllConversationsAsRead(speakingAs);
-                }
-              },
+            dense: true,
+            leading: Icon(AppIcons.markEmailReadOutlined, size: 20),
+            title: Text(
+              ctx.l10n.chatMarkAllAsRead,
+              style: popupTheme.textTheme.bodyMedium,
             ),
+            onTap: () {
+              close();
+              if (speakingAs != null) {
+                ref
+                    .read(chatNotifierProvider.notifier)
+                    .markAllConversationsAsRead(speakingAs);
+              }
+            },
+          ),
           _ => PrismListRow(
-              dense: true,
-              leading: Icon(
-                AppIcons.folderOutlined,
-                size: 20,
-              ),
-              title: Text(
-                ctx.l10n.chatManageCategories,
-                style: popupTheme.textTheme.bodyMedium,
-              ),
-              onTap: () {
-                close();
-                CategoryManagementSheet.show(context);
-              },
+            dense: true,
+            leading: Icon(AppIcons.folderOutlined, size: 20),
+            title: Text(
+              ctx.l10n.chatManageCategories,
+              style: popupTheme.textTheme.bodyMedium,
             ),
+            onTap: () {
+              close();
+              CategoryManagementSheet.show(context);
+            },
+          ),
         };
       },
       child: PrismTopBarAction(

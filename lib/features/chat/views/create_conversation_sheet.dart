@@ -109,6 +109,7 @@ class _CreateConversationSheetState
                 ? _selectedMemberIds.toList()
                 : _dmParticipants,
             categoryId: _isGroupChat ? _selectedCategoryId : null,
+            isDirectMessage: !_isGroupChat,
           );
 
       if (mounted) {
@@ -137,8 +138,7 @@ class _CreateConversationSheetState
           widget.initialMemberIds!.isNotEmpty) {
         // Filter to active members only — inactive members aren't visible
         // in the sheet and can't be unchecked by the user.
-        final activeIds =
-            membersAsync.value!.map((m) => m.id).toSet();
+        final activeIds = membersAsync.value!.map((m) => m.id).toSet();
         _selectedMemberIds.addAll(
           widget.initialMemberIds!.where(activeIds.contains),
         );
@@ -192,8 +192,14 @@ class _CreateConversationSheetState
                 // DM / Group toggle
                 PrismSegmentedControl<bool>(
                   segments: [
-                    PrismSegment(value: true, label: context.l10n.chatCreateGroupTab),
-                    PrismSegment(value: false, label: context.l10n.chatCreateDirectMessageTab),
+                    PrismSegment(
+                      value: true,
+                      label: context.l10n.chatCreateGroupTab,
+                    ),
+                    PrismSegment(
+                      value: false,
+                      label: context.l10n.chatCreateDirectMessageTab,
+                    ),
                   ],
                   selected: _isGroupChat,
                   onChanged: (value) {
@@ -252,7 +258,9 @@ class _CreateConversationSheetState
                           : noneLabel;
                       return Semantics(
                         button: true,
-                        label: context.l10n.chatInfoCategorySemantics(currentName),
+                        label: context.l10n.chatInfoCategorySemantics(
+                          currentName,
+                        ),
                         child: PrismListRow(
                           title: Text(context.l10n.chatInfoCategory),
                           subtitle: Text(currentName),
@@ -305,7 +313,9 @@ class _CreateConversationSheetState
                     Text(
                       _isGroupChat
                           ? context.l10n.chatCreateSelectParticipants
-                          : context.l10n.chatCreateMessageAs(_currentFronterName(membersAsync)),
+                          : context.l10n.chatCreateMessageAs(
+                              _currentFronterName(membersAsync),
+                            ),
                       style: theme.textTheme.titleSmall,
                     ),
                     const Spacer(),
@@ -387,7 +397,9 @@ class _CreateConversationSheetState
                                     decoration: BoxDecoration(
                                       color: theme.colorScheme.primary
                                           .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(PrismShapes.of(context).pill(22)),
+                                      borderRadius: BorderRadius.circular(
+                                        PrismShapes.of(context).pill(22),
+                                      ),
                                     ),
                                     child: Text(
                                       context.l10n.chatCreateFronting,
@@ -435,7 +447,9 @@ class _CreateConversationSheetState
                       color: theme.colorScheme.errorContainer.withValues(
                         alpha: 0.4,
                       ),
-                      borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(12),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -447,7 +461,9 @@ class _CreateConversationSheetState
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            context.l10n.chatCreateFronterDeselectedWarning(_currentFronterName(membersAsync)),
+                            context.l10n.chatCreateFronterDeselectedWarning(
+                              _currentFronterName(membersAsync),
+                            ),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.error,
                             ),

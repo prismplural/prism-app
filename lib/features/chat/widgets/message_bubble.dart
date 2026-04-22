@@ -120,7 +120,11 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   // Context menu helpers
   // ---------------------------------------------------------------------------
 
-  int _contextMenuItemCount(bool isOwn) => _buildActions(isOwn).length + 2;
+  int _contextMenuItemCount(bool isOwn) {
+    final baseCount = _buildActions(isOwn).length;
+    final canReact = widget.permissions?.canReact ?? true;
+    return canReact ? baseCount + 2 : baseCount;
+  }
 
   List<_ContextAction> _buildActions(bool isOwn) {
     final actions = <_ContextAction>[];
@@ -252,6 +256,8 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
   }
 
   void _toggleReaction(String emoji) {
+    final permissions = widget.permissions;
+    if (permissions != null && !permissions.canReact) return;
     final speakingAs = ref.read(speakingAsProvider);
     if (speakingAs == null) return;
     ref
@@ -506,9 +512,12 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
         width: 260,
         itemCount: _contextMenuItemCount(isOwn),
         itemBuilder: (context, index, close) {
-          if (index == 0) return _buildQuickReactionRow(close);
-          if (index == 1) return const Divider(height: 1);
-          final actionIndex = index - 2;
+          final canReact = widget.permissions?.canReact ?? true;
+          if (canReact) {
+            if (index == 0) return _buildQuickReactionRow(close);
+            if (index == 1) return const Divider(height: 1);
+          }
+          final actionIndex = canReact ? index - 2 : index;
           return _buildActionTile(actions[actionIndex], close, theme);
         },
         child: Semantics(
@@ -610,13 +619,14 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                             child: ChatMessageText(
                               content: widget.message.content,
                               authorMap: widget.authorMap,
-                              baseStyle: (theme.textTheme.bodyLarge ??
-                                      const TextStyle())
-                                  .copyWith(
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.w400,
-                                height: 1.24,
-                              ),
+                              baseStyle:
+                                  (theme.textTheme.bodyLarge ??
+                                          const TextStyle())
+                                      .copyWith(
+                                        fontSize: 15.5,
+                                        fontWeight: FontWeight.w400,
+                                        height: 1.24,
+                                      ),
                               defaultColor: messageTextColor,
                             ),
                           ),
@@ -627,6 +637,7 @@ class _MessageBubbleState extends ConsumerState<MessageBubble> {
                             child: ReactionBar(
                               messageId: widget.message.id,
                               reactions: widget.message.reactions,
+                              canToggle: widget.permissions?.canReact ?? true,
                             ),
                           ),
                       ],
@@ -956,7 +967,9 @@ class _ReplyQuote extends StatelessWidget {
                     : EdgeInsets.zero,
                 child: TintedGlassSurface(
                   tint: isDeleted ? null : authorColor,
-                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(12)),
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(12),
+                  ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 4,

@@ -269,6 +269,46 @@ void main() {
       expect(members.single.id, 'good-member');
     });
 
+    test('import honors directmessage conversation type', () async {
+      final now = DateTime(2026, 1, 15, 10, 0, 0).toUtc().toIso8601String();
+      final json = jsonEncode({
+        'formatVersion': '1.0',
+        'version': '1.0',
+        'appName': 'Prism Plurality',
+        'exportDate': now,
+        'totalRecords': 1,
+        'headmates': [],
+        'frontSessions': [],
+        'sleepSessions': [],
+        'conversations': [
+          {
+            'id': 'dm-1',
+            'createdAt': now,
+            'lastActivityAt': now,
+            'title': 'Imported DM',
+            'type': 'directmessage',
+            'isDirectMessage': false,
+            'participantIds': ['alice', 'bob', 'carol'],
+            'lastReadTimestamps': {},
+          },
+        ],
+        'messages': [],
+        'polls': [],
+        'pollOptions': [],
+        'systemSettings': [],
+        'habits': [],
+        'habitCompletions': [],
+      });
+
+      final result = await importService.importData(json);
+      expect(result.conversationsCreated, 1);
+
+      final conversations = await importService.conversationRepository
+          .getAllConversations();
+      expect(conversations, hasLength(1));
+      expect(conversations.single.isDirectMessage, isTrue);
+    });
+
     test(
       'can suppress imported onboarding completion for onboarding restore flow',
       () async {
@@ -291,19 +331,24 @@ void main() {
   });
 
   group('DataImportService.resolveBytes — Prism JSON rejection', () {
-    test('unencrypted Prism JSON (has "formatVersion") throws FormatException', () {
-      final prismJson = utf8.encode('{"formatVersion":"prism_v3","headmates":[]}');
-      expect(
-        () => DataImportService.resolveBytes(Uint8List.fromList(prismJson)),
-        throwsA(
-          isA<FormatException>().having(
-            (e) => e.message,
-            'message',
-            equals('unencrypted-prism-backup'),
+    test(
+      'unencrypted Prism JSON (has "formatVersion") throws FormatException',
+      () {
+        final prismJson = utf8.encode(
+          '{"formatVersion":"prism_v3","headmates":[]}',
+        );
+        expect(
+          () => DataImportService.resolveBytes(Uint8List.fromList(prismJson)),
+          throwsA(
+            isA<FormatException>().having(
+              (e) => e.message,
+              'message',
+              equals('unencrypted-prism-backup'),
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
 
     test('third-party SP JSON (no "formatVersion") is accepted', () {
       final spJson = utf8.encode('{"content":"Hello"}');
@@ -324,14 +369,18 @@ void main() {
   group('DataImportService.resolveBytes — media manifest validation', () {
     const password = 'test-password-manifest-2026';
 
-    Uint8List _makeEncrypted(String json, List<({String mediaId, Uint8List blob})> blobs) =>
-        ExportCrypto.encrypt(json, blobs, password);
+    Uint8List _makeEncrypted(
+      String json,
+      List<({String mediaId, Uint8List blob})> blobs,
+    ) => ExportCrypto.encrypt(json, blobs, password);
 
     test('blob whose mediaId is not in manifest throws FormatException', () {
       // JSON has empty mediaAttachments; binary has 1 blob — mismatch
       final json = '{"mediaAttachments":[]}';
       final blob = Uint8List.fromList([1, 2, 3]);
-      final encrypted = _makeEncrypted(json, [(mediaId: 'extra-id', blob: blob)]);
+      final encrypted = _makeEncrypted(json, [
+        (mediaId: 'extra-id', blob: blob),
+      ]);
       expect(
         () => DataImportService.resolveBytes(encrypted, password: password),
         throwsA(
@@ -344,29 +393,45 @@ void main() {
       );
     });
 
-    test('blob whose mediaId matches a thumbnailMediaId in the manifest is accepted', () {
-      const thumbId = 'thumb-abc-123';
-      final json = '{"mediaAttachments":[{"mediaId":"main-abc","thumbnailMediaId":"$thumbId"}]}';
-      final blob = Uint8List.fromList([10, 20, 30]);
-      final encrypted = _makeEncrypted(json, [(mediaId: thumbId, blob: blob)]);
-      final result = DataImportService.resolveBytes(encrypted, password: password);
-      expect(result.mediaBlobs.length, equals(1));
-      expect(result.mediaBlobs.first.mediaId, equals(thumbId));
-    });
+    test(
+      'blob whose mediaId matches a thumbnailMediaId in the manifest is accepted',
+      () {
+        const thumbId = 'thumb-abc-123';
+        final json =
+            '{"mediaAttachments":[{"mediaId":"main-abc","thumbnailMediaId":"$thumbId"}]}';
+        final blob = Uint8List.fromList([10, 20, 30]);
+        final encrypted = _makeEncrypted(json, [
+          (mediaId: thumbId, blob: blob),
+        ]);
+        final result = DataImportService.resolveBytes(
+          encrypted,
+          password: password,
+        );
+        expect(result.mediaBlobs.length, equals(1));
+        expect(result.mediaBlobs.first.mediaId, equals(thumbId));
+      },
+    );
 
     test('blob whose mediaId matches a mediaId in the manifest is accepted', () {
       const mainId = 'main-abc-456';
-      final json = '{"mediaAttachments":[{"mediaId":"$mainId","thumbnailMediaId":""}]}';
+      final json =
+          '{"mediaAttachments":[{"mediaId":"$mainId","thumbnailMediaId":""}]}';
       final blob = Uint8List.fromList([7, 8, 9]);
       final encrypted = _makeEncrypted(json, [(mediaId: mainId, blob: blob)]);
-      final result = DataImportService.resolveBytes(encrypted, password: password);
+      final result = DataImportService.resolveBytes(
+        encrypted,
+        password: password,
+      );
       expect(result.mediaBlobs.length, equals(1));
     });
 
     test('no blobs skips manifest validation (no JSON parse needed)', () {
       final json = '{"mediaAttachments":[]}';
       final encrypted = _makeEncrypted(json, const []);
-      final result = DataImportService.resolveBytes(encrypted, password: password);
+      final result = DataImportService.resolveBytes(
+        encrypted,
+        password: password,
+      );
       expect(result.mediaBlobs, isEmpty);
     });
   });
