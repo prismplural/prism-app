@@ -35,7 +35,15 @@ class FrontingSanitizerService {
       to: to,
     );
     final snapshots = sessions.map(toSnapshot).toList();
-    return _validator.validate(snapshots);
+    final frontingSnapshots = snapshots
+        .where((snapshot) => snapshot.sessionType == SessionType.normal)
+        .toList();
+    final sleepSnapshots = snapshots
+        .where((snapshot) => snapshot.sessionType == SessionType.sleep)
+        .toList();
+
+    final issues = _validator.validate(frontingSnapshots);
+    return _normalizeSleepCoveredGaps(issues, sleepSnapshots);
   }
 
   /// Get fix plans for a specific issue.
@@ -65,10 +73,117 @@ class FrontingSanitizerService {
     if (memberId != null) {
       return _repository.getSessionsForMember(memberId);
     }
+    final sessions = await _repository.getAllSessions();
     if (from != null && to != null) {
-      return _repository.getSessionsBetween(from, to);
+      return sessions
+          .where((session) => _sessionOverlapsRange(session, from, to))
+          .toList();
     }
-    return _repository.getFrontingSessions();
+    return sessions;
+  }
+
+  List<FrontingValidationIssue> _normalizeSleepCoveredGaps(
+    List<FrontingValidationIssue> issues,
+    List<FrontingSessionSnapshot> sleepSnapshots,
+  ) {
+    if (sleepSnapshots.isEmpty) return issues;
+
+    final normalized = <FrontingValidationIssue>[];
+    for (final issue in issues) {
+      if (issue.type != FrontingIssueType.gap) {
+        normalized.add(issue);
+        continue;
+      }
+
+      normalized.addAll(_subtractSleepCoverageFromGap(issue, sleepSnapshots));
+    }
+    return normalized;
+  }
+
+  List<FrontingValidationIssue> _subtractSleepCoverageFromGap(
+    FrontingValidationIssue issue,
+    List<FrontingSessionSnapshot> sleepSnapshots,
+  ) {
+    final coverage = sleepSnapshots
+        .map((sleep) {
+          final start = sleep.start.isAfter(issue.rangeStart)
+              ? sleep.start
+              : issue.rangeStart;
+          final effectiveEnd = sleep.end ?? issue.rangeEnd;
+          final end = effectiveEnd.isBefore(issue.rangeEnd)
+              ? effectiveEnd
+              : issue.rangeEnd;
+          return _TimeRange(start: start, end: end);
+        })
+        .where((range) => range.start.isBefore(range.end))
+        .toList();
+
+    if (coverage.isEmpty) return [issue];
+
+    coverage.sort((a, b) => a.start.compareTo(b.start));
+    final mergedCoverage = <_TimeRange>[];
+    for (final range in coverage) {
+      if (mergedCoverage.isEmpty ||
+          range.start.isAfter(mergedCoverage.last.end)) {
+        mergedCoverage.add(range);
+        continue;
+      }
+
+      final previous = mergedCoverage.removeLast();
+      final end = range.end.isAfter(previous.end) ? range.end : previous.end;
+      mergedCoverage.add(_TimeRange(start: previous.start, end: end));
+    }
+
+    final uncovered = <_TimeRange>[];
+    var cursor = issue.rangeStart;
+    for (final covered in mergedCoverage) {
+      if (covered.start.isAfter(cursor)) {
+        uncovered.add(_TimeRange(start: cursor, end: covered.start));
+      }
+      if (covered.end.isAfter(cursor)) {
+        cursor = covered.end;
+      }
+    }
+    if (cursor.isBefore(issue.rangeEnd)) {
+      uncovered.add(_TimeRange(start: cursor, end: issue.rangeEnd));
+    }
+
+    if (uncovered.isEmpty) return const [];
+    if (uncovered.length == 1 &&
+        uncovered.first.start == issue.rangeStart &&
+        uncovered.first.end == issue.rangeEnd) {
+      return [issue];
+    }
+
+    return uncovered
+        .map(
+          (range) => FrontingValidationIssue(
+            id: '${issue.id}:${range.start.microsecondsSinceEpoch}-${range.end.microsecondsSinceEpoch}',
+            type: issue.type,
+            severity: issue.severity,
+            sessionIds: issue.sessionIds,
+            memberIds: issue.memberIds,
+            rangeStart: range.start,
+            rangeEnd: range.end,
+            summary: issue.summary,
+            details: _gapDetails(range.end.difference(range.start)),
+          ),
+        )
+        .toList();
+  }
+
+  bool _sessionOverlapsRange(
+    FrontingSession session,
+    DateTime start,
+    DateTime end,
+  ) {
+    final sessionEnd = session.endTime;
+    return !session.startTime.isAfter(end) &&
+        (sessionEnd == null || !sessionEnd.isBefore(start));
+  }
+
+  String _gapDetails(Duration gap) {
+    return 'Gap duration: ${gap.inMinutes}m ${gap.inSeconds % 60}s';
   }
 
   static FrontingSessionSnapshot toSnapshot(FrontingSession s) {
@@ -83,6 +198,14 @@ class FrontingSanitizerService {
       sessionType: s.sessionType,
       quality: s.quality,
       isHealthKitImport: s.isHealthKitImport,
+      isDeleted: s.isDeleted,
     );
   }
+}
+
+class _TimeRange {
+  const _TimeRange({required this.start, required this.end});
+
+  final DateTime start;
+  final DateTime end;
 }

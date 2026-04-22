@@ -9,6 +9,7 @@ import 'package:prism_plurality/features/fronting/editing/fronting_change_execut
 import 'package:prism_plurality/features/fronting/sanitization/fronting_fix_planner.dart';
 import 'package:prism_plurality/features/fronting/sanitization/fronting_sanitizer_service.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_session_validator.dart';
+import 'package:prism_plurality/features/fronting/validation/fronting_validation_config.dart';
 import 'package:prism_plurality/features/fronting/validation/fronting_validation_models.dart';
 
 void main() {
@@ -222,5 +223,93 @@ void main() {
       final issues = await service.scan();
       expect(issues, isEmpty);
     });
+
+    test('scan treats sleep as covered time when reporting gaps', () async {
+      final strictService = FrontingSanitizerService(
+        repository: repository,
+        validator: const FrontingSessionValidator(
+          config: FrontingValidationConfig(
+            timingMode: FrontingTimingMode.strict,
+            detectDuplicates: false,
+            detectMergeableAdjacent: false,
+            detectFutureSessions: false,
+          ),
+        ),
+        planner: const FrontingFixPlanner(),
+        executor: executor,
+      );
+      final beforeSleep = FrontingSession(
+        id: 'fronting-before',
+        startTime: DateTime(2026, 3, 18, 20),
+        endTime: DateTime(2026, 3, 18, 22),
+        memberId: 'member-1',
+      );
+      final sleep = FrontingSession(
+        id: 'sleep-1',
+        startTime: DateTime(2026, 3, 18, 22),
+        endTime: DateTime(2026, 3, 19, 8),
+        sessionType: SessionType.sleep,
+      );
+      final afterSleep = FrontingSession(
+        id: 'fronting-after',
+        startTime: DateTime(2026, 3, 19, 8),
+        endTime: DateTime(2026, 3, 19, 10),
+        memberId: 'member-2',
+      );
+
+      await repository.createSession(beforeSleep);
+      await repository.createSession(sleep);
+      await repository.createSession(afterSleep);
+
+      final issues = await strictService.scan();
+      expect(
+        issues.where((issue) => issue.type == FrontingIssueType.gap),
+        isEmpty,
+      );
+    });
+
+    test(
+      'scoped scan includes sessions already in progress at the range start',
+      () async {
+        final strictService = FrontingSanitizerService(
+          repository: repository,
+          validator: const FrontingSessionValidator(
+            config: FrontingValidationConfig(
+              timingMode: FrontingTimingMode.strict,
+              detectDuplicates: false,
+              detectMergeableAdjacent: false,
+              detectFutureSessions: false,
+            ),
+          ),
+          planner: const FrontingFixPlanner(),
+          executor: executor,
+        );
+        final earlier = FrontingSession(
+          id: 'fronting-earlier',
+          startTime: DateTime(2026, 3, 18, 9),
+          endTime: DateTime(2026, 3, 18, 11),
+          memberId: 'member-1',
+        );
+        final later = FrontingSession(
+          id: 'fronting-later',
+          startTime: DateTime(2026, 3, 18, 10, 30),
+          endTime: DateTime(2026, 3, 18, 12),
+          memberId: 'member-2',
+        );
+
+        await repository.createSession(earlier);
+        await repository.createSession(later);
+
+        final issues = await strictService.scan(
+          from: DateTime(2026, 3, 18, 10),
+          to: DateTime(2026, 3, 18, 11, 30),
+        );
+
+        expect(
+          issues.any((issue) => issue.type == FrontingIssueType.overlap),
+          isTrue,
+        );
+      },
+    );
   });
 }
