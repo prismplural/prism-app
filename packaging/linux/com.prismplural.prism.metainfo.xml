@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.prismplural.prism</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+
+  <name>Prism</name>
+  <summary>Plural system management with zero-knowledge encrypted sync</summary>
+
+  <description>
+    <p>
+      Prism is a plural system management app — a tool for groups of people
+      sharing a body to coordinate their shared life.
+    </p>
+    <p>
+      Track who's fronting, chat internally between members, build habits
+      together, run polls, keep shared notes and member profiles. Everything
+      syncs across your devices through a relay that never sees your data.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Member profiles with pronouns, emoji, avatars, and custom fields</li>
+      <li>Fronting tracker with co-fronters, notes, and confidence levels</li>
+      <li>Internal chat with reactions, replies, and voice notes</li>
+      <li>Habits with streaks, assignable per member</li>
+      <li>Polls for collective decisions</li>
+      <li>Sleep tracking and front-gap comments</li>
+      <li>Zero-knowledge end-to-end encrypted sync (XChaCha20-Poly1305 + post-quantum hybrid signatures)</li>
+      <li>Self-hostable relay — your data stays yours</li>
+      <li>Import from Simply Plural and PluralKit</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.prismplural.prism.desktop</launchable>
+
+  <provides>
+    <binary>prism</binary>
+    <id>com.prismplural.prism.desktop</id>
+  </provides>
+
+  <developer id="cc.skylar">
+    <name>Skylar Taylor-Barrick</name>
+  </developer>
+
+  <url type="homepage">https://prismplural.com</url>
+  <url type="bugtracker">https://github.com/prismplural/prism-app/issues</url>
+  <url type="vcs-browser">https://github.com/prismplural/prism-app</url>
+
+  <categories>
+    <category>Utility</category>
+  </categories>
+
+  <keywords>
+    <keyword>plural</keyword>
+    <keyword>system</keyword>
+    <keyword>headmate</keyword>
+    <keyword>fronting</keyword>
+    <keyword>dissociative</keyword>
+  </keywords>
+
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+    <control>touch</control>
+    <display_length compare="ge">360</display_length>
+  </supports>
+
+  <!-- Prism has no networked social features: chat is internal between parts
+       of a single system on one account, and sync is zero-knowledge
+       device-to-device. An empty content_rating declares "none" to OARS. -->
+  <content_rating type="oars-1.1" />
+
+
+  <!-- TODO: host real screenshots on a stable URL (GitHub raw or prismplural.com/assets)
+       and replace these placeholders before submitting to Flathub. -->
+  <screenshots>
+    <screenshot type="default">
+      <caption>Home — fronting tracker</caption>
+      <image>https://prismplural.com/assets/screenshots/linux/home.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Internal chat</caption>
+      <image>https://prismplural.com/assets/screenshots/linux/chat.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Habits</caption>
+      <image>https://prismplural.com/assets/screenshots/linux/habits.png</image>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="0.5.1" date="2026-04-20">
+      <description>
+        <p>Private beta. See CHANGELOG.md for full notes.</p>
+      </description>
+    </release>
+  </releases>
+</component>

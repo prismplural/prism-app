@@ -4,6 +4,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb, kReleaseMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -36,22 +37,31 @@ void main() async {
   };
 
   PlatformDispatcher.instance.onError = (error, stack) {
-    ErrorReportingService.instance.report(
-      error.toString(),
-      stackTrace: stack,
-    );
+    ErrorReportingService.instance.report(error.toString(), stackTrace: stack);
     return kReleaseMode; // In debug, let the error propagate to show the error overlay
   };
 
   tz.initializeTimeZones();
   if (!kIsWeb) {
-    final localTz = await FlutterTimezone.getLocalTimezone();
+    final localTz = (await FlutterTimezone.getLocalTimezone()).identifier;
     tz.setLocalLocation(tz.getLocation(localTz));
   }
 
   // iOS Keychain survives app uninstall — clear stale data on fresh install.
   await clearKeychainIfFreshInstall();
   await migrateRelayUrl();
+
+  // Linux: register the bundled NotoColorEmoji font as a runtime fallback.
+  // The .ttf is platform-gated in pubspec.yaml (`platforms: [linux]`) so it
+  // only ships in Linux builds; we declare it as an asset (not a pubspec
+  // `fonts:` entry) because Flutter's `platforms:` key isn't supported on
+  // font entries. AppTheme's textTheme sets `fontFamilyFallback:
+  // ['NotoColorEmoji']` on Linux so this picks up transparently.
+  if (!kIsWeb && Platform.isLinux) {
+    final loader = FontLoader('NotoColorEmoji')
+      ..addFont(rootBundle.load('assets/fonts/NotoColorEmoji.ttf'));
+    await loader.load();
+  }
 
   // On iOS/macOS, the Rust library is statically linked via -force_load in the
   // podspec. Use ExternalLibrary.process() to find symbols in the current process
@@ -89,11 +99,13 @@ void main() async {
   // Read cached theme prefs so the first frame uses the correct colors,
   // avoiding a white flash while the Drift DB loads.
   final prefs = await SharedPreferences.getInstance();
-  final cachedBrightness = ThemeBrightness.values.firstWhereOrNull(
+  final cachedBrightness =
+      ThemeBrightness.values.firstWhereOrNull(
         (b) => b.name == prefs.getString('prism.cache.theme_brightness'),
       ) ??
       ThemeBrightness.system;
-  final cachedStyle = ThemeStyle.values.firstWhereOrNull(
+  final cachedStyle =
+      ThemeStyle.values.firstWhereOrNull(
         (s) => s.name == prefs.getString('prism.cache.theme_style'),
       ) ??
       ThemeStyle.standard;

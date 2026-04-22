@@ -3,11 +3,11 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart' as raw;
 import 'app_database.dart';
 import 'database_encryption.dart';
+import 'package:prism_plurality/core/services/app_data_dir.dart';
 import 'package:prism_plurality/core/services/backup_exclusion.dart';
 
 /// The path to the app's main database file.
@@ -15,7 +15,7 @@ import 'package:prism_plurality/core/services/backup_exclusion.dart';
 /// Exposed so that startup and reset flows can access the file before Drift
 /// opens the database.
 Future<File> getDatabaseFile() async {
-  final dbFolder = await getApplicationDocumentsDirectory();
+  final dbFolder = await getAppDataDir();
   return File(p.join(dbFolder.path, 'prism.db'));
 }
 
@@ -123,8 +123,7 @@ Future<String?> _readStagingKey() async {
 /// 2. Crash BEFORE PRAGMA rekey (during or after staging-slot write) → staging
 ///    key does NOT open the DB (old key still applies). Discard staging slot;
 ///    startup proceeds with the existing primary key.
-Future<void> _recoverFromStagingKey(
-    String stagingHexKey, String dbPath) async {
+Future<void> _recoverFromStagingKey(String stagingHexKey, String dbPath) async {
   if (!File(dbPath).existsSync()) {
     // No DB file yet — staging slot is stale. Clean it up.
     await discardStagingDatabaseKey();

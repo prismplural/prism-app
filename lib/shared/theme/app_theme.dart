@@ -51,6 +51,35 @@ class AppTheme {
 
   // Flutter on iOS/macOS already defaults to SF Pro.
   // On Android it defaults to Roboto. No override needed.
+  //
+  // Linux has no single default — Flutter engine's built-in chain is
+  // "Ubuntu", "Cantarell", "DejaVu Sans", "Liberation Sans", "Arial" (see
+  // engine PR #16928). We mirror that chain explicitly, prepend "Adwaita
+  // Sans" (GNOME 48+ default, March 2025), and append our bundled
+  // NotoColorEmoji (registered via FontLoader in main.dart) for color
+  // emoji — the system default on Linux distros is monochrome NotoEmoji,
+  // if present at all.
+  //
+  // Applied via TextTheme.apply(fontFamilyFallback:), so:
+  //   - null-fontFamily styles (body/label/title) use Adwaita Sans as the
+  //     effective primary and fall through the list for missing glyphs.
+  //   - Unbounded styles (display/headline) keep Unbounded as primary and
+  //     only consult this list for codepoints Unbounded lacks (mainly
+  //     emoji).
+  static List<String>? get _linuxFontFamilyFallback {
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      return const [
+        'Adwaita Sans',
+        'Ubuntu',
+        'Cantarell',
+        'DejaVu Sans',
+        'Liberation Sans',
+        'Arial',
+        'NotoColorEmoji',
+      ];
+    }
+    return null;
+  }
 
   static bool get _isDesktopPlatform {
     return defaultTargetPlatform == TargetPlatform.macOS ||
@@ -64,10 +93,26 @@ class AppTheme {
     if (!_isDesktopPlatform) {
       // Mobile: only strip letter spacing, keep M3 default sizes.
       return TextTheme(
-        displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0.5, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-        displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0.5, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-        displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0.5, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-        headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0.5, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
+        displayLarge: textTheme.displayLarge?.copyWith(
+          letterSpacing: 0.5,
+          fontFamily: 'Unbounded',
+          fontWeight: FontWeight.w700,
+        ),
+        displayMedium: textTheme.displayMedium?.copyWith(
+          letterSpacing: 0.5,
+          fontFamily: 'Unbounded',
+          fontWeight: FontWeight.w700,
+        ),
+        displaySmall: textTheme.displaySmall?.copyWith(
+          letterSpacing: 0.5,
+          fontFamily: 'Unbounded',
+          fontWeight: FontWeight.w700,
+        ),
+        headlineLarge: textTheme.headlineLarge?.copyWith(
+          letterSpacing: 0.5,
+          fontFamily: 'Unbounded',
+          fontWeight: FontWeight.w700,
+        ),
         headlineMedium: textTheme.headlineMedium?.copyWith(letterSpacing: 0),
         headlineSmall: textTheme.headlineSmall?.copyWith(letterSpacing: 0),
         titleLarge: textTheme.titleLarge?.copyWith(letterSpacing: 0),
@@ -84,26 +129,76 @@ class AppTheme {
 
     // Desktop: strip letter spacing and tighten font sizes.
     return TextTheme(
-      displayLarge: textTheme.displayLarge?.copyWith(letterSpacing: 0.5, fontSize: 48, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-      displayMedium: textTheme.displayMedium?.copyWith(letterSpacing: 0.5, fontSize: 38, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-      displaySmall: textTheme.displaySmall?.copyWith(letterSpacing: 0.5, fontSize: 30, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-      headlineLarge: textTheme.headlineLarge?.copyWith(letterSpacing: 0.5, fontSize: 26, fontFamily: 'Unbounded', fontWeight: FontWeight.w700),
-      headlineMedium: textTheme.headlineMedium?.copyWith(letterSpacing: 0, fontSize: 22),
-      headlineSmall: textTheme.headlineSmall?.copyWith(letterSpacing: 0, fontSize: 19),
-      titleLarge: textTheme.titleLarge?.copyWith(letterSpacing: 0, fontSize: 18),
-      titleMedium: textTheme.titleMedium?.copyWith(letterSpacing: 0, fontSize: 14),
-      titleSmall: textTheme.titleSmall?.copyWith(letterSpacing: 0, fontSize: 13),
+      displayLarge: textTheme.displayLarge?.copyWith(
+        letterSpacing: 0.5,
+        fontSize: 48,
+        fontFamily: 'Unbounded',
+        fontWeight: FontWeight.w700,
+      ),
+      displayMedium: textTheme.displayMedium?.copyWith(
+        letterSpacing: 0.5,
+        fontSize: 38,
+        fontFamily: 'Unbounded',
+        fontWeight: FontWeight.w700,
+      ),
+      displaySmall: textTheme.displaySmall?.copyWith(
+        letterSpacing: 0.5,
+        fontSize: 30,
+        fontFamily: 'Unbounded',
+        fontWeight: FontWeight.w700,
+      ),
+      headlineLarge: textTheme.headlineLarge?.copyWith(
+        letterSpacing: 0.5,
+        fontSize: 26,
+        fontFamily: 'Unbounded',
+        fontWeight: FontWeight.w700,
+      ),
+      headlineMedium: textTheme.headlineMedium?.copyWith(
+        letterSpacing: 0,
+        fontSize: 22,
+      ),
+      headlineSmall: textTheme.headlineSmall?.copyWith(
+        letterSpacing: 0,
+        fontSize: 19,
+      ),
+      titleLarge: textTheme.titleLarge?.copyWith(
+        letterSpacing: 0,
+        fontSize: 18,
+      ),
+      titleMedium: textTheme.titleMedium?.copyWith(
+        letterSpacing: 0,
+        fontSize: 14,
+      ),
+      titleSmall: textTheme.titleSmall?.copyWith(
+        letterSpacing: 0,
+        fontSize: 13,
+      ),
       bodyLarge: textTheme.bodyLarge?.copyWith(letterSpacing: 0, fontSize: 14),
-      bodyMedium: textTheme.bodyMedium?.copyWith(letterSpacing: 0, fontSize: 13),
+      bodyMedium: textTheme.bodyMedium?.copyWith(
+        letterSpacing: 0,
+        fontSize: 13,
+      ),
       bodySmall: textTheme.bodySmall?.copyWith(letterSpacing: 0, fontSize: 11),
-      labelLarge: textTheme.labelLarge?.copyWith(letterSpacing: 0, fontSize: 13),
-      labelMedium: textTheme.labelMedium?.copyWith(letterSpacing: 0, fontSize: 11),
-      labelSmall: textTheme.labelSmall?.copyWith(letterSpacing: 0, fontSize: 10),
+      labelLarge: textTheme.labelLarge?.copyWith(
+        letterSpacing: 0,
+        fontSize: 13,
+      ),
+      labelMedium: textTheme.labelMedium?.copyWith(
+        letterSpacing: 0,
+        fontSize: 11,
+      ),
+      labelSmall: textTheme.labelSmall?.copyWith(
+        letterSpacing: 0,
+        fontSize: 10,
+      ),
     );
   }
 
   /// Minimal switch theme shared across all variants.
-  static SwitchThemeData _switchTheme({required bool isDark, required Color accent}) {
+  static SwitchThemeData _switchTheme({
+    required bool isDark,
+    required Color accent,
+  }) {
     final onSurface = isDark ? AppColors.warmWhite : AppColors.warmBlack;
     return SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith((states) {
@@ -136,7 +231,8 @@ class AppTheme {
     _ThemeColors colors,
     PrismShapes shapes,
   ) {
-    final isApple = defaultTargetPlatform == TargetPlatform.iOS ||
+    final isApple =
+        defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
 
     final base = ThemeData(
@@ -149,13 +245,17 @@ class AppTheme {
       splashFactory: isApple ? NoSplash.splashFactory : null,
       splashColor: isApple ? Colors.transparent : null,
       highlightColor: isApple ? Colors.transparent : null,
-      textTheme: _adjustTextTheme(base.textTheme),
+      textTheme: _adjustTextTheme(
+        base.textTheme,
+      ).apply(fontFamilyFallback: _linuxFontFamilyFallback),
       scaffoldBackgroundColor: colors.scaffold,
       extensions: <ThemeExtension<dynamic>>[shapes],
       cardTheme: CardThemeData(
         color: colors.cardColor,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusMedium)),
+          borderRadius: BorderRadius.circular(
+            shapes.radius(PrismTokens.radiusMedium),
+          ),
         ),
         elevation: 0,
       ),
@@ -170,15 +270,21 @@ class AppTheme {
         filled: true,
         fillColor: colors.fillColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusLarge)),
+          borderRadius: BorderRadius.circular(
+            shapes.radius(PrismTokens.radiusLarge),
+          ),
           borderSide: BorderSide(color: colors.borderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusLarge)),
+          borderRadius: BorderRadius.circular(
+            shapes.radius(PrismTokens.radiusLarge),
+          ),
           borderSide: BorderSide(color: colors.borderColor),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusLarge)),
+          borderRadius: BorderRadius.circular(
+            shapes.radius(PrismTokens.radiusLarge),
+          ),
           borderSide: BorderSide(color: colors.focusBorderColor),
         ),
       ),
@@ -207,14 +313,18 @@ class AppTheme {
         backgroundColor: colors.dialogBg,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusLarge)),
+          borderRadius: BorderRadius.circular(
+            shapes.radius(PrismTokens.radiusLarge),
+          ),
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: colors.popupBg,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusMedium)),
+          borderRadius: BorderRadius.circular(
+            shapes.radius(PrismTokens.radiusMedium),
+          ),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -228,7 +338,9 @@ class AppTheme {
           backgroundColor: colors.filledButtonBg,
           foregroundColor: colors.filledButtonFg,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusSmall)),
+            borderRadius: BorderRadius.circular(
+              shapes.radius(PrismTokens.radiusSmall),
+            ),
           ),
           elevation: 0,
         ),
@@ -248,7 +360,9 @@ class AppTheme {
         backgroundColor: colors.snackBarBg,
         contentTextStyle: const TextStyle(color: AppColors.warmWhite),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusSmall)),
+          borderRadius: BorderRadius.circular(
+            shapes.radius(PrismTokens.radiusSmall),
+          ),
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -258,7 +372,9 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         side: BorderSide(color: colors.borderColor, width: 0.5),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusSmall)),
+          borderRadius: BorderRadius.circular(
+            shapes.radius(PrismTokens.radiusSmall),
+          ),
         ),
         labelStyle: TextStyle(
           color: colors.isDark ? AppColors.warmWhite : AppColors.warmBlack,
@@ -270,7 +386,9 @@ class AppTheme {
           color: colors.isDark
               ? AppColors.warmWhite.withValues(alpha: 0.9)
               : AppColors.charcoal,
-          borderRadius: BorderRadius.circular(shapes.radius(PrismTokens.radiusSmall / 2)),
+          borderRadius: BorderRadius.circular(
+            shapes.radius(PrismTokens.radiusSmall / 2),
+          ),
         ),
         textStyle: TextStyle(
           color: colors.isDark ? AppColors.warmBlack : AppColors.warmWhite,
@@ -320,7 +438,12 @@ class AppTheme {
       isDark: false,
     );
 
-    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
+    return _buildTheme(
+      colorScheme,
+      accent,
+      colors,
+      PrismShapes(cornerStyle: cornerStyle),
+    );
   }
 
   static ThemeData dark({
@@ -363,7 +486,12 @@ class AppTheme {
       isDark: true,
     );
 
-    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
+    return _buildTheme(
+      colorScheme,
+      accent,
+      colors,
+      PrismShapes(cornerStyle: cornerStyle),
+    );
   }
 
   /// Pure black OLED theme — saves battery on OLED screens.
@@ -407,7 +535,12 @@ class AppTheme {
       isDark: true,
     );
 
-    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
+    return _buildTheme(
+      colorScheme,
+      accent,
+      colors,
+      PrismShapes(cornerStyle: cornerStyle),
+    );
   }
 
   /// Material You theme — uses the system's dynamic color palette.
@@ -448,7 +581,12 @@ class AppTheme {
       isDark: false,
     );
 
-    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
+    return _buildTheme(
+      colorScheme,
+      accent,
+      colors,
+      PrismShapes(cornerStyle: cornerStyle),
+    );
   }
 
   static ThemeData materialYouDark(
@@ -484,6 +622,11 @@ class AppTheme {
       isDark: true,
     );
 
-    return _buildTheme(colorScheme, accent, colors, PrismShapes(cornerStyle: cornerStyle));
+    return _buildTheme(
+      colorScheme,
+      accent,
+      colors,
+      PrismShapes(cornerStyle: cornerStyle),
+    );
   }
 }
