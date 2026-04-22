@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_spinner.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
@@ -20,6 +22,7 @@ import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 /// Bottom sheet for creating a new conversation (DM or group).
@@ -124,6 +127,70 @@ class _CreateConversationSheetState
     }
   }
 
+  Future<void> _openSearchSheet(
+    BuildContext context,
+    ThemeData theme,
+    List<Member> members,
+  ) async {
+    final speakingAs = ref.read(speakingAsProvider);
+    final s = ref.read(terminologySettingProvider);
+    final termPlural = resolveTerminology(
+      context.l10n,
+      s.term,
+      customSingular: s.customSingular,
+      customPlural: s.customPlural,
+      useEnglish: s.useEnglish,
+    ).plural;
+
+    final frontingLabel = context.l10n.chatCreateFronting;
+    final primaryColor = theme.colorScheme.primary;
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(
+      color: primaryColor,
+      fontWeight: FontWeight.w600,
+    );
+
+    // DM mode: exclude the speaking-as member (they are the sender).
+    final searchMembers = _isGroupChat
+        ? members
+        : members.where((m) => m.id != speakingAs).toList();
+    final initialSelected =
+        _isGroupChat
+              ? Set<String>.from(_selectedMemberIds)
+              : Set<String>.from(_selectedMemberIds)
+          ..remove(speakingAs);
+
+    final result = await MemberSearchSheet.showMulti(
+      context,
+      members: searchMembers,
+      termPlural: termPlural,
+      initialSelected: initialSelected,
+      trailingBuilder: _isGroupChat
+          ? (member) {
+              if (member.id != speakingAs) return null;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Text(frontingLabel, style: labelStyle),
+              );
+            }
+          : null,
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _selectedMemberIds.clear();
+      if (_isGroupChat) {
+        _selectedMemberIds.addAll(result);
+      } else {
+        _selectedMemberIds.addAll(result.where((id) => id != speakingAs));
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -153,6 +220,12 @@ class _CreateConversationSheetState
         speakingAs != null &&
         !_selectedMemberIds.contains(speakingAs);
 
+    // Member rows for the inline lazy sliver list.
+    final members = membersAsync.value ?? [];
+    final displayMembers = _isGroupChat
+        ? members
+        : members.where((m) => m.id != speakingAs).toList();
+
     return SafeArea(
       child: Column(
         children: [
@@ -179,305 +252,371 @@ class _CreateConversationSheetState
           ),
           const SizedBox(height: 8),
 
-          // Scrollable body
+          // Scrollable body using CustomScrollView so the member list is a
+          // truly lazy SliverList.builder (no eager Column).
           Expanded(
-            child: ListView(
+            child: CustomScrollView(
               controller: widget.scrollController,
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-              ),
-              children: [
-                // DM / Group toggle
-                PrismSegmentedControl<bool>(
-                  segments: [
-                    PrismSegment(
-                      value: true,
-                      label: context.l10n.chatCreateGroupTab,
+              slivers: [
+                // ── DM / Group toggle ────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: PrismSegmentedControl<bool>(
+                      segments: [
+                        PrismSegment(
+                          value: true,
+                          label: context.l10n.chatCreateGroupTab,
+                        ),
+                        PrismSegment(
+                          value: false,
+                          label: context.l10n.chatCreateDirectMessageTab,
+                        ),
+                      ],
+                      selected: _isGroupChat,
+                      onChanged: (value) {
+                        setState(() {
+                          _isGroupChat = value;
+                        });
+                      },
                     ),
-                    PrismSegment(
-                      value: false,
-                      label: context.l10n.chatCreateDirectMessageTab,
-                    ),
-                  ],
-                  selected: _isGroupChat,
-                  onChanged: (value) {
-                    setState(() {
-                      _isGroupChat = value;
-                    });
-                  },
+                  ),
                 ),
-                const SizedBox(height: 16),
+                const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-                // Group-specific fields
+                // ── Group-specific fields ────────────────────────────────
                 if (_isGroupChat) ...[
-                  Row(
-                    children: [
-                      PrismEmojiPicker(
-                        emoji: _emojiController.text.trim().isNotEmpty
-                            ? _emojiController.text.trim()
-                            : null,
-                        onSelected: (emoji) {
-                          setState(() {
-                            _emojiController.text = emoji;
-                          });
-                        },
-                        size: 48,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: PrismTextField(
-                          controller: _titleController,
-                          labelText: context.l10n.chatCreateGroupName,
-                          hintText: context.l10n.chatCreateGroupNameHint,
-                          onChanged: (_) => setState(() {}),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Category picker
-                  Builder(
-                    builder: (context) {
-                      final categoriesAsync = ref.watch(
-                        conversationCategoriesProvider,
-                      );
-                      final categories = categoriesAsync.value ?? [];
-                      if (categories.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
-                      final noneLabel = context.l10n.chatInfoCategoryNone;
-                      final currentName = _selectedCategoryId != null
-                          ? categories
-                                    .where((c) => c.id == _selectedCategoryId)
-                                    .map((c) => c.name)
-                                    .firstOrNull ??
-                                noneLabel
-                          : noneLabel;
-                      return Semantics(
-                        button: true,
-                        label: context.l10n.chatInfoCategorySemantics(
-                          currentName,
-                        ),
-                        child: PrismListRow(
-                          title: Text(context.l10n.chatInfoCategory),
-                          subtitle: Text(currentName),
-                          trailing: Icon(AppIcons.chevronRightRounded),
-                          onTap: () {
-                            PrismSheet.show(
-                              context: context,
-                              builder: (ctx) => Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  PrismListRow(
-                                    title: Text(ctx.l10n.chatInfoCategoryNone),
-                                    trailing: _selectedCategoryId == null
-                                        ? Icon(AppIcons.checkRounded)
-                                        : null,
-                                    onTap: () {
-                                      setState(
-                                        () => _selectedCategoryId = null,
-                                      );
-                                      Navigator.of(ctx).pop();
-                                    },
-                                  ),
-                                  for (final cat in categories)
-                                    PrismListRow(
-                                      title: Text(cat.name),
-                                      trailing: cat.id == _selectedCategoryId
-                                          ? Icon(AppIcons.checkRounded)
-                                          : null,
-                                      onTap: () {
-                                        setState(
-                                          () => _selectedCategoryId = cat.id,
-                                        );
-                                        Navigator.of(ctx).pop();
-                                      },
-                                    ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Member selection header
-                Row(
-                  children: [
-                    Text(
-                      _isGroupChat
-                          ? context.l10n.chatCreateSelectParticipants
-                          : context.l10n.chatCreateMessageAs(
-                              _currentFronterName(membersAsync),
-                            ),
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    const Spacer(),
-                    if (_isGroupChat)
-                      membersAsync.whenOrNull(
-                            data: (members) {
-                              if (members.isEmpty) return null;
-                              final allSelected = members.every(
-                                (m) => _selectedMemberIds.contains(m.id),
-                              );
-                              return PrismButton(
-                                label: allSelected
-                                    ? context.l10n.chatCreateDeselectAll
-                                    : context.l10n.chatCreateSelectAll,
-                                tone: PrismButtonTone.subtle,
-                                onPressed: () {
-                                  setState(() {
-                                    if (allSelected) {
-                                      _selectedMemberIds.clear();
-                                    } else {
-                                      _selectedMemberIds.addAll(
-                                        members.map((m) => m.id),
-                                      );
-                                    }
-                                  });
-                                },
-                              );
-                            },
-                          ) ??
-                          const SizedBox.shrink(),
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                // Members inline
-                membersAsync.when(
-                  data: (members) {
-                    if (members.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          context.l10n.chatCreateNoMembers,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      );
-                    }
-
-                    final speakingAs = ref.watch(speakingAsProvider);
-                    final displayMembers = _isGroupChat
-                        ? members
-                        : members.where((m) => m.id != speakingAs).toList();
-
-                    return Column(
-                      children: [
-                        for (final member in displayMembers)
-                          PrismCheckboxRow(
-                            padding: EdgeInsets.zero,
-                            leading: MemberAvatar(
-                              avatarImageData: member.avatarImageData,
-                              memberName: member.name,
-                              emoji: member.emoji,
-                              customColorEnabled: member.customColorEnabled,
-                              customColorHex: member.customColorHex,
-                              size: 36,
-                            ),
-                            title: Row(
-                              children: [
-                                Text(member.name),
-                                if (member.id == speakingAs) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primary
-                                          .withValues(alpha: 0.12),
-                                      borderRadius: BorderRadius.circular(
-                                        PrismShapes.of(context).pill(22),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      context.l10n.chatCreateFronting,
-                                      style: theme.textTheme.labelSmall
-                                          ?.copyWith(
-                                            color: theme.colorScheme.primary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            value: _selectedMemberIds.contains(member.id),
-                            onChanged: (selected) {
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          PrismEmojiPicker(
+                            emoji: _emojiController.text.trim().isNotEmpty
+                                ? _emojiController.text.trim()
+                                : null,
+                            onSelected: (emoji) {
                               setState(() {
-                                if (selected) {
-                                  if (!_isGroupChat) _selectedMemberIds.clear();
-                                  _selectedMemberIds.add(member.id);
-                                } else {
-                                  _selectedMemberIds.remove(member.id);
-                                }
+                                _emojiController.text = emoji;
                               });
                             },
+                            size: 48,
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: PrismTextField(
+                              controller: _titleController,
+                              labelText: context.l10n.chatCreateGroupName,
+                              hintText: context.l10n.chatCreateGroupNameHint,
+                              onChanged: (_) => setState(() {}),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+                  // Category picker
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Builder(
+                        builder: (context) {
+                          final categoriesAsync = ref.watch(
+                            conversationCategoriesProvider,
+                          );
+                          final categories = categoriesAsync.value ?? [];
+                          if (categories.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+                          final noneLabel = context.l10n.chatInfoCategoryNone;
+                          final currentName = _selectedCategoryId != null
+                              ? categories
+                                        .where(
+                                          (c) => c.id == _selectedCategoryId,
+                                        )
+                                        .map((c) => c.name)
+                                        .firstOrNull ??
+                                    noneLabel
+                              : noneLabel;
+                          return Semantics(
+                            button: true,
+                            label: context.l10n.chatInfoCategorySemantics(
+                              currentName,
+                            ),
+                            child: PrismListRow(
+                              title: Text(context.l10n.chatInfoCategory),
+                              subtitle: Text(currentName),
+                              trailing: Icon(AppIcons.chevronRightRounded),
+                              onTap: () {
+                                PrismSheet.show(
+                                  context: context,
+                                  builder: (ctx) => Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      PrismListRow(
+                                        title: Text(
+                                          ctx.l10n.chatInfoCategoryNone,
+                                        ),
+                                        trailing: _selectedCategoryId == null
+                                            ? Icon(AppIcons.checkRounded)
+                                            : null,
+                                        onTap: () {
+                                          setState(
+                                            () => _selectedCategoryId = null,
+                                          );
+                                          Navigator.of(ctx).pop();
+                                        },
+                                      ),
+                                      for (final cat in categories)
+                                        PrismListRow(
+                                          title: Text(cat.name),
+                                          trailing:
+                                              cat.id == _selectedCategoryId
+                                              ? Icon(AppIcons.checkRounded)
+                                              : null,
+                                          onTap: () {
+                                            setState(
+                                              () =>
+                                                  _selectedCategoryId = cat.id,
+                                            );
+                                            Navigator.of(ctx).pop();
+                                          },
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                ],
+
+                // ── Member selection header ──────────────────────────────
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Text(
+                          _isGroupChat
+                              ? context.l10n.chatCreateSelectParticipants
+                              : context.l10n.chatCreateMessageAs(
+                                  _currentFronterName(membersAsync),
+                                ),
+                          style: theme.textTheme.titleSmall,
+                        ),
+                        const Spacer(),
+                        // Search button — opens shared multi-select sheet.
+                        IconButton(
+                          icon: Icon(AppIcons.search),
+                          iconSize: 20,
+                          visualDensity: VisualDensity.compact,
+                          tooltip: context.l10n.search,
+                          onPressed: members.isEmpty
+                              ? null
+                              : () => _openSearchSheet(context, theme, members),
+                        ),
+                        if (_isGroupChat)
+                          membersAsync.whenOrNull(
+                                data: (members) {
+                                  if (members.isEmpty) return null;
+                                  final allSelected = members.every(
+                                    (m) => _selectedMemberIds.contains(m.id),
+                                  );
+                                  return PrismButton(
+                                    label: allSelected
+                                        ? context.l10n.chatCreateDeselectAll
+                                        : context.l10n.chatCreateSelectAll,
+                                    tone: PrismButtonTone.subtle,
+                                    onPressed: () {
+                                      setState(() {
+                                        if (allSelected) {
+                                          _selectedMemberIds.clear();
+                                        } else {
+                                          _selectedMemberIds.addAll(
+                                            members.map((m) => m.id),
+                                          );
+                                        }
+                                      });
+                                    },
+                                  );
+                                },
+                              ) ??
+                              const SizedBox.shrink(),
                       ],
-                    );
-                  },
-                  loading: () => const PrismLoadingState(),
-                  error: (error, _) => Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      context.l10n.chatAddMembersFailed(error),
-                      style: TextStyle(color: theme.colorScheme.error),
                     ),
                   ),
                 ),
+                const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
-                // Warning when fronter is deselected
-                if (fronterDeselected) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.errorContainer.withValues(
-                        alpha: 0.4,
-                      ),
-                      borderRadius: BorderRadius.circular(
-                        PrismShapes.of(context).radius(12),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          AppIcons.infoOutline,
-                          size: 18,
-                          color: theme.colorScheme.error,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            context.l10n.chatCreateFronterDeselectedWarning(
-                              _currentFronterName(membersAsync),
-                            ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.error,
-                            ),
+                // ── Member rows (lazy) ───────────────────────────────────
+                ..._buildMemberSliver(
+                  context,
+                  theme,
+                  membersAsync,
+                  speakingAs,
+                  displayMembers,
+                ),
+
+                // ── Fronter-deselected warning ───────────────────────────
+                if (fronterDeselected)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.errorContainer.withValues(
+                            alpha: 0.4,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(12),
                           ),
                         ),
-                      ],
+                        child: Row(
+                          children: [
+                            Icon(
+                              AppIcons.infoOutline,
+                              size: 18,
+                              color: theme.colorScheme.error,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                context.l10n.chatCreateFronterDeselectedWarning(
+                                  _currentFronterName(membersAsync),
+                                ),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                ],
+
+                // ── Bottom padding ───────────────────────────────────────
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: MediaQuery.of(context).viewInsets.bottom + 16,
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  List<Widget> _buildMemberSliver(
+    BuildContext context,
+    ThemeData theme,
+    AsyncValue<dynamic> membersAsync,
+    String? speakingAs,
+    List<dynamic> displayMembers,
+  ) {
+    return membersAsync.when(
+      data: (_) {
+        if (displayMembers.isEmpty) {
+          return [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  context.l10n.chatCreateNoMembers,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          ];
+        }
+        return [
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            sliver: SliverList.builder(
+              itemCount: displayMembers.length,
+              itemBuilder: (context, index) {
+                final member = displayMembers[index];
+                return PrismCheckboxRow(
+                  padding: EdgeInsets.zero,
+                  leading: MemberAvatar(
+                    avatarImageData: member.avatarImageData,
+                    memberName: member.name,
+                    emoji: member.emoji,
+                    customColorEnabled: member.customColorEnabled,
+                    customColorHex: member.customColorHex,
+                    size: 36,
+                  ),
+                  title: Row(
+                    children: [
+                      Text(member.name),
+                      if (member.id == speakingAs) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.12,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              PrismShapes.of(context).pill(22),
+                            ),
+                          ),
+                          child: Text(
+                            context.l10n.chatCreateFronting,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  value: _selectedMemberIds.contains(member.id),
+                  onChanged: (selected) {
+                    setState(() {
+                      if (selected) {
+                        if (!_isGroupChat) _selectedMemberIds.clear();
+                        _selectedMemberIds.add(member.id);
+                      } else {
+                        _selectedMemberIds.remove(member.id);
+                      }
+                    });
+                  },
+                );
+              },
+            ),
+          ),
+        ];
+      },
+      loading: () => [const SliverToBoxAdapter(child: PrismLoadingState())],
+      error: (error, _) => [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              context.l10n.chatAddMembersFailed(error),
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
