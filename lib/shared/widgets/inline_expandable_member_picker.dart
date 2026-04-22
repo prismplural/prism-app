@@ -28,6 +28,8 @@ class InlineExpandableMemberPicker extends ConsumerStatefulWidget {
     required this.selectedMemberId,
     required this.onChanged,
     this.includeUnknown = true,
+    this.unknownSelected = false,
+    this.onUnknownSelected,
     this.showPronouns = true,
     this.members,
     this.maxExpandedHeight = _kInlinePickerMaxExpandedHeight,
@@ -36,6 +38,8 @@ class InlineExpandableMemberPicker extends ConsumerStatefulWidget {
   final String? selectedMemberId;
   final ValueChanged<String?> onChanged;
   final bool includeUnknown;
+  final bool unknownSelected;
+  final VoidCallback? onUnknownSelected;
   final bool showPronouns;
   final List<Member>? members;
   final double maxExpandedHeight;
@@ -70,6 +74,10 @@ class _InlineExpandableMemberPickerState
         ? members.where((m) => m.id == widget.selectedMemberId).firstOrNull
         : null;
     final terms = watchTerminology(context, ref);
+    final unknownSelected = widget.includeUnknown && widget.unknownSelected;
+    final collapsedLabel = unknownSelected
+        ? context.l10n.unknown
+        : selected?.name ?? context.l10n.selectMember(terms.singular);
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
@@ -82,7 +90,7 @@ class _InlineExpandableMemberPickerState
           Semantics(
             button: true,
             expanded: _expanded,
-            label: selected?.name ?? context.l10n.selectMember(terms.singular),
+            label: collapsedLabel,
             child: InkWell(
               onTap: () => setState(() => _expanded = !_expanded),
               borderRadius: BorderRadius.circular(
@@ -92,7 +100,16 @@ class _InlineExpandableMemberPickerState
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                 child: Row(
                   children: [
-                    if (selected != null) ...[
+                    if (unknownSelected) ...[
+                      const MemberAvatar(emoji: '\u2754', size: 44),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          context.l10n.unknown,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      ),
+                    ] else if (selected != null) ...[
                       MemberAvatar(
                         avatarImageData: selected.avatarImageData,
                         memberName: selected.name,
@@ -165,9 +182,14 @@ class _InlineExpandableMemberPickerState
                       name: context.l10n.unknown,
                       pronouns: null,
                       showPronouns: false,
-                      isSelected: widget.selectedMemberId == null,
+                      isSelected: unknownSelected,
                       onTap: () {
-                        widget.onChanged(null);
+                        final onUnknownSelected = widget.onUnknownSelected;
+                        if (onUnknownSelected != null) {
+                          onUnknownSelected();
+                        } else {
+                          widget.onChanged(null);
+                        }
                         setState(() => _expanded = false);
                       },
                     );

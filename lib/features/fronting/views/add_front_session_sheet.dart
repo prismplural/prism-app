@@ -9,9 +9,9 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
+import 'package:prism_plurality/shared/widgets/inline_expandable_member_picker.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
-import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_loading_state.dart';
 import 'package:prism_plurality/shared/widgets/prism_sheet.dart';
@@ -98,7 +98,10 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.frontingErrorAddingCoFronter(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorAddingCoFronter(e),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -122,11 +125,32 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.frontingErrorCreatingSession(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorCreatingSession(e),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  Future<void> _openCoFronterSearch(
+    List<Member> available,
+    String termPlural,
+  ) async {
+    final result = await MemberSearchSheet.showMulti(
+      context,
+      members: available,
+      termPlural: termPlural,
+      initialSelected: Set.from(_coFronterIds),
+    );
+    if (!mounted || result == null) return;
+    setState(() {
+      _coFronterIds
+        ..clear()
+        ..addAll(result);
+    });
   }
 
   @override
@@ -171,7 +195,9 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   ) {
     return [
       PrismSheetTopBar(
-        title: _coFrontMode ? context.l10n.frontingAddCoFronterTitle : context.l10n.frontingNewSession,
+        title: _coFrontMode
+            ? context.l10n.frontingAddCoFronterTitle
+            : context.l10n.frontingNewSession,
         trailing: PrismGlassIconButton(
           icon: AppIcons.check,
           onPressed: (_saving || _selectedId == null)
@@ -196,7 +222,9 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
               children: [
                 Expanded(
                   child: Text(
-                    _coFrontMode ? context.l10n.frontingSelectMember(terms.singular) : context.l10n.frontingSelectFronter,
+                    _coFrontMode
+                        ? context.l10n.frontingSelectMember(terms.singular)
+                        : context.l10n.frontingSelectFronter,
                     style: theme.textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -234,7 +262,9 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                                     alpha: 0.4,
                                   ),
                           ),
-                          borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(20)),
+                          borderRadius: BorderRadius.circular(
+                            PrismShapes.of(context).radius(20),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -312,31 +342,31 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
                     );
                   }
                   return Column(
-                    children: available.map((m) {
-                      return PrismCheckboxRow(
-                        leading: MemberAvatar(
-                          avatarImageData: m.avatarImageData,
-                          memberName: m.name,
-                          emoji: m.emoji,
-                          customColorEnabled: m.customColorEnabled,
-                          customColorHex: m.customColorHex,
-                          size: 36,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (available.length > _MemberGrid._compactThreshold)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: IconButton(
+                            icon: Icon(AppIcons.search),
+                            tooltip: context.l10n.search,
+                            onPressed: () =>
+                                _openCoFronterSearch(available, terms.plural),
+                          ),
                         ),
-                        title: Text(m.name),
-                        value: _coFronterIds.contains(m.id),
-                        onChanged: (selected) {
+                      InlineExpandableMultiMemberPicker(
+                        key: const Key('addFrontSessionCoFrontersInlinePicker'),
+                        members: available,
+                        selectedMemberIds: _coFronterIds,
+                        onChanged: (selectedIds) {
                           setState(() {
-                            if (selected) {
-                              _coFronterIds.add(m.id);
-                            } else {
-                              _coFronterIds.remove(m.id);
-                            }
+                            _coFronterIds
+                              ..clear()
+                              ..addAll(selectedIds);
                           });
                         },
-                        padding: EdgeInsets.zero,
-                        dense: true,
-                      );
-                    }).toList(),
+                      ),
+                    ],
                   );
                 },
               ),
@@ -389,8 +419,8 @@ class _AddFrontSessionSheetState extends ConsumerState<AddFrontSessionSheet>
   }
 }
 
-/// Switches between a large grid (≤12 members) and a searchable compact list
-/// (>12 members) for selecting the fronting member.
+/// Switches between a large grid (≤12 members) and an inline expandable picker
+/// with search (>12 members) for selecting the fronting member.
 class _MemberGrid extends StatefulWidget {
   const _MemberGrid({
     required this.members,
@@ -410,7 +440,7 @@ class _MemberGrid extends StatefulWidget {
   final Set<String> frontingMemberIds;
   final bool coFrontMode;
 
-  /// Threshold above which we switch to compact list + search.
+  /// Threshold above which we switch to inline picker + search.
   static const int _compactThreshold = 12;
 
   @override
@@ -465,7 +495,9 @@ class _MemberGridState extends State<_MemberGrid> {
         duration: const Duration(milliseconds: 200),
         decoration: isSelected
             ? BoxDecoration(
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(16),
+                ),
                 border: Border.all(color: theme.colorScheme.primary, width: 2),
                 color: theme.colorScheme.primaryContainer.withValues(
                   alpha: 0.3,
@@ -508,7 +540,9 @@ class _MemberGridState extends State<_MemberGrid> {
                   color: AppColors.fronting(
                     theme.brightness,
                   ).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(8),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -545,7 +579,9 @@ class _MemberGridState extends State<_MemberGrid> {
         duration: const Duration(milliseconds: 200),
         decoration: isSelected
             ? BoxDecoration(
-                borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(16)),
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(16),
+                ),
                 border: Border.all(color: theme.colorScheme.primary, width: 2),
                 color: theme.colorScheme.primaryContainer.withValues(
                   alpha: 0.3,
@@ -587,15 +623,19 @@ class _MemberGridState extends State<_MemberGrid> {
   }
 
   // ---------------------------------------------------------------------------
-  // Compact list (>12 members): search icon opens shared sheet; rows show all
+  // Inline picker (>12 members): search icon opens shared sheet
   // ---------------------------------------------------------------------------
 
   Widget _buildCompactList(BuildContext context) {
-    final theme = Theme.of(context);
+    final availableMembers = widget.coFrontMode
+        ? widget.members
+              .where((member) => !widget.frontingMemberIds.contains(member.id))
+              .toList()
+        : widget.members;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Search icon — opens the shared member search sheet.
         Align(
           alignment: Alignment.centerRight,
           child: IconButton(
@@ -604,48 +644,23 @@ class _MemberGridState extends State<_MemberGrid> {
             onPressed: () => _openSearch(context),
           ),
         ),
-
-        // "Unknown" row (hidden in co-front mode)
-        if (!widget.coFrontMode) ...[
-          _listRow(
-            theme: theme,
-            leading: _unknownLeading(context),
-            name: 'Unknown',
-            isSelected: widget.selectedId == widget.unknownId,
-            onTap: () => widget.onSelect(widget.unknownId),
-          ),
-          Divider(
-            height: 1,
-            indent: 56,
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-          ),
-        ],
-
-        // Member rows — all members; filtering is done via the shared search sheet.
-        ...widget.members.map((member) {
-          final isSelected = member.id == widget.selectedId;
-          final isFronting = widget.frontingMemberIds.contains(member.id);
-          final isDisabled = widget.coFrontMode && isFronting;
-          return _listRow(
-            theme: theme,
-            leading: MemberAvatar(
-              avatarImageData: member.avatarImageData,
-              memberName: member.name,
-              emoji: member.emoji,
-              customColorEnabled: member.customColorEnabled,
-              customColorHex: member.customColorHex,
-              size: 40,
-              tintOverride: isFronting
-                  ? AppColors.fronting(theme.brightness)
-                  : null,
-            ),
-            name: member.name,
-            isSelected: isSelected,
-            isFronting: isFronting,
-            isDisabled: isDisabled,
-            onTap: isDisabled ? null : () => widget.onSelect(member.id),
-          );
-        }),
+        InlineExpandableMemberPicker(
+          key: const Key('addFrontSessionInlineMemberPicker'),
+          members: availableMembers,
+          selectedMemberId: widget.selectedId == widget.unknownId
+              ? null
+              : widget.selectedId,
+          includeUnknown: !widget.coFrontMode,
+          unknownSelected: widget.selectedId == widget.unknownId,
+          onUnknownSelected: widget.coFrontMode
+              ? null
+              : () => widget.onSelect(widget.unknownId),
+          onChanged: (selectedMemberId) {
+            if (selectedMemberId != null) {
+              widget.onSelect(selectedMemberId);
+            }
+          },
+        ),
       ],
     );
   }
@@ -678,8 +693,8 @@ class _MemberGridState extends State<_MemberGrid> {
   Future<void> _openSearch(BuildContext context) async {
     final candidates = widget.coFrontMode
         ? widget.members
-            .where((m) => !widget.frontingMemberIds.contains(m.id))
-            .toList()
+              .where((m) => !widget.frontingMemberIds.contains(m.id))
+              .toList()
         : List<Member>.from(widget.members);
 
     final specialRows = widget.coFrontMode
@@ -710,84 +725,6 @@ class _MemberGridState extends State<_MemberGrid> {
       case MemberSearchResultCleared():
         break;
     }
-  }
-
-  Widget _listRow({
-    required ThemeData theme,
-    required Widget leading,
-    required String name,
-    required bool isSelected,
-    bool isFronting = false,
-    bool isDisabled = false,
-    VoidCallback? onTap,
-  }) {
-    return Material(
-      color: isSelected
-          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-          : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-          child: Row(
-            children: [
-              Opacity(
-                opacity: isFronting && !isSelected ? 0.5 : 1.0,
-                child: leading,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  name,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  ),
-                ),
-              ),
-              if (isFronting && !isSelected)
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.fronting(
-                      theme.brightness,
-                    ).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(8)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        AppIcons.flashOn,
-                        size: 10,
-                        color: AppColors.fronting(theme.brightness),
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        'Fronting',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: AppColors.fronting(theme.brightness),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (isSelected)
-                Icon(
-                  AppIcons.checkCircle,
-                  size: 22,
-                  color: theme.colorScheme.primary,
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }
 
