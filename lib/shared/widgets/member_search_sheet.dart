@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
@@ -125,6 +124,7 @@ class MemberSearchSheet extends StatefulWidget {
     this.specialRows = const [],
     this.multiSelect = false,
     this.initialSelected = const {},
+    this.trailingBuilder,
   });
 
   /// All candidate members. Filtering is done internally.
@@ -143,6 +143,13 @@ class MemberSearchSheet extends StatefulWidget {
 
   /// Pre-selected IDs for multi-select mode.
   final Set<String> initialSelected;
+
+  /// Optional trailing widget builder for each member row.
+  ///
+  /// Return non-null to show a custom widget in the trailing slot. In
+  /// multi-select mode the selection check icon is shown alongside the
+  /// returned widget.
+  final Widget? Function(Member member)? trailingBuilder;
 
   // ─── Factory show methods ────────────────────────────────────────────────
 
@@ -177,6 +184,7 @@ class MemberSearchSheet extends StatefulWidget {
     Set<String> initialSelected = const {},
     List<MemberSearchGroup> groups = const [],
     List<MemberSearchSpecialRow> specialRows = const [],
+    Widget? Function(Member member)? trailingBuilder,
   }) {
     return PrismSheet.show<Set<String>>(
       context: context,
@@ -188,6 +196,7 @@ class MemberSearchSheet extends StatefulWidget {
         specialRows: specialRows,
         multiSelect: true,
         initialSelected: initialSelected,
+        trailingBuilder: trailingBuilder,
       ),
     );
   }
@@ -225,9 +234,7 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
   List<Member> get _baseMembers {
     if (_selectedChip == 0) return widget.members;
     final group = widget.groups[_selectedChip - 1];
-    return widget.members
-        .where((m) => group.memberIds.contains(m.id))
-        .toList();
+    return widget.members.where((m) => group.memberIds.contains(m.id)).toList();
   }
 
   List<Member> get _filteredMembers => filterMembers(_baseMembers, _query);
@@ -239,12 +246,12 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
   void _selectChip(int index) => setState(() => _selectedChip = index);
 
   void _toggleMember(String id) => setState(() {
-        if (_selectedIds.contains(id)) {
-          _selectedIds.remove(id);
-        } else {
-          _selectedIds.add(id);
-        }
-      });
+    if (_selectedIds.contains(id)) {
+      _selectedIds.remove(id);
+    } else {
+      _selectedIds.add(id);
+    }
+  });
 
   void _confirmMulti() =>
       Navigator.of(context).pop(Set<String>.from(_selectedIds));
@@ -319,11 +326,11 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
             children: [
               _buildChip(0, 'All ${widget.termPlural}'),
               ...widget.groups.asMap().entries.map(
-                    (e) => Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: _buildChip(e.key + 1, e.value.name),
-                    ),
-                  ),
+                (e) => Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: _buildChip(e.key + 1, e.value.name),
+                ),
+              ),
             ],
           ),
         ),
@@ -339,8 +346,7 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
                     if (index < widget.specialRows.length) {
                       return _buildSpecialRow(widget.specialRows[index]);
                     }
-                    final member =
-                        filtered[index - widget.specialRows.length];
+                    final member = filtered[index - widget.specialRows.length];
                     return _buildMemberRow(member);
                   },
                 ),
@@ -373,8 +379,27 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
   }
 
   Widget _buildMemberRow(Member member) {
-    final isSelected =
-        widget.multiSelect && _selectedIds.contains(member.id);
+    final isSelected = widget.multiSelect && _selectedIds.contains(member.id);
+    final customTrailing = widget.trailingBuilder?.call(member);
+
+    final Widget? trailing;
+    if (customTrailing != null && isSelected) {
+      trailing = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          customTrailing,
+          const SizedBox(width: 4),
+          Icon(AppIcons.check),
+        ],
+      );
+    } else if (customTrailing != null) {
+      trailing = customTrailing;
+    } else if (isSelected) {
+      trailing = Icon(AppIcons.check);
+    } else {
+      trailing = null;
+    }
+
     return Semantics(
       selected: isSelected,
       child: PrismListRow(
@@ -392,7 +417,7 @@ class _MemberSearchSheetState extends State<MemberSearchSheet> {
         subtitle: member.pronouns != null && member.pronouns!.isNotEmpty
             ? Text(member.pronouns!)
             : null,
-        trailing: isSelected ? Icon(AppIcons.check) : null,
+        trailing: trailing,
         onTap: () {
           if (widget.multiSelect) {
             _toggleMember(member.id);
