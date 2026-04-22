@@ -17,6 +17,7 @@ import 'package:prism_plurality/features/settings/providers/terminology_provider
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/prism_switch_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_emoji_picker.dart';
+import 'package:prism_plurality/shared/widgets/prism_picker_text_field_row.dart';
 import 'package:prism_plurality/shared/widgets/prism_text_field.dart';
 import 'package:prism_plurality/shared/widgets/prism_date_picker.dart';
 import 'package:prism_plurality/features/members/providers/custom_fields_providers.dart';
@@ -38,8 +39,7 @@ class AddEditMemberSheet extends ConsumerStatefulWidget {
   bool get isEditing => member != null;
 
   @override
-  ConsumerState<AddEditMemberSheet> createState() =>
-      _AddEditMemberSheetState();
+  ConsumerState<AddEditMemberSheet> createState() => _AddEditMemberSheetState();
 }
 
 class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
@@ -77,12 +77,11 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     _pronounsController = TextEditingController(text: m?.pronouns ?? '');
     _bioController = TextEditingController(text: m?.bio ?? '');
     _emojiController = TextEditingController(text: m?.emoji ?? '❔');
-    _ageController =
-        TextEditingController(text: m?.age != null ? '${m!.age}' : '');
-    _colorHexController =
-        TextEditingController(text: m?.customColorHex ?? '');
-    _displayNameController =
-        TextEditingController(text: m?.displayName ?? '');
+    _ageController = TextEditingController(
+      text: m?.age != null ? '${m!.age}' : '',
+    );
+    _colorHexController = TextEditingController(text: m?.customColorHex ?? '');
+    _displayNameController = TextEditingController(text: m?.displayName ?? '');
     final parsedBirthday = parseBirthday(m?.birthday);
     _birthday = parsedBirthday;
     _birthdayHideYear =
@@ -142,8 +141,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     final initial = _birthday != null && !isBirthdayYearHidden(_birthday!)
         ? _birthday!
         : _birthday != null
-            ? DateTime(2000, _birthday!.month, _birthday!.day)
-            : DateTime(DateTime.now().year - 20, 1, 1);
+        ? DateTime(2000, _birthday!.month, _birthday!.day)
+        : DateTime(DateTime.now().year - 20, 1, 1);
     final picked = await showPrismDatePicker(
       context: context,
       anchorContext: anchorContext,
@@ -169,8 +168,8 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
     final age = ageText.isNotEmpty ? int.tryParse(ageText) : null;
     final colorHex = _customColorEnabled
         ? _colorHexController.text.trim().isNotEmpty
-            ? _colorHexController.text.trim()
-            : null
+              ? _colorHexController.text.trim()
+              : null
         : null;
     final displayName = _displayNameController.text.trim();
     // Preserve PK's `YYYY-MM-DD` wire format so round-trips stay byte-identical;
@@ -221,9 +220,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
       }
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context,
-            message: context.l10n.memberErrorSaving(
-                readTerminology(context, ref).singularLower, e));
+        PrismToast.error(
+          context,
+          message: context.l10n.memberErrorSaving(
+            readTerminology(context, ref).singularLower,
+            e,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -246,13 +249,13 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                 ? context.l10n.terminologyEditItem(terms.singular)
                 : context.l10n.terminologyNewItem(terms.singular),
             trailing: PrismGlassIconButton(
-                    icon: AppIcons.check,
-                    size: PrismTokens.topBarActionSize,
-                    isLoading: _saving,
-                    tint: canSave ? theme.colorScheme.primary : null,
-                    accentIcon: canSave,
-                    onPressed: canSave ? _save : null,
-                  ),
+              icon: AppIcons.check,
+              size: PrismTokens.topBarActionSize,
+              isLoading: _saving,
+              tint: canSave ? theme.colorScheme.primary : null,
+              accentIcon: canSave,
+              onPressed: canSave ? _save : null,
+            ),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -266,195 +269,186 @@ class _AddEditMemberSheetState extends ConsumerState<AddEditMemberSheet> {
                   bottom: MediaQuery.of(context).viewInsets.bottom + 16,
                 ),
                 children: [
-                        Center(
-                          child: GestureDetector(
-                            onTap: _pickAvatar,
-                            child: Stack(
-                              children: [
-                                MemberAvatar(
-                                  avatarImageData: _avatarImageData,
-                                  emoji: _emojiController.text.isNotEmpty
-                                      ? _emojiController.text
-                                      : '❔',
-                                  customColorEnabled: _customColorEnabled,
-                                  customColorHex:
-                                      _colorHexController.text.isNotEmpty
-                                          ? _colorHexController.text
-                                          : null,
-                                  size: 96,
-                                  showBorder: true,
-                                ),
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primaryContainer,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      AppIcons.cameraAlt,
-                                      size: 18,
-                                      color: theme
-                                          .colorScheme.onPrimaryContainer,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                  Center(
+                    child: GestureDetector(
+                      onTap: _pickAvatar,
+                      child: Stack(
+                        children: [
+                          MemberAvatar(
+                            avatarImageData: _avatarImageData,
+                            emoji: _emojiController.text.isNotEmpty
+                                ? _emojiController.text
+                                : '❔',
+                            customColorEnabled: _customColorEnabled,
+                            customColorHex: _colorHexController.text.isNotEmpty
+                                ? _colorHexController.text
+                                : null,
+                            size: 96,
+                            showBorder: true,
                           ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        Row(
-                          children: [
-                            PrismEmojiPicker(
-                              emoji: _emojiController.text.isNotEmpty
-                                  ? _emojiController.text
-                                  : null,
-                              onSelected: (emoji) {
-                                setState(() {
-                                  _emojiController.text = emoji;
-                                });
-                              },
-                              size: 48,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: PrismTextField(
-                                controller: _nameController,
-                                labelText: l10n.memberNameLabel,
-                                hintText: l10n.memberNameHint,
-                                textCapitalization: TextCapitalization.words,
-                                onChanged: (_) => setState(() {}),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return l10n.memberNameRequired;
-                                  }
-                                  return null;
-                                },
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                AppIcons.cameraAlt,
+                                size: 18,
+                                color: theme.colorScheme.onPrimaryContainer,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        PrismTextField(
-                          controller: _displayNameController,
-                          labelText: l10n.memberDisplayNameLabel,
-                          hintText: l10n.memberDisplayNameHint,
-                          textCapitalization: TextCapitalization.words,
-                        ),
-                        const SizedBox(height: 16),
-
-                        PrismTextField(
-                          controller: _pronounsController,
-                          labelText: l10n.memberPronounsLabel,
-                          hintText: l10n.memberPronounsHint,
-                        ),
-                        const SizedBox(height: 16),
-
-                        PrismTextField(
-                          controller: _ageController,
-                          labelText: l10n.memberAgeLabel,
-                          hintText: l10n.memberAgeHint,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        _BirthdayField(
-                          date: _birthday,
-                          hideYear: _birthdayHideYear,
-                          onPick: _pickBirthday,
-                          onClear: () => setState(() => _birthday = null),
-                          onToggleHideYear: (v) =>
-                              setState(() => _birthdayHideYear = v),
-                        ),
-                        const SizedBox(height: 16),
-
-                        PrismTextField(
-                          controller: _bioController,
-                          labelText: l10n.memberBioLabel,
-                          hintText: l10n.memberBioHint,
-                          maxLines: 4,
-                          minLines: 2,
-                          textCapitalization: TextCapitalization.sentences,
-                        ),
-                        const SizedBox(height: 8),
-
-                        PrismSwitchRow(
-                          title: l10n.memberMarkdownTitle,
-                          subtitle: l10n.memberMarkdownSubtitle,
-                          value: _markdownEnabled,
-                          onChanged: (v) =>
-                              setState(() => _markdownEnabled = v),
-                        ),
-                        const SizedBox(height: 16),
-
-                        PrismSwitchRow(
-                          title: l10n.memberAdminTitle,
-                          subtitle: l10n.memberAdminSubtitle,
-                          value: _isAdmin,
-                          onChanged: (v) => setState(() => _isAdmin = v),
-                        ),
-                        const SizedBox(height: 8),
-
-                        PrismSwitchRow(
-                          title: l10n.memberCustomColorTitle,
-                          subtitle: l10n.memberCustomColorSubtitle,
-                          value: _customColorEnabled,
-                          onChanged: (v) =>
-                              setState(() => _customColorEnabled = v),
-                        ),
-                        if (_customColorEnabled) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _previewColor() ??
-                                      theme.colorScheme.surfaceContainerHighest,
-                                  border: Border.all(
-                                    color: theme.colorScheme.outline,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: PrismTextField(
-                                  controller: _colorHexController,
-                                  labelText: l10n.memberColorHexLabel,
-                                  hintText: '#AF8EE9',
-                                  prefixText: '#',
-                                  onChanged: (_) => setState(() {}),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.allow(
-                                      RegExp(r'[0-9a-fA-F]'),
-                                    ),
-                                    LengthLimitingTextInputFormatter(6),
-                                  ],
-                                ),
-                              ),
-                            ],
                           ),
                         ],
-
-                        CustomFieldsEditor(memberId: _memberId),
-                        const SizedBox(height: 32),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+
+                  PrismPickerTextFieldRow(
+                    pickerLabel: context.l10n.onboardingAddMemberFieldEmoji,
+                    picker: PrismEmojiPicker(
+                      emoji: _emojiController.text.isNotEmpty
+                          ? _emojiController.text
+                          : null,
+                      onSelected: (emoji) {
+                        setState(() {
+                          _emojiController.text = emoji;
+                        });
+                      },
+                      size: 48,
+                    ),
+                    field: PrismTextField(
+                      controller: _nameController,
+                      labelText: l10n.memberNameLabel,
+                      hintText: l10n.memberNameHint,
+                      textCapitalization: TextCapitalization.words,
+                      onChanged: (_) => setState(() {}),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return l10n.memberNameRequired;
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  PrismTextField(
+                    controller: _displayNameController,
+                    labelText: l10n.memberDisplayNameLabel,
+                    hintText: l10n.memberDisplayNameHint,
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 16),
+
+                  PrismTextField(
+                    controller: _pronounsController,
+                    labelText: l10n.memberPronounsLabel,
+                    hintText: l10n.memberPronounsHint,
+                  ),
+                  const SizedBox(height: 16),
+
+                  PrismTextField(
+                    controller: _ageController,
+                    labelText: l10n.memberAgeLabel,
+                    hintText: l10n.memberAgeHint,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(height: 16),
+
+                  _BirthdayField(
+                    date: _birthday,
+                    hideYear: _birthdayHideYear,
+                    onPick: _pickBirthday,
+                    onClear: () => setState(() => _birthday = null),
+                    onToggleHideYear: (v) =>
+                        setState(() => _birthdayHideYear = v),
+                  ),
+                  const SizedBox(height: 16),
+
+                  PrismTextField(
+                    controller: _bioController,
+                    labelText: l10n.memberBioLabel,
+                    hintText: l10n.memberBioHint,
+                    maxLines: 4,
+                    minLines: 2,
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 8),
+
+                  PrismSwitchRow(
+                    title: l10n.memberMarkdownTitle,
+                    subtitle: l10n.memberMarkdownSubtitle,
+                    value: _markdownEnabled,
+                    onChanged: (v) => setState(() => _markdownEnabled = v),
+                  ),
+                  const SizedBox(height: 16),
+
+                  PrismSwitchRow(
+                    title: l10n.memberAdminTitle,
+                    subtitle: l10n.memberAdminSubtitle,
+                    value: _isAdmin,
+                    onChanged: (v) => setState(() => _isAdmin = v),
+                  ),
+                  const SizedBox(height: 8),
+
+                  PrismSwitchRow(
+                    title: l10n.memberCustomColorTitle,
+                    subtitle: l10n.memberCustomColorSubtitle,
+                    value: _customColorEnabled,
+                    onChanged: (v) => setState(() => _customColorEnabled = v),
+                  ),
+                  if (_customColorEnabled) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color:
+                                _previewColor() ??
+                                theme.colorScheme.surfaceContainerHighest,
+                            border: Border.all(
+                              color: theme.colorScheme.outline,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: PrismTextField(
+                            controller: _colorHexController,
+                            labelText: l10n.memberColorHexLabel,
+                            hintText: '#AF8EE9',
+                            prefixText: '#',
+                            onChanged: (_) => setState(() {}),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9a-fA-F]'),
+                              ),
+                              LengthLimitingTextInputFormatter(6),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  CustomFieldsEditor(memberId: _memberId),
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
-          );
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -486,11 +480,15 @@ class _BirthdayField extends StatelessWidget {
     final displayText = effective == null
         ? l10n.memberBirthdayHint
         : (hideYear
-            ? formatBirthdayDisplay(
-                DateTime(birthdayNoYearSentinel, effective.month, effective.day),
-                locale,
-              )
-            : formatBirthdayDisplay(effective, locale));
+              ? formatBirthdayDisplay(
+                  DateTime(
+                    birthdayNoYearSentinel,
+                    effective.month,
+                    effective.day,
+                  ),
+                  locale,
+                )
+              : formatBirthdayDisplay(effective, locale));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,13 +507,11 @@ class _BirthdayField extends StatelessWidget {
             onTap: () => onPick(anchorContext),
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
