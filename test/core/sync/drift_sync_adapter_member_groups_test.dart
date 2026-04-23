@@ -248,11 +248,12 @@ void main() {
   );
 
   test(
-    'member_groups: alias id resolves read and delete compatibility',
+    'member_groups: alias id resolves reads but deletes only the exact legacy row',
     () async {
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
       await _ensurePkGroupPhase1RuntimeSchema(db);
+      await db.customStatement('DROP INDEX idx_member_groups_pluralkit_uuid');
 
       final groupsEntity = _entityFor(db, 'member_groups');
       final createdAt = DateTime.utc(2026, 4, 18, 12);
@@ -265,6 +266,17 @@ void main() {
               name: 'Winner',
               createdAt: createdAt,
               pluralkitUuid: const Value('pk-g-uuid-1'),
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'legacy-entity-id',
+              name: 'Loser',
+              createdAt: createdAt,
+              pluralkitUuid: const Value('pk-g-uuid-1'),
+              isDeleted: const Value(true),
             ),
           );
 
@@ -287,10 +299,16 @@ void main() {
       expect(readBack?['pluralkit_uuid'], 'pk-g-uuid-1');
 
       await groupsEntity.hardDelete('legacy-entity-id');
-      final remaining = await (db.select(
+      final winner = await (db.select(
         db.memberGroups,
       )..where((t) => t.id.equals('winner-local-id'))).getSingleOrNull();
-      expect(remaining, isNull);
+      expect(winner, isNotNull);
+      expect(winner!.isDeleted, isFalse);
+
+      final loser = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('legacy-entity-id'))).getSingleOrNull();
+      expect(loser, isNull);
     },
   );
 

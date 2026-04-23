@@ -398,6 +398,22 @@ Future<MemberGroupRow?> _resolveMemberGroupRowForSyncEntity(
   return _memberGroupRowById(db, entityId);
 }
 
+Future<MemberGroupRow?> _resolveMemberGroupRowForSyncDelete(
+  AppDatabase db,
+  String entityId,
+) async {
+  if (_pkGroupUuidFromEntityId(entityId) != null) {
+    return _resolveMemberGroupRowForSyncEntity(db, entityId);
+  }
+
+  final alias = await _pkGroupAliasForLegacyEntityId(db, entityId);
+  if (alias != null) {
+    return _memberGroupRowById(db, entityId);
+  }
+
+  return _memberGroupRowById(db, entityId);
+}
+
 Future<String?> _resolveLocalMemberIdByPkUuid(
   AppDatabase db,
   String pkMemberUuid,
@@ -2271,7 +2287,7 @@ DriftSyncEntity _memberGroupsEntity(
       );
     },
     hardDelete: (String id) async {
-      final row = await _resolveMemberGroupRowForSyncEntity(db, id);
+      final row = await _resolveMemberGroupRowForSyncDelete(db, id);
       if (row == null) return;
       await (db.delete(
         db.memberGroups,

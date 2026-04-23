@@ -317,12 +317,7 @@ class PkGroupRepairService {
   }
 
   Future<Map<String, int>> _activeEntryCountByGroupId() async {
-    final entries = await _memberGroupsDao.getAllGroupEntries();
-    final counts = <String, int>{};
-    for (final entry in entries) {
-      counts[entry.groupId] = (counts[entry.groupId] ?? 0) + 1;
-    }
-    return counts;
+    return _memberGroupsDao.activeEntryCountsByGroupId();
   }
 
   MemberGroupRow _chooseWinner(
@@ -365,8 +360,8 @@ class PkGroupRepairService {
     required PkRepairReferenceData? referenceData,
   }) async {
     final activeGroups = await _memberGroupsDao.getAllActiveGroups();
-    final activeEntries = await _memberGroupsDao.getAllGroupEntries();
-    final pkMemberUuidsByGroupId = _pkMemberUuidsByGroupId(activeEntries);
+    final pkMemberUuidsByGroupId = await _memberGroupsDao
+        .activePkMemberUuidsByGroupId();
     final references = _buildReferenceGroups(
       activeGroups: activeGroups,
       referenceData: referenceData,
@@ -424,8 +419,8 @@ class PkGroupRepairService {
     });
     if (hasLocalPkLinkedGroups) return false;
 
-    final activeEntries = await _memberGroupsDao.getAllGroupEntries();
-    final pkMemberUuidsByGroupId = _pkMemberUuidsByGroupId(activeEntries);
+    final pkMemberUuidsByGroupId = await _memberGroupsDao
+        .activePkMemberUuidsByGroupId();
 
     for (final group in activeGroups) {
       final pkMemberUuids = pkMemberUuidsByGroupId[group.id];
@@ -439,18 +434,6 @@ class PkGroupRepairService {
     }
 
     return false;
-  }
-
-  Map<String, Set<String>> _pkMemberUuidsByGroupId(
-    List<MemberGroupEntryRow> entries,
-  ) {
-    final grouped = <String, Set<String>>{};
-    for (final entry in entries) {
-      final pkMemberUuid = entry.pkMemberUuid;
-      if (pkMemberUuid == null || pkMemberUuid.isEmpty) continue;
-      grouped.putIfAbsent(entry.groupId, () => <String>{}).add(pkMemberUuid);
-    }
-    return grouped;
   }
 
   Map<String, List<_RepairReference>> _buildReferenceGroups({
