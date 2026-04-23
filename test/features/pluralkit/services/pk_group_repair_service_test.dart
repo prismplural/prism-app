@@ -17,6 +17,7 @@ MemberGroupsCompanion _group({
   required DateTime createdAt,
   String? pluralkitUuid,
   String? parentGroupId,
+  DateTime? lastSeenFromPkAt,
 }) => MemberGroupsCompanion.insert(
   id: id,
   name: name,
@@ -24,6 +25,7 @@ MemberGroupsCompanion _group({
   displayOrder: const Value(0),
   parentGroupId: Value(parentGroupId),
   pluralkitUuid: Value(pluralkitUuid),
+  lastSeenFromPkAt: Value(lastSeenFromPkAt),
 );
 
 MembersCompanion _member({
@@ -298,6 +300,331 @@ void main() {
       )..where((t) => t.id.equals('plain-group'))).getSingle();
       expect(group.syncSuppressed, isTrue);
       expect(group.suspectedPkGroupUuid, 'pk-group-1');
+    },
+  );
+
+  test(
+    'token-backed repair picks duplicate whose memberships match live PK data',
+    () async {
+      await db.customStatement('DROP INDEX idx_member_groups_pluralkit_uuid');
+
+      final members = <MembersCompanion>[
+        _member(
+          id: 'wrong-a',
+          name: 'Wrong A',
+          pluralkitUuid: 'pk-member-wrong-a',
+        ),
+        _member(
+          id: 'wrong-b',
+          name: 'Wrong B',
+          pluralkitUuid: 'pk-member-wrong-b',
+        ),
+        _member(
+          id: 'match-a',
+          name: 'Match A',
+          pluralkitUuid: 'pk-member-match-a',
+        ),
+        _member(
+          id: 'match-b',
+          name: 'Match B',
+          pluralkitUuid: 'pk-member-match-b',
+        ),
+        _member(
+          id: 'match-c',
+          name: 'Match C',
+          pluralkitUuid: 'pk-member-match-c',
+        ),
+        _member(id: 'local-a', name: 'Local A'),
+        _member(id: 'local-b', name: 'Local B'),
+        _member(id: 'local-c', name: 'Local C'),
+      ];
+      for (final member in members) {
+        await db.into(db.members).insert(member);
+      }
+
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'entry-count-winner',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 1),
+              pluralkitUuid: 'pk-group-1',
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'live-match-winner',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 2),
+              pluralkitUuid: 'pk-group-1',
+            ),
+          );
+
+      final entries = <MemberGroupEntriesCompanion>[
+        _entry(
+          id: 'wrong-a-entry',
+          groupId: 'entry-count-winner',
+          memberId: 'wrong-a',
+          pkGroupUuid: 'pk-group-1',
+          pkMemberUuid: 'pk-member-wrong-a',
+        ),
+        _entry(
+          id: 'wrong-b-entry',
+          groupId: 'entry-count-winner',
+          memberId: 'wrong-b',
+          pkGroupUuid: 'pk-group-1',
+          pkMemberUuid: 'pk-member-wrong-b',
+        ),
+        _entry(
+          id: 'local-a-entry',
+          groupId: 'entry-count-winner',
+          memberId: 'local-a',
+        ),
+        _entry(
+          id: 'local-b-entry',
+          groupId: 'entry-count-winner',
+          memberId: 'local-b',
+        ),
+        _entry(
+          id: 'local-c-entry',
+          groupId: 'entry-count-winner',
+          memberId: 'local-c',
+        ),
+        _entry(
+          id: 'match-a-entry',
+          groupId: 'live-match-winner',
+          memberId: 'match-a',
+          pkGroupUuid: 'pk-group-1',
+          pkMemberUuid: 'pk-member-match-a',
+        ),
+        _entry(
+          id: 'match-b-entry',
+          groupId: 'live-match-winner',
+          memberId: 'match-b',
+          pkGroupUuid: 'pk-group-1',
+          pkMemberUuid: 'pk-member-match-b',
+        ),
+        _entry(
+          id: 'match-c-entry',
+          groupId: 'live-match-winner',
+          memberId: 'match-c',
+          pkGroupUuid: 'pk-group-1',
+          pkMemberUuid: 'pk-member-match-c',
+        ),
+      ];
+      for (final entry in entries) {
+        await db.into(db.memberGroupEntries).insert(entry);
+      }
+
+      final service = PkGroupRepairService(
+        memberGroupsDao: db.memberGroupsDao,
+        aliasesDao: db.pkGroupSyncAliasesDao,
+        hasRepairToken: ({String? token}) async => token != null,
+        fetchRepairReferenceData: ({String? token}) async {
+          expect(token, 'provided-token');
+          return const PkRepairReferenceData(
+            system: PKSystem(id: 'system-1', name: 'Test'),
+            members: [
+              PKMember(id: 'ma', uuid: 'pk-member-match-a', name: 'Match A'),
+              PKMember(id: 'mb', uuid: 'pk-member-match-b', name: 'Match B'),
+              PKMember(id: 'mc', uuid: 'pk-member-match-c', name: 'Match C'),
+            ],
+            groups: [
+              PKGroup(
+                id: 'g1',
+                uuid: 'pk-group-1',
+                name: 'Cluster',
+                memberIds: [
+                  'pk-member-match-a',
+                  'pk-member-match-b',
+                  'pk-member-match-c',
+                ],
+              ),
+            ],
+          );
+        },
+      );
+
+      final report = await service.run(token: 'provided-token');
+
+      expect(report.duplicateSetsMerged, 1);
+
+      final liveMatchWinner = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('live-match-winner'))).getSingle();
+      expect(liveMatchWinner.isDeleted, isFalse);
+
+      final entryCountWinner = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('entry-count-winner'))).getSingle();
+      expect(entryCountWinner.isDeleted, isTrue);
+
+      final aliases = await db.pkGroupSyncAliasesDao.getByPkGroupUuid(
+        'pk-group-1',
+      );
+      expect(aliases.single.legacyEntityId, 'entry-count-winner');
+    },
+  );
+
+  test(
+    'lastSeenFromPkAt ordering wins when membership match and entry count tie',
+    () async {
+      await db.customStatement('DROP INDEX idx_member_groups_pluralkit_uuid');
+
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'older-seen',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 1),
+              pluralkitUuid: 'pk-group-1',
+              lastSeenFromPkAt: DateTime(2024, 1, 2),
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'newer-seen',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 3),
+              pluralkitUuid: 'pk-group-1',
+              lastSeenFromPkAt: DateTime(2024, 1, 4),
+            ),
+          );
+
+      final service = PkGroupRepairService(
+        memberGroupsDao: db.memberGroupsDao,
+        aliasesDao: db.pkGroupSyncAliasesDao,
+        hasRepairToken: ({String? token}) async => token != null,
+        fetchRepairReferenceData: ({String? token}) async {
+          return const PkRepairReferenceData(
+            system: PKSystem(id: 'system-1', name: 'Test'),
+            members: [],
+            groups: [
+              PKGroup(
+                id: 'g1',
+                uuid: 'pk-group-1',
+                name: 'Cluster',
+                memberIds: [],
+              ),
+            ],
+          );
+        },
+      );
+
+      final report = await service.run(token: 'provided-token');
+
+      expect(report.duplicateSetsMerged, 1);
+
+      final newerSeen = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('newer-seen'))).getSingle();
+      expect(newerSeen.isDeleted, isFalse);
+
+      final olderSeen = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('older-seen'))).getSingle();
+      expect(olderSeen.isDeleted, isTrue);
+    },
+  );
+
+  test(
+    'exact-match suppression rejects plain group with extra local-only members',
+    () async {
+      final members = <MembersCompanion>[
+        _member(id: 'member-a', name: 'Alice', pluralkitUuid: 'pk-member-a'),
+        _member(id: 'member-b', name: 'Bob', pluralkitUuid: 'pk-member-b'),
+        _member(id: 'member-c', name: 'Charlie', pluralkitUuid: 'pk-member-c'),
+        _member(id: 'local-a', name: 'Local A'),
+        _member(id: 'local-b', name: 'Local B'),
+      ];
+      for (final member in members) {
+        await db.into(db.members).insert(member);
+      }
+
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'plain-group',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 1),
+            ),
+          );
+
+      final entries = <MemberGroupEntriesCompanion>[
+        _entry(
+          id: 'plain-a',
+          groupId: 'plain-group',
+          memberId: 'member-a',
+          pkMemberUuid: 'pk-member-a',
+        ),
+        _entry(
+          id: 'plain-b',
+          groupId: 'plain-group',
+          memberId: 'member-b',
+          pkMemberUuid: 'pk-member-b',
+        ),
+        _entry(
+          id: 'plain-c',
+          groupId: 'plain-group',
+          memberId: 'member-c',
+          pkMemberUuid: 'pk-member-c',
+        ),
+        _entry(
+          id: 'plain-local-a',
+          groupId: 'plain-group',
+          memberId: 'local-a',
+        ),
+        _entry(
+          id: 'plain-local-b',
+          groupId: 'plain-group',
+          memberId: 'local-b',
+        ),
+      ];
+      for (final entry in entries) {
+        await db.into(db.memberGroupEntries).insert(entry);
+      }
+
+      final service = PkGroupRepairService(
+        memberGroupsDao: db.memberGroupsDao,
+        aliasesDao: db.pkGroupSyncAliasesDao,
+        hasRepairToken: ({String? token}) async => token != null,
+        fetchRepairReferenceData: ({String? token}) async {
+          return const PkRepairReferenceData(
+            system: PKSystem(id: 'system-1', name: 'Test'),
+            members: [
+              PKMember(id: 'm1', uuid: 'pk-member-a', name: 'Alice'),
+              PKMember(id: 'm2', uuid: 'pk-member-b', name: 'Bob'),
+              PKMember(id: 'm3', uuid: 'pk-member-c', name: 'Charlie'),
+            ],
+            groups: [
+              PKGroup(
+                id: 'g1',
+                uuid: 'pk-group-1',
+                name: 'Cluster',
+                memberIds: ['pk-member-a', 'pk-member-b', 'pk-member-c'],
+              ),
+            ],
+          );
+        },
+      );
+
+      final report = await service.run(token: 'provided-token');
+
+      expect(report.ambiguousGroupsSuppressed, 0);
+      expect(report.pendingReviewCount, 0);
+
+      final group = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('plain-group'))).getSingle();
+      expect(group.syncSuppressed, isFalse);
+      expect(group.suspectedPkGroupUuid, null);
     },
   );
 
