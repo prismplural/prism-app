@@ -672,26 +672,35 @@ Future<bool> _applyMemberGroupEntryFields(
   final legacyGroupId = _asString(fields['group_id']);
   final legacyMemberId = _asString(fields['member_id']);
 
-  final resolvedGroupId = pkGroupUuid == null
-      ? legacyGroupId
+  // H1: when a PK UUID field is present on the payload, sender-local
+  // `group_id` / `member_id` become compatibility hints only (plan §5.2).
+  // Resolve PK UUIDs independently and defer if they miss — never fall
+  // back to the sender's local ids for PK-present payloads.
+  final pkGroupResolvedId = pkGroupUuid == null
+      ? null
       : (await _resolveMemberGroupRowForSyncEntity(
-              db,
-              _canonicalPkGroupEntityId(pkGroupUuid),
-              payloadPkGroupUuid: pkGroupUuid,
-            ))?.id ??
-            legacyGroupId;
-  final resolvedMemberId = pkMemberUuid == null
-      ? legacyMemberId
-      : await _resolveLocalMemberIdByPkUuid(db, pkMemberUuid) ?? legacyMemberId;
+          db,
+          _canonicalPkGroupEntityId(pkGroupUuid),
+          payloadPkGroupUuid: pkGroupUuid,
+        ))?.id;
+  final pkMemberResolvedId = pkMemberUuid == null
+      ? null
+      : await _resolveLocalMemberIdByPkUuid(db, pkMemberUuid);
 
-  if ((pkGroupUuid != null || pkMemberUuid != null) &&
-      (resolvedGroupId == null || resolvedMemberId == null)) {
+  final groupNeedsPkResolution = pkGroupUuid != null;
+  final memberNeedsPkResolution = pkMemberUuid != null;
+
+  final pkResolutionMissed =
+      (groupNeedsPkResolution && pkGroupResolvedId == null) ||
+      (memberNeedsPkResolution && pkMemberResolvedId == null);
+
+  if (pkResolutionMissed) {
     if (allowDeferral) {
       final missingRefs = [
-        if (resolvedGroupId == null)
-          'group:${pkGroupUuid ?? legacyGroupId ?? '<missing>'}',
-        if (resolvedMemberId == null)
-          'member:${pkMemberUuid ?? legacyMemberId ?? '<missing>'}',
+        if (groupNeedsPkResolution && pkGroupResolvedId == null)
+          'group:$pkGroupUuid',
+        if (memberNeedsPkResolution && pkMemberResolvedId == null)
+          'member:$pkMemberUuid',
       ].join(', ');
       final deferred = await _deferPkBackedMemberGroupEntryOp(
         db,
@@ -703,6 +712,11 @@ Future<bool> _applyMemberGroupEntryFields(
     }
     if (!throwOnUnresolved) return false;
   }
+
+  final resolvedGroupId =
+      pkGroupResolvedId ?? (groupNeedsPkResolution ? null : legacyGroupId);
+  final resolvedMemberId =
+      pkMemberResolvedId ?? (memberNeedsPkResolution ? null : legacyMemberId);
 
   if (resolvedGroupId == null || resolvedMemberId == null) {
     if (!throwOnUnresolved) return false;
@@ -2221,14 +2235,15 @@ DriftSyncEntity _memberGroupsEntity(
       );
       await db.into(db.memberGroups).insertOnConflictUpdate(companion);
       if (resolvedPkGroupUuid != null && resolvedPkGroupUuid.isNotEmpty) {
+        // C1: only record an alias for the *incoming* entity id when it
+        // is a genuinely-legacy id (the helper filters out canonical).
+        // Do NOT auto-record an alias for the receiving device's own
+        // local row id: both peers end up with `pk-group-<uuid>` after
+        // import, and aliasing that id makes later alias-delete emits
+        // hard-delete the peer's active PK-group row.
         await _recordPkGroupAliasIfNeeded(
           db,
           legacyEntityId: id,
-          pkGroupUuid: resolvedPkGroupUuid,
-        );
-        await _recordPkGroupAliasIfNeeded(
-          db,
-          legacyEntityId: localRowId,
           pkGroupUuid: resolvedPkGroupUuid,
         );
       }
