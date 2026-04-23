@@ -39,4 +39,49 @@ void main() {
       expect(counts, {'conv-1': 1});
     },
   );
+
+  test('watchAllUnreadCounts batches large conversation maps', () async {
+    await dao.insertMessage(
+      ChatMessagesCompanion.insert(
+        id: 'msg-2',
+        content: 'Unread message 2',
+        timestamp: DateTime(2025, 1, 15, 10, 45),
+        conversationId: 'conv-401',
+        authorId: const Value('author-2'),
+      ),
+    );
+
+    final conversationSince = <String, DateTime>{
+      for (var i = 1; i <= 401; i++) 'conv-$i': DateTime(2025, 1, 15, 10, 0),
+    };
+
+    final counts = await dao.watchAllUnreadCounts(conversationSince).first;
+
+    expect(counts, {'conv-1': 1, 'conv-401': 1});
+  });
+
+  test(
+    'watchConversationsWithMentions batches large conversation maps',
+    () async {
+      await dao.insertMessage(
+        ChatMessagesCompanion.insert(
+          id: 'msg-3',
+          content: 'Hello @[member-1]',
+          timestamp: DateTime(2025, 1, 15, 10, 50),
+          conversationId: 'conv-401',
+          authorId: const Value('author-3'),
+        ),
+      );
+
+      final conversationSince = <String, DateTime>{
+        for (var i = 1; i <= 401; i++) 'conv-$i': DateTime(2025, 1, 15, 10, 0),
+      };
+
+      final mentionConversations = await dao
+          .watchConversationsWithMentions(conversationSince, 'member-1')
+          .first;
+
+      expect(mentionConversations, {'conv-401'});
+    },
+  );
 }

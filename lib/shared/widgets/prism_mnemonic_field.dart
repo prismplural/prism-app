@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:prism_plurality/core/crypto/bip39_english_wordlist.dart';
+import 'package:prism_plurality/core/crypto/bip39_validate.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/theme/prism_shapes.dart';
 import 'package:prism_plurality/shared/theme/prism_tokens.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/shared/widgets/glass_surface.dart';
+import 'package:prism_plurality/shared/widgets/secure_scope.dart';
 
 /// A 12-word BIP39 recovery phrase input rendered as a 2×6 grid of individual
 /// word slots. Focuses automatically advance slot-to-slot on space or suggestion
@@ -49,10 +54,11 @@ class PrismMnemonicField extends StatefulWidget {
 }
 
 class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
-  final List<TextEditingController> _slotControllers =
-      List.generate(12, (_) => TextEditingController());
-  final List<FocusNode> _slotFocusNodes =
-      List.generate(12, (_) => FocusNode());
+  final List<TextEditingController> _slotControllers = List.generate(
+    12,
+    (_) => TextEditingController(),
+  );
+  final List<FocusNode> _slotFocusNodes = List.generate(12, (_) => FocusNode());
   final _overlayController = OverlayPortalController();
 
   int _focusedSlot = -1;
@@ -63,6 +69,17 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
 
   static final Set<String> _wordSet = bip39EnglishWordlistSet;
 
+  String? _validatedMnemonic([String? raw]) {
+    final normalized = PrismMnemonicField.normalize(
+      raw ?? widget.controller.text,
+    );
+    final words = normalized.split(' ');
+    if (words.length != 12 || !validateBip39Mnemonic(normalized)) {
+      return null;
+    }
+    return normalized;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -71,8 +88,8 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
     for (var i = 0; i < 12; i++) {
       final index = i;
       _slotFocusNodes[i].addListener(() => _onSlotFocusChanged(index));
-      _slotFocusNodes[i].onKeyEvent =
-          (_, event) => _handleKeyEvent(index, event);
+      _slotFocusNodes[i].onKeyEvent = (_, event) =>
+          _handleKeyEvent(index, event);
     }
     _refreshClipboard();
   }
@@ -96,11 +113,11 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
     final tokens = text.isEmpty
         ? <String>[]
         : text
-            .trim()
-            .toLowerCase()
-            .split(RegExp(r'\s+'))
-            .where((w) => w.isNotEmpty)
-            .toList();
+              .trim()
+              .toLowerCase()
+              .split(RegExp(r'\s+'))
+              .where((w) => w.isNotEmpty)
+              .toList();
     for (var i = 0; i < 12; i++) {
       final word = i < tokens.length ? tokens[i] : '';
       if (_slotControllers[i].text != word) _slotControllers[i].text = word;
@@ -151,8 +168,9 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
       if (!mounted) return;
       _slotFocusNodes[index].requestFocus();
       final text = _slotControllers[index].text;
-      _slotControllers[index].selection =
-          TextSelection.collapsed(offset: text.length);
+      _slotControllers[index].selection = TextSelection.collapsed(
+        offset: text.length,
+      );
     });
   }
 
@@ -183,8 +201,9 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
         }
         _syncToExternalController();
         _moveFocusToSlot((index + parts.length).clamp(0, 11));
-        final allValid =
-            _slotControllers.every((c) => _wordSet.contains(c.text));
+        final allValid = _slotControllers.every(
+          (c) => _wordSet.contains(c.text),
+        );
         if (allValid) widget.onSubmitted?.call(widget.controller.text);
       } else {
         // Single word with trailing space — advance to next slot.
@@ -272,23 +291,47 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
     try {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       final text = data?.text ?? '';
-      final normalized = PrismMnemonicField.normalize(text);
-      final tokens = normalized.split(' ');
-      if (tokens.length != 12 || !tokens.every(_wordSet.contains)) return;
-      Haptics.selection();
-      for (var i = 0; i < 12; i++) {
-        _slotControllers[i].text = tokens[i];
-      }
-      _syncToExternalController();
-      setState(() {});
-      _syncOverlay();
-      widget.onSubmitted?.call(widget.controller.text);
+      final normalized = _validatedMnemonic(text);
+      if (normalized == null) return;
+      _applyMnemonic(normalized);
     } catch (_) {}
   }
 
   void _toggleObscure() {
     Haptics.selection();
     setState(() => _obscure = !_obscure);
+  }
+
+  void _applyMnemonic(String normalizedMnemonic) {
+    final tokens = normalizedMnemonic.split(' ');
+    if (tokens.length != 12) return;
+    Haptics.selection();
+    for (var i = 0; i < 12; i++) {
+      _slotControllers[i].text = tokens[i];
+    }
+    _syncToExternalController();
+    setState(() {});
+    _syncOverlay();
+    widget.onSubmitted?.call(widget.controller.text);
+  }
+
+  Future<void> _showQrCode() async {
+    final normalized = _validatedMnemonic();
+    if (normalized == null || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _MnemonicQrDialog(mnemonic: normalized),
+    );
+  }
+
+  Future<void> _scanQrCode() async {
+    if (!mounted) return;
+    final scannedMnemonic = await showDialog<String>(
+      context: context,
+      builder: (context) => const _MnemonicQrScannerDialog(),
+    );
+    if (!mounted || scannedMnemonic == null) return;
+    _applyMnemonic(scannedMnemonic);
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -300,17 +343,19 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
     final validCount = _slotControllers
         .where((c) => _wordSet.contains(c.text.trim()))
         .length;
-    final hasError =
-        widget.errorText != null && widget.errorText!.isNotEmpty;
+    final hasError = widget.errorText != null && widget.errorText!.isNotEmpty;
     final counterColor = validCount == 12
         ? Colors.green
         : theme.colorScheme.onSurface.withValues(alpha: 0.6);
+    final hasValidMnemonic = _validatedMnemonic() != null;
 
     return OverlayPortal(
       controller: _overlayController,
       overlayChildBuilder: (context) {
         final slot = _focusedSlot;
-        final suggestions = slot >= 0 ? _suggestionsFor(slot) : const <String>[];
+        final suggestions = slot >= 0
+            ? _suggestionsFor(slot)
+            : const <String>[];
         final bottom = MediaQuery.viewInsetsOf(context).bottom;
         return Positioned(
           bottom: bottom,
@@ -322,7 +367,10 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
               height: 48,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 itemCount: suggestions.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (_, i) => _SuggestionChip(
@@ -379,6 +427,25 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: IconButton(
+                  icon: Icon(AppIcons.qrCodeScanner, size: 20),
+                  tooltip: 'Scan QR Code',
+                  onPressed: widget.enabled ? _scanQrCode : null,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+              if (hasValidMnemonic)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: IconButton(
+                    icon: Icon(AppIcons.qrCode, size: 20),
+                    tooltip: 'Show QR Code',
+                    onPressed: widget.enabled ? _showQrCode : null,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
               IconButton(
                 icon: Icon(
                   _obscure
@@ -427,11 +494,175 @@ class _PrismMnemonicFieldState extends State<PrismMnemonicField> {
             const SizedBox(height: 6),
             Text(
               widget.errorText!,
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: theme.colorScheme.error),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _MnemonicQrDialog extends StatelessWidget {
+  const _MnemonicQrDialog({required this.mnemonic});
+
+  final String mnemonic;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SecureScope(
+      child: Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Recovery Phrase QR',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Scan this QR code to fill the 12-word recovery phrase on another device.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.warmWhite,
+                    borderRadius: BorderRadius.circular(
+                      PrismShapes.of(context).radius(16),
+                    ),
+                  ),
+                  child: QrImageView(
+                    data: mnemonic,
+                    version: QrVersions.auto,
+                    size: 220,
+                    backgroundColor: AppColors.warmWhite,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MnemonicQrScannerDialog extends StatefulWidget {
+  const _MnemonicQrScannerDialog();
+
+  @override
+  State<_MnemonicQrScannerDialog> createState() =>
+      _MnemonicQrScannerDialogState();
+}
+
+class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
+  final _controller = MobileScannerController();
+  bool _handled = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+    final rawValue = capture.barcodes.firstOrNull?.rawValue;
+    if (rawValue == null) return;
+
+    final normalized = PrismMnemonicField.normalize(rawValue);
+    final words = normalized.split(' ');
+    if (words.length != 12 || !validateBip39Mnemonic(normalized)) {
+      setState(() {
+        _error = 'Invalid QR code. Scan a 12-word recovery phrase.';
+      });
+      return;
+    }
+
+    _handled = true;
+    Navigator.of(context).pop(normalized);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SecureScope(
+      child: Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Scan Recovery QR',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Scan a QR code that contains your 12-word recovery phrase.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(
+                  PrismShapes.of(context).radius(16),
+                ),
+                child: SizedBox(
+                  height: 280,
+                  child: MobileScanner(
+                    controller: _controller,
+                    onDetect: _onDetect,
+                  ),
+                ),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -476,8 +707,7 @@ class _WordSlotInput extends StatelessWidget {
     final isValid = hasContent && wordSet.contains(word);
     final isInvalid = hasContent && !isValid;
 
-    final borderColor =
-        isInvalid ? theme.colorScheme.error : null;
+    final borderColor = isInvalid ? theme.colorScheme.error : null;
     final fillColor = isValid
         ? theme.colorScheme.primary.withValues(alpha: 0.08)
         : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4);
@@ -485,7 +715,8 @@ class _WordSlotInput extends StatelessWidget {
     final baseBorder = OutlineInputBorder(
       borderRadius: BorderRadius.circular(radius),
       borderSide: BorderSide(
-        color: borderColor ??
+        color:
+            borderColor ??
             theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
       ),
     );
@@ -526,15 +757,18 @@ class _WordSlotInput extends StatelessWidget {
             maxLines: 1,
             onChanged: onChanged,
             onSubmitted: onSubmitted,
-            textInputAction:
-                isLast ? TextInputAction.done : TextInputAction.next,
+            textInputAction: isLast
+                ? TextInputAction.done
+                : TextInputAction.next,
             style: theme.textTheme.bodyMedium,
             cursorColor: theme.colorScheme.primary,
             inputFormatters: [_WordInputFormatter()],
             decoration: InputDecoration(
               isDense: true,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 6,
+              ),
               filled: true,
               fillColor: fillColor,
               border: baseBorder,

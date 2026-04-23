@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/tables/chat_messages_table.dart';
 import 'package:prism_plurality/features/chat/utils/chat_markdown_syntax.dart';
 
 part 'chat_messages_dao.g.dart';
+
+const _maxUnreadConversationBatchSize = 400;
 
 typedef ChatMessageSearchHit = ({
   String messageId,
@@ -150,18 +154,35 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     Map<String, DateTime> conversationSince,
   ) {
     if (conversationSince.isEmpty) return Stream.value({});
-    // SQLite's default SQLITE_MAX_COMPOUND_SELECT is 500 and the default
-    // statement length / variable count also constrain how large this UNION
-    // can grow. 400 leaves headroom; real systems today have <100
-    // conversations so hitting this would indicate a runaway caller.
+    final entries = conversationSince.entries.toList(growable: false);
+    if (entries.length <= _maxUnreadConversationBatchSize) {
+      return _watchUnreadCountsBatch(conversationSince);
+    }
+
+    return _combineBatchedStreams<Map<String, int>>(
+      _chunkConversationEntries(entries).map(
+        (batch) =>
+            _watchUnreadCountsBatch(Map<String, DateTime>.fromEntries(batch)),
+      ),
+      seed: const <String, int>{},
+      merge: (events) {
+        final combined = <String, int>{};
+        for (final batch in events) {
+          combined.addAll(batch);
+        }
+        return combined;
+      },
+    );
+  }
+
+  Stream<Map<String, int>> _watchUnreadCountsBatch(
+    Map<String, DateTime> conversationSince,
+  ) {
     assert(
-      conversationSince.length <= 400,
-      'watchAllUnreadCounts: too many conversations '
-      '(${conversationSince.length}) for a single UNION ALL query. '
-      'Batch the caller or switch to a different query shape.',
+      conversationSince.length <= _maxUnreadConversationBatchSize,
+      'watchAllUnreadCounts batch exceeded the safe UNION ALL limit.',
     );
 
-    // Single query: group by conversation_id with per-conversation cutoff via UNION ALL.
     final parts = <String>[];
     final vars = <Variable>[];
     for (final entry in conversationSince.entries) {
@@ -201,24 +222,45 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     String memberId,
   ) {
     if (conversationSince.isEmpty) return Stream.value({});
-    // See watchAllUnreadCounts for the 400-conversation ceiling rationale.
+    final entries = conversationSince.entries.toList(growable: false);
+    if (entries.length <= _maxUnreadConversationBatchSize) {
+      return _watchConversationsWithMentionsBatch(conversationSince, memberId);
+    }
+
+    return _combineBatchedStreams<Set<String>>(
+      _chunkConversationEntries(entries).map(
+        (batch) => _watchConversationsWithMentionsBatch(
+          Map<String, DateTime>.fromEntries(batch),
+          memberId,
+        ),
+      ),
+      seed: const <String>{},
+      merge: (events) => events.expand((batch) => batch).toSet(),
+    );
+  }
+
+  Stream<Set<String>> _watchConversationsWithMentionsBatch(
+    Map<String, DateTime> conversationSince,
+    String memberId,
+  ) {
     assert(
-      conversationSince.length <= 400,
-      'watchConversationsWithMentions: too many conversations '
-      '(${conversationSince.length}) for a single UNION ALL query.',
+      conversationSince.length <= _maxUnreadConversationBatchSize,
+      'watchConversationsWithMentions batch exceeded the safe UNION ALL limit.',
     );
 
-    // Build a single query with UNION ALL for each conversation.
     final parts = <String>[];
     final vars = <Variable>[];
     for (final entry in conversationSince.entries) {
       parts.add(
-        'SELECT conversation_id FROM chat_messages '
+        'SELECT ? AS conversation_id '
+        'WHERE EXISTS ('
+        'SELECT 1 FROM chat_messages '
         'WHERE conversation_id = ? AND timestamp > ? '
         'AND is_deleted = 0 AND is_system_message = 0 '
-        "AND content LIKE '%@[' || ? || ']%' "
-        'LIMIT 1',
+        "AND content LIKE '%@[' || ? || ']%'"
+        ')',
       );
+      vars.add(Variable.withString(entry.key));
       vars.add(Variable.withString(entry.key));
       vars.add(Variable.withDateTime(entry.value));
       vars.add(Variable.withString(memberId));
@@ -233,6 +275,61 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
+  Iterable<List<MapEntry<String, DateTime>>> _chunkConversationEntries(
+    List<MapEntry<String, DateTime>> entries,
+  ) sync* {
+    for (
+      var start = 0;
+      start < entries.length;
+      start += _maxUnreadConversationBatchSize
+    ) {
+      final end = start + _maxUnreadConversationBatchSize;
+      yield entries.sublist(start, end > entries.length ? entries.length : end);
+    }
+  }
+
+  Stream<T> _combineBatchedStreams<T>(
+    Iterable<Stream<T>> streams, {
+    required T seed,
+    required T Function(List<T> events) merge,
+  }) {
+    final batchStreams = streams.toList(growable: false);
+    if (batchStreams.isEmpty) return Stream.value(seed);
+
+    return Stream.multi((controller) {
+      final latest = List<T>.filled(batchStreams.length, seed);
+      final hasValue = List<bool>.filled(batchStreams.length, false);
+      final subscriptions = <StreamSubscription<T>>[];
+      var completed = 0;
+
+      for (var i = 0; i < batchStreams.length; i++) {
+        final subscription = batchStreams[i].listen(
+          (event) {
+            latest[i] = event;
+            hasValue[i] = true;
+            if (hasValue.every((value) => value)) {
+              controller.add(merge(latest));
+            }
+          },
+          onError: controller.addError,
+          onDone: () {
+            completed += 1;
+            if (completed == batchStreams.length) {
+              controller.close();
+            }
+          },
+        );
+        subscriptions.add(subscription);
+      }
+
+      controller.onCancel = () async {
+        for (final subscription in subscriptions) {
+          await subscription.cancel();
+        }
+      };
+    });
+  }
+
   Future<List<ChatMessageSearchHit>> searchMessages(
     String query, {
     int limit = 50,
@@ -244,8 +341,9 @@ class ChatMessagesDao extends DatabaseAccessor<AppDatabase>
         .split(RegExp(r'\s+'))
         .where((t) => t.isNotEmpty)
         .toList();
-    final escaped =
-        rawTokens.map((t) => '"${t.replaceAll('"', '""')}"*').join(' ');
+    final escaped = rawTokens
+        .map((t) => '"${t.replaceAll('"', '""')}"*')
+        .join(' ');
     if (escaped.isEmpty) return [];
 
     // We build the match-highlighted snippet Dart-side from the *redacted*
@@ -309,9 +407,7 @@ String _buildSafeSnippet(String rawContent, List<String> queryTokens) {
   // preview, which is still safe.
   final tokenAlt = queryTokens.map(RegExp.escape).join('|');
   final pattern = RegExp(
-    r'(?:(?<=^)|(?<=[^\p{L}\p{N}_]))(?:' +
-        tokenAlt +
-        r')[\p{L}\p{N}_]*',
+    r'(?:(?<=^)|(?<=[^\p{L}\p{N}_]))(?:' + tokenAlt + r')[\p{L}\p{N}_]*',
     caseSensitive: false,
     unicode: true,
   );
