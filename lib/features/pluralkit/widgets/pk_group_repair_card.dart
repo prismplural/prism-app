@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'package:prism_plurality/features/pluralkit/providers/pk_group_repair_provider.dart';
 import 'package:prism_plurality/features/pluralkit/services/pk_group_repair_service.dart';
+import 'package:prism_plurality/shared/theme/app_colors.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_chip.dart';
@@ -156,61 +157,12 @@ class PkGroupRepairCard extends StatelessWidget {
           if (state.pendingReviewItems.isNotEmpty) ...[
             const SizedBox(height: 12),
             for (final item in state.pendingReviewItems) ...[
-              PrismSurface(
-                tone: PrismSurfaceTone.accent,
-                accentColor: theme.colorScheme.secondary,
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Suspected PK UUID: ${item.suspectedPkGroupUuid}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        PrismButton(
-                          label: 'Merge into canonical',
-                          icon: AppIcons.autoFixHigh,
-                          onPressed: () => unawaited(
-                            onMergeReviewItemIntoCanonical(item.groupId),
-                          ),
-                          enabled: !state.isRunning,
-                          tone: PrismButtonTone.filled,
-                        ),
-                        PrismButton(
-                          label: 'Keep local-only',
-                          icon: AppIcons.lockOutline,
-                          onPressed: () => unawaited(
-                            onKeepReviewItemLocalOnly(item.groupId),
-                          ),
-                          enabled: !state.isRunning,
-                          tone: PrismButtonTone.outlined,
-                        ),
-                        PrismButton(
-                          label: 'Dismiss false positive',
-                          icon: AppIcons.checkCircle,
-                          onPressed: () =>
-                              unawaited(onDismissReviewItem(item.groupId)),
-                          enabled: !state.isRunning,
-                          tone: PrismButtonTone.outlined,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              _ReviewItemCard(
+                item: item,
+                isRunning: state.isRunning,
+                onMergeReviewItemIntoCanonical: onMergeReviewItemIntoCanonical,
+                onKeepReviewItemLocalOnly: onKeepReviewItemLocalOnly,
+                onDismissReviewItem: onDismissReviewItem,
               ),
               const SizedBox(height: 8),
             ],
@@ -916,6 +868,263 @@ class PkGroupRepairCard extends StatelessWidget {
         .replaceFirst('Exception: ', '')
         .replaceFirst('StateError: ', '')
         .trim();
+  }
+}
+
+class _ReviewItemCard extends StatelessWidget {
+  const _ReviewItemCard({
+    required this.item,
+    required this.isRunning,
+    required this.onMergeReviewItemIntoCanonical,
+    required this.onKeepReviewItemLocalOnly,
+    required this.onDismissReviewItem,
+  });
+
+  final PkGroupReviewItem item;
+  final bool isRunning;
+  final Future<void> Function(String groupId) onMergeReviewItemIntoCanonical;
+  final Future<void> Function(String groupId) onKeepReviewItemLocalOnly;
+  final Future<void> Function(String groupId) onDismissReviewItem;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final actionPreview = _actionPreview();
+
+    return PrismSurface(
+      tone: PrismSurfaceTone.accent,
+      accentColor: theme.colorScheme.secondary,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final useColumns = constraints.maxWidth >= 560;
+              final localPanel = _ComparisonPanel(
+                title: 'This group',
+                name: item.name,
+                description: item.description,
+                colorHex: item.colorHex,
+                chips: [
+                  _countChip(
+                    item.sharedPkMemberUuids.length,
+                    'shared PK member',
+                    'shared PK members',
+                  ),
+                  _countChip(
+                    item.extraLocalMemberIds.length,
+                    'local-only member',
+                    'local-only members',
+                  ),
+                ],
+              );
+              final candidatePanel = _ComparisonPanel(
+                title: item.candidateName == null
+                    ? 'PluralKit group'
+                    : 'PK group',
+                name: item.candidateName ?? item.suspectedPkGroupUuid,
+                description: item.candidateDescription,
+                colorHex: item.candidateColorHex,
+                chips: item.hasCandidateComparison
+                    ? [
+                        _countChip(
+                          item.sharedPkMemberUuids.length,
+                          'shared PK member',
+                          'shared PK members',
+                        ),
+                        _countChip(
+                          item.onlyInCandidateMemberUuids.length,
+                          'only in PK',
+                          'only in PK',
+                        ),
+                      ]
+                    : const ['Reconnect PluralKit to see comparison details'],
+              );
+
+              if (!useColumns) {
+                return Column(
+                  children: [
+                    localPanel,
+                    const SizedBox(height: 8),
+                    candidatePanel,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: localPanel),
+                  const SizedBox(width: 8),
+                  Expanded(child: candidatePanel),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Suspected PK UUID: ${item.suspectedPkGroupUuid}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            actionPreview,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              PrismButton(
+                label: 'Merge into canonical',
+                icon: AppIcons.autoFixHigh,
+                onPressed: () =>
+                    unawaited(onMergeReviewItemIntoCanonical(item.groupId)),
+                enabled: !isRunning,
+                tone: PrismButtonTone.filled,
+              ),
+              PrismButton(
+                label: 'Keep local-only',
+                icon: AppIcons.lockOutline,
+                onPressed: () =>
+                    unawaited(onKeepReviewItemLocalOnly(item.groupId)),
+                enabled: !isRunning,
+                tone: PrismButtonTone.outlined,
+              ),
+              PrismButton(
+                label: 'Dismiss false positive',
+                icon: AppIcons.checkCircle,
+                onPressed: () => unawaited(onDismissReviewItem(item.groupId)),
+                enabled: !isRunning,
+                tone: PrismButtonTone.outlined,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _actionPreview() {
+    final fragments = <String>[
+      'link this local group to the suspected PK group',
+      if (item.sharedPkMemberUuids.isNotEmpty)
+        'preserve ${_countChip(item.sharedPkMemberUuids.length, "shared PK membership", "shared PK memberships")}',
+      if (item.extraLocalMemberIds.isNotEmpty)
+        'keep ${_countChip(item.extraLocalMemberIds.length, "local-only membership", "local-only memberships")}',
+      if (item.onlyInCandidateMemberUuids.isNotEmpty)
+        'leave ${_countChip(item.onlyInCandidateMemberUuids.length, "PK-only member", "PK-only members")} unmatched',
+    ];
+    return 'Merge will ${_joinPreviewFragments(fragments)}.';
+  }
+
+  static String _countChip(int count, String singular, String plural) {
+    return '$count ${count == 1 ? singular : plural}';
+  }
+
+  static String _joinPreviewFragments(List<String> fragments) {
+    if (fragments.length == 1) return fragments.first;
+    if (fragments.length == 2) {
+      return '${fragments.first} and ${fragments.last}';
+    }
+    return '${fragments.sublist(0, fragments.length - 1).join(', ')}, and ${fragments.last}';
+  }
+}
+
+class _ComparisonPanel extends StatelessWidget {
+  const _ComparisonPanel({
+    required this.title,
+    required this.name,
+    required this.description,
+    required this.colorHex,
+    required this.chips,
+  });
+
+  final String title;
+  final String name;
+  final String? description;
+  final String? colorHex;
+  final List<String> chips;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final swatchColor = colorHex == null
+        ? theme.colorScheme.onSurfaceVariant
+        : AppColors.fromHex(colorHex!);
+    final description = this.description?.trim();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: swatchColor,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: theme.colorScheme.outline.withValues(alpha: 0.4),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (description != null && description.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            description,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final chip in chips)
+              PrismChip(
+                label: chip,
+                selected: true,
+                tintColor: theme.colorScheme.secondary,
+                onTap: null,
+              ),
+          ],
+        ),
+      ],
+    );
   }
 }
 

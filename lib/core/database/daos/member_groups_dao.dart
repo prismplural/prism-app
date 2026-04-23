@@ -180,6 +180,73 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     return grouped;
   }
 
+  Future<Map<String, Set<String>>> activePkMemberUuidsByGroupIds(
+    Iterable<String> groupIds,
+  ) async {
+    final ids = groupIds.toSet().toList(growable: false);
+    if (ids.isEmpty) return const <String, Set<String>>{};
+
+    final grouped = <String, Set<String>>{};
+    for (var start = 0; start < ids.length; start += _lookupBatchSize) {
+      final end = start + _lookupBatchSize > ids.length
+          ? ids.length
+          : start + _lookupBatchSize;
+      final batch = ids.sublist(start, end);
+      final rows = await customSelect(
+        '''
+        SELECT group_id, pk_member_uuid
+        FROM member_group_entries
+        WHERE is_deleted = 0
+          AND group_id IN (${_placeholders(batch.length)})
+          AND pk_member_uuid IS NOT NULL
+          AND pk_member_uuid != ''
+        ''',
+        variables: batch.map(Variable.withString).toList(),
+        readsFrom: {memberGroupEntries},
+      ).get();
+
+      for (final row in rows) {
+        grouped
+            .putIfAbsent(row.read<String>('group_id'), () => <String>{})
+            .add(row.read<String>('pk_member_uuid'));
+      }
+    }
+    return grouped;
+  }
+
+  Future<Map<String, Set<String>>> activeLocalOnlyMemberIdsByGroupIds(
+    Iterable<String> groupIds,
+  ) async {
+    final ids = groupIds.toSet().toList(growable: false);
+    if (ids.isEmpty) return const <String, Set<String>>{};
+
+    final grouped = <String, Set<String>>{};
+    for (var start = 0; start < ids.length; start += _lookupBatchSize) {
+      final end = start + _lookupBatchSize > ids.length
+          ? ids.length
+          : start + _lookupBatchSize;
+      final batch = ids.sublist(start, end);
+      final rows = await customSelect(
+        '''
+        SELECT group_id, member_id
+        FROM member_group_entries
+        WHERE is_deleted = 0
+          AND group_id IN (${_placeholders(batch.length)})
+          AND (pk_member_uuid IS NULL OR pk_member_uuid = '')
+        ''',
+        variables: batch.map(Variable.withString).toList(),
+        readsFrom: {memberGroupEntries},
+      ).get();
+
+      for (final row in rows) {
+        grouped
+            .putIfAbsent(row.read<String>('group_id'), () => <String>{})
+            .add(row.read<String>('member_id'));
+      }
+    }
+    return grouped;
+  }
+
   /// Find an active entry for a specific group + member combination.
   Future<MemberGroupEntryRow?> findEntry(String groupId, String memberId) =>
       (select(memberGroupEntries)..where(
