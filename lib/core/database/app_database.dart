@@ -90,7 +90,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -124,6 +124,30 @@ class AppDatabase extends _$AppDatabase {
           systemSettingsTable.pkGroupSyncV2Enabled,
         );
         current = 3;
+      }
+      if (current == 3 && to >= 4) {
+        // Reserved for H3 (DateTime encoding repair) landing in a sibling
+        // worktree. This stub keeps version accounting correct when C1
+        // merges ahead of H3; the resolver can replace this block with
+        // the H3 divide-by-1000 fixups if ordering flips.
+        current = 4;
+      }
+      if (current == 4 && to >= 5) {
+        // C1: drop pk_group_sync_aliases rows whose legacy_entity_id
+        // matches an active member_groups.id for the same pk_group_uuid.
+        // Those are auto-aliases for the device's OWN row id; emitting
+        // tombstones for them would hard-delete peers' active PK-group
+        // rows whenever two devices both imported PK groups under the
+        // importer's `pk-group-<uuid>` hyphen-form local id.
+        await customStatement(
+          'DELETE FROM pk_group_sync_aliases '
+          'WHERE legacy_entity_id IN ('
+          '  SELECT id FROM member_groups '
+          '  WHERE pluralkit_uuid = pk_group_sync_aliases.pk_group_uuid '
+          '    AND is_deleted = 0'
+          ')',
+        );
+        current = 5;
       }
       if (current != to) {
         throw UnsupportedError(

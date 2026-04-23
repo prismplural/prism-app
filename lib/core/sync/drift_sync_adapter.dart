@@ -2236,14 +2236,15 @@ DriftSyncEntity _memberGroupsEntity(
       );
       await db.into(db.memberGroups).insertOnConflictUpdate(companion);
       if (resolvedPkGroupUuid != null && resolvedPkGroupUuid.isNotEmpty) {
+        // C1: only record an alias for the *incoming* entity id when it
+        // is a genuinely-legacy id (the helper filters out canonical).
+        // Do NOT auto-record an alias for the receiving device's own
+        // local row id: both peers end up with `pk-group-<uuid>` after
+        // import, and aliasing that id makes later alias-delete emits
+        // hard-delete the peer's active PK-group row.
         await _recordPkGroupAliasIfNeeded(
           db,
           legacyEntityId: id,
-          pkGroupUuid: resolvedPkGroupUuid,
-        );
-        await _recordPkGroupAliasIfNeeded(
-          db,
-          legacyEntityId: localRowId,
           pkGroupUuid: resolvedPkGroupUuid,
         );
       }
