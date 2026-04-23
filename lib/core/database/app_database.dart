@@ -160,6 +160,12 @@ class AppDatabase extends _$AppDatabase {
           '    AND is_deleted = 0'
           ')',
         );
+        await customStatement(
+          'CREATE INDEX IF NOT EXISTS idx_member_group_entries_pk_canonicalize '
+          'ON member_group_entries (pk_group_uuid, pk_member_uuid) '
+          'WHERE is_deleted = 0 AND pk_group_uuid IS NOT NULL '
+          'AND pk_member_uuid IS NOT NULL',
+        );
         current = 4;
       }
       if (current != to) {
@@ -370,6 +376,12 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_member_group_entries_pk_member_uuid '
       'ON member_group_entries (pk_member_uuid) '
       'WHERE pk_member_uuid IS NOT NULL',
+    );
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_member_group_entries_pk_canonicalize '
+      'ON member_group_entries (pk_group_uuid, pk_member_uuid) '
+      'WHERE is_deleted = 0 AND pk_group_uuid IS NOT NULL '
+      'AND pk_member_uuid IS NOT NULL',
     );
     await customStatement(
       'CREATE INDEX IF NOT EXISTS idx_pk_group_sync_aliases_pk_group_uuid '

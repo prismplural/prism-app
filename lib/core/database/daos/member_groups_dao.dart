@@ -275,11 +275,7 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   /// Wrapped in a transaction so repair sees an atomic before/after state
   /// if any row fails mid-pass.
   Future<
-    ({
-      int rewritten,
-      int revivedTombstones,
-      int softDeletedLegacyConflicts,
-    })
+    ({int rewritten, int revivedTombstones, int softDeletedLegacyConflicts})
   >
   canonicalizePkBackedEntryIds() {
     return transaction(() async {
@@ -287,10 +283,9 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
       var revivedTombstones = 0;
       var softDeletedLegacyConflicts = 0;
 
-      // Scope to active PK-backed entries. Tombstones are loaded on demand
-      // per logical edge so we keep the working set bounded to one canonical
-      // id at a time. Order by id so repeated runs process rows in the same
-      // sequence when multiple legacy rows map to the same canonical edge.
+      // Scope to active PK-backed entries. Order by id so repeated runs
+      // process rows in the same sequence when multiple legacy rows map to
+      // the same canonical edge.
       final candidates =
           await (select(memberGroupEntries)
                 ..where(
@@ -302,6 +297,31 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
                 ..orderBy([(e) => OrderingTerm.asc(e.id)]))
               .get();
 
+      final idsToLoad = <String>{};
+      final canonicalIdsByEntryId = <String, String>{};
+      for (final entry in candidates) {
+        final pkGroupUuid = entry.pkGroupUuid;
+        final pkMemberUuid = entry.pkMemberUuid;
+        if (pkGroupUuid == null ||
+            pkGroupUuid.isEmpty ||
+            pkMemberUuid == null ||
+            pkMemberUuid.isEmpty) {
+          continue;
+        }
+        final canonical = _canonicalPkEntryId(pkGroupUuid, pkMemberUuid);
+        canonicalIdsByEntryId[entry.id] = canonical;
+        idsToLoad
+          ..add(entry.id)
+          ..add(canonical);
+      }
+
+      final existingRows = idsToLoad.isEmpty
+          ? <MemberGroupEntryRow>[]
+          : await (select(
+              memberGroupEntries,
+            )..where((e) => e.id.isIn(idsToLoad.toList()))).get();
+      final byId = {for (final row in existingRows) row.id: row};
+
       for (final entry in candidates) {
         final pkGroupUuid = entry.pkGroupUuid;
         final pkMemberUuid = entry.pkMemberUuid;
@@ -312,12 +332,10 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           continue;
         }
 
-        final canonical = _canonicalPkEntryId(pkGroupUuid, pkMemberUuid);
+        final canonical = canonicalIdsByEntryId[entry.id]!;
         if (entry.id == canonical) continue;
 
-        final canonicalRow = await (select(
-          memberGroupEntries,
-        )..where((e) => e.id.equals(canonical))).getSingleOrNull();
+        final canonicalRow = byId[canonical];
 
         if (canonicalRow != null && canonicalRow.isDeleted) {
           // Soft-delete the legacy active row first so the partial unique
@@ -339,6 +357,14 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           );
           revivedTombstones++;
           softDeletedLegacyConflicts++;
+          byId[entry.id] = entry.copyWith(isDeleted: true);
+          byId[canonical] = canonicalRow.copyWith(
+            groupId: entry.groupId,
+            memberId: entry.memberId,
+            pkGroupUuid: Value(pkGroupUuid),
+            pkMemberUuid: Value(pkMemberUuid),
+            isDeleted: false,
+          );
           continue;
         }
 
@@ -362,6 +388,9 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           updates: {memberGroupEntries},
         );
         rewritten++;
+        byId
+          ..remove(entry.id)
+          ..[canonical] = entry.copyWith(id: canonical);
       }
 
       return (
@@ -372,10 +401,7 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
-  static String _canonicalPkEntryId(
-    String pkGroupUuid,
-    String pkMemberUuid,
-  ) {
+  static String _canonicalPkEntryId(String pkGroupUuid, String pkMemberUuid) {
     final joined = '$pkGroupUuid\x00$pkMemberUuid';
     final digest = sha256.convert(utf8.encode(joined));
     return digest.toString().substring(0, 16);
