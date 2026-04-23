@@ -103,6 +103,35 @@ void main() {
     expect(prefs.getBool(PkGroupSyncV2CatchupService.flagKey), isNot(isTrue));
   });
 
+  test(
+    'emits after an earlier disabled no-op once cutover flag flips',
+    () async {
+      await db.systemSettingsDao.getSettings();
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'pk-group-local-1',
+              name: 'Cluster',
+              createdAt: DateTime.utc(2024, 1, 1),
+              pluralkitUuid: 'pk-group-1',
+            ),
+          );
+
+      final first = await service().runOnce();
+      expect(first.groupsEmitted, 0);
+      expect(groupOps, isEmpty);
+
+      await db.systemSettingsDao.updatePkGroupSyncV2Enabled(true);
+      final second = await service().runOnce();
+
+      expect(second.groupsEmitted, 1);
+      expect(groupOps.single.entityId, 'pk-group:pk-group-1');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(PkGroupSyncV2CatchupService.flagKey), isTrue);
+    },
+  );
+
   test('catches up PK groups and entries with canonical IDs', () async {
     await db.systemSettingsDao.getSettings();
     await db.systemSettingsDao.updatePkGroupSyncV2Enabled(true);

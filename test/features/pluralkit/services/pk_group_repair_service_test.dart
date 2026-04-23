@@ -314,6 +314,14 @@ void main() {
       );
       expect(reviewItems.single.extraLocalMemberIds, isEmpty);
       expect(reviewItems.single.onlyInCandidateMemberUuids, isEmpty);
+
+      final localOnlyReport = await service.run(allowStoredToken: false);
+      expect(localOnlyReport.referenceMode, PkGroupRepairReferenceMode.none);
+
+      final localOnlyReviewItems = await service.getPendingReviewItems();
+      expect(localOnlyReviewItems, hasLength(1));
+      expect(localOnlyReviewItems.single.candidateName, null);
+      expect(localOnlyReviewItems.single.hasCandidateComparison, isFalse);
     },
   );
 

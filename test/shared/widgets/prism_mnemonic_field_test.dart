@@ -268,6 +268,48 @@ void main() {
       expect(find.text('QR de frase de recuperación'), findsOneWidget);
       expect(find.textContaining('Escanea este código QR'), findsOneWidget);
     });
+
+    testWidgets('QR display dialog fits compact landscape viewports', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(520, 320));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final controller = TextEditingController(text: _validPhrase);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(PrismMnemonicField(controller: controller)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Show QR code'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(QrImageView), findsOneWidget);
+    });
+
+    testWidgets('QR scanner dialog fits compact landscape viewports', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(520, 320));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final scanController = TextEditingController();
+      addTearDown(scanController.dispose);
+
+      await tester.pumpWidget(
+        _wrap(PrismMnemonicField(controller: scanController)),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Scan QR code'));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(MobileScanner), findsOneWidget);
+    });
   });
 
   group('PrismMnemonicField.normalize', () {

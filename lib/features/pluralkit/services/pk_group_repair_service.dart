@@ -364,6 +364,7 @@ class PkGroupRepairService {
       }
 
       if (!allowStoredToken) {
+        _lastReferenceData = null;
         return const _ReferenceResolution(
           mode: PkGroupRepairReferenceMode.none,
         );
@@ -371,6 +372,7 @@ class PkGroupRepairService {
 
       final hasStoredToken = await _hasRepairToken();
       if (!hasStoredToken) {
+        _lastReferenceData = null;
         return const _ReferenceResolution(
           mode: PkGroupRepairReferenceMode.none,
         );
@@ -383,6 +385,7 @@ class PkGroupRepairService {
         data: data,
       );
     } catch (error) {
+      _lastReferenceData = null;
       if (token != null && token.trim().isNotEmpty) rethrow;
       return _ReferenceResolution(
         mode: PkGroupRepairReferenceMode.none,
