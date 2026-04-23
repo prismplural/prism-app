@@ -316,6 +316,10 @@ class PrismSyncHandleNotifier extends AsyncNotifier<ffi.PrismSyncHandle?> {
         unawaited(() async {
           try {
             await ffi.onResume(handle: handle);
+            await catchUpPkBackedSyncOnceAfterCutover(
+              handle,
+              ref.read(databaseProvider),
+            );
             // Persist any state the sync cycle mutated (session_token refresh,
             // epoch advance, etc.) before a subsequent crash could lose it.
             await drainRustStore(handle);
@@ -932,6 +936,7 @@ final syncEventStreamProvider = StreamProvider<SyncEvent>((ref) {
     if (event.isRemoteChanges) {
       await _applyRemoteChanges(db, syncAdapter.adapter, event);
       await syncAdapter.completeSyncBatch();
+      await catchUpPkBackedSyncOnceAfterCutover(handle, db);
       if (kDebugMode) {
         debugPrint(
           '[SYNC_STREAM] Applied ${event.changes.length} remote changes',

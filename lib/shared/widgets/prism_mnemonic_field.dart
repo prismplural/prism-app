@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -513,54 +515,58 @@ class _MnemonicQrDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final viewportHeight = MediaQuery.sizeOf(context).height;
 
     return SecureScope(
       child: Dialog(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                context.l10n.mnemonicFieldQrTitle,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: viewportHeight * 0.9),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  context.l10n.mnemonicFieldQrTitle,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                context.l10n.mnemonicFieldQrDescription,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                const SizedBox(height: 8),
+                Text(
+                  context.l10n.mnemonicFieldQrDescription,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.warmWhite,
-                    borderRadius: BorderRadius.circular(
-                      PrismShapes.of(context).radius(16),
+                const SizedBox(height: 20),
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.warmWhite,
+                      borderRadius: BorderRadius.circular(
+                        PrismShapes.of(context).radius(16),
+                      ),
+                    ),
+                    child: QrImageView(
+                      data: mnemonic,
+                      version: QrVersions.auto,
+                      size: 220,
+                      backgroundColor: AppColors.warmWhite,
                     ),
                   ),
-                  child: QrImageView(
-                    data: mnemonic,
-                    version: QrVersions.auto,
-                    size: 220,
-                    backgroundColor: AppColors.warmWhite,
-                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(context.l10n.close),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(context.l10n.close),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -608,59 +614,64 @@ class _MnemonicQrScannerDialogState extends State<_MnemonicQrScannerDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final scannerHeight = math.min(280.0, viewportHeight * 0.45);
 
     return SecureScope(
       child: Dialog(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                context.l10n.mnemonicFieldScanQrTitle,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                context.l10n.mnemonicFieldScanQrDescription,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(
-                  PrismShapes.of(context).radius(16),
-                ),
-                child: SizedBox(
-                  height: 280,
-                  child: MobileScanner(
-                    controller: _controller,
-                    onDetect: _onDetect,
-                  ),
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: viewportHeight * 0.9),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Text(
-                  _error!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
+                  context.l10n.mnemonicFieldScanQrTitle,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  context.l10n.mnemonicFieldScanQrDescription,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(
+                    PrismShapes.of(context).radius(16),
+                  ),
+                  child: SizedBox(
+                    height: scannerHeight,
+                    child: MobileScanner(
+                      controller: _controller,
+                      onDetect: _onDetect,
+                    ),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(context.l10n.cancel),
+                ),
               ],
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(context.l10n.cancel),
-              ),
-            ],
+            ),
           ),
         ),
       ),
