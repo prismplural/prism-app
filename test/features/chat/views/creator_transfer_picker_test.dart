@@ -11,11 +11,8 @@ import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-Member _member({required String id, required String name}) => Member(
-      id: id,
-      name: name,
-      createdAt: DateTime(2024),
-    );
+Member _member({required String id, required String name}) =>
+    Member(id: id, name: name, createdAt: DateTime(2024));
 
 /// Builds a trigger widget that calls [showCreatorTransferPicker] on button tap
 /// and records the returned [String?] result via [onResult].
@@ -52,27 +49,28 @@ Widget _buildTrigger({
 void main() {
   group('showCreatorTransferPicker', () {
     testWidgets(
-        'single remaining member — returns their ID immediately without showing a sheet',
-        (tester) async {
-      String? result;
-      final member = _member(id: 'alice', name: 'Alice');
+      'single remaining member — returns their ID immediately without showing a sheet',
+      (tester) async {
+        String? result;
+        final member = _member(id: 'alice', name: 'Alice');
 
-      await tester.pumpWidget(
-        _buildTrigger(
-          remainingMembers: [member],
-          onResult: (r) => result = r,
-        ),
-      );
-      await tester.pump();
+        await tester.pumpWidget(
+          _buildTrigger(
+            remainingMembers: [member],
+            onResult: (r) => result = r,
+          ),
+        );
+        await tester.pump();
 
-      await tester.tap(find.text('Open'));
-      // No sheet animation needed — fast path returns synchronously.
-      await tester.pump();
+        await tester.tap(find.text('Open'));
+        // No sheet animation needed — fast path returns synchronously.
+        await tester.pump();
 
-      expect(result, 'alice');
-      // The search sheet should never have been pushed.
-      expect(find.byType(MemberSearchSheet), findsNothing);
-    });
+        expect(result, 'alice');
+        // The search sheet should never have been pushed.
+        expect(find.byType(MemberSearchSheet), findsNothing);
+      },
+    );
 
     testWidgets('multiple members — shows MemberSearchSheet', (tester) async {
       final members = [
@@ -80,9 +78,7 @@ void main() {
         _member(id: 'bob', name: 'Bob'),
       ];
 
-      await tester.pumpWidget(
-        _buildTrigger(remainingMembers: members),
-      );
+      await tester.pumpWidget(_buildTrigger(remainingMembers: members));
       await tester.pump();
 
       await tester.tap(find.text('Open'));
@@ -99,10 +95,7 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _buildTrigger(
-          remainingMembers: members,
-          onResult: (r) => result = r,
-        ),
+        _buildTrigger(remainingMembers: members, onResult: (r) => result = r),
       );
       await tester.pump();
 
@@ -124,18 +117,14 @@ void main() {
       ];
 
       await tester.pumpWidget(
-        _buildTrigger(
-          remainingMembers: members,
-          onResult: (r) => sentinel = r,
-        ),
+        _buildTrigger(remainingMembers: members, onResult: (r) => sentinel = r),
       );
       await tester.pump();
 
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      // Tap the close / cancel icon button in the sheet.
-      await tester.tap(find.byType(IconButton).first);
+      await tester.tap(find.bySemanticsLabel('Close'));
       await tester.pumpAndSettle();
 
       expect(sentinel, isNull);

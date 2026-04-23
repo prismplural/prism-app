@@ -11,6 +11,7 @@ import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 Future<String?> showCreatorTransferPicker(
   BuildContext context, {
   required List<Member> remainingMembers,
+  List<MemberSearchGroup> groups = const [],
 }) async {
   // Fast path: skip UI entirely when only one candidate exists.
   if (remainingMembers.length == 1) {
@@ -21,6 +22,7 @@ Future<String?> showCreatorTransferPicker(
     context,
     members: remainingMembers,
     termPlural: 'members',
+    groups: groups,
   );
 
   return switch (result) {

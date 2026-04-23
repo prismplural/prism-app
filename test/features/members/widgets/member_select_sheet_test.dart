@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/members/widgets/member_select_sheet.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
@@ -21,17 +24,8 @@ import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 // Helpers
 // ---------------------------------------------------------------------------
 
-Member _member({
-  required String id,
-  required String name,
-  String? pronouns,
-}) =>
-    Member(
-      id: id,
-      name: name,
-      pronouns: pronouns,
-      createdAt: DateTime(2024),
-    );
+Member _member({required String id, required String name, String? pronouns}) =>
+    Member(id: id, name: name, pronouns: pronouns, createdAt: DateTime(2024));
 
 /// Wraps [MemberSelectSheet] with the Riverpod + l10n scaffolding needed for
 /// widget tests.
@@ -52,6 +46,12 @@ Widget _buildTestWidget({
             return const Stream.empty();
         }
       }),
+      allGroupsProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroup>[]),
+      ),
+      allGroupEntriesProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroupEntry>[]),
+      ),
       systemSettingsProvider.overrideWithValue(
         const AsyncValue.data(SystemSettings()),
       ),
@@ -59,9 +59,7 @@ Widget _buildTestWidget({
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
-      home: Scaffold(
-        body: MemberSelectSheet(currentMemberId: currentMemberId),
-      ),
+      home: Scaffold(body: MemberSelectSheet(currentMemberId: currentMemberId)),
     ),
   );
 }
@@ -76,8 +74,9 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('loading state', () {
-    testWidgets('shows PrismLoadingState while members are loading',
-        (tester) async {
+    testWidgets('shows PrismLoadingState while members are loading', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildTestWidget(membersValue: const AsyncValue.loading()),
       );
@@ -93,8 +92,9 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('empty state', () {
-    testWidgets('shows EmptyState when there are no active members',
-        (tester) async {
+    testWidgets('shows EmptyState when there are no active members', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildTestWidget(membersValue: const AsyncData([])),
       );
@@ -145,12 +145,19 @@ void main() {
       expect(find.byType(PrismSectionCard), findsOneWidget);
     });
 
-    testWidgets('show() opens inside PrismSheet without layout errors',
-        (tester) async {
+    testWidgets('show() opens inside PrismSheet without layout errors', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
             systemSettingsProvider.overrideWithValue(
               const AsyncValue.data(SystemSettings()),
             ),
@@ -198,8 +205,9 @@ void main() {
       _member(id: 'b', name: 'Bob'),
     ];
 
-    testWidgets('None row has selected=true when currentMemberId is null',
-        (tester) async {
+    testWidgets('None row has selected=true when currentMemberId is null', (
+      tester,
+    ) async {
       final semantics = tester.ensureSemantics();
       try {
         await tester.pumpWidget(
@@ -219,8 +227,9 @@ void main() {
       }
     });
 
-    testWidgets('None row has selected=true when currentMemberId is empty',
-        (tester) async {
+    testWidgets('None row has selected=true when currentMemberId is empty', (
+      tester,
+    ) async {
       final semantics = tester.ensureSemantics();
       try {
         await tester.pumpWidget(
@@ -240,29 +249,32 @@ void main() {
       }
     });
 
-    testWidgets('member row has selected=true when it matches currentMemberId',
-        (tester) async {
-      final semantics = tester.ensureSemantics();
-      try {
-        await tester.pumpWidget(
-          _buildTestWidget(
-            membersValue: AsyncData(members),
-            currentMemberId: 'a',
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets(
+      'member row has selected=true when it matches currentMemberId',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            _buildTestWidget(
+              membersValue: AsyncData(members),
+              currentMemberId: 'a',
+            ),
+          );
+          await tester.pumpAndSettle();
 
-        final data = tester
-            .getSemantics(find.widgetWithText(PrismListRow, 'Alice'))
-            .getSemanticsData();
-        expect(data.flagsCollection.isSelected, ui.Tristate.isTrue);
-      } finally {
-        semantics.dispose();
-      }
-    });
+          final data = tester
+              .getSemantics(find.widgetWithText(PrismListRow, 'Alice'))
+              .getSemanticsData();
+          expect(data.flagsCollection.isSelected, ui.Tristate.isTrue);
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
 
-    testWidgets('None row has selected=false when a member is selected',
-        (tester) async {
+    testWidgets('None row has selected=false when a member is selected', (
+      tester,
+    ) async {
       final semantics = tester.ensureSemantics();
       try {
         await tester.pumpWidget(
@@ -293,15 +305,20 @@ void main() {
       _member(id: 'b', name: 'Bob'),
     ];
 
-    testWidgets('tapping a member pops the route with that member id',
-        (tester) async {
+    testWidgets('tapping a member pops the route with that member id', (
+      tester,
+    ) async {
       String? result;
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            activeMembersProvider.overrideWith(
-              (ref) => Stream.value(members),
+            activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
             ),
             systemSettingsProvider.overrideWithValue(
               const AsyncValue.data(SystemSettings()),
@@ -315,9 +332,7 @@ void main() {
                 onPressed: () async {
                   result = await Navigator.of(ctx).push<String>(
                     MaterialPageRoute(
-                      builder: (_) => const Scaffold(
-                        body: MemberSelectSheet(),
-                      ),
+                      builder: (_) => const Scaffold(body: MemberSelectSheet()),
                     ),
                   );
                 },
@@ -338,15 +353,20 @@ void main() {
       expect(result, 'a');
     });
 
-    testWidgets('tapping None pops the route with empty string',
-        (tester) async {
+    testWidgets('tapping None pops the route with empty string', (
+      tester,
+    ) async {
       String? result;
 
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            activeMembersProvider.overrideWith(
-              (ref) => Stream.value(members),
+            activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
             ),
             systemSettingsProvider.overrideWithValue(
               const AsyncValue.data(SystemSettings()),
@@ -401,7 +421,15 @@ void main() {
     }) {
       return ProviderScope(
         overrides: [
-          activeMembersProvider.overrideWith((ref) => Stream.value(sheetMembers)),
+          activeMembersProvider.overrideWith(
+            (ref) => Stream.value(sheetMembers),
+          ),
+          allGroupsProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroup>[]),
+          ),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroupEntry>[]),
+          ),
           systemSettingsProvider.overrideWithValue(
             const AsyncValue.data(SystemSettings()),
           ),
@@ -422,8 +450,9 @@ void main() {
       );
     }
 
-    testWidgets('search action appears when members are available',
-        (tester) async {
+    testWidgets('search action appears when members are available', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildTestWidget(membersValue: AsyncData(members)),
       );
@@ -432,8 +461,9 @@ void main() {
       expect(find.byIcon(AppIcons.search), findsOneWidget);
     });
 
-    testWidgets('search action is not shown when member list is empty',
-        (tester) async {
+    testWidgets('search action is not shown when member list is empty', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildTestWidget(membersValue: const AsyncData([])),
       );
@@ -442,7 +472,9 @@ void main() {
       expect(find.byIcon(AppIcons.search), findsNothing);
     });
 
-    testWidgets('tapping search action opens MemberSearchSheet', (tester) async {
+    testWidgets('tapping search action opens MemberSearchSheet', (
+      tester,
+    ) async {
       await tester.pumpWidget(buildSheetScaffold(members));
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -454,44 +486,46 @@ void main() {
     });
 
     testWidgets(
-        'selecting a member via search returns member id through show() contract',
-        (tester) async {
-      String? result;
-      await tester.pumpWidget(
-        buildSheetScaffold(members, onResult: (r) => result = r),
-      );
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+      'selecting a member via search returns member id through show() contract',
+      (tester) async {
+        String? result;
+        await tester.pumpWidget(
+          buildSheetScaffold(members, onResult: (r) => result = r),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.search));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(AppIcons.search));
+        await tester.pumpAndSettle();
 
-      // Use .last to prefer the row inside MemberSearchSheet over the one in
-      // the underlying MemberSelectSheet.
-      await tester.tap(find.widgetWithText(PrismListRow, 'Alice').last);
-      await tester.pumpAndSettle();
+        // Use .last to prefer the row inside MemberSearchSheet over the one in
+        // the underlying MemberSelectSheet.
+        await tester.tap(find.widgetWithText(PrismListRow, 'Alice').last);
+        await tester.pumpAndSettle();
 
-      expect(result, 'a');
-    });
+        expect(result, 'a');
+      },
+    );
 
     testWidgets(
-        'selecting None via search returns empty string through show() contract',
-        (tester) async {
-      String? result;
-      await tester.pumpWidget(
-        buildSheetScaffold(members, onResult: (r) => result = r),
-      );
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+      'selecting None via search returns empty string through show() contract',
+      (tester) async {
+        String? result;
+        await tester.pumpWidget(
+          buildSheetScaffold(members, onResult: (r) => result = r),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.search));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(AppIcons.search));
+        await tester.pumpAndSettle();
 
-      // Tap the None special row inside MemberSearchSheet.
-      await tester.tap(find.text('None').last);
-      await tester.pumpAndSettle();
+        // Tap the None special row inside MemberSearchSheet.
+        await tester.tap(find.text('None').last);
+        await tester.pumpAndSettle();
 
-      expect(result, '');
-    });
+        expect(result, '');
+      },
+    );
   });
 }

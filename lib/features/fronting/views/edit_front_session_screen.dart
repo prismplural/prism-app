@@ -17,6 +17,7 @@ import 'package:prism_plurality/features/fronting/ui/gap_resolution_dialog.dart'
 import 'package:prism_plurality/features/fronting/ui/overlap_resolution_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_segmented_control.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -84,11 +85,13 @@ class _EditFrontSessionScreenState
   Future<void> _openFronterPicker(
     List<Member> members,
     String termPlural,
+    List<MemberSearchGroup> groups,
   ) async {
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
       termPlural: termPlural,
+      groups: groups,
       specialRows: [
         MemberSearchSpecialRow(
           rowKey: '__unknown__',
@@ -115,15 +118,15 @@ class _EditFrontSessionScreenState
   /// Pre-seeds the selection with the current [_coFronterIds] so existing
   /// values are preserved when the user opens the sheet.
   Future<void> _openCoFronterPicker(
-    List<Member> members,
+    List<Member> available,
     String termPlural,
+    List<MemberSearchGroup> groups,
   ) async {
-    final available =
-        members.where((m) => m.id != _memberId).toList();
     final result = await MemberSearchSheet.showMulti(
       context,
       members: available,
       termPlural: termPlural,
+      groups: groups,
       initialSelected: Set.from(_coFronterIds),
     );
     if (!mounted || result == null) return;
@@ -263,7 +266,9 @@ class _EditFrontSessionScreenState
       final proceed = await PrismDialog.confirm(
         context: context,
         title: context.l10n.frontingDuplicateSessionTitle,
-        message: context.l10n.frontingDuplicateSessionMessage(validation.duplicates.length),
+        message: context.l10n.frontingDuplicateSessionMessage(
+          validation.duplicates.length,
+        ),
         confirmLabel: context.l10n.frontingSaveAnyway,
       );
       if (!proceed || !mounted) return;
@@ -293,13 +298,19 @@ class _EditFrontSessionScreenState
         },
         failure: (error) {
           if (mounted) {
-            PrismToast.error(context, message: context.l10n.frontingErrorSavingSession(error));
+            PrismToast.error(
+              context,
+              message: context.l10n.frontingErrorSavingSession(error),
+            );
           }
         },
       );
     } catch (e) {
       if (mounted) {
-        PrismToast.error(context, message: context.l10n.frontingErrorSavingSession(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.frontingErrorSavingSession(e),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -401,12 +412,14 @@ class _EditFrontSessionScreenState
                 loading: () => const PrismLoadingState(),
                 error: (_, _) => Text(context.l10n.error),
                 data: (members) {
-                  final selected =
-                      members.firstWhereOrNull((m) => m.id == _memberId);
+                  final selected = members.firstWhereOrNull(
+                    (m) => m.id == _memberId,
+                  );
+                  final searchGroups = watchMemberSearchGroups(ref, members);
                   return _FronterPickerRow(
                     selectedMember: selected,
                     onPickerOpen: () =>
-                        _openFronterPicker(members, termPlural),
+                        _openFronterPicker(members, termPlural, searchGroups),
                   );
                 },
               ),
@@ -424,16 +437,21 @@ class _EditFrontSessionScreenState
                 loading: () => const SizedBox.shrink(),
                 error: (_, _) => const SizedBox.shrink(),
                 data: (members) {
-                  final available =
-                      members.where((m) => m.id != _memberId).toList();
+                  final available = members
+                      .where((m) => m.id != _memberId)
+                      .toList();
+                  final searchGroups = watchMemberSearchGroups(ref, available);
                   final selectedCoFronters = members
                       .where((m) => _coFronterIds.contains(m.id))
                       .toList();
                   return _CoFronterPickerSection(
                     hasAvailable: available.isNotEmpty,
                     selectedCoFronters: selectedCoFronters,
-                    onPickerOpen: () =>
-                        _openCoFronterPicker(members, termPlural),
+                    onPickerOpen: () => _openCoFronterPicker(
+                      available,
+                      termPlural,
+                      searchGroups,
+                    ),
                   );
                 },
               ),
@@ -574,8 +592,7 @@ class _CoFronterPickerSection extends StatelessWidget {
                     label: m.name,
                     selected: true,
                     onTap: onPickerOpen,
-                    avatar:
-                        Text(m.emoji, style: const TextStyle(fontSize: 15)),
+                    avatar: Text(m.emoji, style: const TextStyle(fontSize: 15)),
                   ),
                 )
                 .toList(),

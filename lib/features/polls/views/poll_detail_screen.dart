@@ -10,6 +10,7 @@ import 'package:prism_plurality/domain/models/models.dart';
 import 'package:prism_plurality/shared/utils/haptics.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/polls/providers/poll_providers.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
 import 'package:prism_plurality/shared/widgets/app_shell.dart';
@@ -30,7 +31,7 @@ import 'package:prism_plurality/shared/widgets/prism_pill.dart';
 import 'package:prism_plurality/shared/widgets/prism_surface.dart';
 import 'package:prism_plurality/shared/widgets/blur_popup.dart';
 import 'package:prism_plurality/shared/widgets/prism_list_row.dart';
-import 'package:prism_plurality/shared/widgets/member_search_delegate.dart';
+import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 
@@ -528,9 +529,8 @@ class _PollDetailBodyState extends ConsumerState<_PollDetailBody> {
                     members: members,
                     votingAs: votingAs,
                     options: widget.options,
-                    onSelectMember: (id) => ref
-                        .read(votingAsProvider.notifier)
-                        .setMember(id),
+                    onSelectMember: (id) =>
+                        ref.read(votingAsProvider.notifier).setMember(id),
                   );
                 },
                 loading: () => const PrismLoadingState(),
@@ -643,19 +643,14 @@ class _VotingAsChipRow extends ConsumerWidget {
     final fronterMember = currentFronterId != null
         ? members.where((m) => m.id == currentFronterId).firstOrNull
         : null;
-    final others = members
-        .where((m) => m.id != currentFronterId)
-        .toList()
+    final others = members.where((m) => m.id != currentFronterId).toList()
       ..sort((a, b) {
         final countA = frontingCounts[a.id] ?? 0;
         final countB = frontingCounts[b.id] ?? 0;
         return countB.compareTo(countA);
       });
 
-    final orderedMembers = [
-      ?fronterMember,
-      ...others,
-    ];
+    final orderedMembers = [?fronterMember, ...others];
 
     return SizedBox(
       height: 48,
@@ -716,8 +711,8 @@ class _VotingAsChipRow extends ConsumerWidget {
             ),
             selectedColor:
                 member.customColorEnabled && member.customColorHex != null
-                    ? AppColors.fromHex(member.customColorHex!)
-                    : null,
+                ? AppColors.fromHex(member.customColorHex!)
+                : null,
           );
         },
       ),
@@ -725,7 +720,7 @@ class _VotingAsChipRow extends ConsumerWidget {
   }
 }
 
-/// The leading [Select] chip that opens a search modal to pick any member.
+/// The leading [Select] chip that opens the shared member search sheet.
 class _SelectChip extends ConsumerWidget {
   const _SelectChip({
     required this.members,
@@ -737,26 +732,28 @@ class _SelectChip extends ConsumerWidget {
   final String termPlural;
   final ValueChanged<String> onSelectMember;
 
-  Future<void> _openSearch(BuildContext context) async {
-    final delegate = MemberSearchDelegate(
+  Future<void> _openSearch(
+    BuildContext context,
+    List<MemberSearchGroup> groups,
+  ) async {
+    final result = await MemberSearchSheet.showSingle(
+      context,
       members: members,
       termPlural: termPlural,
+      groups: groups,
     );
-    final selected = await showSearch<String?>(
-      context: context,
-      delegate: delegate,
-    );
-    if (selected != null) {
-      onSelectMember(selected);
+    if (result case MemberSearchResultSelected(:final memberId)) {
+      onSelectMember(memberId);
     }
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final searchGroups = watchMemberSearchGroups(ref, members);
     return PrismChip(
       label: context.l10n.search,
       selected: false,
-      onTap: () => _openSearch(context),
+      onTap: () => _openSearch(context, searchGroups),
       avatar: Icon(
         AppIcons.search,
         size: 18,
@@ -885,7 +882,9 @@ class _OptionTile extends ConsumerWidget {
           if (showResults) ...[
             const SizedBox(height: 8),
             ClipRRect(
-              borderRadius: BorderRadius.circular(PrismShapes.of(context).radius(4)),
+              borderRadius: BorderRadius.circular(
+                PrismShapes.of(context).radius(4),
+              ),
               child: LinearProgressIndicator(
                 value: percentage,
                 minHeight: 8,

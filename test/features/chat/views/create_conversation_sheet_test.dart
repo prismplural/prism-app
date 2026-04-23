@@ -4,10 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/views/create_conversation_sheet.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -81,6 +84,12 @@ Widget _buildSheet({
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      allGroupsProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroup>[]),
+      ),
+      allGroupEntriesProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroupEntry>[]),
+      ),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
@@ -162,6 +171,55 @@ void main() {
 
       expect(find.byType(MemberSearchSheet), findsOneWidget);
     });
+
+    testWidgets('stays layout-safe at transient short sheet heights', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            activeMembersProvider.overrideWith(
+              (ref) => Stream.value([alice, bob]),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
+            ),
+            systemSettingsProvider.overrideWith(
+              (ref) => Stream.value(const SystemSettings()),
+            ),
+            speakingAsProvider.overrideWith(_FakeSpeakingAsNotifier.new),
+            conversationCategoriesProvider.overrideWith(
+              (ref) => Stream.value([]),
+            ),
+            chatNotifierProvider.overrideWith(_FakeChatNotifier.new),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: const [Locale('en')],
+            home: Scaffold(
+              body: MediaQuery(
+                data: const MediaQueryData(padding: EdgeInsets.only(top: 24)),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    height: 93,
+                    child: CreateConversationSheet(
+                      scrollController: ScrollController(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+    });
   });
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -217,7 +275,12 @@ void main() {
       await tester.pump();
 
       // Confirm.
-      await tester.tap(find.textContaining('Done'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(MemberSearchSheet),
+          matching: find.widgetWithIcon(PrismGlassIconButton, AppIcons.check),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(MemberSearchSheet), findsNothing);

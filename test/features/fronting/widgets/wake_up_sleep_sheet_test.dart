@@ -12,9 +12,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/fronting_session.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/sleep_providers.dart';
 import 'package:prism_plurality/features/fronting/widgets/wake_up_sleep_sheet.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -24,29 +27,26 @@ import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-Member _member(String id, String name) => Member(
-      id: id,
-      name: name,
-      createdAt: DateTime(2024),
-    );
+Member _member(String id, String name) =>
+    Member(id: id, name: name, createdAt: DateTime(2024));
 
 FrontingSession _sleepSession() => FrontingSession(
-      id: 'sleep-1',
-      startTime: DateTime.now().subtract(const Duration(hours: 7)),
-      sessionType: SessionType.sleep,
-    );
+  id: 'sleep-1',
+  startTime: DateTime.now().subtract(const Duration(hours: 7)),
+  sessionType: SessionType.sleep,
+);
 
 // Five members so that 4 fill the top row and 1 appears behind "Others…".
 // With empty morningCounts and identical displayOrder, sorted by id ascending:
 //   alice, bob, charlie, diana → top row
 //   eve                        → Others
 List<Member> _fiveMembers() => [
-      _member('alice', 'Alice'),
-      _member('bob', 'Bob'),
-      _member('charlie', 'Charlie'),
-      _member('diana', 'Diana'),
-      _member('eve', 'Eve'),
-    ];
+  _member('alice', 'Alice'),
+  _member('bob', 'Bob'),
+  _member('charlie', 'Charlie'),
+  _member('diana', 'Diana'),
+  _member('eve', 'Eve'),
+];
 
 Widget _buildSubject({List<Member>? members}) {
   return ProviderScope(
@@ -54,9 +54,13 @@ Widget _buildSubject({List<Member>? members}) {
       activeMembersProvider.overrideWith(
         (ref) => Stream.value(members ?? _fiveMembers()),
       ),
-      morningFrontingCountsProvider.overrideWith(
-        (ref) => Future.value({}),
+      allGroupsProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroup>[]),
       ),
+      allGroupEntriesProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroupEntry>[]),
+      ),
+      morningFrontingCountsProvider.overrideWith((ref) => Future.value({})),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
@@ -64,9 +68,7 @@ Widget _buildSubject({List<Member>? members}) {
     child: MaterialApp(
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: const [Locale('en')],
-      home: Scaffold(
-        body: WakeUpSleepSheet(session: _sleepSession()),
-      ),
+      home: Scaffold(body: WakeUpSleepSheet(session: _sleepSession())),
     ),
   );
 }
@@ -80,8 +82,9 @@ void main() {
     // ── 1. Top quick choices ────────────────────────────────────────────────
 
     group('top member quick choices', () {
-      testWidgets('top 4 members are rendered as named avatar tiles',
-          (tester) async {
+      testWidgets('top 4 members are rendered as named avatar tiles', (
+        tester,
+      ) async {
         await tester.pumpWidget(_buildSubject());
         await tester.pumpAndSettle();
 
@@ -91,8 +94,9 @@ void main() {
         expect(find.text('Diana'), findsOneWidget);
       });
 
-      testWidgets('5th member is not shown directly in the top row',
-          (tester) async {
+      testWidgets('5th member is not shown directly in the top row', (
+        tester,
+      ) async {
         await tester.pumpWidget(_buildSubject());
         await tester.pumpAndSettle();
 
@@ -118,8 +122,9 @@ void main() {
     // ── 3. Selecting from the shared sheet updates the chosen member ────────
 
     group('selection from shared sheet', () {
-      testWidgets('selecting a member dismisses the sheet and updates label',
-          (tester) async {
+      testWidgets('selecting a member dismisses the sheet and updates label', (
+        tester,
+      ) async {
         await tester.pumpWidget(_buildSubject());
         await tester.pumpAndSettle();
 
@@ -150,7 +155,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Close via the X button in MemberSearchSheet's top bar.
-        await tester.tap(find.byTooltip('Cancel'));
+        await tester.tap(find.bySemanticsLabel('Close'));
         await tester.pumpAndSettle();
 
         expect(find.byType(MemberSearchSheet), findsNothing);

@@ -19,6 +19,7 @@ import 'package:prism_plurality/features/fronting/views/start_sleep_sheet.dart';
 import 'package:prism_plurality/features/fronting/widgets/quick_front_section.dart';
 import 'package:prism_plurality/features/fronting/widgets/session_history_list.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/members/views/add_edit_member_sheet.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pluralkit_providers.dart';
 import 'package:prism_plurality/features/polls/views/create_poll_sheet.dart';
@@ -334,6 +335,8 @@ class _AddButtonState extends ConsumerState<_AddButton> {
   @override
   Widget build(BuildContext context) {
     final terms = watchTerminology(context, ref);
+    final activeMembers = ref.watch(activeMembersProvider).value ?? const [];
+    final wakeUpGroups = watchMemberSearchGroups(ref, activeMembers);
     final pkState = ref.watch(pluralKitSyncProvider);
     final pkReady =
         pkState.isConnected && !pkState.needsMapping && !pkState.isSyncing;
@@ -348,7 +351,13 @@ class _AddButtonState extends ConsumerState<_AddButton> {
           label: context.l10n.frontingMenuWakeUpAs,
           onTap: (close) {
             close();
-            _showWakeUpPicker(context, ref);
+            _showWakeUpPicker(
+              context,
+              ref,
+              activeMembers,
+              terms.plural,
+              wakeUpGroups,
+            );
           },
         ),
       );
@@ -479,22 +488,24 @@ class _AddButtonState extends ConsumerState<_AddButton> {
     }
   }
 
-  Future<void> _showWakeUpPicker(BuildContext context, WidgetRef ref) async {
-    final members = ref.read(activeMembersProvider).value ?? [];
-    final terms = readTerminology(context, ref);
-
+  Future<void> _showWakeUpPicker(
+    BuildContext context,
+    WidgetRef ref,
+    List<Member> members,
+    String termPlural,
+    List<MemberSearchGroup> groups,
+  ) async {
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
-      termPlural: terms.plural,
+      termPlural: termPlural,
+      groups: groups,
     );
 
     if (result is! MemberSearchResultSelected) return;
 
     try {
-      await ref
-          .read(sleepNotifierProvider.notifier)
-          .endSleep(sleepSession!.id);
+      await ref.read(sleepNotifierProvider.notifier).endSleep(sleepSession!.id);
       await ref
           .read(frontingNotifierProvider.notifier)
           .startFronting(result.memberId);

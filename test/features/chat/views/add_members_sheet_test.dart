@@ -4,14 +4,18 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/views/add_members_sheet.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_checkbox_row.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,22 +31,18 @@ class _FakeSpeakingAsNotifier extends SpeakingAsNotifier {
 // Test fixtures
 // ─────────────────────────────────────────────────────────────────────────────
 
-Member _member({required String id, required String name}) => Member(
-      id: id,
-      name: name,
-      createdAt: DateTime(2024),
-    );
+Member _member({required String id, required String name}) =>
+    Member(id: id, name: name, createdAt: DateTime(2024));
 
 Conversation _conversation({
   String id = 'conv1',
   List<String> participantIds = const [],
-}) =>
-    Conversation(
-      id: id,
-      createdAt: DateTime(2024),
-      lastActivityAt: DateTime(2024),
-      participantIds: participantIds,
-    );
+}) => Conversation(
+  id: id,
+  createdAt: DateTime(2024),
+  lastActivityAt: DateTime(2024),
+  participantIds: participantIds,
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fake ChatNotifier — records addParticipants calls without hitting real repos
@@ -77,6 +77,12 @@ Widget _buildTrigger({
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      allGroupsProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroup>[]),
+      ),
+      allGroupEntriesProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroupEntry>[]),
+      ),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
@@ -116,13 +122,11 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('renders through shared multi-select search sheet', () {
-    testWidgets('MemberSearchSheet is present after show is called',
-        (tester) async {
+    testWidgets('MemberSearchSheet is present after show is called', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-        _buildTrigger(
-          conversation: _conversation(),
-          members: [alice, bob],
-        ),
+        _buildTrigger(conversation: _conversation(), members: [alice, bob]),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -130,13 +134,11 @@ void main() {
       expect(find.byType(MemberSearchSheet), findsOneWidget);
     });
 
-    testWidgets('no legacy PrismCheckboxRow picker UI is rendered',
-        (tester) async {
+    testWidgets('no legacy PrismCheckboxRow picker UI is rendered', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-        _buildTrigger(
-          conversation: _conversation(),
-          members: [alice, bob],
-        ),
+        _buildTrigger(conversation: _conversation(), members: [alice, bob]),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -153,10 +155,7 @@ void main() {
     testWidgets('participant is not shown in picker', (tester) async {
       final conv = _conversation(participantIds: ['alice']);
       await tester.pumpWidget(
-        _buildTrigger(
-          conversation: conv,
-          members: [alice, bob],
-        ),
+        _buildTrigger(conversation: conv, members: [alice, bob]),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -168,10 +167,7 @@ void main() {
     testWidgets('non-participant members appear in picker', (tester) async {
       final conv = _conversation(participantIds: ['carol']);
       await tester.pumpWidget(
-        _buildTrigger(
-          conversation: conv,
-          members: [alice, bob, carol],
-        ),
+        _buildTrigger(conversation: conv, members: [alice, bob, carol]),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -187,8 +183,9 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('confirming triggers add flow', () {
-    testWidgets('selecting members and confirming calls addParticipants',
-        (tester) async {
+    testWidgets('selecting members and confirming calls addParticipants', (
+      tester,
+    ) async {
       final notifier = _FakeChatNotifier();
       await tester.pumpWidget(
         _buildTrigger(
@@ -205,7 +202,12 @@ void main() {
       await tester.tap(find.text('Bob'));
       await tester.pump();
 
-      await tester.tap(find.textContaining('Done'));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is PrismGlassIconButton && widget.icon == AppIcons.check,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(notifier.addedParticipants, containsAll(['alice', 'bob']));
@@ -228,33 +230,40 @@ void main() {
 
       await tester.tap(find.text('Alice'));
       await tester.pump();
-      await tester.tap(find.textContaining('Done'));
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is PrismGlassIconButton && widget.icon == AppIcons.check,
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(result, isTrue);
     });
 
-    testWidgets('dismissing sheet returns null without calling addParticipants',
-        (tester) async {
-      final notifier = _FakeChatNotifier();
-      bool? result = true;
+    testWidgets(
+      'dismissing sheet returns null without calling addParticipants',
+      (tester) async {
+        final notifier = _FakeChatNotifier();
+        bool? result = true;
 
-      await tester.pumpWidget(
-        _buildTrigger(
-          conversation: _conversation(),
-          members: [alice],
-          fakeNotifier: notifier,
-          onResult: (r) => result = r,
-        ),
-      );
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+        await tester.pumpWidget(
+          _buildTrigger(
+            conversation: _conversation(),
+            members: [alice],
+            fakeNotifier: notifier,
+            onResult: (r) => result = r,
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.close));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(AppIcons.close));
+        await tester.pumpAndSettle();
 
-      expect(notifier.addedParticipants, isEmpty);
-      expect(result, isNull);
-    });
+        expect(notifier.addedParticipants, isEmpty);
+        expect(result, isNull);
+      },
+    );
   });
 }

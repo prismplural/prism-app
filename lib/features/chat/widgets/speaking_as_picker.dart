@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:prism_plurality/domain/models/member.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/features/settings/providers/terminology_provider.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 import 'package:prism_plurality/shared/theme/app_colors.dart';
@@ -36,10 +37,7 @@ class SpeakingAsPicker extends ConsumerWidget {
       data: (members) {
         if (members.isEmpty) {
           return Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(
               context.l10n.chatNoMembersAvailable,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -52,11 +50,11 @@ class SpeakingAsPicker extends ConsumerWidget {
         // Auto-select first member if none selected (both paths).
         if (speakingAs == null && members.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            ref
-                .read(speakingAsProvider.notifier)
-                .setMember(members.first.id);
+            ref.read(speakingAsProvider.notifier).setMember(members.first.id);
           });
         }
+
+        final searchGroups = watchMemberSearchGroups(ref, members);
 
         if (members.length >= _kSpeakingAsPickerSearchThreshold) {
           return _buildSearchTrigger(
@@ -66,6 +64,7 @@ class SpeakingAsPicker extends ConsumerWidget {
             members,
             speakingAs,
             termPlural,
+            searchGroups,
           );
         }
 
@@ -91,8 +90,8 @@ class SpeakingAsPicker extends ConsumerWidget {
                   customColorHex: member.customColorHex,
                   size: 24,
                 ),
-                selectedColor: member.customColorEnabled &&
-                        member.customColorHex != null
+                selectedColor:
+                    member.customColorEnabled && member.customColorHex != null
                     ? AppColors.fromHex(member.customColorHex!)
                     : null,
               );
@@ -128,6 +127,7 @@ class SpeakingAsPicker extends ConsumerWidget {
     List<Member> members,
     String? speakingAs,
     String termPlural,
+    List<MemberSearchGroup> groups,
   ) {
     final displayMember = speakingAs != null
         ? members.firstWhere(
@@ -143,7 +143,8 @@ class SpeakingAsPicker extends ConsumerWidget {
         child: InkWell(
           key: const Key('speakingAsSearchTrigger'),
           borderRadius: BorderRadius.circular(24),
-          onTap: () => _openSearchSheet(context, ref, members, termPlural),
+          onTap: () =>
+              _openSearchSheet(context, ref, members, termPlural, groups),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
@@ -157,10 +158,7 @@ class SpeakingAsPicker extends ConsumerWidget {
                   size: 24,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  displayMember.name,
-                  style: theme.textTheme.bodyMedium,
-                ),
+                Text(displayMember.name, style: theme.textTheme.bodyMedium),
                 const Spacer(),
                 Icon(
                   AppIcons.expandMore,
@@ -180,11 +178,13 @@ class SpeakingAsPicker extends ConsumerWidget {
     WidgetRef ref,
     List<Member> members,
     String termPlural,
+    List<MemberSearchGroup> groups,
   ) async {
     final result = await MemberSearchSheet.showSingle(
       context,
       members: members,
       termPlural: termPlural,
+      groups: groups,
     );
     if (!context.mounted) return;
     if (result is MemberSearchResultSelected) {
@@ -192,4 +192,3 @@ class SpeakingAsPicker extends ConsumerWidget {
     }
   }
 }
-

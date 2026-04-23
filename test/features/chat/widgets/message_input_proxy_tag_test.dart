@@ -5,11 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:prism_plurality/domain/models/conversation.dart';
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/klipy_providers.dart';
 import 'package:prism_plurality/features/chat/services/klipy_service.dart';
 import 'package:prism_plurality/features/chat/widgets/message_input.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
@@ -81,6 +84,12 @@ void main() {
         ),
         speakingAsProvider.overrideWith(_NullSpeakingAsNotifier.new),
         activeMembersProvider.overrideWith((ref) => Stream.value([alice, bob])),
+        allGroupsProvider.overrideWith(
+          (ref) => Stream.value(const <MemberGroup>[]),
+        ),
+        allGroupEntriesProvider.overrideWith(
+          (ref) => Stream.value(const <MemberGroupEntry>[]),
+        ),
         conversationByIdProvider(
           'conv-1',
         ).overrideWith((ref) => Stream.value(conversation)),
@@ -163,6 +172,12 @@ void main() {
             ),
             activeMembersProvider.overrideWith(
               (ref) => Stream.value([alice, bob, admin]),
+            ),
+            allGroupsProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroup>[]),
+            ),
+            allGroupEntriesProvider.overrideWith(
+              (ref) => Stream.value(const <MemberGroupEntry>[]),
             ),
             conversationByIdProvider(
               'dm-1',

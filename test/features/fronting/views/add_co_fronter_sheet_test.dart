@@ -3,25 +3,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/member.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/domain/models/system_settings.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
 import 'package:prism_plurality/features/fronting/views/add_co_fronter_sheet.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/settings/providers/settings_providers.dart';
 import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_search_sheet.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
+import 'package:prism_plurality/shared/widgets/prism_glass_icon_button.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-Member _member({required String id, required String name}) => Member(
-      id: id,
-      name: name,
-      createdAt: DateTime(2024),
-    );
+Member _member({required String id, required String name}) =>
+    Member(id: id, name: name, createdAt: DateTime(2024));
+
+Finder _confirmSelectionButton() => find.byWidgetPredicate(
+  (widget) => widget is PrismGlassIconButton && widget.icon == AppIcons.check,
+);
+Finder _sheetConfirmSelectionButton() => find.descendant(
+  of: find.byType(MemberSearchSheet),
+  matching: _confirmSelectionButton(),
+);
 
 // Fake notifier that records addCoFronter calls without hitting the real service.
 class _FakeFrontingNotifier extends FrontingNotifier {
@@ -48,6 +57,12 @@ Widget _buildSheetTrigger({
   return ProviderScope(
     overrides: [
       activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+      allGroupsProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroup>[]),
+      ),
+      allGroupEntriesProvider.overrideWith(
+        (ref) => Stream.value(const <MemberGroupEntry>[]),
+      ),
       systemSettingsProvider.overrideWith(
         (ref) => Stream.value(const SystemSettings()),
       ),
@@ -89,17 +104,15 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('search icon', () {
-    testWidgets('search icon appears in header when available members exist',
-        (tester) async {
+    testWidgets('search icon appears in header when available members exist', (
+      tester,
+    ) async {
       final members = [
         _member(id: 'b', name: 'Bob'),
         _member(id: 'c', name: 'Charlie'),
       ];
       await tester.pumpWidget(
-        _buildSheetTrigger(
-          members: members,
-          currentFronterId: 'fronter',
-        ),
+        _buildSheetTrigger(members: members, currentFronterId: 'fronter'),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -113,10 +126,7 @@ void main() {
         _member(id: 'c', name: 'Charlie'),
       ];
       await tester.pumpWidget(
-        _buildSheetTrigger(
-          members: members,
-          currentFronterId: 'fronter',
-        ),
+        _buildSheetTrigger(members: members, currentFronterId: 'fronter'),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -134,33 +144,34 @@ void main() {
 
   group('excluded IDs', () {
     testWidgets(
-        'current fronter and existing co-fronters are not shown in search sheet',
-        (tester) async {
-      final members = [
-        _member(id: 'alice', name: 'Alice'),    // current fronter → excluded
-        _member(id: 'bob', name: 'Bob'),        // existing co-fronter → excluded
-        _member(id: 'charlie', name: 'Charlie'), // available
-      ];
-      await tester.pumpWidget(
-        _buildSheetTrigger(
-          members: members,
-          currentFronterId: 'alice',
-          existingCoFronterIds: const ['bob'],
-        ),
-      );
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+      'current fronter and existing co-fronters are not shown in search sheet',
+      (tester) async {
+        final members = [
+          _member(id: 'alice', name: 'Alice'), // current fronter → excluded
+          _member(id: 'bob', name: 'Bob'), // existing co-fronter → excluded
+          _member(id: 'charlie', name: 'Charlie'), // available
+        ];
+        await tester.pumpWidget(
+          _buildSheetTrigger(
+            members: members,
+            currentFronterId: 'alice',
+            existingCoFronterIds: const ['bob'],
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.byIcon(AppIcons.search));
-      await tester.pumpAndSettle();
+        await tester.tap(find.byIcon(AppIcons.search));
+        await tester.pumpAndSettle();
 
-      // Only Charlie should be available in the search sheet.
-      // Alice and Bob are excluded from the search sheet; Charlie appears in
-      // both the underlying sheet and the search sheet, so use findsWidgets.
-      expect(find.text('Charlie'), findsWidgets);
-      expect(find.text('Alice'), findsNothing);
-      expect(find.text('Bob'), findsNothing);
-    });
+        // Only Charlie should be available in the search sheet.
+        // Alice and Bob are excluded from the search sheet; Charlie appears in
+        // both the underlying sheet and the search sheet, so use findsWidgets.
+        expect(find.text('Charlie'), findsWidgets);
+        expect(find.text('Alice'), findsNothing);
+        expect(find.text('Bob'), findsNothing);
+      },
+    );
   });
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -168,17 +179,15 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('selection via search', () {
-    testWidgets('confirming from search sheet enables the Add button',
-        (tester) async {
+    testWidgets('confirming from search sheet enables the Add button', (
+      tester,
+    ) async {
       final members = [
         _member(id: 'b', name: 'Bob'),
         _member(id: 'c', name: 'Charlie'),
       ];
       await tester.pumpWidget(
-        _buildSheetTrigger(
-          members: members,
-          currentFronterId: 'fronter',
-        ),
+        _buildSheetTrigger(members: members, currentFronterId: 'fronter'),
       );
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
@@ -198,17 +207,16 @@ void main() {
       await tester.tap(find.text('Bob').last);
       await tester.pump();
 
-      // Tap "Done · 1" button to confirm.
-      final doneFinder = find.textContaining('Done');
-      expect(doneFinder, findsOneWidget);
-      await tester.tap(doneFinder);
+      expect(find.text('1 selected'), findsOneWidget);
+      await tester.tap(_sheetConfirmSelectionButton());
       await tester.pumpAndSettle();
 
       // Back in AddCoFronterSheet — Add button should now be enabled.
       expect(
         tester.widget<PrismButton>(addButtonFinder).enabled,
         isTrue,
-        reason: 'Add button should be enabled after confirming search selection',
+        reason:
+            'Add button should be enabled after confirming search selection',
       );
     });
   });
@@ -218,12 +226,11 @@ void main() {
   // ══════════════════════════════════════════════════════════════════════════
 
   group('save behavior after search', () {
-    testWidgets('tapping Add after search selection calls addCoFronter',
-        (tester) async {
+    testWidgets('tapping Add after search selection calls addCoFronter', (
+      tester,
+    ) async {
       final notifier = _FakeFrontingNotifier();
-      final members = [
-        _member(id: 'bob', name: 'Bob'),
-      ];
+      final members = [_member(id: 'bob', name: 'Bob')];
       bool? sheetResult;
 
       await tester.pumpWidget(
@@ -244,7 +251,7 @@ void main() {
       await tester.tap(find.text('Bob').last);
       await tester.pump();
 
-      await tester.tap(find.textContaining('Done'));
+      await tester.tap(_sheetConfirmSelectionButton());
       await tester.pumpAndSettle();
 
       // Tap Add.

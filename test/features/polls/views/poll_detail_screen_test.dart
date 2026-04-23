@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:prism_plurality/domain/models/models.dart';
+import 'package:prism_plurality/domain/models/member_group.dart';
+import 'package:prism_plurality/domain/models/member_group_entry.dart';
 import 'package:prism_plurality/features/fronting/providers/fronting_providers.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
 import 'package:prism_plurality/features/polls/providers/poll_providers.dart';
 import 'package:prism_plurality/features/polls/views/poll_detail_screen.dart';
@@ -49,6 +52,12 @@ void main() {
             return Stream.value(pollId == poll.id ? poll.options : const []);
           }),
           activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+          allGroupsProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroup>[]),
+          ),
+          allGroupEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <MemberGroupEntry>[]),
+          ),
           memberByIdProvider.overrideWith((ref, memberId) {
             final matching = members.where((member) => member.id == memberId);
             return Stream.value(matching.isEmpty ? null : matching.first);
@@ -101,6 +110,12 @@ void main() {
           return Stream.value(pollId == poll.id ? votedPoll.options : const []);
         }),
         activeMembersProvider.overrideWith((ref) => Stream.value(members)),
+        allGroupsProvider.overrideWith(
+          (ref) => Stream.value(const <MemberGroup>[]),
+        ),
+        allGroupEntriesProvider.overrideWith(
+          (ref) => Stream.value(const <MemberGroupEntry>[]),
+        ),
         memberByIdProvider.overrideWith((ref, memberId) {
           final matching = members.where((member) => member.id == memberId);
           return Stream.value(matching.isEmpty ? null : matching.first);

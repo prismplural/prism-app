@@ -9,7 +9,9 @@ import 'package:prism_plurality/features/chat/providers/chat_providers.dart';
 import 'package:prism_plurality/features/chat/providers/category_providers.dart';
 import 'package:prism_plurality/features/chat/views/add_members_sheet.dart';
 import 'package:prism_plurality/features/chat/views/creator_transfer_picker.dart';
+import 'package:prism_plurality/features/members/providers/member_groups_providers.dart';
 import 'package:prism_plurality/features/members/providers/members_providers.dart';
+import 'package:prism_plurality/features/members/utils/member_search_groups.dart';
 import 'package:prism_plurality/shared/extensions/datetime_extensions.dart';
 import 'package:prism_plurality/shared/theme/app_icons.dart';
 import 'package:prism_plurality/shared/widgets/member_avatar.dart';
@@ -159,6 +161,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
         final newCreator = await showCreatorTransferPicker(
           context,
           remainingMembers: remaining,
+          groups: readMemberSearchGroups(ref, remaining),
         );
         if (newCreator == null) return; // cancelled
         await ref
@@ -211,6 +214,8 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
     final conversationAsync = ref.watch(
       conversationByIdProvider(widget.conversationId),
     );
+    ref.watch(allGroupsProvider);
+    ref.watch(allGroupEntriesProvider);
     final speakingAsMemberId = ref.watch(speakingAsProvider);
     final speakingAsMemberAsync = speakingAsMemberId != null
         ? ref.watch(memberByIdProvider(speakingAsMemberId))
@@ -487,6 +492,7 @@ class _ConversationInfoSheetState extends ConsumerState<ConversationInfoSheet> {
                 final newCreator = await showCreatorTransferPicker(
                   context,
                   remainingMembers: remaining,
+                  groups: readMemberSearchGroups(ref, remaining),
                 );
                 if (newCreator == null) return;
                 await ref
