@@ -48,7 +48,7 @@
 		</dict>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Prism uses the camera to take photos in chat and scan pairing QR codes.</string>
+	<string>Prism uses the camera to take photos in chat and scan pairing or recovery QR codes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Prism uses your photo library to set member avatars and share images in chat.</string>
 	<key>NSMicrophoneUsageDescription</key>

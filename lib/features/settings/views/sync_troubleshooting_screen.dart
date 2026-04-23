@@ -12,6 +12,7 @@ import 'package:prism_plurality/shared/widgets/app_shell.dart';
 import 'package:prism_plurality/shared/widgets/prism_button.dart';
 import 'package:prism_plurality/shared/widgets/prism_dialog.dart';
 import 'package:prism_plurality/shared/widgets/prism_page_scaffold.dart';
+import 'package:prism_plurality/shared/widgets/prism_section_card.dart';
 import 'package:prism_plurality/shared/widgets/prism_toast.dart';
 import 'package:prism_plurality/shared/widgets/prism_top_bar.dart';
 import 'package:prism_sync/generated/api.dart' as ffi;
@@ -83,7 +84,9 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
           padding: EdgeInsets.only(bottom: NavBarInset.of(context)),
           children: [
             // -- Connection Status --
-            _SectionHeader(title: context.l10n.syncTroubleshootingConnectionStatus),
+            _SectionHeader(
+              title: context.l10n.syncTroubleshootingConnectionStatus,
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: PrismSurface(
@@ -170,13 +173,21 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
             PrismListRow(
               leading: Icon(AppIcons.infoOutline),
               title: Text(context.l10n.syncTroubleshootingCurrentState),
-              subtitle: Text(syncStatus.isSyncing ? context.l10n.syncTroubleshootingSyncing : context.l10n.syncTroubleshootingIdle),
+              subtitle: Text(
+                syncStatus.isSyncing
+                    ? context.l10n.syncTroubleshootingSyncing
+                    : context.l10n.syncTroubleshootingIdle,
+              ),
             ),
             if (syncStatus.pendingOps > 0)
               PrismListRow(
                 leading: Icon(AppIcons.pendingOutlined),
                 title: Text(context.l10n.syncTroubleshootingPendingOps),
-                subtitle: Text(context.l10n.syncTroubleshootingPendingOpsValue(syncStatus.pendingOps)),
+                subtitle: Text(
+                  context.l10n.syncTroubleshootingPendingOpsValue(
+                    syncStatus.pendingOps,
+                  ),
+                ),
               ),
             if (syncId != null && syncId.isNotEmpty)
               PrismListRow(
@@ -244,6 +255,23 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                 tone: PrismButtonTone.destructive,
               ),
             ),
+            const _SectionHeader(title: 'PluralKit'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: PrismSectionCard(
+                padding: EdgeInsets.zero,
+                child: PrismListRow(
+                  leading: Icon(AppIcons.buildCircleOutlined),
+                  title: const Text('Open PluralKit group repair'),
+                  subtitle: const Text(
+                    'Use the PluralKit setup screen to run group repair and '
+                    'check any suppressed PK group matches.',
+                  ),
+                  showChevron: true,
+                  onTap: () => context.push(AppRoutePaths.settingsPluralkit),
+                ),
+              ),
+            ),
             const Divider(height: 32, indent: 16, endIndent: 16),
 
             // -- Common Issues --
@@ -287,68 +315,86 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
     try {
       await ffi.syncNow(handle: handle);
       if (context.mounted) {
-        PrismToast.show(context, message: context.l10n.syncTroubleshootingFinished);
+        PrismToast.show(
+          context,
+          message: context.l10n.syncTroubleshootingFinished,
+        );
       }
     } catch (e) {
       if (context.mounted) {
-        PrismToast.error(context, message: context.l10n.syncTroubleshootingFailed(e));
+        PrismToast.error(
+          context,
+          message: context.l10n.syncTroubleshootingFailed(e),
+        );
       }
     }
   }
 
   void _confirmReset(BuildContext context, WidgetRef ref) {
-    unawaited(PrismDialog.confirm(
-      context: context,
-      title: context.l10n.syncTroubleshootingResetTitle,
-      message: context.l10n.syncTroubleshootingResetMessage,
-      confirmLabel: context.l10n.syncTroubleshootingResetConfirm,
-      destructive: true,
-    ).then((confirmed) async {
-      if (!confirmed) return;
-      await ref
-          .read(resetDataNotifierProvider.notifier)
-          .reset(ResetCategory.sync);
-      if (!context.mounted) return;
-      PrismToast.show(context, message: context.l10n.syncTroubleshootingResetSuccess);
-    }));
+    unawaited(
+      PrismDialog.confirm(
+        context: context,
+        title: context.l10n.syncTroubleshootingResetTitle,
+        message: context.l10n.syncTroubleshootingResetMessage,
+        confirmLabel: context.l10n.syncTroubleshootingResetConfirm,
+        destructive: true,
+      ).then((confirmed) async {
+        if (!confirmed) return;
+        await ref
+            .read(resetDataNotifierProvider.notifier)
+            .reset(ResetCategory.sync);
+        if (!context.mounted) return;
+        PrismToast.show(
+          context,
+          message: context.l10n.syncTroubleshootingResetSuccess,
+        );
+      }),
+    );
   }
 
   void _confirmRepair(BuildContext context, WidgetRef ref) {
-    unawaited(PrismDialog.show<String>(
-      context: context,
-      title: context.l10n.syncTroubleshootingRepairTitle,
-      message: context.l10n.syncTroubleshootingRepairMessage,
-      actions: [
-        PrismButton(
-          label: context.l10n.cancel,
-          onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-        ),
-        PrismButton(
-          label: context.l10n.syncTroubleshootingRepairNow,
-          onPressed: () => Navigator.of(context, rootNavigator: true).pop('repair'),
-          tone: PrismButtonTone.destructive,
-        ),
-        PrismButton(
-          label: context.l10n.syncTroubleshootingExportFirst,
-          onPressed: () => Navigator.of(context, rootNavigator: true).pop('export'),
-          tone: PrismButtonTone.filled,
-        ),
-      ],
-      builder: (dialogContext) => const SizedBox.shrink(),
-    ).then((result) async {
-      if (result == 'export') {
+    unawaited(
+      PrismDialog.show<String>(
+        context: context,
+        title: context.l10n.syncTroubleshootingRepairTitle,
+        message: context.l10n.syncTroubleshootingRepairMessage,
+        actions: [
+          PrismButton(
+            label: context.l10n.cancel,
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+          ),
+          PrismButton(
+            label: context.l10n.syncTroubleshootingRepairNow,
+            onPressed: () =>
+                Navigator.of(context, rootNavigator: true).pop('repair'),
+            tone: PrismButtonTone.destructive,
+          ),
+          PrismButton(
+            label: context.l10n.syncTroubleshootingExportFirst,
+            onPressed: () =>
+                Navigator.of(context, rootNavigator: true).pop('export'),
+            tone: PrismButtonTone.filled,
+          ),
+        ],
+        builder: (dialogContext) => const SizedBox.shrink(),
+      ).then((result) async {
+        if (result == 'export') {
+          if (!context.mounted) return;
+          unawaited(context.push(AppRoutePaths.settingsImportExport));
+          return;
+        }
+        if (result != 'repair') return;
+        await ref
+            .read(resetDataNotifierProvider.notifier)
+            .reset(ResetCategory.sync);
         if (!context.mounted) return;
-        unawaited(context.push(AppRoutePaths.settingsImportExport));
-        return;
-      }
-      if (result != 'repair') return;
-      await ref
-          .read(resetDataNotifierProvider.notifier)
-          .reset(ResetCategory.sync);
-      if (!context.mounted) return;
-      PrismToast.show(context, message: context.l10n.syncTroubleshootingCredentialsCleared);
-      context.go(AppRoutePaths.syncSetup);
-    }));
+        PrismToast.show(
+          context,
+          message: context.l10n.syncTroubleshootingCredentialsCleared,
+        );
+        context.go(AppRoutePaths.syncSetup);
+      }),
+    );
   }
 
   String _formatDateTime(DateTime dt) {

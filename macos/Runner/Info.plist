@@ -31,7 +31,7 @@
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Prism uses the camera to scan QR codes for device pairing.</string>
+	<string>Prism uses the camera to scan pairing and recovery QR codes.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Prism uses the microphone to record voice notes in chat.</string>
 	<key>NSAppTransportSecurity</key>

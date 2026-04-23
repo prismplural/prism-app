@@ -39,4 +39,36 @@ void main() {
     expect(find.text('Export Data First'), findsOneWidget);
     expect(find.text('Re-pair Now'), findsOneWidget);
   });
+
+  testWidgets('shows a PluralKit repair entry point', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          relayUrlProvider.overrideWithValue(
+            const AsyncValue<String?>.data('https://relay.example.com'),
+          ),
+          syncIdProvider.overrideWithValue(
+            const AsyncValue<String?>.data('sync-123'),
+          ),
+        ],
+        child: const MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: [Locale('en')],
+          home: SyncTroubleshootingScreen(),
+        ),
+      ),
+    );
+
+    await tester.scrollUntilVisible(
+      find.text('Open PluralKit group repair'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Open PluralKit group repair'), findsOneWidget);
+    expect(
+      find.textContaining('run group repair and check any suppressed PK group'),
+      findsOneWidget,
+    );
+  });
 }

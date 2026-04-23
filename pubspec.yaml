@@ -130,6 +130,8 @@ hooks:
 
 flutter:
   generate: true
+  config:
+    enable-lldb-debugging: false
   uses-material-design: true
   assets:
     - assets/audio/
