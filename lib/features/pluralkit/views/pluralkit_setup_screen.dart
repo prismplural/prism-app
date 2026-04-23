@@ -7,7 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:prism_plurality/shared/extensions/app_localizations_extension.dart';
 
 import 'package:prism_plurality/core/database/database_providers.dart';
+import 'package:prism_plurality/core/database/database_provider.dart';
 import 'package:prism_plurality/core/router/app_routes.dart';
+import 'package:prism_plurality/core/sync/prism_sync_providers.dart';
 import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_auto_poll_provider.dart';
 import 'package:prism_plurality/features/pluralkit/providers/pk_group_repair_provider.dart';
@@ -309,6 +311,13 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
       await ref
           .read(systemSettingsRepositoryProvider)
           .updatePkGroupSyncV2Enabled(true);
+      final syncHandle = ref.read(prismSyncHandleProvider).asData?.value;
+      if (syncHandle != null) {
+        await catchUpPkBackedSyncOnceAfterCutover(
+          syncHandle,
+          ref.read(databaseProvider),
+        );
+      }
       if (!mounted) return;
       PrismToast.success(
         context,
