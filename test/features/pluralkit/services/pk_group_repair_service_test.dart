@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,13 +43,21 @@ MemberGroupEntriesCompanion _entry({
   required String memberId,
   String? pkGroupUuid,
   String? pkMemberUuid,
+  bool isDeleted = false,
 }) => MemberGroupEntriesCompanion.insert(
   id: id,
   groupId: groupId,
   memberId: memberId,
   pkGroupUuid: Value(pkGroupUuid),
   pkMemberUuid: Value(pkMemberUuid),
+  isDeleted: Value(isDeleted),
 );
+
+String _canonicalEntryId(String pkGroupUuid, String pkMemberUuid) {
+  final joined = '$pkGroupUuid\x00$pkMemberUuid';
+  final digest = sha256.convert(utf8.encode(joined));
+  return digest.toString().substring(0, 16);
+}
 
 class _ThrowingAliasesDao extends PkGroupSyncAliasesDao {
   _ThrowingAliasesDao(super.db);
@@ -179,15 +190,21 @@ void main() {
       )..where((t) => t.id.equals('child'))).getSingle();
       expect(child.parentGroupId, 'loser');
 
+      // The backfill + canonicalization pass rewrites legacy entry ids
+      // onto the deterministic sha256 hash, so look up the rehomed rows by
+      // (group_id, member_id) rather than by the seeded legacy id.
+      final canonicalLoserA = _canonicalEntryId('pk-group-1', 'pk-member-a');
+      final canonicalLoserB = _canonicalEntryId('pk-group-1', 'pk-member-b');
+
       final survivingPrimaryEntry = await (db.select(
         db.memberGroupEntries,
-      )..where((t) => t.id.equals('loser-a'))).getSingle();
+      )..where((t) => t.id.equals(canonicalLoserA))).getSingle();
       expect(survivingPrimaryEntry.pkGroupUuid, 'pk-group-1');
       expect(survivingPrimaryEntry.pkMemberUuid, 'pk-member-a');
 
       final survivingSecondaryEntry = await (db.select(
         db.memberGroupEntries,
-      )..where((t) => t.id.equals('loser-b'))).getSingle();
+      )..where((t) => t.id.equals(canonicalLoserB))).getSingle();
       expect(survivingSecondaryEntry.groupId, 'loser');
       expect(survivingSecondaryEntry.pkGroupUuid, 'pk-group-1');
       expect(survivingSecondaryEntry.pkMemberUuid, 'pk-member-b');
@@ -334,9 +351,15 @@ void main() {
       expect(report.backfilledEntries, 1);
       expect(report.requiresReconnectForMissingPkGroupIdentity, isTrue);
 
+      // The backfill + canonicalization pass rewrites legacy entry ids
+      // onto the deterministic sha256 hash, so look up the repaired row by
+      // the canonical id rather than the seeded legacy id.
+      final canonicalId = _canonicalEntryId('pk-group-1', 'pk-member-a');
       final entry = await (db.select(
         db.memberGroupEntries,
-      )..where((t) => t.id.equals('imported-entry'))).getSingle();
+      )..where((t) => t.id.equals(canonicalId))).getSingle();
+      expect(entry.groupId, 'imported-group');
+      expect(entry.memberId, 'member-a');
       expect(entry.pkGroupUuid, 'pk-group-1');
       expect(entry.pkMemberUuid, 'pk-member-a');
     },
@@ -679,6 +702,102 @@ void main() {
         'pk-group-1',
       );
       expect(aliases, isEmpty);
+    },
+  );
+
+  test(
+    'repair canonicalizes legacy PK entry ids and revives canonical tombstones',
+    () async {
+      const pkGroupUuid = 'pk-group-1';
+      const pkMemberUuid = 'pk-member-a';
+      final canonicalEntryId = _canonicalEntryId(pkGroupUuid, pkMemberUuid);
+
+      await db
+          .into(db.members)
+          .insert(
+            _member(
+              id: 'member-a',
+              name: 'Alice',
+              pluralkitUuid: pkMemberUuid,
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'group-a',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 1),
+              pluralkitUuid: pkGroupUuid,
+            ),
+          );
+
+      // Legacy-id active row for the logical PK edge.
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'random-legacy',
+              groupId: 'group-a',
+              memberId: 'member-a',
+              pkGroupUuid: pkGroupUuid,
+              pkMemberUuid: pkMemberUuid,
+            ),
+          );
+      // Canonical-id tombstone for the same logical edge.
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: canonicalEntryId,
+              groupId: 'group-a',
+              memberId: 'member-a',
+              pkGroupUuid: pkGroupUuid,
+              pkMemberUuid: pkMemberUuid,
+              isDeleted: true,
+            ),
+          );
+
+      final service = PkGroupRepairService(
+        memberGroupsDao: db.memberGroupsDao,
+        aliasesDao: db.pkGroupSyncAliasesDao,
+        hasRepairToken: ({String? token}) async => false,
+        fetchRepairReferenceData: ({String? token}) async {
+          throw StateError('unexpected fetch');
+        },
+      );
+
+      final report = await service.run(allowStoredToken: false);
+
+      expect(report.canonicalizedEntryIds, 0);
+      expect(report.revivedTombstonesDuringCanonicalization, 1);
+      expect(report.legacyEntriesSoftDeletedDuringCanonicalization, 1);
+
+      // Canonical row is now active.
+      final canonicalRow = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals(canonicalEntryId))).getSingle();
+      expect(canonicalRow.isDeleted, isFalse);
+      expect(canonicalRow.groupId, 'group-a');
+      expect(canonicalRow.memberId, 'member-a');
+
+      // Legacy row is soft-deleted.
+      final legacyRow = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('random-legacy'))).getSingle();
+      expect(legacyRow.isDeleted, isTrue);
+
+      // Exactly one active row for the logical edge.
+      final activeForEdge =
+          await (db.select(db.memberGroupEntries)..where(
+                (t) =>
+                    t.groupId.equals('group-a') &
+                    t.memberId.equals('member-a') &
+                    t.isDeleted.equals(false),
+              ))
+              .get();
+      expect(activeForEdge, hasLength(1));
+      expect(activeForEdge.single.id, canonicalEntryId);
     },
   );
 }

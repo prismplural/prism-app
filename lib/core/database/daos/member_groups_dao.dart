@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/tables/member_groups_table.dart';
@@ -249,6 +252,133 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
       ''',
       updates: {memberGroupEntries},
     );
+  }
+
+  /// Canonicalizes PK-backed entry IDs by rewriting each active row whose
+  /// `pk_group_uuid` + `pk_member_uuid` are set onto the deterministic
+  /// `sha256(pkGroupUuid || 0x00 || pkMemberUuid)[:16]` hash the sync layer
+  /// already emits. Reviving tombstones under the canonical id when a
+  /// matching tombstoned row already exists.
+  ///
+  /// Idempotent: rows whose `id` already equals the canonical hash are left
+  /// alone. Rows without both PK UUIDs set are skipped (non-PK entries).
+  ///
+  /// Algorithm per row:
+  /// 1. Compute `canonical = sha256(pkGroupUuid || 0x00 || pkMemberUuid)[:16]`.
+  /// 2. If `id == canonical` skip.
+  /// 3. If a tombstoned row (`is_deleted = 1`) already exists under
+  ///    `canonical`: promote that tombstone (set `is_deleted = 0` and sync
+  ///    the group/member onto the logical edge) and soft-delete the legacy
+  ///    active row.
+  /// 4. Otherwise rewrite the legacy row's `id` to `canonical`.
+  ///
+  /// Wrapped in a transaction so repair sees an atomic before/after state
+  /// if any row fails mid-pass.
+  Future<
+    ({
+      int rewritten,
+      int revivedTombstones,
+      int softDeletedLegacyConflicts,
+    })
+  >
+  canonicalizePkBackedEntryIds() {
+    return transaction(() async {
+      var rewritten = 0;
+      var revivedTombstones = 0;
+      var softDeletedLegacyConflicts = 0;
+
+      // Scope to active PK-backed entries. Tombstones are loaded on demand
+      // per logical edge so we keep the working set bounded to one canonical
+      // id at a time. Order by id so repeated runs process rows in the same
+      // sequence when multiple legacy rows map to the same canonical edge.
+      final candidates =
+          await (select(memberGroupEntries)
+                ..where(
+                  (e) =>
+                      e.isDeleted.equals(false) &
+                      e.pkGroupUuid.isNotNull() &
+                      e.pkMemberUuid.isNotNull(),
+                )
+                ..orderBy([(e) => OrderingTerm.asc(e.id)]))
+              .get();
+
+      for (final entry in candidates) {
+        final pkGroupUuid = entry.pkGroupUuid;
+        final pkMemberUuid = entry.pkMemberUuid;
+        if (pkGroupUuid == null ||
+            pkGroupUuid.isEmpty ||
+            pkMemberUuid == null ||
+            pkMemberUuid.isEmpty) {
+          continue;
+        }
+
+        final canonical = _canonicalPkEntryId(pkGroupUuid, pkMemberUuid);
+        if (entry.id == canonical) continue;
+
+        final canonicalRow = await (select(
+          memberGroupEntries,
+        )..where((e) => e.id.equals(canonical))).getSingleOrNull();
+
+        if (canonicalRow != null && canonicalRow.isDeleted) {
+          // Soft-delete the legacy active row first so the partial unique
+          // index on (group_id, member_id) WHERE is_deleted = 0 is clear,
+          // then revive the tombstoned canonical row onto the logical edge.
+          await (update(memberGroupEntries)
+                ..where((e) => e.id.equals(entry.id)))
+              .write(const MemberGroupEntriesCompanion(isDeleted: Value(true)));
+          await (update(
+            memberGroupEntries,
+          )..where((e) => e.id.equals(canonical))).write(
+            MemberGroupEntriesCompanion(
+              groupId: Value(entry.groupId),
+              memberId: Value(entry.memberId),
+              pkGroupUuid: Value(pkGroupUuid),
+              pkMemberUuid: Value(pkMemberUuid),
+              isDeleted: const Value(false),
+            ),
+          );
+          revivedTombstones++;
+          softDeletedLegacyConflicts++;
+          continue;
+        }
+
+        if (canonicalRow != null && !canonicalRow.isDeleted) {
+          // An active row already occupies the canonical id for a different
+          // edge (shouldn't normally happen because the hash is derived from
+          // the same PK pair, but be defensive). Skip so we don't collapse
+          // two distinct edges; repair continues with the next legacy row.
+          continue;
+        }
+
+        // Primary-key rewrite. SQLite permits `UPDATE ... SET id = ?`; the
+        // member_group_entries table declares no foreign keys, so this is
+        // safe. `member_groups` tables never join on entry ids either.
+        await customUpdate(
+          'UPDATE member_group_entries SET id = ? WHERE id = ?',
+          variables: [
+            Variable.withString(canonical),
+            Variable.withString(entry.id),
+          ],
+          updates: {memberGroupEntries},
+        );
+        rewritten++;
+      }
+
+      return (
+        rewritten: rewritten,
+        revivedTombstones: revivedTombstones,
+        softDeletedLegacyConflicts: softDeletedLegacyConflicts,
+      );
+    });
+  }
+
+  static String _canonicalPkEntryId(
+    String pkGroupUuid,
+    String pkMemberUuid,
+  ) {
+    final joined = '$pkGroupUuid\x00$pkMemberUuid';
+    final digest = sha256.convert(utf8.encode(joined));
+    return digest.toString().substring(0, 16);
   }
 
   /// Groups active PK-linked rows that still share the same PK UUID.

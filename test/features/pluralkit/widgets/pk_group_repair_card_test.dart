@@ -40,6 +40,9 @@ void main() {
               lastReport: PkGroupRepairReport(
                 referenceMode: PkGroupRepairReferenceMode.none,
                 backfilledEntries: 2,
+                canonicalizedEntryIds: 0,
+                revivedTombstonesDuringCanonicalization: 0,
+                legacyEntriesSoftDeletedDuringCanonicalization: 0,
                 duplicateSetsMerged: 1,
                 duplicateGroupsSoftDeleted: 1,
                 parentReferencesRehomed: 3,
@@ -172,6 +175,9 @@ void main() {
               lastReport: PkGroupRepairReport(
                 referenceMode: PkGroupRepairReferenceMode.none,
                 backfilledEntries: 1,
+                canonicalizedEntryIds: 0,
+                revivedTombstonesDuringCanonicalization: 0,
+                legacyEntriesSoftDeletedDuringCanonicalization: 0,
                 duplicateSetsMerged: 0,
                 duplicateGroupsSoftDeleted: 0,
                 parentReferencesRehomed: 0,
@@ -256,6 +262,9 @@ void main() {
               lastReport: PkGroupRepairReport(
                 referenceMode: PkGroupRepairReferenceMode.storedToken,
                 backfilledEntries: 1,
+                canonicalizedEntryIds: 0,
+                revivedTombstonesDuringCanonicalization: 0,
+                legacyEntriesSoftDeletedDuringCanonicalization: 0,
                 duplicateSetsMerged: 1,
                 duplicateGroupsSoftDeleted: 0,
                 parentReferencesRehomed: 0,
@@ -316,6 +325,9 @@ void main() {
             lastReport: PkGroupRepairReport(
               referenceMode: PkGroupRepairReferenceMode.storedToken,
               backfilledEntries: 0,
+              canonicalizedEntryIds: 0,
+              revivedTombstonesDuringCanonicalization: 0,
+              legacyEntriesSoftDeletedDuringCanonicalization: 0,
               duplicateSetsMerged: 0,
               duplicateGroupsSoftDeleted: 0,
               parentReferencesRehomed: 0,
@@ -370,6 +382,9 @@ void main() {
               lastReport: PkGroupRepairReport(
                 referenceMode: PkGroupRepairReferenceMode.none,
                 backfilledEntries: 0,
+                canonicalizedEntryIds: 0,
+                revivedTombstonesDuringCanonicalization: 0,
+                legacyEntriesSoftDeletedDuringCanonicalization: 0,
                 duplicateSetsMerged: 0,
                 duplicateGroupsSoftDeleted: 0,
                 parentReferencesRehomed: 0,
@@ -428,6 +443,9 @@ void main() {
               lastReport: PkGroupRepairReport(
                 referenceMode: PkGroupRepairReferenceMode.none,
                 backfilledEntries: 0,
+                canonicalizedEntryIds: 0,
+                revivedTombstonesDuringCanonicalization: 0,
+                legacyEntriesSoftDeletedDuringCanonicalization: 0,
                 duplicateSetsMerged: 0,
                 duplicateGroupsSoftDeleted: 0,
                 parentReferencesRehomed: 0,
