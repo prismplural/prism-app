@@ -715,11 +715,7 @@ void main() {
       await db
           .into(db.members)
           .insert(
-            _member(
-              id: 'member-a',
-              name: 'Alice',
-              pluralkitUuid: pkMemberUuid,
-            ),
+            _member(id: 'member-a', name: 'Alice', pluralkitUuid: pkMemberUuid),
           );
       await db
           .into(db.memberGroups)
@@ -798,6 +794,82 @@ void main() {
               .get();
       expect(activeForEdge, hasLength(1));
       expect(activeForEdge.single.id, canonicalEntryId);
+    },
+  );
+
+  test(
+    'repair canonicalizes legacy entry ids before merging duplicate groups',
+    () async {
+      await db.customStatement('DROP INDEX idx_member_groups_pluralkit_uuid');
+
+      const pkGroupUuid = 'pk-group-1';
+      const pkMemberUuid = 'pk-member-a';
+      final canonicalEntryId = _canonicalEntryId(pkGroupUuid, pkMemberUuid);
+
+      await db
+          .into(db.members)
+          .insert(
+            _member(id: 'member-a', name: 'Alice', pluralkitUuid: pkMemberUuid),
+          );
+      await db.into(db.members).insert(_member(id: 'member-b', name: 'Bob'));
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'winner',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 1),
+              pluralkitUuid: pkGroupUuid,
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'loser',
+              name: 'Cluster',
+              createdAt: DateTime(2024, 1, 2),
+              pluralkitUuid: pkGroupUuid,
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'legacy-loser-entry',
+              groupId: 'loser',
+              memberId: 'member-a',
+              pkGroupUuid: pkGroupUuid,
+              pkMemberUuid: pkMemberUuid,
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(id: 'winner-b', groupId: 'winner', memberId: 'member-b'),
+          );
+
+      final service = PkGroupRepairService(
+        memberGroupsDao: db.memberGroupsDao,
+        aliasesDao: db.pkGroupSyncAliasesDao,
+        hasRepairToken: ({String? token}) async => false,
+        fetchRepairReferenceData: ({String? token}) async {
+          throw StateError('unexpected fetch');
+        },
+      );
+
+      final report = await service.run(allowStoredToken: false);
+
+      expect(report.canonicalizedEntryIds, 1);
+      expect(report.duplicateSetsMerged, 1);
+      expect(report.entriesRehomed, 1);
+
+      final row = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals(canonicalEntryId))).getSingle();
+      expect(row.groupId, 'winner');
+      expect(row.memberId, 'member-a');
+      expect(row.isDeleted, isFalse);
     },
   );
 }
