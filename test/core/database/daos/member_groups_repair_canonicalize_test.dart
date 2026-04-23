@@ -306,4 +306,40 @@ void main() {
       );
     },
   );
+
+  test(
+    'canonicalizePkBackedEntryIds batches large canonical lookups',
+    () async {
+      const count = 1200;
+
+      for (var i = 0; i < count; i++) {
+        await db
+            .into(db.memberGroupEntries)
+            .insert(
+              _entry(
+                id: 'legacy-$i',
+                groupId: 'group-${i % 20}',
+                memberId: 'member-$i',
+                pkGroupUuid: 'pk-group-${i % 20}',
+                pkMemberUuid: 'pk-member-$i',
+              ),
+            );
+      }
+
+      final result = await db.memberGroupsDao.canonicalizePkBackedEntryIds();
+      expect(result.rewritten, count);
+      expect(result.revivedTombstones, 0);
+      expect(result.softDeletedLegacyConflicts, 0);
+
+      final legacyRows = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.like('legacy-%'))).get();
+      expect(legacyRows, isEmpty);
+
+      final activeRows = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.isDeleted.equals(false))).get();
+      expect(activeRows, hasLength(count));
+    },
+  );
 }

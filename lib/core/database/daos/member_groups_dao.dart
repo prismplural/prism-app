@@ -43,6 +43,7 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
     with _$MemberGroupsDaoMixin {
   static const _memberGroupsTableName = 'member_groups';
   static const _syncSuppressedColumnName = 'sync_suppressed';
+  static const _lookupBatchSize = 500;
 
   bool? _hasSyncSuppressedColumn;
 
@@ -140,6 +141,44 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   Future<List<MemberGroupEntryRow>> getAllGroupEntries() => (select(
     memberGroupEntries,
   )..where((e) => e.isDeleted.equals(false))).get();
+
+  Future<Map<String, int>> activeEntryCountsByGroupId() async {
+    final rows = await customSelect(
+      '''
+      SELECT group_id, COUNT(*) AS entry_count
+      FROM member_group_entries
+      WHERE is_deleted = 0
+      GROUP BY group_id
+      ''',
+      readsFrom: {memberGroupEntries},
+    ).get();
+
+    return {
+      for (final row in rows)
+        row.read<String>('group_id'): row.read<int>('entry_count'),
+    };
+  }
+
+  Future<Map<String, Set<String>>> activePkMemberUuidsByGroupId() async {
+    final rows = await customSelect(
+      '''
+      SELECT group_id, pk_member_uuid
+      FROM member_group_entries
+      WHERE is_deleted = 0
+        AND pk_member_uuid IS NOT NULL
+        AND pk_member_uuid != ''
+      ''',
+      readsFrom: {memberGroupEntries},
+    ).get();
+
+    final grouped = <String, Set<String>>{};
+    for (final row in rows) {
+      grouped
+          .putIfAbsent(row.read<String>('group_id'), () => <String>{})
+          .add(row.read<String>('pk_member_uuid'));
+    }
+    return grouped;
+  }
 
   /// Find an active entry for a specific group + member combination.
   Future<MemberGroupEntryRow?> findEntry(String groupId, String memberId) =>
@@ -315,12 +354,21 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
           ..add(canonical);
       }
 
-      final existingRows = idsToLoad.isEmpty
-          ? <MemberGroupEntryRow>[]
-          : await (select(
-              memberGroupEntries,
-            )..where((e) => e.id.isIn(idsToLoad.toList()))).get();
-      final byId = {for (final row in existingRows) row.id: row};
+      final byId = <String, MemberGroupEntryRow>{};
+      final idsList = idsToLoad.toList(growable: false);
+      for (var start = 0; start < idsList.length; start += _lookupBatchSize) {
+        final end = start + _lookupBatchSize > idsList.length
+            ? idsList.length
+            : start + _lookupBatchSize;
+        final batch = idsList.sublist(start, end);
+        if (batch.isEmpty) continue;
+        final existingRows = await (select(
+          memberGroupEntries,
+        )..where((e) => e.id.isIn(batch))).get();
+        for (final row in existingRows) {
+          byId[row.id] = row;
+        }
+      }
 
       for (final entry in candidates) {
         final pkGroupUuid = entry.pkGroupUuid;
@@ -410,13 +458,46 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
   /// Groups active PK-linked rows that still share the same PK UUID.
   Future<List<PkLinkedGroupDuplicateSet>>
   getActiveLinkedPkGroupDuplicateSets() async {
-    final groups = await getAllActiveGroups();
+    final duplicateUuidRows = await customSelect(
+      '''
+      SELECT pluralkit_uuid
+      FROM member_groups
+      WHERE is_deleted = 0
+        AND pluralkit_uuid IS NOT NULL
+        AND pluralkit_uuid != ''
+      GROUP BY pluralkit_uuid
+      HAVING COUNT(*) > 1
+      ''',
+      readsFrom: {memberGroups},
+    ).get();
+    if (duplicateUuidRows.isEmpty) return const <PkLinkedGroupDuplicateSet>[];
+
+    final duplicateUuids = duplicateUuidRows
+        .map((row) => row.read<String>('pluralkit_uuid'))
+        .toList(growable: false);
     final grouped = <String, List<MemberGroupRow>>{};
 
-    for (final group in groups) {
-      final pkGroupUuid = group.pluralkitUuid;
-      if (pkGroupUuid == null || pkGroupUuid.isEmpty) continue;
-      grouped.putIfAbsent(pkGroupUuid, () => <MemberGroupRow>[]).add(group);
+    for (
+      var start = 0;
+      start < duplicateUuids.length;
+      start += _lookupBatchSize
+    ) {
+      final end = start + _lookupBatchSize > duplicateUuids.length
+          ? duplicateUuids.length
+          : start + _lookupBatchSize;
+      final batch = duplicateUuids.sublist(start, end);
+      if (batch.isEmpty) continue;
+
+      final groups =
+          await (select(memberGroups)..where(
+                (g) => g.isDeleted.equals(false) & g.pluralkitUuid.isIn(batch),
+              ))
+              .get();
+      for (final group in groups) {
+        final pkGroupUuid = group.pluralkitUuid;
+        if (pkGroupUuid == null || pkGroupUuid.isEmpty) continue;
+        grouped.putIfAbsent(pkGroupUuid, () => <MemberGroupRow>[]).add(group);
+      }
     }
 
     final duplicates = <PkLinkedGroupDuplicateSet>[];
@@ -451,17 +532,34 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
                     e.groupId.isIn(loserGroupIds) & e.isDeleted.equals(false),
               ))
               .get();
+      if (loserEntries.isEmpty) return const PkGroupEntryRehomeResult();
 
-      var result = const PkGroupEntryRehomeResult();
-      for (final entry in loserEntries) {
-        final winnerEntry =
+      final memberIds = {
+        for (final entry in loserEntries) entry.memberId,
+      }.toList(growable: false);
+      final winnerEntriesByMemberId = <String, MemberGroupEntryRow>{};
+      for (var start = 0; start < memberIds.length; start += _lookupBatchSize) {
+        final end = start + _lookupBatchSize > memberIds.length
+            ? memberIds.length
+            : start + _lookupBatchSize;
+        final batch = memberIds.sublist(start, end);
+        if (batch.isEmpty) continue;
+        final winnerEntries =
             await (select(memberGroupEntries)..where(
                   (e) =>
                       e.groupId.equals(winnerGroupId) &
-                      e.memberId.equals(entry.memberId) &
+                      e.memberId.isIn(batch) &
                       e.isDeleted.equals(false),
                 ))
-                .getSingleOrNull();
+                .get();
+        for (final entry in winnerEntries) {
+          winnerEntriesByMemberId[entry.memberId] = entry;
+        }
+      }
+
+      var result = const PkGroupEntryRehomeResult();
+      for (final entry in loserEntries) {
+        final winnerEntry = winnerEntriesByMemberId[entry.memberId];
 
         if (winnerEntry != null) {
           final mergedPkMemberUuid = _coalesceNullableNonEmpty(
@@ -500,6 +598,12 @@ class MemberGroupsDao extends DatabaseAccessor<AppDatabase>
             pkGroupUuid: Value(
               _coalesceNonEmpty(entry.pkGroupUuid, canonicalPkGroupUuid),
             ),
+          ),
+        );
+        winnerEntriesByMemberId[entry.memberId] = entry.copyWith(
+          groupId: winnerGroupId,
+          pkGroupUuid: Value(
+            _coalesceNonEmpty(entry.pkGroupUuid, canonicalPkGroupUuid),
           ),
         );
         result = result.copyWith(movedEntries: result.movedEntries + 1);

@@ -227,6 +227,98 @@ void main() {
     expect(deletedGroup.syncSuppressed, isTrue);
   });
 
+  test(
+    'rehomeEntriesToWinner treats earlier moved entries as winner conflicts',
+    () async {
+      await db
+          .into(db.memberGroups)
+          .insert(_group(id: 'winner', createdAt: DateTime(2024, 1, 1)));
+      await db
+          .into(db.memberGroups)
+          .insert(_group(id: 'loser-a', createdAt: DateTime(2024, 1, 2)));
+      await db
+          .into(db.memberGroups)
+          .insert(_group(id: 'loser-b', createdAt: DateTime(2024, 1, 3)));
+      await db.into(db.members).insert(_member(id: 'member-a', name: 'Alice'));
+
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'entry-a',
+              groupId: 'loser-a',
+              memberId: 'member-a',
+              pkMemberUuid: 'pk-member-a',
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'entry-b',
+              groupId: 'loser-b',
+              memberId: 'member-a',
+              pkMemberUuid: 'pk-member-a',
+            ),
+          );
+
+      final result = await db.memberGroupsDao.rehomeEntriesToWinner(
+        winnerGroupId: 'winner',
+        loserGroupIds: const ['loser-a', 'loser-b'],
+        canonicalPkGroupUuid: 'pk-group-1',
+      );
+
+      expect(result.movedEntries, 1);
+      expect(result.softDeletedConflicts, 1);
+
+      final active = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.isDeleted.equals(false))).get();
+      expect(active, hasLength(1));
+      expect(active.single.groupId, 'winner');
+      expect(active.single.memberId, 'member-a');
+    },
+  );
+
+  test(
+    'aggregate repair helpers avoid materializing full entry rows',
+    () async {
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'entry-a',
+              groupId: 'group-a',
+              memberId: 'member-a',
+              pkMemberUuid: 'pk-member-a',
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'entry-b',
+              groupId: 'group-a',
+              memberId: 'member-b',
+              pkMemberUuid: 'pk-member-b',
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(id: 'entry-c', groupId: 'group-b', memberId: 'member-c'),
+          );
+
+      final counts = await db.memberGroupsDao.activeEntryCountsByGroupId();
+      expect(counts, {'group-a': 2, 'group-b': 1});
+
+      final pkMembers = await db.memberGroupsDao.activePkMemberUuidsByGroupId();
+      expect(pkMembers, {
+        'group-a': {'pk-member-a', 'pk-member-b'},
+      });
+    },
+  );
+
   test('markGroupsSuppressedForReview is idempotent and queryable', () async {
     await db
         .into(db.memberGroups)

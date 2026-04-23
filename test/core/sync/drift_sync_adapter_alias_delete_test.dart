@@ -135,4 +135,41 @@ void main() {
     )..where((t) => t.id.equals(localRowId))).getSingle();
     expect(aActive.isDeleted, isFalse);
   });
+
+  test(
+    'legacy alias delete does not resolve through PK UUID to the active winner',
+    () async {
+      const pkUuid = 'pk-g-uuid-repaired';
+      final createdAt = DateTime.utc(2026, 4, 18, 12);
+
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'winner-local-id',
+              name: 'Winner',
+              createdAt: createdAt,
+              pluralkitUuid: const Value(pkUuid),
+            ),
+          );
+      await db.pkGroupSyncAliasesDao.upsertAlias(
+        legacyEntityId: 'legacy-loser-id',
+        pkGroupUuid: pkUuid,
+        canonicalEntityId: 'pk-group:$pkUuid',
+      );
+
+      final groupsEntity = buildSyncAdapterWithCompletion(db).adapter.entities
+          .singleWhere((entity) => entity.tableName == 'member_groups');
+
+      await groupsEntity.hardDelete('legacy-loser-id');
+
+      final winner = await (db.select(
+        db.memberGroups,
+      )..where((t) => t.id.equals('winner-local-id'))).getSingle();
+      expect(winner.isDeleted, isFalse);
+    },
+  );
 }
