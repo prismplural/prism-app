@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:prism_plurality/core/database/app_database.dart';
 import 'package:prism_plurality/core/database/daos/member_groups_dao.dart';
 import 'package:prism_plurality/core/database/daos/pk_group_sync_aliases_dao.dart';
+import 'package:prism_plurality/features/pluralkit/models/pk_models.dart';
 import 'package:prism_plurality/features/pluralkit/services/pluralkit_sync_service.dart';
 
 typedef HasRepairTokenCallback = Future<bool> Function({String? token});
@@ -13,14 +14,32 @@ class PkGroupReviewItem {
   const PkGroupReviewItem({
     required this.groupId,
     required this.name,
+    this.description,
+    this.colorHex,
     required this.suspectedPkGroupUuid,
     required this.syncSuppressed,
+    this.candidateName,
+    this.candidateDescription,
+    this.candidateColorHex,
+    this.sharedPkMemberUuids = const <String>{},
+    this.extraLocalMemberIds = const <String>{},
+    this.onlyInCandidateMemberUuids = const <String>{},
   });
 
   final String groupId;
   final String name;
+  final String? description;
+  final String? colorHex;
   final String suspectedPkGroupUuid;
   final bool syncSuppressed;
+  final String? candidateName;
+  final String? candidateDescription;
+  final String? candidateColorHex;
+  final Set<String> sharedPkMemberUuids;
+  final Set<String> extraLocalMemberIds;
+  final Set<String> onlyInCandidateMemberUuids;
+
+  bool get hasCandidateComparison => candidateName != null;
 }
 
 enum PkGroupRepairReferenceMode { none, storedToken, providedToken }
@@ -78,6 +97,7 @@ class PkGroupRepairService {
   final FetchRepairReferenceDataCallback _fetchRepairReferenceData;
 
   Future<PkGroupRepairReport>? _inFlight;
+  PkRepairReferenceData? _lastReferenceData;
 
   Future<int> getPendingReviewCount() async {
     final groups = await _memberGroupsDao.getGroupsPendingPkReview();
@@ -86,15 +106,58 @@ class PkGroupRepairService {
 
   Future<List<PkGroupReviewItem>> getPendingReviewItems() async {
     final groups = await _memberGroupsDao.getGroupsPendingPkReview();
+    if (groups.isEmpty) return const <PkGroupReviewItem>[];
+
+    final groupIds = groups.map((group) => group.id).toSet();
+    final pkMemberUuidsByGroupId = await _memberGroupsDao
+        .activePkMemberUuidsByGroupIds(groupIds);
+    final extraLocalMemberIdsByGroupId = await _memberGroupsDao
+        .activeLocalOnlyMemberIdsByGroupIds(groupIds);
+
+    final referenceGroupsByUuid = <String, PKGroup>{};
+    final referenceData = _lastReferenceData;
+    if (referenceData != null) {
+      for (final group in referenceData.groups) {
+        if (group.uuid.isNotEmpty) {
+          referenceGroupsByUuid[group.uuid] = group;
+        }
+      }
+    }
+
     return groups
-        .map(
-          (group) => PkGroupReviewItem(
+        .map((group) {
+          final suspectedPkGroupUuid = group.suspectedPkGroupUuid ?? '';
+          final referenceGroup = referenceGroupsByUuid[suspectedPkGroupUuid];
+          final localPkMembers =
+              pkMemberUuidsByGroupId[group.id] ?? const <String>{};
+          final candidateMembers = referenceGroup?.memberIds?.toSet();
+          final sharedPkMemberUuids = candidateMembers == null
+              ? const <String>{}
+              : localPkMembers.where(candidateMembers.contains).toSet();
+          final onlyInCandidateMemberUuids = candidateMembers == null
+              ? const <String>{}
+              : candidateMembers
+                    .where((uuid) => !localPkMembers.contains(uuid))
+                    .toSet();
+
+          return PkGroupReviewItem(
             groupId: group.id,
             name: group.name,
-            suspectedPkGroupUuid: group.suspectedPkGroupUuid ?? '',
+            description: group.description,
+            colorHex: group.colorHex,
+            suspectedPkGroupUuid: suspectedPkGroupUuid,
             syncSuppressed: group.syncSuppressed,
-          ),
-        )
+            candidateName: referenceGroup?.displayName ?? referenceGroup?.name,
+            candidateDescription: referenceGroup?.description,
+            candidateColorHex: referenceGroup?.color == null
+                ? null
+                : '#${referenceGroup!.color}',
+            sharedPkMemberUuids: sharedPkMemberUuids,
+            extraLocalMemberIds:
+                extraLocalMemberIdsByGroupId[group.id] ?? const <String>{},
+            onlyInCandidateMemberUuids: onlyInCandidateMemberUuids,
+          );
+        })
         .toList(growable: false);
   }
 
@@ -293,6 +356,7 @@ class PkGroupRepairService {
     try {
       if (token != null && token.trim().isNotEmpty) {
         final data = await _fetchRepairReferenceData(token: token);
+        _lastReferenceData = data;
         return _ReferenceResolution(
           mode: PkGroupRepairReferenceMode.providedToken,
           data: data,
@@ -313,6 +377,7 @@ class PkGroupRepairService {
       }
 
       final data = await _fetchRepairReferenceData();
+      _lastReferenceData = data;
       return _ReferenceResolution(
         mode: PkGroupRepairReferenceMode.storedToken,
         data: data,

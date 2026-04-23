@@ -131,6 +131,104 @@ void main() {
     },
   );
 
+  testWidgets('renders candidate comparison when reference data is present', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        child: PkGroupRepairCard(
+          state: const PkGroupRepairState(
+            pendingReviewCount: 1,
+            pendingReviewItems: [
+              PkGroupReviewItem(
+                groupId: 'group-1',
+                name: 'Local Cluster',
+                description: 'Local notes',
+                colorHex: '#335577',
+                suspectedPkGroupUuid: 'pk-group-1',
+                syncSuppressed: true,
+                candidateName: 'PK Cluster',
+                candidateDescription: 'PluralKit notes',
+                candidateColorHex: '#44AAFF',
+                sharedPkMemberUuids: {'pk-member-a', 'pk-member-b'},
+                extraLocalMemberIds: {'local-extra'},
+                onlyInCandidateMemberUuids: {'pk-member-c'},
+              ),
+            ],
+          ),
+          isConnected: true,
+          hasStoredToken: true,
+          pkGroupSyncV2Enabled: false,
+          onRunRepair: () {},
+          onDismissReviewItem: (_) async {},
+          onKeepReviewItemLocalOnly: (_) async {},
+          onMergeReviewItemIntoCanonical: (_) async {},
+          onEnablePkGroupSyncV2: () async {},
+          onResetPkGroupsOnly: () async {},
+          onExportDataFirst: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('This group'), findsOneWidget);
+    expect(find.text('Local Cluster'), findsOneWidget);
+    expect(find.text('Local notes'), findsOneWidget);
+    expect(find.text('PK group'), findsOneWidget);
+    expect(find.text('PK Cluster'), findsOneWidget);
+    expect(find.text('PluralKit notes'), findsOneWidget);
+    expect(find.text('2 shared PK members'), findsNWidgets(2));
+    expect(find.text('1 local-only member'), findsOneWidget);
+    expect(find.text('1 only in PK'), findsOneWidget);
+    expect(
+      find.text(
+        'Merge will link this local group to the suspected PK group, preserve '
+        '2 shared PK memberships, keep 1 local-only membership, and leave 1 '
+        'PK-only member unmatched.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('renders fallback copy when reference data is absent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildTestApp(
+        child: PkGroupRepairCard(
+          state: const PkGroupRepairState(
+            pendingReviewCount: 1,
+            pendingReviewItems: [
+              PkGroupReviewItem(
+                groupId: 'group-1',
+                name: 'Local Cluster',
+                suspectedPkGroupUuid: 'pk-group-1',
+                syncSuppressed: true,
+              ),
+            ],
+          ),
+          isConnected: false,
+          hasStoredToken: false,
+          pkGroupSyncV2Enabled: false,
+          onRunRepair: () {},
+          onDismissReviewItem: (_) async {},
+          onKeepReviewItemLocalOnly: (_) async {},
+          onMergeReviewItemIntoCanonical: (_) async {},
+          onEnablePkGroupSyncV2: () async {},
+          onResetPkGroupsOnly: () async {},
+          onExportDataFirst: () {},
+          onUseTemporaryToken: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('PluralKit group'), findsOneWidget);
+    expect(find.text('pk-group-1'), findsOneWidget);
+    expect(
+      find.text('Reconnect PluralKit to see comparison details'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'blocks cutover until a repair run has completed in current state',
     (tester) async {

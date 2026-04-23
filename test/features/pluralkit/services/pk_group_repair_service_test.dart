@@ -282,6 +282,8 @@ void main() {
                 id: 'g1',
                 uuid: 'pk-group-1',
                 name: 'Cluster',
+                description: 'Live PK description',
+                color: '44AAFF',
                 memberIds: ['pk-member-a', 'pk-member-b'],
               ),
             ],
@@ -300,6 +302,18 @@ void main() {
       )..where((t) => t.id.equals('plain-group'))).getSingle();
       expect(group.syncSuppressed, isTrue);
       expect(group.suspectedPkGroupUuid, 'pk-group-1');
+
+      final reviewItems = await service.getPendingReviewItems();
+      expect(reviewItems, hasLength(1));
+      expect(reviewItems.single.candidateName, 'Cluster');
+      expect(reviewItems.single.candidateDescription, 'Live PK description');
+      expect(reviewItems.single.candidateColorHex, '#44AAFF');
+      expect(
+        reviewItems.single.sharedPkMemberUuids,
+        containsAll(['pk-member-a', 'pk-member-b']),
+      );
+      expect(reviewItems.single.extraLocalMemberIds, isEmpty);
+      expect(reviewItems.single.onlyInCandidateMemberUuids, isEmpty);
     },
   );
 
