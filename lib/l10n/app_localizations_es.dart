@@ -1468,6 +1468,17 @@ class AppLocalizationsEs extends AppLocalizations {
       'Credenciales de sincronización borradas';
 
   @override
+  String get syncTroubleshootingPluralKitSection => 'PluralKit';
+
+  @override
+  String get syncTroubleshootingPkRepairTitle =>
+      'Abrir reparación de grupos de PluralKit';
+
+  @override
+  String get syncTroubleshootingPkRepairSubtitle =>
+      'Usa la pantalla de configuración de PluralKit para ejecutar la reparación de grupos y revisar coincidencias de grupos PK suprimidas.';
+
+  @override
   String featureChatDescription(String term) {
     return 'Mensajería interna entre los $term del sistema.';
   }
@@ -5019,6 +5030,135 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pluralkitJustNow => 'Ahora mismo';
 
   @override
+  String get pluralkitRepairThisGroup => 'Este grupo';
+
+  @override
+  String get pluralkitRepairPkGroup => 'Grupo PK';
+
+  @override
+  String get pluralkitRepairPluralKitGroup => 'Grupo de PluralKit';
+
+  @override
+  String get pluralkitRepairReconnectForComparison =>
+      'Reconecta PluralKit para ver los detalles de comparación';
+
+  @override
+  String pluralkitRepairSharedPkMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count integrantes PK compartidos',
+      one: '1 integrante PK compartido',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairLocalOnlyMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count integrantes solo locales',
+      one: '1 integrante solo local',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairOnlyInPkMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count solo en PK',
+      one: '1 solo en PK',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String pluralkitRepairSuspectedPkUuid(String uuid) {
+    return 'UUID PK sospechado: $uuid';
+  }
+
+  @override
+  String pluralkitRepairMergeActionPreview(String summary) {
+    return 'La fusión va a $summary.';
+  }
+
+  @override
+  String get pluralkitRepairPreviewLinkLocalGroup =>
+      'vincular este grupo local con el grupo PK sospechado';
+
+  @override
+  String pluralkitRepairPreviewPreserveShared(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count membresías PK compartidas',
+      one: '1 membresía PK compartida',
+    );
+    return 'conservar $_temp0';
+  }
+
+  @override
+  String pluralkitRepairPreviewKeepLocalOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count membresías solo locales',
+      one: '1 membresía solo local',
+    );
+    return 'mantener $_temp0';
+  }
+
+  @override
+  String pluralkitRepairPreviewLeavePkOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count integrantes solo en PK',
+      one: '1 integrante solo en PK',
+    );
+    return 'dejar $_temp0 sin vincular';
+  }
+
+  @override
+  String get pluralkitRepairMergeIntoCanonical => 'Fusionar con el canónico';
+
+  @override
+  String get pluralkitRepairKeepLocalOnly => 'Mantener solo local';
+
+  @override
+  String get pluralkitRepairDismissFalsePositive => 'Descartar falso positivo';
+
+  @override
+  String get pluralkitRepairSection => 'Reparación de grupos';
+
+  @override
+  String get pluralkitRepairTemporaryTokenTitle =>
+      'Token temporal de PluralKit';
+
+  @override
+  String get pluralkitRepairTemporaryTokenBody =>
+      'Usa un token de un solo uso solo para esta reparación. Prism no lo guardará.';
+
+  @override
+  String get pluralkitRepairTokenLabel => 'Token de PluralKit';
+
+  @override
+  String get pluralkitRepairTokenHint => 'Pega un token temporal';
+
+  @override
+  String get pluralkitRepairTemporaryTokenHelp =>
+      'Este token solo se usa para comparar tus grupos locales con datos actuales de grupos de PluralKit durante una reparación.';
+
+  @override
+  String get pluralkitRepairRunTokenBacked => 'Ejecutar reparación con token';
+
+  @override
+  String get pluralkitRepairLoadingStatus => 'Cargando estado de reparación...';
+
+  @override
   String pluralkitMinutesAgo(int minutes) {
     return 'hace ${minutes}m';
   }
@@ -6432,6 +6572,30 @@ class AppLocalizationsEs extends AppLocalizations {
   String mnemonicFieldWordChipInvalid(String n, String word) {
     return 'Palabra $n: $word, no reconocida';
   }
+
+  @override
+  String get mnemonicFieldScanQrTooltip => 'Escanear código QR';
+
+  @override
+  String get mnemonicFieldShowQrTooltip => 'Mostrar código QR';
+
+  @override
+  String get mnemonicFieldQrTitle => 'QR de frase de recuperación';
+
+  @override
+  String get mnemonicFieldQrDescription =>
+      'Escanea este código QR para rellenar la frase de recuperación de 12 palabras en otro dispositivo.';
+
+  @override
+  String get mnemonicFieldScanQrTitle => 'Escanear QR de recuperación';
+
+  @override
+  String get mnemonicFieldScanQrDescription =>
+      'Escanea un código QR que contenga tu frase de recuperación de 12 palabras.';
+
+  @override
+  String get mnemonicFieldInvalidQr =>
+      'Código QR no válido. Escanea una frase de recuperación de 12 palabras.';
 
   @override
   String get sleepWakeUpMorning => '¡Buenos días!';

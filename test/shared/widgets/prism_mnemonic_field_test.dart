@@ -7,9 +7,10 @@ import 'package:prism_plurality/l10n/app_localizations.dart';
 import 'package:prism_plurality/shared/widgets/prism_mnemonic_field.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
-Widget _wrap(Widget child) {
+Widget _wrap(Widget child, {Locale locale = const Locale('en')}) {
   return ProviderScope(
     child: MaterialApp(
+      locale: locale,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       supportedLocales: AppLocalizations.supportedLocales,
       home: Scaffold(
@@ -185,7 +186,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final showQrButton = find.byTooltip('Show QR Code');
+      final showQrButton = find.byTooltip('Show QR code');
       expect(showQrButton, findsOneWidget);
 
       await tester.tap(showQrButton);
@@ -206,7 +207,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Scan QR Code'));
+      await tester.tap(find.byTooltip('Scan QR code'));
       await tester.pumpAndSettle();
 
       final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
@@ -230,7 +231,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Scan QR Code'));
+      await tester.tap(find.byTooltip('Scan QR code'));
       await tester.pumpAndSettle();
 
       final scanner = tester.widget<MobileScanner>(find.byType(MobileScanner));
@@ -244,6 +245,28 @@ void main() {
         findsOneWidget,
       );
       expect(controller.text, isEmpty);
+    });
+
+    testWidgets('QR controls render Spanish localized copy', (tester) async {
+      final controller = TextEditingController(text: _validPhrase);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        _wrap(
+          PrismMnemonicField(controller: controller),
+          locale: const Locale('es'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final showQrButton = find.byTooltip('Mostrar código QR');
+      expect(showQrButton, findsOneWidget);
+
+      await tester.tap(showQrButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('QR de frase de recuperación'), findsOneWidget);
+      expect(find.textContaining('Escanea este código QR'), findsOneWidget);
     });
   });
 

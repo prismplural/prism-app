@@ -1945,6 +1945,18 @@
   "@syncTroubleshootingCredentialsCleared": {
     "description": "Toast after credentials cleared"
   },
+  "syncTroubleshootingPluralKitSection": "PluralKit",
+  "@syncTroubleshootingPluralKitSection": {
+    "description": "Section header for PluralKit-related sync troubleshooting actions"
+  },
+  "syncTroubleshootingPkRepairTitle": "Open PluralKit group repair",
+  "@syncTroubleshootingPkRepairTitle": {
+    "description": "Row title linking to PluralKit group repair from sync troubleshooting"
+  },
+  "syncTroubleshootingPkRepairSubtitle": "Use the PluralKit setup screen to run group repair and check any suppressed PK group matches.",
+  "@syncTroubleshootingPkRepairSubtitle": {
+    "description": "Row subtitle linking to PluralKit group repair from sync troubleshooting"
+  },
   "featureChatDescription": "Internal messaging between system {term}.",
   "@featureChatDescription": {
     "description": "Description text on chat feature settings screen",
@@ -6368,6 +6380,78 @@
   "@pluralkitInfoSwitches": { "description": "How It Works info row about switch import" },
   "pluralkitJustNow": "Just now",
   "@pluralkitJustNow": { "description": "Relative time label when PluralKit sync was less than a minute ago" },
+  "pluralkitRepairThisGroup": "This group",
+  "@pluralkitRepairThisGroup": { "description": "Review comparison heading for the local group" },
+  "pluralkitRepairPkGroup": "PK group",
+  "@pluralkitRepairPkGroup": { "description": "Review comparison heading for a known PluralKit candidate group" },
+  "pluralkitRepairPluralKitGroup": "PluralKit group",
+  "@pluralkitRepairPluralKitGroup": { "description": "Review comparison heading when only a suspected PluralKit UUID is known" },
+  "pluralkitRepairReconnectForComparison": "Reconnect PluralKit to see comparison details",
+  "@pluralkitRepairReconnectForComparison": { "description": "Fallback chip shown when no live PK reference data is available" },
+  "pluralkitRepairSharedPkMembers": "{count, plural, =1{1 shared PK member} other{{count} shared PK members}}",
+  "@pluralkitRepairSharedPkMembers": {
+    "description": "Chip showing shared PK member count",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pluralkitRepairLocalOnlyMembers": "{count, plural, =1{1 local-only member} other{{count} local-only members}}",
+  "@pluralkitRepairLocalOnlyMembers": {
+    "description": "Chip showing local-only member count",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pluralkitRepairOnlyInPkMembers": "{count, plural, =1{1 only in PK} other{{count} only in PK}}",
+  "@pluralkitRepairOnlyInPkMembers": {
+    "description": "Chip showing candidate-only PK member count",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pluralkitRepairSuspectedPkUuid": "Suspected PK UUID: {uuid}",
+  "@pluralkitRepairSuspectedPkUuid": {
+    "description": "Label for suspected PK UUID in repair review",
+    "placeholders": { "uuid": { "type": "String" } }
+  },
+  "pluralkitRepairMergeActionPreview": "Merge will {summary}.",
+  "@pluralkitRepairMergeActionPreview": {
+    "description": "Action preview sentence for repair review merge",
+    "placeholders": { "summary": { "type": "String" } }
+  },
+  "pluralkitRepairPreviewLinkLocalGroup": "link this local group to the suspected PK group",
+  "@pluralkitRepairPreviewLinkLocalGroup": { "description": "Merge action preview fragment" },
+  "pluralkitRepairPreviewPreserveShared": "preserve {count, plural, =1{1 shared PK membership} other{{count} shared PK memberships}}",
+  "@pluralkitRepairPreviewPreserveShared": {
+    "description": "Merge action preview fragment",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pluralkitRepairPreviewKeepLocalOnly": "keep {count, plural, =1{1 local-only membership} other{{count} local-only memberships}}",
+  "@pluralkitRepairPreviewKeepLocalOnly": {
+    "description": "Merge action preview fragment",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pluralkitRepairPreviewLeavePkOnly": "leave {count, plural, =1{1 PK-only member} other{{count} PK-only members}} unmatched",
+  "@pluralkitRepairPreviewLeavePkOnly": {
+    "description": "Merge action preview fragment",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "pluralkitRepairMergeIntoCanonical": "Merge into canonical",
+  "@pluralkitRepairMergeIntoCanonical": { "description": "Button label for merging a review item into the canonical PK group" },
+  "pluralkitRepairKeepLocalOnly": "Keep local-only",
+  "@pluralkitRepairKeepLocalOnly": { "description": "Button label for keeping a review item local-only" },
+  "pluralkitRepairDismissFalsePositive": "Dismiss false positive",
+  "@pluralkitRepairDismissFalsePositive": { "description": "Button label for dismissing a review item false positive" },
+  "pluralkitRepairSection": "Group repair",
+  "@pluralkitRepairSection": { "description": "Section header for PluralKit group repair" },
+  "pluralkitRepairTemporaryTokenTitle": "Temporary PluralKit token",
+  "@pluralkitRepairTemporaryTokenTitle": { "description": "Dialog title for entering a temporary PK token for group repair" },
+  "pluralkitRepairTemporaryTokenBody": "Use a one-off token for this repair run only. Prism will not save it.",
+  "@pluralkitRepairTemporaryTokenBody": { "description": "Dialog body for entering a temporary PK token for group repair" },
+  "pluralkitRepairTokenLabel": "PluralKit token",
+  "@pluralkitRepairTokenLabel": { "description": "Temporary PK token field label" },
+  "pluralkitRepairTokenHint": "Paste a temporary token",
+  "@pluralkitRepairTokenHint": { "description": "Temporary PK token field hint" },
+  "pluralkitRepairTemporaryTokenHelp": "This token is only used to compare your local groups against live PluralKit group data for one repair run.",
+  "@pluralkitRepairTemporaryTokenHelp": { "description": "Temporary PK token help text" },
+  "pluralkitRepairRunTokenBacked": "Run token-backed repair",
+  "@pluralkitRepairRunTokenBacked": { "description": "Button label to run PK group repair with a temporary token" },
+  "pluralkitRepairLoadingStatus": "Loading repair status...",
+  "@pluralkitRepairLoadingStatus": { "description": "Loading label for PK group repair status" },
   "pluralkitMinutesAgo": "{minutes}m ago",
   "@pluralkitMinutesAgo": {
     "description": "Relative time label for minutes ago in PluralKit",
@@ -7434,6 +7518,34 @@
       "n": { "type": "String", "example": "3" },
       "word": { "type": "String", "example": "asdfgh" }
     }
+  },
+  "mnemonicFieldScanQrTooltip": "Scan QR code",
+  "@mnemonicFieldScanQrTooltip": {
+    "description": "Tooltip for scanning a recovery phrase QR code"
+  },
+  "mnemonicFieldShowQrTooltip": "Show QR code",
+  "@mnemonicFieldShowQrTooltip": {
+    "description": "Tooltip for showing the recovery phrase as a QR code"
+  },
+  "mnemonicFieldQrTitle": "Recovery Phrase QR",
+  "@mnemonicFieldQrTitle": {
+    "description": "Dialog title for showing a recovery phrase QR code"
+  },
+  "mnemonicFieldQrDescription": "Scan this QR code to fill the 12-word recovery phrase on another device.",
+  "@mnemonicFieldQrDescription": {
+    "description": "Dialog body for showing a recovery phrase QR code"
+  },
+  "mnemonicFieldScanQrTitle": "Scan Recovery QR",
+  "@mnemonicFieldScanQrTitle": {
+    "description": "Dialog title for scanning a recovery phrase QR code"
+  },
+  "mnemonicFieldScanQrDescription": "Scan a QR code that contains your 12-word recovery phrase.",
+  "@mnemonicFieldScanQrDescription": {
+    "description": "Dialog body for scanning a recovery phrase QR code"
+  },
+  "mnemonicFieldInvalidQr": "Invalid QR code. Scan a 12-word recovery phrase.",
+  "@mnemonicFieldInvalidQr": {
+    "description": "Error shown when a scanned QR code does not contain a valid recovery phrase"
   },
   "sleepWakeUpMorning": "Good morning!",
   "@sleepWakeUpMorning": {

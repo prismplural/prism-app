@@ -255,17 +255,18 @@ class SyncTroubleshootingScreen extends ConsumerWidget {
                 tone: PrismButtonTone.destructive,
               ),
             ),
-            const _SectionHeader(title: 'PluralKit'),
+            _SectionHeader(
+              title: context.l10n.syncTroubleshootingPluralKitSection,
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: PrismSectionCard(
                 padding: EdgeInsets.zero,
                 child: PrismListRow(
                   leading: Icon(AppIcons.buildCircleOutlined),
-                  title: const Text('Open PluralKit group repair'),
-                  subtitle: const Text(
-                    'Use the PluralKit setup screen to run group repair and '
-                    'check any suppressed PK group matches.',
+                  title: Text(context.l10n.syncTroubleshootingPkRepairTitle),
+                  subtitle: Text(
+                    context.l10n.syncTroubleshootingPkRepairSubtitle,
                   ),
                   showChevron: true,
                   onTap: () => context.push(AppRoutePaths.settingsPluralkit),

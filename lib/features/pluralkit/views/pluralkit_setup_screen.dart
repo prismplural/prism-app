@@ -408,10 +408,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
     try {
       final token = await PrismDialog.show<String>(
         context: context,
-        title: 'Temporary PluralKit token',
-        message:
-            'Use a one-off token for this repair run only. Prism will not save '
-            'it or reconnect sync automatically.',
+        title: context.l10n.pluralkitRepairTemporaryTokenTitle,
+        message: context.l10n.pluralkitRepairTemporaryTokenBody,
         builder: (dialogContext) {
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -421,8 +419,8 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                 controller: controller,
                 autofocus: true,
                 obscureText: true,
-                labelText: 'PluralKit token',
-                hintText: 'Paste a temporary token',
+                labelText: context.l10n.pluralkitRepairTokenLabel,
+                hintText: context.l10n.pluralkitRepairTokenHint,
                 isDense: true,
                 onSubmitted: (_) {
                   final trimmed = controller.text.trim();
@@ -432,8 +430,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'This token is only used to compare your local groups against '
-                'current PluralKit groups during repair.',
+                context.l10n.pluralkitRepairTemporaryTokenHelp,
                 style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(
                   color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
                 ),
@@ -453,7 +450,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
                         tone: PrismButtonTone.outlined,
                       ),
                       PrismButton(
-                        label: 'Run token-backed repair',
+                        label: context.l10n.pluralkitRepairRunTokenBacked,
                         icon: AppIcons.autoFixHigh,
                         onPressed: () =>
                             Navigator.of(dialogContext).pop(value.text.trim()),
@@ -640,7 +637,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
           ],
 
           const SizedBox(height: 24),
-          const _SectionHeader(title: 'Group repair'),
+          _SectionHeader(title: context.l10n.pluralkitRepairSection),
           const SizedBox(height: 8),
           _buildGroupRepairSection(syncState, theme),
 
@@ -908,7 +905,7 @@ class _PluralKitSetupScreenState extends ConsumerState<PluralKitSetupScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Loading repair status...',
+                context.l10n.pluralkitRepairLoadingStatus,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
