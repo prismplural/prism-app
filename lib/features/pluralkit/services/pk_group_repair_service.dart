@@ -192,6 +192,11 @@ class PkGroupRepairService {
           .canonicalizePkBackedEntryIds();
 
       final entryCounts = await _activeEntryCountByGroupId();
+      final pkMemberUuidsByGroupId = await _memberGroupsDao
+          .activePkMemberUuidsByGroupId();
+      final referencePkMembersByGroupUuid = _referencePkMembersByGroupUuid(
+        referenceResolution.data,
+      );
       final duplicateSets = await _memberGroupsDao
           .getActiveLinkedPkGroupDuplicateSets();
 
@@ -203,7 +208,12 @@ class PkGroupRepairService {
       var aliasesRecorded = 0;
 
       for (final duplicateSet in duplicateSets) {
-        final winner = _chooseWinner(duplicateSet.groups, entryCounts);
+        final winner = _chooseWinner(
+          duplicateSet.groups,
+          entryCounts,
+          pkMemberUuidsByGroupId,
+          referencePkMembersByGroupUuid[duplicateSet.pkGroupUuid],
+        );
         final losers = duplicateSet.groups
             .where((group) => group.id != winner.id)
             .toList(growable: false);
@@ -323,9 +333,24 @@ class PkGroupRepairService {
   MemberGroupRow _chooseWinner(
     List<MemberGroupRow> groups,
     Map<String, int> entryCounts,
+    Map<String, Set<String>> localPkMembersByGroupId,
+    Set<String>? candidatePkMemberUuids,
   ) {
     final sorted = [...groups]
       ..sort((left, right) {
+        if (candidatePkMemberUuids != null) {
+          final leftMatch = _membershipMatchScore(
+            localPkMembersByGroupId[left.id] ?? const <String>{},
+            candidatePkMemberUuids,
+          );
+          final rightMatch = _membershipMatchScore(
+            localPkMembersByGroupId[right.id] ?? const <String>{},
+            candidatePkMemberUuids,
+          );
+          final matchCompare = rightMatch.compareTo(leftMatch);
+          if (matchCompare != 0) return matchCompare;
+        }
+
         final leftCount = entryCounts[left.id] ?? 0;
         final rightCount = entryCounts[right.id] ?? 0;
         final countCompare = rightCount.compareTo(leftCount);
@@ -362,6 +387,8 @@ class PkGroupRepairService {
     final activeGroups = await _memberGroupsDao.getAllActiveGroups();
     final pkMemberUuidsByGroupId = await _memberGroupsDao
         .activePkMemberUuidsByGroupId();
+    final totalMembershipCountByGroupId = await _memberGroupsDao
+        .activeEntryCountsByGroupId();
     final references = _buildReferenceGroups(
       activeGroups: activeGroups,
       referenceData: referenceData,
@@ -384,6 +411,8 @@ class PkGroupRepairService {
 
       final localPkMembers = pkMemberUuidsByGroupId[group.id];
       if (localPkMembers == null || localPkMembers.isEmpty) continue;
+      final totalMembershipCount = totalMembershipCountByGroupId[group.id] ?? 0;
+      if (totalMembershipCount != localPkMembers.length) continue;
 
       final candidates =
           references[normalizedName] ?? const <_RepairReference>[];
@@ -494,6 +523,20 @@ class PkGroupRepairService {
     return grouped;
   }
 
+  Map<String, Set<String>> _referencePkMembersByGroupUuid(
+    PkRepairReferenceData? referenceData,
+  ) {
+    if (referenceData == null) return const <String, Set<String>>{};
+
+    final grouped = <String, Set<String>>{};
+    for (final group in referenceData.groups) {
+      final memberIds = group.memberIds;
+      if (group.uuid.isEmpty || memberIds == null) continue;
+      grouped[group.uuid] = memberIds.toSet();
+    }
+    return grouped;
+  }
+
   static String _canonicalPkGroupEntityId(String pkGroupUuid) =>
       'pk-group:$pkGroupUuid';
 
@@ -509,6 +552,22 @@ class PkGroupRepairService {
       if (!right.contains(value)) return false;
     }
     return true;
+  }
+
+  static int _membershipMatchScore(
+    Set<String> localPkMemberUuids,
+    Set<String> candidatePkMemberUuids,
+  ) {
+    var matched = 0;
+    var extra = 0;
+    for (final localPkMemberUuid in localPkMemberUuids) {
+      if (candidatePkMemberUuids.contains(localPkMemberUuid)) {
+        matched++;
+      } else {
+        extra++;
+      }
+    }
+    return matched - extra;
   }
 }
 
