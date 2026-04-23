@@ -319,6 +319,85 @@ void main() {
     },
   );
 
+  test('duplicate group repair operations batch large loser sets', () async {
+    await db.customStatement('DROP INDEX idx_member_groups_pluralkit_uuid');
+
+    const loserCount = 1200;
+
+    await db
+        .into(db.memberGroups)
+        .insert(_group(id: 'winner', createdAt: DateTime(2024, 1, 1)));
+    await db
+        .into(db.members)
+        .insert(_member(id: 'member-shared', name: 'Shared'));
+
+    final loserIds = <String>[];
+    for (var i = 0; i < loserCount; i++) {
+      final loserId = 'loser-$i';
+      loserIds.add(loserId);
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: loserId,
+              createdAt: DateTime(2024, 1, 2),
+              pluralkitUuid: 'pk-group-1',
+            ),
+          );
+      await db
+          .into(db.memberGroups)
+          .insert(
+            _group(
+              id: 'child-$i',
+              createdAt: DateTime(2024, 1, 3),
+              parentGroupId: loserId,
+            ),
+          );
+      await db
+          .into(db.memberGroupEntries)
+          .insert(
+            _entry(
+              id: 'entry-$i',
+              groupId: loserId,
+              memberId: 'member-$i',
+              pkMemberUuid: 'pk-member-$i',
+            ),
+          );
+    }
+
+    final rehomeResult = await db.memberGroupsDao.rehomeEntriesToWinner(
+      winnerGroupId: 'winner',
+      loserGroupIds: loserIds,
+      canonicalPkGroupUuid: 'pk-group-1',
+    );
+    expect(rehomeResult.movedEntries, loserCount);
+    expect(rehomeResult.softDeletedConflicts, 0);
+
+    final rehomedParents = await db.memberGroupsDao
+        .rehomeParentReferencesToWinner(
+          winnerGroupId: 'winner',
+          loserGroupIds: loserIds,
+        );
+    expect(rehomedParents, loserCount);
+
+    final softDeleted = await db.memberGroupsDao.softDeleteGroupsForRepair(
+      loserIds,
+    );
+    expect(softDeleted, loserCount);
+
+    final activeLosers = await (db.select(
+      db.memberGroups,
+    )..where((t) => t.id.like('loser-%') & t.isDeleted.equals(false))).get();
+    expect(activeLosers, isEmpty);
+
+    final activeEntries =
+        await (db.select(db.memberGroupEntries)..where(
+              (t) => t.groupId.equals('winner') & t.isDeleted.equals(false),
+            ))
+            .get();
+    expect(activeEntries, hasLength(loserCount));
+  });
+
   test('markGroupsSuppressedForReview is idempotent and queryable', () async {
     await db
         .into(db.memberGroups)

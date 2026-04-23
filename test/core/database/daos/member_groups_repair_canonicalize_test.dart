@@ -261,7 +261,7 @@ void main() {
   );
 
   test(
-    'canonicalizePkBackedEntryIds leaves active canonical collisions intact',
+    'canonicalizePkBackedEntryIds soft-deletes active legacy duplicates for the same PK edge',
     () async {
       const pkGroupUuid = 'pk-group-1';
       const pkMemberUuid = 'pk-member-a';
@@ -293,17 +293,17 @@ void main() {
       final result = await db.memberGroupsDao.canonicalizePkBackedEntryIds();
       expect(result.rewritten, 0);
       expect(result.revivedTombstones, 0);
-      expect(result.softDeletedLegacyConflicts, 0);
+      expect(result.softDeletedLegacyConflicts, 1);
 
-      final rows = await (db.select(
+      final canonicalRow = await (db.select(
         db.memberGroupEntries,
-      )..where((t) => t.id.isIn([canonical, 'random-legacy']))).get();
-      expect(rows, hasLength(2));
-      expect(rows.every((row) => !row.isDeleted), isTrue);
-      expect(
-        rows.map((row) => row.id),
-        containsAll([canonical, 'random-legacy']),
-      );
+      )..where((t) => t.id.equals(canonical))).getSingle();
+      expect(canonicalRow.isDeleted, isFalse);
+
+      final legacyRow = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('random-legacy'))).getSingle();
+      expect(legacyRow.isDeleted, isTrue);
     },
   );
 

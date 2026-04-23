@@ -174,7 +174,7 @@ void main() {
       expect(report.duplicateGroupsSoftDeleted, 1);
       expect(report.parentReferencesRehomed, 0);
       expect(report.entriesRehomed, 0);
-      expect(report.entryConflictsSoftDeleted, 1);
+      expect(report.entryConflictsSoftDeleted, 0);
       expect(report.aliasesRecorded, 1);
       expect(report.pendingReviewCount, 0);
 
