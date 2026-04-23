@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as raw;
@@ -123,6 +124,109 @@ void main() {
             ),
           ),
         );
+      },
+    );
+
+    test(
+      'v3 → v4 migration drops auto-aliases pointing at active member_groups '
+      'ids for the same PK UUID',
+      () async {
+        final tempDir = Directory.systemTemp.createTempSync('prism_migration_');
+        addTearDown(() {
+          if (tempDir.existsSync()) {
+            tempDir.deleteSync(recursive: true);
+          }
+        });
+
+        final dbFile = File('${tempDir.path}/v3_to_v4_alias.db');
+        // Stand up a fresh v4 database, then downgrade the stored
+        // user_version to 3 so opening it runs the v3 → v4 migration
+        // (which consolidates H3's DateTime divide-by-1000 fixups with
+        // C1's hazardous-auto-alias cleanup).
+        final seeded = AppDatabase(NativeDatabase(dbFile));
+        await seeded.customSelect('SELECT 1').get();
+
+        const pkUuid = 'pk-uuid-cascade';
+        const pkUuidOther = 'pk-uuid-other';
+        const activeLocalId = 'pk-group-$pkUuid';
+        const canonicalId = 'pk-group:$pkUuid';
+        const legacyAliasId = 'random-legacy-id';
+        final createdAt = DateTime.utc(2026, 4, 18, 12);
+
+        // Hazardous auto-alias: legacy_entity_id equals an active
+        // member_groups.id for the same pk_group_uuid (C1 scenario).
+        await seeded
+            .into(seeded.memberGroups)
+            .insert(
+              MemberGroupsCompanion.insert(
+                id: activeLocalId,
+                name: 'Active',
+                createdAt: createdAt,
+                pluralkitUuid: const Value(pkUuid),
+              ),
+            );
+        // Safe legacy alias: legacy_entity_id does NOT match any active row.
+        await seeded
+            .into(seeded.memberGroups)
+            .insert(
+              MemberGroupsCompanion.insert(
+                id: 'pk-group-$pkUuidOther',
+                name: 'Unrelated',
+                createdAt: createdAt,
+                pluralkitUuid: const Value(pkUuidOther),
+              ),
+            );
+
+        await seeded.customStatement(
+          '''
+          INSERT INTO pk_group_sync_aliases
+            (legacy_entity_id, pk_group_uuid, canonical_entity_id, created_at)
+          VALUES (?, ?, ?, ?)
+          ''',
+          [
+            activeLocalId,
+            pkUuid,
+            canonicalId,
+            DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          ],
+        );
+        await seeded.customStatement(
+          '''
+          INSERT INTO pk_group_sync_aliases
+            (legacy_entity_id, pk_group_uuid, canonical_entity_id, created_at)
+          VALUES (?, ?, ?, ?)
+          ''',
+          [
+            legacyAliasId,
+            pkUuidOther,
+            'pk-group:$pkUuidOther',
+            DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          ],
+        );
+        await seeded.close();
+
+        final rawDb = raw.sqlite3.open(dbFile.path);
+        try {
+          rawDb.execute('PRAGMA user_version = 3;');
+        } finally {
+          rawDb.close();
+        }
+
+        final upgraded = AppDatabase(NativeDatabase(dbFile));
+        addTearDown(upgraded.close);
+
+        final aliases = await upgraded
+            .customSelect(
+              'SELECT legacy_entity_id FROM pk_group_sync_aliases',
+            )
+            .get();
+        final legacyIds = aliases
+            .map((row) => row.read<String>('legacy_entity_id'))
+            .toSet();
+
+        // Hazardous auto-alias is gone; unrelated legacy alias survives.
+        expect(legacyIds, contains(legacyAliasId));
+        expect(legacyIds, isNot(contains(activeLocalId)));
       },
     );
 

@@ -153,6 +153,103 @@ void main() {
   });
 
   test(
+    'member_groups: applyFields does NOT record an alias for the local row '
+    'id when it differs from canonical',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final groupsEntity = _entityFor(db, 'member_groups');
+      final createdAt = DateTime.utc(2026, 4, 18, 12);
+      const pkUuid = 'pk-g-uuid-cascade';
+
+      // Seed a local row whose id uses the importer's hyphen form
+      // ("pk-group-$uuid"), distinct from the canonical ("pk-group:$uuid").
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'pk-group-$pkUuid',
+              name: 'Local',
+              createdAt: createdAt,
+              pluralkitUuid: const Value(pkUuid),
+            ),
+          );
+
+      // Apply a remote canonical op for the same PK UUID. The incoming
+      // entity id matches canonical, so no alias should be recorded for it;
+      // critically, no alias should be recorded for the device's own local
+      // row id either (this is the C1 fix).
+      await groupsEntity.applyFields('pk-group:$pkUuid', {
+        'name': 'Remote Canonical',
+        'display_order': 1,
+        'group_type': 0,
+        'created_at': createdAt.toIso8601String(),
+        'pluralkit_uuid': pkUuid,
+        'is_deleted': false,
+      });
+
+      final aliases = await db
+          .customSelect(
+            'SELECT legacy_entity_id FROM pk_group_sync_aliases',
+          )
+          .get();
+      expect(aliases, isEmpty);
+    },
+  );
+
+  test(
+    'member_groups: applyFields still records an alias for a genuinely-legacy '
+    'incoming entity id',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final groupsEntity = _entityFor(db, 'member_groups');
+      final createdAt = DateTime.utc(2026, 4, 18, 12);
+      const pkUuid = 'pk-g-uuid-legacy';
+
+      // Pre-seed a local row under the importer's hyphen form id.
+      await db
+          .into(db.memberGroups)
+          .insert(
+            MemberGroupsCompanion.insert(
+              id: 'pk-group-$pkUuid',
+              name: 'Local',
+              createdAt: createdAt,
+              pluralkitUuid: const Value(pkUuid),
+            ),
+          );
+
+      // Apply a remote op with a *genuinely legacy* entity id. This is the
+      // mixed-fleet pre-cutover case the adapter still needs to handle:
+      // the incoming id is neither canonical nor the receiving device's
+      // local row id, so recording an alias for it is safe and necessary.
+      await groupsEntity.applyFields('random-legacy-entity-id', {
+        'name': 'Remote Legacy',
+        'display_order': 1,
+        'group_type': 0,
+        'created_at': createdAt.toIso8601String(),
+        'pluralkit_uuid': pkUuid,
+        'is_deleted': false,
+      });
+
+      final aliases = await db
+          .customSelect(
+            'SELECT legacy_entity_id, canonical_entity_id, pk_group_uuid '
+            'FROM pk_group_sync_aliases',
+          )
+          .get();
+      expect(aliases, hasLength(1));
+      expect(aliases.single.data['legacy_entity_id'], 'random-legacy-entity-id');
+      expect(aliases.single.data['canonical_entity_id'], 'pk-group:$pkUuid');
+      expect(aliases.single.data['pk_group_uuid'], pkUuid);
+    },
+  );
+
+  test(
     'member_groups: alias id resolves read and delete compatibility',
     () async {
       final db = AppDatabase(NativeDatabase.memory());
@@ -294,6 +391,61 @@ void main() {
     expect(readBack?['pk_group_uuid'], 'pk-group-1');
     expect(readBack?['pk_member_uuid'], 'pk-member-1');
   });
+
+  test(
+    'member_group_entries: PK UUID payload with non-null legacy hints defers '
+    'when PK UUID does not resolve',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      await _ensurePkGroupPhase1RuntimeSchema(db);
+
+      final entriesEntity = _entityFor(db, 'member_group_entries');
+
+      // Plan §5.2: once a PK UUID field is present on the payload,
+      // sender-local `group_id` / `member_id` are compatibility hints only.
+      // They must not be used as authoritative cross-device fallbacks when
+      // PK UUID resolution misses — the op must defer into the retry queue.
+      await entriesEntity.applyFields('entry-h1', {
+        'pk_group_uuid': 'missing-group-uuid',
+        'pk_member_uuid': 'missing-member-uuid',
+        'group_id': 'sender-local-group',
+        'member_id': 'sender-local-member',
+        'is_deleted': false,
+      });
+
+      // No local row inserted under the sender's local ids.
+      final applied = await (db.select(
+        db.memberGroupEntries,
+      )..where((t) => t.id.equals('entry-h1'))).getSingleOrNull();
+      expect(applied, isNull);
+
+      // Deferred op persisted for later replay.
+      final deferred = await db
+          .customSelect(
+            '''
+            SELECT entity_type, entity_id, fields_json, reason
+            FROM pk_group_entry_deferred_sync_ops
+            WHERE id = ?
+            ''',
+            variables: const [
+              Variable<String>('member_group_entries:entry-h1'),
+            ],
+          )
+          .getSingle();
+      expect(deferred.data['entity_type'], 'member_group_entries');
+      expect(deferred.data['entity_id'], 'entry-h1');
+      expect(
+        deferred.data['fields_json'],
+        contains('"pk_group_uuid":"missing-group-uuid"'),
+      );
+      expect(
+        deferred.data['reason'],
+        contains('unresolved_pk_refs:group:missing-group-uuid'),
+      );
+      expect(deferred.data['reason'], contains('member:missing-member-uuid'));
+    },
+  );
 
   test('member_group_entries: unresolved PK UUID payload defers when '
       'deferred-op table exists', () async {

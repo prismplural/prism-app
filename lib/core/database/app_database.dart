@@ -127,10 +127,10 @@ class AppDatabase extends _$AppDatabase {
       }
       if (current == 3 && to >= 4) {
         // H3: three raw-SQL sites wrote ms-since-epoch into DateTimeColumn
-        // fields that Drift decodes as seconds. Any value > 1e11 (year 5138
-        // AD in seconds) is almost certainly an ms value that should be
-        // seconds. Divide in place so existing rows decode to the right
-        // wall clock.
+        // fields that Drift decodes as seconds. Any value > 1e11 (year
+        // 5138 AD in seconds) is almost certainly an ms value that should
+        // be seconds. Divide in place so existing rows decode to the
+        // right wall clock.
         await customStatement(
           'UPDATE pk_group_entry_deferred_sync_ops '
           'SET created_at = created_at / 1000 '
@@ -145,6 +145,20 @@ class AppDatabase extends _$AppDatabase {
           'UPDATE pk_group_sync_aliases '
           'SET created_at = created_at / 1000 '
           'WHERE created_at > 100000000000',
+        );
+        // C1: drop pk_group_sync_aliases rows whose legacy_entity_id
+        // matches an active member_groups.id for the same pk_group_uuid.
+        // Those are auto-aliases for the device's OWN row id; emitting
+        // tombstones for them would hard-delete peers' active PK-group
+        // rows whenever two devices both imported PK groups under the
+        // importer's `pk-group-<uuid>` hyphen-form local id.
+        await customStatement(
+          'DELETE FROM pk_group_sync_aliases '
+          'WHERE legacy_entity_id IN ('
+          '  SELECT id FROM member_groups '
+          '  WHERE pluralkit_uuid = pk_group_sync_aliases.pk_group_uuid '
+          '    AND is_deleted = 0'
+          ')',
         );
         current = 4;
       }
